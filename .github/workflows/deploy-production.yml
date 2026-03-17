@@ -47,7 +47,7 @@ jobs:
 
       - name: Create deployment archive
         run: |
-          tar --warning=no-file-changed -czf release.tar.gz \
+          tar -czf /tmp/release.tar.gz \
             --exclude=.git \
             --exclude=.github \
             --exclude=node_modules \
@@ -55,8 +55,8 @@ jobs:
             --exclude=.env \
             --exclude=README.md \
             --exclude=DEPLOYMENT.md \
-            --exclude=release.tar.gz \
             .
+          mv /tmp/release.tar.gz .
 
       - name: Upload archive via SCP
         uses: appleboy/scp-action@v1.0.0
