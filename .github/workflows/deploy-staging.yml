@@ -8,11 +8,30 @@ jobs:
   deploy:
     name: Deploy to staging.erd-gut.de
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - name: Install npm dependencies and build assets
+        run: npm install && npm run build
 
       - name: Deploy via SFTP
         uses: wangyucode/sftp-upload-action@v3
@@ -23,4 +42,20 @@ jobs:
           port: 22
           localDir: './'
           remoteDir: ${{ secrets.STAGING_SERVER_DIR }}
-          exclude: '.git/**,.github/**,node_modules/**,README.md,DEPLOYMENT.md,.gitignore'
+          exclude: '.git/**,.github/**,node_modules/**,tests/**,.env,.env.*,README.md,DEPLOYMENT.md,.gitignore'
+
+      - name: Run migrations over SSH (optional)
+        if: ${{ secrets.SSH_HOST != '' && secrets.SSH_USERNAME != '' && secrets.SSH_PASSWORD != '' && secrets.STAGING_SERVER_DIR != '' }}
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT != '' && secrets.SSH_PORT || '22' }}
+          script: |
+            cd "${{ secrets.STAGING_SERVER_DIR }}"
+            php artisan migrate --force
+
+      - name: Run migrations over HTTP trigger (optional fallback)
+        if: ${{ secrets.STAGING_MIGRATE_URL != '' }}
+        run: curl --fail --silent --show-error "${{ secrets.STAGING_MIGRATE_URL }}"
