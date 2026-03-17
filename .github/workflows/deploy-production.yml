@@ -9,6 +9,11 @@ jobs:
     name: Deploy to erd-gut.de
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      APP_DIR: ${{ secrets.PRODUCTION_SERVER_DIR }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+      SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -33,13 +38,42 @@ jobs:
       - name: Install npm dependencies and build assets
         run: npm install && npm run build
 
-      - name: Deploy via SFTP
-        uses: wangyucode/sftp-upload-action@v3
+      - name: Validate SSH deploy secrets
+        run: |
+          test -n "$SSH_HOST" || (echo "Missing SSH_HOST secret" && exit 1)
+          test -n "$SSH_USERNAME" || (echo "Missing SSH_USERNAME secret" && exit 1)
+          test -n "$SSH_PASSWORD" || (echo "Missing SSH_PASSWORD secret" && exit 1)
+          test -n "$APP_DIR" || (echo "Missing PRODUCTION_SERVER_DIR secret" && exit 1)
+
+      - name: Create deployment archive
+        run: |
+          tar -czf release.tar.gz \
+            --exclude=.git \
+            --exclude=.github \
+            --exclude=node_modules \
+            --exclude=tests \
+            --exclude=.env \
+            --exclude=README.md \
+            --exclude=DEPLOYMENT.md \
+            .
+
+      - name: Upload archive via SCP
+        uses: appleboy/scp-action@v1.0.0
         with:
-          host: ${{ secrets.SFTP_HOST }}
-          username: ${{ secrets.SFTP_USERNAME }}
-          password: ${{ secrets.SFTP_PASSWORD }}
-          port: 22
-          localDir: './'
-          remoteDir: ${{ secrets.PRODUCTION_SERVER_DIR }}
-          exclude: '.git/**,.github/**,node_modules/**,tests/**,.env,.env.*,README.md,DEPLOYMENT.md,.gitignore'
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          password: ${{ env.SSH_PASSWORD }}
+          source: release.tar.gz
+          target: /tmp/
+
+      - name: Extract archive on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          password: ${{ env.SSH_PASSWORD }}
+          script: |
+            set -e
+            mkdir -p "${{ env.APP_DIR }}"
+            tar -xzf /tmp/release.tar.gz -C "${{ env.APP_DIR }}"
+            rm -f /tmp/release.tar.gz

@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This project uses GitHub Actions to build and deploy a Laravel app to IONOS Web Hosting Plus via SFTP.
+This project uses GitHub Actions to build and deploy a Laravel app to IONOS Web Hosting Plus via SSH (SCP upload + server-side extract).
 
 ## Branch Strategy
 
@@ -11,14 +11,11 @@ This project uses GitHub Actions to build and deploy a Laravel app to IONOS Web 
 
 ## Setup
 
-### 1. Create SFTP account in IONOS
+### 1. Enable SSH access in IONOS
 
 1. Log in to [IONOS](https://www.ionos.com) → **Hosting** → **Manage**
-2. Go to **SFTP & SSH** (or **FTP accounts**)
-3. Create a new account:
-   - **Type:** SFTP (recommended)
-   - **Directory:** `/` for production, or `/staging/` if you want staging in a subfolder
-4. Note the **Server/Host** (e.g. `home12345678.1and1-data.host`), **Username**, and **Password**
+2. Go to **SFTP & SSH** and ensure SSH is enabled for your deployment user
+3. Note the **Server/Host** (e.g. `home12345678.1and1-data.host`), **Username**, and **Password**
 
 ### 2. Configure staging subdomain (optional)
 
@@ -34,26 +31,15 @@ In your repo: **Settings** → **Secrets and variables** → **Actions** → **N
 
 Required secrets:
 
-| Secret                 | Description                          | Example        |
-|------------------------|--------------------------------------|----------------|
-| `SFTP_HOST`            | SFTP server hostname                 | `home12345678.1and1-data.host` |
-| `SFTP_USERNAME`        | SFTP username (starts with u or p)   | `u123456789`   |
-| `SFTP_PASSWORD`        | SFTP password                        | (your password)|
-| `STAGING_SERVER_DIR`   | Remote folder for staging           | `staging/`     |
-| `PRODUCTION_SERVER_DIR`| Remote folder for production        | `/` or `www/`  |
+| Secret                  | Description                                 | Example        |
+|-------------------------|---------------------------------------------|----------------|
+| `SSH_HOST`              | SSH host                                     | `home12345678.1and1-data.host` |
+| `SSH_USERNAME`          | SSH username                                 | `u123456789`   |
+| `SSH_PASSWORD`          | SSH password                                 | (your password)|
+| `STAGING_SERVER_DIR`    | Remote app directory for staging             | `staging`      |
+| `PRODUCTION_SERVER_DIR` | Remote app directory for production          | `www`          |
 
-Optional secrets for automatic migrations:
-
-| Secret                    | Description |
-|---------------------------|-------------|
-| `SSH_HOST`                | SSH hostname if you want migration over SSH |
-| `SSH_PORT`                | SSH port (default `22`) |
-| `SSH_USERNAME`            | SSH username |
-| `SSH_PASSWORD`            | SSH password |
-| `STAGING_MIGRATE_URL`     | Protected HTTP URL that runs `php artisan migrate --force` on staging |
-| `PRODUCTION_MIGRATE_URL`  | Protected HTTP URL that runs `php artisan migrate --force` on production |
-
-**Note:** SFTP uses port 22. Check your IONOS File Manager for the correct remote path (e.g. `/`, `www/`, or `htdocs/`).
+**Note:** SSH/SFTP uses port 22 by default. Check your IONOS File Manager for the correct folder names (for example `www` and `staging`).
 
 ### 4. Create the staging branch
 
@@ -72,8 +58,9 @@ Each deployment pipeline now does:
 2. Setup Node 20
 3. `composer install --no-dev --optimize-autoloader`
 4. `npm install && npm run build`
-5. Upload code and built assets via SFTP
-6. Optionally run migrations via SSH or HTTP trigger (if related secrets are configured)
+5. Create a single `release.tar.gz` archive
+6. Upload archive via SCP to `/tmp/` on server
+7. Extract archive into target app directory over SSH
 
 ### 6. IONOS + Laravel requirements
 
@@ -100,10 +87,10 @@ git push
 
 ## Troubleshooting
 
-**SFTP connection fails**
-- Verify host, username, and password in GitHub Secrets
-- SFTP uses port 22 (default)
-- Check that the SFTP account has access to the target directory
+**SSH/SCP connection fails**
+- Verify `SSH_HOST`, `SSH_USERNAME`, `SSH_PASSWORD` in GitHub Secrets
+- Ensure SSH login works in IONOS for that user
+- Ensure the user can write to `STAGING_SERVER_DIR` / `PRODUCTION_SERVER_DIR`
 
 **Wrong files deployed**
 - Check `STAGING_SERVER_DIR` and `PRODUCTION_SERVER_DIR` match your IONOS folder structure
@@ -117,6 +104,5 @@ git push
 - Create/set `APP_KEY` in server `.env`
 - If SSH is available, run `php artisan key:generate --force`
 
-**Migrations don't run automatically**
-- Configure SSH secrets (`SSH_HOST`, `SSH_USERNAME`, `SSH_PASSWORD`) or
-- Add a protected migration trigger URL and set `STAGING_MIGRATE_URL` / `PRODUCTION_MIGRATE_URL`
+**Database changes are not applied**
+- Run migrations manually on the server: `php artisan migrate --force`
