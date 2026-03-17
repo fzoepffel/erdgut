@@ -64,7 +64,7 @@ jobs:
           username: ${{ env.SSH_USERNAME }}
           password: ${{ env.SSH_PASSWORD }}
           source: release.tar.gz
-          target: /tmp/
+          target: ~/
 
       - name: Extract archive on server
         uses: appleboy/ssh-action@v1.2.0
@@ -75,5 +75,5 @@ jobs:
           script: |
             set -e
             mkdir -p "${{ env.APP_DIR }}"
-            tar -xzf /tmp/release.tar.gz -C "${{ env.APP_DIR }}"
-            rm -f /tmp/release.tar.gz
+            tar -xzf ~/release.tar.gz -C "${{ env.APP_DIR }}"
+            rm -f ~/release.tar.gz
