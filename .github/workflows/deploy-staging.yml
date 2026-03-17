@@ -14,19 +14,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+      - name: Deploy via SFTP
+        uses: wangyucode/sftp-upload-action@v3
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          server-dir: ${{ secrets.STAGING_SERVER_DIR }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.github/**
-            **/node_modules/**
-            **/README.md
-            **/DEPLOYMENT.md
-            **/.gitignore
+          host: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          port: 22
+          localDir: './'
+          remoteDir: ${{ secrets.STAGING_SERVER_DIR }}
+          exclude: '.git/**,.github/**,node_modules/**,README.md,DEPLOYMENT.md,.gitignore'

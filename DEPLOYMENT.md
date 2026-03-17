@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This project uses GitHub Actions to deploy to IONOS Web Hosting Plus via FTP/FTPS.
+This project uses GitHub Actions to deploy to IONOS Web Hosting Plus via SFTP.
 
 ## Branch Strategy
 
@@ -11,14 +11,14 @@ This project uses GitHub Actions to deploy to IONOS Web Hosting Plus via FTP/FTP
 
 ## Setup
 
-### 1. Get FTP credentials from IONOS
+### 1. Create SFTP account in IONOS
 
 1. Log in to [IONOS](https://www.ionos.com) → **Hosting** → **Manage**
-2. Find **FTP access** or **FTP accounts**
-3. Note:
-   - **Server**: e.g. `ftp.erd-gut.de` or the host shown
-   - **Username**: your FTP user
-   - **Password**: your FTP password
+2. Go to **SFTP & SSH** (or **FTP accounts**)
+3. Create a new account:
+   - **Type:** SFTP (recommended)
+   - **Directory:** `/` for production, or `/staging/` if you want staging in a subfolder
+4. Note the **Server/Host** (e.g. `home12345678.1and1-data.host`), **Username**, and **Password**
 
 ### 2. Configure staging subdomain (optional)
 
@@ -36,13 +36,13 @@ Add these secrets:
 
 | Secret                 | Description                          | Example        |
 |------------------------|--------------------------------------|----------------|
-| `FTP_SERVER`           | FTP server hostname                  | `ftp.erd-gut.de` |
-| `FTP_USERNAME`        | FTP username                         | `u123456789`   |
-| `FTP_PASSWORD`        | FTP password                         | (your password)|
-| `STAGING_SERVER_DIR`  | Remote folder for staging (trailing `/`) | `staging/`  |
-| `PRODUCTION_SERVER_DIR`| Remote folder for production (trailing `/`) | `/` or `www/` |
+| `SFTP_HOST`            | SFTP server hostname                 | `home12345678.1and1-data.host` |
+| `SFTP_USERNAME`        | SFTP username (starts with u or p)   | `u123456789`   |
+| `SFTP_PASSWORD`        | SFTP password                        | (your password)|
+| `STAGING_SERVER_DIR`   | Remote folder for staging           | `staging/`     |
+| `PRODUCTION_SERVER_DIR`| Remote folder for production        | `/` or `www/`  |
 
-**Note:** If IONOS uses a different root (e.g. `www/` or `htdocs/`), set `PRODUCTION_SERVER_DIR` accordingly. Check your IONOS File Manager for the correct path.
+**Note:** SFTP uses port 22. Check your IONOS File Manager for the correct remote path (e.g. `/`, `www/`, or `htdocs/`).
 
 ### 4. Create the staging branch
 
@@ -70,12 +70,13 @@ git push
 
 ## Troubleshooting
 
-**FTP connection fails**
-- Try `protocol: ftp` instead of `ftps` in the workflow (edit `.github/workflows/deploy-*.yml`)
-- Check IONOS uses port 21 (FTP) or 990 (FTPS implicit)
+**SFTP connection fails**
+- Verify host, username, and password in GitHub Secrets
+- SFTP uses port 22 (default)
+- Check that the SFTP account has access to the target directory
 
 **Wrong files deployed**
-- Check `server-dir` matches your IONOS folder structure
+- Check `STAGING_SERVER_DIR` and `PRODUCTION_SERVER_DIR` match your IONOS folder structure
 - Use IONOS File Manager to see the exact path
 
 **Deployment runs but site doesn't update**
