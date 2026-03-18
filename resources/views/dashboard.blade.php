@@ -7,25 +7,91 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="grid gap-6 md:grid-cols-2">
+            <div class="grid gap-6 lg:grid-cols-3">
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900">
                         <h3 class="text-lg font-semibold">Next deliveries</h3>
 
-                        @if ($upcomingDeliveries->isEmpty())
+                        @if ($deliveryCards->isEmpty())
                             <p class="mt-3 text-sm text-gray-600">No upcoming deliveries yet.</p>
                         @else
                             <ul class="mt-4 space-y-3">
-                                @foreach ($upcomingDeliveries as $delivery)
-                                    <li class="rounded-md border border-gray-200 p-3">
-                                        <p class="font-medium">{{ $delivery->scheduled_for_date->format('D, d M Y') }}</p>
-                                        <p class="text-sm text-gray-600">{{ $delivery->timeslot }}</p>
+                                @foreach ($deliveryCards as $card)
+                                    @php($delivery = $card['delivery'])
+                                    @php($box = $card['box'])
+                                    <li class="rounded-md border border-gray-200 p-4 shadow-sm">
+                                        <div class="flex items-center justify-between">
+                                            <p class="font-medium">{{ $delivery->scheduled_for_date->format('D, d M Y') }}</p>
+                                            <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                                                {{ ucfirst($delivery->status->value) }}
+                                            </span>
+                                        </div>
+                                        <p class="mt-1 text-sm text-gray-600">{{ $delivery->timeslot }}</p>
                                         <p class="text-sm text-gray-600">
                                             {{ $delivery->address?->city ? 'To '.$delivery->address->city : 'Address not set' }}
                                         </p>
+                                        @if ($card['deadline'])
+                                            <p class="mt-2 text-xs text-gray-500">
+                                                Modify by: {{ $card['deadline']->format('D, d M Y H:i') }}
+                                            </p>
+                                        @else
+                                            <p class="mt-2 text-xs text-gray-500">Modify by: not available yet</p>
+                                        @endif
+
+                                        <div class="mt-3 flex flex-wrap gap-2">
+                                            @if ($box && $card['canModifyBox'])
+                                                <a href="{{ route('app.boxes.show', $box) }}" class="rounded-md border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
+                                                    Modify box
+                                                </a>
+                                            @endif
+
+                                            <a href="{{ route('app.deliveries.show', $delivery) }}" class="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+                                                Change delivery
+                                            </a>
+
+                                            @if ($delivery->status->value === 'scheduled')
+                                                <form method="POST" action="{{ route('app.deliveries.skip', $delivery) }}">
+                                                    @csrf
+                                                    <button type="submit" class="rounded-md border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50">
+                                                        Skip week
+                                                    </button>
+                                                </form>
+                                            @endif
+
+                                            <a href="{{ route('app.deliveries.gift', $delivery) }}" class="rounded-md border border-purple-400 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-50">
+                                                Gift box
+                                            </a>
+                                        </div>
                                     </li>
                                 @endforeach
                             </ul>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                    <div class="p-6 text-gray-900">
+                        <h3 class="text-lg font-semibold">Current week box</h3>
+
+                        @if ($currentBox)
+                            <p class="mt-2 text-sm text-gray-600">
+                                Week of {{ $currentBox->week_start_date->format('d M Y') }}
+                            </p>
+                            <ul class="mt-4 space-y-2">
+                                @forelse ($currentBox->items as $item)
+                                    <li class="flex items-center justify-between text-sm">
+                                        <span>{{ $item->product?->name ?? 'Unknown product' }}</span>
+                                        <span class="text-gray-600">{{ number_format((float) $item->quantity, 2) }} {{ $item->unit }}</span>
+                                    </li>
+                                @empty
+                                    <li class="text-sm text-gray-600">No items in the current box yet.</li>
+                                @endforelse
+                            </ul>
+                            <p class="mt-4 text-sm font-semibold">
+                                Estimated value: EUR {{ number_format((float) $currentBox->estimated_value, 2) }}
+                            </p>
+                        @else
+                            <p class="mt-3 text-sm text-gray-600">No box for this week.</p>
                         @endif
                     </div>
                 </div>

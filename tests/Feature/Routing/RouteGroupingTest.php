@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Routing;
 
+use App\Http\Controllers\BoxController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\Marketing\AboutController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
@@ -24,6 +26,10 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/contact', route('public.contact', absolute: false));
         $this->assertSame('/health', route('public.health', absolute: false));
         $this->assertSame('/app/dashboard', route('app.dashboard', absolute: false));
+        $this->assertSame('/app/boxes/1', route('app.boxes.show', ['box' => 1], absolute: false));
+        $this->assertSame('/app/deliveries/1', route('app.deliveries.show', ['delivery' => 1], absolute: false));
+        $this->assertSame('/app/deliveries/1/skip', route('app.deliveries.skip', ['delivery' => 1], absolute: false));
+        $this->assertSame('/app/deliveries/1/gift', route('app.deliveries.gift', ['delivery' => 1], absolute: false));
         $this->assertSame('/account/profile', route('account.profile.edit', absolute: false));
         $this->assertSame('/auth/login', route('auth.login', absolute: false));
         $this->assertSame('/auth/register', route('auth.register', absolute: false));
@@ -87,6 +93,32 @@ class RouteGroupingTest extends TestCase
         $this->assertNotNull($dashboardRoute);
         $this->assertSame([DashboardController::class, 'index'], $dashboardRoute->getAction('controller')
             ? explode('@', $dashboardRoute->getAction('controller'))
+            : []);
+    }
+
+    public function test_app_boxes_and_deliveries_routes_use_expected_controllers(): void
+    {
+        $boxRoute = RouteFacade::getRoutes()->getByName('app.boxes.show');
+        $deliveryShowRoute = RouteFacade::getRoutes()->getByName('app.deliveries.show');
+        $deliverySkipRoute = RouteFacade::getRoutes()->getByName('app.deliveries.skip');
+        $deliveryGiftRoute = RouteFacade::getRoutes()->getByName('app.deliveries.gift');
+
+        $this->assertNotNull($boxRoute);
+        $this->assertNotNull($deliveryShowRoute);
+        $this->assertNotNull($deliverySkipRoute);
+        $this->assertNotNull($deliveryGiftRoute);
+
+        $this->assertSame([BoxController::class, 'show'], $boxRoute->getAction('controller')
+            ? explode('@', $boxRoute->getAction('controller'))
+            : []);
+        $this->assertSame([DeliveryController::class, 'show'], $deliveryShowRoute->getAction('controller')
+            ? explode('@', $deliveryShowRoute->getAction('controller'))
+            : []);
+        $this->assertSame([DeliveryController::class, 'skip'], $deliverySkipRoute->getAction('controller')
+            ? explode('@', $deliverySkipRoute->getAction('controller'))
+            : []);
+        $this->assertSame([DeliveryController::class, 'gift'], $deliveryGiftRoute->getAction('controller')
+            ? explode('@', $deliveryGiftRoute->getAction('controller'))
             : []);
     }
 

@@ -6,7 +6,9 @@ use App\Enums\BoxStatus;
 use App\Enums\DeliveryStatus;
 use App\Models\Address;
 use App\Models\Box;
+use App\Models\BoxItem;
 use App\Models\Delivery;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -23,6 +25,7 @@ class DashboardPageTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('Next deliveries')
+            ->assertSee('Current week box')
             ->assertSee('Current and upcoming boxes');
     }
 
@@ -43,7 +46,7 @@ class DashboardPageTest extends TestCase
         Delivery::factory()->create([
             'user_id' => $dashboardUser->id,
             'address_id' => $dashboardAddress->id,
-            'scheduled_for_date' => now()->addDays(2)->toDateString(),
+            'scheduled_for_date' => now()->addDays(2)->startOfWeek()->addDays(2)->toDateString(),
             'timeslot' => '08:00-12:00',
             'status' => DeliveryStatus::Scheduled,
         ]);
@@ -73,6 +76,7 @@ class DashboardPageTest extends TestCase
             ->assertOk()
             ->assertSee('Berlin Mitte')
             ->assertSee('EUR 39.99')
+            ->assertSee('Scheduled')
             ->assertDontSee('Hamburg Nord')
             ->assertDontSee('EUR 88.88');
     }
@@ -112,9 +116,69 @@ class DashboardPageTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSeeInOrder(['slot-1', 'slot-2', 'slot-3', 'slot-4'])
+            ->assertSee('Change delivery')
+            ->assertSee('Gift box')
             ->assertDontSee('slot-5')
             ->assertDontSee('past-slot')
             ->assertDontSee('skipped-slot');
+    }
+
+    public function test_dashboard_shows_delivery_deadline_and_modify_box_action_when_editable_box_exists(): void
+    {
+        $user = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $user->id]);
+        $deliveryDate = now()->addDays(3)->startOfWeek()->addDays(2);
+
+        $delivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => $deliveryDate->toDateString(),
+            'timeslot' => '12:00-16:00',
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'week_start_date' => $deliveryDate->copy()->startOfWeek()->toDateString(),
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addWeek(),
+        ]);
+
+        $response = $this->actingAs($user)->get(route('app.dashboard'));
+
+        $response->assertOk()
+            ->assertSee('Modify by:')
+            ->assertSee('Modify box')
+            ->assertSee(route('app.boxes.show', $box), false)
+            ->assertSee(route('app.deliveries.show', $delivery), false)
+            ->assertSee(route('app.deliveries.gift', $delivery), false)
+            ->assertSee(route('app.deliveries.skip', $delivery), false);
+    }
+
+    public function test_dashboard_shows_current_week_box_summary_with_items_and_value(): void
+    {
+        $user = User::factory()->create();
+
+        $currentBox = Box::factory()->create([
+            'user_id' => $user->id,
+            'week_start_date' => now()->startOfWeek()->toDateString(),
+            'estimated_value' => 44.20,
+        ]);
+        $product = Product::factory()->create(['name' => 'Test Carrots']);
+        BoxItem::factory()->create([
+            'box_id' => $currentBox->id,
+            'product_id' => $product->id,
+            'quantity' => 2.5,
+            'unit' => 'kg',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.dashboard'))
+            ->assertOk()
+            ->assertSee('Current week box')
+            ->assertSee('Test Carrots')
+            ->assertSee('2.50 kg')
+            ->assertSee('Estimated value: EUR 44.20');
     }
 
     public function test_dashboard_shows_empty_states_when_no_data_exists(): void
@@ -125,6 +189,8 @@ class DashboardPageTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('No upcoming deliveries yet.')
-            ->assertSee('No boxes available yet.');
+            ->assertSee('No box for this week.')
+            ->assertSee('No boxes available yet.')
+            ->assertDontSee('Modify box');
     }
 }
