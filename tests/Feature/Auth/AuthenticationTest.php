@@ -21,12 +21,16 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
+        $this->startSession();
+        $oldSessionId = session()->getId();
+
         $response = $this->post('/auth/login', [
             'email' => $user->email,
             'password' => 'password',
         ]);
 
         $this->assertAuthenticated();
+        $this->assertNotSame($oldSessionId, session()->getId());
         $response->assertRedirect(route('app.dashboard', absolute: false));
     }
 
@@ -46,9 +50,13 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/auth/logout');
+        $response = $this
+            ->actingAs($user)
+            ->withSession(['ephemeral_key' => 'value'])
+            ->post('/auth/logout');
 
         $this->assertGuest();
+        $response->assertSessionMissing('ephemeral_key');
         $response->assertRedirect('/');
     }
 }

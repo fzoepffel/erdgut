@@ -67,12 +67,14 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
+            ->withSession(['ephemeral_key' => 'value'])
             ->delete('/account/profile', [
                 'password' => 'password',
             ]);
 
         $response
             ->assertSessionHasNoErrors()
+            ->assertSessionMissing('ephemeral_key')
             ->assertRedirect('/');
 
         $this->assertGuest();

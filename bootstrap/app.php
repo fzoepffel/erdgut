@@ -12,6 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->redirectGuestsTo('/auth/login');
+        $middleware->redirectUsersTo('/app/dashboard');
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
