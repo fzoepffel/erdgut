@@ -295,8 +295,27 @@ php artisan migrate --force
 
 - Push to `staging` branch -> deploys staging
 - Push to `main` branch -> deploys production
+- Deploy only runs after the `CI` workflow succeeds (lint + tests)
 
 Detailed instructions: see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+### CI checks (before deploy)
+
+Every push/PR runs a `CI` workflow with:
+
+1. `composer lint` (code style check)
+2. `composer test` (automated tests)
+
+If CI fails, deployment is blocked until CI is green.
+
+CI also uploads a `coverage.xml` artifact so test coverage output is available from the workflow run.
+
+**Where to check CI results in GitHub**
+
+1. Open the repo on GitHub (e.g. `https://github.com/fzoepffel/erdgut`)
+2. Click the **Actions** tab
+3. Click the latest workflow run (e.g. "CI" or "Deploy to Staging")
+4. Green check = passed; red X = failed (click to see which step failed)
 
 ## Mail setup (verification and reset emails)
 
@@ -359,6 +378,9 @@ If you see `UnsupportedSchemeException`, check `MAIL_SCHEME` is `smtp` or `smtps
 
 | Command | Description |
 |---------|-------------|
+| `composer test` | Run full automated test suite |
+| `composer test:feature` | Run feature tests only |
+| `composer test:unit` | Run unit tests only |
 | `composer lint` | Check PHP style with Pint |
 | `composer format` | Auto-fix PHP style |
 | `php artisan test` | Run test suite |
