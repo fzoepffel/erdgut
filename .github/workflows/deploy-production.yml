@@ -87,3 +87,15 @@ jobs:
             mkdir -p "${{ env.APP_DIR }}"
             tar -xzf ~/release.tar.gz -C "${{ env.APP_DIR }}"
             rm -f ~/release.tar.gz
+
+      - name: Run post-deploy migrations on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          password: ${{ env.SSH_PASSWORD }}
+          script: |
+            set -e
+            cd "${{ env.APP_DIR }}"
+            test -f artisan || (echo "Missing artisan in ${APP_DIR}" && exit 1)
+            php artisan migrate --force

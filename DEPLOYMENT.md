@@ -63,6 +63,7 @@ Each deployment pipeline now does:
 5. Create a single `release.tar.gz` archive
 6. Upload archive via SCP to `/tmp/` on server
 7. Extract archive into target app directory over SSH
+8. Run `php artisan migrate --force` over SSH (post-deploy, automatic)
 
 ### 6. IONOS + Laravel requirements
 
@@ -108,4 +109,5 @@ git push
 - If SSH is available, run `php artisan key:generate --force`
 
 **Database changes are not applied**
-- Run migrations manually on the server: `php artisan migrate --force`
+- Check the deploy workflow logs for the `Run post-deploy migrations on server` step
+- If needed for recovery, run manually on server: `php artisan migrate --force`

@@ -296,6 +296,7 @@ php artisan migrate --force
 - Push to `staging` branch -> deploys staging
 - Push to `main` branch -> deploys production
 - Deploy only runs after the `CI` workflow succeeds (lint + tests)
+- Deploy workflow now runs `php artisan migrate --force` automatically after upload/extract
 
 Detailed instructions: see [DEPLOYMENT.md](DEPLOYMENT.md).
 
@@ -404,7 +405,8 @@ If you see `UnsupportedSchemeException`, check `MAIL_SCHEME` is `smtp` or `smtps
 
 ### DB errors after deploy
 - Check `DB_*` values in server `.env`.
-- Run `php artisan migrate --force`.
+- Check deploy workflow step `Run post-deploy migrations on server`.
+- If needed, run recovery manually: `php artisan migrate --force`.
 
 ## Security and safety rules
 
