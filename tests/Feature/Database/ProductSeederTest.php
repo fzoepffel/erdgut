@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Database;
 
-use App\Models\Product;
 use App\Models\Producer;
+use App\Models\Product;
 use Database\Seeders\ProducerSeeder;
 use Database\Seeders\ProductSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
