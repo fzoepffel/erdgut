@@ -8,6 +8,9 @@ on:
       - staging
       - "feature/**"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   lint:
     name: Lint (Pint)
@@ -46,17 +49,10 @@ jobs:
         with:
           php-version: "8.3"
           tools: composer:v2
-          coverage: xdebug
+          coverage: none
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist
 
-      - name: Run tests with coverage report
-        run: composer test:coverage
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: phpunit-coverage-clover
-          path: coverage.xml
-          if-no-files-found: error
+      - name: Run tests
+        run: composer test
