@@ -1,0 +1,17 @@
+---
+description: Erdgut project context and tech stack
+alwaysApply: true
+---
+
+# Erdgut Project
+
+- **Stack**: Laravel 11, PHP 8.3, MySQL, Blade, Tailwind CSS, Alpine.js, Vite
+- **Hosting**: IONOS Web Hosting Plus (PHP only, no Node runtime)
+- **Deploy**: GitHub Actions → SSH/SCP archive upload + server extract
+- **Payments**: SumUp (mandate + recurring charges)
+
+## Conventions
+
+- Use `composer lint` / `composer format` (Pint) for PHP style
+- `.env.example` documents all required variables; never commit `.env`
+- German locale (`de`) for user-facing content; English for code and comments
