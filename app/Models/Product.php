@@ -6,6 +6,7 @@ use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
@@ -57,5 +58,15 @@ class Product extends Model
     public function boxItems(): HasMany
     {
         return $this->hasMany(BoxItem::class);
+    }
+
+    /**
+     * Get all boxes that include this product via box items.
+     */
+    public function boxes(): BelongsToMany
+    {
+        return $this->belongsToMany(Box::class, 'box_items')
+            ->withPivot(['quantity', 'unit', 'is_extra'])
+            ->withTimestamps();
     }
 }
