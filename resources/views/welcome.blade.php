@@ -15,10 +15,10 @@
                     You always see where your food comes from, and farmers receive fair pricing.
                 </p>
                 <div class="flex flex-wrap gap-3">
-                    <a href="{{ route('register') }}" class="rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800">
+                    <a href="{{ route('auth.register') }}" class="rounded-md bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800">
                         Start your subscription
                     </a>
-                    <a href="{{ route('login') }}" class="rounded-md border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:border-emerald-700 hover:text-emerald-700">
+                    <a href="{{ route('auth.login') }}" class="rounded-md border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:border-emerald-700 hover:text-emerald-700">
                         I already have an account
                     </a>
                 </div>
