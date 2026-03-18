@@ -16,26 +16,26 @@
         <div class="min-h-screen flex flex-col">
             <header x-data="{ open: false }" class="border-b border-gray-100 bg-white/95 backdrop-blur">
                 <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-                    <a href="{{ url('/') }}" class="text-lg font-bold tracking-tight text-emerald-700">
+                    <a href="{{ route('public.home') }}" class="text-lg font-bold tracking-tight text-emerald-700">
                         Erdgut
                     </a>
 
                     <nav class="hidden items-center gap-6 text-sm font-medium md:flex">
-                        <a href="{{ url('/') }}" class="text-gray-700 transition hover:text-emerald-700">Home</a>
+                        <a href="{{ route('public.home') }}" class="text-gray-700 transition hover:text-emerald-700">Home</a>
                         <a href="#" class="text-gray-500 transition hover:text-emerald-700">About</a>
                         <a href="#" class="text-gray-500 transition hover:text-emerald-700">Producers</a>
                     </nav>
 
                     <div class="hidden items-center gap-3 md:flex">
                         @auth
-                            <a href="{{ route('dashboard') }}" class="rounded-md border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50">
+                            <a href="{{ route('app.dashboard') }}" class="rounded-md border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50">
                                 Dashboard
                             </a>
                         @else
-                            <a href="{{ route('login') }}" class="text-sm font-semibold text-gray-700 transition hover:text-emerald-700">
+                            <a href="{{ route('auth.login') }}" class="text-sm font-semibold text-gray-700 transition hover:text-emerald-700">
                                 Log in
                             </a>
-                            <a href="{{ route('register') }}" class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800">
+                            <a href="{{ route('auth.register') }}" class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800">
                                 Sign up
                             </a>
                         @endauth
@@ -56,18 +56,18 @@
 
                 <div x-show="open" x-transition class="border-t border-gray-100 px-4 py-4 md:hidden">
                     <div class="space-y-3 text-sm font-medium">
-                        <a href="{{ url('/') }}" class="block text-gray-700">Home</a>
+                        <a href="{{ route('public.home') }}" class="block text-gray-700">Home</a>
                         <a href="#" class="block text-gray-500">About</a>
                         <a href="#" class="block text-gray-500">Producers</a>
                     </div>
                     <div class="mt-4 space-y-3 border-t border-gray-100 pt-4">
                         @auth
-                            <a href="{{ route('dashboard') }}" class="block rounded-md border border-emerald-700 px-4 py-2 text-center text-sm font-semibold text-emerald-700">
+                            <a href="{{ route('app.dashboard') }}" class="block rounded-md border border-emerald-700 px-4 py-2 text-center text-sm font-semibold text-emerald-700">
                                 Dashboard
                             </a>
                         @else
-                            <a href="{{ route('login') }}" class="block text-sm font-semibold text-gray-700">Log in</a>
-                            <a href="{{ route('register') }}" class="block rounded-md bg-emerald-700 px-4 py-2 text-center text-sm font-semibold text-white">
+                            <a href="{{ route('auth.login') }}" class="block text-sm font-semibold text-gray-700">Log in</a>
+                            <a href="{{ route('auth.register') }}" class="block rounded-md bg-emerald-700 px-4 py-2 text-center text-sm font-semibold text-white">
                                 Sign up
                             </a>
                         @endauth

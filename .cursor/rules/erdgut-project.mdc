@@ -15,3 +15,6 @@ alwaysApply: true
 - Use `composer lint` / `composer format` (Pint) for PHP style
 - `.env.example` documents all required variables; never commit `.env`
 - German locale (`de`) for user-facing content; English for code and comments
+- if necessary update the README. 
+- before starting one or several tickets at once always open a new branch
+
