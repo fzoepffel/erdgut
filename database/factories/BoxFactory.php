@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\BoxStatus;
 use App\Models\Box;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,7 +26,7 @@ class BoxFactory extends Factory
         return [
             'user_id' => User::factory(),
             'week_start_date' => $weekStart->format('Y-m-d'),
-            'status' => Box::STATUS_EDITABLE,
+            'status' => BoxStatus::Editable,
             'modification_deadline_at' => (clone $weekStart)->modify('-2 days')->format('Y-m-d H:i:s'),
             'estimated_value' => fake()->randomFloat(2, 15, 60),
         ];

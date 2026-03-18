@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Database;
 
+use App\Enums\DeliveryStatus;
 use App\Models\Address;
 use App\Models\Delivery;
 use App\Models\User;
@@ -24,7 +25,7 @@ class DeliveryModelWeeklyOverrideTest extends TestCase
             'address_id' => $address->id,
             'scheduled_for_date' => '2026-04-15',
             'timeslot' => '12:00-16:00',
-            'status' => Delivery::STATUS_SCHEDULED,
+            'status' => DeliveryStatus::Scheduled,
             'special_instructions' => 'Ring bell at side door.',
             'is_weekly_override' => false,
         ]);
@@ -35,9 +36,10 @@ class DeliveryModelWeeklyOverrideTest extends TestCase
             'address_id' => $address->id,
             'scheduled_for_date' => '2026-04-15 00:00:00',
             'timeslot' => '12:00-16:00',
-            'status' => Delivery::STATUS_SCHEDULED,
+            'status' => DeliveryStatus::Scheduled->value,
         ]);
 
+        $this->assertSame(DeliveryStatus::Scheduled, $delivery->fresh()->status);
         $this->assertSame($user->id, $delivery->user->id);
         $this->assertSame($address->id, $delivery->address->id);
     }

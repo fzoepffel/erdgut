@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BoxStatus;
 use Database\Factories\BoxFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,12 +13,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Box extends Model
 {
-    public const STATUS_EDITABLE = 'editable';
-
-    public const STATUS_LOCKED = 'locked';
-
-    public const STATUS_DELIVERED = 'delivered';
-
     /** @use HasFactory<BoxFactory> */
     use HasFactory;
 
@@ -42,6 +37,7 @@ class Box extends Model
     protected function casts(): array
     {
         return [
+            'status' => BoxStatus::class,
             'week_start_date' => 'date',
             'modification_deadline_at' => 'datetime',
             'estimated_value' => 'decimal:2',
@@ -95,7 +91,7 @@ class Box extends Model
      */
     public function markEditable(): void
     {
-        $this->update(['status' => self::STATUS_EDITABLE]);
+        $this->update(['status' => BoxStatus::Editable]);
     }
 
     /**
@@ -103,7 +99,7 @@ class Box extends Model
      */
     public function lock(): void
     {
-        $this->update(['status' => self::STATUS_LOCKED]);
+        $this->update(['status' => BoxStatus::Locked]);
     }
 
     /**
@@ -111,6 +107,6 @@ class Box extends Model
      */
     public function deliver(): void
     {
-        $this->update(['status' => self::STATUS_DELIVERED]);
+        $this->update(['status' => BoxStatus::Delivered]);
     }
 }

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Database;
 
+use App\Enums\SubscriptionPlan;
+use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
@@ -21,11 +23,11 @@ class SubscriptionModelLifecycleTest extends TestCase
 
         $subscription = Subscription::create([
             'user_id' => $user->id,
-            'plan' => 'weekly',
+            'plan' => SubscriptionPlan::Weekly,
             'box_size' => 'medium',
             'preferences' => ['veg_only' => true],
             'allergies' => ['nuts'],
-            'status' => Subscription::STATUS_ACTIVE,
+            'status' => SubscriptionStatus::Active,
             'sumup_token' => 'tok_123',
             'sumup_customer_id' => 'cus_123',
         ]);
@@ -33,28 +35,31 @@ class SubscriptionModelLifecycleTest extends TestCase
         $this->assertDatabaseHas('subscriptions', [
             'id' => $subscription->id,
             'user_id' => $user->id,
-            'plan' => 'weekly',
+            'plan' => SubscriptionPlan::Weekly->value,
             'box_size' => 'medium',
-            'status' => Subscription::STATUS_ACTIVE,
+            'status' => SubscriptionStatus::Active->value,
         ]);
+        $subscription->refresh();
         $this->assertSame($user->id, $subscription->user->id);
+        $this->assertSame(SubscriptionPlan::Weekly, $subscription->plan);
+        $this->assertSame(SubscriptionStatus::Active, $subscription->status);
         $this->assertTrue($subscription->preferences['veg_only']);
     }
 
     public function test_subscription_supports_active_paused_cancelled_lifecycle(): void
     {
         $subscription = Subscription::factory()->create([
-            'status' => Subscription::STATUS_ACTIVE,
+            'status' => SubscriptionStatus::Active,
         ]);
 
         $subscription->pause();
-        $this->assertSame(Subscription::STATUS_PAUSED, $subscription->fresh()->status);
+        $this->assertSame(SubscriptionStatus::Paused, $subscription->fresh()->status);
 
         $subscription->activate();
-        $this->assertSame(Subscription::STATUS_ACTIVE, $subscription->fresh()->status);
+        $this->assertSame(SubscriptionStatus::Active, $subscription->fresh()->status);
 
         $subscription->cancel();
-        $this->assertSame(Subscription::STATUS_CANCELLED, $subscription->fresh()->status);
+        $this->assertSame(SubscriptionStatus::Cancelled, $subscription->fresh()->status);
     }
 
     public function test_user_and_subscription_relationship_contracts_are_exposed(): void

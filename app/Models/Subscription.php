@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\SubscriptionPlan;
+use App\Enums\SubscriptionStatus;
 use Database\Factories\SubscriptionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,12 +12,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Subscription extends Model
 {
-    public const STATUS_ACTIVE = 'active';
-
-    public const STATUS_PAUSED = 'paused';
-
-    public const STATUS_CANCELLED = 'cancelled';
-
     /** @use HasFactory<SubscriptionFactory> */
     use HasFactory;
 
@@ -43,6 +39,8 @@ class Subscription extends Model
     protected function casts(): array
     {
         return [
+            'plan' => SubscriptionPlan::class,
+            'status' => SubscriptionStatus::class,
             'preferences' => 'array',
             'allergies' => 'array',
         ];
@@ -69,7 +67,7 @@ class Subscription extends Model
      */
     public function activate(): void
     {
-        $this->update(['status' => self::STATUS_ACTIVE]);
+        $this->update(['status' => SubscriptionStatus::Active]);
     }
 
     /**
@@ -77,7 +75,7 @@ class Subscription extends Model
      */
     public function pause(): void
     {
-        $this->update(['status' => self::STATUS_PAUSED]);
+        $this->update(['status' => SubscriptionStatus::Paused]);
     }
 
     /**
@@ -85,6 +83,6 @@ class Subscription extends Model
      */
     public function cancel(): void
     {
-        $this->update(['status' => self::STATUS_CANCELLED]);
+        $this->update(['status' => SubscriptionStatus::Cancelled]);
     }
 }

@@ -15,6 +15,11 @@ alwaysApply: true
 - Use `composer lint` / `composer format` (Pint) for PHP style
 - `.env.example` documents all required variables; never commit `.env`
 - German locale (`de`) for user-facing content; English for code and comments
-- if necessary update the README. 
+- if necessary update the README.
 - before starting one or several tickets at once always open a new branch
 
+## Ticket Tracking
+
+- **Ticket source**: Open tickets live in `erdgut-mvp-tickets.csv` at project root (columns: Ticket ID, Title, Epic, Phase, Priority, **Status**, Estimate Hours, …).
+- **Find next ticket**: The next ticket is the first row where `Status` is not `Done` (e.g. `Backlog` or `In Progress`). Scan the CSV from top to bottom and pick the first such row.
+- **Mark ticket done**: After completing a ticket, set its `Status` to `Done` in the CSV. Replace the current status value (e.g. `Backlog`) with `Done` in that row, keeping the rest of the row unchanged.

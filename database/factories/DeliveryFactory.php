@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\DeliveryStatus;
 use App\Models\Address;
 use App\Models\Delivery;
 use App\Models\User;
@@ -26,7 +27,7 @@ class DeliveryFactory extends Factory
             'address_id' => Address::factory(),
             'scheduled_for_date' => fake()->dateTimeBetween('+1 day', '+30 days')->format('Y-m-d'),
             'timeslot' => fake()->randomElement(['08:00-12:00', '12:00-16:00', '16:00-20:00']),
-            'status' => Delivery::STATUS_SCHEDULED,
+            'status' => DeliveryStatus::Scheduled,
             'special_instructions' => fake()->optional()->sentence(),
             'is_weekly_override' => false,
             'overrides_delivery_id' => null,

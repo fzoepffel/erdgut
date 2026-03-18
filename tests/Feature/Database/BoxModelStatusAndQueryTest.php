@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Database;
 
+use App\Enums\BoxStatus;
 use App\Models\Box;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,7 +21,7 @@ class BoxModelStatusAndQueryTest extends TestCase
         $box = Box::create([
             'user_id' => $user->id,
             'week_start_date' => '2026-05-04',
-            'status' => Box::STATUS_EDITABLE,
+            'status' => BoxStatus::Editable,
             'modification_deadline_at' => '2026-05-02 18:00:00',
             'estimated_value' => 34.50,
         ]);
@@ -29,26 +30,27 @@ class BoxModelStatusAndQueryTest extends TestCase
             'id' => $box->id,
             'user_id' => $user->id,
             'week_start_date' => '2026-05-04 00:00:00',
-            'status' => Box::STATUS_EDITABLE,
+            'status' => BoxStatus::Editable->value,
             'modification_deadline_at' => '2026-05-02 18:00:00',
             'estimated_value' => 34.5,
         ]);
+        $this->assertSame(BoxStatus::Editable, $box->fresh()->status);
     }
 
     public function test_box_status_transitions_can_be_stored(): void
     {
         $box = Box::factory()->create([
-            'status' => Box::STATUS_EDITABLE,
+            'status' => BoxStatus::Editable,
         ]);
 
         $box->lock();
-        $this->assertSame(Box::STATUS_LOCKED, $box->fresh()->status);
+        $this->assertSame(BoxStatus::Locked, $box->fresh()->status);
 
         $box->deliver();
-        $this->assertSame(Box::STATUS_DELIVERED, $box->fresh()->status);
+        $this->assertSame(BoxStatus::Delivered, $box->fresh()->status);
 
         $box->markEditable();
-        $this->assertSame(Box::STATUS_EDITABLE, $box->fresh()->status);
+        $this->assertSame(BoxStatus::Editable, $box->fresh()->status);
     }
 
     public function test_boxes_can_be_queried_by_user_and_week(): void

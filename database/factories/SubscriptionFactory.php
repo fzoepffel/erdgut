@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Enums\SubscriptionPlan;
+use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -22,14 +24,14 @@ class SubscriptionFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'plan' => fake()->randomElement(['weekly', 'biweekly']),
+            'plan' => fake()->randomElement([SubscriptionPlan::Weekly, SubscriptionPlan::Biweekly]),
             'box_size' => fake()->randomElement(['small', 'medium', 'large']),
             'preferences' => [
                 'veg_only' => fake()->boolean(),
                 'meat_add_on' => fake()->boolean(),
             ],
             'allergies' => fake()->randomElements(['nuts', 'gluten', 'lactose'], fake()->numberBetween(0, 2)),
-            'status' => Subscription::STATUS_ACTIVE,
+            'status' => SubscriptionStatus::Active,
             'sumup_token' => fake()->optional()->sha1(),
             'sumup_customer_id' => fake()->optional()->uuid(),
         ];

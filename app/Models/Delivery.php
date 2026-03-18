@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DeliveryStatus;
 use Database\Factories\DeliveryFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,12 +11,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Delivery extends Model
 {
-    public const STATUS_SCHEDULED = 'scheduled';
-
-    public const STATUS_SKIPPED = 'skipped';
-
-    public const STATUS_DELIVERED = 'delivered';
-
     /** @use HasFactory<DeliveryFactory> */
     use HasFactory;
 
@@ -43,6 +38,7 @@ class Delivery extends Model
     protected function casts(): array
     {
         return [
+            'status' => DeliveryStatus::class,
             'scheduled_for_date' => 'date',
             'is_weekly_override' => 'boolean',
         ];
