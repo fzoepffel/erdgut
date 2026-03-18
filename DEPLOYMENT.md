@@ -75,6 +75,11 @@ Before first production deploy, make sure:
 4. `storage/` and `bootstrap/cache/` are writable by PHP.
 5. Database credentials in `.env` are correct.
 6. PHP version in IONOS is set to 8.3.
+7. Logging env vars are set for rotation on shared hosting:
+   - `LOG_CHANNEL=ionos`
+   - `LOG_IONOS_STACK=daily,critical_daily`
+   - `LOG_DAILY_DAYS=30`
+   - `LOG_CRITICAL_DAYS=60`
 
 ```bash
 # Deploy to staging

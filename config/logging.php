@@ -18,7 +18,7 @@ return [
     |
     */
 
-    'default' => env('LOG_CHANNEL', 'stack'),
+    'default' => env('LOG_CHANNEL', 'ionos'),
 
     /*
     |--------------------------------------------------------------------------
@@ -54,7 +54,13 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', env('LOG_STACK', 'single')),
+            'channels' => explode(',', env('LOG_STACK', 'daily')),
+            'ignore_exceptions' => false,
+        ],
+
+        'ionos' => [
+            'driver' => 'stack',
+            'channels' => explode(',', env('LOG_IONOS_STACK', 'daily,critical_daily')),
             'ignore_exceptions' => false,
         ],
 
@@ -68,8 +74,16 @@ return [
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
-            'days' => env('LOG_DAILY_DAYS', 14),
+            'level' => env('LOG_LEVEL', 'info'),
+            'days' => env('LOG_DAILY_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'critical_daily' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/critical.log'),
+            'level' => env('LOG_CRITICAL_LEVEL', 'warning'),
+            'days' => env('LOG_CRITICAL_DAYS', 60),
             'replace_placeholders' => true,
         ],
 

@@ -245,6 +245,34 @@ Open `http://localhost:8000`.
 
 ## Production and staging operations
 
+### Logging defaults for IONOS
+
+The app is configured for rotating file logs so disk usage stays predictable on shared hosting.
+
+Recommended `.env` values (already reflected in `.env.example`):
+
+- `LOG_CHANNEL=ionos`
+- `LOG_IONOS_STACK=daily,critical_daily`
+- `LOG_LEVEL=info`
+- `LOG_DAILY_DAYS=30`
+- `LOG_CRITICAL_LEVEL=warning`
+- `LOG_CRITICAL_DAYS=60`
+- `LOG_DEPRECATIONS_CHANNEL=daily`
+
+Log files on server:
+
+- `storage/logs/laravel-YYYY-MM-DD.log` (general app logs)
+- `storage/logs/critical-YYYY-MM-DD.log` (warning+ signals for faster triage)
+
+Useful server checks:
+
+```bash
+# Run in: Server SSH Terminal
+cd ~/www        # or: cd ~/staging
+ls -lah storage/logs
+tail -n 100 storage/logs/laravel.log
+```
+
 ### Server requirements (IONOS)
 
 1. Document root must point to Laravel `public/` directory:
