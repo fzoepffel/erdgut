@@ -22,8 +22,9 @@
 
                     <nav class="hidden items-center gap-6 text-sm font-medium md:flex">
                         <a href="{{ route('public.home') }}" class="text-gray-700 transition hover:text-emerald-700">Home</a>
-                        <a href="#" class="text-gray-500 transition hover:text-emerald-700">About</a>
-                        <a href="#" class="text-gray-500 transition hover:text-emerald-700">Producers</a>
+                        <a href="{{ route('public.about') }}" class="text-gray-500 transition hover:text-emerald-700">About</a>
+                        <a href="{{ route('public.producers') }}" class="text-gray-500 transition hover:text-emerald-700">Producers</a>
+                        <a href="{{ route('public.contact') }}" class="text-gray-500 transition hover:text-emerald-700">Contact</a>
                     </nav>
 
                     <div class="hidden items-center gap-3 md:flex">
@@ -57,8 +58,9 @@
                 <div x-show="open" x-transition class="border-t border-gray-100 px-4 py-4 md:hidden">
                     <div class="space-y-3 text-sm font-medium">
                         <a href="{{ route('public.home') }}" class="block text-gray-700">Home</a>
-                        <a href="#" class="block text-gray-500">About</a>
-                        <a href="#" class="block text-gray-500">Producers</a>
+                        <a href="{{ route('public.about') }}" class="block text-gray-500">About</a>
+                        <a href="{{ route('public.producers') }}" class="block text-gray-500">Producers</a>
+                        <a href="{{ route('public.contact') }}" class="block text-gray-500">Contact</a>
                     </div>
                     <div class="mt-4 space-y-3 border-t border-gray-100 pt-4">
                         @auth

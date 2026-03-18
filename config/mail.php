@@ -113,4 +113,15 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Contact Form Recipient
+    |--------------------------------------------------------------------------
+    |
+    | Incoming public contact messages are sent to this inbox. If empty, the
+    | application falls back to the configured global "from" address.
+    |
+    */
+    'contact_to' => env('CONTACT_FORM_TO'),
+
 ];

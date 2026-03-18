@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Routing;
 
+use App\Http\Controllers\Marketing\AboutController;
+use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
+use App\Http\Controllers\Marketing\ProducerController;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route as RouteFacade;
@@ -15,6 +18,9 @@ class RouteGroupingTest extends TestCase
     public function test_core_named_routes_use_expected_paths(): void
     {
         $this->assertSame('/', route('public.home', absolute: false));
+        $this->assertSame('/about', route('public.about', absolute: false));
+        $this->assertSame('/producers', route('public.producers', absolute: false));
+        $this->assertSame('/contact', route('public.contact', absolute: false));
         $this->assertSame('/health', route('public.health', absolute: false));
         $this->assertSame('/app/dashboard', route('app.dashboard', absolute: false));
         $this->assertSame('/account/profile', route('account.profile.edit', absolute: false));
@@ -70,6 +76,42 @@ class RouteGroupingTest extends TestCase
         $this->assertNotNull($homeRoute);
         $this->assertSame([HomeController::class, 'index'], $homeRoute->getAction('controller')
             ? explode('@', $homeRoute->getAction('controller'))
+            : []);
+    }
+
+    public function test_public_about_route_uses_marketing_about_controller(): void
+    {
+        $aboutRoute = RouteFacade::getRoutes()->getByName('public.about');
+
+        $this->assertNotNull($aboutRoute);
+        $this->assertSame([AboutController::class, 'index'], $aboutRoute->getAction('controller')
+            ? explode('@', $aboutRoute->getAction('controller'))
+            : []);
+    }
+
+    public function test_public_producers_route_uses_marketing_producer_controller(): void
+    {
+        $producersRoute = RouteFacade::getRoutes()->getByName('public.producers');
+
+        $this->assertNotNull($producersRoute);
+        $this->assertSame([ProducerController::class, 'index'], $producersRoute->getAction('controller')
+            ? explode('@', $producersRoute->getAction('controller'))
+            : []);
+    }
+
+    public function test_public_contact_routes_use_marketing_contact_controller(): void
+    {
+        $contactCreateRoute = RouteFacade::getRoutes()->getByName('public.contact');
+        $contactStoreRoute = RouteFacade::getRoutes()->getByName('public.contact.store');
+
+        $this->assertNotNull($contactCreateRoute);
+        $this->assertNotNull($contactStoreRoute);
+
+        $this->assertSame([ContactController::class, 'create'], $contactCreateRoute->getAction('controller')
+            ? explode('@', $contactCreateRoute->getAction('controller'))
+            : []);
+        $this->assertSame([ContactController::class, 'store'], $contactStoreRoute->getAction('controller')
+            ? explode('@', $contactStoreRoute->getAction('controller'))
             : []);
     }
 }

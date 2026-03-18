@@ -16,6 +16,17 @@ class HomepageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Farm-to-consumer in Berlin', false);
+        $response->assertSee('Fresh weekly boxes from local farms, delivered transparently.', false);
+        $response->assertSee('Transparent sourcing', false);
+        $response->assertSee('Flexible weekly deliveries', false);
+        $response->assertSee('Fair pricing for farmers', false);
+        $response->assertSee('Each product is linked to its producer and region', false);
+        $response->assertSee('Customers can manage delivery preferences and adjust upcoming boxes', false);
+        $response->assertSee('Erdgut emphasizes a direct relationship between producer and household', false);
+        $response->assertSee('sm:px-6', false);
+        $response->assertSee('md:grid-cols-3', false);
+        $response->assertSee('lg:px-8', false);
+        $response->assertSee(route('public.about'), false);
         $response->assertSee(route('auth.register'), false);
         $response->assertSee(route('auth.login'), false);
     }
