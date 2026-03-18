@@ -22,4 +22,14 @@ alwaysApply: true
 
 - **Ticket source**: Open tickets live in `erdgut-mvp-tickets.csv` at project root (columns: Ticket ID, Title, Epic, Phase, Priority, **Status**, Estimate Hours, …).
 - **Find next ticket**: The next ticket is the first row where `Status` is not `Done` (e.g. `Backlog` or `In Progress`). Scan the CSV from top to bottom and pick the first such row.
-- **Mark ticket done**: After completing a ticket, set its `Status` to `Done` in the CSV. Replace the current status value (e.g. `Backlog`) with `Done` in that row, keeping the rest of the row unchanged.
+- **Mark ticket done** (mandatory): After completing a ticket, you MUST set its `Status` to `Done` in `erdgut-mvp-tickets.csv`. Replace the current status value (e.g. `Backlog`) with `Done` in that row. Include this CSV change in the same commit as the implementation—do not skip this step.
+
+## Git flow after implementing a ticket
+
+After implementing a ticket, always suggest this workflow:
+1. Mark the ticket as `Done` in `erdgut-mvp-tickets.csv` (mandatory, same commit as code).
+2. Create a new branch for the ticket (e.g. `feature/erd-XXX-description`).
+3. Commit all changes (code + CSV) to this branch.
+4. Push the branch to origin.
+5. Deploy to staging by merging the branch into `staging` and pushing `staging`.
+6. Push to `main` only if the user explicitly asks for it.

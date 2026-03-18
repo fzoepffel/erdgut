@@ -22,7 +22,20 @@ class Producer extends Model
         'region',
         'description',
         'image_url',
+        'is_test',
     ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_test' => 'boolean',
+        ];
+    }
 
     /**
      * Get all products offered by this producer.
