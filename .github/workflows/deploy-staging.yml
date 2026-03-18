@@ -55,6 +55,7 @@ jobs:
             --exclude=.env \
             --exclude=README.md \
             --exclude=DEPLOYMENT.md \
+            --exclude=index.html \
             .
           mv /tmp/release.tar.gz .
 

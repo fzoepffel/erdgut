@@ -17,13 +17,15 @@ This project uses GitHub Actions to build and deploy a Laravel app to IONOS Web 
 2. Go to **SFTP & SSH** and ensure SSH is enabled for your deployment user
 3. Note the **Server/Host** (e.g. `home12345678.1and1-data.host`), **Username**, and **Password**
 
-### 2. Configure staging subdomain (optional)
+### 2. Configure staging subdomain (required for Laravel)
 
 To use `staging.erd-gut.de`:
 
 1. In IONOS: **Domains** → **erd-gut.de** → **Subdomains**
-2. Add subdomain `staging` pointing to folder `/staging/`
-3. Or create folder `staging` in your webspace and point the subdomain to it
+2. Add subdomain `staging` and set its **document root** to the `public` folder
+   - Example: if `STAGING_SERVER_DIR` is `staging`, set document root to `staging/public`
+   - Laravel requires the web server to serve from `public/`, not the app root
+3. If the document root points to the app root, the server will serve `index.html` (placeholder) instead of Laravel
 
 ### 3. Add GitHub Secrets
 
@@ -96,9 +98,10 @@ git push
 - Check `STAGING_SERVER_DIR` and `PRODUCTION_SERVER_DIR` match your IONOS folder structure
 - Use IONOS File Manager to see the exact path
 
-**Deployment runs but site doesn't update**
-- Clear browser cache
-- Check the deployed path in IONOS File Manager
+**Deployment runs but site doesn't update / still shows old placeholder**
+- **Document root must point to `public/`**: In IONOS → Domains → Subdomains → staging → set document root to `staging/public` (or `YOUR_APP_DIR/public`)
+- Clear browser cache (Ctrl+Shift+R or Cmd+Shift+R)
+- Check the deployed path in IONOS File Manager: you should see `app/`, `public/`, `config/`, etc.
 
 **Laravel error: no application encryption key has been specified**
 - Create/set `APP_KEY` in server `.env`
