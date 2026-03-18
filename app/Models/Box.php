@@ -27,6 +27,7 @@ class Box extends Model
         'status',
         'modification_deadline_at',
         'estimated_value',
+        'is_test',
     ];
 
     /**
@@ -41,6 +42,7 @@ class Box extends Model
             'week_start_date' => 'date',
             'modification_deadline_at' => 'datetime',
             'estimated_value' => 'decimal:2',
+            'is_test' => 'boolean',
         ];
     }
 

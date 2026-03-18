@@ -27,6 +27,7 @@ class Product extends Model
         'is_seasonal',
         'is_available',
         'metadata',
+        'is_test',
     ];
 
     /**
@@ -41,6 +42,7 @@ class Product extends Model
             'is_seasonal' => 'boolean',
             'is_available' => 'boolean',
             'metadata' => 'array',
+            'is_test' => 'boolean',
         ];
     }
 

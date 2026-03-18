@@ -29,6 +29,7 @@ class Subscription extends Model
         'status',
         'sumup_token',
         'sumup_customer_id',
+        'is_test',
     ];
 
     /**
@@ -43,6 +44,7 @@ class Subscription extends Model
             'status' => SubscriptionStatus::class,
             'preferences' => 'array',
             'allergies' => 'array',
+            'is_test' => 'boolean',
         ];
     }
 

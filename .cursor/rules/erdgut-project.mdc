@@ -33,3 +33,7 @@ After implementing a ticket, always suggest this workflow:
 4. Push the branch to origin.
 5. Deploy to staging by merging the branch into `staging` and pushing `staging`.
 6. Push to `main` only if the user explicitly asks for it.
+
+## Cursor rules for future automation
+
+After a new implementation, consider whether a new cursor rule would help automate future workflows. If the implementation introduces a recurring pattern, convention, or workflow step that should be followed consistently, suggest adding a rule (e.g. in `.cursor/rules/`) to capture it. Do not add rules for one-off or trivial cases.

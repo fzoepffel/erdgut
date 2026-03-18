@@ -29,6 +29,7 @@ class BoxFactory extends Factory
             'status' => BoxStatus::Editable,
             'modification_deadline_at' => (clone $weekStart)->modify('-2 days')->format('Y-m-d H:i:s'),
             'estimated_value' => fake()->randomFloat(2, 15, 60),
+            'is_test' => false,
         ];
     }
 }

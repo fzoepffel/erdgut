@@ -34,6 +34,7 @@ class SubscriptionFactory extends Factory
             'status' => SubscriptionStatus::Active,
             'sumup_token' => fake()->optional()->sha1(),
             'sumup_customer_id' => fake()->optional()->uuid(),
+            'is_test' => false,
         ];
     }
 }

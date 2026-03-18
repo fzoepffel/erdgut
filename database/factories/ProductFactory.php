@@ -31,6 +31,7 @@ class ProductFactory extends Factory
                 'unit' => fake()->randomElement(['kg', 'bundle', 'piece']),
                 'origin' => fake()->city(),
             ],
+            'is_test' => false,
         ];
     }
 }
