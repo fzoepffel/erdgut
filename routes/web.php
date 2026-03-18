@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\UserAccessProbeController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Marketing\AboutController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
@@ -23,9 +24,7 @@ Route::middleware(['auth', 'verified'])
     ->prefix('app')
     ->name('app.')
     ->group(function () {
-        Route::get('/dashboard', function () {
-            return view('dashboard');
-        })->name('dashboard');
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         // Placeholder route groups for upcoming ERD business flows.
         Route::prefix('subscriptions')->name('subscriptions.')->group(function () {

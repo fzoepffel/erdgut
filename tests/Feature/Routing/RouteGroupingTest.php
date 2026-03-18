@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Routing;
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Marketing\AboutController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
@@ -76,6 +77,16 @@ class RouteGroupingTest extends TestCase
         $this->assertNotNull($homeRoute);
         $this->assertSame([HomeController::class, 'index'], $homeRoute->getAction('controller')
             ? explode('@', $homeRoute->getAction('controller'))
+            : []);
+    }
+
+    public function test_app_dashboard_route_uses_dashboard_controller(): void
+    {
+        $dashboardRoute = RouteFacade::getRoutes()->getByName('app.dashboard');
+
+        $this->assertNotNull($dashboardRoute);
+        $this->assertSame([DashboardController::class, 'index'], $dashboardRoute->getAction('controller')
+            ? explode('@', $dashboardRoute->getAction('controller'))
             : []);
     }
 
