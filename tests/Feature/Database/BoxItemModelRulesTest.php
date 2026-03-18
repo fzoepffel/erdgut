@@ -9,6 +9,7 @@ use App\Models\Producer;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
@@ -75,7 +76,35 @@ class BoxItemModelRulesTest extends TestCase
 
         $this->assertInstanceOf(HasMany::class, $box->items());
         $this->assertInstanceOf(HasMany::class, $product->boxItems());
+        $this->assertInstanceOf(BelongsToMany::class, $box->products());
+        $this->assertInstanceOf(BelongsToMany::class, $product->boxes());
         $this->assertInstanceOf(BelongsTo::class, $boxItem->box());
         $this->assertInstanceOf(BelongsTo::class, $boxItem->product());
+    }
+
+    public function test_box_and_product_can_be_traversed_via_many_to_many_relation(): void
+    {
+        $user = User::factory()->create();
+        $box = Box::factory()->create(['user_id' => $user->id]);
+        $product = Product::factory()->create();
+
+        $boxItem = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 3,
+            'unit' => 'piece',
+            'is_extra' => true,
+        ]);
+
+        $loadedProduct = $box->fresh()->products()->first();
+        $loadedBox = $product->fresh()->boxes()->first();
+
+        $this->assertNotNull($loadedProduct);
+        $this->assertNotNull($loadedBox);
+        $this->assertSame($product->id, $loadedProduct?->id);
+        $this->assertSame($box->id, $loadedBox?->id);
+        $this->assertSame((float) $boxItem->quantity, (float) $loadedProduct?->pivot->quantity);
+        $this->assertSame($boxItem->unit, $loadedProduct?->pivot->unit);
+        $this->assertSame((bool) $boxItem->is_extra, (bool) $loadedProduct?->pivot->is_extra);
     }
 }
