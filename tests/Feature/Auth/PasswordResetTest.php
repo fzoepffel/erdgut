@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -69,5 +70,20 @@ class PasswordResetTest extends TestCase
 
             return true;
         });
+    }
+
+    public function test_password_can_not_be_reset_with_invalid_token(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->post('/auth/reset-password', [
+            'token' => 'invalid-token',
+            'email' => $user->email,
+            'password' => 'new-password',
+            'password_confirmation' => 'new-password',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertTrue(Hash::check('password', $user->fresh()->password));
     }
 }

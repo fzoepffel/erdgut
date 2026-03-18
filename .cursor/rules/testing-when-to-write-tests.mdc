@@ -1,0 +1,39 @@
+---
+description: When tests are required for Erdgut changes
+alwaysApply: true
+---
+
+# Testing Trigger Rules (Erdgut)
+
+Write or update tests whenever a change affects behavior, data integrity, security, money flow, or scheduling.
+
+## Must Add Tests
+
+- New route, middleware, redirect, guard, or route name changes.
+- Any auth/account change (login, register, password reset, email verification, profile).
+- Any DB migration, model relation, enum, cast, or business state transition.
+- Any payment logic (SumUp setup, webhook handling, retries, idempotency, token handling).
+- Any scheduler/command/cron logic that mutates data or charges customers.
+- Any validation or authorization rule that can allow/deny user actions.
+- Bug fixes for regressions: first add a failing test, then implement the fix.
+
+## Minimum Test Types By Change
+
+- Routing/Auth/UI flow changes: feature tests.
+- Domain/service logic (subscription, box, payment calculations): unit tests.
+- External event processing (webhooks, recurring charge commands): integration-style feature tests with fakes/mocks.
+
+## Roadmap Alignment (Long-Term Plan)
+
+- Prioritize coverage early for P0/P1 core journeys in phases 1-4.
+- Implement explicit testing tickets in phase 5 hardening:
+  - ERD-120 to ERD-127 are mandatory scope, not optional polish.
+- For earlier tickets, add proportional tests immediately instead of postponing all coverage.
+
+## Definition of Done
+
+- If behavior changed, tests changed in same PR.
+- Tests must assert outcomes (status, redirect, DB state, events), not only status 200.
+- Run relevant tests locally before finishing: `php artisan test`.
+- Relevant tests must pass before marking work complete.
+- If tests fail, either fix the issue in the same task or clearly document the blocker and do not claim the task is done.
