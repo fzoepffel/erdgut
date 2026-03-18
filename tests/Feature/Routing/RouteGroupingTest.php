@@ -14,6 +14,7 @@ class RouteGroupingTest extends TestCase
     public function test_core_named_routes_use_expected_paths(): void
     {
         $this->assertSame('/', route('public.home', absolute: false));
+        $this->assertSame('/health', route('public.health', absolute: false));
         $this->assertSame('/app/dashboard', route('app.dashboard', absolute: false));
         $this->assertSame('/account/profile', route('account.profile.edit', absolute: false));
         $this->assertSame('/auth/login', route('auth.login', absolute: false));
