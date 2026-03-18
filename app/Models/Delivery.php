@@ -1,0 +1,82 @@
+<?php
+
+namespace App\Models;
+
+use Database\Factories\DeliveryFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Delivery extends Model
+{
+    public const STATUS_SCHEDULED = 'scheduled';
+
+    public const STATUS_SKIPPED = 'skipped';
+
+    public const STATUS_DELIVERED = 'delivered';
+
+    /** @use HasFactory<DeliveryFactory> */
+    use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'user_id',
+        'address_id',
+        'scheduled_for_date',
+        'timeslot',
+        'status',
+        'special_instructions',
+        'is_weekly_override',
+        'overrides_delivery_id',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'scheduled_for_date' => 'date',
+            'is_weekly_override' => 'boolean',
+        ];
+    }
+
+    /**
+     * Get the user that owns this delivery.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the address assigned to this delivery.
+     */
+    public function address(): BelongsTo
+    {
+        return $this->belongsTo(Address::class);
+    }
+
+    /**
+     * Get the base delivery that this row overrides.
+     */
+    public function overridesDelivery(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'overrides_delivery_id');
+    }
+
+    /**
+     * Get all weekly override deliveries for this base row.
+     */
+    public function overrideDeliveries(): HasMany
+    {
+        return $this->hasMany(self::class, 'overrides_delivery_id');
+    }
+}

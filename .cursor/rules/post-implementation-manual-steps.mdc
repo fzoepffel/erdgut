@@ -1,0 +1,26 @@
+---
+description: Always remind user of manual steps after new implementations
+alwaysApply: true
+---
+
+# Post-Implementation Manual Steps
+
+After implementing or deploying a new feature, **always** tell the user if they need to do anything manually.
+
+## When to Mention Manual Steps
+
+- **Database migrations**: New migrations require `php artisan migrate --force` on the server
+- **Environment variables**: New `.env` keys require updating the server `.env`
+- **Config changes**: `php artisan config:clear` or `cache:clear` may be needed
+- **Server setup**: SSH keys, cron jobs, file permissions, document root
+- **Third-party setup**: API keys, webhooks, domains, SSL
+- **Deployment**: Manual steps if CI/CD does not run migrations or deploy config
+
+## How to Present
+
+Add a short section at the end of your response, e.g.:
+
+> **Manual steps on server**  
+> Run `php artisan migrate --force` in the app directory after deploy.
+
+If there are no manual steps, you may briefly say so when relevant (e.g. after a git flow or deployment).
