@@ -308,8 +308,6 @@ Every push/PR runs a `CI` workflow with:
 
 If CI fails, deployment is blocked until CI is green.
 
-CI also uploads a `coverage.xml` artifact so test coverage output is available from the workflow run.
-
 **Where to check CI results in GitHub**
 
 1. Open the repo on GitHub (e.g. `https://github.com/fzoepffel/erdgut`)
