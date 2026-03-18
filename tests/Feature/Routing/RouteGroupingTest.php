@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Routing;
 
+use App\Http\Controllers\Marketing\HomeController;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route as RouteFacade;
@@ -60,5 +61,15 @@ class RouteGroupingTest extends TestCase
 
         $this->assertContains('auth', $verificationSendRoute->gatherMiddleware());
         $this->assertContains('throttle:6,1', $verificationSendRoute->gatherMiddleware());
+    }
+
+    public function test_public_home_route_uses_marketing_home_controller(): void
+    {
+        $homeRoute = RouteFacade::getRoutes()->getByName('public.home');
+
+        $this->assertNotNull($homeRoute);
+        $this->assertSame([HomeController::class, 'index'], $homeRoute->getAction('controller')
+            ? explode('@', $homeRoute->getAction('controller'))
+            : []);
     }
 }
