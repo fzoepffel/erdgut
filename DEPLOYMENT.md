@@ -80,6 +80,7 @@ Before first production deploy, make sure:
    - `LOG_IONOS_STACK=daily,critical_daily`
    - `LOG_DAILY_DAYS=30`
    - `LOG_CRITICAL_DAYS=60`
+8. `CRON_KEY` is replaced from the default placeholder in server `.env`.
 
 ```bash
 # Deploy to staging

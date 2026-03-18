@@ -442,6 +442,7 @@ If you see `UnsupportedSchemeException`, check `MAIL_SCHEME` is `smtp` or `smtps
 - Use different `APP_KEY` for local, staging, and production.
 - Use separate database credentials for staging and production.
 - Keep secrets only in server `.env` and GitHub Secrets.
+- The app now fails fast in `staging` and `production` if `APP_KEY` is missing or `CRON_KEY` is left as the default placeholder.
 
 ## Glossary (quick plain-language terms)
 
