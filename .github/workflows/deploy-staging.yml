@@ -6,6 +6,9 @@ on:
     branches: [staging]
     types: [completed]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
     name: Deploy to staging.erd-gut.de
