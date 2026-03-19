@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\SubscriptionStatus;
 use App\Http\Requests\SubscriptionUpdateRequest;
 use App\Models\Subscription;
+use App\Support\SubscriptionUpdateService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,7 +41,10 @@ class SubscriptionController extends Controller
         ]);
     }
 
-    public function update(SubscriptionUpdateRequest $request): RedirectResponse
+    public function update(
+        SubscriptionUpdateRequest $request,
+        SubscriptionUpdateService $subscriptionUpdateService
+    ): RedirectResponse
     {
         $subscription = $this->resolveSubscription($request);
 
@@ -52,11 +56,7 @@ class SubscriptionController extends Controller
 
         $validated = $request->validated();
 
-        $subscription->update([
-            'box_size' => $validated['box_size'],
-            'preferences' => $validated['preferences'],
-            'allergies' => $validated['allergies'] ?? [],
-        ]);
+        $subscriptionUpdateService->update($subscription, $validated, $request->user()->id);
 
         return redirect()
             ->route('app.subscriptions.show')

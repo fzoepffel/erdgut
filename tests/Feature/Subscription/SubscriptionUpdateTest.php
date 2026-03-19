@@ -5,6 +5,7 @@ namespace Tests\Feature\Subscription;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class SubscriptionUpdateTest extends TestCase
@@ -40,6 +41,8 @@ class SubscriptionUpdateTest extends TestCase
 
     public function test_user_can_update_subscription_settings(): void
     {
+        Log::spy();
+
         $user = User::factory()->create();
         $subscription = Subscription::factory()->create([
             'user_id' => $user->id,
@@ -67,6 +70,18 @@ class SubscriptionUpdateTest extends TestCase
             $subscription->preferences
         );
         $this->assertSame(['nuts', 'gluten'], $subscription->allergies);
+
+        Log::shouldHaveReceived('info')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($subscription, $user): bool {
+                return $message === 'subscription.updated'
+                    && $context['subscription_id'] === $subscription->id
+                    && $context['subscription_user_id'] === $subscription->user_id
+                    && $context['actor_user_id'] === $user->id
+                    && in_array('box_size', $context['changed_fields'], true)
+                    && in_array('preferences', $context['changed_fields'], true)
+                    && in_array('allergies', $context['changed_fields'], true);
+            });
     }
 
     public function test_update_validates_box_size_and_keeps_existing_values(): void
