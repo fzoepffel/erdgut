@@ -4,6 +4,7 @@ use App\Http\Controllers\Account\UserAccessProbeController;
 use App\Http\Controllers\BoxController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\DeliveryPreferencesController;
 use App\Http\Controllers\Marketing\AboutController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
@@ -39,6 +40,8 @@ Route::middleware(['auth', 'verified'])
             Route::post('/cancel', [SubscriptionController::class, 'cancel'])->name('cancel');
         });
         Route::prefix('deliveries')->name('deliveries.')->group(function () {
+            Route::get('/preferences', [DeliveryPreferencesController::class, 'edit'])->name('preferences.edit');
+            Route::patch('/preferences', [DeliveryPreferencesController::class, 'update'])->name('preferences.update');
             Route::get('/{delivery}', [DeliveryController::class, 'show'])->name('show');
             Route::post('/{delivery}/skip', [DeliveryController::class, 'skip'])->name('skip');
             Route::get('/{delivery}/gift', [DeliveryController::class, 'gift'])->name('gift');

@@ -28,6 +28,8 @@ class Address extends Model
         'city',
         'country_code',
         'phone',
+        'building_code',
+        'floor',
         'delivery_instructions',
         'is_primary',
     ];

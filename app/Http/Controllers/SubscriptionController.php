@@ -135,11 +135,17 @@ class SubscriptionController extends Controller
                 ->with('status', 'subscription-missing');
         }
 
-        $subscriptionLifecycleService->cancelNow(
-            $subscription,
-            $request->validated()['cancellation_reason'] ?? null,
-            $request->user()->id
-        );
+        try {
+            $subscriptionLifecycleService->cancelNow(
+                $subscription,
+                $request->validated()['cancellation_reason'] ?? null,
+                $request->user()->id
+            );
+        } catch (DomainException) {
+            return redirect()
+                ->route('app.subscriptions.show')
+                ->with('status', 'subscription-action-not-allowed');
+        }
 
         return redirect()
             ->route('app.subscriptions.show')

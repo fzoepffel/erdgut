@@ -5,6 +5,7 @@ namespace Tests\Feature\Routing;
 use App\Http\Controllers\BoxController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\DeliveryPreferencesController;
 use App\Http\Controllers\Marketing\AboutController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
@@ -37,6 +38,8 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/deliveries/1', route('app.deliveries.show', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1/skip', route('app.deliveries.skip', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1/gift', route('app.deliveries.gift', ['delivery' => 1], absolute: false));
+        $this->assertSame('/app/deliveries/preferences', route('app.deliveries.preferences.edit', absolute: false));
+        $this->assertSame('/app/deliveries/preferences', route('app.deliveries.preferences.update', absolute: false));
         $this->assertSame('/account/profile', route('account.profile.edit', absolute: false));
         $this->assertSame('/auth/login', route('auth.login', absolute: false));
         $this->assertSame('/auth/register', route('auth.register', absolute: false));
@@ -109,11 +112,15 @@ class RouteGroupingTest extends TestCase
         $deliveryShowRoute = RouteFacade::getRoutes()->getByName('app.deliveries.show');
         $deliverySkipRoute = RouteFacade::getRoutes()->getByName('app.deliveries.skip');
         $deliveryGiftRoute = RouteFacade::getRoutes()->getByName('app.deliveries.gift');
+        $deliveryPreferencesEditRoute = RouteFacade::getRoutes()->getByName('app.deliveries.preferences.edit');
+        $deliveryPreferencesUpdateRoute = RouteFacade::getRoutes()->getByName('app.deliveries.preferences.update');
 
         $this->assertNotNull($boxRoute);
         $this->assertNotNull($deliveryShowRoute);
         $this->assertNotNull($deliverySkipRoute);
         $this->assertNotNull($deliveryGiftRoute);
+        $this->assertNotNull($deliveryPreferencesEditRoute);
+        $this->assertNotNull($deliveryPreferencesUpdateRoute);
 
         $this->assertSame([BoxController::class, 'show'], $boxRoute->getAction('controller')
             ? explode('@', $boxRoute->getAction('controller'))
@@ -126,6 +133,12 @@ class RouteGroupingTest extends TestCase
             : []);
         $this->assertSame([DeliveryController::class, 'gift'], $deliveryGiftRoute->getAction('controller')
             ? explode('@', $deliveryGiftRoute->getAction('controller'))
+            : []);
+        $this->assertSame([DeliveryPreferencesController::class, 'edit'], $deliveryPreferencesEditRoute->getAction('controller')
+            ? explode('@', $deliveryPreferencesEditRoute->getAction('controller'))
+            : []);
+        $this->assertSame([DeliveryPreferencesController::class, 'update'], $deliveryPreferencesUpdateRoute->getAction('controller')
+            ? explode('@', $deliveryPreferencesUpdateRoute->getAction('controller'))
             : []);
     }
 

@@ -118,6 +118,37 @@ class SubscriptionLifecycleActionsTest extends TestCase
         $this->assertNull($subscription->pause_until);
     }
 
+    public function test_repeated_cancel_is_blocked_after_first_cancellation(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('app.subscriptions.cancel'), [
+                'cancellation_reason' => 'First cancellation',
+            ])
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-cancelled');
+
+        $cancelledAt = $subscription->fresh()->cancelled_at;
+
+        $this->actingAs($user)
+            ->post(route('app.subscriptions.cancel'), [
+                'cancellation_reason' => 'Second attempt',
+            ])
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-action-not-allowed');
+
+        $subscription->refresh();
+
+        $this->assertSame(SubscriptionStatus::Cancelled, $subscription->status);
+        $this->assertSame('First cancellation', $subscription->cancellation_reason);
+        $this->assertTrue($subscription->cancelled_at?->equalTo($cancelledAt));
+    }
+
     public function test_cancelled_subscription_cannot_be_paused_or_resumed(): void
     {
         $user = User::factory()->create();

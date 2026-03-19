@@ -78,6 +78,10 @@ class SubscriptionLifecycleService
 
     public function cancelNow(Subscription $subscription, ?string $reason, int $actorUserId): Subscription
     {
+        if ($subscription->status === SubscriptionStatus::Cancelled) {
+            throw new DomainException('Subscription is already cancelled.');
+        }
+
         return DB::transaction(function () use ($subscription, $reason, $actorUserId): Subscription {
             $subscription->update([
                 'status' => SubscriptionStatus::Cancelled,

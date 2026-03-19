@@ -30,6 +30,8 @@ class AddressFactory extends Factory
             'city' => fake()->city(),
             'country_code' => 'DE',
             'phone' => fake()->optional()->phoneNumber(),
+            'building_code' => fake()->optional()->bothify('##?'),
+            'floor' => fake()->optional()->numberBetween(0, 8),
             'delivery_instructions' => fake()->optional()->sentence(),
             'is_primary' => false,
         ];

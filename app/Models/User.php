@@ -70,6 +70,14 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Get permanent delivery preferences for the user.
+     */
+    public function deliveryPreference(): HasOne
+    {
+        return $this->hasOne(DeliveryPreference::class);
+    }
+
+    /**
      * Get all subscriptions assigned to the user.
      */
     public function subscriptions(): HasMany
