@@ -9,6 +9,7 @@ use App\Http\Controllers\Marketing\AboutController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\ProducerController;
+use App\Http\Controllers\SubscriptionController;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route as RouteFacade;
@@ -26,6 +27,7 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/contact', route('public.contact', absolute: false));
         $this->assertSame('/health', route('public.health', absolute: false));
         $this->assertSame('/app/dashboard', route('app.dashboard', absolute: false));
+        $this->assertSame('/app/subscriptions', route('app.subscriptions.show', absolute: false));
         $this->assertSame('/app/boxes/1', route('app.boxes.show', ['box' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1', route('app.deliveries.show', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1/skip', route('app.deliveries.skip', ['delivery' => 1], absolute: false));
@@ -119,6 +121,16 @@ class RouteGroupingTest extends TestCase
             : []);
         $this->assertSame([DeliveryController::class, 'gift'], $deliveryGiftRoute->getAction('controller')
             ? explode('@', $deliveryGiftRoute->getAction('controller'))
+            : []);
+    }
+
+    public function test_app_subscriptions_route_uses_subscription_controller(): void
+    {
+        $subscriptionRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.show');
+
+        $this->assertNotNull($subscriptionRoute);
+        $this->assertSame([SubscriptionController::class, 'show'], $subscriptionRoute->getAction('controller')
+            ? explode('@', $subscriptionRoute->getAction('controller'))
             : []);
     }
 

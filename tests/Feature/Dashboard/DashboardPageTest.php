@@ -46,7 +46,7 @@ class DashboardPageTest extends TestCase
         Delivery::factory()->create([
             'user_id' => $dashboardUser->id,
             'address_id' => $dashboardAddress->id,
-            'scheduled_for_date' => now()->addDays(2)->startOfWeek()->addDays(2)->toDateString(),
+            'scheduled_for_date' => now()->addWeek()->startOfWeek()->addDays(2)->toDateString(),
             'timeslot' => '08:00-12:00',
             'status' => DeliveryStatus::Scheduled,
         ]);
@@ -127,7 +127,7 @@ class DashboardPageTest extends TestCase
     {
         $user = User::factory()->create();
         $address = Address::factory()->create(['user_id' => $user->id]);
-        $deliveryDate = now()->addDays(3)->startOfWeek()->addDays(2);
+        $deliveryDate = now()->addWeek()->startOfWeek()->addDays(2);
 
         $delivery = Delivery::factory()->create([
             'user_id' => $user->id,

@@ -22,9 +22,7 @@
                                     <li class="rounded-md border border-gray-200 p-4 shadow-sm">
                                         <div class="flex items-center justify-between">
                                             <p class="font-medium">{{ $delivery->scheduled_for_date->format('D, d M Y') }}</p>
-                                            <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                                                {{ ucfirst($delivery->status->value) }}
-                                            </span>
+                                            <x-status-badge :value="$delivery->status" type="delivery" />
                                         </div>
                                         <p class="mt-1 text-sm text-gray-600">{{ $delivery->timeslot }}</p>
                                         <p class="text-sm text-gray-600">
@@ -107,7 +105,10 @@
                                 @foreach ($upcomingBoxes as $box)
                                     <li class="rounded-md border border-gray-200 p-3">
                                         <p class="font-medium">Week of {{ $box->week_start_date->format('d M Y') }}</p>
-                                        <p class="text-sm text-gray-600">Status: {{ $box->status->value }}</p>
+                                        <p class="text-sm text-gray-600">
+                                            Status:
+                                            <x-status-badge :value="$box->status" type="box" />
+                                        </p>
                                         <p class="text-sm text-gray-600">
                                             Estimated value: EUR {{ number_format((float) $box->estimated_value, 2) }}
                                         </p>
