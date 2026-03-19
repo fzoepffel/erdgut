@@ -15,6 +15,9 @@
                     <x-nav-link :href="route('app.dashboard')" :active="request()->routeIs('app.dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('app.subscriptions.show')" :active="request()->routeIs('app.subscriptions.*')">
+                        {{ __('Subscription') }}
+                    </x-nav-link>
                 </div>
             </div>
 
@@ -34,6 +37,9 @@
                     </x-slot>
 
                     <x-slot name="content">
+                        <x-dropdown-link :href="route('app.deliveries.preferences.edit')">
+                            {{ __('Delivery preferences') }}
+                        </x-dropdown-link>
                         <x-dropdown-link :href="route('account.profile.edit')">
                             {{ __('Profile') }}
                         </x-dropdown-link>
@@ -70,6 +76,9 @@
             <x-responsive-nav-link :href="route('app.dashboard')" :active="request()->routeIs('app.dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('app.subscriptions.show')" :active="request()->routeIs('app.subscriptions.*')">
+                {{ __('Subscription') }}
+            </x-responsive-nav-link>
         </div>
 
         <!-- Responsive Settings Options -->
@@ -80,6 +89,9 @@
             </div>
 
             <div class="mt-3 space-y-1">
+                <x-responsive-nav-link :href="route('app.deliveries.preferences.edit')">
+                    {{ __('Delivery preferences') }}
+                </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('account.profile.edit')">
                     {{ __('Profile') }}
                 </x-responsive-nav-link>
