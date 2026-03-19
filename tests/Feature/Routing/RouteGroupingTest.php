@@ -30,6 +30,9 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/subscriptions', route('app.subscriptions.show', absolute: false));
         $this->assertSame('/app/subscriptions/edit', route('app.subscriptions.edit', absolute: false));
         $this->assertSame('/app/subscriptions', route('app.subscriptions.update', absolute: false));
+        $this->assertSame('/app/subscriptions/pause', route('app.subscriptions.pause', absolute: false));
+        $this->assertSame('/app/subscriptions/resume', route('app.subscriptions.resume', absolute: false));
+        $this->assertSame('/app/subscriptions/cancel', route('app.subscriptions.cancel', absolute: false));
         $this->assertSame('/app/boxes/1', route('app.boxes.show', ['box' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1', route('app.deliveries.show', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1/skip', route('app.deliveries.skip', ['delivery' => 1], absolute: false));
@@ -131,10 +134,16 @@ class RouteGroupingTest extends TestCase
         $subscriptionRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.show');
         $subscriptionEditRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.edit');
         $subscriptionUpdateRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.update');
+        $subscriptionPauseRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.pause');
+        $subscriptionResumeRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.resume');
+        $subscriptionCancelRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.cancel');
 
         $this->assertNotNull($subscriptionRoute);
         $this->assertNotNull($subscriptionEditRoute);
         $this->assertNotNull($subscriptionUpdateRoute);
+        $this->assertNotNull($subscriptionPauseRoute);
+        $this->assertNotNull($subscriptionResumeRoute);
+        $this->assertNotNull($subscriptionCancelRoute);
         $this->assertSame([SubscriptionController::class, 'show'], $subscriptionRoute->getAction('controller')
             ? explode('@', $subscriptionRoute->getAction('controller'))
             : []);
@@ -143,6 +152,15 @@ class RouteGroupingTest extends TestCase
             : []);
         $this->assertSame([SubscriptionController::class, 'update'], $subscriptionUpdateRoute->getAction('controller')
             ? explode('@', $subscriptionUpdateRoute->getAction('controller'))
+            : []);
+        $this->assertSame([SubscriptionController::class, 'pause'], $subscriptionPauseRoute->getAction('controller')
+            ? explode('@', $subscriptionPauseRoute->getAction('controller'))
+            : []);
+        $this->assertSame([SubscriptionController::class, 'resume'], $subscriptionResumeRoute->getAction('controller')
+            ? explode('@', $subscriptionResumeRoute->getAction('controller'))
+            : []);
+        $this->assertSame([SubscriptionController::class, 'cancel'], $subscriptionCancelRoute->getAction('controller')
+            ? explode('@', $subscriptionCancelRoute->getAction('controller'))
             : []);
     }
 

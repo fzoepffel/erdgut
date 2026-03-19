@@ -34,6 +34,9 @@ Route::middleware(['auth', 'verified'])
             Route::get('/', [SubscriptionController::class, 'show'])->name('show');
             Route::get('/edit', [SubscriptionController::class, 'edit'])->name('edit');
             Route::patch('/', [SubscriptionController::class, 'update'])->name('update');
+            Route::post('/pause', [SubscriptionController::class, 'pause'])->name('pause');
+            Route::post('/resume', [SubscriptionController::class, 'resume'])->name('resume');
+            Route::post('/cancel', [SubscriptionController::class, 'cancel'])->name('cancel');
         });
         Route::prefix('deliveries')->name('deliveries.')->group(function () {
             Route::get('/{delivery}', [DeliveryController::class, 'show'])->name('show');

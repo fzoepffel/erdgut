@@ -7,6 +7,7 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -28,6 +29,9 @@ class SubscriptionModelLifecycleTest extends TestCase
             'preferences' => ['veg_only' => true],
             'allergies' => ['nuts'],
             'status' => SubscriptionStatus::Active,
+            'next_charge_date' => '2026-03-25',
+            'pause_from' => '2026-03-30',
+            'pause_until' => '2026-04-06',
             'sumup_token' => 'tok_123',
             'sumup_customer_id' => 'cus_123',
         ]);
@@ -44,6 +48,9 @@ class SubscriptionModelLifecycleTest extends TestCase
         $this->assertSame(SubscriptionPlan::Weekly, $subscription->plan);
         $this->assertSame(SubscriptionStatus::Active, $subscription->status);
         $this->assertTrue($subscription->preferences['veg_only']);
+        $this->assertSame('2026-03-25', $subscription->next_charge_date?->toDateString());
+        $this->assertSame('2026-03-30', $subscription->pause_from?->toDateString());
+        $this->assertSame('2026-04-06', $subscription->pause_until?->toDateString());
     }
 
     public function test_subscription_supports_active_paused_cancelled_lifecycle(): void
@@ -104,5 +111,18 @@ class SubscriptionModelLifecycleTest extends TestCase
             ->all();
 
         $this->assertSame([$firstPayment->id, $secondPayment->id], $paymentIds);
+    }
+
+    public function test_subscription_pause_window_helpers_work(): void
+    {
+        $subscription = Subscription::factory()->create([
+            'pause_from' => '2026-04-01',
+            'pause_until' => '2026-04-15',
+        ]);
+
+        $this->assertTrue($subscription->hasPauseWindow());
+        $this->assertTrue($subscription->isWithinPauseWindow(Carbon::parse('2026-04-08')));
+        $this->assertFalse($subscription->isWithinPauseWindow(Carbon::parse('2026-03-30')));
+        $this->assertFalse($subscription->isWithinPauseWindow(Carbon::parse('2026-04-20')));
     }
 }

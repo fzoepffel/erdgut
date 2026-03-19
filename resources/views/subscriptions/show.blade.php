@@ -13,22 +13,63 @@
                         <p class="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
                             Subscription details saved.
                         </p>
+                    @elseif (session('status') === 'subscription-pause-scheduled')
+                        <p class="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+                            Pause timeframe saved.
+                        </p>
+                    @elseif (session('status') === 'subscription-resumed')
+                        <p class="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+                            Subscription resumed immediately.
+                        </p>
+                    @elseif (session('status') === 'subscription-cancelled')
+                        <p class="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+                            Subscription cancelled.
+                        </p>
                     @elseif (session('status') === 'subscription-missing')
                         <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
                             No subscription available to edit yet.
+                        </p>
+                    @elseif (session('status') === 'subscription-action-not-allowed')
+                        <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                            This subscription action is not allowed in the current state.
                         </p>
                     @endif
 
                     @if ($subscription === null)
                         <p class="text-sm text-gray-600">No active subscription found yet.</p>
                     @else
-                        <div class="mb-6">
+                        <div class="mb-6 flex flex-wrap items-center gap-3">
                             <a
                                 href="{{ route('app.subscriptions.edit') }}"
                                 class="inline-flex items-center rounded-md bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-gray-700"
                             >
                                 Edit subscription
                             </a>
+
+                            @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled)
+                                <x-secondary-button
+                                    x-data=""
+                                    x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-pause')"
+                                >
+                                    Pause timeframe
+                                </x-secondary-button>
+                            @endif
+
+                            @if ($subscription->status === \App\Enums\SubscriptionStatus::Paused || $subscription->hasPauseWindow())
+                                <form method="post" action="{{ route('app.subscriptions.resume') }}">
+                                    @csrf
+                                    <x-primary-button>Resume now</x-primary-button>
+                                </form>
+                            @endif
+
+                            @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled)
+                                <x-danger-button
+                                    x-data=""
+                                    x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-cancel')"
+                                >
+                                    Cancel subscription
+                                </x-danger-button>
+                            @endif
                         </div>
 
                         <dl class="space-y-4">
@@ -75,7 +116,121 @@
                                 <dt class="text-sm font-medium text-gray-500">Upcoming billing date</dt>
                                 <dd class="mt-1 text-sm text-gray-900">{{ $billingDatePlaceholder }}</dd>
                             </div>
+
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Pause timeframe</dt>
+                                <dd class="mt-1 text-sm text-gray-900">
+                                    @if ($subscription->hasPauseWindow())
+                                        {{ $subscription->pause_from?->format('Y-m-d') }} to {{ $subscription->pause_until?->format('Y-m-d') }}
+                                    @else
+                                        No pause timeframe scheduled.
+                                    @endif
+                                </dd>
+                            </div>
+
+                            @if ($subscription->status === \App\Enums\SubscriptionStatus::Cancelled && $subscription->cancellation_reason)
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Cancellation reason</dt>
+                                    <dd class="mt-1 text-sm text-gray-900">{{ $subscription->cancellation_reason }}</dd>
+                                </div>
+                            @endif
                         </dl>
+
+                        <x-modal
+                            name="confirm-subscription-pause"
+                            :show="$errors->has('pause_from') || $errors->has('pause_until')"
+                            focusable
+                        >
+                            <form method="post" action="{{ route('app.subscriptions.pause') }}" class="p-6">
+                                @csrf
+
+                                <h2 class="text-lg font-medium text-gray-900">
+                                    Pause subscription timeframe
+                                </h2>
+
+                                <p class="mt-1 text-sm text-gray-600">
+                                    Choose the period where billing should be paused.
+                                </p>
+
+                                <div class="mt-4 space-y-4">
+                                    <div>
+                                        <x-input-label for="pause_from" :value="__('Pause from')" />
+                                        <x-text-input
+                                            id="pause_from"
+                                            name="pause_from"
+                                            type="date"
+                                            class="mt-1 block w-full"
+                                            :value="old('pause_from', $subscription->pause_from?->format('Y-m-d'))"
+                                            required
+                                        />
+                                        <x-input-error class="mt-2" :messages="$errors->get('pause_from')" />
+                                    </div>
+
+                                    <div>
+                                        <x-input-label for="pause_until" :value="__('Pause until')" />
+                                        <x-text-input
+                                            id="pause_until"
+                                            name="pause_until"
+                                            type="date"
+                                            class="mt-1 block w-full"
+                                            :value="old('pause_until', $subscription->pause_until?->format('Y-m-d'))"
+                                            required
+                                        />
+                                        <x-input-error class="mt-2" :messages="$errors->get('pause_until')" />
+                                    </div>
+                                </div>
+
+                                <div class="mt-6 flex justify-end">
+                                    <x-secondary-button x-on:click="$dispatch('close')">
+                                        Cancel
+                                    </x-secondary-button>
+
+                                    <x-primary-button class="ms-3">
+                                        Save timeframe
+                                    </x-primary-button>
+                                </div>
+                            </form>
+                        </x-modal>
+
+                        <x-modal
+                            name="confirm-subscription-cancel"
+                            :show="$errors->has('cancellation_reason')"
+                            focusable
+                        >
+                            <form method="post" action="{{ route('app.subscriptions.cancel') }}" class="p-6">
+                                @csrf
+
+                                <h2 class="text-lg font-medium text-gray-900">
+                                    Cancel subscription
+                                </h2>
+
+                                <p class="mt-1 text-sm text-gray-600">
+                                    We are sorry to see you go. If you want, share a short reason so we can improve.
+                                </p>
+
+                                <div class="mt-4">
+                                    <x-input-label for="cancellation_reason" :value="__('Reason (optional)')" />
+                                    <textarea
+                                        id="cancellation_reason"
+                                        name="cancellation_reason"
+                                        rows="3"
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        placeholder="Optional feedback"
+                                    >{{ old('cancellation_reason') }}</textarea>
+                                    <x-input-error class="mt-2" :messages="$errors->get('cancellation_reason')" />
+                                </div>
+
+                                <div class="mt-6 flex justify-end">
+                                    <x-secondary-button x-on:click="$dispatch('close')">
+                                        Keep subscription
+                                    </x-secondary-button>
+
+                                    <x-danger-button class="ms-3">
+                                        Confirm cancellation
+                                    </x-danger-button>
+                                </div>
+                            </form>
+                        </x-modal>
                     @endif
                 </div>
             </div>

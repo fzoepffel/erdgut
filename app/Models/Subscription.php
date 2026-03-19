@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use Database\Factories\SubscriptionFactory;
+use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,11 @@ class Subscription extends Model
         'preferences',
         'allergies',
         'status',
+        'next_charge_date',
+        'pause_from',
+        'pause_until',
+        'cancelled_at',
+        'cancellation_reason',
         'sumup_token',
         'sumup_customer_id',
         'is_test',
@@ -44,6 +50,10 @@ class Subscription extends Model
             'status' => SubscriptionStatus::class,
             'preferences' => 'array',
             'allergies' => 'array',
+            'next_charge_date' => 'date',
+            'pause_from' => 'date',
+            'pause_until' => 'date',
+            'cancelled_at' => 'datetime',
             'is_test' => 'boolean',
         ];
     }
@@ -86,5 +96,22 @@ class Subscription extends Model
     public function cancel(): void
     {
         $this->update(['status' => SubscriptionStatus::Cancelled]);
+    }
+
+    public function hasPauseWindow(): bool
+    {
+        return $this->pause_from !== null && $this->pause_until !== null;
+    }
+
+    public function isWithinPauseWindow(?Carbon $date = null): bool
+    {
+        if (! $this->hasPauseWindow()) {
+            return false;
+        }
+
+        $targetDate = ($date ?? now())->toDateString();
+
+        return $targetDate >= $this->pause_from->toDateString()
+            && $targetDate <= $this->pause_until->toDateString();
     }
 }
