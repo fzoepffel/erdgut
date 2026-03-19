@@ -34,6 +34,7 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/subscriptions/pause', route('app.subscriptions.pause', absolute: false));
         $this->assertSame('/app/subscriptions/resume', route('app.subscriptions.resume', absolute: false));
         $this->assertSame('/app/subscriptions/cancel', route('app.subscriptions.cancel', absolute: false));
+        $this->assertSame('/app/boxes/current', route('app.boxes.current', absolute: false));
         $this->assertSame('/app/boxes/1', route('app.boxes.show', ['box' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1', route('app.deliveries.show', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1/skip', route('app.deliveries.skip', ['delivery' => 1], absolute: false));
@@ -108,6 +109,7 @@ class RouteGroupingTest extends TestCase
 
     public function test_app_boxes_and_deliveries_routes_use_expected_controllers(): void
     {
+        $boxCurrentRoute = RouteFacade::getRoutes()->getByName('app.boxes.current');
         $boxRoute = RouteFacade::getRoutes()->getByName('app.boxes.show');
         $deliveryShowRoute = RouteFacade::getRoutes()->getByName('app.deliveries.show');
         $deliverySkipRoute = RouteFacade::getRoutes()->getByName('app.deliveries.skip');
@@ -115,6 +117,7 @@ class RouteGroupingTest extends TestCase
         $deliveryPreferencesEditRoute = RouteFacade::getRoutes()->getByName('app.deliveries.preferences.edit');
         $deliveryPreferencesUpdateRoute = RouteFacade::getRoutes()->getByName('app.deliveries.preferences.update');
 
+        $this->assertNotNull($boxCurrentRoute);
         $this->assertNotNull($boxRoute);
         $this->assertNotNull($deliveryShowRoute);
         $this->assertNotNull($deliverySkipRoute);
@@ -122,6 +125,9 @@ class RouteGroupingTest extends TestCase
         $this->assertNotNull($deliveryPreferencesEditRoute);
         $this->assertNotNull($deliveryPreferencesUpdateRoute);
 
+        $this->assertSame([BoxController::class, 'current'], $boxCurrentRoute->getAction('controller')
+            ? explode('@', $boxCurrentRoute->getAction('controller'))
+            : []);
         $this->assertSame([BoxController::class, 'show'], $boxRoute->getAction('controller')
             ? explode('@', $boxRoute->getAction('controller'))
             : []);

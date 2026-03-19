@@ -49,6 +49,7 @@ Route::middleware(['auth', 'verified'])
             Route::get('/{delivery}/gift', [DeliveryController::class, 'gift'])->name('gift');
         });
         Route::prefix('boxes')->name('boxes.')->group(function () {
+            Route::get('/current', [BoxController::class, 'current'])->name('current');
             Route::get('/{box}', [BoxController::class, 'show'])->name('show');
         });
         Route::prefix('shop')->name('shop.')->group(function () {

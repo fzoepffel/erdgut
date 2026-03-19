@@ -190,7 +190,7 @@ class DashboardPageTest extends TestCase
         $response->assertOk()
             ->assertSee('Modify by:')
             ->assertSee('Modify box')
-            ->assertSee(route('app.boxes.show', $box), false)
+            ->assertSee(route('app.boxes.show', ['box' => $box, 'mode' => 'edit']), false)
             ->assertSee(route('app.deliveries.show', $delivery), false)
             ->assertSee(route('app.deliveries.gift', $delivery), false)
             ->assertSee(route('app.deliveries.skip', $delivery), false);

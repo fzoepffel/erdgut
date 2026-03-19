@@ -2,18 +2,59 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\BoxStatus;
 use App\Models\Box;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class BoxController extends Controller
 {
+    public function current(Request $request): RedirectResponse
+    {
+        $currentBox = Box::query()
+            ->where('user_id', $request->user()->id)
+            ->whereDate('week_start_date', '<=', now()->toDateString())
+            ->whereDate('week_start_date', '>=', now()->subDays(6)->toDateString())
+            ->orderByDesc('week_start_date')
+            ->first();
+
+        if (! $currentBox instanceof Box) {
+            return redirect()
+                ->route('app.dashboard')
+                ->with('status', 'current-box-missing');
+        }
+
+        return redirect()->route('app.boxes.show', $currentBox);
+    }
+
     public function show(Request $request, Box $box): View
     {
         abort_unless((int) $box->user_id === (int) $request->user()->id, 403);
+        $box->loadMissing('items.product');
+        $modificationDeadline = $box->modification_deadline_at;
+        $canModifyBox = $box->status === BoxStatus::Editable && $modificationDeadline?->isFuture();
+        $isEditModeRequested = $request->query('mode') === 'edit';
+        $isEditModeActive = $isEditModeRequested && $canModifyBox;
+        $isEditModeBlocked = $isEditModeRequested && ! $canModifyBox;
+        $blockedReason = null;
+
+        if ($isEditModeBlocked) {
+            if ($box->status !== BoxStatus::Editable) {
+                $blockedReason = 'box-edit-status-not-editable';
+            } else {
+                $blockedReason = 'box-edit-deadline-expired';
+            }
+        }
 
         return view('boxes.show', [
             'box' => $box,
+            'modificationDeadline' => $modificationDeadline,
+            'canModifyBox' => $canModifyBox,
+            'isEditModeRequested' => $isEditModeRequested,
+            'isEditModeActive' => $isEditModeActive,
+            'isEditModeBlocked' => $isEditModeBlocked,
+            'blockedReason' => $blockedReason,
         ]);
     }
 }

@@ -7,6 +7,12 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            @if (session('status') === 'current-box-missing')
+                <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                    No current week box is available yet.
+                </p>
+            @endif
+
             <div class="grid gap-6 lg:grid-cols-3">
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900">
@@ -43,7 +49,7 @@
 
                                         <div class="mt-3 flex flex-wrap gap-2">
                                             @if ($box && $card['canModifyBox'])
-                                                <a href="{{ route('app.boxes.show', $box) }}" class="rounded-md border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
+                                                <a href="{{ route('app.boxes.show', ['box' => $box, 'mode' => 'edit']) }}" class="rounded-md border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
                                                     Modify box
                                                 </a>
                                             @endif
@@ -79,6 +85,11 @@
                         @if ($currentBox)
                             <p class="mt-2 text-sm text-gray-600">
                                 Week of {{ $currentBox->week_start_date->format('d M Y') }}
+                            </p>
+                            <p class="mt-2">
+                                <a href="{{ route('app.boxes.current') }}" class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                                    View current box
+                                </a>
                             </p>
                             <ul class="mt-4 space-y-2">
                                 @forelse ($currentBox->items as $item)
