@@ -28,6 +28,8 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/health', route('public.health', absolute: false));
         $this->assertSame('/app/dashboard', route('app.dashboard', absolute: false));
         $this->assertSame('/app/subscriptions', route('app.subscriptions.show', absolute: false));
+        $this->assertSame('/app/subscriptions/edit', route('app.subscriptions.edit', absolute: false));
+        $this->assertSame('/app/subscriptions', route('app.subscriptions.update', absolute: false));
         $this->assertSame('/app/boxes/1', route('app.boxes.show', ['box' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1', route('app.deliveries.show', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1/skip', route('app.deliveries.skip', ['delivery' => 1], absolute: false));
@@ -127,10 +129,20 @@ class RouteGroupingTest extends TestCase
     public function test_app_subscriptions_route_uses_subscription_controller(): void
     {
         $subscriptionRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.show');
+        $subscriptionEditRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.edit');
+        $subscriptionUpdateRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.update');
 
         $this->assertNotNull($subscriptionRoute);
+        $this->assertNotNull($subscriptionEditRoute);
+        $this->assertNotNull($subscriptionUpdateRoute);
         $this->assertSame([SubscriptionController::class, 'show'], $subscriptionRoute->getAction('controller')
             ? explode('@', $subscriptionRoute->getAction('controller'))
+            : []);
+        $this->assertSame([SubscriptionController::class, 'edit'], $subscriptionEditRoute->getAction('controller')
+            ? explode('@', $subscriptionEditRoute->getAction('controller'))
+            : []);
+        $this->assertSame([SubscriptionController::class, 'update'], $subscriptionUpdateRoute->getAction('controller')
+            ? explode('@', $subscriptionUpdateRoute->getAction('controller'))
             : []);
     }
 

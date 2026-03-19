@@ -9,9 +9,28 @@
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
+                    @if (session('status') === 'subscription-updated')
+                        <p class="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+                            Subscription details saved.
+                        </p>
+                    @elseif (session('status') === 'subscription-missing')
+                        <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                            No subscription available to edit yet.
+                        </p>
+                    @endif
+
                     @if ($subscription === null)
                         <p class="text-sm text-gray-600">No active subscription found yet.</p>
                     @else
+                        <div class="mb-6">
+                            <a
+                                href="{{ route('app.subscriptions.edit') }}"
+                                class="inline-flex items-center rounded-md bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-gray-700"
+                            >
+                                Edit subscription
+                            </a>
+                        </div>
+
                         <dl class="space-y-4">
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Plan</dt>

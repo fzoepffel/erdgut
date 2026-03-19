@@ -1,0 +1,131 @@
+<?php
+
+namespace Tests\Feature\Subscription;
+
+use App\Models\Subscription;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class SubscriptionUpdateTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_guest_is_redirected_from_subscription_edit_and_update(): void
+    {
+        $this->get(route('app.subscriptions.edit'))
+            ->assertRedirect('/auth/login');
+
+        $this->patch(route('app.subscriptions.update'), [])
+            ->assertRedirect('/auth/login');
+    }
+
+    public function test_authenticated_user_can_open_subscription_edit_page(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'box_size' => 'medium',
+            'preferences' => ['veg_only' => true, 'meat_add_on' => false],
+            'allergies' => ['nuts'],
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.subscriptions.edit'))
+            ->assertOk()
+            ->assertSee('Edit subscription')
+            ->assertSee('Medium')
+            ->assertSee('nuts');
+    }
+
+    public function test_user_can_update_subscription_settings(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'box_size' => 'small',
+            'preferences' => ['veg_only' => false, 'meat_add_on' => false],
+            'allergies' => [],
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('app.subscriptions.update'), [
+                'box_size' => 'large',
+                'preferences' => [
+                    'veg_only' => '1',
+                ],
+                'allergies' => 'nuts, gluten',
+            ])
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-updated');
+
+        $subscription->refresh();
+
+        $this->assertSame('large', $subscription->box_size);
+        $this->assertSame(
+            ['veg_only' => true, 'meat_add_on' => false],
+            $subscription->preferences
+        );
+        $this->assertSame(['nuts', 'gluten'], $subscription->allergies);
+    }
+
+    public function test_update_validates_box_size_and_keeps_existing_values(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'box_size' => 'medium',
+            'preferences' => ['veg_only' => true, 'meat_add_on' => false],
+            'allergies' => ['nuts'],
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('app.subscriptions.edit'))
+            ->patch(route('app.subscriptions.update'), [
+                'box_size' => 'invalid-size',
+                'preferences' => [
+                    'veg_only' => '1',
+                ],
+                'allergies' => 'nuts',
+            ])
+            ->assertRedirect(route('app.subscriptions.edit'))
+            ->assertSessionHasErrors(['box_size']);
+
+        $subscription->refresh();
+
+        $this->assertSame('medium', $subscription->box_size);
+        $this->assertSame(['veg_only' => true, 'meat_add_on' => false], $subscription->preferences);
+        $this->assertSame(['nuts'], $subscription->allergies);
+    }
+
+    public function test_edit_and_update_redirect_when_user_has_no_subscription(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+
+        $otherSubscription = Subscription::factory()->create([
+            'user_id' => $otherUser->id,
+            'box_size' => 'small',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.subscriptions.edit'))
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-missing');
+
+        $this->actingAs($user)
+            ->patch(route('app.subscriptions.update'), [
+                'box_size' => 'large',
+                'preferences' => [
+                    'veg_only' => true,
+                    'meat_add_on' => true,
+                ],
+                'allergies' => 'soy',
+            ])
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-missing');
+
+        $otherSubscription->refresh();
+        $this->assertSame('small', $otherSubscription->box_size);
+    }
+}
