@@ -75,4 +75,16 @@ class Delivery extends Model
     {
         return $this->hasMany(self::class, 'overrides_delivery_id');
     }
+
+    /**
+     * @return list<string>
+     */
+    public static function allowedTimeslots(): array
+    {
+        return [
+            '08:00-12:00',
+            '12:00-16:00',
+            '16:00-20:00',
+        ];
+    }
 }

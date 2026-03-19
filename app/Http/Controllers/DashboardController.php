@@ -18,15 +18,25 @@ class DashboardController extends Controller
 
         $upcomingDeliveries = Delivery::query()
             ->where('user_id', $userId)
+            ->where('is_weekly_override', false)
             ->where('scheduled_for_date', '>=', $today)
-            ->where('status', DeliveryStatus::Scheduled)
-            ->with('address')
+            ->with([
+                'address',
+                'overrideDeliveries' => fn ($query) => $query->latest(),
+                'overrideDeliveries.address',
+            ])
             ->orderBy('scheduled_for_date')
-            ->limit(4)
+            ->limit(12)
             ->get();
 
-        $deliveryCards = $upcomingDeliveries->map(function (Delivery $delivery) use ($userId): array {
-            $weekStart = $delivery->scheduled_for_date->copy()->startOfWeek()->toDateString();
+        $deliveryCards = $upcomingDeliveries->map(function (Delivery $delivery) use ($userId): ?array {
+            $effectiveDelivery = $delivery->overrideDeliveries->first() ?? $delivery;
+
+            if ($effectiveDelivery->status !== DeliveryStatus::Scheduled) {
+                return null;
+            }
+
+            $weekStart = $effectiveDelivery->scheduled_for_date->copy()->startOfWeek()->toDateString();
             $box = Box::query()
                 ->where('user_id', $userId)
                 ->whereDate('week_start_date', $weekStart)
@@ -35,12 +45,12 @@ class DashboardController extends Controller
             $canModify = $box?->status === BoxStatus::Editable && $deadline?->isFuture();
 
             return [
-                'delivery' => $delivery,
+                'delivery' => $effectiveDelivery,
                 'box' => $box,
                 'deadline' => $deadline,
                 'canModifyBox' => $canModify,
             ];
-        });
+        })->filter()->values()->take(4);
 
         $upcomingBoxes = Box::query()
             ->where('user_id', $userId)

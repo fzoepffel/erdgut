@@ -123,6 +123,47 @@ class DashboardPageTest extends TestCase
             ->assertDontSee('skipped-slot');
     }
 
+    public function test_dashboard_uses_effective_weekly_override_delivery_values_without_duplicates(): void
+    {
+        $user = User::factory()->create();
+        $baseAddress = Address::factory()->create([
+            'user_id' => $user->id,
+            'city' => 'Berlin',
+        ]);
+        $overrideAddress = Address::factory()->create([
+            'user_id' => $user->id,
+            'city' => 'Munich',
+        ]);
+
+        $baseDelivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $baseAddress->id,
+            'scheduled_for_date' => now()->addDays(2)->toDateString(),
+            'timeslot' => '08:00-12:00',
+            'status' => DeliveryStatus::Scheduled,
+            'is_weekly_override' => false,
+        ]);
+
+        $overrideDelivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $overrideAddress->id,
+            'scheduled_for_date' => $baseDelivery->scheduled_for_date->toDateString(),
+            'timeslot' => '16:00-20:00',
+            'status' => DeliveryStatus::Scheduled,
+            'is_weekly_override' => true,
+            'overrides_delivery_id' => $baseDelivery->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.dashboard'))
+            ->assertOk()
+            ->assertSee('16:00-20:00')
+            ->assertDontSee('08:00-12:00')
+            ->assertSee('Munich')
+            ->assertDontSee('Berlin')
+            ->assertSee(route('app.deliveries.show', $overrideDelivery), false);
+    }
+
     public function test_dashboard_shows_delivery_deadline_and_modify_box_action_when_editable_box_exists(): void
     {
         $user = User::factory()->create();

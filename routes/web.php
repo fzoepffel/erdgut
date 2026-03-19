@@ -40,8 +40,10 @@ Route::middleware(['auth', 'verified'])
             Route::post('/cancel', [SubscriptionController::class, 'cancel'])->name('cancel');
         });
         Route::prefix('deliveries')->name('deliveries.')->group(function () {
+            Route::get('/', [DeliveryController::class, 'index'])->name('index');
             Route::get('/preferences', [DeliveryPreferencesController::class, 'edit'])->name('preferences.edit');
             Route::patch('/preferences', [DeliveryPreferencesController::class, 'update'])->name('preferences.update');
+            Route::patch('/{delivery}/override', [DeliveryController::class, 'updateOverride'])->name('override.update');
             Route::get('/{delivery}', [DeliveryController::class, 'show'])->name('show');
             Route::post('/{delivery}/skip', [DeliveryController::class, 'skip'])->name('skip');
             Route::get('/{delivery}/gift', [DeliveryController::class, 'gift'])->name('gift');

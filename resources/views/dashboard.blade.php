@@ -10,7 +10,12 @@
             <div class="grid gap-6 lg:grid-cols-3">
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900">
-                        <h3 class="text-lg font-semibold">Next deliveries</h3>
+                        <div class="flex items-center justify-between gap-3">
+                            <h3 class="text-lg font-semibold">Next deliveries</h3>
+                            <a href="{{ route('app.deliveries.index') }}" class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                                Manage all
+                            </a>
+                        </div>
 
                         @if ($deliveryCards->isEmpty())
                             <p class="mt-3 text-sm text-gray-600">No upcoming deliveries yet.</p>
