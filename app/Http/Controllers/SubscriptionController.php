@@ -49,8 +49,7 @@ class SubscriptionController extends Controller
     public function update(
         SubscriptionUpdateRequest $request,
         SubscriptionUpdateService $subscriptionUpdateService
-    ): RedirectResponse
-    {
+    ): RedirectResponse {
         $subscription = $this->resolveSubscription($request);
 
         if ($subscription === null) {
