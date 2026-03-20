@@ -72,6 +72,31 @@ class SumUpService
         return $this->client->checkouts()->get($id);
     }
 
+    public function createRecurringCheckout(
+        float $amount,
+        string $customerId,
+        string $checkoutReference,
+        string $description
+    ): object {
+        return $this->createCheckout([
+            'checkout_reference' => $checkoutReference,
+            'amount' => $amount,
+            'currency' => $this->currency,
+            'description' => $description,
+            'customer_id' => $customerId,
+            'purpose' => 'CHECKOUT',
+        ]);
+    }
+
+    public function processCheckout(string $checkoutId, string $token, string $customerId): object
+    {
+        return $this->client->checkouts()->process($checkoutId, [
+            'payment_type' => 'card',
+            'token' => $token,
+            'customer_id' => $customerId,
+        ]);
+    }
+
     public function listPaymentInstruments(string $customerId): object
     {
         return $this->client->customers()->listPaymentInstruments($customerId);

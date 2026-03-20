@@ -102,7 +102,7 @@ class SubscriptionLifecycleService
         });
     }
 
-    private function computeNextChargeDate(Subscription $subscription): string
+    public function computeNextChargeDate(Subscription $subscription): string
     {
         $from = CarbonImmutable::today();
 

@@ -21,12 +21,12 @@ class SubscriptionController extends Controller
     {
         $subscription = $this->resolveSubscription($request);
 
-        // TODO(ERD-090): Replace billing-date placeholder with computed recurring billing date.
-        $billingDatePlaceholder = 'Billing date available after payment setup.';
+        $nextChargeDate = $subscription?->next_charge_date?->format('F j, Y');
+        $billingDateDisplay = $nextChargeDate ?? 'Set after first charge';
 
         return view('subscriptions.show', [
             'subscription' => $subscription,
-            'billingDatePlaceholder' => $billingDatePlaceholder,
+            'billingDateDisplay' => $billingDateDisplay,
         ]);
     }
 

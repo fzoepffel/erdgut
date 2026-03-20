@@ -127,7 +127,7 @@
 
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Upcoming billing date</dt>
-                                <dd class="mt-1 text-sm text-gray-900">{{ $billingDatePlaceholder }}</dd>
+                                <dd class="mt-1 text-sm text-gray-900">{{ $billingDateDisplay }}</dd>
                             </div>
 
                             <div>

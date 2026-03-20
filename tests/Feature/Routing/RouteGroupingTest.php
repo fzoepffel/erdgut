@@ -48,6 +48,7 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/shop/1', route('app.shop.show', ['product' => 1], absolute: false));
         $this->assertSame('/app/payments/setup', route('app.payments.setup', absolute: false));
         $this->assertSame('/app/payments/setup/complete', route('app.payments.setup.complete', absolute: false));
+        $this->assertSame('/api/sumup/webhook', route('sumup.webhook', absolute: false));
         $this->assertSame('/account/profile', route('account.profile.edit', absolute: false));
         $this->assertSame('/auth/login', route('auth.login', absolute: false));
         $this->assertSame('/auth/register', route('auth.register', absolute: false));
@@ -92,6 +93,11 @@ class RouteGroupingTest extends TestCase
 
         $this->assertContains('auth', $verificationSendRoute->gatherMiddleware());
         $this->assertContains('throttle:6,1', $verificationSendRoute->gatherMiddleware());
+
+        $sumUpWebhookRoute = RouteFacade::getRoutes()->getByName('sumup.webhook');
+        $this->assertNotNull($sumUpWebhookRoute);
+        $this->assertContains('sumup.webhook.verify', $sumUpWebhookRoute->gatherMiddleware());
+        $this->assertNotContains('auth', $sumUpWebhookRoute->gatherMiddleware());
     }
 
     public function test_public_home_route_uses_marketing_home_controller(): void

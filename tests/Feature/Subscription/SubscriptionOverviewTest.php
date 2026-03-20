@@ -40,7 +40,7 @@ class SubscriptionOverviewTest extends TestCase
             ->assertSee('Active')
             ->assertSee('veg_only')
             ->assertSee('nuts')
-            ->assertSee('Billing date available after payment setup.');
+            ->assertSee('Set after first charge');
     }
 
     public function test_subscription_overview_shows_empty_state_without_subscription(): void

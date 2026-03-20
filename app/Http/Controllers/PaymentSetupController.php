@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
+use App\Support\SubscriptionLifecycleService;
 use App\Support\SumUpService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -101,10 +102,16 @@ class PaymentSetupController extends Controller
                 ->with('status', 'payment-setup-failed');
         }
 
+        $subscriptionLifecycleService = app(SubscriptionLifecycleService::class);
+        $nextChargeDate = $subscriptionLifecycleService->computeNextChargeDate($subscription);
+
         $subscription->update([
             'sumup_token' => $token,
             'sumup_customer_id' => $subscription->sumup_customer_id ?: $customerId,
+            'next_charge_date' => $nextChargeDate,
         ]);
+
+        $subscription->activate();
 
         return redirect()
             ->route('app.subscriptions.show')

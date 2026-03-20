@@ -29,5 +29,7 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="SUMUP_API_KEY" value="test-key"/>
+        <env name="SUMUP_MERCHANT_CODE" value="test-merchant"/>
     </php>
 </phpunit>
