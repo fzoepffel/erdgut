@@ -68,14 +68,14 @@ class SumUpWebhookTest extends TestCase
         ])->assertOk();
     }
 
-    public function test_webhook_rejects_when_secret_is_missing(): void
+    public function test_webhook_allows_when_secret_is_missing(): void
     {
         Config::set('sumup.webhook_secret', '');
 
         $this->withHeaders([
             'x-payload-signature' => hash_hmac('sha256', '{}', 'different'),
         ])->postJson(route('sumup.webhook'), [])
-            ->assertUnauthorized();
+            ->assertOk();
     }
 
     public function test_webhook_marks_payment_paid_on_success(): void

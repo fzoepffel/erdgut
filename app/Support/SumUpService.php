@@ -47,9 +47,16 @@ class SumUpService
      */
     public function createCheckout(array $params): object
     {
-        return $this->client->checkouts()->create(array_merge($params, [
+        $payload = array_merge($params, [
             'merchant_code' => $this->merchantCode,
-        ]));
+        ]);
+
+        $webhookUrl = (string) config('sumup.webhook_url', '');
+        if (trim($webhookUrl) !== '' && ! isset($payload['return_url'])) {
+            $payload['return_url'] = $webhookUrl;
+        }
+
+        return $this->client->checkouts()->create($payload);
     }
 
     public function createSetupCheckout(

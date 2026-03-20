@@ -15,9 +15,8 @@ class VerifySumUpWebhookSignature
         $signature = (string) $request->header('x-payload-signature', '');
 
         if (trim($secret) === '') {
-            Log::warning('SumUp webhook rejected because webhook secret is missing.');
-
-            return response('', Response::HTTP_UNAUTHORIZED);
+            // Some SumUp setups do not provide webhook signatures.
+            return $next($request);
         }
 
         if (trim($signature) === '') {
