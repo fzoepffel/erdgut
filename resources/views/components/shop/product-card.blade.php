@@ -25,7 +25,9 @@
     @endif
 
     <div class="flex flex-1 flex-col space-y-2 p-5">
-        <h3 class="font-semibold text-gray-900">{{ $product->name }}</h3>
+        <h3 class="font-semibold text-gray-900">
+            <a href="{{ route('app.shop.show', $product) }}" class="hover:text-emerald-600 hover:underline">{{ $product->name }}</a>
+        </h3>
         <p class="text-sm text-gray-600">by {{ $product->producer?->name ?? 'Unknown' }}</p>
         <p class="inline-flex w-fit rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
             {{ $origin }}

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "160fe8be58c829ae2873579b49bba32e",
+    "content-hash": "47f1d61e734eaed51ba65610764211fe",
     "packages": [
         {
             "name": "brick/math",
@@ -3287,6 +3287,80 @@
                 "source": "https://github.com/ramsey/uuid/tree/4.9.2"
             },
             "time": "2025-12-14T04:43:48+00:00"
+        },
+        {
+            "name": "sumup/sumup-php",
+            "version": "0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/sumup/sumup-php.git",
+                "reference": "8017e2fbd73e17834742d2553437474b7dac7d3a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/sumup/sumup-php/zipball/8017e2fbd73e17834742d2553437474b7dac7d3a",
+                "reference": "8017e2fbd73e17834742d2553437474b7dac7d3a",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "3.94.2",
+                "league/oauth2-client": "^2.9",
+                "phpdocumentor/shim": "^3.9",
+                "phpstan/phpstan": "^2.1",
+                "phpunit/phpunit": "^9.6"
+            },
+            "suggest": {
+                "guzzlehttp/guzzle": "Use SumUp\\\\HttpClient\\\\GuzzleClient for a Guzzle-based HTTP client."
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "SumUp\\": "src/"
+                },
+                "classmap": [
+                    "src/Checkouts/Checkouts.php",
+                    "src/Customers/Customers.php",
+                    "src/Members/Members.php",
+                    "src/Memberships/Memberships.php",
+                    "src/Merchant/Merchant.php",
+                    "src/Merchants/Merchants.php",
+                    "src/Payouts/Payouts.php",
+                    "src/Readers/Readers.php",
+                    "src/Receipts/Receipts.php",
+                    "src/Roles/Roles.php",
+                    "src/Shared/Shared.php",
+                    "src/Subaccounts/Subaccounts.php",
+                    "src/Transactions/Transactions.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "SumUp",
+                    "email": "integration@sumup.com",
+                    "homepage": "https://github.com/sumup"
+                }
+            ],
+            "description": "SumUp PHP SDK",
+            "homepage": "https://developer.sumup.com",
+            "keywords": [
+                "checkout",
+                "payments",
+                "sdk",
+                "sumup"
+            ],
+            "support": {
+                "issues": "https://github.com/sumup/sumup-php/issues",
+                "source": "https://github.com/sumup/sumup-php/tree/v0.1.0"
+            },
+            "time": "2026-02-23T12:07:37+00:00"
         },
         {
             "name": "symfony/clock",

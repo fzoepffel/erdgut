@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Support\BudgetRemainderService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ShopController extends Controller
 {
@@ -48,6 +49,29 @@ class ShopController extends Controller
             'products' => $products,
             'producers' => $producers,
             'categories' => ProductCategory::cases(),
+            'currentBox' => $currentBox,
+            'budgetRemainder' => $budgetRemainder,
+        ]);
+    }
+
+    /**
+     * Show the product detail page with storytelling fields.
+     */
+    public function show(Request $request, Product $product): View
+    {
+        if (! $product->is_available) {
+            throw new NotFoundHttpException;
+        }
+
+        $product->loadMissing('producer');
+
+        $currentBox = $this->getCurrentEditableBox($request->user());
+        $budgetRemainder = $currentBox && $request->user()
+            ? app(BudgetRemainderService::class)->getRemainder($request->user(), $currentBox)
+            : null;
+
+        return view('shop.show', [
+            'product' => $product,
             'currentBox' => $currentBox,
             'budgetRemainder' => $budgetRemainder,
         ]);

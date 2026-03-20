@@ -232,4 +232,53 @@ class ShopControllerTest extends TestCase
             ->assertSee('Aardvark Apples', false)
             ->assertSee('EUR', false);
     }
+
+    public function test_authenticated_user_can_view_product_detail_page(): void
+    {
+        $producer = Producer::factory()->create(['name' => 'Hof Testgut', 'region' => 'Baden-Württemberg']);
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Bio-Karotten',
+            'category' => 'vegetables',
+            'unit_price' => 2.49,
+            'is_available' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->get(route('app.shop.show', $product));
+
+        $response->assertOk()
+            ->assertSee('Bio-Karotten', false)
+            ->assertSee('Hof Testgut', false)
+            ->assertSee('EUR 2.49', false);
+    }
+
+    public function test_unavailable_product_returns_404(): void
+    {
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'is_available' => false,
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.shop.show', $product))
+            ->assertNotFound();
+    }
+
+    public function test_guest_is_redirected_from_product_detail(): void
+    {
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'is_available' => true,
+        ]);
+
+        $this->get(route('app.shop.show', $product))
+            ->assertRedirect(route('auth.login'));
+    }
 }

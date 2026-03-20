@@ -10,6 +10,7 @@ use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\ProducerController;
 use App\Http\Controllers\Operations\HealthcheckController;
+use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SubscriptionController;
@@ -62,9 +63,10 @@ Route::middleware(['auth', 'verified'])
         });
         Route::prefix('shop')->name('shop.')->group(function () {
             Route::get('/', [ShopController::class, 'index'])->name('index');
+            Route::get('/{product}', [ShopController::class, 'show'])->name('show');
         });
         Route::prefix('payments')->name('payments.')->group(function () {
-            //
+            Route::get('/setup', [PaymentSetupController::class, 'show'])->name('setup');
         });
     });
 

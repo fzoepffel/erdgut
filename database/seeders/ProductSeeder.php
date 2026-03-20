@@ -32,7 +32,7 @@ class ProductSeeder extends Seeder
             ['name' => 'Zucchini', 'category' => 'vegetables', 'unit_price' => 2.30, 'is_seasonal' => true],
             ['name' => 'Aubergine', 'category' => 'vegetables', 'unit_price' => 2.80, 'is_seasonal' => true],
             ['name' => 'Paprika rot', 'category' => 'vegetables', 'unit_price' => 4.20, 'is_seasonal' => true],
-            ['name' => 'Tomaten', 'category' => 'vegetables', 'unit_price' => 3.90, 'is_seasonal' => true],
+            ['name' => 'Tomaten', 'category' => 'vegetables', 'unit_price' => 3.90, 'is_seasonal' => true, 'metadata_extra' => ['variety' => 'San Marzano', 'taste_profile' => 'Rich, low acidity, perfect for sauces']],
             ['name' => 'Gurke', 'category' => 'vegetables', 'unit_price' => 1.90, 'is_seasonal' => true],
             ['name' => 'Kürbis Hokkaido', 'category' => 'vegetables', 'unit_price' => 2.60, 'is_seasonal' => true],
             ['name' => 'Pastinaken', 'category' => 'vegetables', 'unit_price' => 3.10, 'is_seasonal' => false],
@@ -40,8 +40,8 @@ class ProductSeeder extends Seeder
             ['name' => 'Lauch', 'category' => 'vegetables', 'unit_price' => 2.20, 'is_seasonal' => false],
             ['name' => 'Rettich', 'category' => 'vegetables', 'unit_price' => 2.00, 'is_seasonal' => false],
             ['name' => 'Radieschen', 'category' => 'vegetables', 'unit_price' => 1.70, 'is_seasonal' => true],
-            ['name' => 'Äpfel Boskoop', 'category' => 'fruit', 'unit_price' => 2.80, 'is_seasonal' => false],
-            ['name' => 'Äpfel Elstar', 'category' => 'fruit', 'unit_price' => 3.20, 'is_seasonal' => false],
+            ['name' => 'Äpfel Boskoop', 'category' => 'fruit', 'unit_price' => 2.80, 'is_seasonal' => false, 'metadata_extra' => ['variety' => 'Boskoop', 'taste_profile' => 'Aromatic, slightly tart, ideal for baking']],
+            ['name' => 'Äpfel Elstar', 'category' => 'fruit', 'unit_price' => 3.20, 'is_seasonal' => false, 'metadata_extra' => ['variety' => 'Elstar', 'taste_profile' => 'Sweet and juicy, crisp texture']],
             ['name' => 'Birnen Conference', 'category' => 'fruit', 'unit_price' => 3.50, 'is_seasonal' => false],
             ['name' => 'Zwetschgen', 'category' => 'fruit', 'unit_price' => 4.20, 'is_seasonal' => true],
             ['name' => 'Kirschen', 'category' => 'fruit', 'unit_price' => 5.90, 'is_seasonal' => true],
@@ -71,6 +71,14 @@ class ProductSeeder extends Seeder
         $index = 0;
         foreach ($products as $product) {
             $producerId = $producerIds[$index % count($producerIds)];
+            $metadata = [
+                'unit' => in_array($product['category'], ['dairy', 'vegetables', 'fruit']) ? 'kg' : 'piece',
+                'origin' => 'regional',
+            ];
+            if (! empty($product['metadata_extra'])) {
+                $metadata = array_merge($metadata, $product['metadata_extra']);
+            }
+            unset($product['metadata_extra']);
             Product::query()->updateOrCreate(
                 [
                     'name' => $product['name'],
@@ -81,10 +89,7 @@ class ProductSeeder extends Seeder
                     'unit_price' => $product['unit_price'],
                     'is_seasonal' => $product['is_seasonal'],
                     'is_available' => true,
-                    'metadata' => [
-                        'unit' => in_array($product['category'], ['dairy', 'vegetables', 'fruit']) ? 'kg' : 'piece',
-                        'origin' => 'regional',
-                    ],
+                    'metadata' => $metadata,
                     'is_test' => true,
                 ]
             );

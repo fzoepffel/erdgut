@@ -33,6 +33,10 @@
                         <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
                             This subscription action is not allowed in the current state.
                         </p>
+                    @elseif (session('status') === 'payment-already-setup')
+                        <p class="mb-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                            Payment method already set up.
+                        </p>
                     @endif
 
                     @if ($subscription === null)
@@ -69,6 +73,15 @@
                                 >
                                     Cancel subscription
                                 </x-danger-button>
+                            @endif
+
+                            @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled && empty($subscription->sumup_token))
+                                <a
+                                    href="{{ route('app.payments.setup') }}"
+                                    class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-indigo-500"
+                                >
+                                    Set up payment method
+                                </a>
                             @endif
                         </div>
 
