@@ -11,6 +11,7 @@ use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\ProducerController;
 use App\Http\Controllers\Operations\HealthcheckController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -59,7 +60,7 @@ Route::middleware(['auth', 'verified'])
             Route::get('/{box}', [BoxController::class, 'show'])->name('show');
         });
         Route::prefix('shop')->name('shop.')->group(function () {
-            //
+            Route::get('/', [ShopController::class, 'index'])->name('index');
         });
         Route::prefix('payments')->name('payments.')->group(function () {
             //
