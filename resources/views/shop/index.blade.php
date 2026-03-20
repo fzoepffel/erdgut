@@ -7,40 +7,46 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <form method="GET" action="{{ route('app.shop.index') }}" class="mb-6 flex flex-wrap gap-4">
-                <div>
-                    <label for="category" class="sr-only">Category</label>
-                    <select
-                        id="category"
-                        name="category"
-                        class="rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+            <div class="mb-6 space-y-4">
+                <div class="flex flex-wrap gap-2">
+                    @php
+                        $baseParams = array_filter(['producer' => request('producer')]);
+                    @endphp
+                    <a
+                        href="{{ route('app.shop.index', $baseParams) }}"
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-colors {{ ! request('category') ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}"
                     >
-                        <option value="">All categories</option>
-                        <option value="vegetables" {{ request('category') === 'vegetables' ? 'selected' : '' }}>Vegetables</option>
-                        <option value="fruit" {{ request('category') === 'fruit' ? 'selected' : '' }}>Fruit</option>
-                        <option value="dairy" {{ request('category') === 'dairy' ? 'selected' : '' }}>Dairy</option>
-                        <option value="bakery" {{ request('category') === 'bakery' ? 'selected' : '' }}>Bakery</option>
-                    </select>
+                        {{ __('All categories') }}
+                    </a>
+                    @foreach ($categories as $category)
+                        <a
+                            href="{{ route('app.shop.index', array_merge($baseParams, ['category' => $category->value])) }}"
+                            class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-colors {{ request('category') === $category->value ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}"
+                        >
+                            {{ __(ucfirst($category->value)) }}
+                        </a>
+                    @endforeach
                 </div>
-                <div>
-                    <label for="producer" class="sr-only">Producer</label>
-                    <select
-                        id="producer"
-                        name="producer"
-                        class="rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                <div class="flex flex-wrap gap-2">
+                    @php
+                        $producerBaseParams = array_filter(['category' => request('category')]);
+                    @endphp
+                    <a
+                        href="{{ route('app.shop.index', $producerBaseParams) }}"
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-colors {{ ! request('producer') ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}"
                     >
-                        <option value="">All producers</option>
-                        @foreach ($producers as $producer)
-                            <option value="{{ $producer->id }}" {{ request('producer') == $producer->id ? 'selected' : '' }}>
-                                {{ $producer->name }}
-                            </option>
-                        @endforeach
-                    </select>
+                        {{ __('All producers') }}
+                    </a>
+                    @foreach ($producers as $producer)
+                        <a
+                            href="{{ route('app.shop.index', array_merge($producerBaseParams, ['producer' => $producer->id])) }}"
+                            class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-colors {{ request('producer') == $producer->id ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}"
+                        >
+                            {{ $producer->name }}
+                        </a>
+                    @endforeach
                 </div>
-                <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">
-                    Filter
-                </button>
-            </form>
+            </div>
 
             @if ($products->isEmpty())
                 <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ProductCategory;
 use App\Models\Producer;
 use App\Models\Product;
 use Illuminate\Contracts\View\View;
@@ -15,7 +16,7 @@ class ShopController extends Controller
     public function index(Request $request): View
     {
         $validated = $request->validate([
-            'category' => ['nullable', 'string', 'in:vegetables,fruit,dairy,bakery'],
+            'category' => ['nullable', 'string', 'in:'.implode(',', ProductCategory::values())],
             'producer' => ['nullable', 'integer', 'exists:producers,id'],
         ]);
 
@@ -38,6 +39,7 @@ class ShopController extends Controller
         return view('shop.index', [
             'products' => $products,
             'producers' => $producers,
+            'categories' => ProductCategory::cases(),
         ]);
     }
 }

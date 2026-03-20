@@ -119,6 +119,97 @@ class ShopControllerTest extends TestCase
             ->assertSessionHasErrors('producer');
     }
 
+    public function test_shop_page_renders_category_chips(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->get(route('app.shop.index'));
+
+        $response->assertOk()
+            ->assertSee(__('All categories'), false)
+            ->assertSee(__('Vegetables'), false)
+            ->assertSee(__('Fruit'), false)
+            ->assertSee(__('Dairy'), false)
+            ->assertSee(__('Bakery'), false);
+
+        $response->assertSee(route('app.shop.index', ['category' => 'vegetables']), false);
+        $response->assertSee(route('app.shop.index', ['category' => 'fruit']), false);
+    }
+
+    public function test_shop_category_chips_filter_products(): void
+    {
+        $producer = Producer::factory()->create();
+        Product::factory()->count(2)->create([
+            'producer_id' => $producer->id,
+            'category' => 'dairy',
+            'is_available' => true,
+        ]);
+        Product::factory()->count(3)->create([
+            'producer_id' => $producer->id,
+            'category' => 'bakery',
+            'is_available' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->get(route('app.shop.index', ['category' => 'dairy']));
+
+        $response->assertOk();
+        $products = $response->viewData('products');
+        $this->assertSame(2, $products->total());
+        foreach ($products as $product) {
+            $this->assertSame('dairy', $product->category);
+        }
+    }
+
+    public function test_shop_page_renders_producer_chips(): void
+    {
+        $producer = Producer::factory()->create(['name' => 'Hof Testgut']);
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->get(route('app.shop.index'));
+
+        $response->assertOk()
+            ->assertSee(__('All producers'), false)
+            ->assertSee('Hof Testgut', false)
+            ->assertSee(route('app.shop.index', ['producer' => $producer->id]), false);
+    }
+
+    public function test_shop_producer_chips_preserve_category_filter(): void
+    {
+        $producer1 = Producer::factory()->create(['name' => 'Farm Alpha']);
+        $producer2 = Producer::factory()->create(['name' => 'Farm Beta']);
+        Product::factory()->count(2)->create([
+            'producer_id' => $producer1->id,
+            'category' => 'vegetables',
+            'is_available' => true,
+        ]);
+        Product::factory()->count(1)->create([
+            'producer_id' => $producer2->id,
+            'category' => 'vegetables',
+            'is_available' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->get(route('app.shop.index', ['category' => 'vegetables', 'producer' => $producer1->id]));
+
+        $response->assertOk();
+        $products = $response->viewData('products');
+        $this->assertSame(2, $products->total());
+        foreach ($products as $product) {
+            $this->assertSame('vegetables', $product->category);
+            $this->assertSame($producer1->id, $product->producer_id);
+        }
+
+        $response->assertSee('category=vegetables', false);
+        $response->assertSee('producer='.$producer2->id, false);
+    }
+
     public function test_shop_page_renders_many_products_without_breaks(): void
     {
         $producer = Producer::factory()->create();
