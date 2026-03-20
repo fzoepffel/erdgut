@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\BoxStatus;
+use App\Http\Requests\AddBoxItemRequest;
 use App\Http\Requests\RemoveBoxItemRequest;
 use App\Http\Requests\UpdateBoxItemQuantityRequest;
 use App\Models\Box;
 use App\Models\BoxItem;
+use App\Models\Product;
 use App\Support\BoxValueRecalculationService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -81,6 +83,44 @@ class BoxController extends Controller
             'quantity' => (float) $item->quantity,
             'unit' => $item->unit,
             'estimated_value' => $estimatedValue,
+        ]);
+    }
+
+    public function addItem(
+        AddBoxItemRequest $request,
+        Box $box,
+        BoxValueRecalculationService $boxValueRecalculationService
+    ): JsonResponse {
+        $productId = (int) $request->validated('product_id');
+        $quantity = (float) $request->validated('quantity');
+
+        $product = Product::findOrFail($productId);
+        $unit = $product->metadata['unit'] ?? 'kg';
+
+        $existingItem = $box->items()->where('product_id', $productId)->first();
+
+        if ($existingItem instanceof BoxItem) {
+            $existingItem->quantity = (float) $existingItem->quantity + $quantity;
+            $existingItem->save();
+            $itemId = $existingItem->id;
+            $newQuantity = (float) $existingItem->quantity;
+        } else {
+            $newItem = $box->items()->create([
+                'product_id' => $productId,
+                'quantity' => $quantity,
+                'unit' => $unit,
+                'is_extra' => true,
+            ]);
+            $itemId = $newItem->id;
+            $newQuantity = (float) $newItem->quantity;
+        }
+
+        $estimatedValue = $boxValueRecalculationService->recalculate($box);
+
+        return response()->json([
+            'estimated_value' => $estimatedValue,
+            'item_id' => $itemId,
+            'quantity' => $newQuantity,
         ]);
     }
 

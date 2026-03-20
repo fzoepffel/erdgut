@@ -6,7 +6,9 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+            <div class="lg:grid lg:grid-cols-[1fr_280px] lg:gap-8">
+                <div class="lg:col-span-1">
             <div class="mb-6 space-y-4">
                 <div class="flex flex-wrap gap-2">
                     @php
@@ -58,7 +60,7 @@
             @else
                 <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     @foreach ($products as $product)
-                        <x-shop.product-card :product="$product" />
+                        <x-shop.product-card :product="$product" :currentBox="$currentBox ?? null" />
                     @endforeach
                 </div>
 
@@ -66,6 +68,32 @@
                     {{ $products->links() }}
                 </div>
             @endif
+                </div>
+                @if ($currentBox)
+                    <aside class="mt-8 lg:col-span-1 lg:mt-0" x-data="{ open: false }">
+                        <div class="lg:hidden">
+                            <button
+                                type="button"
+                                @click="open = !open"
+                                class="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm"
+                            >
+                                <span class="text-sm font-semibold text-gray-900">{{ __('View my box') }} ({{ $currentBox->items->sum(fn ($i) => (int) $i->quantity) }} {{ __('items') }})</span>
+                                <svg class="h-5 w-5 text-gray-500 transition-transform" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div x-show="open" x-cloak class="mt-2">
+                                <x-shop.box-summary :box="$currentBox" :budgetRemainder="$budgetRemainder" />
+                            </div>
+                        </div>
+                        <div class="hidden lg:block">
+                            <div class="sticky top-4">
+                                <x-shop.box-summary :box="$currentBox" :budgetRemainder="$budgetRemainder" />
+                            </div>
+                        </div>
+                    </aside>
+                @endif
+            </div>
         </div>
     </div>
 </x-app-layout>

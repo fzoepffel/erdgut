@@ -471,4 +471,116 @@ class BoxControllerTest extends TestCase
             ->deleteJson(route('app.boxes.items.remove', [$box, $itemInOtherBox]))
             ->assertNotFound();
     }
+
+    public function test_post_add_item_creates_extra_and_recalculates_value(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'unit_price' => 4.50,
+            'is_available' => true,
+            'metadata' => ['unit' => 'kg'],
+        ]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+            'estimated_value' => 0,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->postJson(route('app.boxes.items.add', $box), [
+                'product_id' => $product->id,
+                'quantity' => 2,
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'estimated_value' => 9.00,
+                'quantity' => 2.0,
+            ])
+            ->assertJsonStructure(['item_id']);
+
+        $this->assertDatabaseHas('box_items', [
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => true,
+        ]);
+        $this->assertDatabaseHas('boxes', ['id' => $box->id, 'estimated_value' => 9.00]);
+    }
+
+    public function test_post_add_item_increments_existing_product(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'unit_price' => 3.00,
+            'is_available' => true,
+        ]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+            'estimated_value' => 3.00,
+        ]);
+        BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->postJson(route('app.boxes.items.add', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1.5,
+            ]);
+
+        $response->assertOk()
+            ->assertJson(['estimated_value' => 7.50, 'quantity' => 2.5]);
+
+        $this->assertDatabaseHas('box_items', [
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2.5,
+        ]);
+    }
+
+    public function test_post_add_item_rejects_invalid_product(): void
+    {
+        $user = User::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('app.boxes.items.add', $box), [
+                'product_id' => 99999,
+                'quantity' => 1,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('product_id');
+    }
+
+    public function test_post_add_item_on_another_users_box_returns_403(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $product = Product::factory()->create(['is_available' => true]);
+        $box = Box::factory()->create([
+            'user_id' => $owner->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($otherUser)
+            ->postJson(route('app.boxes.items.add', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertForbidden();
+    }
 }

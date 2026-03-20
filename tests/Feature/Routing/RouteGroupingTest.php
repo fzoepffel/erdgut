@@ -36,6 +36,7 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/subscriptions/cancel', route('app.subscriptions.cancel', absolute: false));
         $this->assertSame('/app/boxes/current', route('app.boxes.current', absolute: false));
         $this->assertSame('/app/boxes/1', route('app.boxes.show', ['box' => 1], absolute: false));
+        $this->assertSame('/app/boxes/1/items', route('app.boxes.items.add', ['box' => 1], absolute: false));
         $this->assertSame('/app/boxes/1/items/2', route('app.boxes.items.updateQuantity', ['box' => 1, 'item' => 2], absolute: false));
         $this->assertSame('/app/boxes/1/items/2', route('app.boxes.items.remove', ['box' => 1, 'item' => 2], absolute: false));
         $this->assertSame('/app/deliveries/1', route('app.deliveries.show', ['delivery' => 1], absolute: false));

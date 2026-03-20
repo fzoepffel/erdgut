@@ -1,11 +1,16 @@
-@props(['product'])
+@props(['product', 'currentBox' => null])
 
 @php
     $origin = $product->metadata['origin'] ?? $product->producer?->region ?? '—';
     $unit = $product->metadata['unit'] ?? 'kg';
+    $canAddToBox = $currentBox instanceof \App\Models\Box;
 @endphp
 
-<article {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm']) }}>
+<article {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm']) }}
+    @if ($canAddToBox)
+        x-data="{ loading: false, error: null }"
+    @endif
+>
     @if (! empty($product->producer?->image_url))
         <img
             src="{{ $product->producer->image_url }}"
@@ -36,8 +41,45 @@
             @endif
             <span class="text-xs text-gray-500">per {{ $unit }}</span>
         </div>
-        <p class="mt-auto font-medium text-emerald-700">
-            EUR {{ number_format((float) $product->unit_price, 2) }}
-        </p>
+        <div class="mt-auto flex flex-col gap-2">
+            <p class="font-medium text-emerald-700">
+                EUR {{ number_format((float) $product->unit_price, 2) }}
+            </p>
+            @if ($canAddToBox)
+                <form
+                    method="POST"
+                    action="{{ route('app.boxes.items.add', $currentBox) }}"
+                    class="add-to-box-form"
+                    x-ref="form"
+                    @submit.prevent="
+                        loading = true;
+                        error = null;
+                        fetch($refs.form.action, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content ?? '',
+                            },
+                            body: JSON.stringify({ product_id: {{ $product->id }}, quantity: 1 }),
+                        })
+                        .then(r => r.json())
+                        .then(data => { if (data.estimated_value !== undefined) window.location.reload(); })
+                        .catch(e => { error = e.message; loading = false; });
+                    "
+                >
+                    @csrf
+                    <button
+                        type="submit"
+                        class="w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                        :disabled="loading"
+                    >
+                        <span x-show="!loading">{{ __('Add to box') }}</span>
+                        <span x-show="loading" x-cloak>{{ __('Adding…') }}</span>
+                    </button>
+                </form>
+                <p x-show="error" x-cloak x-text="error" class="text-sm text-red-600"></p>
+            @endif
+        </div>
     </div>
 </article>

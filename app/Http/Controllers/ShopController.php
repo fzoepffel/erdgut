@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\BoxStatus;
 use App\Enums\ProductCategory;
+use App\Models\Box;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Support\BudgetRemainderService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 
@@ -36,10 +39,44 @@ class ShopController extends Controller
 
         $producers = Producer::query()->orderBy('name')->get(['id', 'name']);
 
+        $currentBox = $this->getCurrentEditableBox($request->user());
+        $budgetRemainder = $currentBox && $request->user()
+            ? app(BudgetRemainderService::class)->getRemainder($request->user(), $currentBox)
+            : null;
+
         return view('shop.index', [
             'products' => $products,
             'producers' => $producers,
             'categories' => ProductCategory::cases(),
+            'currentBox' => $currentBox,
+            'budgetRemainder' => $budgetRemainder,
         ]);
+    }
+
+    private function getCurrentEditableBox($user): ?Box
+    {
+        if ($user === null) {
+            return null;
+        }
+
+        $box = Box::query()
+            ->where('user_id', $user->id)
+            ->whereDate('week_start_date', '<=', now()->toDateString())
+            ->whereDate('week_start_date', '>=', now()->subDays(6)->toDateString())
+            ->orderByDesc('week_start_date')
+            ->first();
+
+        if (! $box instanceof Box) {
+            return null;
+        }
+
+        $box->loadMissing('items');
+
+        $deadline = $box->modification_deadline_at;
+        if ($box->status !== BoxStatus::Editable || $deadline === null || ! $deadline->isFuture()) {
+            return null;
+        }
+
+        return $box;
     }
 }

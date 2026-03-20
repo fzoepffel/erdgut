@@ -51,6 +51,7 @@ Route::middleware(['auth', 'verified'])
         });
         Route::prefix('boxes')->name('boxes.')->group(function () {
             Route::get('/current', [BoxController::class, 'current'])->name('current');
+            Route::post('/{box}/items', [BoxController::class, 'addItem'])->name('items.add');
             Route::patch('/{box}/items/{item}', [BoxController::class, 'updateItemQuantity'])
                 ->scopeBindings()
                 ->name('items.updateQuantity');
