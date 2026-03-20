@@ -50,6 +50,12 @@ Route::middleware(['auth', 'verified'])
         });
         Route::prefix('boxes')->name('boxes.')->group(function () {
             Route::get('/current', [BoxController::class, 'current'])->name('current');
+            Route::patch('/{box}/items/{item}', [BoxController::class, 'updateItemQuantity'])
+                ->scopeBindings()
+                ->name('items.updateQuantity');
+            Route::delete('/{box}/items/{item}', [BoxController::class, 'removeItem'])
+                ->scopeBindings()
+                ->name('items.remove');
             Route::get('/{box}', [BoxController::class, 'show'])->name('show');
         });
         Route::prefix('shop')->name('shop.')->group(function () {

@@ -3,8 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Enums\BoxStatus;
+use App\Http\Requests\RemoveBoxItemRequest;
+use App\Http\Requests\UpdateBoxItemQuantityRequest;
 use App\Models\Box;
+use App\Models\BoxItem;
+use App\Support\BoxValueRecalculationService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -55,6 +60,44 @@ class BoxController extends Controller
             'isEditModeActive' => $isEditModeActive,
             'isEditModeBlocked' => $isEditModeBlocked,
             'blockedReason' => $blockedReason,
+        ]);
+    }
+
+    public function updateItemQuantity(
+        UpdateBoxItemQuantityRequest $request,
+        Box $box,
+        BoxItem $item,
+        BoxValueRecalculationService $boxValueRecalculationService
+    ): JsonResponse {
+        $delta = (int) $request->validated('delta');
+        $newQuantity = (float) $item->quantity + $delta;
+
+        $item->quantity = $newQuantity;
+        $item->save();
+
+        $estimatedValue = $boxValueRecalculationService->recalculate($box);
+
+        return response()->json([
+            'quantity' => (float) $item->quantity,
+            'unit' => $item->unit,
+            'estimated_value' => $estimatedValue,
+        ]);
+    }
+
+    public function removeItem(
+        RemoveBoxItemRequest $request,
+        Box $box,
+        BoxItem $item,
+        BoxValueRecalculationService $boxValueRecalculationService
+    ): JsonResponse {
+        $removedItemId = $item->id;
+        $item->delete();
+
+        $estimatedValue = $boxValueRecalculationService->recalculate($box);
+
+        return response()->json([
+            'estimated_value' => $estimatedValue,
+            'removed_item_id' => $removedItemId,
         ]);
     }
 }

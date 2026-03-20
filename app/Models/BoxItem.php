@@ -24,6 +24,7 @@ class BoxItem extends Model
         'quantity',
         'unit',
         'is_extra',
+        'is_test',
     ];
 
     /**
@@ -36,6 +37,7 @@ class BoxItem extends Model
         return [
             'quantity' => 'decimal:2',
             'is_extra' => 'boolean',
+            'is_test' => 'boolean',
         ];
     }
 

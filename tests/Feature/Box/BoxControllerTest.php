@@ -67,8 +67,7 @@ class BoxControllerTest extends TestCase
             ->get(route('app.boxes.show', ['box' => $box, 'mode' => 'edit']))
             ->assertOk()
             ->assertSee('Back to view mode')
-            ->assertSee('Edit mode')
-            ->assertSee('Quantity and remove actions are scaffolded and will be activated in ERD-065/066.');
+            ->assertSee('Edit mode');
     }
 
     public function test_edit_mode_is_blocked_when_box_status_is_not_editable(): void
@@ -132,5 +131,344 @@ class BoxControllerTest extends TestCase
             ->get(route('app.boxes.current'))
             ->assertRedirect(route('app.dashboard'))
             ->assertSessionHas('status', 'current-box-missing');
+    }
+
+    public function test_patch_quantity_increases_item_quantity_and_estimated_value(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create(['unit_price' => 5.00]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+            'estimated_value' => 10.00,
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->patchJson(route('app.boxes.items.updateQuantity', [$box, $item]), ['delta' => 1]);
+
+        $response->assertOk()
+            ->assertJson([
+                'quantity' => 3,
+                'unit' => 'kg',
+                'estimated_value' => 15.00,
+            ]);
+
+        $this->assertDatabaseHas('box_items', ['id' => $item->id, 'quantity' => 3]);
+        $this->assertDatabaseHas('boxes', ['id' => $box->id, 'estimated_value' => 15.00]);
+    }
+
+    public function test_patch_quantity_decreases_item_quantity_and_estimated_value(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create(['unit_price' => 4.00]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+            'estimated_value' => 12.00,
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 3,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->patchJson(route('app.boxes.items.updateQuantity', [$box, $item]), ['delta' => -1]);
+
+        $response->assertOk()
+            ->assertJson([
+                'quantity' => 2,
+                'unit' => 'kg',
+                'estimated_value' => 8.00,
+            ]);
+
+        $this->assertDatabaseHas('box_items', ['id' => $item->id, 'quantity' => 2]);
+        $this->assertDatabaseHas('boxes', ['id' => $box->id, 'estimated_value' => 8.00]);
+    }
+
+    public function test_patch_quantity_minus_one_when_quantity_is_one_returns_422(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->patchJson(route('app.boxes.items.updateQuantity', [$box, $item]), ['delta' => -1]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['delta']);
+    }
+
+    public function test_patch_quantity_with_invalid_delta_returns_422(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->patchJson(route('app.boxes.items.updateQuantity', [$box, $item]), ['delta' => 5]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['delta']);
+    }
+
+    public function test_patch_quantity_on_another_users_box_returns_403(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $owner->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $this->actingAs($otherUser)
+            ->patchJson(route('app.boxes.items.updateQuantity', [$box, $item]), ['delta' => 1])
+            ->assertForbidden();
+    }
+
+    public function test_patch_quantity_on_non_editable_box_returns_403(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Locked,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson(route('app.boxes.items.updateQuantity', [$box, $item]), ['delta' => 1])
+            ->assertForbidden();
+    }
+
+    public function test_patch_quantity_when_deadline_passed_returns_403(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->subHour(),
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson(route('app.boxes.items.updateQuantity', [$box, $item]), ['delta' => 1])
+            ->assertForbidden();
+    }
+
+    public function test_patch_quantity_with_item_from_different_box_returns_404(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $otherBox = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $itemInOtherBox = BoxItem::factory()->create([
+            'box_id' => $otherBox->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson(route('app.boxes.items.updateQuantity', [$box, $itemInOtherBox]), ['delta' => 1])
+            ->assertNotFound();
+    }
+
+    public function test_delete_removes_item_and_recalculates_estimated_value(): void
+    {
+        $user = User::factory()->create();
+        $product1 = Product::factory()->create(['unit_price' => 5.00]);
+        $product2 = Product::factory()->create(['unit_price' => 3.00]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+            'estimated_value' => 13.00,
+        ]);
+        $item1 = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product1->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+        BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product2->id,
+            'quantity' => 1,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->deleteJson(route('app.boxes.items.remove', [$box, $item1]));
+
+        $response->assertOk()
+            ->assertJson([
+                'estimated_value' => 3.00,
+                'removed_item_id' => $item1->id,
+            ]);
+
+        $this->assertDatabaseMissing('box_items', ['id' => $item1->id]);
+        $this->assertDatabaseHas('boxes', ['id' => $box->id, 'estimated_value' => 3.00]);
+    }
+
+    public function test_delete_on_another_users_box_returns_403(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $owner->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $this->actingAs($otherUser)
+            ->deleteJson(route('app.boxes.items.remove', [$box, $item]))
+            ->assertForbidden();
+    }
+
+    public function test_delete_on_non_editable_box_returns_403(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Locked,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->deleteJson(route('app.boxes.items.remove', [$box, $item]))
+            ->assertForbidden();
+    }
+
+    public function test_delete_when_deadline_passed_returns_403(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->subHour(),
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->deleteJson(route('app.boxes.items.remove', [$box, $item]))
+            ->assertForbidden();
+    }
+
+    public function test_delete_with_item_from_different_box_returns_404(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $otherBox = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $itemInOtherBox = BoxItem::factory()->create([
+            'box_id' => $otherBox->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->deleteJson(route('app.boxes.items.remove', [$box, $itemInOtherBox]))
+            ->assertNotFound();
     }
 }

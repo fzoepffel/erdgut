@@ -27,6 +27,7 @@ class BoxItemFactory extends Factory
             'quantity' => fake()->randomFloat(2, 0.5, 5),
             'unit' => fake()->randomElement(['kg', 'piece', 'bundle']),
             'is_extra' => false,
+            'is_test' => false,
         ];
     }
 }

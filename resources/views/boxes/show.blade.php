@@ -53,7 +53,72 @@
                         </p>
                     @endif
 
-                    <div class="mt-6 rounded-md border border-gray-200 p-4">
+                    <div
+                        class="mt-6"
+                        @if ($isEditModeActive)
+                            x-data="{
+                                itemQuantities: {{ json_encode($box->items->keyBy('id')->map(fn ($i) => (float) $i->quantity)->toArray()) }},
+                                estimatedValue: {{ (float) $box->estimated_value }},
+                                removedItemIds: [],
+                                totalItems: {{ $box->items->count() }},
+                                updateBaseUrl: '{{ url('/app/boxes/'.$box->id.'/items') }}',
+                                loading: null,
+                                error: null,
+                                async updateQuantity(itemId, delta) {
+                                    this.loading = itemId;
+                                    this.error = null;
+                                    try {
+                                        const res = await fetch(this.updateBaseUrl + '/' + itemId, {
+                                            method: 'PATCH',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Accept': 'application/json',
+                                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content ?? '',
+                                            },
+                                            body: JSON.stringify({ delta }),
+                                        });
+                                        const data = await res.json();
+                                        if (!res.ok) {
+                                            const msg = data?.errors?.delta?.[0] ?? data?.message ?? 'Update failed';
+                                            throw new Error(msg);
+                                        }
+                                        this.itemQuantities[itemId] = data.quantity;
+                                        this.estimatedValue = data.estimated_value;
+                                    } catch (e) {
+                                        this.error = e.message;
+                                    } finally {
+                                        this.loading = null;
+                                    }
+                                },
+                                async removeItem(itemId) {
+                                    this.loading = itemId;
+                                    this.error = null;
+                                    try {
+                                        const res = await fetch(this.updateBaseUrl + '/' + itemId, {
+                                            method: 'DELETE',
+                                            headers: {
+                                                'Accept': 'application/json',
+                                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content ?? '',
+                                            },
+                                        });
+                                        const data = await res.json();
+                                        if (!res.ok) {
+                                            const msg = data?.message ?? 'Remove failed';
+                                            throw new Error(msg);
+                                        }
+                                        this.removedItemIds.push(itemId);
+                                        delete this.itemQuantities[itemId];
+                                        this.estimatedValue = data.estimated_value;
+                                    } catch (e) {
+                                        this.error = e.message;
+                                    } finally {
+                                        this.loading = null;
+                                    }
+                                },
+                            }"
+                        @endif
+                    >
+                    <div class="rounded-md border border-gray-200 p-4">
                         <div class="flex items-center justify-between gap-3">
                             <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-600">Items</h3>
                             @if ($isEditModeActive)
@@ -61,12 +126,17 @@
                             @endif
                         </div>
 
+                        @if ($isEditModeActive)
+                            <p x-show="error" x-text="error" class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"></p>
+                        @endif
+
                         @if ($box->items->isEmpty())
                             <p class="mt-3 text-sm text-gray-600">No items in this box yet.</p>
                         @else
-                            <ul class="mt-3 space-y-2">
+                            <p x-show="removedItemIds.length >= totalItems" class="mt-3 text-sm text-gray-600">No items in this box yet.</p>
+                            <ul x-show="removedItemIds.length < totalItems" class="mt-3 space-y-2">
                                 @foreach ($box->items as $item)
-                                    <li class="flex items-center justify-between gap-3 text-sm">
+                                    <li x-show="!removedItemIds.includes({{ $item->id }})" class="flex items-center justify-between gap-3 text-sm">
                                         <div>
                                             <span>{{ $item->product?->name ?? 'Unknown product' }}</span>
                                             @if ($item->is_extra)
@@ -75,16 +145,29 @@
                                         </div>
                                         @if ($isEditModeActive)
                                             <div class="flex items-center gap-2">
-                                                <button type="button" disabled class="rounded border border-gray-200 px-2 py-1 text-xs text-gray-400">-</button>
-                                                <input
-                                                    type="text"
-                                                    value="{{ number_format((float) $item->quantity, 2) }}"
-                                                    disabled
-                                                    class="w-16 rounded border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-500"
-                                                />
+                                                <button
+                                                    type="button"
+                                                    :disabled="loading === {{ $item->id }} || (itemQuantities[{{ $item->id }}] ?? {{ (float) $item->quantity }}) <= 1"
+                                                    @click="updateQuantity({{ $item->id }}, -1)"
+                                                    class="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-transparent"
+                                                >-</button>
+                                                <span
+                                                    class="w-16 rounded border border-gray-200 bg-gray-50 px-2 py-1 text-center text-xs text-gray-700"
+                                                    x-text="(itemQuantities[{{ $item->id }}] ?? {{ (float) $item->quantity }}).toFixed(2)"
+                                                ></span>
                                                 <span class="text-gray-500">{{ $item->unit }}</span>
-                                                <button type="button" disabled class="rounded border border-gray-200 px-2 py-1 text-xs text-gray-400">+</button>
-                                                <button type="button" disabled class="rounded border border-gray-200 px-2 py-1 text-xs text-gray-400">Remove</button>
+                                                <button
+                                                    type="button"
+                                                    :disabled="loading === {{ $item->id }}"
+                                                    @click="updateQuantity({{ $item->id }}, 1)"
+                                                    class="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-transparent"
+                                                >+</button>
+                                                <button
+                                                    type="button"
+                                                    :disabled="loading === {{ $item->id }}"
+                                                    @click="removeItem({{ $item->id }})"
+                                                    class="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-transparent"
+                                                >Remove</button>
                                             </div>
                                         @else
                                             <span class="text-gray-600">{{ number_format((float) $item->quantity, 2) }} {{ $item->unit }}</span>
@@ -93,17 +176,16 @@
                                 @endforeach
                             </ul>
                         @endif
-
-                        @if ($isEditModeActive)
-                            <p class="mt-3 text-xs text-gray-500">
-                                Quantity and remove actions are scaffolded and will be activated in ERD-065/066.
-                            </p>
-                        @endif
                     </div>
 
                     <p class="mt-5 text-sm font-semibold">
-                        Estimated value: EUR {{ number_format((float) $box->estimated_value, 2) }}
+                        @if ($isEditModeActive)
+                            <span x-text="'Estimated value: EUR ' + estimatedValue.toFixed(2)"></span>
+                        @else
+                            Estimated value: EUR {{ number_format((float) $box->estimated_value, 2) }}
+                        @endif
                     </p>
+                    </div>
                 </div>
             </div>
         </div>

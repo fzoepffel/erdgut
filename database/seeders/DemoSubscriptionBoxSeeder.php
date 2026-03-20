@@ -10,6 +10,7 @@ use App\Models\BoxItem;
 use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\BoxValueRecalculationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -70,6 +71,7 @@ class DemoSubscriptionBoxSeeder extends Seeder
                     'name' => $data['name'],
                     'password' => Hash::make('password'),
                     'email_verified_at' => now(),
+                    'is_test' => true,
                 ]
             );
             $created[] = $user;
@@ -139,13 +141,12 @@ class DemoSubscriptionBoxSeeder extends Seeder
                     'quantity' => $quantity,
                     'unit' => 'kg',
                     'is_extra' => false,
+                    'is_test' => true,
                 ]
             );
             $quantity++;
         }
 
-        $box->update([
-            'estimated_value' => $box->items()->get()->sum(fn ($item) => (float) $item->quantity * (float) $item->product->unit_price),
-        ]);
+        app(BoxValueRecalculationService::class)->recalculate($box);
     }
 }

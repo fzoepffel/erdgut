@@ -36,6 +36,8 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/subscriptions/cancel', route('app.subscriptions.cancel', absolute: false));
         $this->assertSame('/app/boxes/current', route('app.boxes.current', absolute: false));
         $this->assertSame('/app/boxes/1', route('app.boxes.show', ['box' => 1], absolute: false));
+        $this->assertSame('/app/boxes/1/items/2', route('app.boxes.items.updateQuantity', ['box' => 1, 'item' => 2], absolute: false));
+        $this->assertSame('/app/boxes/1/items/2', route('app.boxes.items.remove', ['box' => 1, 'item' => 2], absolute: false));
         $this->assertSame('/app/deliveries/1', route('app.deliveries.show', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1/skip', route('app.deliveries.skip', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1/gift', route('app.deliveries.gift', ['delivery' => 1], absolute: false));
@@ -130,6 +132,18 @@ class RouteGroupingTest extends TestCase
             : []);
         $this->assertSame([BoxController::class, 'show'], $boxRoute->getAction('controller')
             ? explode('@', $boxRoute->getAction('controller'))
+            : []);
+
+        $boxItemsUpdateRoute = RouteFacade::getRoutes()->getByName('app.boxes.items.updateQuantity');
+        $this->assertNotNull($boxItemsUpdateRoute);
+        $this->assertSame([BoxController::class, 'updateItemQuantity'], $boxItemsUpdateRoute->getAction('controller')
+            ? explode('@', $boxItemsUpdateRoute->getAction('controller'))
+            : []);
+
+        $boxItemsRemoveRoute = RouteFacade::getRoutes()->getByName('app.boxes.items.remove');
+        $this->assertNotNull($boxItemsRemoveRoute);
+        $this->assertSame([BoxController::class, 'removeItem'], $boxItemsRemoveRoute->getAction('controller')
+            ? explode('@', $boxItemsRemoveRoute->getAction('controller'))
             : []);
         $this->assertSame([DeliveryController::class, 'show'], $deliveryShowRoute->getAction('controller')
             ? explode('@', $deliveryShowRoute->getAction('controller'))

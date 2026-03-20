@@ -4,6 +4,7 @@ namespace Tests\Feature\Database;
 
 use App\Enums\BoxStatus;
 use App\Models\Box;
+use App\Models\BoxItem;
 use App\Models\Subscription;
 use App\Models\User;
 use Database\Seeders\DemoSubscriptionBoxSeeder;
@@ -47,8 +48,11 @@ class DemoSubscriptionBoxSeederTest extends TestCase
         $this->seed(ProductSeeder::class);
         $this->seed(DemoSubscriptionBoxSeeder::class);
 
+        $this->assertGreaterThanOrEqual(2, User::query()->where('is_test', true)->count());
+        $this->assertSame(0, User::query()->where('is_test', false)->count());
         $this->assertSame(0, Subscription::query()->where('is_test', false)->count());
         $this->assertSame(0, Box::query()->where('is_test', false)->count());
+        $this->assertSame(0, BoxItem::query()->where('is_test', false)->count());
     }
 
     public function test_demo_boxes_have_box_items(): void
@@ -69,6 +73,7 @@ class DemoSubscriptionBoxSeederTest extends TestCase
         $subscription = Subscription::factory()->create(['user_id' => $user->id]);
         $box = Box::factory()->create(['user_id' => $user->id]);
 
+        $this->assertFalse($user->is_test);
         $this->assertFalse($subscription->is_test);
         $this->assertFalse($box->is_test);
     }
