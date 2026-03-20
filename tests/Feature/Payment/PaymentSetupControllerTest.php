@@ -5,11 +5,15 @@ namespace Tests\Feature\Payment;
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Tests\TestCase;
 
 class PaymentSetupControllerTest extends TestCase
 {
+    use MockeryPHPUnitIntegration;
     use RefreshDatabase;
 
     public function test_guest_is_redirected_from_payment_setup(): void
@@ -50,13 +54,119 @@ class PaymentSetupControllerTest extends TestCase
             'user_id' => $user->id,
             'status' => SubscriptionStatus::Active,
             'sumup_token' => null,
+            'sumup_customer_id' => null,
         ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService
+            ->shouldReceive('createCustomer')
+            ->once()
+            ->andReturn((object) ['id' => 'cust_1']);
+        $sumUpService
+            ->shouldReceive('createSetupCheckout')
+            ->once()
+            ->andReturn((object) ['id' => 'checkout_123']);
+
+        $this->app->instance(SumUpService::class, $sumUpService);
 
         $this->actingAs($user)
             ->get(route('app.payments.setup'))
             ->assertOk()
             ->assertSee('Set up payment method')
             ->assertSee('Add your payment details to activate your subscription.')
+            ->assertSee('checkout_123')
             ->assertSee('Back to subscription');
+    }
+
+    public function test_setup_page_reuses_existing_sumup_customer_id_without_recreating_customer(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => null,
+            'sumup_customer_id' => 'sub_123',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService
+            ->shouldNotReceive('createCustomer');
+        $sumUpService
+            ->shouldReceive('createSetupCheckout')
+            ->once()
+            ->with('sub_123', Mockery::type('string'), Mockery::type('string'))
+            ->andReturn((object) ['id' => 'checkout_existing_customer']);
+
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->actingAs($user)
+            ->get(route('app.payments.setup'))
+            ->assertOk()
+            ->assertSee('checkout_existing_customer');
+    }
+
+    public function test_complete_persists_token_and_redirects_to_subscription_overview(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => null,
+            'sumup_customer_id' => null,
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService
+            ->shouldReceive('getCheckout')
+            ->once()
+            ->with('checkout_ok')
+            ->andReturn((object) [
+                'id' => 'checkout_ok',
+                'checkout_reference' => 'sub-'.$subscription->id.'-setup-123',
+                'customer_id' => 'sumup_customer_1',
+                'payment_instrument' => (object) ['token' => 'tok_123'],
+            ]);
+
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->actingAs($user)
+            ->get(route('app.payments.setup.complete', ['checkout' => 'checkout_ok']))
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'payment-setup-success');
+
+        $subscription->refresh();
+        $this->assertSame('tok_123', $subscription->sumup_token);
+        $this->assertSame('sumup_customer_1', $subscription->sumup_customer_id);
+    }
+
+    public function test_complete_rejects_checkout_for_another_subscription(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => null,
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService
+            ->shouldReceive('getCheckout')
+            ->once()
+            ->with('checkout_wrong')
+            ->andReturn((object) [
+                'id' => 'checkout_wrong',
+                'checkout_reference' => 'sub-9999-setup-123',
+                'payment_instrument' => (object) ['token' => 'tok_other'],
+            ]);
+
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->actingAs($user)
+            ->get(route('app.payments.setup.complete', ['checkout' => 'checkout_wrong']))
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'payment-setup-failed');
+
+        $subscription->refresh();
+        $this->assertNull($subscription->sumup_token);
     }
 }

@@ -67,6 +67,7 @@ Route::middleware(['auth', 'verified'])
         });
         Route::prefix('payments')->name('payments.')->group(function () {
             Route::get('/setup', [PaymentSetupController::class, 'show'])->name('setup');
+            Route::get('/setup/complete', [PaymentSetupController::class, 'complete'])->name('setup.complete');
         });
     });
 

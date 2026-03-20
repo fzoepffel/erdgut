@@ -11,6 +11,8 @@ class SumUpService
 
     private string $merchantCode;
 
+    private string $currency;
+
     public function __construct()
     {
         $apiKey = (string) config('sumup.api_key', '');
@@ -25,6 +27,7 @@ class SumUpService
         }
 
         $this->merchantCode = $merchantCode;
+        $this->currency = (string) config('sumup.currency', 'EUR');
 
         $this->client = new SumUp([
             'api_key' => $apiKey,
@@ -47,6 +50,21 @@ class SumUpService
         return $this->client->checkouts()->create(array_merge($params, [
             'merchant_code' => $this->merchantCode,
         ]));
+    }
+
+    public function createSetupCheckout(
+        string $customerId,
+        string $checkoutReference,
+        string $description
+    ): object {
+        return $this->createCheckout([
+            'checkout_reference' => $checkoutReference,
+            'amount' => 1,
+            'currency' => $this->currency,
+            'description' => $description,
+            'customer_id' => $customerId,
+            'purpose' => 'SETUP_RECURRING_PAYMENT',
+        ]);
     }
 
     public function getCheckout(string $id): object

@@ -13,11 +13,51 @@
                         {{ __('Add your payment details to activate your subscription.') }}
                     </p>
 
-                    <div id="sumup-card" class="mt-6 rounded-lg border border-dashed border-gray-300 p-6">
-                        <p class="text-sm text-gray-500">
-                            {{ __('Payment widget will be rendered here in the next step.') }}
-                        </p>
+                    <div
+                        x-data="{ widgetError: '' }"
+                        x-init="
+                            if (!window.SumUpCard) {
+                                widgetError = '{{ __('Unable to load payment widget. Please refresh and try again.') }}';
+                            } else {
+                                SumUpCard.mount({
+                                    id: 'sumup-card',
+                                    checkoutId: '{{ $checkoutId }}',
+                                    email: '{{ $subscription->user->email }}',
+                                    locale: 'de-DE',
+                                    onResponse: function(type, body) {
+                                        if (type === 'success') {
+                                            const checkoutId = body?.id ?? '{{ $checkoutId }}';
+                                            const target = new URL('{{ route('app.payments.setup.complete') }}', window.location.origin);
+                                            target.searchParams.set('checkout', checkoutId);
+                                            window.location.href = target.toString();
+                                            return;
+                                        }
+
+                                        if (type === 'error' || type === 'fail') {
+                                            widgetError = body?.message ?? '{{ __('Payment setup failed. Please try again.') }}';
+                                        }
+                                    }
+                                });
+                            }
+                        "
+                    >
+                        <div id="sumup-card" class="mt-6 rounded-lg border border-dashed border-gray-300 p-6">
+                            <p class="text-sm text-gray-500">
+                                {{ __('Loading payment widget...') }}
+                            </p>
+                        </div>
+
+                        <p x-show="widgetError" x-text="widgetError" class="mt-3 text-sm text-red-600"></p>
                     </div>
+
+                    <p class="mt-3 text-xs text-gray-500">
+                        {{ __('Your card details are processed securely by SumUp.') }}
+                    </p>
+
+                    <script
+                        type="text/javascript"
+                        src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"
+                    ></script>
 
                     <a
                         href="{{ route('app.subscriptions.show') }}"
