@@ -11,6 +11,8 @@ env:
   APP_ENV: testing
   APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
   CRON_KEY: ci-placeholder-key
+  SUMUP_API_KEY: ci-placeholder-key
+  SUMUP_MERCHANT_CODE: ci-placeholder-merchant
 
 jobs:
   deploy:
