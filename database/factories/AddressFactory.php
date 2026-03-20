@@ -34,6 +34,7 @@ class AddressFactory extends Factory
             'floor' => fake()->optional()->numberBetween(0, 8),
             'delivery_instructions' => fake()->optional()->sentence(),
             'is_primary' => false,
+            'is_test' => false,
         ];
     }
 }

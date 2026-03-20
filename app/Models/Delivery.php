@@ -28,6 +28,7 @@ class Delivery extends Model
         'special_instructions',
         'is_weekly_override',
         'overrides_delivery_id',
+        'is_test',
     ];
 
     /**
@@ -41,6 +42,7 @@ class Delivery extends Model
             'status' => DeliveryStatus::class,
             'scheduled_for_date' => 'date',
             'is_weekly_override' => 'boolean',
+            'is_test' => 'boolean',
         ];
     }
 

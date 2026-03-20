@@ -32,6 +32,7 @@ class Address extends Model
         'floor',
         'delivery_instructions',
         'is_primary',
+        'is_test',
     ];
 
     /**
@@ -43,6 +44,7 @@ class Address extends Model
     {
         return [
             'is_primary' => 'boolean',
+            'is_test' => 'boolean',
         ];
     }
 

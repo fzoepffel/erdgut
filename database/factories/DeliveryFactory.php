@@ -31,6 +31,7 @@ class DeliveryFactory extends Factory
             'special_instructions' => fake()->optional()->sentence(),
             'is_weekly_override' => false,
             'overrides_delivery_id' => null,
+            'is_test' => false,
         ];
     }
 }

@@ -3,10 +3,13 @@
 namespace Database\Seeders;
 
 use App\Enums\BoxStatus;
+use App\Enums\DeliveryStatus;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
+use App\Models\Address;
 use App\Models\Box;
 use App\Models\BoxItem;
+use App\Models\Delivery;
 use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
@@ -31,6 +34,8 @@ class DemoSubscriptionBoxSeeder extends Seeder
         $productIds = $products->pluck('id')->all();
 
         foreach ($demoUsers as $user) {
+            $address = $this->createAddressForUser($user);
+
             $subscription = Subscription::query()->updateOrCreate(
                 ['user_id' => $user->id],
                 [
@@ -44,6 +49,7 @@ class DemoSubscriptionBoxSeeder extends Seeder
             );
 
             $this->createBoxesForUser($user, $subscription, $productIds);
+            $this->createDeliveriesForUser($user, $address);
         }
     }
 
@@ -80,6 +86,22 @@ class DemoSubscriptionBoxSeeder extends Seeder
         return $created;
     }
 
+    private function createAddressForUser(User $user): Address
+    {
+        return Address::query()->updateOrCreate(
+            ['user_id' => $user->id, 'label' => 'Home'],
+            [
+                'recipient_name' => $user->name,
+                'street_line_1' => 'Demo Street 1',
+                'postal_code' => '10115',
+                'city' => 'Berlin',
+                'country_code' => 'DE',
+                'is_primary' => true,
+                'is_test' => true,
+            ]
+        );
+    }
+
     /**
      * @param  array<int>  $productIds
      */
@@ -88,6 +110,10 @@ class DemoSubscriptionBoxSeeder extends Seeder
         $baseDate = now()->startOfWeek();
 
         $boxes = [
+            [
+                'week_start' => $baseDate->copy(),
+                'status' => BoxStatus::Editable,
+            ],
             [
                 'week_start' => $baseDate->copy()->addWeek(),
                 'status' => BoxStatus::Editable,
@@ -148,5 +174,33 @@ class DemoSubscriptionBoxSeeder extends Seeder
         }
 
         app(BoxValueRecalculationService::class)->recalculate($box);
+    }
+
+    private function createDeliveriesForUser(User $user, Address $address): void
+    {
+        $baseDate = now()->startOfWeek();
+        $timeslot = '08:00-12:00';
+
+        $deliveryDates = [
+            $baseDate->copy()->addDays(2),
+            $baseDate->copy()->addWeeks(1)->addDays(2),
+            $baseDate->copy()->addWeeks(2)->addDays(2),
+        ];
+
+        foreach ($deliveryDates as $scheduledFor) {
+            Delivery::query()->updateOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'scheduled_for_date' => $scheduledFor->format('Y-m-d'),
+                    'is_weekly_override' => false,
+                ],
+                [
+                    'address_id' => $address->id,
+                    'timeslot' => $timeslot,
+                    'status' => DeliveryStatus::Scheduled,
+                    'is_test' => true,
+                ]
+            );
+        }
     }
 }

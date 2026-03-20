@@ -3,8 +3,10 @@
 namespace Tests\Feature\Database;
 
 use App\Enums\BoxStatus;
+use App\Models\Address;
 use App\Models\Box;
 use App\Models\BoxItem;
+use App\Models\Delivery;
 use App\Models\Subscription;
 use App\Models\User;
 use Database\Seeders\DemoSubscriptionBoxSeeder;
@@ -50,9 +52,40 @@ class DemoSubscriptionBoxSeederTest extends TestCase
 
         $this->assertGreaterThanOrEqual(2, User::query()->where('is_test', true)->count());
         $this->assertSame(0, User::query()->where('is_test', false)->count());
+        $this->assertGreaterThanOrEqual(2, Address::query()->where('is_test', true)->count());
+        $this->assertSame(0, Address::query()->where('is_test', false)->count());
         $this->assertSame(0, Subscription::query()->where('is_test', false)->count());
         $this->assertSame(0, Box::query()->where('is_test', false)->count());
         $this->assertSame(0, BoxItem::query()->where('is_test', false)->count());
+        $this->assertGreaterThanOrEqual(4, Delivery::query()->where('is_test', true)->count());
+        $this->assertSame(0, Delivery::query()->where('is_test', false)->count());
+    }
+
+    public function test_demo_seeder_creates_deliveries_and_addresses(): void
+    {
+        $this->seed(ProducerSeeder::class);
+        $this->seed(ProductSeeder::class);
+        $this->seed(DemoSubscriptionBoxSeeder::class);
+
+        $this->assertGreaterThanOrEqual(2, Address::query()->where('is_test', true)->count());
+        $this->assertGreaterThanOrEqual(6, Delivery::query()->where('is_test', true)->count());
+    }
+
+    public function test_dashboard_shows_content_for_demo_users_after_seeding(): void
+    {
+        $this->seed(ProducerSeeder::class);
+        $this->seed(ProductSeeder::class);
+        $this->seed(DemoSubscriptionBoxSeeder::class);
+
+        $user = User::query()->where('email', 'demo-qa@erdgut.local')->first();
+        $this->assertNotNull($user);
+
+        $this->actingAs($user)
+            ->get(route('app.dashboard'))
+            ->assertOk()
+            ->assertSee('Berlin')
+            ->assertSee('Modify box')
+            ->assertSee('View current box');
     }
 
     public function test_demo_boxes_have_box_items(): void
@@ -72,9 +105,16 @@ class DemoSubscriptionBoxSeederTest extends TestCase
         $user = User::factory()->create();
         $subscription = Subscription::factory()->create(['user_id' => $user->id]);
         $box = Box::factory()->create(['user_id' => $user->id]);
+        $address = Address::factory()->create(['user_id' => $user->id]);
+        $delivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+        ]);
 
         $this->assertFalse($user->is_test);
         $this->assertFalse($subscription->is_test);
         $this->assertFalse($box->is_test);
+        $this->assertFalse($address->is_test);
+        $this->assertFalse($delivery->is_test);
     }
 }
