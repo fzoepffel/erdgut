@@ -96,6 +96,15 @@ git push
 
 ## Troubleshooting
 
+**`Missing required secrets for production: CRON_KEY` after setting `.env`**
+
+Laravel’s config cache does not load `.env` on boot; `CRON_KEY` must be read via `config('cron.key')` (see `config/cron.php`). If Artisan fails before you can run `config:cache`, delete the cached config and rebuild:
+
+```bash
+rm -f bootstrap/cache/config.php
+php artisan config:cache
+```
+
 **SSH/SCP connection fails**
 - Verify `SSH_HOST`, `SSH_USERNAME`, `SSH_PASSWORD` in GitHub Secrets
 - Ensure SSH login works in IONOS for that user

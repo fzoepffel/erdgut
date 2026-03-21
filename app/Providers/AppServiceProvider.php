@@ -30,7 +30,7 @@ class AppServiceProvider extends ServiceProvider
             app()->environment(),
             [
                 'APP_KEY' => config('app.key'),
-                'CRON_KEY' => env('CRON_KEY'),
+                'CRON_KEY' => config('cron.key'),
             ]
         );
 
