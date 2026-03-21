@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\SumUp;
 
+use App\Enums\SubscriptionPlan;
+use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Testing\TestResponse;
 use Mockery;
@@ -80,7 +83,9 @@ class SumUpWebhookTest extends TestCase
 
     public function test_webhook_marks_payment_paid_on_success(): void
     {
-        $subscription = Subscription::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'plan' => SubscriptionPlan::Weekly,
+        ]);
         $payment = Payment::factory()->create([
             'subscription_id' => $subscription->id,
             'status' => Payment::STATUS_PENDING,
@@ -99,6 +104,9 @@ class SumUpWebhookTest extends TestCase
         $payment->refresh();
         $this->assertSame(Payment::STATUS_PAID, $payment->status);
         $this->assertNotNull($payment->paid_at);
+
+        $subscription->refresh();
+        $this->assertSame(Carbon::today()->addWeek()->toDateString(), $subscription->next_charge_date?->toDateString());
     }
 
     public function test_webhook_marks_payment_failed_on_failure(): void
@@ -125,6 +133,85 @@ class SumUpWebhookTest extends TestCase
         $payment->refresh();
         $this->assertSame(Payment::STATUS_FAILED, $payment->status);
         $this->assertNotNull($payment->failed_at);
+    }
+
+    public function test_webhook_advances_next_charge_date_weekly(): void
+    {
+        $subscription = Subscription::factory()->create([
+            'plan' => SubscriptionPlan::Weekly,
+            'next_charge_date' => Carbon::today(),
+        ]);
+        $payment = Payment::factory()->create([
+            'subscription_id' => $subscription->id,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_weekly_123',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')->with('checkout_weekly_123')->andReturn((object) ['status' => 'PAID']);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_weekly_123',
+        ])->assertOk();
+
+        $subscription->refresh();
+        $this->assertSame(Carbon::today()->addWeek()->toDateString(), $subscription->next_charge_date?->toDateString());
+    }
+
+    public function test_webhook_advances_next_charge_date_biweekly(): void
+    {
+        $subscription = Subscription::factory()->create([
+            'plan' => SubscriptionPlan::Biweekly,
+            'next_charge_date' => Carbon::today(),
+        ]);
+        $payment = Payment::factory()->create([
+            'subscription_id' => $subscription->id,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_biweekly_123',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')->with('checkout_biweekly_123')->andReturn((object) ['status' => 'PAID']);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_biweekly_123',
+        ])->assertOk();
+
+        $subscription->refresh();
+        $this->assertSame(Carbon::today()->addWeeks(2)->toDateString(), $subscription->next_charge_date?->toDateString());
+    }
+
+    public function test_webhook_does_not_advance_next_charge_date_when_subscription_cancelled(): void
+    {
+        $subscription = Subscription::factory()->create([
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Cancelled,
+            'next_charge_date' => Carbon::today(),
+        ]);
+        $payment = Payment::factory()->create([
+            'subscription_id' => $subscription->id,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_cancelled_123',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')->with('checkout_cancelled_123')->andReturn((object) ['status' => 'PAID']);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_cancelled_123',
+        ])->assertOk();
+
+        $payment->refresh();
+        $this->assertSame(Payment::STATUS_PAID, $payment->status);
+
+        $subscription->refresh();
+        $this->assertSame(Carbon::today()->toDateString(), $subscription->next_charge_date?->toDateString());
     }
 
     public function test_webhook_ignores_checkout_without_payment(): void

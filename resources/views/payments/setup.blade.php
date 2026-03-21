@@ -1,7 +1,14 @@
+@php
+    $intent = $intent ?? 'setup';
+@endphp
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Set up payment method') }}
+            @if ($intent === 'update')
+                {{ __('Update payment method') }}
+            @else
+                {{ __('Set up payment method') }}
+            @endif
         </h2>
     </x-slot>
 
@@ -10,7 +17,11 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     <p class="text-sm text-gray-600">
-                        {{ __('Add your payment details to activate your subscription.') }}
+                        @if ($intent === 'update')
+                            {{ __('Replace your stored payment details.') }}
+                        @else
+                            {{ __('Add your payment details to activate your subscription.') }}
+                        @endif
                     </p>
 
                     <div
@@ -29,6 +40,9 @@
                                             const checkoutId = body?.id ?? '{{ $checkoutId }}';
                                             const target = new URL('{{ route('app.payments.setup.complete') }}', window.location.origin);
                                             target.searchParams.set('checkout', checkoutId);
+                                            @if ($intent === 'update')
+                                            target.searchParams.set('intent', 'update');
+                                            @endif
                                             window.location.href = target.toString();
                                             return;
                                         }

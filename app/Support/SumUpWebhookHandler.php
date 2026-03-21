@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -10,7 +11,8 @@ use Throwable;
 class SumUpWebhookHandler
 {
     public function __construct(
-        private readonly SumUpService $sumUpService
+        private readonly SumUpService $sumUpService,
+        private readonly SubscriptionLifecycleService $subscriptionLifecycleService
     ) {}
 
     /**
@@ -62,7 +64,18 @@ class SumUpWebhookHandler
         $status = strtoupper((string) data_get($checkout, 'status', ''));
 
         if ($status === 'PAID') {
-            $payment->markPaid();
+            $subscription = $payment->subscription;
+            $shouldAdvanceNextChargeDate = $subscription !== null
+                && $subscription->status === SubscriptionStatus::Active;
+
+            DB::transaction(function () use ($payment, $subscription, $shouldAdvanceNextChargeDate): void {
+                $payment->markPaid();
+
+                if ($shouldAdvanceNextChargeDate) {
+                    $nextChargeDate = $this->subscriptionLifecycleService->computeNextChargeDate($subscription);
+                    $subscription->update(['next_charge_date' => $nextChargeDate]);
+                }
+            });
 
             return;
         }

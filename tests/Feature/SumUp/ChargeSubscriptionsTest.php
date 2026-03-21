@@ -8,6 +8,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Tests\TestCase;
@@ -121,6 +122,66 @@ class ChargeSubscriptionsTest extends TestCase
             'status' => Payment::STATUS_PENDING,
             'sumup_checkout_id' => 'checkout_abc123',
         ]);
+    }
+
+    public function test_charge_excludes_subscription_with_retryable_failed_payment(): void
+    {
+        Config::set('payments.max_retries', 3);
+
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_123',
+            'sumup_customer_id' => 'cust_123',
+            'next_charge_date' => now()->subDay(),
+        ]);
+        $subscription->payments()->create([
+            'amount' => 35,
+            'currency' => 'EUR',
+            'status' => Payment::STATUS_FAILED,
+            'attempt_number' => 1,
+            'failed_at' => now(),
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldNotReceive('createRecurringCheckout');
+        $sumUpService->shouldNotReceive('processCheckout');
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->artisan('subscriptions:charge', ['--dry-run' => true])
+            ->assertSuccessful()
+            ->expectsOutputToContain('No due subscriptions');
+    }
+
+    public function test_charge_excludes_subscription_with_exhausted_failed_payment(): void
+    {
+        Config::set('payments.max_retries', 3);
+
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_123',
+            'sumup_customer_id' => 'cust_123',
+            'next_charge_date' => now()->subDay(),
+        ]);
+        $subscription->payments()->create([
+            'amount' => 35,
+            'currency' => 'EUR',
+            'status' => Payment::STATUS_FAILED,
+            'attempt_number' => 3,
+            'failed_at' => now(),
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldNotReceive('createRecurringCheckout');
+        $sumUpService->shouldNotReceive('processCheckout');
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->artisan('subscriptions:charge', ['--dry-run' => true])
+            ->assertSuccessful()
+            ->expectsOutputToContain('No due subscriptions');
     }
 
     public function test_charge_marks_payment_failed_on_sumup_exception(): void

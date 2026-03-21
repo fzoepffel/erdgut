@@ -8,10 +8,10 @@
 
     $baseClasses = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium';
     $statusClasses = match ($statusValue) {
-        'scheduled', 'editable', 'active' => 'bg-emerald-100 text-emerald-700',
+        'scheduled', 'editable', 'active', 'paid' => 'bg-emerald-100 text-emerald-700',
         'delivered' => 'bg-sky-100 text-sky-700',
-        'locked', 'paused' => 'bg-amber-100 text-amber-700',
-        'skipped', 'cancelled' => 'bg-rose-100 text-rose-700',
+        'locked', 'paused', 'pending' => 'bg-amber-100 text-amber-700',
+        'skipped', 'cancelled', 'failed' => 'bg-rose-100 text-rose-700',
         default => 'bg-gray-100 text-gray-700',
     };
 

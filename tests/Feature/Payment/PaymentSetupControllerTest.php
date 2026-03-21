@@ -169,4 +169,120 @@ class PaymentSetupControllerTest extends TestCase
         $subscription->refresh();
         $this->assertNull($subscription->sumup_token);
     }
+
+    public function test_update_redirects_when_no_token(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => null,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.payments.update'))
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'payment-update-unavailable');
+    }
+
+    public function test_update_shows_setup_page_when_token_exists(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_existing',
+            'sumup_customer_id' => 'sub_cust_1',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldNotReceive('createCustomer');
+        $sumUpService
+            ->shouldReceive('createSetupCheckout')
+            ->once()
+            ->withArgs(function ($customerId, $reference, $description) {
+                return str_contains($reference, '-update-');
+            })
+            ->andReturn((object) ['id' => 'checkout_update_123']);
+
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->actingAs($user)
+            ->get(route('app.payments.update'))
+            ->assertOk()
+            ->assertSee('Update payment method')
+            ->assertSee('Replace your stored payment details.')
+            ->assertSee('checkout_update_123');
+    }
+
+    public function test_update_complete_replaces_token_without_activating(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Paused,
+            'sumup_token' => 'tok_old',
+            'sumup_customer_id' => 'sumup_cust_1',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService
+            ->shouldReceive('getCheckout')
+            ->once()
+            ->with('checkout_update_ok')
+            ->andReturn((object) [
+                'id' => 'checkout_update_ok',
+                'checkout_reference' => 'sub-'.$subscription->id.'-update-'.time(),
+                'customer_id' => 'sumup_cust_1',
+                'payment_instrument' => (object) ['token' => 'tok_new'],
+            ]);
+
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->actingAs($user)
+            ->get(route('app.payments.setup.complete', [
+                'checkout' => 'checkout_update_ok',
+                'intent' => 'update',
+            ]))
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'payment-updated');
+
+        $subscription->refresh();
+        $this->assertSame('tok_new', $subscription->sumup_token);
+        $this->assertSame(SubscriptionStatus::Paused, $subscription->status);
+    }
+
+    public function test_complete_with_intent_update_redirects_with_payment_updated(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_old',
+            'sumup_customer_id' => 'sumup_cust_1',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService
+            ->shouldReceive('getCheckout')
+            ->once()
+            ->with('checkout_update_ok')
+            ->andReturn((object) [
+                'id' => 'checkout_update_ok',
+                'checkout_reference' => 'sub-'.$subscription->id.'-update-123',
+                'customer_id' => 'sumup_cust_1',
+                'payment_instrument' => (object) ['token' => 'tok_new'],
+            ]);
+
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $response = $this->actingAs($user)
+            ->get(route('app.payments.setup.complete', [
+                'checkout' => 'checkout_update_ok',
+                'intent' => 'update',
+            ]));
+
+        $response->assertRedirect(route('app.subscriptions.show'));
+        $response->assertSessionHas('status', 'payment-updated');
+    }
 }

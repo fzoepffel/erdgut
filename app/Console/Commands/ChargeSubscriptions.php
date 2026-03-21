@@ -130,6 +130,20 @@ class ChargeSubscriptions extends Command
             })
             ->with('user')
             ->get()
-            ->filter(fn (Subscription $s) => ! $s->isWithinPauseWindow($today));
+            ->filter(fn (Subscription $s) => ! $s->isWithinPauseWindow($today))
+            ->filter(function (Subscription $s): bool {
+                $latestPayment = $s->payments()->orderByDesc('attempt_number')->first();
+                if ($latestPayment === null) {
+                    return true;
+                }
+                if ($latestPayment->status === Payment::STATUS_PENDING) {
+                    return false;
+                }
+                if ($latestPayment->status === Payment::STATUS_FAILED) {
+                    return false;
+                }
+
+                return true;
+            });
     }
 }

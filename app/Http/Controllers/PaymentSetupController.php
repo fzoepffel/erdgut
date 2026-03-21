@@ -52,6 +52,45 @@ class PaymentSetupController extends Controller
         ]);
     }
 
+    public function showUpdate(Request $request): View|RedirectResponse
+    {
+        $subscription = $this->resolveSubscription($request);
+
+        if ($subscription === null) {
+            return redirect()
+                ->route('app.subscriptions.show')
+                ->with('status', 'subscription-missing');
+        }
+
+        if (empty($subscription->sumup_token)) {
+            return redirect()
+                ->route('app.subscriptions.show')
+                ->with('status', 'payment-update-unavailable');
+        }
+
+        $customerId = $this->ensureCustomer($request, $subscription, $this->sumUpService());
+
+        if ($customerId === null) {
+            return redirect()
+                ->route('app.subscriptions.show')
+                ->with('status', 'payment-setup-unavailable');
+        }
+
+        $checkoutId = $this->createUpdateCheckout($subscription, $customerId, $this->sumUpService());
+
+        if ($checkoutId === null) {
+            return redirect()
+                ->route('app.subscriptions.show')
+                ->with('status', 'payment-setup-unavailable');
+        }
+
+        return view('payments.setup', [
+            'subscription' => $subscription,
+            'checkoutId' => $checkoutId,
+            'intent' => 'update',
+        ]);
+    }
+
     public function complete(Request $request): RedirectResponse
     {
         $subscription = $this->resolveSubscription($request);
@@ -69,6 +108,8 @@ class PaymentSetupController extends Controller
                 ->route('app.subscriptions.show')
                 ->with('status', 'payment-setup-failed');
         }
+
+        $intent = (string) $request->query('intent', 'setup');
 
         try {
             $checkout = $this->sumUpService()->getCheckout($checkoutId);
@@ -111,11 +152,15 @@ class PaymentSetupController extends Controller
             'next_charge_date' => $nextChargeDate,
         ]);
 
-        $subscription->activate();
+        if ($intent !== 'update') {
+            $subscription->activate();
+        }
+
+        $status = $intent === 'update' ? 'payment-updated' : 'payment-setup-success';
 
         return redirect()
             ->route('app.subscriptions.show')
-            ->with('status', 'payment-setup-success');
+            ->with('status', $status);
     }
 
     private function resolveSubscription(Request $request): ?Subscription
@@ -185,6 +230,27 @@ class PaymentSetupController extends Controller
             return data_get($checkout, 'id');
         } catch (Throwable $exception) {
             Log::warning('Failed to create SumUp setup checkout.', [
+                'subscription_id' => $subscription->id,
+                'customer_id' => $customerId,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function createUpdateCheckout(Subscription $subscription, string $customerId, SumUpService $sumUpService): ?string
+    {
+        try {
+            $checkout = $sumUpService->createSetupCheckout(
+                customerId: $customerId,
+                checkoutReference: 'sub-'.$subscription->id.'-update-'.now()->timestamp,
+                description: 'Update payment method for subscription #'.$subscription->id
+            );
+
+            return data_get($checkout, 'id');
+        } catch (Throwable $exception) {
+            Log::warning('Failed to create SumUp update checkout.', [
                 'subscription_id' => $subscription->id,
                 'customer_id' => $customerId,
                 'error' => $exception->getMessage(),
