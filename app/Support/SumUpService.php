@@ -51,12 +51,53 @@ class SumUpService
             'merchant_code' => $this->merchantCode,
         ]);
 
-        $webhookUrl = (string) config('sumup.webhook_url', '');
-        if (trim($webhookUrl) !== '' && ! isset($payload['return_url'])) {
-            $payload['return_url'] = $webhookUrl;
+        if (! isset($payload['return_url'])) {
+            $payload['return_url'] = $this->checkoutReturnUrl();
         }
 
-        return $this->client->checkouts()->create($payload);
+        $returnUrl = (string) ($payload['return_url'] ?? '');
+        $returnHost = parse_url($returnUrl, PHP_URL_HOST) ?: null;
+
+        try {
+            $created = $this->client->checkouts()->create($payload);
+        } catch (\Throwable $e) {
+            SumUpCheckoutLogger::warning('SumUp checkouts.create failed.', [
+                'checkout_reference' => $payload['checkout_reference'] ?? null,
+                'purpose' => $payload['purpose'] ?? null,
+                'customer_id' => $payload['customer_id'] ?? null,
+                'amount' => $payload['amount'] ?? null,
+                'currency' => $payload['currency'] ?? null,
+                'return_url_host' => $returnHost,
+                'exception_class' => $e::class,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
+
+        SumUpCheckoutLogger::info('SumUp checkouts.create succeeded.', [
+            'checkout_id' => data_get($created, 'id'),
+            'checkout_reference' => data_get($created, 'checkout_reference', $payload['checkout_reference'] ?? null),
+            'purpose' => $payload['purpose'] ?? null,
+            'customer_id' => $payload['customer_id'] ?? null,
+            'return_url_host' => $returnHost,
+        ]);
+
+        return $created;
+    }
+
+    /**
+     * URL SumUp may open in the customer's browser after 3DS or similar steps.
+     * Must not be the API webhook endpoint (that is POST-only, server-to-server).
+     */
+    private function checkoutReturnUrl(): string
+    {
+        $configured = trim((string) config('sumup.checkout_return_url', ''));
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        return route('app.subscriptions.show', absolute: true);
     }
 
     public function createSetupCheckout(

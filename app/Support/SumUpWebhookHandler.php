@@ -5,7 +5,6 @@ namespace App\Support;
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class SumUpWebhookHandler
@@ -24,6 +23,10 @@ class SumUpWebhookHandler
         $checkoutId = data_get($payload, 'id');
 
         if (! is_string($checkoutId) || trim($checkoutId) === '') {
+            SumUpCheckoutLogger::warning('SumUp webhook: CHECKOUT_STATUS_CHANGED missing checkout id.', [
+                'event_type' => $eventType,
+            ]);
+
             return;
         }
 
@@ -35,29 +38,54 @@ class SumUpWebhookHandler
         ]);
 
         if ($inserted === 0) {
+            SumUpCheckoutLogger::info('SumUp webhook: duplicate event ignored (idempotency).', [
+                'checkout_id' => $checkoutId,
+                'event_type' => $eventType,
+            ]);
+
             return;
         }
+
+        SumUpCheckoutLogger::info('SumUp webhook: processing CHECKOUT_STATUS_CHANGED.', [
+            'checkout_id' => $checkoutId,
+            'event_type' => $eventType,
+        ]);
 
         try {
             $checkout = $this->sumUpService->getCheckout($checkoutId);
         } catch (Throwable $e) {
-            Log::warning('SumUp webhook: failed to fetch checkout for verification.', [
+            SumUpCheckoutLogger::warning('SumUp webhook: failed to fetch checkout for verification.', [
                 'checkout_id' => $checkoutId,
+                'exception_class' => $e::class,
                 'error' => $e->getMessage(),
             ]);
 
             return;
         }
 
+        $snapshot = SumUpCheckoutLogger::checkoutSnapshot($checkout);
+
         $payment = Payment::query()
             ->where('sumup_checkout_id', $checkoutId)
             ->first();
 
         if ($payment === null) {
+            SumUpCheckoutLogger::info('SumUp webhook: no local payment row for checkout (expected for card setup / other flows).', [
+                'checkout_id' => $checkoutId,
+                'checkout' => $snapshot,
+            ]);
+
             return;
         }
 
         if ($payment->status !== Payment::STATUS_PENDING) {
+            SumUpCheckoutLogger::info('SumUp webhook: payment not pending; skipping state change.', [
+                'checkout_id' => $checkoutId,
+                'payment_id' => $payment->id,
+                'payment_status' => $payment->status,
+                'checkout' => $snapshot,
+            ]);
+
             return;
         }
 
@@ -77,12 +105,28 @@ class SumUpWebhookHandler
                 }
             });
 
+            SumUpCheckoutLogger::info('SumUp webhook: payment marked paid.', [
+                'checkout_id' => $checkoutId,
+                'payment_id' => $payment->id,
+                'subscription_id' => $subscription?->id,
+                'advanced_next_charge_date' => $shouldAdvanceNextChargeDate,
+                'checkout' => $snapshot,
+            ]);
+
             return;
         }
 
         if (in_array($status, ['FAILED', 'EXPIRED'], true)) {
             $reason = $this->extractFailureReason($checkout);
             $payment->markFailed($reason);
+
+            SumUpCheckoutLogger::warning('SumUp webhook: payment marked failed.', [
+                'checkout_id' => $checkoutId,
+                'payment_id' => $payment->id,
+                'checkout_status' => $status,
+                'reason' => $reason,
+                'checkout' => $snapshot,
+            ]);
         }
     }
 

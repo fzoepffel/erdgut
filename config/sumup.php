@@ -17,6 +17,11 @@ return [
     'currency' => env('SUMUP_CURRENCY', 'EUR'),
     'webhook_secret' => env('SUMUP_WEBHOOK_SECRET'),
     'webhook_url' => env('SUMUP_WEBHOOK_URL'),
+    /*
+     * Browser redirect after 3DS / hosted steps (not the webhook URL).
+     * Leave empty to use route('app.subscriptions.show') with APP_URL.
+     */
+    'checkout_return_url' => env('SUMUP_CHECKOUT_RETURN_URL'),
     'mode' => env('SUMUP_MODE', 'sandbox'),
 
 ];

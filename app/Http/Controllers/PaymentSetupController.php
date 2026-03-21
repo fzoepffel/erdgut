@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
 use App\Support\SubscriptionLifecycleService;
+use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class PaymentSetupController extends Controller
@@ -45,6 +45,14 @@ class PaymentSetupController extends Controller
                 ->route('app.subscriptions.show')
                 ->with('status', 'payment-setup-unavailable');
         }
+
+        SumUpCheckoutLogger::info('Payment setup: SumUp checkout created for widget.', [
+            'flow' => 'setup',
+            'user_id' => $request->user()->id,
+            'subscription_id' => $subscription->id,
+            'sumup_customer_id' => $customerId,
+            'checkout_id' => $checkoutId,
+        ]);
 
         return view('payments.setup', [
             'subscription' => $subscription,
@@ -84,6 +92,14 @@ class PaymentSetupController extends Controller
                 ->with('status', 'payment-setup-unavailable');
         }
 
+        SumUpCheckoutLogger::info('Payment setup: SumUp checkout created for widget.', [
+            'flow' => 'update_payment_method',
+            'user_id' => $request->user()->id,
+            'subscription_id' => $subscription->id,
+            'sumup_customer_id' => $customerId,
+            'checkout_id' => $checkoutId,
+        ]);
+
         return view('payments.setup', [
             'subscription' => $subscription,
             'checkoutId' => $checkoutId,
@@ -104,6 +120,12 @@ class PaymentSetupController extends Controller
         $checkoutId = (string) $request->query('checkout', '');
 
         if (trim($checkoutId) === '') {
+            SumUpCheckoutLogger::warning('Payment setup complete: missing checkout query parameter.', [
+                'user_id' => $request->user()->id,
+                'subscription_id' => $subscription->id,
+                'intent' => (string) $request->query('intent', 'setup'),
+            ]);
+
             return redirect()
                 ->route('app.subscriptions.show')
                 ->with('status', 'payment-setup-failed');
@@ -111,12 +133,22 @@ class PaymentSetupController extends Controller
 
         $intent = (string) $request->query('intent', 'setup');
 
+        SumUpCheckoutLogger::info('Payment setup complete: fetching checkout from SumUp.', [
+            'user_id' => $request->user()->id,
+            'subscription_id' => $subscription->id,
+            'intent' => $intent,
+            'checkout_id' => $checkoutId,
+        ]);
+
         try {
             $checkout = $this->sumUpService()->getCheckout($checkoutId);
         } catch (Throwable $exception) {
-            Log::warning('Failed to fetch SumUp checkout for payment setup completion.', [
+            SumUpCheckoutLogger::warning('Failed to fetch SumUp checkout for payment setup completion.', [
                 'subscription_id' => $subscription->id,
+                'user_id' => $request->user()->id,
                 'checkout_id' => $checkoutId,
+                'intent' => $intent,
+                'exception_class' => $exception::class,
                 'error' => $exception->getMessage(),
             ]);
 
@@ -125,17 +157,40 @@ class PaymentSetupController extends Controller
                 ->with('status', 'payment-setup-failed');
         }
 
+        $snapshot = SumUpCheckoutLogger::checkoutSnapshot($checkout);
+
+        SumUpCheckoutLogger::info('Payment setup complete: checkout retrieved.', [
+            'subscription_id' => $subscription->id,
+            'checkout_id' => $checkoutId,
+            'intent' => $intent,
+            'checkout' => $snapshot,
+        ]);
+
         $checkoutReference = (string) data_get($checkout, 'checkout_reference', '');
         $expectedPrefix = 'sub-'.$subscription->id.'-';
 
         if (! str_starts_with($checkoutReference, $expectedPrefix)) {
+            SumUpCheckoutLogger::warning('Payment setup complete: checkout_reference does not match subscription.', [
+                'subscription_id' => $subscription->id,
+                'user_id' => $request->user()->id,
+                'checkout_id' => $checkoutId,
+                'expected_prefix' => $expectedPrefix,
+                'checkout_reference' => $checkoutReference,
+                'intent' => $intent,
+            ]);
+
             return redirect()
                 ->route('app.subscriptions.show')
                 ->with('status', 'payment-setup-failed');
         }
 
+        $tokenSource = null;
         $token = (string) data_get($checkout, 'payment_instrument.token', '');
         $customerId = (string) data_get($checkout, 'customer_id', '');
+
+        if (trim($token) !== '') {
+            $tokenSource = 'checkout.payment_instrument';
+        }
 
         // Fallback: checkout may not include payment_instrument for SETUP_RECURRING_PAYMENT;
         // retrieve token from customer's payment instruments after successful checkout
@@ -145,20 +200,35 @@ class PaymentSetupController extends Controller
                 $instrumentList = is_array($instruments) ? $instruments : (array) $instruments;
                 $firstInstrument = $instrumentList[0] ?? null;
                 $token = (string) data_get($firstInstrument, 'token', '');
-            } catch (Throwable $exception) {
-                Log::warning('Failed to list payment instruments for token fallback.', [
+                if (trim($token) !== '') {
+                    $tokenSource = 'list_payment_instruments';
+                }
+
+                SumUpCheckoutLogger::info('Payment setup: listed payment instruments for token fallback.', [
                     'subscription_id' => $subscription->id,
-                    'customer_id' => $customerId,
+                    'sumup_customer_id' => $customerId,
+                    'instrument_count' => count($instrumentList),
+                    'token_resolved' => trim($token) !== '',
+                ]);
+            } catch (Throwable $exception) {
+                SumUpCheckoutLogger::warning('Failed to list payment instruments for token fallback.', [
+                    'subscription_id' => $subscription->id,
+                    'sumup_customer_id' => $customerId,
+                    'checkout_id' => $checkoutId,
+                    'exception_class' => $exception::class,
                     'error' => $exception->getMessage(),
                 ]);
             }
         }
 
         if (trim($token) === '') {
-            Log::warning('Payment setup incomplete: checkout has no payment token.', [
+            SumUpCheckoutLogger::warning('Payment setup incomplete: no payment token after checkout and fallback.', [
                 'subscription_id' => $subscription->id,
+                'user_id' => $request->user()->id,
                 'checkout_id' => $checkoutId,
-                'checkout_status' => data_get($checkout, 'status'),
+                'intent' => $intent,
+                'sumup_customer_id' => $customerId !== '' ? $customerId : null,
+                'checkout' => $snapshot,
             ]);
 
             return redirect()
@@ -180,6 +250,16 @@ class PaymentSetupController extends Controller
         }
 
         $status = $intent === 'update' ? 'payment-updated' : 'payment-setup-success';
+
+        SumUpCheckoutLogger::info('Payment setup completed successfully.', [
+            'subscription_id' => $subscription->id,
+            'user_id' => $request->user()->id,
+            'checkout_id' => $checkoutId,
+            'intent' => $intent,
+            'token_source' => $tokenSource,
+            'sumup_customer_id' => $subscription->sumup_customer_id ?: $customerId,
+            'session_status' => $status,
+        ]);
 
         return redirect()
             ->route('app.subscriptions.show')
@@ -229,9 +309,10 @@ class PaymentSetupController extends Controller
         try {
             $sumUpService->createCustomer($payload);
         } catch (Throwable $exception) {
-            Log::warning('Failed to create SumUp customer during payment setup.', [
+            SumUpCheckoutLogger::warning('Failed to create SumUp customer during payment setup.', [
                 'subscription_id' => $subscription->id,
-                'customer_id' => $customerId,
+                'sumup_customer_id' => $customerId,
+                'exception_class' => $exception::class,
                 'error' => $exception->getMessage(),
             ]);
         }
@@ -252,9 +333,10 @@ class PaymentSetupController extends Controller
 
             return data_get($checkout, 'id');
         } catch (Throwable $exception) {
-            Log::warning('Failed to create SumUp setup checkout.', [
+            SumUpCheckoutLogger::warning('Failed to create SumUp setup checkout.', [
                 'subscription_id' => $subscription->id,
-                'customer_id' => $customerId,
+                'sumup_customer_id' => $customerId,
+                'exception_class' => $exception::class,
                 'error' => $exception->getMessage(),
             ]);
 
@@ -273,9 +355,10 @@ class PaymentSetupController extends Controller
 
             return data_get($checkout, 'id');
         } catch (Throwable $exception) {
-            Log::warning('Failed to create SumUp update checkout.', [
+            SumUpCheckoutLogger::warning('Failed to create SumUp update checkout.', [
                 'subscription_id' => $subscription->id,
-                'customer_id' => $customerId,
+                'sumup_customer_id' => $customerId,
+                'exception_class' => $exception::class,
                 'error' => $exception->getMessage(),
             ]);
 
