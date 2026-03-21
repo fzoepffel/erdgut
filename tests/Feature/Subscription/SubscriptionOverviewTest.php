@@ -50,7 +50,44 @@ class SubscriptionOverviewTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.subscriptions.show'))
             ->assertOk()
-            ->assertSee('No active subscription found yet.');
+            ->assertSee('No active subscription found yet.')
+            ->assertSee('Create subscription');
+    }
+
+    public function test_user_without_subscription_can_create_one(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.subscriptions.create'))
+            ->assertOk()
+            ->assertSee('Create subscription')
+            ->assertSee('Box size');
+
+        $this->actingAs($user)
+            ->post(route('app.subscriptions.store'), [
+                'box_size' => 'medium',
+                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
+                'allergies' => '',
+            ])
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-created');
+
+        $this->assertDatabaseHas('subscriptions', [
+            'user_id' => $user->id,
+            'box_size' => 'medium',
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_user_with_subscription_is_redirected_from_create(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)
+            ->get(route('app.subscriptions.create'))
+            ->assertRedirect(route('app.subscriptions.show'));
     }
 
     public function test_subscription_overview_does_not_show_other_users_subscription(): void

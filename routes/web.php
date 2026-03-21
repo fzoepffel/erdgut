@@ -36,6 +36,8 @@ Route::middleware(['auth', 'verified'])
         // Placeholder route groups for upcoming ERD business flows.
         Route::prefix('subscriptions')->name('subscriptions.')->group(function () {
             Route::get('/', [SubscriptionController::class, 'show'])->name('show');
+            Route::get('/create', [SubscriptionController::class, 'create'])->name('create');
+            Route::post('/', [SubscriptionController::class, 'store'])->name('store');
             Route::get('/edit', [SubscriptionController::class, 'edit'])->name('edit');
             Route::patch('/', [SubscriptionController::class, 'update'])->name('update');
             Route::post('/pause', [SubscriptionController::class, 'pause'])->name('pause');

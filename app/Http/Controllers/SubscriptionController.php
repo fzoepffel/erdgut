@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Http\Requests\SubscriptionCancelRequest;
 use App\Http\Requests\SubscriptionPauseRequest;
 use App\Http\Requests\SubscriptionResumeRequest;
+use App\Http\Requests\SubscriptionStoreRequest;
 use App\Http\Requests\SubscriptionUpdateRequest;
 use App\Models\Subscription;
 use App\Support\SubscriptionLifecycleService;
@@ -28,6 +30,47 @@ class SubscriptionController extends Controller
             'subscription' => $subscription,
             'billingDateDisplay' => $billingDateDisplay,
         ]);
+    }
+
+    public function create(Request $request): View|RedirectResponse
+    {
+        if ($this->resolveSubscription($request) !== null) {
+            return redirect()->route('app.subscriptions.show');
+        }
+
+        $subscription = new Subscription([
+            'box_size' => 'medium',
+            'plan' => SubscriptionPlan::Weekly,
+            'preferences' => ['veg_only' => false, 'meat_add_on' => false],
+            'allergies' => [],
+        ]);
+
+        return view('subscriptions.create', [
+            'subscription' => $subscription,
+            'allergiesInput' => '',
+        ]);
+    }
+
+    public function store(SubscriptionStoreRequest $request): RedirectResponse
+    {
+        if ($this->resolveSubscription($request) !== null) {
+            return redirect()->route('app.subscriptions.show');
+        }
+
+        $validated = $request->validated();
+
+        Subscription::create([
+            'user_id' => $request->user()->id,
+            'plan' => SubscriptionPlan::Weekly,
+            'box_size' => $validated['box_size'],
+            'preferences' => $validated['preferences'],
+            'allergies' => $validated['allergies'] ?? [],
+            'status' => SubscriptionStatus::Active,
+        ]);
+
+        return redirect()
+            ->route('app.subscriptions.show')
+            ->with('status', 'subscription-created');
     }
 
     public function edit(Request $request): View|RedirectResponse

@@ -25,6 +25,10 @@
                         <p class="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
                             Subscription cancelled.
                         </p>
+                    @elseif (session('status') === 'subscription-created')
+                        <p class="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+                            {{ __('Subscription created. Set up your payment method to activate billing.') }}
+                        </p>
                     @elseif (session('status') === 'subscription-missing')
                         <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
                             No subscription available to edit yet.
@@ -48,7 +52,13 @@
                     @endif
 
                     @if ($subscription === null)
-                        <p class="text-sm text-gray-600">No active subscription found yet.</p>
+                        <p class="text-sm text-gray-600">{{ __('No active subscription found yet.') }}</p>
+                        <a
+                            href="{{ route('app.subscriptions.create') }}"
+                            class="mt-4 inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500"
+                        >
+                            {{ __('Create subscription') }}
+                        </a>
                     @else
                         <div class="mb-6 flex flex-wrap items-center gap-3">
                             <a

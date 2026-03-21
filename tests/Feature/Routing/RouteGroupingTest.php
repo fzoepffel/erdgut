@@ -29,6 +29,8 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/health', route('public.health', absolute: false));
         $this->assertSame('/app/dashboard', route('app.dashboard', absolute: false));
         $this->assertSame('/app/subscriptions', route('app.subscriptions.show', absolute: false));
+        $this->assertSame('/app/subscriptions/create', route('app.subscriptions.create', absolute: false));
+        $this->assertSame('/app/subscriptions', route('app.subscriptions.store', absolute: false));
         $this->assertSame('/app/subscriptions/edit', route('app.subscriptions.edit', absolute: false));
         $this->assertSame('/app/subscriptions', route('app.subscriptions.update', absolute: false));
         $this->assertSame('/app/subscriptions/pause', route('app.subscriptions.pause', absolute: false));
