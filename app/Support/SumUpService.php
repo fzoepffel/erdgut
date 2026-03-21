@@ -104,7 +104,10 @@ class SumUpService
         ]);
     }
 
-    public function listPaymentInstruments(string $customerId): object
+    /**
+     * @return array<int, object>
+     */
+    public function listPaymentInstruments(string $customerId): array
     {
         return $this->client->customers()->listPaymentInstruments($customerId);
     }

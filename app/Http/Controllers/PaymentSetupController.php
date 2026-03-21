@@ -137,6 +137,23 @@ class PaymentSetupController extends Controller
         $token = (string) data_get($checkout, 'payment_instrument.token', '');
         $customerId = (string) data_get($checkout, 'customer_id', '');
 
+        // Fallback: checkout may not include payment_instrument for SETUP_RECURRING_PAYMENT;
+        // retrieve token from customer's payment instruments after successful checkout
+        if (trim($token) === '' && trim($customerId) !== '') {
+            try {
+                $instruments = $this->sumUpService()->listPaymentInstruments($customerId);
+                $instrumentList = is_array($instruments) ? $instruments : (array) $instruments;
+                $firstInstrument = $instrumentList[0] ?? null;
+                $token = (string) data_get($firstInstrument, 'token', '');
+            } catch (Throwable $exception) {
+                Log::warning('Failed to list payment instruments for token fallback.', [
+                    'subscription_id' => $subscription->id,
+                    'customer_id' => $customerId,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+
         if (trim($token) === '') {
             Log::warning('Payment setup incomplete: checkout has no payment token.', [
                 'subscription_id' => $subscription->id,
