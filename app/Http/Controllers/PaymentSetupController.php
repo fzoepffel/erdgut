@@ -138,6 +138,12 @@ class PaymentSetupController extends Controller
         $customerId = (string) data_get($checkout, 'customer_id', '');
 
         if (trim($token) === '') {
+            Log::warning('Payment setup incomplete: checkout has no payment token.', [
+                'subscription_id' => $subscription->id,
+                'checkout_id' => $checkoutId,
+                'checkout_status' => data_get($checkout, 'status'),
+            ]);
+
             return redirect()
                 ->route('app.subscriptions.show')
                 ->with('status', 'payment-setup-failed');

@@ -8,5 +8,8 @@
     "Update payment method": "Zahlungsmethode aktualisieren",
     "Replace your stored payment details.": "Ersetzen Sie Ihre gespeicherten Zahlungsdaten.",
     "Payment method updated successfully.": "Zahlungsmethode erfolgreich aktualisiert.",
-    "Update payment method is not available. Set up a payment method first.": "Zahlungsmethode kann nicht aktualisiert werden. Richten Sie zuerst eine Zahlungsmethode ein."
+    "Update payment method is not available. Set up a payment method first.": "Zahlungsmethode kann nicht aktualisiert werden. Richten Sie zuerst eine Zahlungsmethode ein.",
+    "Payment method set up successfully.": "Zahlungsmethode erfolgreich eingerichtet.",
+    "Payment setup failed. Please try again with a valid test card (e.g. 4242 4242 4242 4242).": "Zahlungseinrichtung fehlgeschlagen. Bitte verwenden Sie eine gültige Testkarte (z. B. 4242 4242 4242 4242).",
+    "Payment setup is temporarily unavailable. Please try again later.": "Zahlungseinrichtung ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut."
 }
