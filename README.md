@@ -103,6 +103,7 @@ Type `exit` to leave tinker.
 
 - **Phase 8 baseline (ERD-168):** competitor notes, design principles, route-to-ticket matrix, and P0 implementation order — see [docs/UX-ERD-168-baseline.md](docs/UX-ERD-168-baseline.md).
 - **About page hero image (optional):** add `public/images/about-hero.jpg` to show a photo in the `/about` hero on larger screens (see comment in `resources/views/marketing/about.blade.php`).
+- **Auth redirects and flows (ERD-173):** login, registration, verification, and password reset behaviour — see [docs/AUTH-FLOWS.md](docs/AUTH-FLOWS.md).
 
 ## What this project uses
 
