@@ -56,8 +56,7 @@ class AdminAccessTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee(route('app.admin.dashboard', absolute: false), false)
-            ->assertSee(route('app.admin.producers.index', absolute: false), false)
-            ->assertSee(route('app.admin.products.index', absolute: false), false);
+            ->assertSee(route('app.payments.history', absolute: false), false);
     }
 
     public function test_non_admin_does_not_see_admin_nav_link_on_customer_dashboard(): void

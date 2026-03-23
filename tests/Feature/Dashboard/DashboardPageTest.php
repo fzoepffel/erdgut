@@ -24,6 +24,8 @@ class DashboardPageTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.dashboard'))
             ->assertOk()
+            ->assertSee('This week at a glance')
+            ->assertSee('Quick actions')
             ->assertSee('Next deliveries')
             ->assertSee('Current week box')
             ->assertSee('Current and upcoming boxes');
@@ -229,9 +231,9 @@ class DashboardPageTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.dashboard'))
             ->assertOk()
-            ->assertSee('No upcoming deliveries yet.')
-            ->assertSee('No box for this week.')
-            ->assertSee('No boxes available yet.')
+            ->assertSee('No deliveries on the calendar')
+            ->assertSee('No box for this week')
+            ->assertSee('No boxes scheduled')
             ->assertDontSee('Modify box');
     }
 }

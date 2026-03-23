@@ -88,6 +88,8 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 |------------|--------|-----|----------------|
 | `app.dashboard` | GET | `app/dashboard` | ERD-174 |
 
+**App shell navigation (ERD-174):** Primary bar: Dashboard, Subscription, Deliveries, Shop extras (feature-flagged). Account menu (desktop dropdown + mobile block): Payments (`app.payments.history`), Delivery preferences, Profile, Log out. Admins see one **Admin** link in the primary bar (active on any `app.admin.*` route) and the same in the account menu; **Producers** and **Products** are reached from the admin dashboard, not from the global subscriber nav. Mobile menu toggle uses Alpine `mobileMenuOpen` consistently. Active nav states use emerald accents (aligned with ERD-173 guest/auth). QA checklist: [docs/UX-ERD-174-qa.md](UX-ERD-174-qa.md).
+
 ### 4.4 Subscriptions (`app.subscriptions.*`)
 
 | Route name | Method | URI | Owning ticket |

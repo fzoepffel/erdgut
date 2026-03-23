@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\BoxStatus;
 use App\Enums\DeliveryStatus;
+use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\Delivery;
+use App\Models\Subscription;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 
@@ -67,10 +69,22 @@ class DashboardController extends Controller
             ->orderByDesc('week_start_date')
             ->first();
 
+        $primarySubscription = Subscription::query()
+            ->where('user_id', $userId)
+            ->where('status', '!=', SubscriptionStatus::Cancelled)
+            ->orderByDesc('updated_at')
+            ->first();
+
+        $needsPaymentSetup = $primarySubscription !== null
+            && $primarySubscription->status === SubscriptionStatus::Active
+            && empty($primarySubscription->sumup_token);
+
         return view('dashboard', [
             'deliveryCards' => $deliveryCards,
             'upcomingBoxes' => $upcomingBoxes,
             'currentBox' => $currentBox,
+            'primarySubscription' => $primarySubscription,
+            'needsPaymentSetup' => $needsPaymentSetup,
         ]);
     }
 }
