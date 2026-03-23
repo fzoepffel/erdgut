@@ -51,6 +51,7 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/payments/setup', route('app.payments.setup', absolute: false));
         $this->assertSame('/app/payments/setup/complete', route('app.payments.setup.complete', absolute: false));
         $this->assertSame('/app/payments/update', route('app.payments.update', absolute: false));
+        $this->assertSame('/app/admin', route('app.admin.dashboard', absolute: false));
         $this->assertSame('/api/sumup/webhook', route('sumup.webhook', absolute: false));
         $this->assertSame('/account/profile', route('account.profile.edit', absolute: false));
         $this->assertSame('/auth/login', route('auth.login', absolute: false));
@@ -65,6 +66,7 @@ class RouteGroupingTest extends TestCase
     public function test_guest_is_redirected_to_auth_login_for_protected_pages(): void
     {
         $this->get('/app/dashboard')->assertRedirect('/auth/login');
+        $this->get('/app/admin')->assertRedirect('/auth/login');
         $this->get('/account/profile')->assertRedirect('/auth/login');
     }
 
@@ -101,6 +103,12 @@ class RouteGroupingTest extends TestCase
         $this->assertNotNull($sumUpWebhookRoute);
         $this->assertContains('sumup.webhook.verify', $sumUpWebhookRoute->gatherMiddleware());
         $this->assertNotContains('auth', $sumUpWebhookRoute->gatherMiddleware());
+
+        $adminDashboardRoute = RouteFacade::getRoutes()->getByName('app.admin.dashboard');
+        $this->assertNotNull($adminDashboardRoute);
+        $this->assertContains('auth', $adminDashboardRoute->gatherMiddleware());
+        $this->assertContains('verified', $adminDashboardRoute->gatherMiddleware());
+        $this->assertContains('admin', $adminDashboardRoute->gatherMiddleware());
     }
 
     public function test_public_home_route_uses_marketing_home_controller(): void

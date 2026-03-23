@@ -51,8 +51,18 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'profile_preferences' => 'array',
             'is_test' => 'boolean',
+            'is_admin' => 'boolean',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Whether the user may access admin-only routes and actions.
+     * Not mass-assignable; set only via trusted code (e.g. artisan command).
+     */
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin;
     }
 
     /**

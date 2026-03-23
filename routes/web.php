@@ -78,6 +78,12 @@ Route::middleware(['auth', 'verified'])
             Route::get('/setup/complete', [PaymentSetupController::class, 'complete'])->middleware('throttle:payment-setup')->name('setup.complete');
             Route::get('/update', [PaymentSetupController::class, 'showUpdate'])->middleware('throttle:payment-setup')->name('update');
         });
+
+        Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
+            Route::get('/', function () {
+                return view('admin.dashboard');
+            })->name('dashboard');
+        });
     });
 
 Route::middleware('auth')

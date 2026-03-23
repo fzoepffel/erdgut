@@ -128,6 +128,22 @@ git merge staging
 git push
 ```
 
+## Catalog product images (public storage)
+
+Product catalog images are stored on Laravel’s **`public` disk** (`storage/app/public/`, served under `/storage/...` after linking).
+
+1. **After deploy (once per environment):** from the app root run:
+   ```bash
+   php artisan storage:link
+   ```
+   This creates `public/storage` → `storage/app/public`. Without it, image URLs return 404.
+
+2. **Permissions:** ensure `storage/app/public`, `storage`, and `bootstrap/cache` are writable by the PHP user (same as general Laravel requirements).
+
+3. **PHP upload limits (admin uploads in ERD-161):** on IONOS, raise `upload_max_filesize` and `post_max_size` in the host’s PHP settings (e.g. 8M or higher) so image uploads do not fail silently. Restart PHP if the panel requires it.
+
+`FILESYSTEM_DISK` in `.env` can remain `local` for private app files; catalog code uses the `public` disk explicitly.
+
 ## Troubleshooting
 
 **`Missing required secrets for production: CRON_KEY` after setting `.env`**

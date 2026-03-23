@@ -4,6 +4,7 @@
     $variety = $product->metadata['variety'] ?? null;
     $tasteProfile = $product->metadata['taste_profile'] ?? null;
     $canAddToBox = $currentBox instanceof \App\Models\Box;
+    $heroImage = $product->imageUrl() ?: ($product->producer?->image_url ?: null);
 @endphp
 
 <x-app-layout>
@@ -26,9 +27,9 @@
                 <div class="lg:col-span-1">
                     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
                         {{-- Image --}}
-                        @if (! empty($product->producer?->image_url))
+                        @if (! empty($heroImage))
                             <img
-                                src="{{ $product->producer->image_url }}"
+                                src="{{ $heroImage }}"
                                 alt="{{ $product->name }}"
                                 class="h-64 w-full object-cover lg:h-80"
                             >

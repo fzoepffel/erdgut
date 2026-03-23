@@ -26,6 +26,11 @@
                             {{ __('Shop extras') }}
                         </x-nav-link>
                     @endif
+                    @can('admin')
+                        <x-nav-link :href="route('app.admin.dashboard')" :active="request()->routeIs('app.admin.*')">
+                            {{ __('Admin') }}
+                        </x-nav-link>
+                    @endcan
                 </div>
             </div>
 
@@ -45,6 +50,11 @@
                     </x-slot>
 
                     <x-slot name="content">
+                        @can('admin')
+                            <x-dropdown-link :href="route('app.admin.dashboard')">
+                                {{ __('Admin') }}
+                            </x-dropdown-link>
+                        @endcan
                         <x-dropdown-link :href="route('app.deliveries.preferences.edit')">
                             {{ __('Delivery preferences') }}
                         </x-dropdown-link>
@@ -95,6 +105,11 @@
                     {{ __('Shop extras') }}
                 </x-responsive-nav-link>
             @endif
+            @can('admin')
+                <x-responsive-nav-link :href="route('app.admin.dashboard')" :active="request()->routeIs('app.admin.*')">
+                    {{ __('Admin') }}
+                </x-responsive-nav-link>
+            @endcan
         </div>
 
         <!-- Responsive Settings Options -->

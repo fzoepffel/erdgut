@@ -30,6 +30,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(User::class, UserPolicy::class);
 
+        Gate::define('admin', static fn (User $user): bool => $user->isAdmin());
+
         $this->configureRateLimiting();
 
         if (in_array(app()->environment(), ['production', 'staging'], true)) {

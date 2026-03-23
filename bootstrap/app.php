@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\VerifySumUpWebhookSignature;
 use Illuminate\Console\Scheduling\Schedule;
@@ -28,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo('/auth/login');
         $middleware->redirectUsersTo('/app/dashboard');
         $middleware->alias([
+            'admin' => EnsureUserIsAdmin::class,
             'sumup.webhook.verify' => VerifySumUpWebhookSignature::class,
         ]);
     })
