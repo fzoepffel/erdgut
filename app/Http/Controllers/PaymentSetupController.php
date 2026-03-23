@@ -170,10 +170,26 @@ class PaymentSetupController extends Controller
             'checkout' => $snapshot,
         ]);
 
+        $checkoutStatus = (string) data_get($checkout, 'status', '');
+
+        if ($checkoutStatus === 'FAILED') {
+            SumUpCheckoutLogger::warning('Payment setup complete: checkout status is FAILED.', [
+                'subscription_id' => $subscription->id,
+                'user_id' => $request->user()->id,
+                'checkout_id' => $checkoutId,
+                'intent' => $intent,
+                'checkout' => $snapshot,
+            ]);
+
+            return redirect()
+                ->route('app.subscriptions.show')
+                ->with('status', 'payment-setup-failed');
+        }
+
         $checkoutReference = (string) data_get($checkout, 'checkout_reference', '');
         $expectedPrefix = 'sub-'.$subscription->id.'-';
 
-        if (! str_starts_with($checkoutReference, $expectedPrefix)) {
+        if ($checkoutReference !== '' && ! str_starts_with($checkoutReference, $expectedPrefix)) {
             SumUpCheckoutLogger::warning('Payment setup complete: checkout_reference does not match subscription.', [
                 'subscription_id' => $subscription->id,
                 'user_id' => $request->user()->id,
