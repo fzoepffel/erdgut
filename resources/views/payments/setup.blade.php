@@ -32,14 +32,8 @@
                     <div
                         x-data="{ widgetError: '' }"
                         x-init="
-                            // #region agent log
-                            console.log('[DEBUG] Widget init start', {hasSumUpCard:!!window.SumUpCard, checkoutId:'{{ $checkoutId }}'});
-                            // #endregion
                             if (!window.SumUpCard) {
                                 widgetError = '{{ __('Unable to load payment widget. Please refresh and try again.') }}';
-                                // #region agent log
-                                console.error('[DEBUG] SumUpCard not found on window');
-                                // #endregion
                             } else {
                                 try {
                                     SumUpCard.mount({
@@ -48,9 +42,6 @@
                                         email: '{{ $subscription->user->email }}',
                                         locale: 'de-DE',
                                         onResponse: function(type, body) {
-                                            // #region agent log
-                                            console.log('[DEBUG] Widget onResponse', {type:type, bodyMessage:body?.message, bodyId:body?.id, bodyStatus:body?.status});
-                                            // #endregion
                                             if (type === 'success' && body?.status !== 'FAILED') {
                                                 const checkoutId = body?.id ?? '{{ $checkoutId }}';
                                                 const target = new URL('{{ route('app.payments.setup.complete') }}', window.location.origin);
@@ -72,14 +63,8 @@
                                             }
                                         }
                                     });
-                                    // #region agent log
-                                    console.log('[DEBUG] SumUpCard.mount called OK', {checkoutId:'{{ $checkoutId }}'});
-                                    // #endregion
                                 } catch(e) {
                                     widgetError = e.message || 'Mount failed';
-                                    // #region agent log
-                                    console.error('[DEBUG] SumUpCard.mount threw', e.message);
-                                    // #endregion
                                 }
                             }
                         "

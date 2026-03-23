@@ -54,10 +54,6 @@ class PaymentSetupController extends Controller
             'checkout_id' => $checkoutId,
         ]);
 
-        // #region agent log
-        @file_put_contents(base_path('.cursor/debug-07cfdd.log'), json_encode(['sessionId' => '07cfdd', 'location' => 'PaymentSetupController:show', 'message' => 'Rendering setup view', 'data' => ['checkout_id' => $checkoutId, 'subscription_id' => $subscription->id, 'customer_id' => $customerId, 'user_email' => $subscription->user->email], 'timestamp' => round(microtime(true) * 1000), 'hypothesisId' => 'H2'])."\n", FILE_APPEND);
-        // #endregion
-
         return view('payments.setup', [
             'subscription' => $subscription,
             'checkoutId' => $checkoutId,
@@ -113,10 +109,6 @@ class PaymentSetupController extends Controller
 
     public function complete(Request $request): RedirectResponse
     {
-        // #region agent log
-        @file_put_contents(base_path('.cursor/debug-07cfdd.log'), json_encode(['sessionId' => '07cfdd', 'location' => 'PaymentSetupController:complete', 'message' => 'Complete endpoint hit', 'data' => ['all_query' => $request->query(), 'method' => $request->method(), 'url' => $request->fullUrl()], 'timestamp' => round(microtime(true) * 1000), 'hypothesisId' => 'H2'])."\n", FILE_APPEND);
-        // #endregion
-
         $subscription = $this->resolveSubscription($request);
 
         if ($subscription === null) {
@@ -197,10 +189,6 @@ class PaymentSetupController extends Controller
         $tokenSource = null;
         $token = (string) (data_get($checkout, 'paymentInstrument.token') ?? data_get($checkout, 'payment_instrument.token', ''));
         $customerId = (string) (data_get($checkout, 'customerId') ?? data_get($checkout, 'customer_id', ''));
-
-        // #region agent log
-        @file_put_contents(base_path('.cursor/debug-07cfdd.log'), json_encode(['sessionId' => '07cfdd', 'location' => 'PaymentSetupController:complete:tokenResolution', 'message' => 'Token resolution attempt', 'data' => ['checkout_id' => $checkoutId, 'checkout_status' => $checkoutStatus, 'token_from_checkout' => trim($token) !== '', 'customer_id' => $customerId, 'has_payment_instrument_key' => data_get($checkout, 'paymentInstrument') !== null || data_get($checkout, 'payment_instrument') !== null], 'timestamp' => round(microtime(true) * 1000), 'hypothesisId' => 'H4'])."\n", FILE_APPEND);
-        // #endregion
 
         if (trim($token) !== '') {
             $tokenSource = 'checkout.payment_instrument';
