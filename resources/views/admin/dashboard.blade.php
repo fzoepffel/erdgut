@@ -8,10 +8,15 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
+                <div class="p-6 text-gray-900 space-y-4">
                     <p class="text-sm text-gray-600">
-                        {{ __('Admin area placeholder. Catalog tools will be added in follow-up tickets.') }}
+                        {{ __('Manage the product catalog and other admin tools from here.') }}
                     </p>
+                    <div>
+                        <a href="{{ route('app.admin.products.index') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                            {{ __('Products') }}
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

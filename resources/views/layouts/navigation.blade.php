@@ -27,8 +27,11 @@
                         </x-nav-link>
                     @endif
                     @can('admin')
-                        <x-nav-link :href="route('app.admin.dashboard')" :active="request()->routeIs('app.admin.*')">
+                        <x-nav-link :href="route('app.admin.dashboard')" :active="request()->routeIs('app.admin.dashboard')">
                             {{ __('Admin') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('app.admin.products.index')" :active="request()->routeIs('app.admin.products.*')">
+                            {{ __('Products') }}
                         </x-nav-link>
                     @endcan
                 </div>
@@ -53,6 +56,9 @@
                         @can('admin')
                             <x-dropdown-link :href="route('app.admin.dashboard')">
                                 {{ __('Admin') }}
+                            </x-dropdown-link>
+                            <x-dropdown-link :href="route('app.admin.products.index')">
+                                {{ __('Products') }}
                             </x-dropdown-link>
                         @endcan
                         <x-dropdown-link :href="route('app.deliveries.preferences.edit')">
@@ -106,8 +112,11 @@
                 </x-responsive-nav-link>
             @endif
             @can('admin')
-                <x-responsive-nav-link :href="route('app.admin.dashboard')" :active="request()->routeIs('app.admin.*')">
+                <x-responsive-nav-link :href="route('app.admin.dashboard')" :active="request()->routeIs('app.admin.dashboard')">
                     {{ __('Admin') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('app.admin.products.index')" :active="request()->routeIs('app.admin.products.*')">
+                    {{ __('Products') }}
                 </x-responsive-nav-link>
             @endcan
         </div>

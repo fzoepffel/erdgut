@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Product;
 use App\Models\User;
+use App\Policies\ProductPolicy;
 use App\Policies\UserPolicy;
 use App\Support\RequiredSecretValidator;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -29,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(Product::class, ProductPolicy::class);
 
         Gate::define('admin', static fn (User $user): bool => $user->isAdmin());
 
