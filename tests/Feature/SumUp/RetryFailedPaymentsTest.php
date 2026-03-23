@@ -219,4 +219,112 @@ class RetryFailedPaymentsTest extends TestCase
         $this->assertSame(Payment::STATUS_FAILED, $newPayment->status);
         $this->assertNotNull($newPayment->failed_at);
     }
+
+    public function test_retry_excludes_cancelled_subscription(): void
+    {
+        Config::set('payments.max_retries', 3);
+
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Cancelled,
+            'sumup_token' => 'tok_123',
+            'sumup_customer_id' => 'cust_123',
+        ]);
+        $subscription->payments()->create([
+            'amount' => 35,
+            'currency' => 'EUR',
+            'status' => Payment::STATUS_FAILED,
+            'attempt_number' => 1,
+            'failed_at' => now(),
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldNotReceive('createRecurringCheckout');
+        $sumUpService->shouldNotReceive('processCheckout');
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->artisan('payments:retry')
+            ->assertSuccessful()
+            ->expectsOutputToContain('No retryable failed payments');
+    }
+
+    public function test_retry_only_retries_one_payment_per_subscription(): void
+    {
+        Config::set('payments.max_retries', 5);
+
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_multi',
+            'sumup_customer_id' => 'cust_multi',
+            'box_size' => 'medium',
+        ]);
+        $subscription->payments()->create([
+            'amount' => 35,
+            'currency' => 'EUR',
+            'status' => Payment::STATUS_FAILED,
+            'attempt_number' => 1,
+            'failed_at' => now()->subHour(),
+        ]);
+        $subscription->payments()->create([
+            'amount' => 35,
+            'currency' => 'EUR',
+            'status' => Payment::STATUS_FAILED,
+            'attempt_number' => 2,
+            'failed_at' => now(),
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('createRecurringCheckout')
+            ->once()
+            ->andReturn((object) ['id' => 'checkout_retry_multi']);
+        $sumUpService->shouldReceive('processCheckout')->once();
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->artisan('payments:retry')
+            ->assertSuccessful()
+            ->expectsOutputToContain('Retried 1 payment(s)');
+
+        $this->assertSame(3, Payment::where('subscription_id', $subscription->id)->count());
+    }
+
+    public function test_retry_marks_payment_failed_when_no_checkout_id_returned(): void
+    {
+        Config::set('payments.max_retries', 3);
+
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_noid',
+            'sumup_customer_id' => 'cust_noid',
+        ]);
+        $subscription->payments()->create([
+            'amount' => 35,
+            'currency' => 'EUR',
+            'status' => Payment::STATUS_FAILED,
+            'attempt_number' => 1,
+            'failed_at' => now(),
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('createRecurringCheckout')
+            ->once()
+            ->andReturn((object) ['id' => null]);
+        $sumUpService->shouldNotReceive('processCheckout');
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->artisan('payments:retry')
+            ->assertSuccessful()
+            ->expectsOutputToContain('Retried 1 payment(s)');
+
+        $newPayment = Payment::where('subscription_id', $subscription->id)
+            ->where('attempt_number', 2)
+            ->first();
+        $this->assertNotNull($newPayment);
+        $this->assertSame(Payment::STATUS_FAILED, $newPayment->status);
+        $this->assertStringContainsString('no ID returned', $newPayment->failure_reason);
+    }
 }

@@ -6,10 +6,13 @@ use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use App\Models\Subscription;
+use App\Notifications\PaymentFailedNotification;
+use App\Notifications\PaymentSuccessNotification;
 use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\TestResponse;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
@@ -291,5 +294,133 @@ class SumUpWebhookTest extends TestCase
         $payment->refresh();
         $this->assertSame(Payment::STATUS_PAID, $payment->status);
         $this->assertDatabaseCount('webhook_idempotency_keys', 1);
+    }
+
+    public function test_webhook_rejects_stale_date_header(): void
+    {
+        $secret = 'whsec_test';
+        Config::set('sumup.webhook_secret', $secret);
+
+        $payload = ['event_type' => 'CHECKOUT_STATUS_CHANGED', 'id' => 'checkout_stale'];
+        $signature = $this->signPayload($payload, $secret);
+
+        $this->withHeaders([
+            'x-payload-signature' => $signature,
+            'Date' => now()->subMinutes(10)->toRfc7231String(),
+        ])->postJson(route('sumup.webhook'), $payload)
+            ->assertUnauthorized();
+    }
+
+    public function test_webhook_allows_missing_date_header(): void
+    {
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')->with('checkout_no_date')->andReturn((object) ['status' => 'PENDING']);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_no_date',
+        ])->assertOk();
+    }
+
+    public function test_webhook_marks_payment_failed_on_expired_checkout(): void
+    {
+        $subscription = Subscription::factory()->create();
+        $payment = Payment::factory()->create([
+            'subscription_id' => $subscription->id,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_expired_123',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')->with('checkout_expired_123')->andReturn((object) [
+            'status' => 'EXPIRED',
+            'transactions' => [],
+        ]);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_expired_123',
+        ])->assertOk();
+
+        $payment->refresh();
+        $this->assertSame(Payment::STATUS_FAILED, $payment->status);
+        $this->assertNotNull($payment->failed_at);
+    }
+
+    public function test_webhook_returns_ok_when_get_checkout_throws(): void
+    {
+        $subscription = Subscription::factory()->create();
+        $payment = Payment::factory()->create([
+            'subscription_id' => $subscription->id,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_throws_123',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')
+            ->with('checkout_throws_123')
+            ->andThrow(new \RuntimeException('SumUp API unreachable'));
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_throws_123',
+        ])->assertOk();
+
+        $payment->refresh();
+        $this->assertSame(Payment::STATUS_PENDING, $payment->status);
+    }
+
+    public function test_webhook_sends_payment_success_notification(): void
+    {
+        Notification::fake();
+
+        $subscription = Subscription::factory()->create([
+            'plan' => SubscriptionPlan::Weekly,
+        ]);
+        $payment = Payment::factory()->create([
+            'subscription_id' => $subscription->id,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_notif_paid',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')->with('checkout_notif_paid')->andReturn((object) ['status' => 'PAID']);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_notif_paid',
+        ])->assertOk();
+
+        Notification::assertSentTo($subscription->user, PaymentSuccessNotification::class);
+    }
+
+    public function test_webhook_sends_payment_failed_notification(): void
+    {
+        Notification::fake();
+
+        $subscription = Subscription::factory()->create();
+        $payment = Payment::factory()->create([
+            'subscription_id' => $subscription->id,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_notif_failed',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')->with('checkout_notif_failed')->andReturn((object) [
+            'status' => 'FAILED',
+            'transactions' => [['status' => 'DECLINED']],
+        ]);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_notif_failed',
+        ])->assertOk();
+
+        Notification::assertSentTo($subscription->user, PaymentFailedNotification::class);
     }
 }

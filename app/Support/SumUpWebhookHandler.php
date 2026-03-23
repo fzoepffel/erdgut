@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
+use App\Notifications\PaymentFailedNotification;
 use App\Notifications\PaymentSuccessNotification;
 use Illuminate\Support\Facades\DB;
 use Throwable;
