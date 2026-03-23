@@ -83,6 +83,31 @@ class BoxCompositionServiceTest extends TestCase
         $this->assertSame(2, $box->items()->count());
     }
 
+    public function test_compose_skips_unpublished_products(): void
+    {
+        Config::set('box.composition_by_size.small', [
+            'vegetables' => 2,
+        ]);
+
+        Product::factory()->count(2)->create([
+            'category' => 'vegetables',
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        Product::factory()->count(4)->create([
+            'category' => 'vegetables',
+            'is_available' => true,
+            'is_published' => false,
+        ]);
+
+        $box = Box::factory()->create();
+
+        $added = $this->service->compose($box, 'small');
+
+        $this->assertSame(2, $added);
+        $this->assertSame(2, $box->items()->count());
+    }
+
     public function test_compose_returns_zero_for_unknown_size(): void
     {
         $box = Box::factory()->create();

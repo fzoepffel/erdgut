@@ -27,6 +27,7 @@ class ProductFactory extends Factory
             'unit_price' => fake()->randomFloat(2, 1, 30),
             'is_seasonal' => fake()->boolean(),
             'is_available' => true,
+            'is_published' => true,
             'metadata' => [
                 'unit' => fake()->randomElement(['kg', 'bundle', 'piece']),
                 'origin' => fake()->city(),

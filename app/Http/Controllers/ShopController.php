@@ -27,7 +27,7 @@ class ShopController extends Controller
         ]);
 
         $query = Product::query()
-            ->where('is_available', true)
+            ->visibleInCatalog()
             ->with('producer');
 
         if (! empty($validated['category'])) {
@@ -63,7 +63,7 @@ class ShopController extends Controller
     {
         abort_unless(config('features.shop_extras_enabled', true), 404);
 
-        if (! $product->is_available) {
+        if (! $product->is_available || ! $product->is_published) {
             throw new NotFoundHttpException;
         }
 

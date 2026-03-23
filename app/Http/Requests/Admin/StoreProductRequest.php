@@ -25,6 +25,7 @@ class StoreProductRequest extends FormRequest
             'unit_price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'is_seasonal' => ['boolean'],
             'is_available' => ['boolean'],
+            'is_published' => ['boolean'],
             'metadata.unit' => ['nullable', 'string', 'max:64'],
             'metadata.origin' => ['nullable', 'string', 'max:128'],
             'metadata.variety' => ['nullable', 'string', 'max:128'],
@@ -39,6 +40,7 @@ class StoreProductRequest extends FormRequest
         $this->merge([
             'is_seasonal' => $this->boolean('is_seasonal'),
             'is_available' => $this->boolean('is_available'),
+            'is_published' => $this->boolean('is_published', true),
             'is_test' => $this->boolean('is_test'),
         ]);
     }

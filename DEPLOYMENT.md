@@ -132,6 +132,18 @@ Admin UI lives under `/app/admin` and requires `users.is_admin = 1` plus a verif
 
 After this, the user can sign in and open **Admin** / **Products** / **Producers** in the app navigation.
 
+## Catalog audit logs (support / traceability)
+
+Product and producer **writes by admins** are recorded in `catalog_audit_logs` (who, when, action, attribute snapshots). There is no admin UI for browsing logs in MVP; query the database when needed, for example:
+
+```sql
+SELECT * FROM catalog_audit_logs
+  WHERE auditable_type = 'App\\Models\\Product' AND auditable_id = ?
+  ORDER BY created_at DESC;
+```
+
+Use `App\\Models\\Producer` for producers. Run `php artisan migrate` after deploy so the table exists.
+
 ## Catalog images — products & producers (public storage)
 
 Uploaded catalog images (admin CRUD) are stored on Laravel’s **`public` disk** under `storage/app/public/` and served as `/storage/...` after linking. Product files use `storage/app/public/products/{id}/…`; producer files use `storage/app/public/producers/{id}/…`.

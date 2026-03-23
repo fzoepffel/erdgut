@@ -41,7 +41,7 @@ class AddBoxItemRequest extends FormRequest
         return [
             'product_id' => ['required', 'integer', 'exists:products,id', function (string $attribute, mixed $value, \Closure $fail): void {
                 $product = Product::find($value);
-                if ($product === null || ! $product->is_available) {
+                if ($product === null || ! $product->is_available || ! $product->is_published) {
                     $fail(__('The selected product is not available.'));
                 }
             }],

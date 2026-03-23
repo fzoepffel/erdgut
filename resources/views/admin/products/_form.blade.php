@@ -54,12 +54,18 @@
             <span class="text-sm text-gray-700">{{ __('Available in shop') }}</span>
         </label>
         <label class="inline-flex items-center gap-2">
+            <input type="checkbox" name="is_published" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('is_published', $product?->is_published ?? true))>
+            <span class="text-sm text-gray-700">{{ __('Published') }}</span>
+        </label>
+        <label class="inline-flex items-center gap-2">
             <input type="checkbox" name="is_test" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('is_test', $product?->is_test))>
             <span class="text-sm text-gray-700">{{ __('Test data') }}</span>
         </label>
     </div>
     <x-input-error class="mt-2" :messages="$errors->get('is_seasonal')" />
+    <p class="text-xs text-gray-500 -mt-1 sm:col-span-full">{{ __('Published: visible in shop and default box composition. Available: shown in shop when published.') }}</p>
     <x-input-error class="mt-2" :messages="$errors->get('is_available')" />
+    <x-input-error class="mt-2" :messages="$errors->get('is_published')" />
     <x-input-error class="mt-2" :messages="$errors->get('is_test')" />
 
     <div>

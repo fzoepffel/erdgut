@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\User;
+use App\Observers\CatalogAuditObserver;
 use App\Policies\ProducerPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\UserPolicy;
@@ -35,6 +36,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Producer::class, ProducerPolicy::class);
         Gate::policy(Product::class, ProductPolicy::class);
+
+        Product::observe(CatalogAuditObserver::class);
+        Producer::observe(CatalogAuditObserver::class);
 
         Gate::define('admin', static fn (User $user): bool => $user->isAdmin());
 
