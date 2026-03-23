@@ -30,12 +30,12 @@ final class SumUpCheckoutLogger
             }
         }
 
-        $piToken = (string) data_get($checkout, 'paymentInstrument.token', '');
+        $piToken = (string) (data_get($checkout, 'paymentInstrument.token') ?? data_get($checkout, 'payment_instrument.token', ''));
 
         return [
-            'checkout_reference' => data_get($checkout, 'checkoutReference'),
+            'checkout_reference' => data_get($checkout, 'checkoutReference') ?? data_get($checkout, 'checkout_reference'),
             'checkout_status' => data_get($checkout, 'status'),
-            'customer_id' => data_get($checkout, 'customerId'),
+            'customer_id' => data_get($checkout, 'customerId') ?? data_get($checkout, 'customer_id'),
             'amount' => data_get($checkout, 'amount'),
             'currency' => data_get($checkout, 'currency'),
             'purpose' => data_get($checkout, 'purpose'),
