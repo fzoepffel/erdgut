@@ -14,6 +14,14 @@
 | 0.2 | Narrow viewport (~375px): headline and primary CTA readable and tappable without horizontal scroll | | | |
 | 0.3 | Authenticated user: hero primary **Go to dashboard** and secondary **Start subscription** present and links work | | | |
 
+## 0b. Marketing About (`/about`)
+
+| # | Test case | Pass | Fail | Notes |
+|---|-----------|------|------|-------|
+| 0b.1 | About loads; hero shows **Get started**, **Contact us**, **Meet our producers**; links resolve | | | |
+| 0b.2 | FAQ accordion opens/closes (three items); **Write to us** links to contact | | | |
+| 0b.3 | Narrow viewport (~375px): story and values readable; closing CTAs tappable | | | |
+
 ## 1. Authentication
 
 | # | Test case | Pass | Fail | Notes |

@@ -12,6 +12,6 @@ class AboutController extends Controller
      */
     public function index(): View
     {
-        return view('about');
+        return view('marketing.about');
     }
 }
