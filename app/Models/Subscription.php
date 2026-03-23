@@ -21,6 +21,21 @@ class Subscription extends Model
      *
      * @var list<string>
      */
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'sumup_token',
+        'sumup_customer_id',
+    ];
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
     protected $fillable = [
         'user_id',
         'plan',
@@ -55,6 +70,8 @@ class Subscription extends Model
             'pause_until' => 'date',
             'cancelled_at' => 'datetime',
             'is_test' => 'boolean',
+            'sumup_token' => 'encrypted',
+            'sumup_customer_id' => 'encrypted',
         ];
     }
 

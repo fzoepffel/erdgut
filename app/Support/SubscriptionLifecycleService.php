@@ -22,11 +22,25 @@ class SubscriptionLifecycleService
             throw new DomainException('Cancelled subscriptions cannot be paused.');
         }
 
-        return DB::transaction(function () use ($subscription, $pauseFrom, $pauseUntil, $actorUserId): Subscription {
-            $from = CarbonImmutable::parse($pauseFrom)->startOfDay();
-            $until = CarbonImmutable::parse($pauseUntil)->startOfDay();
-            $today = CarbonImmutable::today();
+        $from = CarbonImmutable::parse($pauseFrom)->startOfDay();
+        $until = CarbonImmutable::parse($pauseUntil)->startOfDay();
+        $today = CarbonImmutable::today();
 
+        if ($from->isAfter($until)) {
+            throw new DomainException('pause_from must be before or equal to pause_until.');
+        }
+
+        if ($from->isBefore($today)) {
+            throw new DomainException('pause_from must be today or in the future.');
+        }
+
+        $maxPauseWeeks = 12;
+        if ($from->diffInWeeks($until) > $maxPauseWeeks) {
+            throw new DomainException("Pause duration cannot exceed {$maxPauseWeeks} weeks.");
+        }
+
+        return DB::transaction(function () use ($subscription, $from, $until, $actorUserId): Subscription {
+            $today = CarbonImmutable::today();
             $status = $today->betweenIncluded($from, $until)
                 ? SubscriptionStatus::Paused
                 : SubscriptionStatus::Active;

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Enums\DeliveryStatus;
 use App\Http\Requests\DeliveryWeeklyOverrideRequest;
 use App\Http\Requests\GiftDeliveryRequest;
+use App\Http\Requests\PostponeDeliveryRequest;
+use App\Http\Requests\SkipDeliveryRequest;
 use App\Models\Delivery;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -148,35 +150,16 @@ class DeliveryController extends Controller
             ->with('status', 'delivery-weekly-override-updated');
     }
 
-    public function skip(Request $request, Delivery $delivery): RedirectResponse
+    public function skip(SkipDeliveryRequest $request, Delivery $delivery): RedirectResponse
     {
-        abort_unless((int) $delivery->user_id === (int) $request->user()->id, 403);
-
         return redirect()
             ->route('app.dashboard')
             ->with('status', 'skip-week-coming-soon');
     }
 
-    public function postpone(Request $request, Delivery $delivery): RedirectResponse
+    public function postpone(PostponeDeliveryRequest $request, Delivery $delivery): RedirectResponse
     {
-        abort_unless((int) $delivery->user_id === (int) $request->user()->id, 403);
-
         $baseDelivery = $delivery->is_weekly_override ? $delivery->overridesDelivery : $delivery;
-        abort_unless($baseDelivery instanceof Delivery, 404);
-
-        if ($baseDelivery->scheduled_for_date->toDateString() < now()->toDateString()) {
-            return redirect()
-                ->route('app.deliveries.index', ['focus' => $baseDelivery->id])
-                ->with('status', 'delivery-postpone-past');
-        }
-
-        $effectiveDelivery = $baseDelivery->overrideDeliveries()->latest()->first() ?? $baseDelivery;
-        if ($effectiveDelivery->status === DeliveryStatus::Delivered) {
-            return redirect()
-                ->route('app.deliveries.index', ['focus' => $baseDelivery->id])
-                ->with('status', 'delivery-postpone-already-delivered');
-        }
-
         $existingOverride = $baseDelivery->overrideDeliveries()->latest()->first();
         if (! $existingOverride instanceof Delivery) {
             Delivery::query()->create([

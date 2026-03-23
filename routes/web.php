@@ -24,7 +24,7 @@ Route::name('public.')->group(function () {
     Route::get('/about', [AboutController::class, 'index'])->name('about');
     Route::get('/producers', [ProducerController::class, 'index'])->name('producers');
     Route::get('/contact', [ContactController::class, 'create'])->name('contact');
-    Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
+    Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact')->name('contact.store');
 
     Route::get('/health', HealthcheckController::class)->name('health');
 });
@@ -42,9 +42,9 @@ Route::middleware(['auth', 'verified'])
             Route::post('/', [SubscriptionController::class, 'store'])->name('store');
             Route::get('/edit', [SubscriptionController::class, 'edit'])->name('edit');
             Route::patch('/', [SubscriptionController::class, 'update'])->name('update');
-            Route::post('/pause', [SubscriptionController::class, 'pause'])->name('pause');
-            Route::post('/resume', [SubscriptionController::class, 'resume'])->name('resume');
-            Route::post('/cancel', [SubscriptionController::class, 'cancel'])->name('cancel');
+            Route::post('/pause', [SubscriptionController::class, 'pause'])->middleware('throttle:subscription-actions')->name('pause');
+            Route::post('/resume', [SubscriptionController::class, 'resume'])->middleware('throttle:subscription-actions')->name('resume');
+            Route::post('/cancel', [SubscriptionController::class, 'cancel'])->middleware('throttle:subscription-actions')->name('cancel');
         });
         Route::prefix('deliveries')->name('deliveries.')->group(function () {
             Route::get('/', [DeliveryController::class, 'index'])->name('index');
@@ -74,9 +74,9 @@ Route::middleware(['auth', 'verified'])
         });
         Route::prefix('payments')->name('payments.')->group(function () {
             Route::get('/history', [PaymentHistoryController::class, 'index'])->name('history');
-            Route::get('/setup', [PaymentSetupController::class, 'show'])->name('setup');
-            Route::get('/setup/complete', [PaymentSetupController::class, 'complete'])->name('setup.complete');
-            Route::get('/update', [PaymentSetupController::class, 'showUpdate'])->name('update');
+            Route::get('/setup', [PaymentSetupController::class, 'show'])->middleware('throttle:payment-setup')->name('setup');
+            Route::get('/setup/complete', [PaymentSetupController::class, 'complete'])->middleware('throttle:payment-setup')->name('setup.complete');
+            Route::get('/update', [PaymentSetupController::class, 'showUpdate'])->middleware('throttle:payment-setup')->name('update');
         });
     });
 

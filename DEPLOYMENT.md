@@ -110,6 +110,13 @@ For transactional emails (payment notifications, reminders) on IONOS, configure 
 
 Verify with `php artisan tinker` → `Mail::raw('Test', fn ($m) => $m->to('your@email.com'));`
 
+### 9. Encrypted payment data (ERD-113)
+
+When deploying the encrypted casts for `subscriptions.sumup_token`, `subscriptions.sumup_customer_id`, and `payments.provider_payload`:
+
+- The migration `2026_03_23_000001_encrypt_existing_payment_data` encrypts any existing plaintext values. It is safe to run on empty tables.
+- Do **not** rotate `APP_KEY` after this migration; encrypted data cannot be decrypted with a different key.
+
 # Deploy to staging
 git checkout staging
 git merge main

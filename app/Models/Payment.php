@@ -19,6 +19,17 @@ class Payment extends Model
     use HasFactory;
 
     /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'sumup_checkout_id',
+        'sumup_payment_id',
+        'provider_payload',
+    ];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -46,7 +57,7 @@ class Payment extends Model
     {
         return [
             'amount' => 'decimal:2',
-            'provider_payload' => 'array',
+            'provider_payload' => 'encrypted:array',
             'paid_at' => 'datetime',
             'failed_at' => 'datetime',
         ];

@@ -15,6 +15,7 @@ alwaysApply: true
 - Use `composer lint` / `composer format` (Pint) for PHP style
 - `.env.example` documents all required variables; never commit `.env`
 - German locale (`de`) for user-facing content; English for code and comments
+- **Payment tokens** (`sumup_token`, `sumup_customer_id`, `sumup_checkout_id`, `sumup_payment_id`, `provider_payload`): never expose to frontend, API responses, or logs. Use `$hidden` on models; keep token handling server-side only
 - if necessary update the README.
 - before starting one or several tickets at once always open a new branch
 

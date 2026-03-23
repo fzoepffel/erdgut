@@ -5,7 +5,11 @@ namespace App\Providers;
 use App\Models\User;
 use App\Policies\UserPolicy;
 use App\Support\RequiredSecretValidator;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 
@@ -26,6 +30,12 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(User::class, UserPolicy::class);
 
+        $this->configureRateLimiting();
+
+        if (in_array(app()->environment(), ['production', 'staging'], true)) {
+            URL::forceScheme('https');
+        }
+
         $missingSecrets = (new RequiredSecretValidator)->missingForEnvironment(
             app()->environment(),
             [
@@ -43,5 +53,14 @@ class AppServiceProvider extends ServiceProvider
                 )
             );
         }
+    }
+
+    private function configureRateLimiting(): void
+    {
+        RateLimiter::for('contact', static fn (Request $request) => Limit::perMinute(5)->by($request->ip()));
+
+        RateLimiter::for('payment-setup', static fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
+
+        RateLimiter::for('subscription-actions', static fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
     }
 }
