@@ -32,7 +32,7 @@ class DeliveryReminderNotification extends Notification implements ShouldQueue
         $instructions = $this->delivery->special_instructions;
 
         return (new MailMessage)
-            ->subject(__('Lieferung morgen') . ' – ' . config('app.name'))
+            ->subject(__('Lieferung morgen').' – '.config('app.name'))
             ->view('emails.delivery-reminder', [
                 'date' => $date,
                 'timeslot' => $timeslot,
@@ -53,7 +53,7 @@ class DeliveryReminderNotification extends Notification implements ShouldQueue
             $addr->recipient_name,
             $addr->street_line_1,
             $addr->street_line_2,
-            $addr->postal_code ? $addr->postal_code . ' ' . $addr->city : $addr->city,
+            $addr->postal_code ? $addr->postal_code.' '.$addr->city : $addr->city,
             $addr->country_code,
         ]);
 

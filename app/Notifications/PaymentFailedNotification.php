@@ -31,7 +31,7 @@ class PaymentFailedNotification extends Notification implements ShouldQueue
         $updateUrl = route('app.payments.update');
 
         return (new MailMessage)
-            ->subject(__('Zahlung fehlgeschlagen') . ' – ' . config('app.name'))
+            ->subject(__('Zahlung fehlgeschlagen').' – '.config('app.name'))
             ->view('emails.payment-failed', [
                 'amount' => $amount,
                 'currency' => $currency,

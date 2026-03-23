@@ -31,7 +31,7 @@ class BoxDeadlineReminderNotification extends Notification implements ShouldQueu
         $editUrl = route('app.boxes.show', $this->box);
 
         return (new MailMessage)
-            ->subject(__('Erinnerung: Box-Änderungsfrist endet morgen') . ' – ' . config('app.name'))
+            ->subject(__('Erinnerung: Box-Änderungsfrist endet morgen').' – '.config('app.name'))
             ->view('emails.box-deadline-reminder', [
                 'deadline' => $deadline,
                 'weekStart' => $weekStart,

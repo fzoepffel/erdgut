@@ -32,7 +32,7 @@ class PaymentSuccessNotification extends Notification implements ShouldQueue
         $reference = (string) ($this->payment->subscription_id ?? $this->payment->id);
 
         return (new MailMessage)
-            ->subject(__('Zahlung erfolgreich') . ' – ' . config('app.name'))
+            ->subject(__('Zahlung erfolgreich').' – '.config('app.name'))
             ->view('emails.payment-success', [
                 'amount' => $amount,
                 'currency' => $currency,

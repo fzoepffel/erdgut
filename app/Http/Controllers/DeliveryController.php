@@ -278,8 +278,8 @@ class DeliveryController extends Controller
             $existingOverride->update([
                 'status' => DeliveryStatus::Skipped,
                 'special_instructions' => trim(
-                    ($existingOverride->special_instructions ? $existingOverride->special_instructions . "\n" : '')
-                    . __('Geschenkt an :name', ['name' => $validated['recipient_name']])
+                    ($existingOverride->special_instructions ? $existingOverride->special_instructions."\n" : '')
+                    .__('Geschenkt an :name', ['name' => $validated['recipient_name']])
                 ),
             ]);
         }
