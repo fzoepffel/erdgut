@@ -14,7 +14,6 @@ class ProducerController extends Controller
     public function index(): View
     {
         $producers = Producer::query()
-            ->select(['name', 'region', 'description', 'image_url'])
             ->orderBy('name')
             ->get();
 
