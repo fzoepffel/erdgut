@@ -176,20 +176,6 @@ class PaymentSetupController extends Controller
 
         $checkoutStatus = (string) data_get($checkout, 'status', '');
 
-        if ($checkoutStatus === 'FAILED') {
-            SumUpCheckoutLogger::warning('Payment setup complete: checkout status is FAILED.', [
-                'subscription_id' => $subscription->id,
-                'user_id' => $request->user()->id,
-                'checkout_id' => $checkoutId,
-                'intent' => $intent,
-                'checkout' => $snapshot,
-            ]);
-
-            return redirect()
-                ->route('app.subscriptions.show')
-                ->with('status', 'payment-setup-failed');
-        }
-
         $checkoutReference = (string) (data_get($checkout, 'checkoutReference') ?? data_get($checkout, 'checkout_reference', ''));
         $expectedPrefix = 'sub-'.$subscription->id.'-';
 
@@ -211,6 +197,10 @@ class PaymentSetupController extends Controller
         $tokenSource = null;
         $token = (string) (data_get($checkout, 'paymentInstrument.token') ?? data_get($checkout, 'payment_instrument.token', ''));
         $customerId = (string) (data_get($checkout, 'customerId') ?? data_get($checkout, 'customer_id', ''));
+
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-07cfdd.log'), json_encode(['sessionId' => '07cfdd', 'location' => 'PaymentSetupController:complete:tokenResolution', 'message' => 'Token resolution attempt', 'data' => ['checkout_id' => $checkoutId, 'checkout_status' => $checkoutStatus, 'token_from_checkout' => trim($token) !== '', 'customer_id' => $customerId, 'has_payment_instrument_key' => data_get($checkout, 'paymentInstrument') !== null || data_get($checkout, 'payment_instrument') !== null], 'timestamp' => round(microtime(true) * 1000), 'hypothesisId' => 'H4'])."\n", FILE_APPEND);
+        // #endregion
 
         if (trim($token) !== '') {
             $tokenSource = 'checkout.payment_instrument';
@@ -250,6 +240,7 @@ class PaymentSetupController extends Controller
                 'subscription_id' => $subscription->id,
                 'user_id' => $request->user()->id,
                 'checkout_id' => $checkoutId,
+                'checkout_status' => $checkoutStatus,
                 'intent' => $intent,
                 'sumup_customer_id' => $customerId !== '' ? $customerId : null,
                 'checkout' => $snapshot,
@@ -258,6 +249,16 @@ class PaymentSetupController extends Controller
             return redirect()
                 ->route('app.subscriptions.show')
                 ->with('status', 'payment-setup-failed');
+        }
+
+        if ($checkoutStatus === 'FAILED') {
+            SumUpCheckoutLogger::info('Payment setup: checkout status FAILED but token obtained — proceeding with tokenized card.', [
+                'subscription_id' => $subscription->id,
+                'user_id' => $request->user()->id,
+                'checkout_id' => $checkoutId,
+                'intent' => $intent,
+                'token_source' => $tokenSource,
+            ]);
         }
 
         $subscriptionLifecycleService = app(SubscriptionLifecycleService::class);
