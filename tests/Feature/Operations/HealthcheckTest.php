@@ -14,9 +14,9 @@ class HealthcheckTest extends TestCase
             ->assertJsonStructure([
                 'status',
                 'checks' => ['app', 'database'],
-                'environment',
                 'timestamp',
             ])
+            ->assertJsonMissing(['environment' => app()->environment()])
             ->assertJson([
                 'status' => 'ok',
                 'checks' => [

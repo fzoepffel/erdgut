@@ -4,18 +4,20 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class VerifySumUpWebhookSignature
 {
+    private const MAX_AGE_SECONDS = 300;
+
     public function handle(Request $request, Closure $next): Response
     {
         $secret = (string) config('sumup.webhook_secret', '');
         $signature = (string) $request->header('x-payload-signature', '');
 
         if (trim($secret) === '') {
-            // Some SumUp setups do not provide webhook signatures.
             return $next($request);
         }
 
@@ -38,6 +40,31 @@ class VerifySumUpWebhookSignature
             return response('', Response::HTTP_UNAUTHORIZED);
         }
 
+        if ($this->isStaleRequest($request)) {
+            Log::warning('SumUp webhook rejected: request too old.', [
+                'date_header' => $request->header('Date'),
+                'max_age_seconds' => self::MAX_AGE_SECONDS,
+            ]);
+
+            return response('', Response::HTTP_UNAUTHORIZED);
+        }
+
         return $next($request);
+    }
+
+    private function isStaleRequest(Request $request): bool
+    {
+        $dateHeader = $request->header('Date');
+        if ($dateHeader === null || trim($dateHeader) === '') {
+            return false;
+        }
+
+        try {
+            $requestTime = Carbon::parse($dateHeader);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $requestTime->diffInSeconds(now(), absolute: true) > self::MAX_AGE_SECONDS;
     }
 }

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use App\Models\Subscription;
+use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -67,7 +68,7 @@ class RetryFailedPayments extends Command
                 Log::warning('payment.retry_failed', [
                     'payment_id' => $row['payment']->id,
                     'subscription_id' => $row['subscription']->id,
-                    'error' => $e->getMessage(),
+                    'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
                     'timestamp' => now()->toIso8601String(),
                 ]);
             }
@@ -173,13 +174,13 @@ class RetryFailedPayments extends Command
                 (string) $subscription->sumup_customer_id
             );
         } catch (Throwable $e) {
-            $payment->markFailed($e->getMessage());
+            $payment->markFailed(SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()));
             Log::warning('payment.failed', [
                 'payment_id' => $payment->id,
                 'subscription_id' => $subscription->id,
                 'previous_status' => Payment::STATUS_PENDING,
                 'new_status' => Payment::STATUS_FAILED,
-                'reason' => $e->getMessage(),
+                'reason' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
                 'timestamp' => now()->toIso8601String(),
             ]);
 

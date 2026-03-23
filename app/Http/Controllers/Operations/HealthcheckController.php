@@ -17,14 +17,15 @@ class HealthcheckController extends Controller
         $databaseOk = $this->isDatabaseReachable();
         $status = $databaseOk ? 'ok' : 'degraded';
 
+        $checks = ['app' => 'ok'];
+        if (config('app.debug')) {
+            $checks['database'] = $databaseOk ? 'ok' : 'error';
+        }
+
         return response()->json(
             [
                 'status' => $status,
-                'checks' => [
-                    'app' => 'ok',
-                    'database' => $databaseOk ? 'ok' : 'error',
-                ],
-                'environment' => app()->environment(),
+                'checks' => $checks,
                 'timestamp' => now()->toIso8601String(),
             ],
             $databaseOk ? 200 : 503

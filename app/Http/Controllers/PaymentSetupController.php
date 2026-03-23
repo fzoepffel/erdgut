@@ -149,7 +149,7 @@ class PaymentSetupController extends Controller
                 'checkout_id' => $checkoutId,
                 'intent' => $intent,
                 'exception_class' => $exception::class,
-                'error' => $exception->getMessage(),
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($exception->getMessage()),
             ]);
 
             return redirect()
@@ -218,7 +218,7 @@ class PaymentSetupController extends Controller
                     'sumup_customer_id' => $customerId,
                     'checkout_id' => $checkoutId,
                     'exception_class' => $exception::class,
-                    'error' => $exception->getMessage(),
+                    'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($exception->getMessage()),
                 ]);
             }
         }
@@ -326,7 +326,7 @@ class PaymentSetupController extends Controller
                 'subscription_id' => $subscription->id,
                 'sumup_customer_id' => $customerId,
                 'exception_class' => $exception::class,
-                'error' => $exception->getMessage(),
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($exception->getMessage()),
             ]);
         }
 
@@ -350,7 +350,7 @@ class PaymentSetupController extends Controller
                 'subscription_id' => $subscription->id,
                 'sumup_customer_id' => $customerId,
                 'exception_class' => $exception::class,
-                'error' => $exception->getMessage(),
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($exception->getMessage()),
             ]);
 
             return null;
@@ -372,7 +372,7 @@ class PaymentSetupController extends Controller
                 'subscription_id' => $subscription->id,
                 'sumup_customer_id' => $customerId,
                 'exception_class' => $exception::class,
-                'error' => $exception->getMessage(),
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($exception->getMessage()),
             ]);
 
             return null;

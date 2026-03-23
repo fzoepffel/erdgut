@@ -31,18 +31,30 @@ final class SumUpCheckoutLogger
         }
 
         $piToken = (string) (data_get($checkout, 'paymentInstrument.token') ?? data_get($checkout, 'payment_instrument.token', ''));
+        $customerId = (string) (data_get($checkout, 'customerId') ?? data_get($checkout, 'customer_id', ''));
 
         return [
             'checkout_reference' => data_get($checkout, 'checkoutReference') ?? data_get($checkout, 'checkout_reference'),
             'checkout_status' => data_get($checkout, 'status'),
-            'customer_id' => data_get($checkout, 'customerId') ?? data_get($checkout, 'customer_id'),
+            'has_customer_id' => trim($customerId) !== '',
             'amount' => data_get($checkout, 'amount'),
             'currency' => data_get($checkout, 'currency'),
             'purpose' => data_get($checkout, 'purpose'),
             'has_payment_instrument_token' => trim($piToken) !== '',
-            'mandate' => data_get($checkout, 'mandate'),
             'transactions' => $transactionStatuses,
         ];
+    }
+
+    /**
+     * Strip potentially sensitive data from exception messages (API responses, tokens, auth headers).
+     */
+    public static function sanitizeExceptionMessage(string $message): string
+    {
+        $message = preg_replace('/[A-Za-z0-9+\/=]{64,}/', '[REDACTED_BASE64]', $message);
+        $message = preg_replace('/Bearer\s+\S+/i', 'Bearer [REDACTED]', $message);
+        $message = preg_replace('/\b(token|api[_-]?key|secret|password|authorization)\s*[:=]\s*\S+/i', '$1=[REDACTED]', $message);
+
+        return $message;
     }
 
     /**

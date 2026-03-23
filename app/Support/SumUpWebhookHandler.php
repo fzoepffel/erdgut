@@ -58,7 +58,7 @@ class SumUpWebhookHandler
             SumUpCheckoutLogger::warning('SumUp webhook: failed to fetch checkout for verification.', [
                 'checkout_id' => $checkoutId,
                 'exception_class' => $e::class,
-                'error' => $e->getMessage(),
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
             ]);
 
             return;
