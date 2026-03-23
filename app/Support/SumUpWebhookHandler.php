@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
+use App\Notifications\PaymentFailedNotification;
 use App\Notifications\PaymentSuccessNotification;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -58,7 +59,7 @@ class SumUpWebhookHandler
             SumUpCheckoutLogger::warning('SumUp webhook: failed to fetch checkout for verification.', [
                 'checkout_id' => $checkoutId,
                 'exception_class' => $e::class,
-                'error' => $e->getMessage(),
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
             ]);
 
             return;

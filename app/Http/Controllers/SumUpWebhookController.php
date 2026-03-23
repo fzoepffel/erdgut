@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpWebhookHandler;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -24,7 +25,7 @@ class SumUpWebhookController extends Controller
             }
         } catch (Throwable $e) {
             Log::error('SumUp webhook processing failed.', [
-                'error' => $e->getMessage(),
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
             ]);
         }
 

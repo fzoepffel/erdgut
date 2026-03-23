@@ -6,7 +6,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-5xl mx-auto sm:px-6 lg:px-8 space-y-6">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
             @if (session('status') === 'delivery-weekly-override-updated')
                 <p class="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
                     One-time delivery override saved.

@@ -69,8 +69,8 @@ class SubscriptionLifecycleService
 
     public function resumeNow(Subscription $subscription, int $actorUserId): Subscription
     {
-        if ($subscription->status === SubscriptionStatus::Cancelled) {
-            throw new DomainException('Cancelled subscriptions cannot be resumed.');
+        if ($subscription->status !== SubscriptionStatus::Paused) {
+            throw new DomainException('Only paused subscriptions can be resumed.');
         }
 
         return DB::transaction(function () use ($subscription, $actorUserId): Subscription {

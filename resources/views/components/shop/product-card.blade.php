@@ -4,6 +4,7 @@
     $origin = $product->metadata['origin'] ?? $product->producer?->region ?? '—';
     $unit = $product->metadata['unit'] ?? 'kg';
     $canAddToBox = $currentBox instanceof \App\Models\Box;
+    $cardImage = $product->imageUrl() ?: ($product->producer?->image_url ?: null);
 @endphp
 
 <article {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm']) }}
@@ -11,9 +12,9 @@
         x-data="{ loading: false, error: null }"
     @endif
 >
-    @if (! empty($product->producer?->image_url))
+    @if (! empty($cardImage))
         <img
-            src="{{ $product->producer->image_url }}"
+            src="{{ $cardImage }}"
             alt="{{ $product->name }}"
             class="h-44 w-full object-cover"
             loading="lazy"

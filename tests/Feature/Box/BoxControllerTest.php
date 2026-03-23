@@ -583,4 +583,137 @@ class BoxControllerTest extends TestCase
             ])
             ->assertForbidden();
     }
+
+    public function test_post_add_item_returns_403_when_box_status_is_locked(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create(['is_available' => true]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Locked,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('app.boxes.items.add', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_post_add_item_returns_403_when_box_status_is_delivered(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create(['is_available' => true]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Delivered,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('app.boxes.items.add', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_post_add_item_returns_403_when_deadline_is_past(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create(['is_available' => true]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->subHour(),
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('app.boxes.items.add', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_post_add_item_rejects_unavailable_product_with_422(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create(['is_available' => false]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('app.boxes.items.add', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('product_id');
+    }
+
+    public function test_patch_quantity_on_delivered_box_returns_403(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Delivered,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson(route('app.boxes.items.updateQuantity', [$box, $item]), ['delta' => 1])
+            ->assertForbidden();
+    }
+
+    public function test_delete_on_delivered_box_returns_403(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Delivered,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $item = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'unit' => 'kg',
+            'is_extra' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->deleteJson(route('app.boxes.items.remove', [$box, $item]))
+            ->assertForbidden();
+    }
+
+    public function test_show_edit_mode_on_delivered_box_shows_blocked_reason(): void
+    {
+        $user = User::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Delivered,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.boxes.show', ['box' => $box, 'mode' => 'edit']))
+            ->assertOk()
+            ->assertSee('Edit mode is blocked because this box status is not editable.')
+            ->assertDontSee('Back to view mode');
+    }
 }

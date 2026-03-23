@@ -194,6 +194,55 @@ class SubscriptionLifecycleActionsTest extends TestCase
         $this->assertNull($otherSubscription->pause_until);
     }
 
+    public function test_pause_exceeding_12_weeks_is_rejected(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('app.subscriptions.show'))
+            ->post(route('app.subscriptions.pause'), [
+                'pause_from' => now()->addDay()->toDateString(),
+                'pause_until' => now()->addWeeks(13)->toDateString(),
+            ])
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHasErrors(['pause_until']);
+    }
+
+    public function test_resume_of_active_subscription_is_rejected(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('app.subscriptions.resume'))
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-action-not-allowed');
+    }
+
+    public function test_cancel_reason_exceeding_1000_chars_is_rejected(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('app.subscriptions.show'))
+            ->post(route('app.subscriptions.cancel'), [
+                'cancellation_reason' => str_repeat('x', 1001),
+            ])
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHasErrors(['cancellation_reason']);
+    }
+
     public function test_subscription_overview_renders_lifecycle_controls_and_pause_window(): void
     {
         $user = User::factory()->create();

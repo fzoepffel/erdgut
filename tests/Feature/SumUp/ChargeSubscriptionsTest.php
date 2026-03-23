@@ -211,4 +211,119 @@ class ChargeSubscriptionsTest extends TestCase
         $this->assertSame(Payment::STATUS_FAILED, $payment->status);
         $this->assertNotNull($payment->failed_at);
     }
+
+    public function test_charge_excludes_cancelled_subscription(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Cancelled,
+            'sumup_token' => 'tok_123',
+            'sumup_customer_id' => 'cust_123',
+            'next_charge_date' => now()->subDay(),
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldNotReceive('createRecurringCheckout');
+        $sumUpService->shouldNotReceive('processCheckout');
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->artisan('subscriptions:charge')
+            ->assertSuccessful()
+            ->expectsOutputToContain('No due subscriptions');
+
+        $this->assertDatabaseCount('payments', 0);
+    }
+
+    public function test_charge_excludes_paused_subscription_live(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_123',
+            'sumup_customer_id' => 'cust_123',
+            'next_charge_date' => now()->subDay(),
+            'pause_from' => now()->subDays(2),
+            'pause_until' => now()->addDays(2),
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldNotReceive('createRecurringCheckout');
+        $sumUpService->shouldNotReceive('processCheckout');
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->artisan('subscriptions:charge')
+            ->assertSuccessful()
+            ->expectsOutputToContain('No due subscriptions');
+
+        $this->assertDatabaseCount('payments', 0);
+    }
+
+    public function test_charge_marks_payment_failed_when_no_checkout_id_returned(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_noid',
+            'sumup_customer_id' => 'cust_noid',
+            'box_size' => 'medium',
+            'next_charge_date' => now()->subDay(),
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('createRecurringCheckout')
+            ->once()
+            ->andReturn((object) ['id' => null]);
+        $sumUpService->shouldNotReceive('processCheckout');
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->artisan('subscriptions:charge')
+            ->assertSuccessful()
+            ->expectsOutputToContain('Charged 1 subscription(s)');
+
+        $payment = Payment::where('subscription_id', $subscription->id)->first();
+        $this->assertNotNull($payment);
+        $this->assertSame(Payment::STATUS_FAILED, $payment->status);
+        $this->assertStringContainsString('no ID returned', $payment->failure_reason);
+    }
+
+    public function test_charge_handles_multiple_due_subscriptions(): void
+    {
+        $user1 = User::factory()->create();
+        $sub1 = Subscription::factory()->create([
+            'user_id' => $user1->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_multi_1',
+            'sumup_customer_id' => 'cust_multi_1',
+            'box_size' => 'medium',
+            'next_charge_date' => now()->subDay(),
+        ]);
+
+        $user2 = User::factory()->create();
+        $sub2 = Subscription::factory()->create([
+            'user_id' => $user2->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_multi_2',
+            'sumup_customer_id' => 'cust_multi_2',
+            'box_size' => 'small',
+            'next_charge_date' => now()->subDay(),
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('createRecurringCheckout')
+            ->twice()
+            ->andReturn((object) ['id' => 'checkout_m1'], (object) ['id' => 'checkout_m2']);
+        $sumUpService->shouldReceive('processCheckout')->twice();
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->artisan('subscriptions:charge')
+            ->assertSuccessful()
+            ->expectsOutputToContain('Charged 2 subscription(s)');
+
+        $this->assertDatabaseCount('payments', 2);
+        $this->assertDatabaseHas('payments', ['subscription_id' => $sub1->id, 'status' => Payment::STATUS_PENDING]);
+        $this->assertDatabaseHas('payments', ['subscription_id' => $sub2->id, 'status' => Payment::STATUS_PENDING]);
+    }
 }

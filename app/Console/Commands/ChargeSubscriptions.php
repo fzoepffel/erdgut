@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use App\Models\Subscription;
+use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
@@ -62,7 +63,7 @@ class ChargeSubscriptions extends Command
                 $failed++;
                 Log::warning('payment.charge_failed', [
                     'subscription_id' => $subscription->id,
-                    'error' => $e->getMessage(),
+                    'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
                     'timestamp' => now()->toIso8601String(),
                 ]);
             }
@@ -127,13 +128,13 @@ class ChargeSubscriptions extends Command
                 (string) $subscription->sumup_customer_id
             );
         } catch (Throwable $e) {
-            $payment->markFailed($e->getMessage());
+            $payment->markFailed(SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()));
             Log::warning('payment.failed', [
                 'payment_id' => $payment->id,
                 'subscription_id' => $subscription->id,
                 'previous_status' => Payment::STATUS_PENDING,
                 'new_status' => Payment::STATUS_FAILED,
-                'reason' => $e->getMessage(),
+                'reason' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
                 'timestamp' => now()->toIso8601String(),
             ]);
 

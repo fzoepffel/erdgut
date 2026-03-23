@@ -73,7 +73,7 @@ class SumUpService
                 'currency' => $payload['currency'] ?? null,
                 'return_url_host' => $returnHost,
                 'exception_class' => $e::class,
-                'error' => $e->getMessage(),
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
             ]);
 
             throw $e;

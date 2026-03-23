@@ -6,7 +6,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     @if (session('status') === 'subscription-updated')
@@ -151,7 +151,7 @@
 
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Preferences</dt>
-                                <dd class="mt-1 text-sm text-gray-900">
+                                <dd class="mt-1 text-sm text-gray-900 break-all">
                                     @if (! empty($subscription->preferences))
                                         {{ json_encode($subscription->preferences, JSON_UNESCAPED_SLASHES) }}
                                     @else
