@@ -14,6 +14,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::table('subscriptions', function (Blueprint $table) {
+            $table->longText('sumup_token')->nullable()->change();
+            $table->longText('sumup_customer_id')->nullable()->change();
+        });
+
         Schema::table('payments', function (Blueprint $table) {
             $table->longText('provider_payload')->nullable()->change();
         });
