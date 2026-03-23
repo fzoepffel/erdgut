@@ -7,6 +7,7 @@ use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\Subscription;
+use App\Support\BoxCompositionService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -18,6 +19,12 @@ class PrepareWeeklyBoxes extends Command
                             {--dry-run : List eligible subscriptions without creating boxes}';
 
     protected $description = 'Create upcoming week boxes for all eligible active subscribers';
+
+    public function __construct(
+        private readonly BoxCompositionService $compositionService
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
@@ -61,13 +68,15 @@ class PrepareWeeklyBoxes extends Command
                 continue;
             }
 
-            Box::create([
+            $box = Box::create([
                 'user_id' => $subscription->user_id,
                 'week_start_date' => $weekStart->toDateString(),
                 'status' => BoxStatus::Editable,
                 'modification_deadline_at' => $deadline,
                 'estimated_value' => 0,
             ]);
+
+            $this->compositionService->compose($box, (string) $subscription->box_size);
 
             $created++;
         }
