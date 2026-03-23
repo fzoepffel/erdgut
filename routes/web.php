@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\UserAccessProbeController;
+use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoxController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
@@ -83,6 +84,7 @@ Route::middleware(['auth', 'verified'])
             Route::get('/', function () {
                 return view('admin.dashboard');
             })->name('dashboard');
+            Route::resource('products', ProductController::class)->except(['show']);
         });
     });
 
