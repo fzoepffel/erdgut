@@ -104,3 +104,4 @@ jobs:
             cd "${{ env.APP_DIR }}"
             test -f artisan || (echo "Missing artisan in ${APP_DIR}" && exit 1)
             php artisan migrate --force
+            php artisan storage:link --force

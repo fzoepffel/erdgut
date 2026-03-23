@@ -148,11 +148,7 @@ Use `App\\Models\\Producer` for producers. Run `php artisan migrate` after deplo
 
 Uploaded catalog images (admin CRUD) are stored on Laravel’s **`public` disk** under `storage/app/public/` and served as `/storage/...` after linking. Product files use `storage/app/public/products/{id}/…`; producer files use `storage/app/public/producers/{id}/…`.
 
-1. **After deploy (once per environment):** from the app root run:
-   ```bash
-   php artisan storage:link
-   ```
-   This creates `public/storage` → `storage/app/public`. Without it, image URLs return 404.
+1. **`public/storage` symlink:** GitHub deploy workflows run `php artisan storage:link --force` after migrations so `/storage/...` URLs resolve to `storage/app/public`. If you deploy manually, run the same from the app root. Without it, uploaded catalog images return **404** even though `image_path` in the DB is correct.
 
 2. **Permissions:** ensure `storage/app/public`, `storage`, and `bootstrap/cache` are writable by the PHP user (same as general Laravel requirements).
 

@@ -33,9 +33,9 @@
                                 alt="{{ $product->name }}"
                                 class="h-64 w-full object-cover lg:h-80"
                                 decoding="async"
-                                onerror="this.onerror=null; this.setAttribute('hidden',''); this.nextElementSibling?.removeAttribute('hidden');"
+                                onerror="this.onerror=null; this.style.display='none'; var f=this.nextElementSibling; if(f) f.style.display='flex';"
                             >
-                            <div hidden class="flex h-64 w-full items-center justify-center bg-gray-100 lg:h-80">
+                            <div class="flex h-64 w-full items-center justify-center bg-gray-100 lg:h-80" style="display: none">
                                 <span class="text-sm text-gray-400">{{ __('No image') }}</span>
                             </div>
                         @else

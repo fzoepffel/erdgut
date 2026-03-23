@@ -20,9 +20,9 @@
                 class="h-44 w-full object-cover"
                 loading="lazy"
                 decoding="async"
-                onerror="this.onerror=null; this.setAttribute('hidden',''); this.nextElementSibling?.removeAttribute('hidden');"
+                onerror="this.onerror=null; this.style.display='none'; var f=this.nextElementSibling; if(f) f.style.display='flex';"
             >
-            <div hidden class="flex h-44 w-full items-center justify-center">
+            <div class="flex h-44 w-full items-center justify-center" style="display: none">
                 <span class="text-sm text-gray-400">{{ __('No image') }}</span>
             </div>
         @else
