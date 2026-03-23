@@ -31,6 +31,15 @@
 | 0c.3 | Guest: **Sign up to shop extras** on cards; authenticated: **View in shop** opens catalog filtered by producer | | | |
 | 0c.4 | Empty database vs filtered-empty messages are distinct; mobile single-column grid | | | |
 
+## 0d. Marketing contact (`/contact`)
+
+| # | Test case | Pass | Fail | Notes |
+|---|-----------|------|------|-------|
+| 0d.1 | Form loads; **Your details** and **Your message** groups; privacy note and throttle hint visible | | | |
+| 0d.2 | Submit with invalid email or empty message shows inline errors; fields show error styling | | | |
+| 0d.3 | Valid submit shows **Message received** banner with next steps; button shows sending/disabled state during submit | | | |
+| 0d.4 | Mobile: email keyboard (`inputmode`), comfortable tap targets on submit | | | |
+
 ## 1. Authentication
 
 | # | Test case | Pass | Fail | Notes |

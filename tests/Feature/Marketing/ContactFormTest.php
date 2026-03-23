@@ -17,7 +17,7 @@ class ContactFormTest extends TestCase
         $response = $this->get(route('public.contact'));
 
         $response->assertOk();
-        $response->assertSee('Get in touch with the Erdgut team.', false);
+        $response->assertSee('We’re here to help with subscriptions, deliveries, and partnerships.', false);
     }
 
     public function test_valid_contact_submission_persists_and_sends_notification_email(): void
