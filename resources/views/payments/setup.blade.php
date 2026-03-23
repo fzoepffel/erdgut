@@ -51,7 +51,7 @@
                                             // #region agent log
                                             console.log('[DEBUG] Widget onResponse', {type:type, bodyMessage:body?.message, bodyId:body?.id, bodyStatus:body?.status});
                                             // #endregion
-                                            if (type === 'success') {
+                                            if (type === 'success' && body?.status !== 'FAILED') {
                                                 const checkoutId = body?.id ?? '{{ $checkoutId }}';
                                                 const target = new URL('{{ route('app.payments.setup.complete') }}', window.location.origin);
                                                 target.searchParams.set('checkout', checkoutId);
@@ -59,6 +59,11 @@
                                                 target.searchParams.set('intent', 'update');
                                                 @endif
                                                 window.location.href = target.toString();
+                                                return;
+                                            }
+
+                                            if (type === 'success' && body?.status === 'FAILED') {
+                                                widgetError = '{{ __('Payment was declined. Please check your card details and try again.') }}';
                                                 return;
                                             }
 

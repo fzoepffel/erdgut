@@ -186,7 +186,7 @@ class PaymentSetupController extends Controller
                 ->with('status', 'payment-setup-failed');
         }
 
-        $checkoutReference = (string) data_get($checkout, 'checkout_reference', '');
+        $checkoutReference = (string) data_get($checkout, 'checkoutReference', '');
         $expectedPrefix = 'sub-'.$subscription->id.'-';
 
         if ($checkoutReference !== '' && ! str_starts_with($checkoutReference, $expectedPrefix)) {
@@ -205,8 +205,8 @@ class PaymentSetupController extends Controller
         }
 
         $tokenSource = null;
-        $token = (string) data_get($checkout, 'payment_instrument.token', '');
-        $customerId = (string) data_get($checkout, 'customer_id', '');
+        $token = (string) data_get($checkout, 'paymentInstrument.token', '');
+        $customerId = (string) data_get($checkout, 'customerId', '');
 
         if (trim($token) !== '') {
             $tokenSource = 'checkout.payment_instrument';

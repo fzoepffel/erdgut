@@ -25,17 +25,17 @@ final class SumUpCheckoutLogger
                 $transactionStatuses[] = [
                     'index' => $index,
                     'status' => data_get($t, 'status'),
-                    'payment_type' => data_get($t, 'payment_type'),
+                    'payment_type' => data_get($t, 'paymentType') ?? data_get($t, 'payment_type'),
                 ];
             }
         }
 
-        $piToken = (string) data_get($checkout, 'payment_instrument.token', '');
+        $piToken = (string) data_get($checkout, 'paymentInstrument.token', '');
 
         return [
-            'checkout_reference' => data_get($checkout, 'checkout_reference'),
+            'checkout_reference' => data_get($checkout, 'checkoutReference'),
             'checkout_status' => data_get($checkout, 'status'),
-            'customer_id' => data_get($checkout, 'customer_id'),
+            'customer_id' => data_get($checkout, 'customerId'),
             'amount' => data_get($checkout, 'amount'),
             'currency' => data_get($checkout, 'currency'),
             'purpose' => data_get($checkout, 'purpose'),

@@ -77,7 +77,7 @@ class SumUpService
 
         SumUpCheckoutLogger::info('SumUp checkouts.create succeeded.', [
             'checkout_id' => data_get($created, 'id'),
-            'checkout_reference' => data_get($created, 'checkout_reference', $payload['checkout_reference'] ?? null),
+            'checkout_reference' => data_get($created, 'checkoutReference', $payload['checkout_reference'] ?? null),
             'purpose' => $payload['purpose'] ?? null,
             'customer_id' => $payload['customer_id'] ?? null,
             'return_url_host' => $returnHost,
