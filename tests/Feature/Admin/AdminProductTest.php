@@ -131,4 +131,61 @@ class AdminProductTest extends TestCase
             ->assertOk()
             ->assertDontSee(route('app.admin.products.index', absolute: false), false);
     }
+
+    public function test_non_admin_receives_forbidden_on_product_store_update_destroy(): void
+    {
+        $user = User::factory()->create(['is_admin' => false]);
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create(['producer_id' => $producer->id]);
+
+        $this->actingAs($user)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'name' => 'Blocked',
+                'category' => 'fruit',
+                'unit_price' => '1.00',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->put(route('app.admin.products.update', $product), [
+                'producer_id' => $producer->id,
+                'name' => 'Hijacked',
+                'category' => 'fruit',
+                'unit_price' => '9.99',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->delete(route('app.admin.products.destroy', $product))
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_update_product_fields(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Old Name',
+            'category' => 'vegetables',
+            'unit_price' => 1.00,
+            'is_available' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('app.admin.products.update', $product), [
+                'producer_id' => $producer->id,
+                'name' => 'New Name',
+                'category' => 'fruit',
+                'unit_price' => '3.25',
+                'is_available' => '1',
+            ])
+            ->assertRedirect(route('app.admin.products.edit', $product));
+
+        $product->refresh();
+        $this->assertSame('New Name', $product->name);
+        $this->assertSame('fruit', $product->category);
+        $this->assertSame('3.25', $product->unit_price);
+    }
 }
