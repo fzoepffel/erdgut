@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
+use App\Notifications\PaymentSuccessNotification;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -109,9 +110,17 @@ class SumUpWebhookHandler
                 'checkout_id' => $checkoutId,
                 'payment_id' => $payment->id,
                 'subscription_id' => $subscription?->id,
+                'previous_status' => Payment::STATUS_PENDING,
+                'new_status' => Payment::STATUS_PAID,
                 'advanced_next_charge_date' => $shouldAdvanceNextChargeDate,
                 'checkout' => $snapshot,
+                'timestamp' => now()->toIso8601String(),
             ]);
+
+            $user = $subscription?->user;
+            if ($user !== null) {
+                $user->notify(new PaymentSuccessNotification($payment));
+            }
 
             return;
         }
@@ -124,9 +133,17 @@ class SumUpWebhookHandler
                 'checkout_id' => $checkoutId,
                 'payment_id' => $payment->id,
                 'checkout_status' => $status,
+                'previous_status' => Payment::STATUS_PENDING,
+                'new_status' => Payment::STATUS_FAILED,
                 'reason' => $reason,
                 'checkout' => $snapshot,
+                'timestamp' => now()->toIso8601String(),
             ]);
+
+            $user = $payment->subscription?->user;
+            if ($user !== null) {
+                $user->notify(new PaymentFailedNotification($payment));
+            }
         }
     }
 

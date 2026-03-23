@@ -4,12 +4,14 @@ namespace App\Models;
 
 use App\Enums\BoxStatus;
 use Database\Factories\BoxFactory;
+use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Log;
 
 class Box extends Model
 {
@@ -89,10 +91,44 @@ class Box extends Model
     }
 
     /**
+     * Valid status transitions: editable -> locked -> delivered (forward only).
+     * Backward: locked -> editable, delivered -> editable (admin correction).
+     */
+    public function canTransitionTo(BoxStatus $target): bool
+    {
+        return match ($this->status) {
+            BoxStatus::Editable => $target === BoxStatus::Locked,
+            BoxStatus::Locked => $target === BoxStatus::Editable || $target === BoxStatus::Delivered,
+            BoxStatus::Delivered => $target === BoxStatus::Editable,
+        };
+    }
+
+    /**
+     * Assert valid transition and throw DomainException if invalid.
+     */
+    public function assertCanTransitionTo(BoxStatus $target): void
+    {
+        if ($this->canTransitionTo($target)) {
+            return;
+        }
+
+        Log::warning('Invalid box status transition attempted', [
+            'box_id' => $this->id,
+            'from_status' => $this->status->value,
+            'to_status' => $target->value,
+        ]);
+
+        throw new DomainException(
+            "Cannot transition box from {$this->status->value} to {$target->value}."
+        );
+    }
+
+    /**
      * Mark the box as editable.
      */
     public function markEditable(): void
     {
+        $this->assertCanTransitionTo(BoxStatus::Editable);
         $this->update(['status' => BoxStatus::Editable]);
     }
 
@@ -101,6 +137,7 @@ class Box extends Model
      */
     public function lock(): void
     {
+        $this->assertCanTransitionTo(BoxStatus::Locked);
         $this->update(['status' => BoxStatus::Locked]);
     }
 
@@ -109,6 +146,7 @@ class Box extends Model
      */
     public function deliver(): void
     {
+        $this->assertCanTransitionTo(BoxStatus::Delivered);
         $this->update(['status' => BoxStatus::Delivered]);
     }
 }

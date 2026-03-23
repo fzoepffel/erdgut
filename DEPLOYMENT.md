@@ -81,8 +81,35 @@ Before first production deploy, make sure:
    - `LOG_DAILY_DAYS=30`
    - `LOG_CRITICAL_DAYS=60`
 8. `CRON_KEY` is replaced from the default placeholder in server `.env`.
+9. IONOS cron job is configured (see below).
 
-```bash
+### 7. IONOS cron job (Laravel scheduler)
+
+Laravel’s task scheduler runs via an HTTP trigger because IONOS shared hosting does not support `* * * * * php artisan schedule:run`. Configure a scheduled URL in the IONOS panel:
+
+1. In IONOS: **Hosting** → **Scheduled tasks** (or equivalent)
+2. Add a new scheduled task:
+   - **URL:** `https://erd-gut.de/cron/run?key=<CRON_KEY>`
+   - For staging: `https://staging.erd-gut.de/cron/run?key=<CRON_KEY>`
+   - Replace `<CRON_KEY>` with the value from your server `.env` (`CRON_KEY=...`)
+   - Use the same secret as in `config('cron.key')`
+   - **Interval:** Every 5 minutes
+3. The route validates the key; invalid/missing key returns 403
+4. After first execution, verify via log entries that scheduled commands ran
+
+### 8. Mail transport (staging/production)
+
+For transactional emails (payment notifications, reminders) on IONOS, configure SMTP in `.env`:
+
+- `MAIL_MAILER=smtp`
+- `MAIL_HOST=smtp.ionos.de` (or `smtp.ionos.com` depending on region)
+- `MAIL_PORT=587`
+- `MAIL_SCHEME=tls`
+- `MAIL_USERNAME` / `MAIL_PASSWORD`: IONOS mail credentials for the sending address
+- `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME`: Use a verified sending address
+
+Verify with `php artisan tinker` → `Mail::raw('Test', fn ($m) => $m->to('your@email.com'));`
+
 # Deploy to staging
 git checkout staging
 git merge main

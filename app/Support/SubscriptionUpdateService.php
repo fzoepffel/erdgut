@@ -41,6 +41,7 @@ class SubscriptionUpdateService
                 'subscription_user_id' => $subscription->user_id,
                 'actor_user_id' => $actorUserId,
                 'changed_fields' => $this->changedFields($before, $after),
+                'timestamp' => now()->toIso8601String(),
             ]);
 
             return $subscription;

@@ -19,6 +19,8 @@ class ShopController extends Controller
      */
     public function index(Request $request): View
     {
+        abort_unless(config('features.shop_extras_enabled', true), 404);
+
         $validated = $request->validate([
             'category' => ['nullable', 'string', 'in:'.implode(',', ProductCategory::values())],
             'producer' => ['nullable', 'integer', 'exists:producers,id'],
@@ -59,6 +61,8 @@ class ShopController extends Controller
      */
     public function show(Request $request, Product $product): View
     {
+        abort_unless(config('features.shop_extras_enabled', true), 404);
+
         if (! $product->is_available) {
             throw new NotFoundHttpException;
         }

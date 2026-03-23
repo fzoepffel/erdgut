@@ -58,15 +58,17 @@ class RetryFailedPayments extends Command
             try {
                 $this->retrySubscription($row['subscription'], $row['payment'], $currency);
                 $retried++;
-                Log::info('RetryFailedPayments: charged subscription.', [
+                Log::info('payment.retry_initiated', [
                     'subscription_id' => $row['subscription']->id,
+                    'timestamp' => now()->toIso8601String(),
                 ]);
             } catch (Throwable $e) {
                 $failed++;
-                Log::warning('RetryFailedPayments: retry failed for payment.', [
+                Log::warning('payment.retry_failed', [
                     'payment_id' => $row['payment']->id,
                     'subscription_id' => $row['subscription']->id,
                     'error' => $e->getMessage(),
+                    'timestamp' => now()->toIso8601String(),
                 ]);
             }
         }
@@ -130,6 +132,14 @@ class RetryFailedPayments extends Command
             'attempt_number' => $attemptNumber,
         ]);
 
+        Log::info('payment.retry_created', [
+            'payment_id' => $payment->id,
+            'previous_payment_id' => $previousPayment->id,
+            'subscription_id' => $subscription->id,
+            'attempt_number' => $attemptNumber,
+            'timestamp' => now()->toIso8601String(),
+        ]);
+
         $checkoutReference = "sub-{$subscription->id}-charge-{$payment->id}-".now()->timestamp;
 
         try {
@@ -143,6 +153,14 @@ class RetryFailedPayments extends Command
             $checkoutId = data_get($checkout, 'id');
             if (! is_string($checkoutId) || trim($checkoutId) === '') {
                 $payment->markFailed('Checkout created but no ID returned');
+                Log::warning('payment.failed', [
+                    'payment_id' => $payment->id,
+                    'subscription_id' => $subscription->id,
+                    'previous_status' => Payment::STATUS_PENDING,
+                    'new_status' => Payment::STATUS_FAILED,
+                    'reason' => 'Checkout created but no ID returned',
+                    'timestamp' => now()->toIso8601String(),
+                ]);
 
                 return;
             }
@@ -156,6 +174,14 @@ class RetryFailedPayments extends Command
             );
         } catch (Throwable $e) {
             $payment->markFailed($e->getMessage());
+            Log::warning('payment.failed', [
+                'payment_id' => $payment->id,
+                'subscription_id' => $subscription->id,
+                'previous_status' => Payment::STATUS_PENDING,
+                'new_status' => Payment::STATUS_FAILED,
+                'reason' => $e->getMessage(),
+                'timestamp' => now()->toIso8601String(),
+            ]);
 
             throw $e;
         }

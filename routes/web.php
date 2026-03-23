@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Account\UserAccessProbeController;
 use App\Http\Controllers\BoxController;
+use App\Http\Controllers\Operations\CronRunController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DeliveryPreferencesController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::name('public.')->group(function () {
+    Route::get('/cron/run', CronRunController::class)->name('cron.run');
     Route::get('/', [HomeController::class, 'index'])->name('home');
     Route::get('/about', [AboutController::class, 'index'])->name('about');
     Route::get('/producers', [ProducerController::class, 'index'])->name('producers');
@@ -51,7 +53,9 @@ Route::middleware(['auth', 'verified'])
             Route::patch('/{delivery}/override', [DeliveryController::class, 'updateOverride'])->name('override.update');
             Route::get('/{delivery}', [DeliveryController::class, 'show'])->name('show');
             Route::post('/{delivery}/skip', [DeliveryController::class, 'skip'])->name('skip');
+            Route::post('/{delivery}/postpone', [DeliveryController::class, 'postpone'])->name('postpone');
             Route::get('/{delivery}/gift', [DeliveryController::class, 'gift'])->name('gift');
+            Route::post('/{delivery}/gift', [DeliveryController::class, 'storeGift'])->name('gift.store');
         });
         Route::prefix('boxes')->name('boxes.')->group(function () {
             Route::get('/current', [BoxController::class, 'current'])->name('current');

@@ -31,6 +31,7 @@ class SubscriptionLifecycleService
                 ? SubscriptionStatus::Paused
                 : SubscriptionStatus::Active;
 
+            $previousStatus = $subscription->status;
             $subscription->update([
                 'status' => $status,
                 'pause_from' => $from->toDateString(),
@@ -41,8 +42,11 @@ class SubscriptionLifecycleService
                 'subscription_id' => $subscription->id,
                 'subscription_user_id' => $subscription->user_id,
                 'actor_user_id' => $actorUserId,
+                'previous_status' => $previousStatus->value,
+                'new_status' => $status->value,
                 'pause_from' => $from->toDateString(),
                 'pause_until' => $until->toDateString(),
+                'timestamp' => now()->toIso8601String(),
             ]);
 
             return $subscription->fresh();
@@ -57,6 +61,7 @@ class SubscriptionLifecycleService
 
         return DB::transaction(function () use ($subscription, $actorUserId): Subscription {
             $nextChargeDate = $this->computeNextChargeDate($subscription);
+            $previousStatus = $subscription->status;
 
             $subscription->update([
                 'status' => SubscriptionStatus::Active,
@@ -69,7 +74,10 @@ class SubscriptionLifecycleService
                 'subscription_id' => $subscription->id,
                 'subscription_user_id' => $subscription->user_id,
                 'actor_user_id' => $actorUserId,
+                'previous_status' => $previousStatus->value,
+                'new_status' => SubscriptionStatus::Active->value,
                 'next_charge_date' => $nextChargeDate,
+                'timestamp' => now()->toIso8601String(),
             ]);
 
             return $subscription->fresh();
@@ -83,6 +91,7 @@ class SubscriptionLifecycleService
         }
 
         return DB::transaction(function () use ($subscription, $reason, $actorUserId): Subscription {
+            $previousStatus = $subscription->status;
             $subscription->update([
                 'status' => SubscriptionStatus::Cancelled,
                 'cancelled_at' => now(),
@@ -95,7 +104,10 @@ class SubscriptionLifecycleService
                 'subscription_id' => $subscription->id,
                 'subscription_user_id' => $subscription->user_id,
                 'actor_user_id' => $actorUserId,
-                'has_reason' => ! empty($reason),
+                'previous_status' => $previousStatus->value,
+                'new_status' => SubscriptionStatus::Cancelled->value,
+                'cancellation_reason' => $reason,
+                'timestamp' => now()->toIso8601String(),
             ]);
 
             return $subscription->fresh();

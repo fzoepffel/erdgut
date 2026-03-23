@@ -18,6 +18,11 @@
                     <x-nav-link :href="route('app.subscriptions.show')" :active="request()->routeIs('app.subscriptions.*')">
                         {{ __('Subscription') }}
                     </x-nav-link>
+                    @if(config('features.shop_extras_enabled', true))
+                        <x-nav-link :href="route('app.shop.index')" :active="request()->routeIs('app.shop.*')">
+                            {{ __('Shop extras') }}
+                        </x-nav-link>
+                    @endif
                 </div>
             </div>
 
@@ -79,6 +84,11 @@
             <x-responsive-nav-link :href="route('app.subscriptions.show')" :active="request()->routeIs('app.subscriptions.*')">
                 {{ __('Subscription') }}
             </x-responsive-nav-link>
+            @if(config('features.shop_extras_enabled', true))
+                <x-responsive-nav-link :href="route('app.shop.index')" :active="request()->routeIs('app.shop.*')">
+                    {{ __('Shop extras') }}
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->

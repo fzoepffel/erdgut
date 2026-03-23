@@ -60,9 +60,10 @@ class ChargeSubscriptions extends Command
                 $charged++;
             } catch (Throwable $e) {
                 $failed++;
-                Log::warning('ChargeSubscriptions: failed to charge subscription.', [
+                Log::warning('payment.charge_failed', [
                     'subscription_id' => $subscription->id,
                     'error' => $e->getMessage(),
+                    'timestamp' => now()->toIso8601String(),
                 ]);
             }
         }
@@ -85,6 +86,14 @@ class ChargeSubscriptions extends Command
             'attempt_number' => $attemptNumber,
         ]);
 
+        Log::info('payment.created', [
+            'payment_id' => $payment->id,
+            'subscription_id' => $subscription->id,
+            'amount' => $amount,
+            'attempt_number' => $attemptNumber,
+            'timestamp' => now()->toIso8601String(),
+        ]);
+
         $checkoutReference = "sub-{$subscription->id}-charge-{$payment->id}-".now()->timestamp;
 
         try {
@@ -98,6 +107,14 @@ class ChargeSubscriptions extends Command
             $checkoutId = data_get($checkout, 'id');
             if (! is_string($checkoutId) || trim($checkoutId) === '') {
                 $payment->markFailed('Checkout created but no ID returned');
+                Log::warning('payment.failed', [
+                    'payment_id' => $payment->id,
+                    'subscription_id' => $subscription->id,
+                    'previous_status' => Payment::STATUS_PENDING,
+                    'new_status' => Payment::STATUS_FAILED,
+                    'reason' => 'Checkout created but no ID returned',
+                    'timestamp' => now()->toIso8601String(),
+                ]);
 
                 return;
             }
@@ -111,6 +128,14 @@ class ChargeSubscriptions extends Command
             );
         } catch (Throwable $e) {
             $payment->markFailed($e->getMessage());
+            Log::warning('payment.failed', [
+                'payment_id' => $payment->id,
+                'subscription_id' => $subscription->id,
+                'previous_status' => Payment::STATUS_PENDING,
+                'new_status' => Payment::STATUS_FAILED,
+                'reason' => $e->getMessage(),
+                'timestamp' => now()->toIso8601String(),
+            ]);
 
             throw $e;
         }
