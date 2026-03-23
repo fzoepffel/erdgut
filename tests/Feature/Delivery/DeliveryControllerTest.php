@@ -7,6 +7,7 @@ use App\Models\Address;
 use App\Models\Delivery;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class DeliveryControllerTest extends TestCase
@@ -206,6 +207,207 @@ class DeliveryControllerTest extends TestCase
             ])
             ->assertRedirect(route('app.deliveries.index'))
             ->assertSessionHasErrors('timeslot');
+    }
+
+    public function test_show_override_delivery_redirects_to_index_with_base_delivery_focus(): void
+    {
+        $user = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $user->id]);
+        $baseDelivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+        $overrideDelivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => $baseDelivery->scheduled_for_date->toDateString(),
+            'is_weekly_override' => true,
+            'overrides_delivery_id' => $baseDelivery->id,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.deliveries.show', $overrideDelivery))
+            ->assertRedirect(route('app.deliveries.index', ['focus' => $baseDelivery->id]));
+    }
+
+    public function test_postpone_creates_skipped_override_and_next_week_delivery(): void
+    {
+        $user = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $user->id, 'is_primary' => true]);
+        $delivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => now()->addDays(2)->toDateString(),
+            'timeslot' => '08:00-12:00',
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('app.deliveries.postpone', $delivery))
+            ->assertSessionHas('status', 'delivery-postponed');
+
+        $this->assertDatabaseHas('deliveries', [
+            'overrides_delivery_id' => $delivery->id,
+            'is_weekly_override' => true,
+            'status' => DeliveryStatus::Skipped->value,
+        ]);
+
+        $nextWeekDate = Carbon::parse($delivery->scheduled_for_date)->addWeek();
+        $nextDelivery = Delivery::query()
+            ->where('user_id', $user->id)
+            ->where('is_weekly_override', false)
+            ->whereDate('scheduled_for_date', $nextWeekDate->toDateString())
+            ->first();
+
+        $this->assertNotNull($nextDelivery);
+        $this->assertSame(DeliveryStatus::Scheduled, $nextDelivery->status);
+    }
+
+    public function test_postpone_past_delivery_returns_403(): void
+    {
+        $user = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $user->id]);
+        $delivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => now()->subDay()->toDateString(),
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('app.deliveries.postpone', $delivery))
+            ->assertForbidden();
+    }
+
+    public function test_gift_page_renders_for_authorized_user(): void
+    {
+        $user = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $user->id]);
+        $delivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => now()->addDays(3)->toDateString(),
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.deliveries.gift', $delivery))
+            ->assertOk()
+            ->assertViewIs('deliveries.gift')
+            ->assertViewHas('delivery');
+    }
+
+    public function test_store_gift_creates_gift_delivery_and_override(): void
+    {
+        $user = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $user->id, 'is_primary' => true]);
+        $delivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => now()->addDays(3)->toDateString(),
+            'timeslot' => '08:00-12:00',
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+
+        $targetDate = now()->addWeek()->toDateString();
+
+        $this->actingAs($user)
+            ->post(route('app.deliveries.gift.store', $delivery), [
+                'recipient_name' => 'Max Mustermann',
+                'street_line_1' => 'Musterstraße 1',
+                'postal_code' => '10115',
+                'city' => 'Berlin',
+                'country_code' => 'DE',
+                'target_date' => $targetDate,
+            ])
+            ->assertSessionHas('status', 'delivery-gifted');
+
+        $this->assertDatabaseHas('addresses', [
+            'user_id' => $user->id,
+            'recipient_name' => 'Max Mustermann',
+            'street_line_1' => 'Musterstraße 1',
+        ]);
+
+        $giftDelivery = Delivery::query()
+            ->where('is_weekly_override', false)
+            ->whereDate('scheduled_for_date', $targetDate)
+            ->where('status', DeliveryStatus::Scheduled)
+            ->latest('id')
+            ->first();
+        $this->assertNotNull($giftDelivery);
+
+        $this->assertDatabaseHas('deliveries', [
+            'overrides_delivery_id' => $delivery->id,
+            'status' => DeliveryStatus::Skipped->value,
+            'is_weekly_override' => true,
+        ]);
+    }
+
+    public function test_store_gift_rejects_past_target_date(): void
+    {
+        $user = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $user->id]);
+        $delivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => now()->addDays(3)->toDateString(),
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('app.deliveries.gift', $delivery))
+            ->post(route('app.deliveries.gift.store', $delivery), [
+                'recipient_name' => 'Max Mustermann',
+                'street_line_1' => 'Musterstraße 1',
+                'postal_code' => '10115',
+                'city' => 'Berlin',
+                'country_code' => 'DE',
+                'target_date' => now()->subDay()->toDateString(),
+            ])
+            ->assertRedirect(route('app.deliveries.gift', $delivery))
+            ->assertSessionHasErrors(['target_date']);
+    }
+
+    public function test_skip_returns_redirect_with_coming_soon_flash(): void
+    {
+        $user = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $user->id]);
+        $delivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => now()->addDays(2)->toDateString(),
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('app.deliveries.skip', $delivery))
+            ->assertRedirect(route('app.dashboard'))
+            ->assertSessionHas('status', 'skip-week-coming-soon');
+    }
+
+    public function test_skip_rejects_already_skipped_delivery(): void
+    {
+        $user = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $user->id]);
+        $baseDelivery = Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => now()->addDays(2)->toDateString(),
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+        Delivery::factory()->create([
+            'user_id' => $user->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => $baseDelivery->scheduled_for_date->toDateString(),
+            'is_weekly_override' => true,
+            'overrides_delivery_id' => $baseDelivery->id,
+            'status' => DeliveryStatus::Skipped,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('app.deliveries.skip', $baseDelivery))
+            ->assertForbidden();
     }
 
     public function test_skip_week_is_rejected_for_delivered_delivery(): void

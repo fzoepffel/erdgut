@@ -130,4 +130,54 @@ class BoxCompositionServiceTest extends TestCase
 
         $this->assertGreaterThan($smallCount, $largeCount);
     }
+
+    public function test_compose_uses_default_unit_piece_when_metadata_has_no_unit(): void
+    {
+        Config::set('box.composition_by_size.small', [
+            'herbs' => 1,
+        ]);
+
+        Product::factory()->create([
+            'category' => 'herbs',
+            'is_available' => true,
+            'metadata' => ['origin' => 'local'],
+        ]);
+
+        $box = Box::factory()->create();
+
+        $this->service->compose($box, 'small');
+
+        $item = $box->items()->first();
+        $this->assertSame('piece', $item->unit);
+    }
+
+    public function test_compose_does_not_recalculate_when_zero_items_added(): void
+    {
+        $box = Box::factory()->create(['estimated_value' => 99.99]);
+
+        $added = $this->service->compose($box, 'nonexistent');
+
+        $this->assertSame(0, $added);
+        $box->refresh();
+        $this->assertEquals(99.99, (float) $box->estimated_value);
+    }
+
+    public function test_compose_marks_all_items_as_not_extra(): void
+    {
+        Config::set('box.composition_by_size.medium', [
+            'vegetables' => 2,
+            'fruit' => 1,
+        ]);
+
+        Product::factory()->count(3)->create(['category' => 'vegetables', 'is_available' => true]);
+        Product::factory()->count(2)->create(['category' => 'fruit', 'is_available' => true]);
+
+        $box = Box::factory()->create();
+
+        $this->service->compose($box, 'medium');
+
+        $box->items()->get()->each(function ($item): void {
+            $this->assertFalse($item->is_extra);
+        });
+    }
 }

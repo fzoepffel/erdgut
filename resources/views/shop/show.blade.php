@@ -21,7 +21,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="lg:grid lg:grid-cols-[1fr_280px] lg:gap-8">
                 <div class="lg:col-span-1">
                     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
