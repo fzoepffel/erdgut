@@ -24,34 +24,58 @@
                         @endif
                     </p>
 
+                    <script
+                        type="text/javascript"
+                        src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"
+                    ></script>
+
                     <div
                         x-data="{ widgetError: '' }"
                         x-init="
+                            // #region agent log
+                            console.log('[DEBUG] Widget init start', {hasSumUpCard:!!window.SumUpCard, checkoutId:'{{ $checkoutId }}'});
+                            // #endregion
                             if (!window.SumUpCard) {
                                 widgetError = '{{ __('Unable to load payment widget. Please refresh and try again.') }}';
+                                // #region agent log
+                                console.error('[DEBUG] SumUpCard not found on window');
+                                // #endregion
                             } else {
-                                SumUpCard.mount({
-                                    id: 'sumup-card',
-                                    checkoutId: '{{ $checkoutId }}',
-                                    email: '{{ $subscription->user->email }}',
-                                    locale: 'de-DE',
-                                    onResponse: function(type, body) {
-                                        if (type === 'success') {
-                                            const checkoutId = body?.id ?? '{{ $checkoutId }}';
-                                            const target = new URL('{{ route('app.payments.setup.complete') }}', window.location.origin);
-                                            target.searchParams.set('checkout', checkoutId);
-                                            @if ($intent === 'update')
-                                            target.searchParams.set('intent', 'update');
-                                            @endif
-                                            window.location.href = target.toString();
-                                            return;
-                                        }
+                                try {
+                                    SumUpCard.mount({
+                                        id: 'sumup-card',
+                                        checkoutId: '{{ $checkoutId }}',
+                                        email: '{{ $subscription->user->email }}',
+                                        locale: 'de-DE',
+                                        onResponse: function(type, body) {
+                                            // #region agent log
+                                            console.log('[DEBUG] Widget onResponse', {type:type, bodyMessage:body?.message, bodyId:body?.id, bodyStatus:body?.status});
+                                            // #endregion
+                                            if (type === 'success') {
+                                                const checkoutId = body?.id ?? '{{ $checkoutId }}';
+                                                const target = new URL('{{ route('app.payments.setup.complete') }}', window.location.origin);
+                                                target.searchParams.set('checkout', checkoutId);
+                                                @if ($intent === 'update')
+                                                target.searchParams.set('intent', 'update');
+                                                @endif
+                                                window.location.href = target.toString();
+                                                return;
+                                            }
 
-                                        if (type === 'error' || type === 'fail') {
-                                            widgetError = body?.message ?? '{{ __('Payment setup failed. Please try again.') }}';
+                                            if (type === 'error' || type === 'fail') {
+                                                widgetError = body?.message ?? '{{ __('Payment setup failed. Please try again.') }}';
+                                            }
                                         }
-                                    }
-                                });
+                                    });
+                                    // #region agent log
+                                    console.log('[DEBUG] SumUpCard.mount called OK', {checkoutId:'{{ $checkoutId }}'});
+                                    // #endregion
+                                } catch(e) {
+                                    widgetError = e.message || 'Mount failed';
+                                    // #region agent log
+                                    console.error('[DEBUG] SumUpCard.mount threw', e.message);
+                                    // #endregion
+                                }
                             }
                         "
                     >
@@ -67,11 +91,6 @@
                     <p class="mt-3 text-xs text-gray-500">
                         {{ __('Your card details are processed securely by SumUp.') }}
                     </p>
-
-                    <script
-                        type="text/javascript"
-                        src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"
-                    ></script>
 
                     <a
                         href="{{ route('app.subscriptions.show') }}"
