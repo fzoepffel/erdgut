@@ -510,6 +510,28 @@ class BoxControllerTest extends TestCase
         $this->assertDatabaseHas('boxes', ['id' => $box->id, 'estimated_value' => 9.00]);
     }
 
+    public function test_post_add_item_rejects_unpublished_product(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'is_available' => true,
+            'is_published' => false,
+        ]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('app.boxes.items.add', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['product_id']);
+    }
+
     public function test_post_add_item_increments_existing_product(): void
     {
         $user = User::factory()->create();

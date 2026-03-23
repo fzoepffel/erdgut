@@ -36,6 +36,7 @@
                                     <th class="py-2 pe-4">{{ __('Category') }}</th>
                                     <th class="py-2 pe-4">{{ __('Price') }}</th>
                                     <th class="py-2 pe-4">{{ __('Shop') }}</th>
+                                    <th class="py-2 pe-4">{{ __('Catalog') }}</th>
                                     <th class="py-2 pe-4 text-end">{{ __('Actions') }}</th>
                                 </tr>
                             </thead>
@@ -51,6 +52,13 @@
                                                 <span class="text-green-700">{{ __('Available') }}</span>
                                             @else
                                                 <span class="text-gray-500">{{ __('Hidden') }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="py-3 pe-4">
+                                            @if ($product->is_published)
+                                                <span class="text-green-700">{{ __('Live') }}</span>
+                                            @else
+                                                <span class="text-amber-800">{{ __('Draft') }}</span>
                                             @endif
                                         </td>
                                         <td class="py-3 pe-0 text-end space-x-2 whitespace-nowrap">

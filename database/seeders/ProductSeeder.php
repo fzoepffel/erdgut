@@ -89,6 +89,7 @@ class ProductSeeder extends Seeder
                     'unit_price' => $product['unit_price'],
                     'is_seasonal' => $product['is_seasonal'],
                     'is_available' => true,
+                    'is_published' => true,
                     'metadata' => $metadata,
                     'is_test' => true,
                 ]

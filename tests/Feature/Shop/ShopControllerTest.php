@@ -270,6 +270,47 @@ class ShopControllerTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_unpublished_product_is_excluded_from_shop_index(): void
+    {
+        $producer = Producer::factory()->create();
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Draft Only Tomato',
+            'is_available' => true,
+            'is_published' => false,
+        ]);
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Live Lettuce',
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('app.shop.index'));
+
+        $response->assertOk()
+            ->assertSee('Live Lettuce', false)
+            ->assertDontSee('Draft Only Tomato', false);
+    }
+
+    public function test_unpublished_product_detail_returns_404(): void
+    {
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'is_available' => true,
+            'is_published' => false,
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.shop.show', $product))
+            ->assertNotFound();
+    }
+
     public function test_guest_is_redirected_from_product_detail(): void
     {
         $producer = Producer::factory()->create();

@@ -30,7 +30,7 @@ class BoxCompositionService
         foreach ($rules as $category => $count) {
             $products = Product::query()
                 ->where('category', $category)
-                ->where('is_available', true)
+                ->visibleInCatalog()
                 ->inRandomOrder()
                 ->limit((int) $count)
                 ->get();

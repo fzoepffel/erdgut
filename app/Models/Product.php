@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\ProductFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,7 @@ class Product extends Model
         'unit_price',
         'is_seasonal',
         'is_available',
+        'is_published',
         'metadata',
         'image_path',
         'is_test',
@@ -43,6 +45,7 @@ class Product extends Model
             'unit_price' => 'decimal:2',
             'is_seasonal' => 'boolean',
             'is_available' => 'boolean',
+            'is_published' => 'boolean',
             'metadata' => 'array',
             'is_test' => 'boolean',
         ];
@@ -85,5 +88,13 @@ class Product extends Model
         }
 
         return Storage::disk('public')->url($path);
+    }
+
+    /**
+     * Products visible to customers in shop and eligible for default box composition / extras.
+     */
+    public function scopeVisibleInCatalog(Builder $query): void
+    {
+        $query->where('is_available', true)->where('is_published', true);
     }
 }

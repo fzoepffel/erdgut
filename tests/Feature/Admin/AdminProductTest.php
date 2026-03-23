@@ -65,6 +65,7 @@ class AdminProductTest extends TestCase
             'category' => 'fruit',
             'unit_price' => 2.5,
             'is_available' => false,
+            'is_published' => true,
             'is_seasonal' => false,
             'is_test' => false,
         ]);
