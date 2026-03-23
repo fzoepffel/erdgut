@@ -4,7 +4,7 @@
     $variety = $product->metadata['variety'] ?? null;
     $tasteProfile = $product->metadata['taste_profile'] ?? null;
     $canAddToBox = $currentBox instanceof \App\Models\Box;
-    $heroImage = $product->imageUrl() ?: ($product->producer?->image_url ?: null);
+    $heroImage = $product->imageUrl() ?: ($product->producer?->primaryImageUrl() ?: null);
 @endphp
 
 <x-app-layout>

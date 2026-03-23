@@ -4,7 +4,7 @@
     $origin = $product->metadata['origin'] ?? $product->producer?->region ?? '—';
     $unit = $product->metadata['unit'] ?? 'kg';
     $canAddToBox = $currentBox instanceof \App\Models\Box;
-    $cardImage = $product->imageUrl() ?: ($product->producer?->image_url ?: null);
+    $cardImage = $product->imageUrl() ?: ($product->producer?->primaryImageUrl() ?: null);
 @endphp
 
 <article {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm']) }}
