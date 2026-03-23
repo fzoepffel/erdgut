@@ -6,6 +6,14 @@
 
 ---
 
+## 0. Marketing homepage (`/`)
+
+| # | Test case | Pass | Fail | Notes |
+|---|-----------|------|------|-------|
+| 0.1 | Guest: homepage loads; hero shows **Get started** (register) and **Log in**; links reach correct routes | | | |
+| 0.2 | Narrow viewport (~375px): headline and primary CTA readable and tappable without horizontal scroll | | | |
+| 0.3 | Authenticated user: hero primary **Go to dashboard** and secondary **Start subscription** present and links work | | | |
+
 ## 1. Authentication
 
 | # | Test case | Pass | Fail | Notes |

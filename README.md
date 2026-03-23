@@ -99,6 +99,10 @@ Mail::raw('test', fn ($m) => $m->to('your-real-email@example.com')->subject('Mai
 
 Type `exit` to leave tinker.
 
+## Design / UX
+
+- **Phase 8 baseline (ERD-168):** competitor notes, design principles, route-to-ticket matrix, and P0 implementation order — see [docs/UX-ERD-168-baseline.md](docs/UX-ERD-168-baseline.md).
+
 ## What this project uses
 
 - **Laravel 11 (PHP)**: backend framework, routing, auth, database access.
