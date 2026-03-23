@@ -55,7 +55,7 @@ class PaymentSetupController extends Controller
         ]);
 
         // #region agent log
-        @file_put_contents(base_path('.cursor/debug-07cfdd.log'), json_encode(['sessionId' => '07cfdd', 'location' => 'PaymentSetupController:show', 'message' => 'Rendering setup view', 'data' => ['checkout_id' => $checkoutId, 'subscription_id' => $subscription->id, 'customer_id' => $customerId, 'user_email' => $subscription->user->email], 'timestamp' => round(microtime(true) * 1000), 'hypothesisId' => 'H2']) . "\n", FILE_APPEND);
+        @file_put_contents(base_path('.cursor/debug-07cfdd.log'), json_encode(['sessionId' => '07cfdd', 'location' => 'PaymentSetupController:show', 'message' => 'Rendering setup view', 'data' => ['checkout_id' => $checkoutId, 'subscription_id' => $subscription->id, 'customer_id' => $customerId, 'user_email' => $subscription->user->email], 'timestamp' => round(microtime(true) * 1000), 'hypothesisId' => 'H2'])."\n", FILE_APPEND);
         // #endregion
 
         return view('payments.setup', [
