@@ -22,6 +22,15 @@
 | 0b.2 | FAQ accordion opens/closes (three items); **Write to us** links to contact | | | |
 | 0b.3 | Narrow viewport (~375px): story and values readable; closing CTAs tappable | | | |
 
+## 0c. Marketing producers (`/producers`)
+
+| # | Test case | Pass | Fail | Notes |
+|---|-----------|------|------|-------|
+| 0c.1 | Page loads; toolbar **Region** + **Search** + **Apply**; cards show name and region | | | |
+| 0c.2 | Filter and search narrow the grid; **Clear filters** resets list; zero-match message when appropriate | | | |
+| 0c.3 | Guest: **Sign up to shop extras** on cards; authenticated: **View in shop** opens catalog filtered by producer | | | |
+| 0c.4 | Empty database vs filtered-empty messages are distinct; mobile single-column grid | | | |
+
 ## 1. Authentication
 
 | # | Test case | Pass | Fail | Notes |
