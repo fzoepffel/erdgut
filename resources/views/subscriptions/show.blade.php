@@ -55,7 +55,7 @@
                         </p>
                     @elseif (session('status') === 'payment-setup-failed')
                         <p class="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-                            {{ __('Payment setup failed. Please try again with a valid test card (e.g. 4242 4242 4242 4242).') }}
+                            {{ __('Payment setup failed. Please try again.') }}
                         </p>
                     @elseif (session('status') === 'payment-setup-unavailable')
                         <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">

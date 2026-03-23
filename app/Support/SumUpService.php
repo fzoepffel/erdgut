@@ -75,6 +75,10 @@ class SumUpService
             throw $e;
         }
 
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-07cfdd.log'), json_encode(['sessionId' => '07cfdd', 'location' => 'SumUpService:createCheckout', 'message' => 'Checkout created', 'data' => ['checkout_id' => data_get($created, 'id'), 'return_url' => $returnUrl, 'purpose' => $payload['purpose'] ?? null], 'timestamp' => round(microtime(true) * 1000), 'hypothesisId' => 'H1'])."\n", FILE_APPEND);
+        // #endregion
+
         SumUpCheckoutLogger::info('SumUp checkouts.create succeeded.', [
             'checkout_id' => data_get($created, 'id'),
             'checkout_reference' => data_get($created, 'checkoutReference') ?? data_get($created, 'checkout_reference', $payload['checkout_reference'] ?? null),
@@ -97,7 +101,7 @@ class SumUpService
             return $configured;
         }
 
-        return route('app.subscriptions.show', absolute: true);
+        return route('app.payments.setup.complete', absolute: true);
     }
 
     public function createSetupCheckout(

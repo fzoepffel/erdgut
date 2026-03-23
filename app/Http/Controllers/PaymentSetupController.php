@@ -113,6 +113,10 @@ class PaymentSetupController extends Controller
 
     public function complete(Request $request): RedirectResponse
     {
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-07cfdd.log'), json_encode(['sessionId' => '07cfdd', 'location' => 'PaymentSetupController:complete', 'message' => 'Complete endpoint hit', 'data' => ['all_query' => $request->query(), 'method' => $request->method(), 'url' => $request->fullUrl()], 'timestamp' => round(microtime(true) * 1000), 'hypothesisId' => 'H2'])."\n", FILE_APPEND);
+        // #endregion
+
         $subscription = $this->resolveSubscription($request);
 
         if ($subscription === null) {
@@ -121,7 +125,7 @@ class PaymentSetupController extends Controller
                 ->with('status', 'subscription-missing');
         }
 
-        $checkoutId = (string) $request->query('checkout', '');
+        $checkoutId = (string) ($request->query('checkout', '') ?: $request->query('checkout_id', ''));
 
         if (trim($checkoutId) === '') {
             SumUpCheckoutLogger::warning('Payment setup complete: missing checkout query parameter.', [
