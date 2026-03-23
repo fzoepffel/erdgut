@@ -12,18 +12,25 @@
         x-data="{ loading: false, error: null }"
     @endif
 >
-    @if (! empty($cardImage))
-        <img
-            src="{{ $cardImage }}"
-            alt="{{ $product->name }}"
-            class="h-44 w-full object-cover"
-            loading="lazy"
-        >
-    @else
-        <div class="flex h-44 w-full items-center justify-center bg-gray-100">
-            <span class="text-sm text-gray-400">No image</span>
-        </div>
-    @endif
+    <div class="h-44 w-full bg-gray-100">
+        @if (! empty($cardImage))
+            <img
+                src="{{ $cardImage }}"
+                alt="{{ $product->name }}"
+                class="h-44 w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                onerror="this.onerror=null; this.setAttribute('hidden',''); this.nextElementSibling?.removeAttribute('hidden');"
+            >
+            <div hidden class="flex h-44 w-full items-center justify-center">
+                <span class="text-sm text-gray-400">{{ __('No image') }}</span>
+            </div>
+        @else
+            <div class="flex h-44 w-full items-center justify-center">
+                <span class="text-sm text-gray-400">{{ __('No image') }}</span>
+            </div>
+        @endif
+    </div>
 
     <div class="flex flex-1 flex-col space-y-2 p-5">
         <h3 class="font-semibold text-gray-900">
