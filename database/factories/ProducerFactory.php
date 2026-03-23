@@ -24,6 +24,7 @@ class ProducerFactory extends Factory
             'region' => fake()->city(),
             'description' => fake()->sentence(),
             'image_url' => fake()->imageUrl(),
+            'image_path' => null,
             'is_test' => false,
         ];
     }

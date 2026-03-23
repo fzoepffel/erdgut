@@ -6,6 +6,7 @@ use Database\Factories\ProducerFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Producer extends Model
 {
@@ -22,6 +23,7 @@ class Producer extends Model
         'region',
         'description',
         'image_url',
+        'image_path',
         'is_test',
     ];
 
@@ -43,5 +45,23 @@ class Producer extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    /**
+     * Prefer uploaded catalog image; fall back to legacy external image_url.
+     */
+    public function primaryImageUrl(): ?string
+    {
+        $path = $this->image_path;
+        if ($path !== null && $path !== '') {
+            return Storage::disk('public')->url($path);
+        }
+
+        $url = $this->image_url;
+        if ($url !== null && $url !== '') {
+            return $url;
+        }
+
+        return null;
     }
 }

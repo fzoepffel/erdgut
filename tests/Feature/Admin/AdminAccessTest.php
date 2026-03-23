@@ -34,6 +34,7 @@ class AdminAccessTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.admin.dashboard'))
             ->assertOk()
+            ->assertSee(route('app.admin.producers.index', absolute: false), false)
             ->assertSee(route('app.admin.products.index', absolute: false), false)
             ->assertSee('Administration', false);
     }
@@ -55,6 +56,7 @@ class AdminAccessTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee(route('app.admin.dashboard', absolute: false), false)
+            ->assertSee(route('app.admin.producers.index', absolute: false), false)
             ->assertSee(route('app.admin.products.index', absolute: false), false);
     }
 

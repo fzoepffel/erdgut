@@ -117,20 +117,24 @@ When deploying the encrypted casts for `subscriptions.sumup_token`, `subscriptio
 - The migration `2026_03_23_000001_encrypt_existing_payment_data` encrypts any existing plaintext values. It is safe to run on empty tables.
 - Do **not** rotate `APP_KEY` after this migration; encrypted data cannot be decrypted with a different key.
 
-# Deploy to staging
-git checkout staging
-git merge main
-git push
+## Admin access (first operator)
 
-# After testing, deploy to production
-git checkout main
-git merge staging
-git push
-```
+Admin UI lives under `/app/admin` and requires `users.is_admin = 1` plus a verified email. There is no public self-service promotion to admin.
 
-## Catalog product images (public storage)
+1. **Create or register** the user account first (normal registration), or ensure the row exists in `users`.
+2. **SSH into the server** (or use IONOS PHP shell / any way to run Artisan in the app root).
+3. Run:
+   ```bash
+   php artisan user:make-admin "operator@your-domain.de"
+   ```
+   - If the email is unknown, the command exits with an error.
+   - If the user is already admin, it succeeds with an “already an admin” message (idempotent).
 
-Product catalog images are stored on Laravel’s **`public` disk** (`storage/app/public/`, served under `/storage/...` after linking).
+After this, the user can sign in and open **Admin** / **Products** / **Producers** in the app navigation.
+
+## Catalog images — products & producers (public storage)
+
+Uploaded catalog images (admin CRUD) are stored on Laravel’s **`public` disk** under `storage/app/public/` and served as `/storage/...` after linking. Product files use `storage/app/public/products/{id}/…`; producer files use `storage/app/public/producers/{id}/…`.
 
 1. **After deploy (once per environment):** from the app root run:
    ```bash
@@ -140,9 +144,11 @@ Product catalog images are stored on Laravel’s **`public` disk** (`storage/app
 
 2. **Permissions:** ensure `storage/app/public`, `storage`, and `bootstrap/cache` are writable by the PHP user (same as general Laravel requirements).
 
-3. **PHP upload limits (admin uploads in ERD-161):** on IONOS, raise `upload_max_filesize` and `post_max_size` in the host’s PHP settings (e.g. 8M or higher) so image uploads do not fail silently. Restart PHP if the panel requires it.
+3. **PHP upload limits (admin uploads):** on IONOS, raise `upload_max_filesize` and `post_max_size` in the host’s PHP settings (e.g. **8M or higher**; admin validation allows up to 5 MB per file) so uploads do not fail. Restart PHP if the panel requires it.
 
 `FILESYSTEM_DISK` in `.env` can remain `local` for private app files; catalog code uses the `public` disk explicitly.
+
+**Legacy producer URLs:** the `producers.image_url` column may still hold external URLs; the app prefers an uploaded file (`image_path`) when set, and falls back to `image_url` for the public producers page.
 
 ## Troubleshooting
 

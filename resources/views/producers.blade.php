@@ -30,9 +30,9 @@
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($producers as $producer)
                     <article class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                        @if (! empty($producer->image_url))
+                        @if ($producer->primaryImageUrl())
                             <img
-                                src="{{ $producer->image_url }}"
+                                src="{{ $producer->primaryImageUrl() }}"
                                 alt="{{ $producer->name }}"
                                 class="h-44 w-full object-cover"
                                 loading="lazy"

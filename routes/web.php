@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\UserAccessProbeController;
+use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoxController;
 use App\Http\Controllers\DashboardController;
@@ -9,7 +10,7 @@ use App\Http\Controllers\DeliveryPreferencesController;
 use App\Http\Controllers\Marketing\AboutController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
-use App\Http\Controllers\Marketing\ProducerController;
+use App\Http\Controllers\Marketing\ProducerController as MarketingProducerController;
 use App\Http\Controllers\Operations\CronRunController;
 use App\Http\Controllers\Operations\HealthcheckController;
 use App\Http\Controllers\PaymentHistoryController;
@@ -23,7 +24,7 @@ Route::name('public.')->group(function () {
     Route::get('/cron/run', CronRunController::class)->name('cron.run');
     Route::get('/', [HomeController::class, 'index'])->name('home');
     Route::get('/about', [AboutController::class, 'index'])->name('about');
-    Route::get('/producers', [ProducerController::class, 'index'])->name('producers');
+    Route::get('/producers', [MarketingProducerController::class, 'index'])->name('producers');
     Route::get('/contact', [ContactController::class, 'create'])->name('contact');
     Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact')->name('contact.store');
 
@@ -84,6 +85,7 @@ Route::middleware(['auth', 'verified'])
             Route::get('/', function () {
                 return view('admin.dashboard');
             })->name('dashboard');
+            Route::resource('producers', ProducerController::class)->except(['show']);
             Route::resource('products', ProductController::class)->except(['show']);
         });
     });
