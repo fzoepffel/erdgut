@@ -32,4 +32,13 @@ class ProductImageUrlTest extends TestCase
         $this->assertNotNull($url);
         $this->assertStringContainsString('/storage/products/test.jpg', $url);
     }
+
+    public function test_image_url_is_null_when_file_missing_on_disk(): void
+    {
+        Storage::fake('public');
+
+        $product = Product::factory()->create(['image_path' => 'products/missing-on-disk.png']);
+
+        $this->assertNull($product->imageUrl());
+    }
 }

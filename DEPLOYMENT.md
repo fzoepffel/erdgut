@@ -156,7 +156,9 @@ Uploaded catalog images (admin CRUD) are stored on Laravel’s **`public` disk**
 
 2. **Permissions:** ensure `storage/app/public`, `storage`, and `bootstrap/cache` are writable by the PHP user (same as general Laravel requirements).
 
-3. **PHP upload limits (admin uploads):** on IONOS, raise `upload_max_filesize` and `post_max_size` in the host’s PHP settings (e.g. **8M or higher**; admin validation allows up to 5 MB per file) so uploads do not fail. Restart PHP if the panel requires it.
+3. **Persist uploads across deploys:** extracting a new release must **not delete** `storage/app/public` (especially `products/` and `producers/`). If deploys replace the whole tree, symlink or mount persistent storage for `storage/app/public`, or uploads will 404 until admins re-upload. The app hides broken `image_path` rows in the shop when the file is missing.
+
+4. **PHP upload limits (admin uploads):** on IONOS, raise `upload_max_filesize` and `post_max_size` in the host’s PHP settings (e.g. **8M or higher**; admin validation allows up to 5 MB per file) so uploads do not fail. Restart PHP if the panel requires it.
 
 `FILESYSTEM_DISK` in `.env` can remain `local` for private app files; catalog code uses the `public` disk explicitly.
 

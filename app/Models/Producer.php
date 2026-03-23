@@ -49,12 +49,17 @@ class Producer extends Model
 
     /**
      * Prefer uploaded catalog image; fall back to legacy external image_url.
+     *
+     * Missing files on disk (orphaned image_path) are ignored so callers fall back to image_url or null.
      */
     public function primaryImageUrl(): ?string
     {
         $path = $this->image_path;
         if ($path !== null && $path !== '') {
-            return Storage::disk('public')->url($path);
+            $disk = Storage::disk('public');
+            if ($disk->exists($path)) {
+                return $disk->url($path);
+            }
         }
 
         $url = $this->image_url;

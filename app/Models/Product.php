@@ -79,6 +79,9 @@ class Product extends Model
 
     /**
      * Public URL for the catalog image on the public disk, or null if none.
+     *
+     * If the DB path points to a missing file (e.g. after deploy without persisted storage), returns null
+     * so the UI can show a placeholder instead of a 404 request.
      */
     public function imageUrl(): ?string
     {
@@ -87,7 +90,12 @@ class Product extends Model
             return null;
         }
 
-        return Storage::disk('public')->url($path);
+        $disk = Storage::disk('public');
+        if (! $disk->exists($path)) {
+            return null;
+        }
+
+        return $disk->url($path);
     }
 
     /**

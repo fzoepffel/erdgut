@@ -49,4 +49,16 @@ class ProducerPrimaryImageUrlTest extends TestCase
 
         $this->assertNull($producer->primaryImageUrl());
     }
+
+    public function test_primary_image_url_falls_back_to_image_url_when_uploaded_file_missing(): void
+    {
+        Storage::fake('public');
+
+        $producer = Producer::factory()->create([
+            'image_path' => 'producers/99/missing.jpg',
+            'image_url' => 'https://example.com/fallback.jpg',
+        ]);
+
+        $this->assertSame('https://example.com/fallback.jpg', $producer->primaryImageUrl());
+    }
 }
