@@ -38,6 +38,10 @@ class AdminPaymentController extends Controller
                 'subscription.user:id,email',
             ]);
 
+        if (! empty($validated['subscription_id'])) {
+            $query->where('subscription_id', (int) $validated['subscription_id']);
+        }
+
         if (($validated['stale_pending'] ?? null) === '1') {
             $hours = (int) config('admin.pending_payment_stale_hours', 48);
             $query->where('status', Payment::STATUS_PENDING)

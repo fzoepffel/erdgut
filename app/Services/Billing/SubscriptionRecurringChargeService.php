@@ -63,14 +63,18 @@ final class SubscriptionRecurringChargeService
                 'timestamp' => now()->toIso8601String(),
             ]);
         } else {
-            Log::info('payment.created', [
+            $logPayload = [
                 'payment_id' => $payment->id,
                 'subscription_id' => $subscription->id,
                 'amount' => $amount,
                 'attempt_number' => $attemptNumber,
                 'charge_initiator' => $initiator->value,
                 'timestamp' => now()->toIso8601String(),
-            ]);
+            ];
+            if ($initiatedByUserId !== null) {
+                $logPayload['initiated_by_user_id'] = $initiatedByUserId;
+            }
+            Log::info('payment.created', $logPayload);
         }
 
         $checkoutReference = "sub-{$subscription->id}-charge-{$payment->id}-".now()->timestamp;

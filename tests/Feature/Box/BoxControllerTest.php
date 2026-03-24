@@ -790,4 +790,23 @@ class BoxControllerTest extends TestCase
             ->assertSee('Edit mode is blocked because this box status is not editable.')
             ->assertDontSee('Back to view mode');
     }
+
+    public function test_box_show_hides_customer_edit_link_when_customer_box_editing_disabled(): void
+    {
+        Config::set('box.customer_box_editing_enabled', false);
+
+        $user = User::factory()->create();
+        $weekStart = now()->startOfWeek();
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'week_start_date' => $weekStart->toDateString(),
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => $weekStart->copy()->addDays(5),
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.boxes.show', $box))
+            ->assertOk()
+            ->assertDontSee('box-edit-contents-link');
+    }
 }

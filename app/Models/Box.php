@@ -91,6 +91,19 @@ class Box extends Model
     }
 
     /**
+     * Whether an admin may add, update, or remove line items (ERD-192).
+     */
+    public function allowsAdminLineEdits(): bool
+    {
+        if ((bool) config('admin.box_line_edit_override', false)) {
+            return true;
+        }
+
+        return $this->status === BoxStatus::Editable
+            && $this->modification_deadline_at?->isFuture();
+    }
+
+    /**
      * Valid status transitions: editable -> locked -> delivered (forward only).
      * Backward: locked -> editable, delivered -> editable (admin correction).
      */

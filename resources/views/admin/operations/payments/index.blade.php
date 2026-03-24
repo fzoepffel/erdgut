@@ -1,5 +1,6 @@
 @php
     $hasFilters = filled(request('status'))
+        || filled(request('subscription_id'))
         || filled(request('date_from'))
         || filled(request('date_to'))
         || (request('date_field') && request('date_field') !== 'created_at');
@@ -19,6 +20,18 @@
                     <form method="get" action="{{ route('app.admin.payments.index') }}" class="flex flex-col flex-wrap gap-3 lg:flex-row lg:items-end">
                         <input type="hidden" name="sort" value="{{ request('sort', 'created_at') }}" />
                         <input type="hidden" name="direction" value="{{ request('direction', 'desc') }}" />
+                        <div class="w-full sm:w-auto">
+                            <label for="admin-pay-subscription" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.filter_subscription_id') }}</label>
+                            <input
+                                id="admin-pay-subscription"
+                                type="number"
+                                name="subscription_id"
+                                min="1"
+                                value="{{ request('subscription_id') }}"
+                                placeholder="ID"
+                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-32"
+                            />
+                        </div>
                         <div class="w-full sm:w-auto">
                             <label for="admin-pay-status" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.status') }}</label>
                             <select id="admin-pay-status" name="status" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-40">

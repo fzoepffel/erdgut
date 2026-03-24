@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminBoxPresetRequest;
 use App\Http\Requests\Admin\AdminBoxStoreRequest;
 use App\Models\Box;
+use App\Models\Product;
 use App\Models\Subscription;
 use App\Services\Admin\WeeklyBoxPlannerService;
 use App\Support\BoxCompositionService;
@@ -29,8 +30,15 @@ class AdminBoxController extends Controller
             'items' => fn ($q) => $q->orderBy('id')->with('product:id,name'),
         ]);
 
+        $catalogProducts = Product::query()
+            ->visibleInCatalog()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return view('admin.operations.boxes.show', [
             'box' => $box,
+            'catalogProducts' => $catalogProducts,
+            'adminCanMutateItems' => $box->allowsAdminLineEdits(),
         ]);
     }
 

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Routing;
 
+use App\Http\Controllers\Admin\AdminBillingCoverageController;
 use App\Http\Controllers\Admin\AdminBoxController;
 use App\Http\Controllers\Admin\AdminBoxDistributionController;
+use App\Http\Controllers\Admin\AdminBoxItemController;
 use App\Http\Controllers\Admin\AdminBoxPlannerController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
@@ -66,8 +68,13 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/admin/deliveries', route('app.admin.deliveries.index', absolute: false));
         $this->assertSame('/app/admin/payments', route('app.admin.payments.index', absolute: false));
         $this->assertSame('/app/admin/billing/upcoming', route('app.admin.billing.upcoming', absolute: false));
+        $this->assertSame('/app/admin/billing/coverage', route('app.admin.billing.coverage', absolute: false));
+        $this->assertSame('/app/admin/billing/charge', route('app.admin.billing.charge', absolute: false));
         $this->assertSame('/app/admin/boxes/planner', route('app.admin.boxes.planner', absolute: false));
         $this->assertSame('/app/admin/boxes/distribute', route('app.admin.boxes.distribute', absolute: false));
+        $this->assertSame('/app/admin/boxes/1/items', route('app.admin.boxes.items.store', ['box' => 1], absolute: false));
+        $this->assertSame('/app/admin/boxes/1/items/2', route('app.admin.boxes.items.update', ['box' => 1, 'item' => 2], absolute: false));
+        $this->assertSame('/app/admin/boxes/1/items/2', route('app.admin.boxes.items.destroy', ['box' => 1, 'item' => 2], absolute: false));
         $this->assertSame('/app/admin/boxes/1', route('app.admin.boxes.show', ['box' => 1], absolute: false));
         $this->assertSame('/api/sumup/webhook', route('sumup.webhook', absolute: false));
         $this->assertSame('/account/profile', route('account.profile.edit', absolute: false));
@@ -136,6 +143,7 @@ class RouteGroupingTest extends TestCase
             'app.admin.boxes.show',
             'app.admin.payments.index',
             'app.admin.billing.upcoming',
+            'app.admin.billing.coverage',
         ];
 
         foreach ($adminOpsRoutes as $name) {
@@ -171,6 +179,13 @@ class RouteGroupingTest extends TestCase
         $this->assertContains('verified', $distributeApplyRoute->gatherMiddleware());
         $this->assertContains('admin', $distributeApplyRoute->gatherMiddleware());
         $this->assertContains('throttle:12,1', $distributeApplyRoute->gatherMiddleware());
+
+        $billingChargeRoute = RouteFacade::getRoutes()->getByName('app.admin.billing.charge');
+        $this->assertNotNull($billingChargeRoute);
+        $this->assertContains('auth', $billingChargeRoute->gatherMiddleware());
+        $this->assertContains('verified', $billingChargeRoute->gatherMiddleware());
+        $this->assertContains('admin', $billingChargeRoute->gatherMiddleware());
+        $this->assertContains('throttle:12,1', $billingChargeRoute->gatherMiddleware());
     }
 
     public function test_public_home_route_uses_marketing_home_controller(): void
@@ -215,9 +230,14 @@ class RouteGroupingTest extends TestCase
             'app.admin.boxes.distribute.apply' => [AdminBoxDistributionController::class, 'apply'],
             'app.admin.boxes.store' => [AdminBoxController::class, 'store'],
             'app.admin.boxes.preset' => [AdminBoxController::class, 'preset'],
+            'app.admin.boxes.items.store' => [AdminBoxItemController::class, 'store'],
+            'app.admin.boxes.items.update' => [AdminBoxItemController::class, 'update'],
+            'app.admin.boxes.items.destroy' => [AdminBoxItemController::class, 'destroy'],
             'app.admin.boxes.show' => [AdminBoxController::class, 'show'],
             'app.admin.payments.index' => [AdminPaymentController::class, 'index'],
             'app.admin.billing.upcoming' => [AdminUpcomingChargeController::class, 'index'],
+            'app.admin.billing.coverage' => [AdminBillingCoverageController::class, 'index'],
+            'app.admin.billing.charge' => [AdminBillingCoverageController::class, 'charge'],
         ];
 
         foreach ($map as $name => $expected) {

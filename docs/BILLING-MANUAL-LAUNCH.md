@@ -31,7 +31,11 @@ Legacy paid rows may have **`fulfillment_week_start` = null**; they do not parti
 
 ## Customer box editing
 
-**`CUSTOMER_BOX_EDITING_ENABLED`** (default `true`) controls whether customers can add/remove/change box line items in the app. Set to `false` for preset-only launch boxes.
+**`CUSTOMER_BOX_EDITING_ENABLED`** (default `true`) controls whether customers can add/remove/change box line items in the app. Set to `false` for preset-only launch boxes. The admin box detail page can still mutate lines; see **[docs/ADMIN-BOX-LINE-EDIT.md](ADMIN-BOX-LINE-EDIT.md)** for **`ADMIN_BOX_LINE_EDIT_OVERRIDE`** (editing locked or past-deadline boxes).
+
+## Admin billing coverage and manual charge
+
+The **Billing coverage** admin screen lists active subscriptions against planner horizon weeks (paid / pending / scheduled auto). **Run charge** uses `SubscriptionRecurringChargeService` with `charge_initiator = admin_manual` and `initiated_by_user_id`. It must not double-charge a week that already has a **paid** payment for that fulfillment Monday.
 
 ## Admin box planner horizon
 

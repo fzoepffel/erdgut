@@ -42,13 +42,17 @@ class BoxController extends Controller
         $box->loadMissing('items.product');
         $modificationDeadline = $box->modification_deadline_at;
         $canModifyBox = $box->status === BoxStatus::Editable && $modificationDeadline?->isFuture();
+        $customerBoxEditingEnabled = (bool) config('box.customer_box_editing_enabled', true);
+        $canCustomerMutateItems = $canModifyBox && $customerBoxEditingEnabled;
         $isEditModeRequested = $request->query('mode') === 'edit';
-        $isEditModeActive = $isEditModeRequested && $canModifyBox;
-        $isEditModeBlocked = $isEditModeRequested && ! $canModifyBox;
+        $isEditModeActive = $isEditModeRequested && $canCustomerMutateItems;
+        $isEditModeBlocked = $isEditModeRequested && ! $canCustomerMutateItems;
         $blockedReason = null;
 
         if ($isEditModeBlocked) {
-            if ($box->status !== BoxStatus::Editable) {
+            if (! $customerBoxEditingEnabled) {
+                $blockedReason = 'box-edit-customer-disabled';
+            } elseif ($box->status !== BoxStatus::Editable) {
                 $blockedReason = 'box-edit-status-not-editable';
             } else {
                 $blockedReason = 'box-edit-deadline-expired';
@@ -67,6 +71,8 @@ class BoxController extends Controller
             'blockedReason' => $blockedReason,
             'budgetDetails' => $budgetDetails,
             'shopExtrasEnabled' => (bool) config('features.shop_extras_enabled', true),
+            'customerBoxEditingEnabled' => $customerBoxEditingEnabled,
+            'canCustomerMutateItems' => $canCustomerMutateItems,
         ]);
     }
 

@@ -1,0 +1,190 @@
+<?php
+
+namespace Tests\Feature\Admin;
+
+use App\Enums\BoxStatus;
+use App\Enums\SubscriptionPlan;
+use App\Enums\SubscriptionStatus;
+use App\Models\Box;
+use App\Models\BoxItem;
+use App\Models\Product;
+use App\Models\Subscription;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Config;
+use Tests\TestCase;
+
+class AdminBoxItemTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow(null);
+        Config::set('admin.box_line_edit_override', false);
+
+        parent::tearDown();
+    }
+
+    public function test_guest_is_redirected_from_item_mutations(): void
+    {
+        $box = Box::factory()->create();
+        $item = BoxItem::factory()->create(['box_id' => $box->id]);
+
+        $this->post(route('app.admin.boxes.items.store', $box), [])->assertRedirect('/auth/login');
+        $this->patch(route('app.admin.boxes.items.update', [$box, $item]), [])->assertRedirect('/auth/login');
+        $this->delete(route('app.admin.boxes.items.destroy', [$box, $item]))->assertRedirect('/auth/login');
+    }
+
+    public function test_non_admin_forbidden_on_item_mutations(): void
+    {
+        $user = User::factory()->create(['is_admin' => false]);
+        $box = Box::factory()->create();
+        $product = Product::factory()->create();
+        $item = BoxItem::factory()->create(['box_id' => $box->id]);
+
+        $this->actingAs($user)
+            ->post(route('app.admin.boxes.items.store', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->patch(route('app.admin.boxes.items.update', [$box, $item]), ['quantity' => 2])
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->delete(route('app.admin.boxes.items.destroy', [$box, $item]))
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_add_update_remove_on_editable_box_before_deadline(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-24 12:00:00'));
+
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $weekStart = Carbon::parse('2026-03-30');
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $weekStart->toDateString(),
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => $weekStart->copy()->addDays(5),
+            'estimated_value' => 10.00,
+        ]);
+        $product = Product::factory()->create([
+            'name' => 'Admin Catalog Apple',
+            'is_available' => true,
+            'is_published' => true,
+            'metadata' => ['unit' => 'kg'],
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.items.store', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1.5,
+            ])
+            ->assertRedirect(route('app.admin.boxes.show', $box))
+            ->assertSessionHas('status');
+
+        $item = BoxItem::query()->where('box_id', $box->id)->where('product_id', $product->id)->first();
+        $this->assertNotNull($item);
+        $this->assertSame(1.5, (float) $item->quantity);
+        $this->assertTrue($item->is_extra);
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.boxes.items.update', [$box, $item]), ['quantity' => 2.25])
+            ->assertRedirect(route('app.admin.boxes.show', $box));
+
+        $item->refresh();
+        $this->assertSame(2.25, (float) $item->quantity);
+
+        $this->actingAs($admin)
+            ->delete(route('app.admin.boxes.items.destroy', [$box, $item]))
+            ->assertRedirect(route('app.admin.boxes.show', $box));
+
+        $this->assertDatabaseMissing('box_items', ['id' => $item->id]);
+    }
+
+    public function test_mutations_forbidden_when_locked_without_override(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'status' => BoxStatus::Locked,
+            'modification_deadline_at' => now()->addDay(),
+        ]);
+        $product = Product::factory()->create();
+        $item = BoxItem::factory()->create(['box_id' => $box->id]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.items.store', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.boxes.items.update', [$box, $item]), ['quantity' => 2])
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->delete(route('app.admin.boxes.items.destroy', [$box, $item]))
+            ->assertForbidden();
+    }
+
+    public function test_mutations_allowed_when_locked_with_override(): void
+    {
+        Config::set('admin.box_line_edit_override', true);
+
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'status' => BoxStatus::Locked,
+            'modification_deadline_at' => now()->subDay(),
+        ]);
+        $product = Product::factory()->create([
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.items.store', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertRedirect(route('app.admin.boxes.show', $box));
+    }
+
+    public function test_admin_box_show_does_not_emit_sumup_strings(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-24'));
+
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'status' => SubscriptionStatus::Active,
+            'plan' => SubscriptionPlan::Weekly,
+            'sumup_token' => 'admin_box_item_secret_tok',
+            'sumup_customer_id' => 'admin_box_item_cust',
+        ]);
+        $monday = Carbon::today()->next(Carbon::MONDAY)->toDateString();
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday,
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.boxes.show', $box))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('admin_box_item_secret_tok', $html);
+        $this->assertStringNotContainsString('sumup_token', $html);
+    }
+}

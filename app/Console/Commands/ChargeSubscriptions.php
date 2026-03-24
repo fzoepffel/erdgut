@@ -4,10 +4,10 @@ namespace App\Console\Commands;
 
 use App\Enums\PaymentChargeInitiator;
 use App\Enums\SubscriptionStatus;
-use App\Models\Payment;
 use App\Models\Subscription;
 use App\Services\Billing\SubscriptionRecurringChargeService;
 use App\Support\BillingFulfillmentWeek;
+use App\Support\ScheduledChargeEligibility;
 use App\Support\SumUpCheckoutLogger;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
@@ -111,25 +111,6 @@ class ChargeSubscriptions extends Command
             })
             ->with('user')
             ->get()
-            ->filter(fn (Subscription $s) => ! $s->isWithinPauseWindow($today))
-            ->filter(function (Subscription $s): bool {
-                $latestPayment = $s->payments()->orderByDesc('attempt_number')->first();
-                if ($latestPayment === null) {
-                    return true;
-                }
-                if ($latestPayment->status === Payment::STATUS_PENDING) {
-                    return false;
-                }
-                if ($latestPayment->status === Payment::STATUS_FAILED) {
-                    return false;
-                }
-
-                return true;
-            })
-            ->filter(function (Subscription $s) use ($today): bool {
-                $weekStart = BillingFulfillmentWeek::weekStartForScheduledCharge($s, $today);
-
-                return ! Payment::hasPaidForFulfillmentWeek($s->id, $weekStart);
-            });
+            ->filter(fn (Subscription $s) => ScheduledChargeEligibility::isDue($s, $today));
     }
 }

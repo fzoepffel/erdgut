@@ -113,6 +113,13 @@
         >
             {{ __('admin.operations.nav_upcoming') }}
         </a>
+        <a
+            href="{{ route('app.admin.billing.coverage') }}"
+            @click="adminSidebarOpen = false"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.billing.coverage') ? $navActive : $navInactive }}"
+        >
+            {{ __('admin.operations.nav_billing_coverage') }}
+        </a>
     </nav>
 
     <div class="border-t border-amber-100 p-3">

@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\Account\UserAccessProbeController;
+use App\Http\Controllers\Admin\AdminBillingCoverageController;
 use App\Http\Controllers\Admin\AdminBoxController;
 use App\Http\Controllers\Admin\AdminBoxDistributionController;
+use App\Http\Controllers\Admin\AdminBoxItemController;
 use App\Http\Controllers\Admin\AdminBoxPlannerController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
@@ -97,6 +99,10 @@ Route::middleware(['auth', 'verified'])
             Route::get('deliveries', [AdminDeliveryController::class, 'index'])->name('deliveries.index');
             Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
             Route::get('billing/upcoming', [AdminUpcomingChargeController::class, 'index'])->name('billing.upcoming');
+            Route::get('billing/coverage', [AdminBillingCoverageController::class, 'index'])->name('billing.coverage');
+            Route::post('billing/charge', [AdminBillingCoverageController::class, 'charge'])
+                ->middleware('throttle:12,1')
+                ->name('billing.charge');
             Route::get('boxes/planner', [AdminBoxPlannerController::class, 'index'])->name('boxes.planner');
             Route::post('boxes/planner/bulk-preset', [AdminBoxPlannerController::class, 'bulkPreset'])
                 ->middleware('throttle:12,1')
@@ -107,6 +113,13 @@ Route::middleware(['auth', 'verified'])
                 ->name('boxes.distribute.apply');
             Route::post('boxes', [AdminBoxController::class, 'store'])->name('boxes.store');
             Route::post('boxes/{box}/preset', [AdminBoxController::class, 'preset'])->name('boxes.preset');
+            Route::post('boxes/{box}/items', [AdminBoxItemController::class, 'store'])->name('boxes.items.store');
+            Route::patch('boxes/{box}/items/{item}', [AdminBoxItemController::class, 'update'])
+                ->scopeBindings()
+                ->name('boxes.items.update');
+            Route::delete('boxes/{box}/items/{item}', [AdminBoxItemController::class, 'destroy'])
+                ->scopeBindings()
+                ->name('boxes.items.destroy');
             Route::get('boxes/{box}', [AdminBoxController::class, 'show'])->name('boxes.show');
             Route::resource('producers', ProducerController::class)->except(['show']);
             Route::resource('products', ProductController::class)->except(['show']);

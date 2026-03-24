@@ -30,7 +30,7 @@
                         <p class="text-gray-700">
                             {{ __('Changes close at :datetime', ['datetime' => $modificationDeadline->format('d.m.Y H:i')]) }}
                         </p>
-                        @if ($canModifyBox)
+                        @if ($canModifyBox && $customerBoxEditingEnabled)
                             <div
                                 class="text-emerald-800"
                                 x-data="{
@@ -64,8 +64,12 @@
                         <p class="text-gray-600">{{ __('Modification deadline not set.') }}</p>
                     @endif
 
-                    @if ($canModifyBox)
+                    @if ($canCustomerMutateItems)
                         <p class="font-medium text-emerald-800">{{ __('You can still change the contents of this box.') }}</p>
+                    @elseif ($canModifyBox && ! $customerBoxEditingEnabled)
+                        <p class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 font-medium text-gray-800">
+                            {{ __('boxes.customer_editing_disabled_notice') }}
+                        </p>
                     @else
                         <p class="rounded-md border border-amber-100 bg-amber-50/80 px-3 py-2 font-medium text-amber-900">
                             {{ __('This box is read-only. You cannot change quantities anymore.') }}
@@ -81,9 +85,10 @@
                         >
                             {{ __('Back to view mode') }}
                         </a>
-                    @elseif ($canModifyBox)
+                    @elseif ($canCustomerMutateItems)
                         <a
                             href="{{ route('app.boxes.show', ['box' => $box, 'mode' => 'edit']) }}"
+                            data-testid="box-edit-contents-link"
                             class="inline-flex min-h-[44px] items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
                         >
                             {{ __('Edit box contents') }}
@@ -99,7 +104,9 @@
 
                 @if ($isEditModeBlocked)
                     <p class="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800" role="alert">
-                        @if ($blockedReason === 'box-edit-status-not-editable')
+                        @if ($blockedReason === 'box-edit-customer-disabled')
+                            {{ __('boxes.edit_mode_blocked_customer_disabled') }}
+                        @elseif ($blockedReason === 'box-edit-status-not-editable')
                             {{ __('Edit mode is blocked because this box status is not editable.') }}
                         @elseif ($blockedReason === 'box-edit-deadline-expired')
                             {{ __('Edit mode is blocked because the modification deadline has passed.') }}
@@ -223,7 +230,7 @@
                         @if ($box->items->isEmpty())
                             <div class="rounded-md border border-dashed border-gray-200 bg-gray-50 p-6 text-center">
                                 <p class="text-sm text-gray-700">{{ __('No items in this box yet.') }}</p>
-                                @if ($canModifyBox && $shopExtrasEnabled)
+                                @if ($canModifyBox && $shopExtrasEnabled && $customerBoxEditingEnabled)
                                     <a
                                         href="{{ route('app.shop.index') }}"
                                         class="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
@@ -312,7 +319,7 @@
                                         </li>
                                     @endforeach
                                 </ul>
-                                @if ($canModifyBox && $shopExtrasEnabled)
+                                @if ($canModifyBox && $shopExtrasEnabled && $customerBoxEditingEnabled)
                                     <div class="mt-6 border-t border-gray-100 pt-4">
                                         <a
                                             href="{{ route('app.shop.index') }}"

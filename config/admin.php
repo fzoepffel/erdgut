@@ -32,4 +32,15 @@ return [
     |
     */
     'box_planner_weeks_ahead' => min(max((int) env('ADMIN_BOX_PLANNER_WEEKS_AHEAD', 4), 1), 8),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin box line edit override (ERD-192)
+    |--------------------------------------------------------------------------
+    |
+    | When true, admins may add/remove/update box line items even when the box
+    | is locked or past modification_deadline_at. Default false matches customer rules.
+    |
+    */
+    'box_line_edit_override' => (bool) env('ADMIN_BOX_LINE_EDIT_OVERRIDE', false),
 ];

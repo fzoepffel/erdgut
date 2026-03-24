@@ -31,6 +31,7 @@ class AdminPaymentsIndexRequest extends FormRequest
             'direction' => ['nullable', 'string', Rule::in(['asc', 'desc'])],
             'stale_pending' => ['nullable', 'string', Rule::in(['1'])],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'subscription_id' => ['nullable', 'integer', 'exists:subscriptions,id'],
         ];
     }
 }
