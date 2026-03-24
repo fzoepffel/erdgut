@@ -17,6 +17,7 @@
     "Payment setup failed. Please try again.": "Zahlungseinrichtung fehlgeschlagen. Bitte versuchen Sie es erneut.",
     "Payment setup is temporarily unavailable. Please try again later.": "Zahlungseinrichtung ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
     "Payment was declined. Please check your card details and try again.": "Zahlung wurde abgelehnt. Bitte überprüfen Sie Ihre Kartendaten und versuchen Sie es erneut.",
+    "The card authorization could not be completed. Refresh the page and try again, or use another card.": "Die Kartenzahlung konnte nicht autorisiert werden. Aktualisieren Sie die Seite und versuchen Sie es erneut, oder nutzen Sie eine andere Karte.",
     "Step 1 of 2: Box and preferences": "Schritt 1 von 2: Box und Vorlieben",
     "After creating your subscription, you will set up payment on the next page (step 2).": "Nach dem Erstellen Ihres Abos richten Sie auf der nächsten Seite die Zahlung ein (Schritt 2).",
     "Delivery rhythm": "Lieferrhythmus",

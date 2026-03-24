@@ -61,6 +61,7 @@
                             const widgetErrorMap = {{ json_encode($widgetErrorMap) }};
                             const genericFail = {{ json_encode(__('Payment setup failed. Please try again.')) }};
                             const genericDecline = {{ json_encode(__('Payment was declined. Please check your card details and try again.')) }};
+                            const mandateInvalid = {{ json_encode(__('The card authorization could not be completed. Refresh the page and try again, or use another card.')) }};
                             if (!window.SumUpCard) {
                                 widgetError = {{ json_encode(__('Unable to load payment widget. Please refresh and try again.')) }};
                             } else {
@@ -88,6 +89,11 @@
                                             }
 
                                             if (type === 'error' || type === 'fail') {
+                                                const sumupMsg = body?.message || body?.detail || '';
+                                                if (typeof sumupMsg === 'string' && sumupMsg.includes('form.mandate.errors')) {
+                                                    widgetError = mandateInvalid;
+                                                    return;
+                                                }
                                                 const code = body?.error_code || body?.errorCode || body?.code;
                                                 const mapped = code && widgetErrorMap[code] ? widgetErrorMap[code] : null;
                                                 if (mapped) {
