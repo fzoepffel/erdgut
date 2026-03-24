@@ -1,5 +1,14 @@
 @php
     $intent = $intent ?? 'setup';
+    $sumupLocale = match (config('app.locale')) {
+        'de' => 'de-DE',
+        default => 'en-GB',
+    };
+    $widgetErrorMap = [
+        'DECLINED' => __('Payment was declined. Please check your card details and try again.'),
+        'INVALID_CARD' => __('Payment was declined. Please check your card details and try again.'),
+        'FRAUD' => __('Payment was declined. Please check your card details and try again.'),
+    ];
 @endphp
 <x-app-layout>
     <x-slot name="header">
@@ -12,18 +21,35 @@
         </h2>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    <p class="text-sm text-gray-600">
-                        @if ($intent === 'update')
-                            {{ __('Replace your stored payment details.') }}
-                        @else
-                            {{ __('Add your payment details to activate your subscription.') }}
-                        @endif
-                    </p>
+    <div class="py-8 sm:py-12">
+        <div class="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-8">
+            <div class="rounded-lg border border-emerald-100 bg-emerald-50/80 px-4 py-4 sm:px-5">
+                <p class="text-sm font-semibold text-emerald-900">
+                    @if ($intent === 'update')
+                        {{ __('Step 1: Confirm update') }}
+                    @else
+                        {{ __('Step 1: Add a payment method') }}
+                    @endif
+                </p>
+                <p class="mt-2 text-sm text-emerald-800">
+                    @if ($intent === 'update')
+                        {{ __('You will replace the card used for subscription charges. Your new details are processed securely; we only store a payment token from our provider, not your full card number.') }}
+                    @else
+                        {{ __('Add a debit or credit card to activate billing. Your details are processed securely by SumUp; we only store a payment token, not your full card number.') }}
+                    @endif
+                </p>
+            </div>
 
+            <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+                <div class="border-b border-gray-100 px-4 py-4 sm:px-6">
+                    <h3 id="payment-widget-heading" class="text-base font-semibold text-gray-900">
+                        {{ __('Payment details') }}
+                    </h3>
+                    <p class="mt-1 text-sm text-gray-600">
+                        {{ __('Enter your card in the form below, then submit. You will return here or to your payment overview when setup is complete.') }}
+                    </p>
+                </div>
+                <div class="p-4 sm:p-6">
                     <script
                         type="text/javascript"
                         src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"
@@ -32,18 +58,21 @@
                     <div
                         x-data="{ widgetError: '' }"
                         x-init="
+                            const widgetErrorMap = {{ json_encode($widgetErrorMap) }};
+                            const genericFail = {{ json_encode(__('Payment setup failed. Please try again.')) }};
+                            const genericDecline = {{ json_encode(__('Payment was declined. Please check your card details and try again.')) }};
                             if (!window.SumUpCard) {
-                                widgetError = '{{ __('Unable to load payment widget. Please refresh and try again.') }}';
+                                widgetError = {{ json_encode(__('Unable to load payment widget. Please refresh and try again.')) }};
                             } else {
                                 try {
                                     SumUpCard.mount({
                                         id: 'sumup-card',
-                                        checkoutId: '{{ $checkoutId }}',
-                                        email: '{{ $subscription->user->email }}',
-                                        locale: 'de-DE',
+                                        checkoutId: {{ json_encode($checkoutId) }},
+                                        email: {{ json_encode($subscription->user->email) }},
+                                        locale: {{ json_encode($sumupLocale) }},
                                         onResponse: function(type, body) {
                                             if (type === 'success' && body?.status !== 'FAILED') {
-                                                const checkoutId = body?.id ?? '{{ $checkoutId }}';
+                                                const checkoutId = body?.id ?? {{ json_encode($checkoutId) }};
                                                 const target = new URL('{{ route('app.payments.setup.complete') }}', window.location.origin);
                                                 target.searchParams.set('checkout', checkoutId);
                                                 @if ($intent === 'update')
@@ -54,40 +83,71 @@
                                             }
 
                                             if (type === 'success' && body?.status === 'FAILED') {
-                                                widgetError = '{{ __('Payment was declined. Please check your card details and try again.') }}';
+                                                widgetError = genericDecline;
                                                 return;
                                             }
 
                                             if (type === 'error' || type === 'fail') {
-                                                widgetError = body?.message ?? '{{ __('Payment setup failed. Please try again.') }}';
+                                                const code = body?.error_code || body?.errorCode || body?.code;
+                                                const mapped = code && widgetErrorMap[code] ? widgetErrorMap[code] : null;
+                                                if (mapped) {
+                                                    widgetError = mapped;
+                                                    return;
+                                                }
+                                                const raw = body?.message;
+                                                if (typeof raw === 'string' && raw.length > 0 && raw.length < 120 && /^[\\w\\s.,'\\-]+$/.test(raw)) {
+                                                    widgetError = raw;
+                                                } else {
+                                                    widgetError = genericFail;
+                                                }
                                             }
                                         }
                                     });
-                                } catch(e) {
-                                    widgetError = e.message || 'Mount failed';
+                                } catch (e) {
+                                    widgetError = e.message || {{ json_encode(__('Payment setup failed. Please try again.')) }};
                                 }
                             }
                         "
                     >
-                        <div id="sumup-card" class="mt-6 rounded-lg border border-dashed border-gray-300 p-6">
+                        <div
+                            id="sumup-card"
+                            class="min-h-[12rem] rounded-lg border border-dashed border-gray-300 p-6"
+                            role="region"
+                            aria-labelledby="payment-widget-heading"
+                        >
                             <p class="text-sm text-gray-500">
                                 {{ __('Loading payment widget...') }}
                             </p>
                         </div>
 
-                        <p x-show="widgetError" x-text="widgetError" class="mt-3 text-sm text-red-600"></p>
+                        <p
+                            x-show="widgetError"
+                            x-cloak
+                            x-text="widgetError"
+                            class="mt-3 text-sm text-red-600"
+                            role="alert"
+                            aria-live="polite"
+                        ></p>
                     </div>
 
-                    <p class="mt-3 text-xs text-gray-500">
-                        {{ __('Your card details are processed securely by SumUp.') }}
+                    <p class="mt-4 text-xs text-gray-500">
+                        {{ __('Payments are processed by SumUp, a licensed payment provider. Erdgut never sees your full card number.') }}
                     </p>
 
-                    <a
-                        href="{{ route('app.subscriptions.show') }}"
-                        class="mt-6 inline-flex items-center rounded-md bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-gray-700"
-                    >
-                        {{ __('Back to subscription') }}
-                    </a>
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <a
+                            href="{{ route('app.payments.history') }}"
+                            class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                        >
+                            {{ __('Back to payment overview') }}
+                        </a>
+                        <a
+                            href="{{ route('app.subscriptions.show') }}"
+                            class="inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                        >
+                            {{ __('Subscription overview') }}
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

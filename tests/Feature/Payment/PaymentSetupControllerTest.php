@@ -73,9 +73,9 @@ class PaymentSetupControllerTest extends TestCase
             ->get(route('app.payments.setup'))
             ->assertOk()
             ->assertSee('Set up payment method')
-            ->assertSee('Add your payment details to activate your subscription.')
+            ->assertSee('Add a debit or credit card to activate billing.')
             ->assertSee('checkout_123')
-            ->assertSee('Back to subscription');
+            ->assertSee('Back to payment overview');
     }
 
     public function test_setup_page_reuses_existing_sumup_customer_id_without_recreating_customer(): void
@@ -105,7 +105,7 @@ class PaymentSetupControllerTest extends TestCase
             ->assertSee('checkout_existing_customer');
     }
 
-    public function test_complete_persists_token_and_redirects_to_subscription_overview(): void
+    public function test_complete_persists_token_and_redirects_to_payment_history(): void
     {
         $user = User::factory()->create();
         $subscription = Subscription::factory()->create([
@@ -131,7 +131,7 @@ class PaymentSetupControllerTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('app.payments.setup.complete', ['checkout' => 'checkout_ok']))
-            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertRedirect(route('app.payments.history'))
             ->assertSessionHas('status', 'payment-setup-success');
 
         $subscription->refresh();
@@ -163,7 +163,7 @@ class PaymentSetupControllerTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('app.payments.setup.complete', ['checkout' => 'checkout_wrong']))
-            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertRedirect(route('app.payments.history'))
             ->assertSessionHas('status', 'payment-setup-failed');
 
         $subscription->refresh();
@@ -211,7 +211,7 @@ class PaymentSetupControllerTest extends TestCase
             ->get(route('app.payments.update'))
             ->assertOk()
             ->assertSee('Update payment method')
-            ->assertSee('Replace your stored payment details.')
+            ->assertSee('You will replace the card used for subscription charges.')
             ->assertSee('checkout_update_123');
     }
 
@@ -244,7 +244,7 @@ class PaymentSetupControllerTest extends TestCase
                 'checkout' => 'checkout_update_ok',
                 'intent' => 'update',
             ]))
-            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertRedirect(route('app.payments.history'))
             ->assertSessionHas('status', 'payment-updated');
 
         $subscription->refresh();
@@ -282,7 +282,32 @@ class PaymentSetupControllerTest extends TestCase
                 'intent' => 'update',
             ]));
 
-        $response->assertRedirect(route('app.subscriptions.show'));
+        $response->assertRedirect(route('app.payments.history'));
         $response->assertSessionHas('status', 'payment-updated');
+    }
+
+    public function test_setup_redirects_to_payment_history_when_checkout_creation_fails(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => null,
+            'sumup_customer_id' => null,
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('createCustomer')->once();
+        $sumUpService
+            ->shouldReceive('createSetupCheckout')
+            ->once()
+            ->andReturn(null);
+
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->actingAs($user)
+            ->get(route('app.payments.setup'))
+            ->assertRedirect(route('app.payments.history'))
+            ->assertSessionHas('status', 'payment-setup-unavailable');
     }
 }

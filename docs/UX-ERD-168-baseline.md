@@ -151,6 +151,8 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 | `app.payments.setup.complete` | GET | `app/payments/setup/complete` | ERD-179 |
 | `app.payments.update` | GET | `app/payments/update` | ERD-179 |
 
+**Payments UX (ERD-179):** `app.payments.history` is the primary hub: mandate status, next charge, trust copy, CTAs (setup/update/subscription/dashboard), shared flash partial for payment session keys, and receipt-style charge history with safe failure hints. `app.payments.setup` / `update` share a sectioned layout, SumUp widget locale from `config('app.locale')`, allowlisted widget error mapping, and accessible error output. `app.payments.setup.complete` redirects success and most failures to payment history with existing status keys. Billing subscription resolution uses `Subscription::billingSubscriptionForUser()` shared with setup. QA: [docs/UX-ERD-179-qa.md](UX-ERD-179-qa.md).
+
 ### 4.9 Account (`account.*`)
 
 | Route name | Method | URI | Owning ticket |

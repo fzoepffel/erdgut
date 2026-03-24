@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use Database\Factories\SubscriptionFactory;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -113,6 +114,18 @@ class Subscription extends Model
     public function cancel(): void
     {
         $this->update(['status' => SubscriptionStatus::Cancelled]);
+    }
+
+    /**
+     * Subscription row used for billing and payment flows (prefers active status, then latest).
+     */
+    public static function billingSubscriptionForUser(Authenticatable $user): ?self
+    {
+        return static::query()
+            ->where('user_id', $user->getAuthIdentifier())
+            ->orderByRaw('status = ? desc', [SubscriptionStatus::Active->value])
+            ->latest()
+            ->first();
     }
 
     public function hasPauseWindow(): bool

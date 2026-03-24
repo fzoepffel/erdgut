@@ -46,30 +46,15 @@
                         <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
                             {{ __('This subscription action is not allowed in the current state.') }}
                         </p>
-                    @elseif (session('status') === 'payment-already-setup')
-                        <p class="mb-4 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-800">
-                            {{ __('Payment method already set up.') }}
-                        </p>
-                    @elseif (session('status') === 'payment-updated')
-                        <p class="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                            {{ __('Payment method updated successfully.') }}
-                        </p>
-                    @elseif (session('status') === 'payment-update-unavailable')
-                        <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                            {{ __('Update payment method is not available. Set up a payment method first.') }}
-                        </p>
-                    @elseif (session('status') === 'payment-setup-success')
-                        <p class="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                            {{ __('Payment method set up successfully.') }}
-                        </p>
-                    @elseif (session('status') === 'payment-setup-failed')
-                        <p class="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
-                            {{ __('Payment setup failed. Please try again.') }}
-                        </p>
-                    @elseif (session('status') === 'payment-setup-unavailable')
-                        <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                            {{ __('Payment setup is temporarily unavailable. Please try again later.') }}
-                        </p>
+                    @elseif (in_array(session('status'), [
+                        'payment-already-setup',
+                        'payment-updated',
+                        'payment-update-unavailable',
+                        'payment-setup-success',
+                        'payment-setup-failed',
+                        'payment-setup-unavailable',
+                    ], true))
+                        @include('payments.partials.session-status')
                     @endif
 
                     @if ($subscription === null)
@@ -209,7 +194,7 @@
                                         href="{{ route('app.payments.history') }}"
                                         class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 shadow-sm transition hover:bg-gray-50"
                                     >
-                                        {{ __('Payment history') }}
+                                        {{ __('Payments and billing') }}
                                     </a>
                                 </div>
                             </section>

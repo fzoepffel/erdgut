@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
 use App\Support\SubscriptionLifecycleService;
 use App\Support\SumUpCheckoutLogger;
@@ -34,7 +33,7 @@ class PaymentSetupController extends Controller
 
         if ($customerId === null) {
             return redirect()
-                ->route('app.subscriptions.show')
+                ->route('app.payments.history')
                 ->with('status', 'payment-setup-unavailable');
         }
 
@@ -42,7 +41,7 @@ class PaymentSetupController extends Controller
 
         if ($checkoutId === null) {
             return redirect()
-                ->route('app.subscriptions.show')
+                ->route('app.payments.history')
                 ->with('status', 'payment-setup-unavailable');
         }
 
@@ -80,7 +79,7 @@ class PaymentSetupController extends Controller
 
         if ($customerId === null) {
             return redirect()
-                ->route('app.subscriptions.show')
+                ->route('app.payments.history')
                 ->with('status', 'payment-setup-unavailable');
         }
 
@@ -88,7 +87,7 @@ class PaymentSetupController extends Controller
 
         if ($checkoutId === null) {
             return redirect()
-                ->route('app.subscriptions.show')
+                ->route('app.payments.history')
                 ->with('status', 'payment-setup-unavailable');
         }
 
@@ -127,7 +126,7 @@ class PaymentSetupController extends Controller
             ]);
 
             return redirect()
-                ->route('app.subscriptions.show')
+                ->route('app.payments.history')
                 ->with('status', 'payment-setup-failed');
         }
 
@@ -153,7 +152,7 @@ class PaymentSetupController extends Controller
             ]);
 
             return redirect()
-                ->route('app.subscriptions.show')
+                ->route('app.payments.history')
                 ->with('status', 'payment-setup-failed');
         }
 
@@ -182,7 +181,7 @@ class PaymentSetupController extends Controller
             ]);
 
             return redirect()
-                ->route('app.subscriptions.show')
+                ->route('app.payments.history')
                 ->with('status', 'payment-setup-failed');
         }
 
@@ -235,7 +234,7 @@ class PaymentSetupController extends Controller
             ]);
 
             return redirect()
-                ->route('app.subscriptions.show')
+                ->route('app.payments.history')
                 ->with('status', 'payment-setup-failed');
         }
 
@@ -275,17 +274,18 @@ class PaymentSetupController extends Controller
         ]);
 
         return redirect()
-            ->route('app.subscriptions.show')
+            ->route('app.payments.history')
             ->with('status', $status);
     }
 
     private function resolveSubscription(Request $request): ?Subscription
     {
-        return Subscription::query()
-            ->where('user_id', $request->user()->id)
-            ->orderByRaw('status = ? desc', [SubscriptionStatus::Active->value])
-            ->latest()
-            ->first();
+        $user = $request->user();
+        if ($user === null) {
+            return null;
+        }
+
+        return Subscription::billingSubscriptionForUser($user);
     }
 
     private function ensureCustomer(Request $request, Subscription $subscription, SumUpService $sumUpService): ?string

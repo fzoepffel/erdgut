@@ -196,10 +196,11 @@ class SubscriptionController extends Controller
 
     private function resolveSubscription(Request $request): ?Subscription
     {
-        return Subscription::query()
-            ->where('user_id', $request->user()->id)
-            ->orderByRaw('status = ? desc', [SubscriptionStatus::Active->value])
-            ->latest()
-            ->first();
+        $user = $request->user();
+        if ($user === null) {
+            return null;
+        }
+
+        return Subscription::billingSubscriptionForUser($user);
     }
 }
