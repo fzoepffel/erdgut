@@ -196,9 +196,25 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 
 | Route name | Method | URI | Notes |
 |------------|--------|-----|--------|
-| `public.health` | GET | `health` | Diagnostics; no marketing UX |
-| `public.cron.run` | GET | `cron/run` | Secured ops trigger; no customer UX |
-| `sumup.webhook` | POST | `api/sumup/webhook` | Machine endpoint; no UI |
+| `public.health` | GET | `/health` | Diagnostics; no marketing UX |
+| `public.cron.run` | GET | `/cron/run` | Secured ops trigger; no customer UX |
+| `sumup.webhook` | POST | `/api/sumup/webhook` | Machine endpoint; no UI |
+
+#### 4.12.1 Appendix: ERD-183 — scope decisions (ops / system routes)
+
+**Ticket:** ERD-183 — Ops and system routes UX scope note.
+
+These three named routes are **out of Phase 8 visual redesign**. They are not subscriber-facing: no marketing layout, no Breeze auth shell, and no ERD-182 component or a11y polish unless a **future ticket** explicitly targets them.
+
+| Route | Consumers | Response / “good enough” |
+|-------|-----------|---------------------------|
+| `public.health` | Uptime monitors, load balancers, ops | **JSON** (`status`, `checks`, `timestamp`). **503** when the database is unreachable. DB detail inside `checks` appears only when `APP_DEBUG` is true (local/staging diagnostics). Must not expose secrets — see **ERD-152** (health audit). |
+| `public.cron.run` | Hosting HTTP cron (e.g. IONOS) | **403** plain text if the query `key` is missing or wrong; **200** `text/plain` with `schedule:run` CLI output on success. No branded HTML for errors. |
+| `sumup.webhook` | SumUp servers only | **200** with an **empty** body after handling; contract is HTTP status and timely acknowledgment, not HTML. Handler exceptions are logged; the controller still responds **200** (fast-ack / avoid retry storms). Signature verification, replay windows, and idempotency are **middleware and backend** concerns, not UX tickets. |
+
+**Exception:** If any of these routes ever return **HTML meant for humans**, branding or copy changes require a **separate explicit ticket** — they are not implied by ERD-169 through ERD-182.
+
+**Product agreement:** No design mockups are required for these routes unless a future change intentionally surfaces human-readable branded error pages.
 
 ### 4.13 Framework / infrastructure (out of Phase 8 visual scope)
 
