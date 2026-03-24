@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Routing;
 
+use App\Http\Controllers\Admin\AdminBoxController;
+use App\Http\Controllers\Admin\AdminBoxPlannerController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
 use App\Http\Controllers\Admin\AdminPaymentController;
@@ -63,6 +65,8 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/admin/deliveries', route('app.admin.deliveries.index', absolute: false));
         $this->assertSame('/app/admin/payments', route('app.admin.payments.index', absolute: false));
         $this->assertSame('/app/admin/billing/upcoming', route('app.admin.billing.upcoming', absolute: false));
+        $this->assertSame('/app/admin/boxes/planner', route('app.admin.boxes.planner', absolute: false));
+        $this->assertSame('/app/admin/boxes/1', route('app.admin.boxes.show', ['box' => 1], absolute: false));
         $this->assertSame('/api/sumup/webhook', route('sumup.webhook', absolute: false));
         $this->assertSame('/account/profile', route('account.profile.edit', absolute: false));
         $this->assertSame('/auth/login', route('auth.login', absolute: false));
@@ -125,6 +129,8 @@ class RouteGroupingTest extends TestCase
             'app.admin.users.index',
             'app.admin.subscriptions.index',
             'app.admin.deliveries.index',
+            'app.admin.boxes.planner',
+            'app.admin.boxes.show',
             'app.admin.payments.index',
             'app.admin.billing.upcoming',
         ];
@@ -136,6 +142,25 @@ class RouteGroupingTest extends TestCase
             $this->assertContains('verified', $route->gatherMiddleware(), $name);
             $this->assertContains('admin', $route->gatherMiddleware(), $name);
         }
+
+        $bulkPresetRoute = RouteFacade::getRoutes()->getByName('app.admin.boxes.planner.bulk-preset');
+        $this->assertNotNull($bulkPresetRoute);
+        $this->assertContains('auth', $bulkPresetRoute->gatherMiddleware());
+        $this->assertContains('verified', $bulkPresetRoute->gatherMiddleware());
+        $this->assertContains('admin', $bulkPresetRoute->gatherMiddleware());
+        $this->assertContains('throttle:12,1', $bulkPresetRoute->gatherMiddleware());
+
+        $storeBoxRoute = RouteFacade::getRoutes()->getByName('app.admin.boxes.store');
+        $this->assertNotNull($storeBoxRoute);
+        $this->assertContains('auth', $storeBoxRoute->gatherMiddleware());
+        $this->assertContains('verified', $storeBoxRoute->gatherMiddleware());
+        $this->assertContains('admin', $storeBoxRoute->gatherMiddleware());
+
+        $presetBoxRoute = RouteFacade::getRoutes()->getByName('app.admin.boxes.preset');
+        $this->assertNotNull($presetBoxRoute);
+        $this->assertContains('auth', $presetBoxRoute->gatherMiddleware());
+        $this->assertContains('verified', $presetBoxRoute->gatherMiddleware());
+        $this->assertContains('admin', $presetBoxRoute->gatherMiddleware());
     }
 
     public function test_public_home_route_uses_marketing_home_controller(): void
@@ -174,6 +199,11 @@ class RouteGroupingTest extends TestCase
             'app.admin.users.index' => [AdminUserController::class, 'index'],
             'app.admin.subscriptions.index' => [AdminSubscriptionController::class, 'index'],
             'app.admin.deliveries.index' => [AdminDeliveryController::class, 'index'],
+            'app.admin.boxes.planner' => [AdminBoxPlannerController::class, 'index'],
+            'app.admin.boxes.planner.bulk-preset' => [AdminBoxPlannerController::class, 'bulkPreset'],
+            'app.admin.boxes.store' => [AdminBoxController::class, 'store'],
+            'app.admin.boxes.preset' => [AdminBoxController::class, 'preset'],
+            'app.admin.boxes.show' => [AdminBoxController::class, 'show'],
             'app.admin.payments.index' => [AdminPaymentController::class, 'index'],
             'app.admin.billing.upcoming' => [AdminUpcomingChargeController::class, 'index'],
         ];

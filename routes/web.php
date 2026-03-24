@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Account\UserAccessProbeController;
+use App\Http\Controllers\Admin\AdminBoxController;
+use App\Http\Controllers\Admin\AdminBoxPlannerController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
 use App\Http\Controllers\Admin\AdminPaymentController;
@@ -94,6 +96,13 @@ Route::middleware(['auth', 'verified'])
             Route::get('deliveries', [AdminDeliveryController::class, 'index'])->name('deliveries.index');
             Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
             Route::get('billing/upcoming', [AdminUpcomingChargeController::class, 'index'])->name('billing.upcoming');
+            Route::get('boxes/planner', [AdminBoxPlannerController::class, 'index'])->name('boxes.planner');
+            Route::post('boxes/planner/bulk-preset', [AdminBoxPlannerController::class, 'bulkPreset'])
+                ->middleware('throttle:12,1')
+                ->name('boxes.planner.bulk-preset');
+            Route::post('boxes', [AdminBoxController::class, 'store'])->name('boxes.store');
+            Route::post('boxes/{box}/preset', [AdminBoxController::class, 'preset'])->name('boxes.preset');
+            Route::get('boxes/{box}', [AdminBoxController::class, 'show'])->name('boxes.show');
             Route::resource('producers', ProducerController::class)->except(['show']);
             Route::resource('products', ProductController::class)->except(['show']);
         });

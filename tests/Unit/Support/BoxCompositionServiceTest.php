@@ -3,6 +3,7 @@
 namespace Tests\Unit\Support;
 
 use App\Models\Box;
+use App\Models\BoxItem;
 use App\Models\Product;
 use App\Support\BoxCompositionService;
 use App\Support\BoxValueRecalculationService;
@@ -204,5 +205,39 @@ class BoxCompositionServiceTest extends TestCase
         $box->items()->get()->each(function ($item): void {
             $this->assertFalse($item->is_extra);
         });
+    }
+
+    public function test_compose_preset_from_scratch_removes_core_lines_then_fills_and_keeps_extras(): void
+    {
+        Config::set('box.composition_by_size.small', [
+            'vegetables' => 2,
+            'fruit' => 1,
+        ]);
+
+        Product::factory()->count(5)->create(['category' => 'vegetables', 'is_available' => true]);
+        Product::factory()->count(3)->create(['category' => 'fruit', 'is_available' => true]);
+        $extraProduct = Product::factory()->create(['category' => 'dairy', 'is_available' => true]);
+
+        $box = Box::factory()->create(['estimated_value' => 0]);
+
+        $this->service->compose($box, 'small');
+        $this->assertSame(3, $box->items()->count());
+
+        BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $extraProduct->id,
+            'quantity' => 1,
+            'unit' => 'piece',
+            'is_extra' => true,
+        ]);
+
+        $this->assertSame(4, $box->items()->count());
+
+        $added = $this->service->composePresetFromScratch($box, 'small');
+
+        $this->assertSame(3, $added);
+        $this->assertSame(4, $box->items()->count());
+        $this->assertSame(1, $box->items()->where('is_extra', true)->count());
+        $this->assertSame(3, $box->items()->where('is_extra', false)->count());
     }
 }

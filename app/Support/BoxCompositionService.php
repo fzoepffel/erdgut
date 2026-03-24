@@ -54,4 +54,17 @@ class BoxCompositionService
 
         return $added;
     }
+
+    /**
+     * Replace core (non-extra) preset lines, then fill from composition rules.
+     * Shop extras (is_extra = true) are kept.
+     *
+     * @return int Number of items added by compose().
+     */
+    public function composePresetFromScratch(Box $box, string $boxSize): int
+    {
+        $box->items()->where('is_extra', false)->delete();
+
+        return $this->compose($box, $boxSize);
+    }
 }
