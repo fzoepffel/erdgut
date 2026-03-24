@@ -36,6 +36,7 @@ class AdminAccessTest extends TestCase
             ->assertOk()
             ->assertSee(route('app.admin.producers.index', absolute: false), false)
             ->assertSee(route('app.admin.products.index', absolute: false), false)
+            ->assertSee('admin-metric-users-total', false)
             ->assertSee('Administration', false);
     }
 

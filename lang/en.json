@@ -1,0 +1,22 @@
+{
+    "admin.metrics.users_total_label": "Registered users",
+    "admin.metrics.users_total_hint": "All accounts in the database",
+    "admin.metrics.users_verified_label": "Email verified",
+    "admin.metrics.users_verified_hint": "Users with a verified email address",
+    "admin.metrics.users_signups_7d_label": "New users (7 days)",
+    "admin.metrics.users_signups_7d_hint": "Signups in the last 7 days",
+    "admin.metrics.subscriptions_active_label": "Active subscriptions",
+    "admin.metrics.subscriptions_paused_label": "Paused subscriptions",
+    "admin.metrics.subscriptions_cancelled_label": "Cancelled subscriptions",
+    "admin.metrics.producers_total_label": "Producers",
+    "admin.metrics.products_published_label": "Products published",
+    "admin.metrics.products_draft_label": "Products draft",
+    "admin.metrics.payments_failed_7d_label": "Failed payments (7 days)",
+    "admin.metrics.payments_failed_7d_hint": "By status and failed_at",
+    "admin.metrics.payments_pending_label": "Pending payments",
+    "admin.metrics.payments_pending_hint": "Payment attempts with pending status",
+    "admin.metrics.upcoming_charges_7d_label": "Upcoming charges (7 days)",
+    "admin.metrics.upcoming_charges_30d_label": "Upcoming charges (30 days)",
+    "admin.metrics.upcoming_charges_hint": "Active subs with payment method, next charge in window, not on pause on charge date",
+    "admin.metrics.expected_amount": "Expected volume: :amount €"
+}

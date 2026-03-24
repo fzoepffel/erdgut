@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\UserAccessProbeController;
+use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoxController;
@@ -82,9 +83,7 @@ Route::middleware(['auth', 'verified'])
         });
 
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
-            Route::get('/', function () {
-                return view('admin.dashboard');
-            })->name('dashboard');
+            Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
             Route::resource('producers', ProducerController::class)->except(['show']);
             Route::resource('products', ProductController::class)->except(['show']);
         });

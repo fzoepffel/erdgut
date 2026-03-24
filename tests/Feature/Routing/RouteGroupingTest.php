@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Routing;
 
+use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\BoxController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
@@ -128,6 +129,16 @@ class RouteGroupingTest extends TestCase
         $this->assertNotNull($dashboardRoute);
         $this->assertSame([DashboardController::class, 'index'], $dashboardRoute->getAction('controller')
             ? explode('@', $dashboardRoute->getAction('controller'))
+            : []);
+    }
+
+    public function test_app_admin_dashboard_route_uses_admin_dashboard_controller(): void
+    {
+        $adminDashboardRoute = RouteFacade::getRoutes()->getByName('app.admin.dashboard');
+
+        $this->assertNotNull($adminDashboardRoute);
+        $this->assertSame([AdminDashboardController::class, 'index'], $adminDashboardRoute->getAction('controller')
+            ? explode('@', $adminDashboardRoute->getAction('controller'))
             : []);
     }
 

@@ -76,7 +76,7 @@ class ChargeSubscriptions extends Command
 
     private function chargeSubscription(Subscription $subscription, string $currency): void
     {
-        $amount = (float) config("box.included_value_by_size.{$subscription->box_size}", 35);
+        $amount = $subscription->expectedChargeAmount();
         $attemptNumber = (int) $subscription->payments()->max('attempt_number') + 1;
 
         $payment = Payment::create([

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Console\Commands\ChargeSubscriptions;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use Database\Factories\SubscriptionFactory;
@@ -143,5 +144,13 @@ class Subscription extends Model
 
         return $targetDate >= $this->pause_from->toDateString()
             && $targetDate <= $this->pause_until->toDateString();
+    }
+
+    /**
+     * Expected recurring charge amount (EUR) from box size config; matches {@see ChargeSubscriptions}.
+     */
+    public function expectedChargeAmount(): float
+    {
+        return (float) config('box.included_value_by_size.'.$this->box_size, 35);
     }
 }
