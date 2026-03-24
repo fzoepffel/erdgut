@@ -10,8 +10,8 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     @if (session('status') === 'delivery-preferences-updated')
-                        <p class="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-                            Delivery preferences saved.
+                        <p class="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                            {{ __('Delivery preferences saved.') }}
                         </p>
                     @endif
 
@@ -76,7 +76,7 @@
 
                             <div class="sm:col-span-2">
                                 <x-input-label for="preferred_timeslot" :value="__('Preferred timeslot')" />
-                                <x-text-input id="preferred_timeslot" name="preferred_timeslot" type="text" class="mt-1 block w-full" :value="old('preferred_timeslot', $deliveryPreference?->preferred_timeslot)" placeholder="e.g. Monday 18:00-20:00" required />
+                                <x-text-input id="preferred_timeslot" name="preferred_timeslot" type="text" class="mt-1 block w-full" :value="old('preferred_timeslot', $deliveryPreference?->preferred_timeslot)" :placeholder="__('e.g. Monday 18:00-20:00')" required />
                                 <x-input-error class="mt-2" :messages="$errors->get('preferred_timeslot')" />
                             </div>
 
@@ -86,14 +86,14 @@
                                     id="instructions"
                                     name="instructions"
                                     rows="3"
-                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
                                 >{{ old('instructions', $deliveryPreference?->instructions ?? $address?->delivery_instructions) }}</textarea>
                                 <x-input-error class="mt-2" :messages="$errors->get('instructions')" />
                             </div>
                         </div>
 
                         <div class="flex items-center gap-4">
-                            <x-primary-button>Save preferences</x-primary-button>
+                            <x-primary-button>{{ __('Save preferences') }}</x-primary-button>
                         </div>
                     </form>
                 </div>

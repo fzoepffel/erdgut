@@ -110,12 +110,20 @@ class DeliveryController extends Controller
                 ->with('status', 'delivery-weekly-skip-not-allowed');
         }
 
+        if ($skipWeek) {
+            $this->persistSkippedWeeklyOverride($baseDelivery, $validated);
+
+            return redirect()
+                ->route('app.deliveries.index', ['focus' => $baseDelivery->id])
+                ->with('status', 'delivery-weekly-override-updated');
+        }
+
         $payload = [
             'user_id' => $baseDelivery->user_id,
             'address_id' => (int) ($validated['address_id'] ?? $baseDelivery->address_id),
             'scheduled_for_date' => $baseDelivery->scheduled_for_date->toDateString(),
             'timeslot' => $validated['timeslot'] ?? $baseDelivery->timeslot,
-            'status' => $skipWeek ? DeliveryStatus::Skipped : DeliveryStatus::Scheduled,
+            'status' => DeliveryStatus::Scheduled,
             'special_instructions' => array_key_exists('special_instructions', $validated)
                 ? ($validated['special_instructions'] ?: null)
                 : $baseDelivery->special_instructions,
@@ -152,9 +160,15 @@ class DeliveryController extends Controller
 
     public function skip(SkipDeliveryRequest $request, Delivery $delivery): RedirectResponse
     {
+        $baseDelivery = $delivery->is_weekly_override ? $delivery->overridesDelivery : $delivery;
+
+        abort_unless($baseDelivery instanceof Delivery, 404);
+
+        $this->persistSkippedWeeklyOverride($baseDelivery, []);
+
         return redirect()
-            ->route('app.dashboard')
-            ->with('status', 'skip-week-coming-soon');
+            ->route('app.deliveries.index', ['focus' => $baseDelivery->id])
+            ->with('status', 'delivery-week-skipped');
     }
 
     public function postpone(PostponeDeliveryRequest $request, Delivery $delivery): RedirectResponse
@@ -219,7 +233,7 @@ class DeliveryController extends Controller
         if ($baseDelivery->scheduled_for_date->toDateString() < now()->toDateString()) {
             return redirect()
                 ->route('app.deliveries.gift', $baseDelivery)
-                ->withErrors(['target_date' => __('Die Lieferung liegt in der Vergangenheit.')]);
+                ->withErrors(['target_date' => __('The delivery date is in the past.')]);
         }
 
         $effectiveDelivery = $baseDelivery->overrideDeliveries()->latest()->first() ?? $baseDelivery;
@@ -253,7 +267,7 @@ class DeliveryController extends Controller
                 'scheduled_for_date' => $baseDelivery->scheduled_for_date->toDateString(),
                 'timeslot' => $baseDelivery->timeslot,
                 'status' => DeliveryStatus::Skipped,
-                'special_instructions' => __('Geschenkt an :name', ['name' => $validated['recipient_name']]),
+                'special_instructions' => __('Gifted to :name', ['name' => $validated['recipient_name']]),
                 'is_weekly_override' => true,
                 'overrides_delivery_id' => $baseDelivery->id,
             ]);
@@ -262,7 +276,7 @@ class DeliveryController extends Controller
                 'status' => DeliveryStatus::Skipped,
                 'special_instructions' => trim(
                     ($existingOverride->special_instructions ? $existingOverride->special_instructions."\n" : '')
-                    .__('Geschenkt an :name', ['name' => $validated['recipient_name']])
+                    .__('Gifted to :name', ['name' => $validated['recipient_name']])
                 ),
             ]);
         }
@@ -273,13 +287,44 @@ class DeliveryController extends Controller
             'scheduled_for_date' => $targetDate,
             'timeslot' => $baseDelivery->timeslot,
             'status' => DeliveryStatus::Scheduled,
-            'special_instructions' => __('Geschenklieferung an :name', ['name' => $validated['recipient_name']]),
+            'special_instructions' => __('Gift delivery for :name', ['name' => $validated['recipient_name']]),
             'is_weekly_override' => false,
         ]);
 
         return redirect()
             ->route('app.deliveries.index', ['focus' => $giftDelivery->id])
             ->with('status', 'delivery-gifted');
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function persistSkippedWeeklyOverride(Delivery $baseDelivery, array $validated): void
+    {
+        $existingOverride = $baseDelivery->overrideDeliveries()->latest()->first();
+
+        $addressId = (int) ($validated['address_id'] ?? $baseDelivery->address_id);
+        $timeslot = $validated['timeslot'] ?? $baseDelivery->timeslot;
+        $specialInstructions = array_key_exists('special_instructions', $validated)
+            ? ($validated['special_instructions'] ?: null)
+            : $baseDelivery->special_instructions;
+
+        $payload = [
+            'user_id' => $baseDelivery->user_id,
+            'address_id' => $addressId,
+            'scheduled_for_date' => $baseDelivery->scheduled_for_date->toDateString(),
+            'timeslot' => $timeslot,
+            'status' => DeliveryStatus::Skipped,
+            'special_instructions' => $specialInstructions,
+            'is_weekly_override' => true,
+            'overrides_delivery_id' => $baseDelivery->id,
+        ];
+
+        if ($existingOverride instanceof Delivery) {
+            $existingOverride->update($payload);
+        } else {
+            Delivery::query()->create($payload);
+        }
     }
 
     /**

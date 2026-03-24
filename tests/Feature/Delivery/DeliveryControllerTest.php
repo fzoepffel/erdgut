@@ -35,7 +35,7 @@ class DeliveryControllerTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSee('Weekly deliveries')
+            ->assertSee('Deliveries timeline')
             ->assertSee('Save one-time override')
             ->assertSee('08:00-12:00');
     }
@@ -243,9 +243,10 @@ class DeliveryControllerTest extends TestCase
             'status' => DeliveryStatus::Scheduled,
         ]);
 
-        $this->actingAs($user)
-            ->post(route('app.deliveries.postpone', $delivery))
-            ->assertSessionHas('status', 'delivery-postponed');
+        $response = $this->actingAs($user)
+            ->post(route('app.deliveries.postpone', $delivery));
+
+        $response->assertSessionHas('status', 'delivery-postponed');
 
         $this->assertDatabaseHas('deliveries', [
             'overrides_delivery_id' => $delivery->id,
@@ -262,6 +263,8 @@ class DeliveryControllerTest extends TestCase
 
         $this->assertNotNull($nextDelivery);
         $this->assertSame(DeliveryStatus::Scheduled, $nextDelivery->status);
+
+        $response->assertRedirect(route('app.deliveries.index', ['focus' => $nextDelivery->id]));
     }
 
     public function test_postpone_past_delivery_returns_403(): void
@@ -369,7 +372,7 @@ class DeliveryControllerTest extends TestCase
             ->assertSessionHasErrors(['target_date']);
     }
 
-    public function test_skip_returns_redirect_with_coming_soon_flash(): void
+    public function test_skip_creates_skipped_override_and_redirects_to_index(): void
     {
         $user = User::factory()->create();
         $address = Address::factory()->create(['user_id' => $user->id]);
@@ -378,12 +381,20 @@ class DeliveryControllerTest extends TestCase
             'address_id' => $address->id,
             'scheduled_for_date' => now()->addDays(2)->toDateString(),
             'status' => DeliveryStatus::Scheduled,
+            'timeslot' => '08:00-12:00',
         ]);
 
         $this->actingAs($user)
             ->post(route('app.deliveries.skip', $delivery))
-            ->assertRedirect(route('app.dashboard'))
-            ->assertSessionHas('status', 'skip-week-coming-soon');
+            ->assertRedirect(route('app.deliveries.index', ['focus' => $delivery->id]))
+            ->assertSessionHas('status', 'delivery-week-skipped');
+
+        $this->assertDatabaseHas('deliveries', [
+            'user_id' => $user->id,
+            'overrides_delivery_id' => $delivery->id,
+            'is_weekly_override' => true,
+            'status' => DeliveryStatus::Skipped->value,
+        ]);
     }
 
     public function test_skip_rejects_already_skipped_delivery(): void

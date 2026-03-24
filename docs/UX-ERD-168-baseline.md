@@ -119,6 +119,8 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 | `app.deliveries.gift` | GET | `app/deliveries/{delivery}/gift` | ERD-176 |
 | `app.deliveries.gift.store` | POST | `app/deliveries/{delivery}/gift` | ERD-176 |
 
+**Deliveries UX (ERD-176):** `app.deliveries.index` is the single hub for upcoming weeks (timeline, one-time overrides, skip / postpone / gift). `app.deliveries.show` **redirects** to the index with a `focus` query parameter on the base delivery row—there is no separate detail Blade view. QA: [docs/UX-ERD-176-qa.md](UX-ERD-176-qa.md).
+
 ### 4.6 Boxes (`app.boxes.*`)
 
 | Route name | Method | URI | Owning ticket |
