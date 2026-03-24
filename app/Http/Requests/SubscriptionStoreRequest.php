@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\SubscriptionPlan;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -19,6 +20,7 @@ class SubscriptionStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'plan' => ['required', Rule::enum(SubscriptionPlan::class)],
             'box_size' => ['required', 'string', Rule::in(['small', 'medium', 'large'])],
             'preferences' => ['required', 'array'],
             'preferences.veg_only' => ['required', 'boolean'],

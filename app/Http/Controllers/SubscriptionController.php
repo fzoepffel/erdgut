@@ -23,8 +23,8 @@ class SubscriptionController extends Controller
     {
         $subscription = $this->resolveSubscription($request);
 
-        $nextChargeDate = $subscription?->next_charge_date?->format('F j, Y');
-        $billingDateDisplay = $nextChargeDate ?? 'Set after first charge';
+        $nextChargeDate = $subscription?->next_charge_date?->format('d.m.Y');
+        $billingDateDisplay = $nextChargeDate ?? __('Set after first charge');
 
         return view('subscriptions.show', [
             'subscription' => $subscription,
@@ -61,7 +61,7 @@ class SubscriptionController extends Controller
 
         Subscription::create([
             'user_id' => $request->user()->id,
-            'plan' => SubscriptionPlan::Weekly,
+            'plan' => $validated['plan'],
             'box_size' => $validated['box_size'],
             'preferences' => $validated['preferences'],
             'allergies' => $validated['allergies'] ?? [],

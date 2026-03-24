@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Subscription;
 
+use App\Enums\SubscriptionPlan;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -53,6 +54,7 @@ class SubscriptionUpdateTest extends TestCase
 
         $this->actingAs($user)
             ->patch(route('app.subscriptions.update'), [
+                'plan' => 'weekly',
                 'box_size' => 'large',
                 'preferences' => [
                     'veg_only' => '1',
@@ -97,6 +99,7 @@ class SubscriptionUpdateTest extends TestCase
         $this->actingAs($user)
             ->from(route('app.subscriptions.edit'))
             ->patch(route('app.subscriptions.update'), [
+                'plan' => 'weekly',
                 'box_size' => 'invalid-size',
                 'preferences' => [
                     'veg_only' => '1',
@@ -127,7 +130,7 @@ class SubscriptionUpdateTest extends TestCase
             ->from(route('app.subscriptions.edit'))
             ->patch(route('app.subscriptions.update'), [])
             ->assertRedirect(route('app.subscriptions.edit'))
-            ->assertSessionHasErrors(['box_size']);
+            ->assertSessionHasErrors(['plan', 'box_size']);
     }
 
     public function test_update_rejects_allergy_exceeding_max_length(): void
@@ -143,6 +146,7 @@ class SubscriptionUpdateTest extends TestCase
         $this->actingAs($user)
             ->from(route('app.subscriptions.edit'))
             ->patch(route('app.subscriptions.update'), [
+                'plan' => 'weekly',
                 'box_size' => 'medium',
                 'preferences' => ['veg_only' => '1', 'meat_add_on' => '0'],
                 'allergies' => [str_repeat('a', 256)],
@@ -163,6 +167,7 @@ class SubscriptionUpdateTest extends TestCase
 
         $this->actingAs($user)
             ->patch(route('app.subscriptions.update'), [
+                'plan' => 'weekly',
                 'box_size' => 'small',
                 'preferences' => ['veg_only' => '1'],
                 'allergies' => 'gluten, lactose, shellfish',
@@ -194,6 +199,7 @@ class SubscriptionUpdateTest extends TestCase
 
         $this->actingAs($user)
             ->patch(route('app.subscriptions.update'), [
+                'plan' => 'weekly',
                 'box_size' => 'large',
                 'preferences' => [
                     'veg_only' => true,
@@ -206,5 +212,58 @@ class SubscriptionUpdateTest extends TestCase
 
         $otherSubscription->refresh();
         $this->assertSame('small', $otherSubscription->box_size);
+    }
+
+    public function test_update_rejects_invalid_plan(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'box_size' => 'medium',
+            'plan' => SubscriptionPlan::Weekly,
+            'preferences' => ['veg_only' => false, 'meat_add_on' => false],
+            'allergies' => [],
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('app.subscriptions.edit'))
+            ->patch(route('app.subscriptions.update'), [
+                'plan' => 'invalid',
+                'box_size' => 'medium',
+                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
+                'allergies' => '',
+            ])
+            ->assertRedirect(route('app.subscriptions.edit'))
+            ->assertSessionHasErrors(['plan']);
+    }
+
+    public function test_active_plan_change_recalculates_next_charge_date(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'plan' => SubscriptionPlan::Weekly,
+            'box_size' => 'small',
+            'preferences' => ['veg_only' => false, 'meat_add_on' => false],
+            'allergies' => [],
+            'next_charge_date' => null,
+        ]);
+
+        $expectedNext = now()->addWeeks(2)->toDateString();
+
+        $this->actingAs($user)
+            ->patch(route('app.subscriptions.update'), [
+                'plan' => 'biweekly',
+                'box_size' => 'small',
+                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
+                'allergies' => '',
+            ])
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-updated');
+
+        $subscription->refresh();
+
+        $this->assertSame(SubscriptionPlan::Biweekly, $subscription->plan);
+        $this->assertSame($expectedNext, $subscription->next_charge_date?->toDateString());
     }
 }

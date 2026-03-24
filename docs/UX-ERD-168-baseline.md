@@ -103,6 +103,8 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 | `app.subscriptions.resume` | POST | `app/subscriptions/resume` | ERD-175 |
 | `app.subscriptions.cancel` | POST | `app/subscriptions/cancel` | ERD-175 |
 
+**Subscription UX (ERD-175):** `store` and `update` require `plan` (`weekly` | `biweekly`). Create flow shows step 1 of 2 with payment handoff on the overview. Overview uses sectioned layout, human-readable preferences (no JSON), emerald payment CTAs, German strings via `lang/de.json`. Pause and cancel use modals with clarified copy; resume uses a confirmation modal. Active subscribers who change `plan` on update get `next_charge_date` recalculated from today (`SubscriptionUpdateService` + `SubscriptionLifecycleService::computeNextChargeDate`). QA: [docs/UX-ERD-175-qa.md](UX-ERD-175-qa.md).
+
 ### 4.5 Deliveries (`app.deliveries.*`)
 
 | Route name | Method | URI | Owning ticket |

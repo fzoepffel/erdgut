@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -9,6 +10,10 @@ use Illuminate\Support\Facades\Log;
 
 class SubscriptionUpdateService
 {
+    public function __construct(
+        private readonly SubscriptionLifecycleService $subscriptionLifecycleService
+    ) {}
+
     /**
      * Apply allowed subscription changes atomically and log an update event.
      *
@@ -16,17 +21,25 @@ class SubscriptionUpdateService
      */
     public function update(Subscription $subscription, array $attributes, int $actorUserId): Subscription
     {
-        $payload = Arr::only($attributes, ['box_size', 'preferences', 'allergies']);
+        $payload = Arr::only($attributes, ['box_size', 'preferences', 'allergies', 'plan']);
         $payload['allergies'] = $payload['allergies'] ?? [];
 
         $before = [
             'box_size' => $subscription->box_size,
             'preferences' => $subscription->preferences ?? [],
             'allergies' => $subscription->allergies ?? [],
+            'plan' => $subscription->plan,
+            'next_charge_date' => $subscription->next_charge_date?->toDateString(),
         ];
 
         return DB::transaction(function () use ($subscription, $payload, $before, $actorUserId): Subscription {
             $subscription->fill($payload);
+
+            if ($subscription->isDirty('plan')
+                && $subscription->status === SubscriptionStatus::Active) {
+                $subscription->next_charge_date = $this->subscriptionLifecycleService->computeNextChargeDate($subscription);
+            }
+
             $subscription->save();
             $subscription->refresh();
 
@@ -34,6 +47,8 @@ class SubscriptionUpdateService
                 'box_size' => $subscription->box_size,
                 'preferences' => $subscription->preferences ?? [],
                 'allergies' => $subscription->allergies ?? [],
+                'plan' => $subscription->plan,
+                'next_charge_date' => $subscription->next_charge_date?->toDateString(),
             ];
 
             Log::info('subscription.updated', [
@@ -58,7 +73,18 @@ class SubscriptionUpdateService
         $fields = [];
 
         foreach ($before as $key => $value) {
-            if (($after[$key] ?? null) !== $value) {
+            $afterValue = $after[$key] ?? null;
+            if ($key === 'plan') {
+                $beforeVal = $value instanceof \BackedEnum ? $value->value : $value;
+                $afterVal = $afterValue instanceof \BackedEnum ? $afterValue->value : $afterValue;
+                if ($beforeVal !== $afterVal) {
+                    $fields[] = $key;
+                }
+
+                continue;
+            }
+
+            if ($afterValue !== $value) {
                 $fields[] = $key;
             }
         }

@@ -35,10 +35,11 @@ class SubscriptionOverviewTest extends TestCase
             ->get(route('app.subscriptions.show'))
             ->assertOk()
             ->assertSee('Subscription overview')
-            ->assertSee('Weekly')
+            ->assertSee('Weekly delivery')
             ->assertSee('Medium')
             ->assertSee('Active')
-            ->assertSee('veg_only')
+            ->assertSee('Veg option only')
+            ->assertSee('Yes')
             ->assertSee('nuts')
             ->assertSee('Set after first charge');
     }
@@ -50,7 +51,7 @@ class SubscriptionOverviewTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.subscriptions.show'))
             ->assertOk()
-            ->assertSee('No active subscription found yet.')
+            ->assertSee('No subscription yet')
             ->assertSee('Create subscription');
     }
 
@@ -66,6 +67,7 @@ class SubscriptionOverviewTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('app.subscriptions.store'), [
+                'plan' => 'weekly',
                 'box_size' => 'medium',
                 'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
                 'allergies' => '',
@@ -75,6 +77,7 @@ class SubscriptionOverviewTest extends TestCase
 
         $this->assertDatabaseHas('subscriptions', [
             'user_id' => $user->id,
+            'plan' => 'weekly',
             'box_size' => 'medium',
             'status' => 'active',
         ]);
@@ -103,7 +106,46 @@ class SubscriptionOverviewTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.subscriptions.show'))
             ->assertOk()
-            ->assertSee('No active subscription found yet.')
+            ->assertSee('No subscription yet')
             ->assertDontSee('Large');
+    }
+
+    public function test_store_persists_biweekly_plan(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post(route('app.subscriptions.store'), [
+                'plan' => 'biweekly',
+                'box_size' => 'small',
+                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
+                'allergies' => '',
+            ])
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-created');
+
+        $this->assertDatabaseHas('subscriptions', [
+            'user_id' => $user->id,
+            'plan' => 'biweekly',
+            'box_size' => 'small',
+        ]);
+    }
+
+    public function test_store_rejects_invalid_plan(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from(route('app.subscriptions.create'))
+            ->post(route('app.subscriptions.store'), [
+                'plan' => 'daily',
+                'box_size' => 'medium',
+                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
+                'allergies' => '',
+            ])
+            ->assertRedirect(route('app.subscriptions.create'))
+            ->assertSessionHasErrors(['plan']);
+
+        $this->assertDatabaseCount('subscriptions', 0);
     }
 }

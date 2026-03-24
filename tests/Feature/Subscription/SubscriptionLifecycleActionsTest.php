@@ -256,9 +256,10 @@ class SubscriptionLifecycleActionsTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.subscriptions.show'))
             ->assertOk()
-            ->assertSee('Pause timeframe')
-            ->assertSee('Resume now')
+            ->assertSee('Pause delivery window')
+            ->assertSee('Resume subscription')
             ->assertSee('Cancel subscription')
-            ->assertSee('2026-04-01 to 2026-04-15');
+            ->assertSee('01.04.2026')
+            ->assertSee('15.04.2026');
     }
 }
