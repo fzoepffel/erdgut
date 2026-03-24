@@ -3,6 +3,11 @@
 namespace Tests\Feature\Routing;
 
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminDeliveryController;
+use App\Http\Controllers\Admin\AdminPaymentController;
+use App\Http\Controllers\Admin\AdminSubscriptionController;
+use App\Http\Controllers\Admin\AdminUpcomingChargeController;
+use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\BoxController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
@@ -53,6 +58,11 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/payments/setup/complete', route('app.payments.setup.complete', absolute: false));
         $this->assertSame('/app/payments/update', route('app.payments.update', absolute: false));
         $this->assertSame('/app/admin', route('app.admin.dashboard', absolute: false));
+        $this->assertSame('/app/admin/users', route('app.admin.users.index', absolute: false));
+        $this->assertSame('/app/admin/subscriptions', route('app.admin.subscriptions.index', absolute: false));
+        $this->assertSame('/app/admin/deliveries', route('app.admin.deliveries.index', absolute: false));
+        $this->assertSame('/app/admin/payments', route('app.admin.payments.index', absolute: false));
+        $this->assertSame('/app/admin/billing/upcoming', route('app.admin.billing.upcoming', absolute: false));
         $this->assertSame('/api/sumup/webhook', route('sumup.webhook', absolute: false));
         $this->assertSame('/account/profile', route('account.profile.edit', absolute: false));
         $this->assertSame('/auth/login', route('auth.login', absolute: false));
@@ -110,6 +120,22 @@ class RouteGroupingTest extends TestCase
         $this->assertContains('auth', $adminDashboardRoute->gatherMiddleware());
         $this->assertContains('verified', $adminDashboardRoute->gatherMiddleware());
         $this->assertContains('admin', $adminDashboardRoute->gatherMiddleware());
+
+        $adminOpsRoutes = [
+            'app.admin.users.index',
+            'app.admin.subscriptions.index',
+            'app.admin.deliveries.index',
+            'app.admin.payments.index',
+            'app.admin.billing.upcoming',
+        ];
+
+        foreach ($adminOpsRoutes as $name) {
+            $route = RouteFacade::getRoutes()->getByName($name);
+            $this->assertNotNull($route, $name);
+            $this->assertContains('auth', $route->gatherMiddleware(), $name);
+            $this->assertContains('verified', $route->gatherMiddleware(), $name);
+            $this->assertContains('admin', $route->gatherMiddleware(), $name);
+        }
     }
 
     public function test_public_home_route_uses_marketing_home_controller(): void
@@ -140,6 +166,25 @@ class RouteGroupingTest extends TestCase
         $this->assertSame([AdminDashboardController::class, 'index'], $adminDashboardRoute->getAction('controller')
             ? explode('@', $adminDashboardRoute->getAction('controller'))
             : []);
+    }
+
+    public function test_app_admin_operations_indexes_use_expected_controllers(): void
+    {
+        $map = [
+            'app.admin.users.index' => [AdminUserController::class, 'index'],
+            'app.admin.subscriptions.index' => [AdminSubscriptionController::class, 'index'],
+            'app.admin.deliveries.index' => [AdminDeliveryController::class, 'index'],
+            'app.admin.payments.index' => [AdminPaymentController::class, 'index'],
+            'app.admin.billing.upcoming' => [AdminUpcomingChargeController::class, 'index'],
+        ];
+
+        foreach ($map as $name => $expected) {
+            $route = RouteFacade::getRoutes()->getByName($name);
+            $this->assertNotNull($route);
+            $this->assertSame($expected, $route->getAction('controller')
+                ? explode('@', $route->getAction('controller'))
+                : []);
+        }
     }
 
     public function test_app_boxes_and_deliveries_routes_use_expected_controllers(): void

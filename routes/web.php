@@ -2,6 +2,11 @@
 
 use App\Http\Controllers\Account\UserAccessProbeController;
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminDeliveryController;
+use App\Http\Controllers\Admin\AdminPaymentController;
+use App\Http\Controllers\Admin\AdminSubscriptionController;
+use App\Http\Controllers\Admin\AdminUpcomingChargeController;
+use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoxController;
@@ -84,6 +89,11 @@ Route::middleware(['auth', 'verified'])
 
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+            Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
+            Route::get('subscriptions', [AdminSubscriptionController::class, 'index'])->name('subscriptions.index');
+            Route::get('deliveries', [AdminDeliveryController::class, 'index'])->name('deliveries.index');
+            Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
+            Route::get('billing/upcoming', [AdminUpcomingChargeController::class, 'index'])->name('billing.upcoming');
             Route::resource('producers', ProducerController::class)->except(['show']);
             Route::resource('products', ProductController::class)->except(['show']);
         });

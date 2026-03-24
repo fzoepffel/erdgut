@@ -10,7 +10,6 @@ use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 
 /**
  * Aggregates admin dashboard KPIs using counts and bounded queries (no N+1 list pages).
@@ -20,6 +19,10 @@ use Illuminate\Support\Collection;
  */
 final class AdminDashboardMetrics
 {
+    public function __construct(
+        private readonly UpcomingBillableSubscriptions $upcomingBillable
+    ) {}
+
     public function build(?Carbon $now = null): AdminDashboardMetricsSnapshot
     {
         $now = $now ?? Carbon::now();
@@ -55,7 +58,7 @@ final class AdminDashboardMetrics
         $end7 = $today->copy()->addDays(7);
         $end30 = $today->copy()->addDays(30);
 
-        $candidates30 = $this->upcomingBillableSubscriptions($today, $end30);
+        $candidates30 = $this->upcomingBillable->billableBetween($today, $end30);
 
         $in7 = $candidates30->filter(function (Subscription $s) use ($today, $end7): bool {
             $d = $s->next_charge_date;
@@ -86,22 +89,5 @@ final class AdminDashboardMetrics
             upcomingBillableAmount7d: round($amount7, 2),
             upcomingBillableAmount30d: round($amount30, 2),
         );
-    }
-
-    /**
-     * @return Collection<int, Subscription>
-     */
-    private function upcomingBillableSubscriptions(Carbon $startInclusive, Carbon $endInclusive): Collection
-    {
-        return Subscription::query()
-            ->where('status', SubscriptionStatus::Active)
-            ->whereNotNull('sumup_token')
-            ->whereNotNull('next_charge_date')
-            ->whereDate('next_charge_date', '>=', $startInclusive)
-            ->whereDate('next_charge_date', '<=', $endInclusive)
-            ->get()
-            ->filter(fn (Subscription $s): bool => filled($s->sumup_token))
-            ->filter(fn (Subscription $s): bool => ! $s->isWithinPauseWindow(Carbon::parse($s->next_charge_date)))
-            ->values();
     }
 }

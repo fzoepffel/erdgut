@@ -1,0 +1,103 @@
+@php
+    $hasFilters = filled(request('status'))
+        || filled(request('date_from'))
+        || filled(request('date_to'))
+        || (request('date_field') && request('date_field') !== 'created_at');
+@endphp
+
+<x-admin-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            {{ __('admin.operations.payments_title') }}
+        </h2>
+    </x-slot>
+
+    <div class="py-8 sm:py-12">
+        <div class="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
+            <div class="rounded-lg border border-gray-100 bg-white shadow-sm sm:rounded-lg">
+                <div class="space-y-4 p-4 text-gray-900 sm:p-6">
+                    <form method="get" action="{{ route('app.admin.payments.index') }}" class="flex flex-col flex-wrap gap-3 lg:flex-row lg:items-end">
+                        <input type="hidden" name="sort" value="{{ request('sort', 'created_at') }}" />
+                        <input type="hidden" name="direction" value="{{ request('direction', 'desc') }}" />
+                        <div class="w-full sm:w-auto">
+                            <label for="admin-pay-status" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.status') }}</label>
+                            <select id="admin-pay-status" name="status" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-40">
+                                <option value="">{{ __('admin.operations.filter_all') }}</option>
+                                <option value="pending" @selected(request('status') === 'pending')>pending</option>
+                                <option value="paid" @selected(request('status') === 'paid')>paid</option>
+                                <option value="failed" @selected(request('status') === 'failed')>failed</option>
+                            </select>
+                        </div>
+                        <div class="w-full sm:w-auto">
+                            <label for="admin-pay-date-field" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.payments_date_field') }}</label>
+                            <select id="admin-pay-date-field" name="date_field" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-44">
+                                <option value="created_at" @selected($dateField === 'created_at')>created_at</option>
+                                <option value="paid_at" @selected($dateField === 'paid_at')>paid_at</option>
+                                <option value="failed_at" @selected($dateField === 'failed_at')>failed_at</option>
+                            </select>
+                        </div>
+                        <div class="w-full sm:w-auto">
+                            <label for="admin-pay-from" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.date_from') }}</label>
+                            <input id="admin-pay-from" type="date" name="date_from" value="{{ request('date_from') }}" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                        </div>
+                        <div class="w-full sm:w-auto">
+                            <label for="admin-pay-to" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.date_to') }}</label>
+                            <input id="admin-pay-to" type="date" name="date_to" value="{{ request('date_to') }}" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="submit" class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+                                {{ __('admin.catalog.apply_filters') }}
+                            </button>
+                            @if ($hasFilters)
+                                <a href="{{ route('app.admin.payments.index') }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
+                                    {{ __('admin.catalog.reset_filters') }}
+                                </a>
+                            @endif
+                        </div>
+                    </form>
+
+                    @if ($payments->isEmpty())
+                        <p class="text-sm text-gray-600">{{ __('admin.operations.payments_empty') }}</p>
+                    @else
+                        <div class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <caption class="sr-only">{{ __('admin.operations.payments_table_caption') }}</caption>
+                                <thead>
+                                    <tr class="text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th scope="col" class="py-2 pe-4">ID</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.operations.user') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.operations.subscription') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.operations.amount') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.operations.status') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.operations.attempt') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.operations.failure_reason') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.operations.created_at') }}</th>
+                                        <th scope="col" class="py-2 pe-4">paid_at</th>
+                                        <th scope="col" class="py-2 pe-0">failed_at</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach ($payments as $payment)
+                                        <tr data-testid="admin-payment-row-{{ $payment->id }}">
+                                            <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $payment->id }}</td>
+                                            <td class="py-3 pe-4 text-gray-900">{{ $payment->subscription?->user?->email ?? '—' }}</td>
+                                            <td class="py-3 pe-4 tabular-nums text-gray-600">#{{ $payment->subscription_id }}</td>
+                                            <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $payment->amount }} {{ $payment->currency }}</td>
+                                            <td class="py-3 pe-4 text-gray-600">{{ $payment->status }}</td>
+                                            <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $payment->attempt_number }}</td>
+                                            <td class="py-3 pe-4 text-gray-600">{{ $payment->failure_reason ?? '—' }}</td>
+                                            <td class="py-3 pe-4 text-gray-600">{{ $payment->created_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') }}</td>
+                                            <td class="py-3 pe-4 text-gray-600">{{ $payment->paid_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>
+                                            <td class="py-3 pe-0 text-gray-600">{{ $payment->failed_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="pt-2">{{ $payments->links() }}</div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+</x-admin-layout>

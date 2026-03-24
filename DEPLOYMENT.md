@@ -9,6 +9,10 @@ This project uses GitHub Actions to build and deploy a Laravel app to IONOS Web 
 | `staging`| staging.erd-gut.de      | Push to staging|
 | `main`   | erd-gut.de (production) | Push to main   |
 
+## Operator / admin backoffice
+
+Staff with `is_admin` sign in like any user, then open **`/app/admin`** (or use the **Admin** link in the app nav). The backoffice sidebar lists **Overview**, **Catalog** (producers/products), and **Operations** (users, subscriptions, deliveries, payments, upcoming charges). After changing optional `ADMIN_UPCOMING_CHARGES_DAYS` or `ADMIN_PENDING_PAYMENT_STALE_HOURS` in `.env`, run `php artisan config:clear` if configuration is cached on the server.
+
 ## Setup
 
 ### 1. Enable SSH access in IONOS

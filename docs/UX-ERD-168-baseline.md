@@ -181,8 +181,15 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 | `app.admin.products.edit` | GET | `app/admin/products/{product}/edit` | ERD-181 |
 | `app.admin.products.update` | PUT/PATCH | `app/admin/products/{product}` | ERD-181 |
 | `app.admin.products.destroy` | DELETE | `app/admin/products/{product}` | ERD-181 |
+| `app.admin.users.index` | GET | `app/admin/users` | ERD-187 |
+| `app.admin.subscriptions.index` | GET | `app/admin/subscriptions` | ERD-187 |
+| `app.admin.deliveries.index` | GET | `app/admin/deliveries` | ERD-187 |
+| `app.admin.payments.index` | GET | `app/admin/payments` | ERD-187 |
+| `app.admin.billing.upcoming` | GET | `app/admin/billing/upcoming` | ERD-187 |
 
 **Admin catalog UX (ERD-181):** `app.admin.dashboard` is a short **catalog hub** (intro + emerald CTAs/cards) into the two resource lists. **Producers** and **products** indexes use GET **search** (`q`, max 120, escaped `LIKE`); products add **category** (enum), **published** (live/draft), and **available** (shop) filters, with `paginate()->withQueryString()`. Tables are scroll-safe with **sr-only captions**, emerald accent links, optional **product thumbnails**, and **delete confirmation modals** (no `confirm()`). Admin product/producer **forms** use emerald focus styles and optional **client-side image previews** on file inputs. Layout keeps the **amber** admin chrome; interactive accents align with subscriber **emerald** CTAs. **Bulk row actions** are deferred (see [docs/UX-ERD-181-qa.md](UX-ERD-181-qa.md)). QA: [docs/UX-ERD-181-qa.md](UX-ERD-181-qa.md).
+
+**Admin operations & alerts (ERD-185 / ERD-186 / ERD-187):** The dashboard adds **KPI cards** (ERD-185), an **operational alerts** strip with deep links into filtered lists (ERD-186), and a sidebar **Operations** section for read-only **Users**, **Subscriptions**, **Deliveries**, **Payments**, and **Upcoming charges** (`app.admin.billing.upcoming`, window from `config('admin.upcoming_charges_days')`). Payment and subscription browsers never render SumUp tokens, checkout/payment ids, or `provider_payload`; payments support filters (`status`, `date_field`, `date_from`/`date_to`, `stale_pending`) and sort whitelist. German copy lives in `lang/de.json`.
 
 ### 4.11 Cross-cutting (no dedicated route)
 

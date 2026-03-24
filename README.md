@@ -110,6 +110,7 @@ Type `exit` to leave tinker.
 - **Payments & billing UX (ERD-179):** payment history hub, mandate strip, setup/update framing, complete → history redirects — see [docs/UX-ERD-179-qa.md](docs/UX-ERD-179-qa.md).
 - **Account settings UX (ERD-180):** grouped profile, password, danger zone; email re-verification copy — see [docs/UX-ERD-180-qa.md](docs/UX-ERD-180-qa.md).
 - **Admin catalog UX (ERD-181):** dashboard hub, producer/product list search and filters, modal delete confirms, form image previews — see [docs/UX-ERD-181-qa.md](docs/UX-ERD-181-qa.md).
+- **Admin operations (ERD-186–188):** verified operators use **`/app/admin`** (overview with KPIs and operational alerts). Under **Operations** in the admin sidebar: Users, Subscriptions, Deliveries, Payments, and **Upcoming charges** (`/app/admin/billing/upcoming`). Optional env: `ADMIN_UPCOMING_CHARGES_DAYS`, `ADMIN_PENDING_PAYMENT_STALE_HOURS` (see `.env.example`).
 - **UI kit & cross-cutting states (ERD-182):** shared Blade/Tailwind patterns, `x-empty-state`, button components — see [docs/UI-KIT.md](docs/UI-KIT.md) and [docs/UX-ERD-182-qa.md](docs/UX-ERD-182-qa.md).
 - **About page hero image (optional):** add `public/images/about-hero.jpg` to show a photo in the `/about` hero on larger screens (see comment in `resources/views/marketing/about.blade.php`).
 - **Auth redirects and flows (ERD-173):** login, registration, verification, and password reset behaviour — see [docs/AUTH-FLOWS.md](docs/AUTH-FLOWS.md).

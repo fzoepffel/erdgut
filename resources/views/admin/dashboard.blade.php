@@ -1,5 +1,6 @@
 @php
     /** @var \App\Services\Admin\AdminDashboardMetricsSnapshot $metrics */
+    /** @var list<\App\Services\Admin\AdminOperationalAlert> $operationalAlerts */
 @endphp
 <x-admin-layout>
     <x-slot name="header">
@@ -10,7 +11,7 @@
 
     <div class="py-8 sm:py-12">
         <div class="mx-auto max-w-7xl space-y-8 px-4 sm:px-6 lg:px-8">
-            {{-- ERD-186: operational alerts strip --}}
+            @include('admin.partials.operational-alerts', ['alerts' => $operationalAlerts])
 
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-users-total">

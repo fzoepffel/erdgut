@@ -67,6 +67,45 @@
         >
             {{ __('Products') }}
         </a>
+
+        <p class="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-amber-800/80">
+            {{ __('admin.shell.section_operations') }}
+        </p>
+        <a
+            href="{{ route('app.admin.users.index') }}"
+            @click="adminSidebarOpen = false"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.users.*') ? $navActive : $navInactive }}"
+        >
+            {{ __('admin.operations.nav_users') }}
+        </a>
+        <a
+            href="{{ route('app.admin.subscriptions.index') }}"
+            @click="adminSidebarOpen = false"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.subscriptions.*') ? $navActive : $navInactive }}"
+        >
+            {{ __('admin.operations.nav_subscriptions') }}
+        </a>
+        <a
+            href="{{ route('app.admin.deliveries.index') }}"
+            @click="adminSidebarOpen = false"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.deliveries.*') ? $navActive : $navInactive }}"
+        >
+            {{ __('admin.operations.nav_deliveries') }}
+        </a>
+        <a
+            href="{{ route('app.admin.payments.index') }}"
+            @click="adminSidebarOpen = false"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.payments.*') ? $navActive : $navInactive }}"
+        >
+            {{ __('admin.operations.nav_payments') }}
+        </a>
+        <a
+            href="{{ route('app.admin.billing.upcoming') }}"
+            @click="adminSidebarOpen = false"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.billing.upcoming') ? $navActive : $navInactive }}"
+        >
+            {{ __('admin.operations.nav_upcoming') }}
+        </a>
     </nav>
 
     <div class="border-t border-amber-100 p-3">
