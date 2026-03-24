@@ -190,6 +190,8 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 |-------|----------------|
 | Shared UI kit, tokens, empty/loading/error patterns | ERD-182 |
 
+**UI kit & states (ERD-182):** Engineering patterns live in **[docs/UI-KIT.md](UI-KIT.md)** — primary/secondary/danger Blade buttons, page shell spacing and cards, **`x-empty-state`** (`data-testid="empty-state"`) for key empty journeys (shop catalog, dashboard delivery/box panels, payment ledger, marketing producers), session flash as the standard “toast” analogue, and documented loading/skeleton snippets. **`x-danger-button`** aligns with primary/secondary density and focus offset (destructive red semantics preserved). Stray legacy **indigo** focus tokens are removed where found. Full WCAG audit and systematic focus automation remain **ERD-119**. QA: [docs/UX-ERD-182-qa.md](UX-ERD-182-qa.md).
+
 ### 4.12 Ops / non-customer UX (see ERD-183)
 
 | Route name | Method | URI | Notes |

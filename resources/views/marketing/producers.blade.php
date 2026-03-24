@@ -73,25 +73,27 @@
         @endif
 
         @if (! $hasAnyProducers)
-            <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center" data-testid="producers-empty-global">
-                <h3 class="text-lg font-semibold text-gray-900">No producers available yet</h3>
-                <p class="mt-2 text-sm text-gray-600">
-                    We are currently preparing producer profiles. Please check back soon.
-                </p>
-            </div>
+            <x-empty-state
+                :title="__('No producers available yet')"
+                :description="__('We are currently preparing producer profiles. Please check back soon.')"
+                variant="card"
+            />
         @elseif ($producers->isEmpty())
-            <div class="rounded-xl border border-amber-200 bg-amber-50 p-8 text-center" data-testid="producers-empty-filtered">
-                <h3 class="text-lg font-semibold text-amber-950">No producers match your filters</h3>
-                <p class="mt-2 text-sm text-amber-900/90">
-                    Try another region or search term, or clear filters to see everyone.
-                </p>
-                <a
-                    href="{{ route('public.producers') }}"
-                    class="mt-4 inline-block text-sm font-semibold text-emerald-800 underline-offset-4 hover:underline"
-                >
-                    Clear filters
-                </a>
-            </div>
+            <x-empty-state
+                variant="card"
+                tone="amber"
+                :title="__('No producers match your filters')"
+                :description="__('Try another region or search term, or clear filters to see everyone.')"
+            >
+                <x-slot name="action">
+                    <a
+                        href="{{ route('public.producers') }}"
+                        class="inline-block text-sm font-semibold text-emerald-800 underline-offset-4 hover:underline"
+                    >
+                        {{ __('Clear filters') }}
+                    </a>
+                </x-slot>
+            </x-empty-state>
         @else
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="producers-grid">
                 @foreach ($producers as $producer)

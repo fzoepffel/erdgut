@@ -154,21 +154,24 @@
                         </div>
 
                         @if ($deliveryCards->isEmpty())
-                            <div class="mt-4 rounded-md border border-dashed border-gray-200 bg-gray-50 p-4">
-                                <p class="text-sm font-medium text-gray-900">{{ __('No deliveries on the calendar') }}</p>
-                                <p class="mt-1 text-sm text-gray-600">
-                                    {{ __('When your subscription is active, your delivery days will show up here.') }}
-                                </p>
-                                @if ($primarySubscription)
-                                    <a href="{{ route('app.deliveries.preferences.edit') }}" class="mt-3 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-                                        {{ __('Review delivery preferences') }}
-                                    </a>
-                                @else
-                                    <a href="{{ route('app.subscriptions.create') }}" class="mt-3 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-                                        {{ __('Start a subscription') }}
-                                    </a>
-                                @endif
-                            </div>
+                            <x-empty-state
+                                class="mt-4"
+                                :title="__('No deliveries on the calendar')"
+                                :description="__('When your subscription is active, your delivery days will show up here.')"
+                                variant="inset"
+                            >
+                                <x-slot name="action">
+                                    @if ($primarySubscription)
+                                        <a href="{{ route('app.deliveries.preferences.edit') }}" class="inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+                                            {{ __('Review delivery preferences') }}
+                                        </a>
+                                    @else
+                                        <a href="{{ route('app.subscriptions.create') }}" class="inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+                                            {{ __('Start a subscription') }}
+                                        </a>
+                                    @endif
+                                </x-slot>
+                            </x-empty-state>
                         @else
                             <ul class="mt-4 space-y-3">
                                 @foreach ($deliveryCards as $card)
@@ -249,15 +252,18 @@
                                 {{ __('Estimated value: EUR :amount', ['amount' => number_format((float) $currentBox->estimated_value, 2)]) }}
                             </p>
                         @else
-                            <div class="mt-4 rounded-md border border-dashed border-gray-200 bg-gray-50 p-4">
-                                <p class="text-sm font-medium text-gray-900">{{ __('No box for this week') }}</p>
-                                <p class="mt-1 text-sm text-gray-600">
-                                    {{ __('Your weekly box will appear here once it is generated for your delivery week.') }}
-                                </p>
-                                <a href="{{ route('app.subscriptions.show') }}" class="mt-3 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-                                    {{ __('Check subscription') }}
-                                </a>
-                            </div>
+                            <x-empty-state
+                                class="mt-4"
+                                :title="__('No box for this week')"
+                                :description="__('Your weekly box will appear here once it is generated for your delivery week.')"
+                                variant="inset"
+                            >
+                                <x-slot name="action">
+                                    <a href="{{ route('app.subscriptions.show') }}" class="inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+                                        {{ __('Check subscription') }}
+                                    </a>
+                                </x-slot>
+                            </x-empty-state>
                         @endif
                     </div>
                 </div>
@@ -267,17 +273,20 @@
                         <h3 class="text-lg font-semibold">{{ __('Current and upcoming boxes') }}</h3>
 
                         @if ($upcomingBoxes->isEmpty())
-                            <div class="mt-4 rounded-md border border-dashed border-gray-200 bg-gray-50 p-4">
-                                <p class="text-sm font-medium text-gray-900">{{ __('No boxes scheduled') }}</p>
-                                <p class="mt-1 text-sm text-gray-600">
-                                    {{ __('Upcoming box weeks will be listed here as your plan rolls forward.') }}
-                                </p>
+                            <x-empty-state
+                                class="mt-4"
+                                :title="__('No boxes scheduled')"
+                                :description="__('Upcoming box weeks will be listed here as your plan rolls forward.')"
+                                variant="inset"
+                            >
                                 @if (! $primarySubscription)
-                                    <a href="{{ route('app.subscriptions.create') }}" class="mt-3 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-                                        {{ __('Start a subscription') }}
-                                    </a>
+                                    <x-slot name="action">
+                                        <a href="{{ route('app.subscriptions.create') }}" class="inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+                                            {{ __('Start a subscription') }}
+                                        </a>
+                                    </x-slot>
                                 @endif
-                            </div>
+                            </x-empty-state>
                         @else
                             <ul class="mt-4 space-y-3">
                                 @foreach ($upcomingBoxes as $box)

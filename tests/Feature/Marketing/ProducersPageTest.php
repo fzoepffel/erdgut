@@ -55,7 +55,7 @@ class ProducersPageTest extends TestCase
         $response = $this->get(route('public.producers'));
 
         $response->assertOk();
-        $response->assertSee('data-testid="producers-empty-global"', false);
+        $response->assertSee('data-testid="empty-state"', false);
         $response->assertSee('No producers available yet', false);
     }
 
@@ -66,7 +66,7 @@ class ProducersPageTest extends TestCase
         $response = $this->get(route('public.producers', ['q' => 'ZZNO_MATCH_ZZ']));
 
         $response->assertOk();
-        $response->assertSee('data-testid="producers-empty-filtered"', false);
+        $response->assertSee('data-testid="empty-state"', false);
         $response->assertSee('No producers match your filters', false);
     }
 

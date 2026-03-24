@@ -341,6 +341,26 @@ class ShopControllerTest extends TestCase
             ->assertSessionHasErrors('q');
     }
 
+    public function test_shop_index_shows_empty_state_when_search_matches_no_products(): void
+    {
+        $producer = Producer::factory()->create();
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Visible Product',
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->get(route('app.shop.index', ['q' => 'ZZZ_NO_MATCH_ZZZ']));
+
+        $response->assertOk();
+        $response->assertSee('data-testid="empty-state"', false);
+        $response->assertSee('No products available', false);
+    }
+
     public function test_shop_search_filters_by_product_name(): void
     {
         $producer = Producer::factory()->create();

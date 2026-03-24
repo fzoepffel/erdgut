@@ -231,6 +231,7 @@ class DashboardPageTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.dashboard'))
             ->assertOk()
+            ->assertSee('data-testid="empty-state"', false)
             ->assertSee('No deliveries on the calendar')
             ->assertSee('No box for this week')
             ->assertSee('No boxes scheduled')

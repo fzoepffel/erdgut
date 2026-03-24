@@ -315,5 +315,18 @@
     "admin.dashboard.card_products_title": "Produkte",
     "admin.dashboard.card_products_desc": "Artikel, Kategorien, Shop- und Katalogstatus.",
     "admin.dashboard.view_list": "Zur Liste",
-    "admin.form.new_image_preview": "Vorschau (neu gewählte Datei)"
+    "admin.form.new_image_preview": "Vorschau (neu gewählte Datei)",
+    "No producers available yet": "Noch keine Produzenten verfügbar.",
+    "We are currently preparing producer profiles. Please check back soon.": "Wir bereiten gerade die Produzentenprofile vor. Schauen Sie bald wieder vorbei.",
+    "No producers match your filters": "Keine Produzenten entsprechen Ihren Filtern.",
+    "Try another region or search term, or clear filters to see everyone.": "Versuchen Sie eine andere Region oder einen anderen Suchbegriff, oder setzen Sie die Filter zurück.",
+    "Clear filters": "Filter zurücksetzen",
+    "No deliveries on the calendar": "Keine Lieferungen im Kalender",
+    "When your subscription is active, your delivery days will show up here.": "Sobald Ihr Abo aktiv ist, erscheinen Ihre Liefertermine hier.",
+    "Review delivery preferences": "Liefer­einstellungen prüfen",
+    "No box for this week": "Keine Box für diese Woche",
+    "Your weekly box will appear here once it is generated for your delivery week.": "Ihre wöchentliche Box erscheint hier, sobald sie für Ihre Lieferwoche erstellt wurde.",
+    "Check subscription": "Abo prüfen",
+    "No boxes scheduled": "Keine Boxen geplant",
+    "Upcoming box weeks will be listed here as your plan rolls forward.": "Kommende Box-Wochen werden hier angezeigt, sobald Ihr Plan weiterläuft."
 }

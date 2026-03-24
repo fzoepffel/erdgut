@@ -32,6 +32,17 @@ class PaymentHistoryControllerTest extends TestCase
             ->assertSee('Charge history', false);
     }
 
+    public function test_payment_history_shows_empty_state_when_ledger_empty(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.payments.history'))
+            ->assertOk()
+            ->assertSee('data-testid="empty-state"', false)
+            ->assertSee('No payment history yet', false);
+    }
+
     public function test_payment_history_shows_active_mandate_copy_when_token_present(): void
     {
         $user = User::factory()->create();

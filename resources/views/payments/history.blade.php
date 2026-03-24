@@ -83,13 +83,18 @@
                 </div>
                 <div class="p-4 sm:p-6">
                     @if ($payments->isEmpty())
-                        <div class="rounded-xl border border-dashed border-gray-300 bg-gray-50/80 p-8 text-center">
-                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                            </svg>
-                            <h3 class="mt-4 text-lg font-semibold text-gray-900">{{ __('No payment history yet') }}</h3>
-                            <p class="mt-2 text-sm text-gray-600">{{ __('Your subscription charges will appear here once billing starts.') }}</p>
-                        </div>
+                        <x-empty-state
+                            variant="card-muted"
+                            heading="h3"
+                            :title="__('No payment history yet')"
+                            :description="__('Your subscription charges will appear here once billing starts.')"
+                        >
+                            <x-slot name="icon">
+                                <svg class="h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                </svg>
+                            </x-slot>
+                        </x-empty-state>
                     @else
                         <div class="space-y-3 sm:hidden" role="list">
                             @foreach ($payments as $payment)

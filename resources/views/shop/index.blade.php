@@ -147,20 +147,22 @@
                     </div>
 
                     @if ($products->isEmpty())
-                        <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
-                            <h2 class="text-lg font-semibold text-gray-900">{{ __('No products available') }}</h2>
-                            <p class="mt-2 text-sm text-gray-600">
-                                {{ __('No products match your filters. Try adjusting or clearing filters and search.') }}
-                            </p>
+                        <x-empty-state
+                            :title="__('No products available')"
+                            :description="__('No products match your filters. Try adjusting or clearing filters and search.')"
+                            variant="card"
+                        >
                             @if ($hasActiveFilters)
-                                <a
-                                    href="{{ route('app.shop.index') }}"
-                                    class="mt-4 inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
-                                >
-                                    {{ __('Clear all filters') }}
-                                </a>
+                                <x-slot name="action">
+                                    <a
+                                        href="{{ route('app.shop.index') }}"
+                                        class="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                                    >
+                                        {{ __('Clear all filters') }}
+                                    </a>
+                                </x-slot>
                             @endif
-                        </div>
+                        </x-empty-state>
                     @else
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
                             @foreach ($products as $product)
