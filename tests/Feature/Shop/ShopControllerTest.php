@@ -322,4 +322,180 @@ class ShopControllerTest extends TestCase
         $this->get(route('app.shop.show', $product))
             ->assertRedirect(route('auth.login'));
     }
+
+    public function test_shop_rejects_invalid_sort(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.shop.index', ['sort' => 'invalid']))
+            ->assertSessionHasErrors('sort');
+    }
+
+    public function test_shop_rejects_query_longer_than_120_characters(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.shop.index', ['q' => str_repeat('a', 121)]))
+            ->assertSessionHasErrors('q');
+    }
+
+    public function test_shop_search_filters_by_product_name(): void
+    {
+        $producer = Producer::factory()->create();
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Unique Apple Crisp',
+            'is_available' => true,
+        ]);
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Other Product',
+            'is_available' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->get(route('app.shop.index', ['q' => 'Unique Apple']));
+
+        $response->assertOk();
+        $products = $response->viewData('products');
+        $this->assertSame(1, $products->total());
+        $this->assertSame('Unique Apple Crisp', $products->first()->name);
+    }
+
+    public function test_shop_sorts_by_price_ascending(): void
+    {
+        $producer = Producer::factory()->create();
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'High Price',
+            'unit_price' => 9.99,
+            'is_available' => true,
+        ]);
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Low Price',
+            'unit_price' => 1.50,
+            'is_available' => true,
+        ]);
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Mid Price',
+            'unit_price' => 4.00,
+            'is_available' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->get(route('app.shop.index', ['sort' => 'price_asc']));
+
+        $response->assertOk();
+        $products = $response->viewData('products');
+        $prices = $products->pluck('unit_price')->map(fn ($p) => (float) $p)->all();
+        $sorted = $prices;
+        sort($sorted);
+        $this->assertSame($sorted, $prices);
+        $this->assertSame(1.5, (float) $products->first()->unit_price);
+    }
+
+    public function test_shop_sorts_by_price_descending(): void
+    {
+        $producer = Producer::factory()->create();
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Low Price',
+            'unit_price' => 1.00,
+            'is_available' => true,
+        ]);
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'High Price',
+            'unit_price' => 12.00,
+            'is_available' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->get(route('app.shop.index', ['sort' => 'price_desc']));
+
+        $response->assertOk();
+        $products = $response->viewData('products');
+        $this->assertSame(12.0, (float) $products->first()->unit_price);
+        $this->assertSame(1.0, (float) $products->last()->unit_price);
+    }
+
+    public function test_shop_chips_preserve_search_and_sort_query_params(): void
+    {
+        $producer1 = Producer::factory()->create(['name' => 'Farm Alpha']);
+        $producer2 = Producer::factory()->create(['name' => 'Farm Beta']);
+        Product::factory()->create([
+            'producer_id' => $producer1->id,
+            'category' => 'vegetables',
+            'is_available' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->get(route('app.shop.index', [
+                'category' => 'vegetables',
+                'q' => 'carrot',
+                'sort' => 'price_asc',
+                'producer' => $producer1->id,
+            ]));
+
+        $response->assertOk();
+        $response->assertSee('q=carrot', false);
+        $response->assertSee('sort=price_asc', false);
+        $response->assertSee('category=vegetables', false);
+        $response->assertSee('producer='.$producer2->id, false);
+    }
+
+    public function test_product_detail_shows_characteristics_and_dietary_notes_from_metadata(): void
+    {
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Meta Salad Mix',
+            'is_available' => true,
+            'metadata' => [
+                'unit' => 'g',
+                'characteristics' => ['Organic', 'Regional'],
+                'dietary_notes' => 'May contain traces of nuts.',
+            ],
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.shop.show', $product))
+            ->assertOk()
+            ->assertSee('Organic', false)
+            ->assertSee('Regional', false)
+            ->assertSee('May contain traces of nuts.', false);
+    }
+
+    public function test_product_detail_without_editable_box_shows_guidance(): void
+    {
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Solo Tomato',
+            'is_available' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.shop.show', $product))
+            ->assertOk()
+            ->assertSee('Extras need an editable box', false)
+            ->assertSee(route('app.boxes.current'), false)
+            ->assertSee(route('app.dashboard'), false);
+    }
 }

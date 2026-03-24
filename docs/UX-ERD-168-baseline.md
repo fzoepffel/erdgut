@@ -140,6 +140,8 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 | `app.shop.index` | GET | `app/shop` | ERD-178 |
 | `app.shop.show` | GET | `app/shop/{product}` | ERD-178 |
 
+**Shop UX (ERD-178):** `app.shop.index` includes an intro strip, GET toolbar (search + sort with validation), category/producer chips that preserve `q` and `sort`, collapsible filter block on small viewports, and i18n empty states with clear-actions. `app.shop.show` surfaces optional `metadata.characteristics` (list) and `metadata.dietary_notes` (string), a clear no–editable-box panel with CTAs to the current box and dashboard, and accessible add-to-box error feedback. Catalog loading remains full-page GET navigation; add-to-box buttons retain loading/disabled behaviour. QA: [docs/UX-ERD-178-qa.md](UX-ERD-178-qa.md).
+
 ### 4.8 Payments (`app.payments.*`)
 
 | Route name | Method | URI | Owning ticket |

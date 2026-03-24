@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Support\BudgetRemainderService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ShopController extends Controller
@@ -24,6 +25,8 @@ class ShopController extends Controller
         $validated = $request->validate([
             'category' => ['nullable', 'string', 'in:'.implode(',', ProductCategory::values())],
             'producer' => ['nullable', 'integer', 'exists:producers,id'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'sort' => ['nullable', 'string', Rule::in(['name', 'price_asc', 'price_desc'])],
         ]);
 
         $query = Product::query()
@@ -38,7 +41,20 @@ class ShopController extends Controller
             $query->where('producer_id', $validated['producer']);
         }
 
-        $products = $query->orderBy('name')->paginate(24)->withQueryString();
+        $search = isset($validated['q']) ? trim($validated['q']) : '';
+        if ($search !== '') {
+            $escaped = addcslashes($search, '%_\\');
+            $query->where('name', 'like', '%'.$escaped.'%');
+        }
+
+        $sort = $validated['sort'] ?? 'name';
+        match ($sort) {
+            'price_asc' => $query->orderBy('unit_price')->orderBy('name'),
+            'price_desc' => $query->orderByDesc('unit_price')->orderBy('name'),
+            default => $query->orderBy('name'),
+        };
+
+        $products = $query->paginate(24)->withQueryString();
 
         $producers = Producer::query()->orderBy('name')->get(['id', 'name']);
 

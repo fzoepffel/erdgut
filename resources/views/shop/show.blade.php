@@ -3,6 +3,15 @@
     $unit = $product->metadata['unit'] ?? 'kg';
     $variety = $product->metadata['variety'] ?? null;
     $tasteProfile = $product->metadata['taste_profile'] ?? null;
+    $characteristics = $product->metadata['characteristics'] ?? null;
+    if (! is_array($characteristics)) {
+        $characteristics = null;
+    } else {
+        $characteristics = array_values(array_filter(array_map('strval', $characteristics), static fn ($v) => $v !== ''));
+        $characteristics = $characteristics === [] ? null : $characteristics;
+    }
+    $dietaryNotes = $product->metadata['dietary_notes'] ?? null;
+    $dietaryNotes = is_string($dietaryNotes) && trim($dietaryNotes) !== '' ? trim($dietaryNotes) : null;
     $canAddToBox = $currentBox instanceof \App\Models\Box;
     $heroImage = $product->imageUrl() ?: ($product->producer?->primaryImageUrl() ?: null);
 @endphp
@@ -32,6 +41,7 @@
                                 src="{{ $heroImage }}"
                                 alt="{{ $product->name }}"
                                 class="h-64 w-full object-cover lg:h-80"
+                                loading="lazy"
                                 decoding="async"
                                 onerror="this.onerror=null; this.style.display='none'; var f=this.nextElementSibling; if(f) f.style.display='flex';"
                             >
@@ -50,7 +60,7 @@
                                 <h3 class="sr-only">{{ __('Overview') }}</h3>
                                 <div class="flex flex-wrap gap-2">
                                     <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-                                        {{ ucfirst($product->category) }}
+                                        {{ __(\Illuminate\Support\Str::title($product->category)) }}
                                     </span>
                                     @if ($product->is_seasonal)
                                         <span class="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
@@ -78,6 +88,24 @@
                                 </section>
                             @endif
 
+                            @if ($characteristics)
+                                <section>
+                                    <h3 class="text-sm font-semibold text-gray-900">{{ __('Characteristics') }}</h3>
+                                    <ul class="mt-2 list-inside list-disc text-sm text-gray-600">
+                                        @foreach ($characteristics as $line)
+                                            <li>{{ $line }}</li>
+                                        @endforeach
+                                    </ul>
+                                </section>
+                            @endif
+
+                            @if ($dietaryNotes)
+                                <section>
+                                    <h3 class="text-sm font-semibold text-gray-900">{{ __('Dietary notes') }}</h3>
+                                    <p class="mt-1 text-sm text-gray-600">{{ $dietaryNotes }}</p>
+                                </section>
+                            @endif
+
                             {{-- Producer story --}}
                             @if ($product->producer)
                                 <section>
@@ -100,6 +128,29 @@
                                     <h3 class="text-sm font-semibold text-gray-900">{{ __('Taste profile') }}</h3>
                                     <p class="mt-1 text-gray-600">{{ $tasteProfile }}</p>
                                 </section>
+                            @endif
+
+                            @if (! $canAddToBox)
+                                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                    <p class="text-sm font-semibold text-gray-900">{{ __('Extras need an editable box') }}</p>
+                                    <p class="mt-2 text-sm text-gray-600">
+                                        {{ __('You can add shop extras only when your box for this week is open for editing and before the modification deadline.') }}
+                                    </p>
+                                    <div class="mt-4 flex flex-wrap gap-3">
+                                        <a
+                                            href="{{ route('app.boxes.current') }}"
+                                            class="inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                                        >
+                                            {{ __('Open current week box') }}
+                                        </a>
+                                        <a
+                                            href="{{ route('app.dashboard') }}"
+                                            class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                                        >
+                                            {{ __('Dashboard') }}
+                                        </a>
+                                    </div>
+                                </div>
                             @endif
 
                             {{-- Add to box --}}
@@ -139,7 +190,14 @@
                                             <span x-show="loading" x-cloak>{{ __('Adding…') }}</span>
                                         </button>
                                     </form>
-                                    <p x-show="error" x-cloak x-text="error" class="mt-2 text-sm text-red-600"></p>
+                                    <p
+                                        x-show="error"
+                                        x-cloak
+                                        x-text="error"
+                                        class="mt-2 text-sm text-red-600"
+                                        role="alert"
+                                        aria-live="polite"
+                                    ></p>
                                 </div>
                             @endif
                         </div>

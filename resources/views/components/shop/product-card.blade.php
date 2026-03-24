@@ -5,6 +5,9 @@
     $unit = $product->metadata['unit'] ?? 'kg';
     $canAddToBox = $currentBox instanceof \App\Models\Box;
     $cardImage = $product->imageUrl() ?: ($product->producer?->primaryImageUrl() ?: null);
+    $producerLine = $product->producer
+        ? __('by :name', ['name' => $product->producer->name])
+        : __('Unknown producer');
 @endphp
 
 <article {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm']) }}
@@ -33,23 +36,23 @@
     </div>
 
     <div class="flex flex-1 flex-col space-y-2 p-5">
-        <h3 class="font-semibold text-gray-900">
+        <h3 class="text-balance font-semibold text-gray-900">
             <a href="{{ route('app.shop.show', $product) }}" class="hover:text-emerald-600 hover:underline">{{ $product->name }}</a>
         </h3>
-        <p class="text-sm text-gray-600">by {{ $product->producer?->name ?? 'Unknown' }}</p>
+        <p class="text-sm text-gray-600">{{ $producerLine }}</p>
         <p class="inline-flex w-fit rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
             {{ $origin }}
         </p>
         <div class="flex flex-wrap gap-1.5">
             <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-                {{ ucfirst($product->category) }}
+                {{ __(\Illuminate\Support\Str::title($product->category)) }}
             </span>
             @if ($product->is_seasonal)
                 <span class="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                    Seasonal
+                    {{ __('Seasonal') }}
                 </span>
             @endif
-            <span class="text-xs text-gray-500">per {{ $unit }}</span>
+            <span class="text-xs text-gray-500">{{ __('per') }} {{ $unit }}</span>
         </div>
         <div class="mt-auto flex flex-col gap-2">
             <p class="font-medium text-emerald-700">
@@ -88,7 +91,14 @@
                         <span x-show="loading" x-cloak>{{ __('Adding…') }}</span>
                     </button>
                 </form>
-                <p x-show="error" x-cloak x-text="error" class="text-sm text-red-600"></p>
+                <p
+                    x-show="error"
+                    x-cloak
+                    x-text="error"
+                    class="text-sm text-red-600"
+                    role="alert"
+                    aria-live="polite"
+                ></p>
             @endif
         </div>
     </div>
