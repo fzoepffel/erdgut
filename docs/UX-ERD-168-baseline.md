@@ -162,6 +162,8 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 | `account.profile.destroy` | DELETE | `account/profile` | ERD-180 |
 | `account.users.show` | GET | `account/users/{user}` | ERD-180 |
 
+**Account settings UX (ERD-180):** `account.profile.edit` is a Phase-8-style hub: **Profile and contact** (name, email, always-visible email-change / re-verification copy, emerald-styled resend), **Sign-in security** (password update via `password.update`), and a **Danger zone** (rose panel + modal delete with password confirm). Nav label **Account settings**. `account.users.show` remains a **204 authorization probe** for `UserPolicy::view` (not in customer IA; documented on controller). QA: [docs/UX-ERD-180-qa.md](UX-ERD-180-qa.md).
+
 ### 4.10 Admin (`app.admin.*`)
 
 | Route name | Method | URI | Owning ticket |

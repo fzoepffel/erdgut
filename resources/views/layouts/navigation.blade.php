@@ -62,7 +62,7 @@
                             {{ __('Delivery preferences') }}
                         </x-dropdown-link>
                         <x-dropdown-link :href="route('account.profile.edit')">
-                            {{ __('Profile') }}
+                            {{ __('Account settings') }}
                         </x-dropdown-link>
 
                         <!-- Authentication -->
@@ -130,7 +130,7 @@
                     {{ __('Delivery preferences') }}
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('account.profile.edit')">
-                    {{ __('Profile') }}
+                    {{ __('Account settings') }}
                 </x-responsive-nav-link>
 
                 <!-- Authentication -->

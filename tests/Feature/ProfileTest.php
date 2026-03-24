@@ -16,9 +16,12 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->get('/account/profile');
+            ->get(route('account.profile.edit'));
 
-        $response->assertOk();
+        $response->assertOk()
+            ->assertSee('Account settings', false)
+            ->assertSee('Profile and contact', false)
+            ->assertSee('If you change your email, we will reset email verification.', false);
     }
 
     public function test_profile_information_can_be_updated(): void
@@ -27,14 +30,14 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->patch('/account/profile', [
+            ->patch(route('account.profile.update'), [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
             ]);
 
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/account/profile');
+            ->assertRedirect(route('account.profile.edit'));
 
         $user->refresh();
 
@@ -49,14 +52,14 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->patch('/account/profile', [
+            ->patch(route('account.profile.update'), [
                 'name' => 'Test User',
                 'email' => $user->email,
             ]);
 
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/account/profile');
+            ->assertRedirect(route('account.profile.edit'));
 
         $this->assertNotNull($user->refresh()->email_verified_at);
     }
@@ -68,7 +71,7 @@ class ProfileTest extends TestCase
         $response = $this
             ->actingAs($user)
             ->withSession(['ephemeral_key' => 'value'])
-            ->delete('/account/profile', [
+            ->delete(route('account.profile.destroy'), [
                 'password' => 'password',
             ]);
 
@@ -87,14 +90,14 @@ class ProfileTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->from('/account/profile')
-            ->delete('/account/profile', [
+            ->from(route('account.profile.edit'))
+            ->delete(route('account.profile.destroy'), [
                 'password' => 'wrong-password',
             ]);
 
         $response
             ->assertSessionHasErrorsIn('userDeletion', 'password')
-            ->assertRedirect('/account/profile');
+            ->assertRedirect(route('account.profile.edit'));
 
         $this->assertNotNull($user->fresh());
     }

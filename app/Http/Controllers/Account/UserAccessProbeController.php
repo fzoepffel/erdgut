@@ -9,7 +9,9 @@ use Illuminate\Http\Response;
 class UserAccessProbeController extends Controller
 {
     /**
-     * Lightweight endpoint to enforce user-ownership authorization.
+     * Authorization probe only: returns 204 when the authenticated user may view
+     * the target user (see UserPolicy). Not linked from customer navigation; used
+     * for tests and ownership checks—not a profile or settings page.
      */
     public function show(User $user): Response
     {

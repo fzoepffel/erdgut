@@ -251,5 +251,15 @@
     "Payments are processed by SumUp, a licensed payment provider. Erdgut never sees your full card number.": "Zahlungen werden von SumUp, einem lizenzierten Zahlungsdienstleister, verarbeitet. Erdgut sieht Ihre vollständige Kartennummer nicht.",
     "Back to payment overview": "Zurück zur Zahlungsübersicht",
     "Unable to load payment widget. Please refresh and try again.": "Zahlungswidget konnte nicht geladen werden. Bitte Seite aktualisieren und erneut versuchen.",
-    "Loading payment widget...": "Zahlungswidget wird geladen..."
+    "Loading payment widget...": "Zahlungswidget wird geladen...",
+    "Account settings": "Kontoeinstellungen",
+    "Profile and contact": "Profil und Kontakt",
+    "Update your name and email. These details are used for deliveries and account notifications.": "Aktualisieren Sie Name und E-Mail. Diese Angaben nutzen wir für Lieferungen und Konto-Benachrichtigungen.",
+    "If you change your email, we will reset email verification. You must verify the new address before some protected actions work again.": "Wenn Sie Ihre E-Mail ändern, setzen wir die E-Mail-Verifizierung zurück. Sie müssen die neue Adresse bestätigen, bevor einige geschützte Aktionen wieder möglich sind.",
+    "Sign-in security": "Anmeldesicherheit",
+    "Change the password you use to log in. Use a strong, unique password.": "Ändern Sie Ihr Passwort für die Anmeldung. Verwenden Sie ein starkes, einzigartiges Passwort.",
+    "Danger zone": "Gefahrenbereich",
+    "Actions here permanently affect your account. You will be asked to confirm with your password.": "Aktionen hier wirken dauerhaft auf Ihr Konto. Sie werden zur Bestätigung Ihr Passwort eingeben müssen.",
+    "Delete account": "Konto löschen",
+    "Profile": "Profil"
 }

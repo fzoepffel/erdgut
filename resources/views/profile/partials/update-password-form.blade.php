@@ -1,11 +1,11 @@
 <section>
     <header>
-        <h2 class="text-lg font-medium text-gray-900">
-            {{ __('Update Password') }}
+        <h2 id="settings-password-heading" class="text-lg font-semibold text-gray-900">
+            {{ __('Sign-in security') }}
         </h2>
 
         <p class="mt-1 text-sm text-gray-600">
-            {{ __('Ensure your account is using a long, random password to stay secure.') }}
+            {{ __('Change the password you use to log in. Use a strong, unique password.') }}
         </p>
     </header>
 
@@ -41,6 +41,7 @@
                     x-transition
                     x-init="setTimeout(() => show = false, 2000)"
                     class="text-sm text-gray-600"
+                    role="status"
                 >{{ __('Saved.') }}</p>
             @endif
         </div>
