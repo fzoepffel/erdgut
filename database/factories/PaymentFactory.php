@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\PaymentChargeInitiator;
 use App\Models\Payment;
 use App\Models\Subscription;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -22,6 +23,7 @@ class PaymentFactory extends Factory
     {
         return [
             'subscription_id' => Subscription::factory(),
+            'charge_initiator' => PaymentChargeInitiator::Scheduled,
             'amount' => fake()->randomFloat(2, 10, 80),
             'currency' => 'EUR',
             'status' => Payment::STATUS_PENDING,

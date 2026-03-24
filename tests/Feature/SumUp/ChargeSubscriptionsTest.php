@@ -2,12 +2,15 @@
 
 namespace Tests\Feature\SumUp;
 
+use App\Enums\PaymentChargeInitiator;
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\BillingFulfillmentWeek;
 use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
@@ -116,12 +119,48 @@ class ChargeSubscriptionsTest extends TestCase
             ->assertSuccessful()
             ->expectsOutputToContain('Charged 1 subscription(s)');
 
+        $subscription->refresh();
+        $weekStart = BillingFulfillmentWeek::weekStartForScheduledCharge($subscription, Carbon::today());
+
         $this->assertDatabaseHas('payments', [
             'subscription_id' => $subscription->id,
             'amount' => 35,
             'status' => Payment::STATUS_PENDING,
             'sumup_checkout_id' => 'checkout_abc123',
+            'charge_initiator' => PaymentChargeInitiator::Scheduled->value,
         ]);
+
+        $payment = Payment::query()->where('subscription_id', $subscription->id)->first();
+        $this->assertNotNull($payment);
+        $this->assertSame($weekStart->toDateString(), $payment->fulfillment_week_start?->toDateString());
+    }
+
+    public function test_dry_run_excludes_subscription_already_paid_for_fulfillment_week(): void
+    {
+        $this->travelTo(Carbon::parse('2025-06-18 12:00:00', 'UTC'));
+
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_123',
+            'sumup_customer_id' => 'cust_123',
+            'next_charge_date' => Carbon::parse('2025-06-17'),
+        ]);
+
+        $subscription->payments()->create([
+            'amount' => 35,
+            'currency' => 'EUR',
+            'status' => Payment::STATUS_PAID,
+            'attempt_number' => 1,
+            'paid_at' => now(),
+            'fulfillment_week_start' => '2025-06-16',
+            'charge_initiator' => PaymentChargeInitiator::Scheduled,
+        ]);
+
+        $this->artisan('subscriptions:charge', ['--dry-run' => true])
+            ->assertSuccessful()
+            ->expectsOutputToContain('No due subscriptions');
     }
 
     public function test_charge_excludes_subscription_with_retryable_failed_payment(): void

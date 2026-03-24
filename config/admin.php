@@ -22,4 +22,14 @@ return [
     |
     */
     'pending_payment_stale_hours' => (int) env('ADMIN_PENDING_PAYMENT_STALE_HOURS', 48),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin box planner horizon (weeks)
+    |--------------------------------------------------------------------------
+    |
+    | Forward weeks shown in the admin weekly box planner (ERD-190+). Capped at 8.
+    |
+    */
+    'box_planner_weeks_ahead' => min(max((int) env('ADMIN_BOX_PLANNER_WEEKS_AHEAD', 4), 1), 8),
 ];

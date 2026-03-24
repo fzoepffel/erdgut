@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\SumUp;
 
+use App\Enums\PaymentChargeInitiator;
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use App\Models\Subscription;
@@ -116,6 +117,7 @@ class RetryFailedPaymentsTest extends TestCase
         $this->assertNotNull($newPayment);
         $this->assertSame(Payment::STATUS_PENDING, $newPayment->status);
         $this->assertSame('checkout_retry_123', $newPayment->sumup_checkout_id);
+        $this->assertSame(PaymentChargeInitiator::Retry, $newPayment->charge_initiator);
     }
 
     public function test_retry_skips_subscription_with_pending_payment(): void

@@ -76,6 +76,8 @@ class BoxController extends Controller
         BoxItem $item,
         BoxValueRecalculationService $boxValueRecalculationService
     ): JsonResponse {
+        abort_unless((bool) config('box.customer_box_editing_enabled', true), 403);
+
         $delta = (int) $request->validated('delta');
         $newQuantity = (float) $item->quantity + $delta;
 
@@ -96,6 +98,8 @@ class BoxController extends Controller
         Box $box,
         BoxValueRecalculationService $boxValueRecalculationService
     ): JsonResponse {
+        abort_unless((bool) config('box.customer_box_editing_enabled', true), 403);
+
         $productId = (int) $request->validated('product_id');
         $quantity = (float) $request->validated('quantity');
 
@@ -135,6 +139,8 @@ class BoxController extends Controller
         BoxItem $item,
         BoxValueRecalculationService $boxValueRecalculationService
     ): JsonResponse {
+        abort_unless((bool) config('box.customer_box_editing_enabled', true), 403);
+
         $removedItemId = $item->id;
         $item->delete();
 

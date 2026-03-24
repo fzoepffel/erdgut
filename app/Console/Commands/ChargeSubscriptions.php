@@ -2,11 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\PaymentChargeInitiator;
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
 use App\Models\Subscription;
+use App\Services\Billing\SubscriptionRecurringChargeService;
+use App\Support\BillingFulfillmentWeek;
 use App\Support\SumUpCheckoutLogger;
-use App\Support\SumUpService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -21,7 +23,7 @@ class ChargeSubscriptions extends Command
     protected $description = 'Charge due active subscriptions';
 
     public function __construct(
-        private readonly SumUpService $sumUpService
+        private readonly SubscriptionRecurringChargeService $recurringChargeService
     ) {
         parent::__construct();
     }
@@ -57,7 +59,7 @@ class ChargeSubscriptions extends Command
 
         foreach ($subscriptions as $subscription) {
             try {
-                $this->chargeSubscription($subscription, $currency);
+                $this->chargeSubscription($subscription, $currency, $today);
                 $charged++;
             } catch (Throwable $e) {
                 $failed++;
@@ -74,72 +76,25 @@ class ChargeSubscriptions extends Command
         return self::SUCCESS;
     }
 
-    private function chargeSubscription(Subscription $subscription, string $currency): void
+    private function chargeSubscription(Subscription $subscription, string $currency, Carbon $today): void
     {
-        $amount = $subscription->expectedChargeAmount();
-        $attemptNumber = (int) $subscription->payments()->max('attempt_number') + 1;
+        $weekStart = BillingFulfillmentWeek::weekStartForScheduledCharge($subscription, $today);
+        $boxId = SubscriptionRecurringChargeService::resolveBoxIdForUserWeek(
+            (int) $subscription->user_id,
+            $weekStart
+        );
 
-        $payment = Payment::create([
-            'subscription_id' => $subscription->id,
-            'amount' => $amount,
-            'currency' => $currency,
-            'status' => Payment::STATUS_PENDING,
-            'attempt_number' => $attemptNumber,
-        ]);
-
-        Log::info('payment.created', [
-            'payment_id' => $payment->id,
-            'subscription_id' => $subscription->id,
-            'amount' => $amount,
-            'attempt_number' => $attemptNumber,
-            'timestamp' => now()->toIso8601String(),
-        ]);
-
-        $checkoutReference = "sub-{$subscription->id}-charge-{$payment->id}-".now()->timestamp;
-
-        try {
-            $checkout = $this->sumUpService->createRecurringCheckout(
-                amount: $amount,
-                customerId: (string) $subscription->sumup_customer_id,
-                checkoutReference: $checkoutReference,
-                description: "Subscription #{$subscription->id} charge"
-            );
-
-            $checkoutId = data_get($checkout, 'id');
-            if (! is_string($checkoutId) || trim($checkoutId) === '') {
-                $payment->markFailed('Checkout created but no ID returned');
-                Log::warning('payment.failed', [
-                    'payment_id' => $payment->id,
-                    'subscription_id' => $subscription->id,
-                    'previous_status' => Payment::STATUS_PENDING,
-                    'new_status' => Payment::STATUS_FAILED,
-                    'reason' => 'Checkout created but no ID returned',
-                    'timestamp' => now()->toIso8601String(),
-                ]);
-
-                return;
-            }
-
-            $payment->update(['sumup_checkout_id' => $checkoutId]);
-
-            $this->sumUpService->processCheckout(
-                $checkoutId,
-                (string) $subscription->sumup_token,
-                (string) $subscription->sumup_customer_id
-            );
-        } catch (Throwable $e) {
-            $payment->markFailed(SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()));
-            Log::warning('payment.failed', [
-                'payment_id' => $payment->id,
-                'subscription_id' => $subscription->id,
-                'previous_status' => Payment::STATUS_PENDING,
-                'new_status' => Payment::STATUS_FAILED,
-                'reason' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
-                'timestamp' => now()->toIso8601String(),
-            ]);
-
-            throw $e;
-        }
+        $this->recurringChargeService->initiate(
+            subscription: $subscription,
+            amount: $subscription->expectedChargeAmount(),
+            currency: $currency,
+            initiator: PaymentChargeInitiator::Scheduled,
+            checkoutDescription: "Subscription #{$subscription->id} charge",
+            initiatedByUserId: null,
+            boxId: $boxId,
+            fulfillmentWeekStart: $weekStart,
+            previousPaymentId: null,
+        );
     }
 
     /**
@@ -170,6 +125,11 @@ class ChargeSubscriptions extends Command
                 }
 
                 return true;
+            })
+            ->filter(function (Subscription $s) use ($today): bool {
+                $weekStart = BillingFulfillmentWeek::weekStartForScheduledCharge($s, $today);
+
+                return ! Payment::hasPaidForFulfillmentWeek($s->id, $weekStart);
             });
     }
 }

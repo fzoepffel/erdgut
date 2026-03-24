@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\PaymentChargeInitiator;
 use Database\Factories\PaymentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 class Payment extends Model
 {
@@ -36,6 +38,10 @@ class Payment extends Model
      */
     protected $fillable = [
         'subscription_id',
+        'box_id',
+        'fulfillment_week_start',
+        'charge_initiator',
+        'initiated_by_user_id',
         'amount',
         'currency',
         'status',
@@ -56,6 +62,8 @@ class Payment extends Model
     protected function casts(): array
     {
         return [
+            'charge_initiator' => PaymentChargeInitiator::class,
+            'fulfillment_week_start' => 'date',
             'amount' => 'decimal:2',
             'provider_payload' => 'encrypted:array',
             'paid_at' => 'datetime',
@@ -69,6 +77,25 @@ class Payment extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
+    }
+
+    public function box(): BelongsTo
+    {
+        return $this->belongsTo(Box::class);
+    }
+
+    public function initiatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'initiated_by_user_id');
+    }
+
+    public static function hasPaidForFulfillmentWeek(int $subscriptionId, Carbon $weekStart): bool
+    {
+        return static::query()
+            ->where('subscription_id', $subscriptionId)
+            ->where('status', self::STATUS_PAID)
+            ->whereDate('fulfillment_week_start', $weekStart->toDateString())
+            ->exists();
     }
 
     /**

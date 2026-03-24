@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 class BoxControllerTest extends TestCase
@@ -532,6 +533,33 @@ class BoxControllerTest extends TestCase
             'is_extra' => true,
         ]);
         $this->assertDatabaseHas('boxes', ['id' => $box->id, 'estimated_value' => 9.00]);
+    }
+
+    public function test_customer_cannot_mutate_box_when_editing_disabled(): void
+    {
+        Config::set('box.customer_box_editing_enabled', false);
+
+        $user = User::factory()->create();
+        $product = Product::factory()->create([
+            'unit_price' => 4.50,
+            'is_available' => true,
+            'metadata' => ['unit' => 'kg'],
+        ]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDay(),
+            'estimated_value' => 0,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('app.boxes.items.add', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertForbidden();
+
+        Config::set('box.customer_box_editing_enabled', true);
     }
 
     public function test_post_add_item_rejects_unpublished_product(): void
