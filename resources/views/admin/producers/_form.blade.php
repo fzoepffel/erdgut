@@ -23,7 +23,7 @@
 
     <div>
         <x-input-label for="description" :value="__('Description')" />
-        <textarea id="description" name="description" rows="4" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">{{ old('description', $producer?->description) }}</textarea>
+        <textarea id="description" name="description" rows="4" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm">{{ old('description', $producer?->description) }}</textarea>
         <x-input-error class="mt-2" :messages="$errors->get('description')" />
     </div>
 
@@ -36,16 +36,34 @@
 
     <div>
         <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_test" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('is_test', $producer?->is_test))>
+            <input type="checkbox" name="is_test" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_test', $producer?->is_test))>
             <span class="text-sm text-gray-700">{{ __('Test data') }}</span>
         </label>
         <x-input-error class="mt-2" :messages="$errors->get('is_test')" />
     </div>
 
-    <div>
+    <div
+        x-data="{
+            previewUrl: null,
+            onFile(e) {
+                const f = e.target.files?.[0];
+                if (!f || !f.type.startsWith('image/')) {
+                    this.previewUrl = null;
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => { this.previewUrl = reader.result; };
+                reader.readAsDataURL(f);
+            },
+        }"
+    >
         <x-input-label for="image" :value="__('Uploaded image')" />
-        <input id="image" name="image" type="file" accept="image/*" class="mt-1 block w-full text-sm text-gray-600" />
+        <input id="image" name="image" type="file" accept="image/*" class="mt-1 block w-full text-sm text-gray-600" x-on:change="onFile($event)" />
         <p class="mt-1 text-xs text-gray-500">{{ __('Optional. Takes precedence over external URL. Max 5 MB.') }}</p>
+        <div class="mt-3" x-show="previewUrl !== null" x-cloak>
+            <p class="text-xs font-medium text-gray-600 mb-1">{{ __('admin.form.new_image_preview') }}</p>
+            <img src="" alt="" class="max-h-40 rounded border border-gray-200 shadow-sm" x-bind:src="previewUrl" />
+        </div>
         <x-input-error class="mt-2" :messages="$errors->get('image')" />
     </div>
 
@@ -55,7 +73,7 @@
             <img src="{{ $producer->primaryImageUrl() }}" alt="" class="max-h-40 rounded shadow-sm">
             @if ($producer->image_path)
                 <label class="mt-3 inline-flex items-center gap-2">
-                    <input type="checkbox" name="remove_image" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('remove_image'))>
+                    <input type="checkbox" name="remove_image" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('remove_image'))>
                     <span class="text-sm text-gray-700">{{ __('Remove uploaded file (external URL below may still apply)') }}</span>
                 </label>
                 <x-input-error class="mt-2" :messages="$errors->get('remove_image')" />

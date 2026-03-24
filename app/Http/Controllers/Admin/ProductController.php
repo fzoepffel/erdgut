@@ -9,25 +9,60 @@ use App\Http\Requests\Admin\UpdateProductRequest;
 use App\Models\Producer;
 use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ProductController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Product::class);
 
-        $products = Product::query()
-            ->with('producer')
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'category' => ['nullable', 'string', 'in:'.implode(',', ProductCategory::values())],
+            'published' => ['nullable', 'string', Rule::in(['0', '1'])],
+            'available' => ['nullable', 'string', Rule::in(['0', '1'])],
+        ]);
+
+        $query = Product::query()->with('producer');
+
+        $search = isset($validated['q']) ? trim($validated['q']) : '';
+        if ($search !== '') {
+            $escaped = addcslashes($search, '%_\\');
+            $query->where(function ($q) use ($escaped): void {
+                $q->where('name', 'like', '%'.$escaped.'%')
+                    ->orWhereHas('producer', function ($pq) use ($escaped): void {
+                        $pq->where('name', 'like', '%'.$escaped.'%');
+                    });
+            });
+        }
+
+        $categoryFilter = $validated['category'] ?? null;
+        if ($categoryFilter instanceof ProductCategory) {
+            $query->where('category', $categoryFilter->value);
+        }
+
+        if (isset($validated['published'])) {
+            $query->where('is_published', $validated['published'] === '1');
+        }
+
+        if (isset($validated['available'])) {
+            $query->where('is_available', $validated['available'] === '1');
+        }
+
+        $products = $query
             ->orderBy('name')
             ->paginate(24)
             ->withQueryString();
 
         return view('admin.products.index', [
             'products' => $products,
+            'categories' => ProductCategory::cases(),
         ]);
     }
 

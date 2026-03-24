@@ -182,6 +182,8 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 | `app.admin.products.update` | PUT/PATCH | `app/admin/products/{product}` | ERD-181 |
 | `app.admin.products.destroy` | DELETE | `app/admin/products/{product}` | ERD-181 |
 
+**Admin catalog UX (ERD-181):** `app.admin.dashboard` is a short **catalog hub** (intro + emerald CTAs/cards) into the two resource lists. **Producers** and **products** indexes use GET **search** (`q`, max 120, escaped `LIKE`); products add **category** (enum), **published** (live/draft), and **available** (shop) filters, with `paginate()->withQueryString()`. Tables are scroll-safe with **sr-only captions**, emerald accent links, optional **product thumbnails**, and **delete confirmation modals** (no `confirm()`). Admin product/producer **forms** use emerald focus styles and optional **client-side image previews** on file inputs. Layout keeps the **amber** admin chrome; interactive accents align with subscriber **emerald** CTAs. **Bulk row actions** are deferred (see [docs/UX-ERD-181-qa.md](UX-ERD-181-qa.md)). QA: [docs/UX-ERD-181-qa.md](UX-ERD-181-qa.md).
+
 ### 4.11 Cross-cutting (no dedicated route)
 
 | Scope | Owning ticket |

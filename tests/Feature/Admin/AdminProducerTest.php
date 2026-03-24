@@ -104,4 +104,33 @@ class AdminProducerTest extends TestCase
             ->assertOk()
             ->assertDontSee(route('app.admin.producers.index', absolute: false), false);
     }
+
+    public function test_admin_producers_index_filters_by_name_or_region(): void
+    {
+        $admin = User::factory()->admin()->create();
+        Producer::factory()->create(['name' => 'North Hill Farm', 'region' => 'Müritz']);
+        Producer::factory()->create(['name' => 'South Fields', 'region' => 'Spreewald']);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.producers.index', ['q' => 'North Hill']))
+            ->assertOk()
+            ->assertSee('North Hill Farm', false)
+            ->assertDontSee('South Fields', false);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.producers.index', ['q' => 'Spreewald']))
+            ->assertOk()
+            ->assertSee('South Fields', false);
+    }
+
+    public function test_admin_producers_index_rejects_oversized_search_query(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->from(route('app.admin.producers.index'))
+            ->get(route('app.admin.producers.index', ['q' => str_repeat('b', 121)]))
+            ->assertRedirect(route('app.admin.producers.index'))
+            ->assertSessionHasErrors('q');
+    }
 }

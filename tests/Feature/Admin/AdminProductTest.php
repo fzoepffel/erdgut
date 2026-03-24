@@ -41,6 +41,80 @@ class AdminProductTest extends TestCase
             ->assertSee('Products', false);
     }
 
+    public function test_admin_products_index_filters_by_search_query(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create(['name' => 'Alpha Farm Co']);
+        Product::factory()->create(['name' => 'Zebra Apples', 'producer_id' => $producer->id]);
+        Product::factory()->create(['name' => 'Other Pears']);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.products.index', ['q' => 'Zebra']))
+            ->assertOk()
+            ->assertSee('Zebra Apples', false)
+            ->assertDontSee('Other Pears', false);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.products.index', ['q' => 'Alpha Farm']))
+            ->assertOk()
+            ->assertSee('Zebra Apples', false);
+    }
+
+    public function test_admin_products_index_filters_by_category_and_published(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Only Fruit Row',
+            'category' => 'fruit',
+            'is_published' => true,
+        ]);
+        Product::factory()->create([
+            'producer_id' => $producer->id,
+            'name' => 'Veg Row',
+            'category' => 'vegetables',
+            'is_published' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.products.index', [
+                'category' => 'fruit',
+                'published' => '1',
+            ]))
+            ->assertOk()
+            ->assertSee('Only Fruit Row', false)
+            ->assertDontSee('Veg Row', false);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.products.index', ['published' => '0']))
+            ->assertOk()
+            ->assertSee('Veg Row', false)
+            ->assertDontSee('Only Fruit Row', false);
+    }
+
+    public function test_admin_products_index_rejects_oversized_search_query(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->from(route('app.admin.products.index'))
+            ->get(route('app.admin.products.index', ['q' => str_repeat('a', 121)]))
+            ->assertRedirect(route('app.admin.products.index'))
+            ->assertSessionHasErrors('q');
+    }
+
+    public function test_admin_products_index_rejects_invalid_category(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->from(route('app.admin.products.index'))
+            ->get(route('app.admin.products.index', ['category' => 'not-a-real-category']))
+            ->assertRedirect(route('app.admin.products.index'))
+            ->assertSessionHasErrors('category');
+    }
+
     public function test_admin_can_create_product_via_form_post(): void
     {
         $admin = User::factory()->admin()->create();

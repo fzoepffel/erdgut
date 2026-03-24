@@ -11,7 +11,7 @@
 
     <div>
         <x-input-label for="producer_id" :value="__('Producer')" />
-        <select id="producer_id" name="producer_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" required>
+        <select id="producer_id" name="producer_id" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
             <option value="">{{ __('Select producer') }}</option>
             @foreach ($producers as $producer)
                 <option value="{{ $producer->id }}" @selected((int) old('producer_id', $product?->producer_id) === (int) $producer->id)>
@@ -46,19 +46,19 @@
 
     <div class="flex flex-col gap-2 sm:flex-row sm:gap-8">
         <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_seasonal" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('is_seasonal', $product?->is_seasonal))>
+            <input type="checkbox" name="is_seasonal" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_seasonal', $product?->is_seasonal))>
             <span class="text-sm text-gray-700">{{ __('Seasonal') }}</span>
         </label>
         <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_available" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('is_available', $product?->is_available ?? true))>
+            <input type="checkbox" name="is_available" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_available', $product?->is_available ?? true))>
             <span class="text-sm text-gray-700">{{ __('Available in shop') }}</span>
         </label>
         <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_published" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('is_published', $product?->is_published ?? true))>
+            <input type="checkbox" name="is_published" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_published', $product?->is_published ?? true))>
             <span class="text-sm text-gray-700">{{ __('Published') }}</span>
         </label>
         <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_test" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('is_test', $product?->is_test))>
+            <input type="checkbox" name="is_test" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_test', $product?->is_test))>
             <span class="text-sm text-gray-700">{{ __('Test data') }}</span>
         </label>
     </div>
@@ -85,14 +85,32 @@
     </div>
     <div>
         <x-input-label for="metadata_taste_profile" :value="__('Metadata: taste profile')" />
-        <textarea id="metadata_taste_profile" name="metadata[taste_profile]" rows="2" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">{{ old('metadata.taste_profile', $product?->metadata['taste_profile'] ?? '') }}</textarea>
+        <textarea id="metadata_taste_profile" name="metadata[taste_profile]" rows="2" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm">{{ old('metadata.taste_profile', $product?->metadata['taste_profile'] ?? '') }}</textarea>
         <x-input-error class="mt-2" :messages="$errors->get('metadata.taste_profile')" />
     </div>
 
-    <div>
+    <div
+        x-data="{
+            previewUrl: null,
+            onFile(e) {
+                const f = e.target.files?.[0];
+                if (!f || !f.type.startsWith('image/')) {
+                    this.previewUrl = null;
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => { this.previewUrl = reader.result; };
+                reader.readAsDataURL(f);
+            },
+        }"
+    >
         <x-input-label for="image" :value="__('Image')" />
-        <input id="image" name="image" type="file" accept="image/*" class="mt-1 block w-full text-sm text-gray-600" />
+        <input id="image" name="image" type="file" accept="image/*" class="mt-1 block w-full text-sm text-gray-600" x-on:change="onFile($event)" />
         <p class="mt-1 text-xs text-gray-500">{{ __('Optional. Max 5 MB.') }}</p>
+        <div class="mt-3" x-show="previewUrl !== null" x-cloak>
+            <p class="text-xs font-medium text-gray-600 mb-1">{{ __('admin.form.new_image_preview') }}</p>
+            <img src="" alt="" class="max-h-40 rounded border border-gray-200 shadow-sm" x-bind:src="previewUrl" />
+        </div>
         <x-input-error class="mt-2" :messages="$errors->get('image')" />
     </div>
 
@@ -101,7 +119,7 @@
             <p class="text-sm font-medium text-gray-700 mb-2">{{ __('Current image') }}</p>
             <img src="{{ $product->imageUrl() }}" alt="" class="max-h-40 rounded shadow-sm">
             <label class="mt-3 inline-flex items-center gap-2">
-                <input type="checkbox" name="remove_image" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('remove_image'))>
+                <input type="checkbox" name="remove_image" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('remove_image'))>
                 <span class="text-sm text-gray-700">{{ __('Remove image') }}</span>
             </label>
             <x-input-error class="mt-2" :messages="$errors->get('remove_image')" />

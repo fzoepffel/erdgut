@@ -109,6 +109,7 @@ Type `exit` to leave tinker.
 - **Shop catalog & PDP UX (ERD-178):** search/sort toolbar, mobile filter disclosure, chip query preservation, PDP metadata and no-box guidance — see [docs/UX-ERD-178-qa.md](docs/UX-ERD-178-qa.md).
 - **Payments & billing UX (ERD-179):** payment history hub, mandate strip, setup/update framing, complete → history redirects — see [docs/UX-ERD-179-qa.md](docs/UX-ERD-179-qa.md).
 - **Account settings UX (ERD-180):** grouped profile, password, danger zone; email re-verification copy — see [docs/UX-ERD-180-qa.md](docs/UX-ERD-180-qa.md).
+- **Admin catalog UX (ERD-181):** dashboard hub, producer/product list search and filters, modal delete confirms, form image previews — see [docs/UX-ERD-181-qa.md](docs/UX-ERD-181-qa.md).
 - **About page hero image (optional):** add `public/images/about-hero.jpg` to show a photo in the `/about` hero on larger screens (see comment in `resources/views/marketing/about.blade.php`).
 - **Auth redirects and flows (ERD-173):** login, registration, verification, and password reset behaviour — see [docs/AUTH-FLOWS.md](docs/AUTH-FLOWS.md).
 

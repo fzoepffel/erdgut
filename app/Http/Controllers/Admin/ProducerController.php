@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreProducerRequest;
 use App\Http\Requests\Admin\UpdateProducerRequest;
 use App\Models\Producer;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -14,12 +15,26 @@ use Illuminate\View\View;
 
 class ProducerController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Producer::class);
 
-        $producers = Producer::query()
-            ->withCount('products')
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $query = Producer::query()->withCount('products');
+
+        $search = isset($validated['q']) ? trim($validated['q']) : '';
+        if ($search !== '') {
+            $escaped = addcslashes($search, '%_\\');
+            $query->where(function ($q) use ($escaped): void {
+                $q->where('name', 'like', '%'.$escaped.'%')
+                    ->orWhere('region', 'like', '%'.$escaped.'%');
+            });
+        }
+
+        $producers = $query
             ->orderBy('name')
             ->paginate(24)
             ->withQueryString();
