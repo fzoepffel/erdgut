@@ -4,7 +4,8 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://gateway.sumup.com; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; font-src 'self' https://fonts.bunny.net; frame-src https://gateway.sumup.com; connect-src 'self' https://gateway.sumup.com https://api.sumup.com https://js.sumup.com; img-src 'self' data: https:">
+        {{-- No SumUp hosts: admin pages do not load payment widgets. --}}
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; font-src 'self' https://fonts.bunny.net; img-src 'self' data: https:;">
 
         <title>{{ config('app.name', 'Laravel') }} — {{ __('Admin') }}</title>
 
@@ -16,30 +17,41 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100 border-t-4 border-amber-500">
-            @include('layouts.navigation')
+        <div
+            class="min-h-screen border-t-4 border-amber-500 bg-gray-100"
+            x-data="{ adminSidebarOpen: false }"
+        >
+            <div class="flex min-h-screen">
+                @include('layouts.admin-sidebar')
 
-            <div class="bg-amber-50 border-b border-amber-100">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-amber-900">
-                        {{ __('Administration') }}
-                    </p>
+                <div class="flex min-h-screen min-w-0 flex-1 flex-col">
+                    <header class="flex h-14 shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 lg:hidden">
+                        <button
+                            type="button"
+                            class="inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            @click="adminSidebarOpen = true"
+                        >
+                            <span class="sr-only">{{ __('admin.shell.open_menu') }}</span>
+                            <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                        <span class="text-sm font-semibold text-amber-900">{{ __('Administration') }}</span>
+                    </header>
+
+                    @isset($header)
+                        <header class="border-b border-gray-200 bg-white shadow-sm">
+                            <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+                                {{ $header }}
+                            </div>
+                        </header>
+                    @endisset
+
+                    <main class="flex-1">
+                        {{ $slot }}
+                    </main>
                 </div>
             </div>
-
-            <!-- Page Heading -->
-            @isset($header)
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
-                    </div>
-                </header>
-            @endisset
-
-            <!-- Page Content -->
-            <main>
-                {{ $slot }}
-            </main>
         </div>
     </body>
 </html>

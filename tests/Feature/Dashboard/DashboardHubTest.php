@@ -39,18 +39,13 @@ class DashboardHubTest extends TestCase
         $this->assertStringNotContainsString(route('app.admin.products.index', [], false), $html);
     }
 
-    public function test_admin_dashboard_includes_single_admin_entry_without_top_level_producers_products(): void
+    public function test_admin_requesting_app_dashboard_redirects_to_admin_overview(): void
     {
         $admin = User::factory()->admin()->create();
 
-        $html = $this->actingAs($admin)
+        $this->actingAs($admin)
             ->get(route('app.dashboard'))
-            ->assertOk()
-            ->getContent();
-
-        $this->assertStringContainsString(route('app.admin.dashboard', [], false), $html);
-        $this->assertStringNotContainsString(route('app.admin.producers.index', [], false), $html);
-        $this->assertStringNotContainsString(route('app.admin.products.index', [], false), $html);
+            ->assertRedirect(route('app.admin.dashboard'));
     }
 
     public function test_dashboard_shows_payment_setup_nudge_when_active_subscription_has_no_payment_token(): void

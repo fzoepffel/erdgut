@@ -9,12 +9,17 @@ use App\Models\Box;
 use App\Models\Delivery;
 use App\Models\Subscription;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
+        if ($request->user()->isAdmin()) {
+            return redirect()->route('app.admin.dashboard');
+        }
+
         $userId = $request->user()->id;
         $today = now()->toDateString();
 
