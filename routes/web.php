@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Account\UserAccessProbeController;
 use App\Http\Controllers\Admin\AdminBoxController;
+use App\Http\Controllers\Admin\AdminBoxDistributionController;
 use App\Http\Controllers\Admin\AdminBoxPlannerController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
@@ -100,6 +101,10 @@ Route::middleware(['auth', 'verified'])
             Route::post('boxes/planner/bulk-preset', [AdminBoxPlannerController::class, 'bulkPreset'])
                 ->middleware('throttle:12,1')
                 ->name('boxes.planner.bulk-preset');
+            Route::get('boxes/distribute', [AdminBoxDistributionController::class, 'show'])->name('boxes.distribute');
+            Route::post('boxes/distribute', [AdminBoxDistributionController::class, 'apply'])
+                ->middleware('throttle:12,1')
+                ->name('boxes.distribute.apply');
             Route::post('boxes', [AdminBoxController::class, 'store'])->name('boxes.store');
             Route::post('boxes/{box}/preset', [AdminBoxController::class, 'preset'])->name('boxes.preset');
             Route::get('boxes/{box}', [AdminBoxController::class, 'show'])->name('boxes.show');

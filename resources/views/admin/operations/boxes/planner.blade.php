@@ -25,6 +25,19 @@
 
             <p class="text-sm text-gray-600">{{ __('admin.box_planner.intro') }}</p>
 
+            @if (count($weeks) > 0)
+                <div class="flex flex-wrap gap-2 lg:hidden">
+                    @foreach ($weeks as $week)
+                        <a
+                            href="{{ route('app.admin.boxes.distribute', ['week_start_date' => $week->toDateString()]) }}"
+                            class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                        >
+                            {{ __('admin.box_distribute.link_short') }} · {{ $week->translatedFormat('d.m.') }}
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+
             {{-- Mobile: stacked cards per subscription --}}
             <div class="space-y-6 lg:hidden">
                 @forelse ($matrix as $row)
@@ -97,6 +110,12 @@
                                                         {{ __('admin.box_planner.bulk_fill_column') }}
                                                     </button>
                                                 </form>
+                                                <a
+                                                    href="{{ route('app.admin.boxes.distribute', ['week_start_date' => $week->toDateString()]) }}"
+                                                    class="mt-1 block text-center text-[0.7rem] font-medium text-amber-800 hover:underline"
+                                                >
+                                                    {{ __('admin.box_distribute.link_short') }}
+                                                </a>
                                             </div>
                                         </th>
                                     @endforeach

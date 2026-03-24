@@ -3,6 +3,7 @@
 namespace Tests\Feature\Routing;
 
 use App\Http\Controllers\Admin\AdminBoxController;
+use App\Http\Controllers\Admin\AdminBoxDistributionController;
 use App\Http\Controllers\Admin\AdminBoxPlannerController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
@@ -66,6 +67,7 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/admin/payments', route('app.admin.payments.index', absolute: false));
         $this->assertSame('/app/admin/billing/upcoming', route('app.admin.billing.upcoming', absolute: false));
         $this->assertSame('/app/admin/boxes/planner', route('app.admin.boxes.planner', absolute: false));
+        $this->assertSame('/app/admin/boxes/distribute', route('app.admin.boxes.distribute', absolute: false));
         $this->assertSame('/app/admin/boxes/1', route('app.admin.boxes.show', ['box' => 1], absolute: false));
         $this->assertSame('/api/sumup/webhook', route('sumup.webhook', absolute: false));
         $this->assertSame('/account/profile', route('account.profile.edit', absolute: false));
@@ -130,6 +132,7 @@ class RouteGroupingTest extends TestCase
             'app.admin.subscriptions.index',
             'app.admin.deliveries.index',
             'app.admin.boxes.planner',
+            'app.admin.boxes.distribute',
             'app.admin.boxes.show',
             'app.admin.payments.index',
             'app.admin.billing.upcoming',
@@ -161,6 +164,13 @@ class RouteGroupingTest extends TestCase
         $this->assertContains('auth', $presetBoxRoute->gatherMiddleware());
         $this->assertContains('verified', $presetBoxRoute->gatherMiddleware());
         $this->assertContains('admin', $presetBoxRoute->gatherMiddleware());
+
+        $distributeApplyRoute = RouteFacade::getRoutes()->getByName('app.admin.boxes.distribute.apply');
+        $this->assertNotNull($distributeApplyRoute);
+        $this->assertContains('auth', $distributeApplyRoute->gatherMiddleware());
+        $this->assertContains('verified', $distributeApplyRoute->gatherMiddleware());
+        $this->assertContains('admin', $distributeApplyRoute->gatherMiddleware());
+        $this->assertContains('throttle:12,1', $distributeApplyRoute->gatherMiddleware());
     }
 
     public function test_public_home_route_uses_marketing_home_controller(): void
@@ -201,6 +211,8 @@ class RouteGroupingTest extends TestCase
             'app.admin.deliveries.index' => [AdminDeliveryController::class, 'index'],
             'app.admin.boxes.planner' => [AdminBoxPlannerController::class, 'index'],
             'app.admin.boxes.planner.bulk-preset' => [AdminBoxPlannerController::class, 'bulkPreset'],
+            'app.admin.boxes.distribute' => [AdminBoxDistributionController::class, 'show'],
+            'app.admin.boxes.distribute.apply' => [AdminBoxDistributionController::class, 'apply'],
             'app.admin.boxes.store' => [AdminBoxController::class, 'store'],
             'app.admin.boxes.preset' => [AdminBoxController::class, 'preset'],
             'app.admin.boxes.show' => [AdminBoxController::class, 'show'],
