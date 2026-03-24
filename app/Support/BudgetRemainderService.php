@@ -9,12 +9,11 @@ use App\Models\User;
 class BudgetRemainderService
 {
     /**
-     * Get the budget remainder for a user's box.
-     * Positive = under budget, negative = over budget.
+     * Included subscription value and remainder (included minus estimated box value).
      *
-     * @return float|null The remainder in EUR, or null if no subscription/box size.
+     * @return array{included_value: float, remainder: float}|null
      */
-    public function getRemainder(User $user, Box $box): ?float
+    public function getBudgetDetails(User $user, Box $box): ?array
     {
         $subscription = $user->subscriptions()
             ->where('status', SubscriptionStatus::Active)
@@ -25,14 +24,32 @@ class BudgetRemainderService
             return null;
         }
 
-        $includedValue = config('box.included_value_by_size.'.$subscription->box_size);
+        $includedRaw = config('box.included_value_by_size.'.$subscription->box_size);
 
-        if ($includedValue === null || ! is_numeric($includedValue)) {
+        if ($includedRaw === null || ! is_numeric($includedRaw)) {
             return null;
         }
 
+        $includedValue = (float) $includedRaw;
         $estimatedValue = (float) $box->estimated_value;
+        $remainder = round($includedValue - $estimatedValue, 2);
 
-        return round((float) $includedValue - $estimatedValue, 2);
+        return [
+            'included_value' => $includedValue,
+            'remainder' => $remainder,
+        ];
+    }
+
+    /**
+     * Get the budget remainder for a user's box.
+     * Positive = under budget, negative = over budget.
+     *
+     * @return float|null The remainder in EUR, or null if no subscription/box size.
+     */
+    public function getRemainder(User $user, Box $box): ?float
+    {
+        $details = $this->getBudgetDetails($user, $box);
+
+        return $details === null ? null : $details['remainder'];
     }
 }

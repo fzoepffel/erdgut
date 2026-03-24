@@ -6,6 +6,7 @@ use App\Enums\BoxStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Product;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -34,11 +35,34 @@ class BoxControllerTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.boxes.show', $box))
             ->assertOk()
-            ->assertSee('Box details')
+            ->assertSee('This week\'s box')
             ->assertSee('Test Tomatoes')
             ->assertSee('1.50 kg')
-            ->assertSee('Estimated value: EUR 45.80')
-            ->assertSee('Extra');
+            ->assertSee('Estimated value')
+            ->assertSee('45.80')
+            ->assertSee('Extra add-on');
+    }
+
+    public function test_box_show_displays_budget_details_when_user_has_active_subscription(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'box_size' => 'medium',
+        ]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'week_start_date' => now()->startOfWeek()->toDateString(),
+            'estimated_value' => 10.00,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.boxes.show', $box))
+            ->assertOk()
+            ->assertSee('Included in subscription')
+            ->assertSee('35.00')
+            ->assertSee('Remaining budget')
+            ->assertSee('25.00');
     }
 
     public function test_non_owner_cannot_open_box_placeholder_page(): void

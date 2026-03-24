@@ -105,6 +105,7 @@ Type `exit` to leave tinker.
 - **App shell & dashboard hub (ERD-174):** navigation IA, dashboard scan layout, manual QA — see [docs/UX-ERD-174-qa.md](docs/UX-ERD-174-qa.md).
 - **Subscription management UX (ERD-175):** plan selection, overview sections, lifecycle modals, manual QA — see [docs/UX-ERD-175-qa.md](docs/UX-ERD-175-qa.md).
 - **Deliveries & preferences UX (ERD-176):** weekly timeline hub, skip/postpone/gift, default settings vs one-off overrides, manual QA — see [docs/UX-ERD-176-qa.md](docs/UX-ERD-176-qa.md).
+- **Weekly box composition UX (ERD-177):** budget panel, edit/view modes, deadline countdown, shop handoff, manual QA — see [docs/UX-ERD-177-qa.md](docs/UX-ERD-177-qa.md).
 - **About page hero image (optional):** add `public/images/about-hero.jpg` to show a photo in the `/about` hero on larger screens (see comment in `resources/views/marketing/about.blade.php`).
 - **Auth redirects and flows (ERD-173):** login, registration, verification, and password reset behaviour — see [docs/AUTH-FLOWS.md](docs/AUTH-FLOWS.md).
 

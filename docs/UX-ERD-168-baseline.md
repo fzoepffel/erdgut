@@ -131,6 +131,8 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 | `app.boxes.items.updateQuantity` | PATCH | `app/boxes/{box}/items/{item}` | ERD-177 |
 | `app.boxes.items.remove` | DELETE | `app/boxes/{box}/items/{item}` | ERD-177 |
 
+**Box composition UX (ERD-177):** `app.boxes.show` is the weekly composition hub: editable vs read-only state, deadline + coarse countdown, budget panel (included value and remainder aligned with shop), touch-friendly quantity controls in edit mode, optional mobile sticky estimated-value bar, and `__()` / `de.json` strings. Item mutations remain JSON APIs from the same page or shop. QA: [docs/UX-ERD-177-qa.md](UX-ERD-177-qa.md).
+
 ### 4.7 Shop (`app.shop.*`)
 
 | Route name | Method | URI | Owning ticket |

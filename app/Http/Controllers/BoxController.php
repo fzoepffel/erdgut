@@ -10,6 +10,7 @@ use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Product;
 use App\Support\BoxValueRecalculationService;
+use App\Support\BudgetRemainderService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -35,7 +36,7 @@ class BoxController extends Controller
         return redirect()->route('app.boxes.show', $currentBox);
     }
 
-    public function show(Request $request, Box $box): View
+    public function show(Request $request, Box $box, BudgetRemainderService $budgetRemainderService): View
     {
         abort_unless((int) $box->user_id === (int) $request->user()->id, 403);
         $box->loadMissing('items.product');
@@ -54,6 +55,8 @@ class BoxController extends Controller
             }
         }
 
+        $budgetDetails = $budgetRemainderService->getBudgetDetails($request->user(), $box);
+
         return view('boxes.show', [
             'box' => $box,
             'modificationDeadline' => $modificationDeadline,
@@ -62,6 +65,8 @@ class BoxController extends Controller
             'isEditModeActive' => $isEditModeActive,
             'isEditModeBlocked' => $isEditModeBlocked,
             'blockedReason' => $blockedReason,
+            'budgetDetails' => $budgetDetails,
+            'shopExtrasEnabled' => (bool) config('features.shop_extras_enabled', true),
         ]);
     }
 
