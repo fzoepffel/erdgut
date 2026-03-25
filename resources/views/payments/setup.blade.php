@@ -77,7 +77,7 @@
                                             // and defaults the save-card toggle to OFF. Auto-enable it so
                                             // the mandate is always created and a token is returned.
                                             const poll = setInterval(function() {
-                                                const cb = document.querySelector('input[type="checkbox"]');
+                                                const cb = document.querySelector('input[type=checkbox]');
                                                 if (cb && !cb.checked) {
                                                     cb.click();
                                                     clearInterval(poll);
