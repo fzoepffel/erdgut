@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use RuntimeException;
+use SumUp\Exception\SDKException;
 use SumUp\SumUp;
 
 class SumUpService
@@ -151,7 +152,7 @@ class SumUpService
         } catch (\Throwable $e) {
             $responseBody = null;
             $statusCode = null;
-            if ($e instanceof \SumUp\Exception\SDKException) {
+            if ($e instanceof SDKException) {
                 $statusCode = $e->getStatusCode();
                 $raw = $e->getResponseBody();
                 $responseBody = is_string($raw) ? mb_substr($raw, 0, 500) : $raw;
