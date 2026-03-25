@@ -5,91 +5,23 @@ namespace App\Services\Admin;
 use App\Enums\BoxStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
+use App\Models\Product;
 use App\Models\Subscription;
-use App\Support\BoxCompositionService;
 use App\Support\BoxValueRecalculationService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Admin bulk fills for the weekly planner: random preset preview/apply and canonical per-size fill.
+ * Admin bulk fills for the weekly planner: canonical per-size fill (Wochenmenü).
  */
 final class AdminBoxPlannerFillService
 {
     public function __construct(
         private readonly WeeklyBoxPlannerService $weeklyBoxPlanner,
-        private readonly BoxCompositionService $compositionService,
         private readonly BoxValueRecalculationService $valueRecalculationService,
         private readonly CanonicalBoxTemplateBuilder $canonicalTemplateBuilder,
     ) {}
-
-    /**
-     * @return array{
-     *     week_start_date: string,
-     *     rows: list<array{
-     *         subscription: Subscription,
-     *         box: Box|null,
-     *         lines: list,
-     *         estimated_value: float,
-     *         included_budget: float,
-     *         over_budget: bool,
-     *         will_create_box: bool,
-     *         skipped_not_editable: bool,
-     *     }>,
-     * }
-     */
-    public function previewBulkRandom(Carbon $weekStart): array
-    {
-        $weekStart = $weekStart->copy()->startOfDay();
-        $rows = [];
-
-        foreach ($this->weeklyBoxPlanner->eligibleSubscriptionsForWeek($weekStart) as $subscription) {
-            $box = Box::query()
-                ->forUser($subscription->user_id)
-                ->forWeek($weekStart->toDateString())
-                ->first();
-
-            $skippedNotEditable = $box !== null && $box->status !== BoxStatus::Editable;
-
-            $lines = $this->compositionService->previewRandomLinesForSize((string) $subscription->box_size);
-            $estimated = round(array_sum(array_column($lines, 'line_total')), 2);
-            $included = round((float) $subscription->includedValueForBudget(), 2);
-
-            $rows[] = [
-                'subscription' => $subscription->loadMissing('user:id,email'),
-                'box' => $box,
-                'lines' => $lines,
-                'estimated_value' => $estimated,
-                'included_budget' => $included,
-                'over_budget' => $estimated > $included + 0.005,
-                'will_create_box' => $box === null,
-                'skipped_not_editable' => $skippedNotEditable,
-            ];
-        }
-
-        return [
-            'week_start_date' => $weekStart->toDateString(),
-            'rows' => $rows,
-        ];
-    }
-
-    public function applyBulkRandom(Carbon $weekStart): int
-    {
-        $weekStart = $weekStart->copy()->startOfDay();
-        $filled = 0;
-
-        foreach ($this->weeklyBoxPlanner->eligibleSubscriptionsForWeek($weekStart) as $subscription) {
-            $box = $this->weeklyBoxPlanner->ensureEmptyBox($subscription, $weekStart);
-            if ($box->status !== BoxStatus::Editable) {
-                continue;
-            }
-            $this->compositionService->composePresetFromScratch($box, (string) $subscription->box_size);
-            $filled++;
-        }
-
-        return $filled;
-    }
 
     /**
      * @return array{
@@ -166,49 +98,92 @@ final class AdminBoxPlannerFillService
         ];
     }
 
-    public function applyCanonical(Carbon $weekStart): int
+    /**
+     * @param  array<string, array{lines: list<array{product_id: int, quantity: float}>}>  $templatesBySize
+     */
+    public function applyCanonicalFromRequest(Carbon $weekStart, array $templatesBySize): int
     {
         $weekStart = $weekStart->copy()->startOfDay();
-        $preview = $this->previewCanonical($weekStart);
         $updated = 0;
 
-        DB::transaction(function () use ($preview, $weekStart, &$updated): void {
-            foreach ($preview['size_blocks'] as $block) {
-                $lines = $block['template_lines'];
-                if ($lines === []) {
+        DB::transaction(function () use ($weekStart, $templatesBySize, &$updated): void {
+            foreach ($this->weeklyBoxPlanner->eligibleSubscriptionsForWeek($weekStart) as $subscription) {
+                $size = (string) $subscription->box_size;
+                if (! isset($templatesBySize[$size]['lines']) || ! is_array($templatesBySize[$size]['lines'])) {
                     continue;
                 }
 
-                foreach ($block['subscriptions'] as $subRow) {
-                    if ($subRow['skipped_not_editable']) {
-                        continue;
-                    }
+                $linesPayload = $templatesBySize[$size]['lines'];
 
-                    $subscription = $subRow['subscription'];
-                    $box = $this->weeklyBoxPlanner->ensureEmptyBox($subscription, $weekStart);
-                    if ($box->status !== BoxStatus::Editable) {
-                        continue;
-                    }
+                $box = Box::query()
+                    ->forUser($subscription->user_id)
+                    ->forWeek($weekStart->toDateString())
+                    ->first();
 
+                $skippedNotEditable = $box !== null && $box->status !== BoxStatus::Editable;
+                if ($skippedNotEditable) {
+                    continue;
+                }
+
+                $box = $this->weeklyBoxPlanner->ensureEmptyBox($subscription, $weekStart);
+                if ($box->status !== BoxStatus::Editable) {
+                    continue;
+                }
+
+                $resolved = $this->resolveTemplateLines($linesPayload);
+                if ($resolved === []) {
                     $box->items()->where('is_extra', false)->delete();
-
-                    foreach ($lines as $line) {
-                        $product = $line['product'];
-                        BoxItem::create([
-                            'box_id' => $box->id,
-                            'product_id' => $product->id,
-                            'quantity' => (float) $line['quantity'],
-                            'unit' => (string) $line['unit'],
-                            'is_extra' => false,
-                        ]);
-                    }
-
                     $this->valueRecalculationService->recalculate($box->fresh());
                     $updated++;
+
+                    continue;
                 }
+
+                $box->items()->where('is_extra', false)->delete();
+
+                foreach ($resolved as $line) {
+                    $product = $line['product'];
+                    BoxItem::create([
+                        'box_id' => $box->id,
+                        'product_id' => $product->id,
+                        'quantity' => (float) $line['quantity'],
+                        'unit' => (string) $line['unit'],
+                        'is_extra' => false,
+                    ]);
+                }
+
+                $this->valueRecalculationService->recalculate($box->fresh());
+                $updated++;
             }
         });
 
         return $updated;
+    }
+
+    /**
+     * @param  list<array{product_id: int, quantity: float}>  $linesPayload
+     * @return list<array{product: Product, quantity: float, unit: string}>
+     */
+    private function resolveTemplateLines(array $linesPayload): array
+    {
+        $out = [];
+        foreach ($linesPayload as $row) {
+            $productId = (int) ($row['product_id'] ?? 0);
+            $qty = (float) ($row['quantity'] ?? 0);
+            if ($productId < 1 || $qty < 0.01) {
+                continue;
+            }
+            $product = Product::query()->visibleInCatalog()->find($productId);
+            if ($product === null) {
+                continue;
+            }
+            $out[] = [
+                'product' => $product,
+                'quantity' => $qty,
+                'unit' => (string) data_get($product->metadata, 'unit', 'piece'),
+            ];
+        }
+
+        return $out;
     }
 }

@@ -213,6 +213,14 @@ class Subscription extends Model
     }
 
     /**
+     * Nominal included TTC for the subscription's box size (config only; ignores trial and add-ons).
+     */
+    public function nominalIncludedValueTtc(): float
+    {
+        return round((float) config('box.included_value_by_size.'.$this->box_size, 35), 2);
+    }
+
+    /**
      * Mark trial window closed after first successful recurring payment (idempotent).
      */
     public function markTrialBillingCompletedIfPending(): void

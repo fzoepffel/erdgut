@@ -121,11 +121,6 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:12,1')
                 ->name('billing.charge');
             Route::get('boxes/planner', [AdminBoxPlannerController::class, 'index'])->name('boxes.planner');
-            Route::get('boxes/planner/bulk-random-preview', [AdminBoxPlannerController::class, 'bulkRandomPreview'])
-                ->name('boxes.planner.bulk-random-preview');
-            Route::post('boxes/planner/bulk-random-apply', [AdminBoxPlannerController::class, 'bulkRandomApply'])
-                ->middleware('throttle:12,1')
-                ->name('boxes.planner.bulk-random-apply');
             Route::get('boxes/planner/canonical-preview', [AdminBoxPlannerController::class, 'canonicalPreview'])
                 ->name('boxes.planner.canonical-preview');
             Route::post('boxes/planner/canonical-apply', [AdminBoxPlannerController::class, 'canonicalApply'])
@@ -136,7 +131,6 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:12,1')
                 ->name('boxes.distribute.apply');
             Route::post('boxes', [AdminBoxController::class, 'store'])->name('boxes.store');
-            Route::post('boxes/{box}/preset', [AdminBoxController::class, 'preset'])->name('boxes.preset');
             Route::post('boxes/{box}/items', [AdminBoxItemController::class, 'store'])->name('boxes.items.store');
             Route::patch('boxes/{box}/items/{item}', [AdminBoxItemController::class, 'update'])
                 ->scopeBindings()

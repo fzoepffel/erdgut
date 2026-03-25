@@ -70,4 +70,20 @@ class SubscriptionBillingAmountsTest extends TestCase
 
         $this->assertSame(20.0, $subscription->expectedChargeAmount());
     }
+
+    public function test_nominal_included_value_ttc_uses_size_config_regardless_of_trial(): void
+    {
+        Config::set('box.trial_billing_enabled', true);
+        Config::set('box.trial_price_ttc', 35);
+        Config::set('box.included_value_by_size.large', 42.0);
+
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->for($user)->create([
+            'box_size' => 'large',
+            'trial_completed_at' => null,
+        ]);
+
+        $this->assertSame(42.0, $subscription->nominalIncludedValueTtc());
+        $this->assertSame(35.0, $subscription->includedValueForBudget());
+    }
 }

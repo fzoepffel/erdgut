@@ -3,6 +3,7 @@
     $included_budget = $included_budget ?? 0.0;
     $estimated_value = $estimated_value ?? null;
     $over_budget = $over_budget ?? false;
+    $items_summary = $items_summary ?? null;
 @endphp
 @if (! $eligible)
     <span class="text-xs text-amber-800">{{ __('admin.box_planner.state_not_eligible') }}</span>
@@ -24,6 +25,13 @@
     @else
         <span class="mb-2 block text-xs text-gray-700">{{ __('admin.box_planner.state_delivered') }}</span>
     @endif
+    <p class="mb-2 text-xs text-gray-500 line-clamp-2" title="{{ $items_summary ?? '' }}">
+        @if ($items_summary !== null && $items_summary !== '')
+            {{ $items_summary }}
+        @else
+            {{ __('admin.box_planner.cell_items_empty') }}
+        @endif
+    </p>
     @if ($estimated_value !== null)
         <p class="mb-2 text-xs tabular-nums {{ $over_budget ? 'font-semibold text-rose-700' : 'text-gray-600' }}">
             {{ __('admin.box_planner.cell_value_vs_budget', [
@@ -39,14 +47,5 @@
         <a href="{{ route('app.admin.boxes.show', $box) }}" class="text-xs font-medium text-emerald-700 hover:underline">
             {{ __('admin.box_planner.action_details') }}
         </a>
-        @if ($box->status === BoxStatus::Editable)
-            <form method="post" action="{{ route('app.admin.boxes.preset', $box) }}" class="pt-1">
-                @csrf
-                <input type="hidden" name="subscription_id" value="{{ $subscription->id }}" />
-                <button type="submit" class="w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50">
-                    {{ __('admin.box_planner.action_fill_preset') }}
-                </button>
-            </form>
-        @endif
     </div>
 @endif

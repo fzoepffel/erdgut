@@ -160,7 +160,7 @@ class RouteGroupingTest extends TestCase
             $this->assertContains('admin', $route->gatherMiddleware(), $name);
         }
 
-        foreach (['app.admin.boxes.planner.bulk-random-preview', 'app.admin.boxes.planner.canonical-preview'] as $name) {
+        foreach (['app.admin.boxes.planner.canonical-preview'] as $name) {
             $route = RouteFacade::getRoutes()->getByName($name);
             $this->assertNotNull($route);
             $this->assertContains('auth', $route->gatherMiddleware());
@@ -168,7 +168,7 @@ class RouteGroupingTest extends TestCase
             $this->assertContains('admin', $route->gatherMiddleware());
         }
 
-        foreach (['app.admin.boxes.planner.bulk-random-apply', 'app.admin.boxes.planner.canonical-apply'] as $name) {
+        foreach (['app.admin.boxes.planner.canonical-apply'] as $name) {
             $route = RouteFacade::getRoutes()->getByName($name);
             $this->assertNotNull($route);
             $this->assertContains('auth', $route->gatherMiddleware());
@@ -182,12 +182,6 @@ class RouteGroupingTest extends TestCase
         $this->assertContains('auth', $storeBoxRoute->gatherMiddleware());
         $this->assertContains('verified', $storeBoxRoute->gatherMiddleware());
         $this->assertContains('admin', $storeBoxRoute->gatherMiddleware());
-
-        $presetBoxRoute = RouteFacade::getRoutes()->getByName('app.admin.boxes.preset');
-        $this->assertNotNull($presetBoxRoute);
-        $this->assertContains('auth', $presetBoxRoute->gatherMiddleware());
-        $this->assertContains('verified', $presetBoxRoute->gatherMiddleware());
-        $this->assertContains('admin', $presetBoxRoute->gatherMiddleware());
 
         $distributeApplyRoute = RouteFacade::getRoutes()->getByName('app.admin.boxes.distribute.apply');
         $this->assertNotNull($distributeApplyRoute);
@@ -241,14 +235,11 @@ class RouteGroupingTest extends TestCase
             'app.admin.subscriptions.index' => [AdminSubscriptionController::class, 'index'],
             'app.admin.deliveries.index' => [AdminDeliveryController::class, 'index'],
             'app.admin.boxes.planner' => [AdminBoxPlannerController::class, 'index'],
-            'app.admin.boxes.planner.bulk-random-preview' => [AdminBoxPlannerController::class, 'bulkRandomPreview'],
-            'app.admin.boxes.planner.bulk-random-apply' => [AdminBoxPlannerController::class, 'bulkRandomApply'],
             'app.admin.boxes.planner.canonical-preview' => [AdminBoxPlannerController::class, 'canonicalPreview'],
             'app.admin.boxes.planner.canonical-apply' => [AdminBoxPlannerController::class, 'canonicalApply'],
             'app.admin.boxes.distribute' => [AdminBoxDistributionController::class, 'show'],
             'app.admin.boxes.distribute.apply' => [AdminBoxDistributionController::class, 'apply'],
             'app.admin.boxes.store' => [AdminBoxController::class, 'store'],
-            'app.admin.boxes.preset' => [AdminBoxController::class, 'preset'],
             'app.admin.boxes.items.store' => [AdminBoxItemController::class, 'store'],
             'app.admin.boxes.items.update' => [AdminBoxItemController::class, 'update'],
             'app.admin.boxes.items.destroy' => [AdminBoxItemController::class, 'destroy'],

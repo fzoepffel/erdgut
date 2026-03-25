@@ -2,16 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\BoxStatus;
 use App\Enums\SubscriptionStatus;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\AdminBoxPresetRequest;
 use App\Http\Requests\Admin\AdminBoxStoreRequest;
 use App\Models\Box;
 use App\Models\Product;
 use App\Models\Subscription;
 use App\Services\Admin\WeeklyBoxPlannerService;
-use App\Support\BoxCompositionService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
@@ -84,23 +81,5 @@ class AdminBoxController extends Controller
         return redirect()
             ->route('app.admin.boxes.planner')
             ->with('status', $message);
-    }
-
-    public function preset(AdminBoxPresetRequest $request, Box $box, BoxCompositionService $compositionService): RedirectResponse
-    {
-        $this->authorize('admin');
-
-        if ($box->status !== BoxStatus::Editable) {
-            return redirect()
-                ->back()
-                ->withErrors(['box' => __('admin.box_planner.errors.box_not_editable')]);
-        }
-
-        $subscription = Subscription::query()->findOrFail($request->validated()['subscription_id']);
-        $compositionService->composePresetFromScratch($box, (string) $subscription->box_size);
-
-        return redirect()
-            ->back()
-            ->with('status', __('admin.box_planner.flash_preset_applied'));
     }
 }
