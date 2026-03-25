@@ -239,13 +239,18 @@ class PaymentSetupController extends Controller
         }
 
         if ($checkoutStatus === 'FAILED') {
-            SumUpCheckoutLogger::info('Payment setup: checkout status FAILED but token obtained — proceeding with tokenized card.', [
+            SumUpCheckoutLogger::warning('Payment setup: checkout status FAILED — refusing to save token from failed checkout.', [
                 'subscription_id' => $subscription->id,
                 'user_id' => $request->user()->id,
                 'checkout_id' => $checkoutId,
                 'intent' => $intent,
                 'token_source' => $tokenSource,
+                'checkout' => $snapshot,
             ]);
+
+            return redirect()
+                ->route('app.payments.history')
+                ->with('status', 'payment-setup-failed');
         }
 
         $subscriptionLifecycleService = app(SubscriptionLifecycleService::class);

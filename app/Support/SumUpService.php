@@ -142,11 +142,38 @@ class SumUpService
 
     public function processCheckout(string $checkoutId, string $token, string $customerId): object
     {
-        return $this->client->checkouts()->process($checkoutId, [
-            'payment_type' => 'card',
-            'token' => $token,
-            'customer_id' => $customerId,
+        try {
+            $result = $this->client->checkouts()->process($checkoutId, [
+                'payment_type' => 'card',
+                'token' => $token,
+                'customer_id' => $customerId,
+            ]);
+        } catch (\Throwable $e) {
+            $responseBody = null;
+            $statusCode = null;
+            if ($e instanceof \SumUp\Exception\SDKException) {
+                $statusCode = $e->getStatusCode();
+                $raw = $e->getResponseBody();
+                $responseBody = is_string($raw) ? mb_substr($raw, 0, 500) : $raw;
+            }
+
+            SumUpCheckoutLogger::warning('SumUp checkouts.process failed.', [
+                'checkout_id' => $checkoutId,
+                'exception_class' => $e::class,
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
+                'sumup_status_code' => $statusCode,
+                'sumup_response_body' => $responseBody,
+            ]);
+
+            throw $e;
+        }
+
+        SumUpCheckoutLogger::info('SumUp checkouts.process succeeded.', [
+            'checkout_id' => $checkoutId,
+            'status' => data_get($result, 'status'),
         ]);
+
+        return $result;
     }
 
     /**

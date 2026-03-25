@@ -71,6 +71,7 @@
                                         checkoutId: {{ json_encode($checkoutId) }},
                                         email: {{ json_encode($subscription->user->email) }},
                                         locale: {{ json_encode($sumupLocale) }},
+                                        showSaveCardOption: false,
                                         onResponse: function(type, body) {
                                             if (type === 'success' && body?.status !== 'FAILED') {
                                                 const checkoutId = body?.id ?? {{ json_encode($checkoutId) }};

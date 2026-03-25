@@ -12,6 +12,7 @@ use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use SumUp\Exception\SDKException;
 use Throwable;
 
 /**
@@ -77,6 +78,25 @@ final class SubscriptionRecurringChargeService
             Log::info('payment.created', $logPayload);
         }
 
+        $token = trim((string) $subscription->sumup_token);
+        $customerId = trim((string) $subscription->sumup_customer_id);
+
+        if ($token === '' || $customerId === '') {
+            $payment->markFailed('Missing payment token or customer ID — payment method not set up');
+            Log::warning('payment.failed', [
+                'payment_id' => $payment->id,
+                'subscription_id' => $subscription->id,
+                'previous_status' => Payment::STATUS_PENDING,
+                'new_status' => Payment::STATUS_FAILED,
+                'reason' => 'Missing payment token or customer ID',
+                'has_token' => $token !== '',
+                'has_customer_id' => $customerId !== '',
+                'timestamp' => now()->toIso8601String(),
+            ]);
+
+            return;
+        }
+
         $checkoutReference = "sub-{$subscription->id}-charge-{$payment->id}-".now()->timestamp;
 
         try {
@@ -110,6 +130,14 @@ final class SubscriptionRecurringChargeService
                 (string) $subscription->sumup_customer_id
             );
         } catch (Throwable $e) {
+            $sumupResponseBody = null;
+            $sumupStatusCode = null;
+            if ($e instanceof SDKException) {
+                $sumupStatusCode = $e->getStatusCode();
+                $rawBody = $e->getResponseBody();
+                $sumupResponseBody = is_string($rawBody) ? mb_substr($rawBody, 0, 500) : $rawBody;
+            }
+
             $payment->markFailed(SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()));
             Log::warning('payment.failed', [
                 'payment_id' => $payment->id,
@@ -117,6 +145,9 @@ final class SubscriptionRecurringChargeService
                 'previous_status' => Payment::STATUS_PENDING,
                 'new_status' => Payment::STATUS_FAILED,
                 'reason' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
+                'exception_class' => $e::class,
+                'sumup_status_code' => $sumupStatusCode,
+                'sumup_response_body' => $sumupResponseBody,
                 'timestamp' => now()->toIso8601String(),
             ]);
 
