@@ -24,13 +24,11 @@ class BudgetRemainderService
             return null;
         }
 
-        $includedRaw = config('box.included_value_by_size.'.$subscription->box_size);
+        $includedValue = $subscription->includedValueForBudget();
 
-        if ($includedRaw === null || ! is_numeric($includedRaw)) {
+        if ($includedValue <= 0.0) {
             return null;
         }
-
-        $includedValue = (float) $includedRaw;
         $estimatedValue = (float) $box->estimated_value;
         $remainder = round($includedValue - $estimatedValue, 2);
 

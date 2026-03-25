@@ -80,4 +80,27 @@ class BudgetRemainderServiceTest extends TestCase
 
         $this->assertSame(2.0, $remainder);
     }
+
+    public function test_get_remainder_includes_eggs_dairy_in_budget(): void
+    {
+        $user = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'box_size' => 'medium',
+            'status' => SubscriptionStatus::Active,
+            'preferences' => [
+                'veg_only' => false,
+                'meat_add_on' => false,
+                'eggs_dairy_add_on' => true,
+            ],
+        ]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'estimated_value' => 20.00,
+        ]);
+
+        $remainder = app(BudgetRemainderService::class)->getRemainder($user, $box);
+
+        $this->assertSame(19.5, $remainder);
+    }
 }

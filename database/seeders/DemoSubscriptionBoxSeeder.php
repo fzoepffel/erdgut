@@ -41,10 +41,11 @@ class DemoSubscriptionBoxSeeder extends Seeder
                 [
                     'plan' => SubscriptionPlan::Weekly,
                     'box_size' => 'medium',
-                    'preferences' => ['veg_only' => false, 'meat_add_on' => false],
+                    'preferences' => ['veg_only' => false, 'meat_add_on' => false, 'eggs_dairy_add_on' => false],
                     'allergies' => [],
                     'status' => SubscriptionStatus::Active,
                     'is_test' => true,
+                    'trial_completed_at' => now(),
                 ]
             );
 

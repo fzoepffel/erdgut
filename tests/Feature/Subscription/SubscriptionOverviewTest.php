@@ -73,7 +73,7 @@ class SubscriptionOverviewTest extends TestCase
             ->post(route('app.subscriptions.store'), [
                 'plan' => 'weekly',
                 'box_size' => 'medium',
-                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
+                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0', 'eggs_dairy_add_on' => '0'],
                 'allergies' => '',
             ])
             ->assertRedirect(route('app.subscriptions.onboard.payment'))
@@ -122,7 +122,7 @@ class SubscriptionOverviewTest extends TestCase
             ->post(route('app.subscriptions.store'), [
                 'plan' => 'biweekly',
                 'box_size' => 'small',
-                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
+                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0', 'eggs_dairy_add_on' => '0'],
                 'allergies' => '',
             ])
             ->assertRedirect(route('app.subscriptions.onboard.payment'))
@@ -144,7 +144,7 @@ class SubscriptionOverviewTest extends TestCase
             ->post(route('app.subscriptions.store'), [
                 'plan' => 'daily',
                 'box_size' => 'medium',
-                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
+                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0', 'eggs_dairy_add_on' => '0'],
                 'allergies' => '',
             ])
             ->assertRedirect(route('app.subscriptions.onboard'))

@@ -24,10 +24,36 @@ return [
     |
     */
     'included_value_by_size' => [
-        'small' => 20,
-        'medium' => 35,
-        'large' => 42,
+        'small' => (float) env('BOX_INCLUDED_VALUE_SMALL', 20),
+        'medium' => (float) env('BOX_INCLUDED_VALUE_MEDIUM', 35),
+        'large' => (float) env('BOX_INCLUDED_VALUE_LARGE', 42),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | One-time trial billing (first paid recurring charge)
+    |--------------------------------------------------------------------------
+    |
+    | While trial_completed_at is null, expectedChargeAmount() uses trial_price_ttc
+    | (TTC) for the first successful recurring payment, regardless of box_size.
+    | After the first payment is marked paid (webhook), trial_completed_at is set
+    | and normal size-based pricing applies. Disable for legacy behaviour/tests.
+    |
+    */
+    'trial_billing_enabled' => (bool) env('BOX_TRIAL_BILLING_ENABLED', true),
+
+    'trial_price_ttc' => (float) env('BOX_TRIAL_PRICE_TTC', 35),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Optional eggs / dairy add-on (TTC, same for all box sizes)
+    |--------------------------------------------------------------------------
+    |
+    | When preferences.eggs_dairy_add_on is true, this amount is added to the
+    | recurring charge and to the included value used for budget remainder.
+    |
+    */
+    'eggs_dairy_add_on_eur' => (float) env('BOX_EGGS_DAIRY_ADD_ON_EUR', 4.5),
 
     /*
     |--------------------------------------------------------------------------

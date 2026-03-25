@@ -29,13 +29,25 @@ class SubscriptionFactory extends Factory
             'preferences' => [
                 'veg_only' => fake()->boolean(),
                 'meat_add_on' => fake()->boolean(),
+                'eggs_dairy_add_on' => false,
             ],
             'allergies' => fake()->randomElements(['nuts', 'gluten', 'lactose'], fake()->numberBetween(0, 2)),
             'status' => SubscriptionStatus::Active,
             'sumup_token' => fake()->optional()->sha1(),
             'sumup_customer_id' => fake()->optional()->uuid(),
             'is_test' => false,
+            'trial_completed_at' => now(),
         ];
+    }
+
+    /**
+     * First recurring charge should use trial_price_ttc until a payment is marked paid.
+     */
+    public function withPendingTrialBilling(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'trial_completed_at' => null,
+        ]);
     }
 
     public function withPaymentToken(): static

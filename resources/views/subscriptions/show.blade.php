@@ -1,6 +1,7 @@
 @php
     $vegOnly = (bool) data_get($subscription?->preferences, 'veg_only', false);
     $meatAddOn = (bool) data_get($subscription?->preferences, 'meat_add_on', false);
+    $eggsDairyAddOn = (bool) data_get($subscription?->preferences, 'eggs_dairy_add_on', false);
 @endphp
 
 <x-app-layout>
@@ -140,6 +141,10 @@
                                     <div>
                                         <dt class="text-sm font-medium text-gray-500">{{ __('Meat add-on') }}</dt>
                                         <dd class="mt-1 text-sm text-gray-900">{{ $meatAddOn ? __('Yes') : __('No') }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-sm font-medium text-gray-500">{{ __('Eggs or dairy add-on') }}</dt>
+                                        <dd class="mt-1 text-sm text-gray-900">{{ $eggsDairyAddOn ? __('Yes') : __('No') }}</dd>
                                     </div>
                                     <div>
                                         <dt class="text-sm font-medium text-gray-500">{{ __('Allergies') }}</dt>

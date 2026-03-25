@@ -135,6 +135,44 @@ class ChargeSubscriptionsTest extends TestCase
         $this->assertSame($weekStart->toDateString(), $payment->fulfillment_week_start?->toDateString());
     }
 
+    public function test_charge_uses_trial_price_for_small_box_when_trial_billing_pending(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->withPendingTrialBilling()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_trial_small',
+            'sumup_customer_id' => 'cust_trial_small',
+            'box_size' => 'small',
+            'next_charge_date' => now()->subDay(),
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('createRecurringCheckout')
+            ->once()
+            ->withArgs(function ($amount, $customerId, $ref, $desc) {
+                return $amount === 35.0
+                    && $customerId === 'cust_trial_small';
+            })
+            ->andReturn((object) ['id' => 'checkout_trial_small']);
+        $sumUpService->shouldReceive('processCheckout')
+            ->once()
+            ->with('checkout_trial_small', 'tok_trial_small', 'cust_trial_small')
+            ->andReturn((object) ['status' => 'PENDING']);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->artisan('subscriptions:charge')
+            ->assertSuccessful()
+            ->expectsOutputToContain('Charged 1 subscription(s)');
+
+        $this->assertDatabaseHas('payments', [
+            'subscription_id' => $subscription->id,
+            'amount' => 35,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_trial_small',
+        ]);
+    }
+
     public function test_dry_run_excludes_subscription_already_paid_for_fulfillment_week(): void
     {
         $this->travelTo(Carbon::parse('2025-06-18 12:00:00', 'UTC'));

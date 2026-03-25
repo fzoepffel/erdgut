@@ -112,6 +112,32 @@ class SumUpWebhookTest extends TestCase
         $this->assertSame(Carbon::today()->addWeek()->toDateString(), $subscription->next_charge_date?->toDateString());
     }
 
+    public function test_webhook_sets_trial_completed_at_when_first_payment_marked_paid(): void
+    {
+        $subscription = Subscription::factory()->withPendingTrialBilling()->create([
+            'plan' => SubscriptionPlan::Weekly,
+        ]);
+        $this->assertNull($subscription->trial_completed_at);
+
+        $payment = Payment::factory()->create([
+            'subscription_id' => $subscription->id,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_trial_done_123',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')->with('checkout_trial_done_123')->andReturn((object) ['status' => 'PAID']);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_trial_done_123',
+        ])->assertOk();
+
+        $subscription->refresh();
+        $this->assertNotNull($subscription->trial_completed_at);
+    }
+
     public function test_webhook_marks_payment_failed_on_failure(): void
     {
         $subscription = Subscription::factory()->create();

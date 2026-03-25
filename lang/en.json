@@ -188,5 +188,7 @@
     "Your subscription is active. Deliveries and the full app are now available.": "Your subscription is active. Deliveries and the full app are now available.",
     "Included value approx. EUR :amount": "Included value approx. EUR :amount",
     "Back to dashboard": "Back to dashboard",
-    "Enter your card in the form below, then submit. You will return here when setup is complete.": "Enter your card in the form below, then submit. You will return here when setup is complete."
+    "Enter your card in the form below, then submit. You will return here when setup is complete.": "Enter your card in the form below, then submit. You will return here when setup is complete.",
+    "Eggs or dairy add-on": "Eggs or dairy add-on",
+    "Eggs or dairy add-on hint": "About :amount € per delivery on your subscription."
 }

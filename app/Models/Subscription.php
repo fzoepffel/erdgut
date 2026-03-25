@@ -53,6 +53,7 @@ class Subscription extends Model
         'sumup_token',
         'sumup_customer_id',
         'is_test',
+        'trial_completed_at',
     ];
 
     /**
@@ -71,6 +72,7 @@ class Subscription extends Model
             'pause_from' => 'date',
             'pause_until' => 'date',
             'cancelled_at' => 'datetime',
+            'trial_completed_at' => 'datetime',
             'is_test' => 'boolean',
             'sumup_token' => 'encrypted',
             'sumup_customer_id' => 'encrypted',
@@ -147,10 +149,78 @@ class Subscription extends Model
     }
 
     /**
-     * Expected recurring charge amount (EUR) from box size config; matches {@see ChargeSubscriptions}.
+     * Whether the one-time trial price still applies before the first paid recurring charge.
+     *
+     * Trial uses {@see config('box.trial_price_ttc')} (TTC) for the charge and box budget,
+     * regardless of box_size, until {@see $trial_completed_at} is set when a recurring
+     * payment is marked paid (webhook).
+     */
+    public function isTrialBillingPending(): bool
+    {
+        if (! config('box.trial_billing_enabled', true)) {
+            return false;
+        }
+
+        return $this->trial_completed_at === null;
+    }
+
+    public function hasEggsDairyAddOn(): bool
+    {
+        return (bool) data_get($this->preferences, 'eggs_dairy_add_on', false);
+    }
+
+    /**
+     * Configured eggs/dairy add-on EUR when the preference is enabled.
+     */
+    public function eggsDairyAddOnAmount(): float
+    {
+        if (! $this->hasEggsDairyAddOn()) {
+            return 0.0;
+        }
+
+        $raw = config('box.eggs_dairy_add_on_eur');
+
+        return is_numeric($raw) ? round((float) $raw, 2) : 0.0;
+    }
+
+    /**
+     * Base TTC for the subscription before add-ons: trial price or size-based included value.
+     */
+    public function baseBillingAmountTtc(): float
+    {
+        if ($this->isTrialBillingPending()) {
+            return round((float) config('box.trial_price_ttc', 35), 2);
+        }
+
+        return round((float) config('box.included_value_by_size.'.$this->box_size, 35), 2);
+    }
+
+    /**
+     * Expected recurring charge amount (EUR TTC): base (trial or size) plus optional eggs/dairy add-on.
+     * Matches {@see ChargeSubscriptions} and admin manual charge.
      */
     public function expectedChargeAmount(): float
     {
-        return (float) config('box.included_value_by_size.'.$this->box_size, 35);
+        return round($this->baseBillingAmountTtc() + $this->eggsDairyAddOnAmount(), 2);
+    }
+
+    /**
+     * Included value for box budget / remainder (same TTC as charged, including add-on).
+     */
+    public function includedValueForBudget(): float
+    {
+        return $this->expectedChargeAmount();
+    }
+
+    /**
+     * Mark trial window closed after first successful recurring payment (idempotent).
+     */
+    public function markTrialBillingCompletedIfPending(): void
+    {
+        if ($this->trial_completed_at !== null) {
+            return;
+        }
+
+        $this->forceFill(['trial_completed_at' => now()])->save();
     }
 }

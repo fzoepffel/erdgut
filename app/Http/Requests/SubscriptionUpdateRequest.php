@@ -25,6 +25,7 @@ class SubscriptionUpdateRequest extends FormRequest
             'preferences' => ['required', 'array'],
             'preferences.veg_only' => ['required', 'boolean'],
             'preferences.meat_add_on' => ['required', 'boolean'],
+            'preferences.eggs_dairy_add_on' => ['required', 'boolean'],
             'allergies' => ['nullable', 'array'],
             'allergies.*' => ['string', 'max:255'],
         ];
@@ -52,6 +53,7 @@ class SubscriptionUpdateRequest extends FormRequest
             'preferences' => [
                 'veg_only' => $this->boolean('preferences.veg_only'),
                 'meat_add_on' => $this->boolean('preferences.meat_add_on'),
+                'eggs_dairy_add_on' => $this->boolean('preferences.eggs_dairy_add_on'),
             ],
             'allergies' => $allergies,
         ]);

@@ -36,7 +36,11 @@ class SubscriptionOnboardController extends Controller
         $subscription = new Subscription([
             'box_size' => $boxSize,
             'plan' => SubscriptionPlan::Weekly,
-            'preferences' => ['veg_only' => false, 'meat_add_on' => false],
+            'preferences' => [
+                'veg_only' => false,
+                'meat_add_on' => false,
+                'eggs_dairy_add_on' => false,
+            ],
             'allergies' => [],
         ]);
 

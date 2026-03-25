@@ -101,6 +101,10 @@ class SumUpWebhookHandler
             DB::transaction(function () use ($payment, $subscription, $shouldAdvanceNextChargeDate): void {
                 $payment->markPaid();
 
+                if ($subscription !== null) {
+                    $subscription->markTrialBillingCompletedIfPending();
+                }
+
                 if ($shouldAdvanceNextChargeDate) {
                     $nextChargeDate = $this->subscriptionLifecycleService->computeNextChargeDate($subscription);
                     $subscription->update(['next_charge_date' => $nextChargeDate]);

@@ -99,8 +99,25 @@
                                 <span class="text-sm text-gray-700">{{ __('Meat add-on') }}</span>
                             </label>
 
+                            <label class="inline-flex items-start gap-2">
+                                <input
+                                    type="checkbox"
+                                    name="preferences[eggs_dairy_add_on]"
+                                    value="1"
+                                    @checked((bool) old('preferences.eggs_dairy_add_on', data_get($subscription->preferences, 'eggs_dairy_add_on', false)))
+                                    class="mt-1 rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600"
+                                />
+                                <span>
+                                    <span class="text-sm text-gray-700">{{ __('Eggs or dairy add-on') }}</span>
+                                    <span class="mt-0.5 block text-xs text-gray-500">
+                                        {{ __('Eggs or dairy add-on hint', ['amount' => number_format((float) config('box.eggs_dairy_add_on_eur'), 2, ',', '.')]) }}
+                                    </span>
+                                </span>
+                            </label>
+
                             <x-input-error class="mt-2" :messages="$errors->get('preferences.veg_only')" />
                             <x-input-error class="mt-2" :messages="$errors->get('preferences.meat_add_on')" />
+                            <x-input-error class="mt-2" :messages="$errors->get('preferences.eggs_dairy_add_on')" />
                         </fieldset>
 
                         @php
