@@ -25,9 +25,37 @@
 
             <p class="text-sm text-gray-600">{{ __('admin.box_planner.intro') }}</p>
 
+            <details class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 text-sm text-gray-800">
+                <summary class="cursor-pointer font-medium text-gray-900">{{ __('admin.box_planner.legend_title') }}</summary>
+                <div class="mt-3 space-y-3 text-gray-700">
+                    <p>{{ __('admin.box_planner.legend_random_body') }}</p>
+                    <p>{{ __('admin.box_planner.legend_canonical_body') }}</p>
+                    <p>{{ __('admin.box_planner.legend_distribute_body') }}</p>
+                    <p class="text-xs text-gray-500">{{ __('admin.box_planner.legend_docs_hint') }}</p>
+                </div>
+            </details>
+
+            @if ($planningMarginRate > 0 && $planningMarginRate < 1)
+                <p class="text-xs text-gray-500">
+                    {{ __('admin.box_planner.planning_margin_hint', ['percent' => (int) round($planningMarginRate * 100)]) }}
+                </p>
+            @endif
+
             @if (count($weeks) > 0)
                 <div class="flex flex-wrap gap-2 lg:hidden">
                     @foreach ($weeks as $week)
+                        <a
+                            href="{{ route('app.admin.boxes.planner.bulk-random-preview', ['week_start_date' => $week->toDateString()]) }}"
+                            class="inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50"
+                        >
+                            {{ __('admin.box_fill_random.link_short') }} · {{ $week->translatedFormat('d.m.') }}
+                        </a>
+                        <a
+                            href="{{ route('app.admin.boxes.planner.canonical-preview', ['week_start_date' => $week->toDateString()]) }}"
+                            class="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-100"
+                        >
+                            {{ __('admin.box_fill_canonical.link_short') }} · {{ $week->translatedFormat('d.m.') }}
+                        </a>
                         <a
                             href="{{ route('app.admin.boxes.distribute', ['week_start_date' => $week->toDateString()]) }}"
                             class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
@@ -43,19 +71,19 @@
                 @forelse ($matrix as $row)
                     @php
                         $subscription = $row['subscription'];
+                        $includedBudget = $row['included_budget'];
+                        $planningHint = $row['planning_hint'];
                     @endphp
                     <div class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
                         <div class="mb-3 border-b border-gray-100 pb-3">
                             <p class="text-sm font-semibold text-gray-900">{{ $subscription->user?->email ?? '—' }}</p>
-                            <p class="text-xs text-gray-500">
+                            <p class="mt-1 text-xs text-gray-500">
                                 {{ __('admin.box_planner.sub_id') }} {{ $subscription->id }} ·
-                                {{ __('admin.operations.plan') }}:
-                                @if ($subscription->plan->value === 'weekly')
-                                    {{ __('admin.box_planner.plan_weekly') }}
-                                @else
-                                    {{ __('admin.box_planner.plan_biweekly') }}
+                                {{ __('admin.box_planner.size_label_' . $subscription->box_size) }}
+                                ({{ __('admin.box_planner.included_budget_label') }} {{ number_format($includedBudget, 2, ',', '.') }} €)
+                                @if ($planningHint !== null)
+                                    · {{ __('admin.box_planner.planning_hint_label') }} {{ number_format($planningHint, 2, ',', '.') }} €
                                 @endif
-                                · {{ __('Box size') }}: {{ $subscription->box_size }}
                             </p>
                         </div>
                         <div class="space-y-4">
@@ -72,6 +100,9 @@
                                         'week' => $week,
                                         'eligible' => $eligible,
                                         'box' => $box,
+                                        'included_budget' => $includedBudget,
+                                        'estimated_value' => $cell['estimated_value'] ?? null,
+                                        'over_budget' => $cell['over_budget'] ?? false,
                                     ])
                                 </div>
                             @endforeach
@@ -96,26 +127,29 @@
                                         {{ __('admin.operations.subscription') }}
                                     </th>
                                     @foreach ($weeks as $week)
-                                        <th scope="col" class="min-w-[11rem] py-2 pe-4 align-bottom">
+                                        <th scope="col" class="min-w-[12rem] py-2 pe-4 align-bottom">
                                             <div class="space-y-2">
                                                 <span class="block whitespace-nowrap">{{ $week->translatedFormat('d.m.Y') }}</span>
-                                                <form method="post" action="{{ route('app.admin.boxes.planner.bulk-preset') }}" class="space-y-1 text-[0.7rem] font-normal normal-case">
-                                                    @csrf
-                                                    <input type="hidden" name="week_start_date" value="{{ $week->toDateString() }}" />
-                                                    <label class="flex items-center gap-1 text-gray-600">
-                                                        <input type="checkbox" name="confirm_bulk" value="1" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600" />
-                                                        {{ __('admin.box_planner.bulk_confirm_short') }}
-                                                    </label>
-                                                    <button type="submit" class="w-full rounded bg-gray-900 px-2 py-1 text-xs font-semibold text-white hover:bg-gray-800">
-                                                        {{ __('admin.box_planner.bulk_fill_column') }}
-                                                    </button>
-                                                </form>
-                                                <a
-                                                    href="{{ route('app.admin.boxes.distribute', ['week_start_date' => $week->toDateString()]) }}"
-                                                    class="mt-1 block text-center text-[0.7rem] font-medium text-amber-800 hover:underline"
-                                                >
-                                                    {{ __('admin.box_distribute.link_short') }}
-                                                </a>
+                                                <div class="space-y-1 text-[0.7rem] font-normal normal-case">
+                                                    <a
+                                                        href="{{ route('app.admin.boxes.planner.bulk-random-preview', ['week_start_date' => $week->toDateString()]) }}"
+                                                        class="block w-full rounded border border-gray-300 bg-white px-2 py-1 text-center font-medium text-gray-800 hover:bg-gray-50"
+                                                    >
+                                                        {{ __('admin.box_fill_random.link_short') }}
+                                                    </a>
+                                                    <a
+                                                        href="{{ route('app.admin.boxes.planner.canonical-preview', ['week_start_date' => $week->toDateString()]) }}"
+                                                        class="block w-full rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-center font-medium text-emerald-900 hover:bg-emerald-100"
+                                                    >
+                                                        {{ __('admin.box_fill_canonical.link_short') }}
+                                                    </a>
+                                                    <a
+                                                        href="{{ route('app.admin.boxes.distribute', ['week_start_date' => $week->toDateString()]) }}"
+                                                        class="mt-1 block text-center text-[0.7rem] font-medium text-amber-800 hover:underline"
+                                                    >
+                                                        {{ __('admin.box_distribute.link_short') }}
+                                                    </a>
+                                                </div>
                                             </div>
                                         </th>
                                     @endforeach
@@ -125,12 +159,26 @@
                                 @foreach ($matrix as $row)
                                     @php
                                         $subscription = $row['subscription'];
+                                        $includedBudget = $row['included_budget'];
+                                        $planningHint = $row['planning_hint'];
                                     @endphp
                                     <tr class="align-top">
                                         <th scope="row" class="sticky left-0 z-10 bg-white py-3 pe-4 text-left text-xs font-normal text-gray-900 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                                            <div class="max-w-[14rem]">
+                                            <div class="max-w-[16rem]">
                                                 <span class="block truncate font-medium">{{ $subscription->user?->email ?? '—' }}</span>
-                                                <span class="mt-1 block text-gray-500">#{{ $subscription->id }} · {{ $subscription->box_size }}</span>
+                                                <span class="mt-1 block text-gray-500">
+                                                    #{{ $subscription->id }} · {{ __('admin.box_planner.size_label_' . $subscription->box_size) }}
+                                                </span>
+                                                <span class="mt-1 block tabular-nums text-gray-600">
+                                                    {{ __('admin.box_planner.included_budget_label') }}
+                                                    {{ number_format($includedBudget, 2, ',', '.') }} €
+                                                </span>
+                                                @if ($planningHint !== null)
+                                                    <span class="mt-0.5 block tabular-nums text-xs text-gray-500">
+                                                        {{ __('admin.box_planner.planning_hint_label') }}
+                                                        {{ number_format($planningHint, 2, ',', '.') }} €
+                                                    </span>
+                                                @endif
                                             </div>
                                         </th>
                                         @foreach ($row['cells'] as $cell)
@@ -145,6 +193,9 @@
                                                     'week' => $week,
                                                     'eligible' => $eligible,
                                                     'box' => $box,
+                                                    'included_budget' => $includedBudget,
+                                                    'estimated_value' => $cell['estimated_value'] ?? null,
+                                                    'over_budget' => $cell['over_budget'] ?? false,
                                                 ])
                                             </td>
                                         @endforeach

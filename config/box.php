@@ -65,6 +65,17 @@ return [
     | Each item gets quantity 1 and unit from product metadata.
     |
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Admin planner (informational)
+    |--------------------------------------------------------------------------
+    |
+    | Optional margin rate (0–1) for an ops hint on admin screens:
+    | included TTC × (1 − rate). Does not block saves or fills.
+    |
+    */
+    'admin_planning_margin_rate' => (float) env('BOX_ADMIN_PLANNING_MARGIN_RATE', 0.30),
+
     'composition_by_size' => [
         'small' => [
             'vegetables' => 3,

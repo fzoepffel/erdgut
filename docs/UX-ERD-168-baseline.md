@@ -189,7 +189,10 @@ Study these (or close regional equivalents) for **patterns**, not pixel-perfect 
 | `app.admin.billing.coverage` | GET | `app/admin/billing/coverage` | ERD-193 |
 | `app.admin.billing.charge` | POST | `app/admin/billing/charge` | ERD-193 |
 | `app.admin.boxes.planner` | GET | `app/admin/boxes/planner` | ERD-190 |
-| `app.admin.boxes.planner.bulk-preset` | POST | `app/admin/boxes/planner/bulk-preset` | ERD-190 |
+| `app.admin.boxes.planner.bulk-random-preview` | GET | `app/admin/boxes/planner/bulk-random-preview` | ERD-190 |
+| `app.admin.boxes.planner.bulk-random-apply` | POST | `app/admin/boxes/planner/bulk-random-apply` | ERD-190 |
+| `app.admin.boxes.planner.canonical-preview` | GET | `app/admin/boxes/planner/canonical-preview` | ERD-190 |
+| `app.admin.boxes.planner.canonical-apply` | POST | `app/admin/boxes/planner/canonical-apply` | ERD-190 |
 | `app.admin.boxes.store` | POST | `app/admin/boxes` | ERD-190 |
 | `app.admin.boxes.preset` | POST | `app/admin/boxes/{box}/preset` | ERD-190 |
 | `app.admin.boxes.show` | GET | `app/admin/boxes/{box}` | ERD-190 |

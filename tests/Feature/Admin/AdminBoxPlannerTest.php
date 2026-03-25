@@ -68,9 +68,9 @@ class AdminBoxPlannerTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($user)
-            ->post(route('app.admin.boxes.planner.bulk-preset'), [
+            ->post(route('app.admin.boxes.planner.bulk-random-apply'), [
                 'week_start_date' => '2026-03-30',
-                'confirm_bulk' => '1',
+                'confirm_fill' => '1',
             ])
             ->assertForbidden();
     }
@@ -239,5 +239,130 @@ class AdminBoxPlannerTest extends TestCase
 
         $this->assertStringNotContainsString('planner_should_not_emit_token_xyz', $showHtml);
         $this->assertStringNotContainsString('sumup_token', $showHtml);
+    }
+
+    public function test_admin_bulk_random_preview_ok_without_creating_boxes(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-24'));
+
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'status' => SubscriptionStatus::Active,
+            'plan' => SubscriptionPlan::Weekly,
+            'box_size' => 'small',
+        ]);
+
+        $monday = Carbon::today()->next(Carbon::MONDAY)->toDateString();
+
+        $this->assertSame(0, Box::query()->count());
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.boxes.planner.bulk-random-preview', ['week_start_date' => $monday]))
+            ->assertOk();
+
+        $this->assertSame(0, Box::query()->count());
+    }
+
+    public function test_admin_bulk_random_apply_creates_and_fills_boxes(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-24'));
+
+        Config::set('box.composition_by_size.small', [
+            'vegetables' => 1,
+        ]);
+        Product::factory()->create([
+            'category' => 'vegetables',
+            'is_available' => true,
+            'is_published' => true,
+            'unit_price' => 3.50,
+        ]);
+
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'status' => SubscriptionStatus::Active,
+            'plan' => SubscriptionPlan::Weekly,
+            'box_size' => 'small',
+        ]);
+
+        $monday = Carbon::today()->next(Carbon::MONDAY)->toDateString();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.planner.bulk-random-apply'), [
+                'week_start_date' => $monday,
+                'confirm_fill' => '1',
+            ])
+            ->assertRedirect(route('app.admin.boxes.planner'))
+            ->assertSessionHas('status');
+
+        $box = Box::forUser($customer->id)->forWeek($monday)->first();
+        $this->assertNotNull($box);
+        $this->assertSame(1, $box->items()->count());
+    }
+
+    public function test_admin_canonical_preview_and_apply_uses_shared_template(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-24'));
+
+        Config::set('box.composition_by_size.small', [
+            'vegetables' => 2,
+        ]);
+
+        Product::factory()->create([
+            'name' => 'Cheap Veg',
+            'category' => 'vegetables',
+            'is_available' => true,
+            'is_published' => true,
+            'unit_price' => 1.00,
+        ]);
+        Product::factory()->create([
+            'name' => 'Pricey Veg',
+            'category' => 'vegetables',
+            'is_available' => true,
+            'is_published' => true,
+            'unit_price' => 5.00,
+        ]);
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::today()->next(Carbon::MONDAY)->toDateString();
+
+        $c1 = User::factory()->create();
+        $c2 = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $c1->id,
+            'status' => SubscriptionStatus::Active,
+            'plan' => SubscriptionPlan::Weekly,
+            'box_size' => 'small',
+        ]);
+        Subscription::factory()->create([
+            'user_id' => $c2->id,
+            'status' => SubscriptionStatus::Active,
+            'plan' => SubscriptionPlan::Weekly,
+            'box_size' => 'small',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.boxes.planner.canonical-preview', ['week_start_date' => $monday]))
+            ->assertOk()
+            ->assertSee('Cheap Veg', false);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.planner.canonical-apply'), [
+                'week_start_date' => $monday,
+                'confirm_fill' => '1',
+            ])
+            ->assertRedirect(route('app.admin.boxes.planner'));
+
+        $box1 = Box::forUser($c1->id)->forWeek($monday)->first();
+        $box2 = Box::forUser($c2->id)->forWeek($monday)->first();
+        $this->assertNotNull($box1);
+        $this->assertNotNull($box2);
+
+        $ids1 = $box1->items()->orderBy('product_id')->pluck('product_id')->all();
+        $ids2 = $box2->items()->orderBy('product_id')->pluck('product_id')->all();
+        $this->assertSame($ids1, $ids2);
     }
 }

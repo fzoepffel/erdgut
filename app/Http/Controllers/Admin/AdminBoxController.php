@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\BoxStatus;
+use App\Enums\SubscriptionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminBoxPresetRequest;
 use App\Http\Requests\Admin\AdminBoxStoreRequest;
@@ -35,10 +36,33 @@ class AdminBoxController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        $subscription = Subscription::query()
+            ->where('user_id', $box->user_id)
+            ->where('status', SubscriptionStatus::Active)
+            ->latest()
+            ->first();
+
+        $marginRate = (float) config('box.admin_planning_margin_rate', 0);
+        $budgetDetails = null;
+        if ($subscription !== null) {
+            $included = round((float) $subscription->includedValueForBudget(), 2);
+            $estimated = round((float) $box->estimated_value, 2);
+            $budgetDetails = [
+                'included_budget' => $included,
+                'estimated_value' => $estimated,
+                'remainder' => round($included - $estimated, 2),
+                'over_budget' => $estimated > $included + 0.005,
+                'planning_hint' => $marginRate > 0 && $marginRate < 1
+                    ? round($included * (1 - $marginRate), 2)
+                    : null,
+            ];
+        }
+
         return view('admin.operations.boxes.show', [
             'box' => $box,
             'catalogProducts' => $catalogProducts,
             'adminCanMutateItems' => $box->allowsAdminLineEdits(),
+            'budgetDetails' => $budgetDetails,
         ]);
     }
 

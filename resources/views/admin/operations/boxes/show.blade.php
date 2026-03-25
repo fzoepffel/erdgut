@@ -48,6 +48,38 @@
                 </div>
             </dl>
 
+            @if ($budgetDetails !== null)
+                <div
+                    class="rounded-lg border p-4 text-sm shadow-sm {{ $budgetDetails['over_budget'] ? 'border-rose-300 bg-rose-50' : 'border-gray-100 bg-white' }}"
+                    role="status"
+                >
+                    <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.box_planner.budget_heading') }}</h3>
+                    <dl class="mt-3 grid gap-2 sm:grid-cols-2">
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_planner.included_budget_label') }}</dt>
+                            <dd class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['included_budget'], 2, ',', '.') }} €</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_planner.estimated_retail_label') }}</dt>
+                            <dd class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['estimated_value'], 2, ',', '.') }} €</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_planner.remainder_label') }}</dt>
+                            <dd class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['remainder'], 2, ',', '.') }} €</dd>
+                        </div>
+                        @if ($budgetDetails['planning_hint'] !== null)
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_planner.planning_hint_label') }}</dt>
+                                <dd class="mt-1 tabular-nums text-gray-700">{{ number_format($budgetDetails['planning_hint'], 2, ',', '.') }} €</dd>
+                            </div>
+                        @endif
+                    </dl>
+                    @if ($budgetDetails['over_budget'])
+                        <p class="mt-3 text-sm font-semibold text-rose-800">{{ __('admin.box_planner.over_budget_detail_notice') }}</p>
+                    @endif
+                </div>
+            @endif
+
             @if (! $adminCanMutateItems)
                 <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
                     {{ __('admin.box_items.read_only_notice') }}

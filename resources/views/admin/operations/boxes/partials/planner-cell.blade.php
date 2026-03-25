@@ -1,5 +1,8 @@
 @php
     use App\Enums\BoxStatus;
+    $included_budget = $included_budget ?? 0.0;
+    $estimated_value = $estimated_value ?? null;
+    $over_budget = $over_budget ?? false;
 @endphp
 @if (! $eligible)
     <span class="text-xs text-amber-800">{{ __('admin.box_planner.state_not_eligible') }}</span>
@@ -20,6 +23,17 @@
         <span class="mb-2 block text-xs text-gray-700">{{ __('admin.box_planner.state_locked') }}</span>
     @else
         <span class="mb-2 block text-xs text-gray-700">{{ __('admin.box_planner.state_delivered') }}</span>
+    @endif
+    @if ($estimated_value !== null)
+        <p class="mb-2 text-xs tabular-nums {{ $over_budget ? 'font-semibold text-rose-700' : 'text-gray-600' }}">
+            {{ __('admin.box_planner.cell_value_vs_budget', [
+                'value' => number_format($estimated_value, 2, ',', '.'),
+                'budget' => number_format($included_budget, 2, ',', '.'),
+            ]) }}
+            @if ($over_budget)
+                <span class="ms-1 font-semibold">{{ __('admin.box_planner.over_budget_badge') }}</span>
+            @endif
+        </p>
     @endif
     <div class="flex flex-col gap-1">
         <a href="{{ route('app.admin.boxes.show', $box) }}" class="text-xs font-medium text-emerald-700 hover:underline">

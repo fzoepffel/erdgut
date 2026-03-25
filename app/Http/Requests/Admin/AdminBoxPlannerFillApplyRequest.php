@@ -6,7 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Validator;
 
-class AdminBoxPlannerBulkPresetRequest extends FormRequest
+class AdminBoxPlannerFillApplyRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -20,7 +20,7 @@ class AdminBoxPlannerBulkPresetRequest extends FormRequest
     {
         return [
             'week_start_date' => ['required', 'date'],
-            'confirm_bulk' => ['required', 'accepted'],
+            'confirm_fill' => ['required', 'accepted'],
         ];
     }
 

@@ -56,6 +56,43 @@ class BoxCompositionService
     }
 
     /**
+     * Pick products for a preset fill without persisting (admin preview).
+     *
+     * @return list<array{product: Product, quantity: float, unit: string, line_total: float}>
+     */
+    public function previewRandomLinesForSize(string $boxSize): array
+    {
+        $rules = (array) config("box.composition_by_size.{$boxSize}", []);
+
+        if ($rules === []) {
+            return [];
+        }
+
+        $lines = [];
+
+        foreach ($rules as $category => $count) {
+            $products = Product::query()
+                ->where('category', $category)
+                ->visibleInCatalog()
+                ->inRandomOrder()
+                ->limit((int) $count)
+                ->get();
+
+            foreach ($products as $product) {
+                $qty = 1.0;
+                $lines[] = [
+                    'product' => $product,
+                    'quantity' => $qty,
+                    'unit' => data_get($product->metadata, 'unit', 'piece'),
+                    'line_total' => round($qty * (float) $product->unit_price, 2),
+                ];
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
      * Replace core (non-extra) preset lines, then fill from composition rules.
      * Shop extras (is_extra = true) are kept.
      *
