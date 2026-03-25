@@ -59,7 +59,7 @@ class PaymentReset extends Command
 
         if (! $this->option('force')) {
             $target = $email ?? 'ALL users';
-            $this->warn("This will:");
+            $this->warn('This will:');
             $this->line("  • Clear sumup_token, sumup_customer_id, next_charge_date on {$subCount} subscription(s)");
             $this->line("  • Delete {$paymentCount} payment row(s)");
             $this->line("  • Target: {$target}");
