@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureSubscriberHasPayment;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\VerifySumUpWebhookSignature;
@@ -30,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo('/app/dashboard');
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
+            'subscriber.full' => EnsureSubscriberHasPayment::class,
             'sumup.webhook.verify' => VerifySumUpWebhookSignature::class,
         ]);
     })

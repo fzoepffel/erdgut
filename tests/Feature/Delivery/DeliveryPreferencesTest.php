@@ -24,6 +24,7 @@ class DeliveryPreferencesTest extends TestCase
     public function test_authenticated_user_can_open_delivery_preferences_form(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         Address::factory()->create([
             'user_id' => $user->id,
             'is_primary' => true,
@@ -48,6 +49,7 @@ class DeliveryPreferencesTest extends TestCase
     public function test_user_can_save_delivery_preferences_and_primary_address(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->patch(route('app.deliveries.preferences.update'), [
@@ -92,6 +94,7 @@ class DeliveryPreferencesTest extends TestCase
     public function test_update_validates_required_delivery_preferences_fields(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->from(route('app.deliveries.preferences.edit'))
@@ -117,6 +120,7 @@ class DeliveryPreferencesTest extends TestCase
     public function test_updating_preferences_does_not_change_other_users_records(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $otherUser = User::factory()->create();
 
         Address::factory()->create([

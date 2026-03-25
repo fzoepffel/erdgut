@@ -8,6 +8,7 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\Delivery;
 use App\Models\Subscription;
+use App\Support\SubscriberAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,10 @@ class DashboardController extends Controller
     {
         if ($request->user()->isAdmin()) {
             return redirect()->route('app.admin.dashboard');
+        }
+
+        if (SubscriberAccess::shouldShowWelcomeDashboard($request->user())) {
+            return view('dashboard-welcome');
         }
 
         $userId = $request->user()->id;

@@ -18,13 +18,25 @@
                 </p>
             @endif
 
+            @if (session('status') === 'subscriber-area-requires-setup')
+                <p class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+                    {{ __('Complete your subscription and payment setup to access deliveries, shop extras, and billing.') }}
+                </p>
+            @endif
+
+            @if (session('status') === 'subscription-onboarded')
+                <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">
+                    {{ __('Your subscription is active. Deliveries and the full app are now available.') }}
+                </p>
+            @endif
+
             @if ($needsPaymentSetup)
                 <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
                     <p class="text-sm text-amber-900">
                         <span class="font-semibold">{{ __('Add a payment method') }}</span>
                         — {{ __('Complete setup so we can charge your subscription on schedule.') }}
                     </p>
-                    <a href="{{ route('app.payments.setup') }}" class="mt-3 inline-flex shrink-0 items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 sm:mt-0">
+                    <a href="{{ route('app.subscriptions.onboard.payment') }}" class="mt-3 inline-flex shrink-0 items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 sm:mt-0">
                         {{ __('Set up payments') }}
                     </a>
                 </div>

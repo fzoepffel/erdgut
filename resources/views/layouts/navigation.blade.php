@@ -1,5 +1,6 @@
 @php
     $isOperator = Auth::user()?->isAdmin() ?? false;
+    $hasSubscriberNav = $hasSubscriberNav ?? false;
 @endphp
 <nav x-data="{ mobileMenuOpen: false }" class="relative z-50 bg-white border-b border-gray-100">
     <!-- Primary Navigation Menu -->
@@ -23,16 +24,18 @@
                         <x-nav-link :href="route('app.dashboard')" :active="request()->routeIs('app.dashboard')">
                             {{ __('Dashboard') }}
                         </x-nav-link>
-                        <x-nav-link :href="route('app.subscriptions.show')" :active="request()->routeIs('app.subscriptions.*')">
-                            {{ __('Subscription') }}
-                        </x-nav-link>
-                        <x-nav-link :href="route('app.deliveries.index')" :active="request()->routeIs('app.deliveries.*') && !request()->routeIs('app.deliveries.preferences.*')">
-                            {{ __('Deliveries') }}
-                        </x-nav-link>
-                        @if(config('features.shop_extras_enabled', true))
-                            <x-nav-link :href="route('app.shop.index')" :active="request()->routeIs('app.shop.*')">
-                                {{ __('Shop extras') }}
+                        @if ($hasSubscriberNav)
+                            <x-nav-link :href="route('app.subscriptions.show')" :active="request()->routeIs('app.subscriptions.*')">
+                                {{ __('Subscription') }}
                             </x-nav-link>
+                            <x-nav-link :href="route('app.deliveries.index')" :active="request()->routeIs('app.deliveries.*') && !request()->routeIs('app.deliveries.preferences.*')">
+                                {{ __('Deliveries') }}
+                            </x-nav-link>
+                            @if(config('features.shop_extras_enabled', true))
+                                <x-nav-link :href="route('app.shop.index')" :active="request()->routeIs('app.shop.*')">
+                                    {{ __('Shop extras') }}
+                                </x-nav-link>
+                            @endif
                         @endif
                         @can('admin')
                             <x-nav-link :href="route('app.admin.dashboard')" :active="request()->routeIs('app.admin.*')">
@@ -65,12 +68,14 @@
                                     {{ __('Admin') }}
                                 </x-dropdown-link>
                             @endcan
-                            <x-dropdown-link :href="route('app.payments.history')">
-                                {{ __('Payments') }}
-                            </x-dropdown-link>
-                            <x-dropdown-link :href="route('app.deliveries.preferences.edit')">
-                                {{ __('Delivery preferences') }}
-                            </x-dropdown-link>
+                            @if ($hasSubscriberNav)
+                                <x-dropdown-link :href="route('app.payments.history')">
+                                    {{ __('Payments') }}
+                                </x-dropdown-link>
+                                <x-dropdown-link :href="route('app.deliveries.preferences.edit')">
+                                    {{ __('Delivery preferences') }}
+                                </x-dropdown-link>
+                            @endif
                         @endunless
                         <x-dropdown-link :href="route('account.profile.edit')">
                             {{ __('Account settings') }}
@@ -113,16 +118,18 @@
                 <x-responsive-nav-link :href="route('app.dashboard')" :active="request()->routeIs('app.dashboard')">
                     {{ __('Dashboard') }}
                 </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('app.subscriptions.show')" :active="request()->routeIs('app.subscriptions.*')">
-                    {{ __('Subscription') }}
-                </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('app.deliveries.index')" :active="request()->routeIs('app.deliveries.*') && !request()->routeIs('app.deliveries.preferences.*')">
-                    {{ __('Deliveries') }}
-                </x-responsive-nav-link>
-                @if(config('features.shop_extras_enabled', true))
-                    <x-responsive-nav-link :href="route('app.shop.index')" :active="request()->routeIs('app.shop.*')">
-                        {{ __('Shop extras') }}
+                @if ($hasSubscriberNav)
+                    <x-responsive-nav-link :href="route('app.subscriptions.show')" :active="request()->routeIs('app.subscriptions.*')">
+                        {{ __('Subscription') }}
                     </x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('app.deliveries.index')" :active="request()->routeIs('app.deliveries.*') && !request()->routeIs('app.deliveries.preferences.*')">
+                        {{ __('Deliveries') }}
+                    </x-responsive-nav-link>
+                    @if(config('features.shop_extras_enabled', true))
+                        <x-responsive-nav-link :href="route('app.shop.index')" :active="request()->routeIs('app.shop.*')">
+                            {{ __('Shop extras') }}
+                        </x-responsive-nav-link>
+                    @endif
                 @endif
                 @can('admin')
                     <x-responsive-nav-link :href="route('app.admin.dashboard')" :active="request()->routeIs('app.admin.*')">
@@ -141,12 +148,14 @@
 
             <div class="mt-3 space-y-1">
                 @unless($isOperator)
-                    <x-responsive-nav-link :href="route('app.payments.history')">
-                        {{ __('Payments') }}
-                    </x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('app.deliveries.preferences.edit')">
-                        {{ __('Delivery preferences') }}
-                    </x-responsive-nav-link>
+                    @if ($hasSubscriberNav)
+                        <x-responsive-nav-link :href="route('app.payments.history')">
+                            {{ __('Payments') }}
+                        </x-responsive-nav-link>
+                        <x-responsive-nav-link :href="route('app.deliveries.preferences.edit')">
+                            {{ __('Delivery preferences') }}
+                        </x-responsive-nav-link>
+                    @endif
                 @endunless
                 <x-responsive-nav-link :href="route('account.profile.edit')">
                     {{ __('Account settings') }}

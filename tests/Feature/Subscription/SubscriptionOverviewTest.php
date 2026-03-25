@@ -61,6 +61,10 @@ class SubscriptionOverviewTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('app.subscriptions.create'))
+            ->assertRedirect(route('app.subscriptions.onboard'));
+
+        $this->actingAs($user)
+            ->get(route('app.subscriptions.onboard'))
             ->assertOk()
             ->assertSee('Create subscription')
             ->assertSee('Box size');
@@ -72,7 +76,7 @@ class SubscriptionOverviewTest extends TestCase
                 'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
                 'allergies' => '',
             ])
-            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertRedirect(route('app.subscriptions.onboard.payment'))
             ->assertSessionHas('status', 'subscription-created');
 
         $this->assertDatabaseHas('subscriptions', [
@@ -90,7 +94,7 @@ class SubscriptionOverviewTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('app.subscriptions.create'))
-            ->assertRedirect(route('app.subscriptions.show'));
+            ->assertRedirect(route('app.subscriptions.onboard'));
     }
 
     public function test_subscription_overview_does_not_show_other_users_subscription(): void
@@ -121,7 +125,7 @@ class SubscriptionOverviewTest extends TestCase
                 'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
                 'allergies' => '',
             ])
-            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertRedirect(route('app.subscriptions.onboard.payment'))
             ->assertSessionHas('status', 'subscription-created');
 
         $this->assertDatabaseHas('subscriptions', [
@@ -136,14 +140,14 @@ class SubscriptionOverviewTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->from(route('app.subscriptions.create'))
+            ->from(route('app.subscriptions.onboard'))
             ->post(route('app.subscriptions.store'), [
                 'plan' => 'daily',
                 'box_size' => 'medium',
                 'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
                 'allergies' => '',
             ])
-            ->assertRedirect(route('app.subscriptions.create'))
+            ->assertRedirect(route('app.subscriptions.onboard'))
             ->assertSessionHasErrors(['plan']);
 
         $this->assertDatabaseCount('subscriptions', 0);

@@ -514,5 +514,18 @@
     "Your weekly box will appear here once it is generated for your delivery week.": "Ihre wöchentliche Box erscheint hier, sobald sie für Ihre Lieferwoche erstellt wurde.",
     "Check subscription": "Abo prüfen",
     "No boxes scheduled": "Keine Boxen geplant",
-    "Upcoming box weeks will be listed here as your plan rolls forward.": "Kommende Box-Wochen werden hier angezeigt, sobald Ihr Plan weiterläuft."
+    "Upcoming box weeks will be listed here as your plan rolls forward.": "Kommende Box-Wochen werden hier angezeigt, sobald Ihr Plan weiterläuft.",
+    "Welcome": "Willkommen",
+    "Welcome to Erdgut": "Willkommen bei Erdgut",
+    "Start your subscription in two steps: choose your box and preferences, then add a payment method. After that, deliveries, your box, and billing will unlock in the app.": "Starten Sie Ihr Abo in zwei Schritten: Box und Vorlieben wählen, danach die Zahlungsmethode hinzufügen. Anschließend stehen Lieferungen, Ihre Box und die Abrechnung in der App zur Verfügung.",
+    "Complete your subscription and payment setup to access deliveries, shop extras, and billing.": "Schließen Sie Abo und Zahlung ab, um Lieferungen, Shop-Extras und Abrechnung zu nutzen.",
+    "Plan and preferences": "Plan und Vorlieben",
+    "Rhythm, box size, dietary preferences, and allergies.": "Rhythmus, Box-Größe, Ernährungsvorlieben und Allergien.",
+    "Payment method": "Zahlungsmethode",
+    "Secure card setup via SumUp; we only store a payment token.": "Sichere Karteneinrichtung über SumUp; wir speichern nur ein Zahlungstoken.",
+    "Start subscription": "Abo starten",
+    "Your subscription is active. Deliveries and the full app are now available.": "Ihr Abo ist aktiv. Lieferungen und die volle App stehen jetzt zur Verfügung.",
+    "Included value approx. EUR :amount": "Inklusivwert ca. :amount €",
+    "Back to dashboard": "Zurück zum Dashboard",
+    "Enter your card in the form below, then submit. You will return here when setup is complete.": "Geben Sie Ihre Kartendaten unten ein und senden Sie ab. Danach kehren Sie hierher zurück, wenn die Einrichtung abgeschlossen ist."
 }

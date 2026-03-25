@@ -22,6 +22,7 @@ use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\ProducerController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\SubscriptionOnboardController;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route as RouteFacade;
@@ -47,6 +48,11 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/subscriptions/pause', route('app.subscriptions.pause', absolute: false));
         $this->assertSame('/app/subscriptions/resume', route('app.subscriptions.resume', absolute: false));
         $this->assertSame('/app/subscriptions/cancel', route('app.subscriptions.cancel', absolute: false));
+        $this->assertSame('/app/subscriptions/onboard', route('app.subscriptions.onboard', absolute: false));
+        $this->assertSame('/app/subscriptions/onboard', route('app.subscriptions.onboard.store', absolute: false));
+        $this->assertSame('/app/subscriptions/onboard/payment', route('app.subscriptions.onboard.payment', absolute: false));
+        $this->assertSame('/app/subscriptions/onboard/complete', route('app.subscriptions.onboard.complete', absolute: false));
+        $this->assertSame('/app/payments/history', route('app.payments.history', absolute: false));
         $this->assertSame('/app/boxes/current', route('app.boxes.current', absolute: false));
         $this->assertSame('/app/boxes/1', route('app.boxes.show', ['box' => 1], absolute: false));
         $this->assertSame('/app/boxes/1/items', route('app.boxes.items.add', ['box' => 1], absolute: false));
@@ -335,6 +341,32 @@ class RouteGroupingTest extends TestCase
         $this->assertSame([SubscriptionController::class, 'cancel'], $subscriptionCancelRoute->getAction('controller')
             ? explode('@', $subscriptionCancelRoute->getAction('controller'))
             : []);
+
+        $onboardStep1Route = RouteFacade::getRoutes()->getByName('app.subscriptions.onboard');
+        $onboardStoreRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.onboard.store');
+        $onboardPaymentRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.onboard.payment');
+        $onboardCompleteRoute = RouteFacade::getRoutes()->getByName('app.subscriptions.onboard.complete');
+
+        $this->assertNotNull($onboardStep1Route);
+        $this->assertNotNull($onboardStoreRoute);
+        $this->assertNotNull($onboardPaymentRoute);
+        $this->assertNotNull($onboardCompleteRoute);
+        $this->assertSame([SubscriptionOnboardController::class, 'showStep1'], $onboardStep1Route->getAction('controller')
+            ? explode('@', $onboardStep1Route->getAction('controller'))
+            : []);
+        $this->assertSame([SubscriptionOnboardController::class, 'storeStep1'], $onboardStoreRoute->getAction('controller')
+            ? explode('@', $onboardStoreRoute->getAction('controller'))
+            : []);
+        $this->assertSame([SubscriptionOnboardController::class, 'showStep2'], $onboardPaymentRoute->getAction('controller')
+            ? explode('@', $onboardPaymentRoute->getAction('controller'))
+            : []);
+        $this->assertSame([SubscriptionOnboardController::class, 'complete'], $onboardCompleteRoute->getAction('controller')
+            ? explode('@', $onboardCompleteRoute->getAction('controller'))
+            : []);
+
+        $deliveriesIndexRoute = RouteFacade::getRoutes()->getByName('app.deliveries.index');
+        $this->assertNotNull($deliveriesIndexRoute);
+        $this->assertContains('subscriber.full', $deliveriesIndexRoute->gatherMiddleware());
     }
 
     public function test_public_about_route_uses_marketing_about_controller(): void

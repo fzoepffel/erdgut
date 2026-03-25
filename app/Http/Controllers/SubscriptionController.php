@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Http\Requests\SubscriptionCancelRequest;
 use App\Http\Requests\SubscriptionPauseRequest;
@@ -32,23 +31,9 @@ class SubscriptionController extends Controller
         ]);
     }
 
-    public function create(Request $request): View|RedirectResponse
+    public function create(Request $request): RedirectResponse
     {
-        if ($this->resolveSubscription($request) !== null) {
-            return redirect()->route('app.subscriptions.show');
-        }
-
-        $subscription = new Subscription([
-            'box_size' => 'medium',
-            'plan' => SubscriptionPlan::Weekly,
-            'preferences' => ['veg_only' => false, 'meat_add_on' => false],
-            'allergies' => [],
-        ]);
-
-        return view('subscriptions.create', [
-            'subscription' => $subscription,
-            'allergiesInput' => '',
-        ]);
+        return redirect()->route('app.subscriptions.onboard');
     }
 
     public function store(SubscriptionStoreRequest $request): RedirectResponse
@@ -69,7 +54,7 @@ class SubscriptionController extends Controller
         ]);
 
         return redirect()
-            ->route('app.subscriptions.show')
+            ->route('app.subscriptions.onboard.payment')
             ->with('status', 'subscription-created');
     }
 

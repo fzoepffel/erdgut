@@ -20,6 +20,7 @@ class DashboardPageTest extends TestCase
     public function test_authenticated_user_can_view_dashboard_page(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.dashboard'))
@@ -34,6 +35,7 @@ class DashboardPageTest extends TestCase
     public function test_dashboard_only_shows_authenticated_user_data(): void
     {
         $dashboardUser = User::factory()->create();
+        $this->subscribeUserFully($dashboardUser);
         $otherUser = User::factory()->create();
 
         $dashboardAddress = Address::factory()->create([
@@ -86,6 +88,7 @@ class DashboardPageTest extends TestCase
     public function test_dashboard_orders_and_limits_upcoming_deliveries(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
 
         for ($dayOffset = 1; $dayOffset <= 5; $dayOffset++) {
@@ -128,6 +131,7 @@ class DashboardPageTest extends TestCase
     public function test_dashboard_uses_effective_weekly_override_delivery_values_without_duplicates(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $baseAddress = Address::factory()->create([
             'user_id' => $user->id,
             'city' => 'Berlin',
@@ -169,6 +173,7 @@ class DashboardPageTest extends TestCase
     public function test_dashboard_shows_delivery_deadline_and_modify_box_action_when_editable_box_exists(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $deliveryDate = now()->addWeek()->startOfWeek()->addDays(2);
 
@@ -201,6 +206,7 @@ class DashboardPageTest extends TestCase
     public function test_dashboard_shows_current_week_box_summary_with_items_and_value(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $currentBox = Box::factory()->create([
             'user_id' => $user->id,
@@ -227,6 +233,7 @@ class DashboardPageTest extends TestCase
     public function test_dashboard_shows_empty_states_when_no_data_exists(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.dashboard'))

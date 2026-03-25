@@ -47,7 +47,7 @@ class PaymentSetupControllerTest extends TestCase
             ->assertSessionHas('status', 'payment-already-setup');
     }
 
-    public function test_eligible_user_can_view_payment_setup_page(): void
+    public function test_legacy_payment_setup_redirects_to_onboard_payment_when_token_missing(): void
     {
         $user = User::factory()->create();
         Subscription::factory()->create([
@@ -57,28 +57,12 @@ class PaymentSetupControllerTest extends TestCase
             'sumup_customer_id' => null,
         ]);
 
-        $sumUpService = Mockery::mock(SumUpService::class);
-        $sumUpService
-            ->shouldReceive('createCustomer')
-            ->once()
-            ->andReturn((object) ['id' => 'cust_1']);
-        $sumUpService
-            ->shouldReceive('createSetupCheckout')
-            ->once()
-            ->andReturn((object) ['id' => 'checkout_123']);
-
-        $this->app->instance(SumUpService::class, $sumUpService);
-
         $this->actingAs($user)
             ->get(route('app.payments.setup'))
-            ->assertOk()
-            ->assertSee('Set up payment method')
-            ->assertSee('Add a debit or credit card to activate billing.')
-            ->assertSee('checkout_123')
-            ->assertSee('Back to payment overview');
+            ->assertRedirect(route('app.subscriptions.onboard.payment'));
     }
 
-    public function test_setup_page_reuses_existing_sumup_customer_id_without_recreating_customer(): void
+    public function test_legacy_payment_setup_redirects_to_onboard_payment_when_customer_id_exists_without_token(): void
     {
         $user = User::factory()->create();
         Subscription::factory()->create([
@@ -88,21 +72,9 @@ class PaymentSetupControllerTest extends TestCase
             'sumup_customer_id' => 'sub_123',
         ]);
 
-        $sumUpService = Mockery::mock(SumUpService::class);
-        $sumUpService
-            ->shouldNotReceive('createCustomer');
-        $sumUpService
-            ->shouldReceive('createSetupCheckout')
-            ->once()
-            ->with('sub_123', Mockery::type('string'), Mockery::type('string'))
-            ->andReturn((object) ['id' => 'checkout_existing_customer']);
-
-        $this->app->instance(SumUpService::class, $sumUpService);
-
         $this->actingAs($user)
             ->get(route('app.payments.setup'))
-            ->assertOk()
-            ->assertSee('checkout_existing_customer');
+            ->assertRedirect(route('app.subscriptions.onboard.payment'));
     }
 
     public function test_complete_persists_token_and_redirects_to_payment_history(): void
@@ -181,8 +153,8 @@ class PaymentSetupControllerTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('app.payments.update'))
-            ->assertRedirect(route('app.subscriptions.show'))
-            ->assertSessionHas('status', 'payment-update-unavailable');
+            ->assertRedirect(route('app.dashboard'))
+            ->assertSessionHas('status', 'subscriber-area-requires-setup');
     }
 
     public function test_update_shows_setup_page_when_token_exists(): void
@@ -284,30 +256,5 @@ class PaymentSetupControllerTest extends TestCase
 
         $response->assertRedirect(route('app.payments.history'));
         $response->assertSessionHas('status', 'payment-updated');
-    }
-
-    public function test_setup_redirects_to_payment_history_when_checkout_creation_fails(): void
-    {
-        $user = User::factory()->create();
-        Subscription::factory()->create([
-            'user_id' => $user->id,
-            'status' => SubscriptionStatus::Active,
-            'sumup_token' => null,
-            'sumup_customer_id' => null,
-        ]);
-
-        $sumUpService = Mockery::mock(SumUpService::class);
-        $sumUpService->shouldReceive('createCustomer')->once();
-        $sumUpService
-            ->shouldReceive('createSetupCheckout')
-            ->once()
-            ->andReturn(null);
-
-        $this->app->instance(SumUpService::class, $sumUpService);
-
-        $this->actingAs($user)
-            ->get(route('app.payments.setup'))
-            ->assertRedirect(route('app.payments.history'))
-            ->assertSessionHas('status', 'payment-setup-unavailable');
     }
 }

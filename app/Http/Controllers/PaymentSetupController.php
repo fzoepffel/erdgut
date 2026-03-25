@@ -13,7 +13,7 @@ use Throwable;
 
 class PaymentSetupController extends Controller
 {
-    public function show(Request $request): View|RedirectResponse
+    public function show(Request $request): RedirectResponse
     {
         $subscription = $this->resolveSubscription($request);
 
@@ -29,34 +29,7 @@ class PaymentSetupController extends Controller
                 ->with('status', 'payment-already-setup');
         }
 
-        $customerId = $this->ensureCustomer($request, $subscription, $this->sumUpService());
-
-        if ($customerId === null) {
-            return redirect()
-                ->route('app.payments.history')
-                ->with('status', 'payment-setup-unavailable');
-        }
-
-        $checkoutId = $this->createSetupCheckout($subscription, $customerId, $this->sumUpService());
-
-        if ($checkoutId === null) {
-            return redirect()
-                ->route('app.payments.history')
-                ->with('status', 'payment-setup-unavailable');
-        }
-
-        SumUpCheckoutLogger::info('Payment setup: SumUp checkout created for widget.', [
-            'flow' => 'setup',
-            'user_id' => $request->user()->id,
-            'subscription_id' => $subscription->id,
-            'sumup_customer_id' => $customerId,
-            'checkout_id' => $checkoutId,
-        ]);
-
-        return view('payments.setup', [
-            'subscription' => $subscription,
-            'checkoutId' => $checkoutId,
-        ]);
+        return redirect()->route('app.subscriptions.onboard.payment');
     }
 
     public function showUpdate(Request $request): View|RedirectResponse
@@ -71,7 +44,7 @@ class PaymentSetupController extends Controller
 
         if (empty($subscription->sumup_token)) {
             return redirect()
-                ->route('app.subscriptions.show')
+                ->route('app.subscriptions.onboard.payment')
                 ->with('status', 'payment-update-unavailable');
         }
 

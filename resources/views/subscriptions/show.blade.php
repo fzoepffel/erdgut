@@ -64,7 +64,7 @@
                                 {{ __('Start a subscription to choose your box rhythm, size, and dietary preferences. You can set up payment right after.') }}
                             </p>
                             <a
-                                href="{{ route('app.subscriptions.create') }}"
+                                href="{{ route('app.subscriptions.onboard') }}"
                                 class="mt-4 inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
                             >
                                 {{ __('Create subscription') }}
@@ -174,7 +174,7 @@
                                 <div class="mt-4 flex flex-wrap gap-2">
                                     @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled && empty($subscription->sumup_token))
                                         <a
-                                            href="{{ route('app.payments.setup') }}"
+                                            href="{{ route('app.subscriptions.onboard.payment') }}"
                                             class="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white shadow-sm transition hover:bg-emerald-700"
                                         >
                                             {{ __('Set up payment method') }}

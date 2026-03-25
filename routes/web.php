@@ -29,6 +29,7 @@ use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\SubscriptionOnboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::name('public.')->group(function () {
@@ -48,8 +49,18 @@ Route::middleware(['auth', 'verified'])
     ->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-        // Placeholder route groups for upcoming ERD business flows.
         Route::prefix('subscriptions')->name('subscriptions.')->group(function () {
+            Route::get('/onboard', [SubscriptionOnboardController::class, 'showStep1'])->name('onboard');
+            Route::post('/onboard', [SubscriptionOnboardController::class, 'storeStep1'])
+                ->middleware('throttle:subscription-actions')
+                ->name('onboard.store');
+            Route::get('/onboard/payment', [SubscriptionOnboardController::class, 'showStep2'])
+                ->middleware('throttle:payment-setup')
+                ->name('onboard.payment');
+            Route::get('/onboard/complete', [SubscriptionOnboardController::class, 'complete'])
+                ->middleware('throttle:payment-setup')
+                ->name('onboard.complete');
+
             Route::get('/', [SubscriptionController::class, 'show'])->name('show');
             Route::get('/create', [SubscriptionController::class, 'create'])->name('create');
             Route::post('/', [SubscriptionController::class, 'store'])->name('store');
@@ -59,37 +70,43 @@ Route::middleware(['auth', 'verified'])
             Route::post('/resume', [SubscriptionController::class, 'resume'])->middleware('throttle:subscription-actions')->name('resume');
             Route::post('/cancel', [SubscriptionController::class, 'cancel'])->middleware('throttle:subscription-actions')->name('cancel');
         });
-        Route::prefix('deliveries')->name('deliveries.')->group(function () {
-            Route::get('/', [DeliveryController::class, 'index'])->name('index');
-            Route::get('/preferences', [DeliveryPreferencesController::class, 'edit'])->name('preferences.edit');
-            Route::patch('/preferences', [DeliveryPreferencesController::class, 'update'])->name('preferences.update');
-            Route::patch('/{delivery}/override', [DeliveryController::class, 'updateOverride'])->name('override.update');
-            Route::get('/{delivery}', [DeliveryController::class, 'show'])->name('show');
-            Route::post('/{delivery}/skip', [DeliveryController::class, 'skip'])->name('skip');
-            Route::post('/{delivery}/postpone', [DeliveryController::class, 'postpone'])->name('postpone');
-            Route::get('/{delivery}/gift', [DeliveryController::class, 'gift'])->name('gift');
-            Route::post('/{delivery}/gift', [DeliveryController::class, 'storeGift'])->name('gift.store');
+
+        Route::middleware('subscriber.full')->group(function () {
+            Route::prefix('deliveries')->name('deliveries.')->group(function () {
+                Route::get('/', [DeliveryController::class, 'index'])->name('index');
+                Route::get('/preferences', [DeliveryPreferencesController::class, 'edit'])->name('preferences.edit');
+                Route::patch('/preferences', [DeliveryPreferencesController::class, 'update'])->name('preferences.update');
+                Route::patch('/{delivery}/override', [DeliveryController::class, 'updateOverride'])->name('override.update');
+                Route::get('/{delivery}', [DeliveryController::class, 'show'])->name('show');
+                Route::post('/{delivery}/skip', [DeliveryController::class, 'skip'])->name('skip');
+                Route::post('/{delivery}/postpone', [DeliveryController::class, 'postpone'])->name('postpone');
+                Route::get('/{delivery}/gift', [DeliveryController::class, 'gift'])->name('gift');
+                Route::post('/{delivery}/gift', [DeliveryController::class, 'storeGift'])->name('gift.store');
+            });
+            Route::prefix('boxes')->name('boxes.')->group(function () {
+                Route::get('/current', [BoxController::class, 'current'])->name('current');
+                Route::post('/{box}/items', [BoxController::class, 'addItem'])->name('items.add');
+                Route::patch('/{box}/items/{item}', [BoxController::class, 'updateItemQuantity'])
+                    ->scopeBindings()
+                    ->name('items.updateQuantity');
+                Route::delete('/{box}/items/{item}', [BoxController::class, 'removeItem'])
+                    ->scopeBindings()
+                    ->name('items.remove');
+                Route::get('/{box}', [BoxController::class, 'show'])->name('show');
+            });
+            Route::prefix('shop')->name('shop.')->group(function () {
+                Route::get('/', [ShopController::class, 'index'])->name('index');
+                Route::get('/{product}', [ShopController::class, 'show'])->name('show');
+            });
+            Route::prefix('payments')->name('payments.')->group(function () {
+                Route::get('/history', [PaymentHistoryController::class, 'index'])->name('history');
+                Route::get('/update', [PaymentSetupController::class, 'showUpdate'])->middleware('throttle:payment-setup')->name('update');
+            });
         });
-        Route::prefix('boxes')->name('boxes.')->group(function () {
-            Route::get('/current', [BoxController::class, 'current'])->name('current');
-            Route::post('/{box}/items', [BoxController::class, 'addItem'])->name('items.add');
-            Route::patch('/{box}/items/{item}', [BoxController::class, 'updateItemQuantity'])
-                ->scopeBindings()
-                ->name('items.updateQuantity');
-            Route::delete('/{box}/items/{item}', [BoxController::class, 'removeItem'])
-                ->scopeBindings()
-                ->name('items.remove');
-            Route::get('/{box}', [BoxController::class, 'show'])->name('show');
-        });
-        Route::prefix('shop')->name('shop.')->group(function () {
-            Route::get('/', [ShopController::class, 'index'])->name('index');
-            Route::get('/{product}', [ShopController::class, 'show'])->name('show');
-        });
+
         Route::prefix('payments')->name('payments.')->group(function () {
-            Route::get('/history', [PaymentHistoryController::class, 'index'])->name('history');
             Route::get('/setup', [PaymentSetupController::class, 'show'])->middleware('throttle:payment-setup')->name('setup');
             Route::get('/setup/complete', [PaymentSetupController::class, 'complete'])->middleware('throttle:payment-setup')->name('setup.complete');
-            Route::get('/update', [PaymentSetupController::class, 'showUpdate'])->middleware('throttle:payment-setup')->name('update');
         });
 
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {

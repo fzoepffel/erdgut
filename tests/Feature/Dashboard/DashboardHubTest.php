@@ -15,6 +15,7 @@ class DashboardHubTest extends TestCase
     public function test_dashboard_includes_payments_quick_action_and_nav_link(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $html = $this->actingAs($user)
             ->get(route('app.dashboard'))
@@ -62,7 +63,7 @@ class DashboardHubTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('Add a payment method', false)
-            ->assertSee(route('app.payments.setup', [], false), false);
+            ->assertSee(route('app.subscriptions.onboard.payment', [], false), false);
     }
 
     public function test_dashboard_hides_payment_setup_nudge_when_payment_token_present(): void

@@ -17,6 +17,7 @@ class DeliveryControllerTest extends TestCase
     public function test_owner_can_view_weekly_delivery_management_page(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create([
             'user_id' => $user->id,
             'is_primary' => true,
@@ -43,6 +44,7 @@ class DeliveryControllerTest extends TestCase
     public function test_show_route_redirects_to_weekly_management_and_focuses_delivery(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $delivery = Delivery::factory()->create([
             'user_id' => $user->id,
@@ -57,6 +59,7 @@ class DeliveryControllerTest extends TestCase
     public function test_owner_can_create_and_update_weekly_override_without_mutating_base_delivery(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $baseAddress = Address::factory()->create([
             'user_id' => $user->id,
             'is_primary' => true,
@@ -121,6 +124,7 @@ class DeliveryControllerTest extends TestCase
     public function test_owner_can_reset_override_to_defaults_and_delete_override_record(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $baseAddress = Address::factory()->create(['user_id' => $user->id]);
         $overrideAddress = Address::factory()->create(['user_id' => $user->id]);
         $baseDelivery = Delivery::factory()->create([
@@ -154,6 +158,8 @@ class DeliveryControllerTest extends TestCase
     {
         $owner = User::factory()->create();
         $otherUser = User::factory()->create();
+        $this->subscribeUserFully($owner);
+        $this->subscribeUserFully($otherUser);
         $address = Address::factory()->create(['user_id' => $owner->id]);
         $delivery = Delivery::factory()->create([
             'user_id' => $owner->id,
@@ -174,6 +180,7 @@ class DeliveryControllerTest extends TestCase
     public function test_override_update_rejects_address_not_owned_by_authenticated_user(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $foreignUser = User::factory()->create();
         $userAddress = Address::factory()->create(['user_id' => $user->id]);
         $foreignAddress = Address::factory()->create(['user_id' => $foreignUser->id]);
@@ -194,6 +201,7 @@ class DeliveryControllerTest extends TestCase
     public function test_override_update_rejects_invalid_timeslot_value(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $delivery = Delivery::factory()->create([
             'user_id' => $user->id,
@@ -212,6 +220,7 @@ class DeliveryControllerTest extends TestCase
     public function test_show_override_delivery_redirects_to_index_with_base_delivery_focus(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $baseDelivery = Delivery::factory()->create([
             'user_id' => $user->id,
@@ -234,6 +243,7 @@ class DeliveryControllerTest extends TestCase
     public function test_postpone_creates_skipped_override_and_next_week_delivery(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id, 'is_primary' => true]);
         $delivery = Delivery::factory()->create([
             'user_id' => $user->id,
@@ -270,6 +280,7 @@ class DeliveryControllerTest extends TestCase
     public function test_postpone_past_delivery_returns_403(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $delivery = Delivery::factory()->create([
             'user_id' => $user->id,
@@ -286,6 +297,7 @@ class DeliveryControllerTest extends TestCase
     public function test_gift_page_renders_for_authorized_user(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $delivery = Delivery::factory()->create([
             'user_id' => $user->id,
@@ -304,6 +316,7 @@ class DeliveryControllerTest extends TestCase
     public function test_store_gift_creates_gift_delivery_and_override(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id, 'is_primary' => true]);
         $delivery = Delivery::factory()->create([
             'user_id' => $user->id,
@@ -350,6 +363,7 @@ class DeliveryControllerTest extends TestCase
     public function test_store_gift_rejects_past_target_date(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $delivery = Delivery::factory()->create([
             'user_id' => $user->id,
@@ -375,6 +389,7 @@ class DeliveryControllerTest extends TestCase
     public function test_skip_creates_skipped_override_and_redirects_to_index(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $delivery = Delivery::factory()->create([
             'user_id' => $user->id,
@@ -400,6 +415,7 @@ class DeliveryControllerTest extends TestCase
     public function test_skip_rejects_already_skipped_delivery(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $baseDelivery = Delivery::factory()->create([
             'user_id' => $user->id,
@@ -424,6 +440,7 @@ class DeliveryControllerTest extends TestCase
     public function test_skip_week_is_rejected_for_delivered_delivery(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $delivery = Delivery::factory()->create([
             'user_id' => $user->id,

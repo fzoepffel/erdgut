@@ -175,5 +175,18 @@
     "admin.box_items.flash_updated": "Quantity updated and box value recalculated.",
     "admin.box_items.flash_removed": "Line removed and box value recalculated.",
     "boxes.customer_editing_disabled_notice": "Changing box contents in the app is temporarily unavailable. Your box will follow the weekly preset.",
-    "boxes.edit_mode_blocked_customer_disabled": "Edit mode is unavailable because self-service box editing is turned off."
+    "boxes.edit_mode_blocked_customer_disabled": "Edit mode is unavailable because self-service box editing is turned off.",
+    "Welcome": "Welcome",
+    "Welcome to Erdgut": "Welcome to Erdgut",
+    "Start your subscription in two steps: choose your box and preferences, then add a payment method. After that, deliveries, your box, and billing will unlock in the app.": "Start your subscription in two steps: choose your box and preferences, then add a payment method. After that, deliveries, your box, and billing will unlock in the app.",
+    "Complete your subscription and payment setup to access deliveries, shop extras, and billing.": "Complete your subscription and payment setup to access deliveries, shop extras, and billing.",
+    "Plan and preferences": "Plan and preferences",
+    "Rhythm, box size, dietary preferences, and allergies.": "Rhythm, box size, dietary preferences, and allergies.",
+    "Payment method": "Payment method",
+    "Secure card setup via SumUp; we only store a payment token.": "Secure card setup via SumUp; we only store a payment token.",
+    "Start subscription": "Start subscription",
+    "Your subscription is active. Deliveries and the full app are now available.": "Your subscription is active. Deliveries and the full app are now available.",
+    "Included value approx. EUR :amount": "Included value approx. EUR :amount",
+    "Back to dashboard": "Back to dashboard",
+    "Enter your card in the form below, then submit. You will return here when setup is complete.": "Enter your card in the form below, then submit. You will return here when setup is complete."
 }

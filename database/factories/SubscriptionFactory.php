@@ -37,4 +37,12 @@ class SubscriptionFactory extends Factory
             'is_test' => false,
         ];
     }
+
+    public function withPaymentToken(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'sumup_token' => 'tok_test_'.fake()->unique()->numerify('######'),
+            'sumup_customer_id' => 'cust_test',
+        ]);
+    }
 }

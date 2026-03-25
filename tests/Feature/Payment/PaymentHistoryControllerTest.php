@@ -23,6 +23,7 @@ class PaymentHistoryControllerTest extends TestCase
     public function test_authenticated_user_can_view_payment_history_page(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.payments.history'))
@@ -35,6 +36,7 @@ class PaymentHistoryControllerTest extends TestCase
     public function test_payment_history_shows_empty_state_when_ledger_empty(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.payments.history'))

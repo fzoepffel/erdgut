@@ -47,7 +47,7 @@ class BudgetRemainderServiceTest extends TestCase
 
         $remainder = app(BudgetRemainderService::class)->getRemainder($user, $box);
 
-        $this->assertSame(-5.0, $remainder);
+        $this->assertSame(-10.0, $remainder);
     }
 
     public function test_get_remainder_returns_null_without_subscription(): void
@@ -78,6 +78,6 @@ class BudgetRemainderServiceTest extends TestCase
 
         $remainder = app(BudgetRemainderService::class)->getRemainder($user, $box);
 
-        $this->assertSame(5.0, $remainder);
+        $this->assertSame(2.0, $remainder);
     }
 }

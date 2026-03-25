@@ -21,6 +21,7 @@ class ShopControllerTest extends TestCase
     public function test_authenticated_user_can_view_shop_page(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.shop.index'))
@@ -37,6 +38,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index'));
@@ -63,6 +65,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index', ['category' => 'vegetables']));
@@ -89,6 +92,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index', ['producer' => $producer1->id]));
@@ -104,6 +108,7 @@ class ShopControllerTest extends TestCase
     public function test_shop_rejects_invalid_category(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.shop.index', ['category' => 'invalid']))
@@ -113,6 +118,7 @@ class ShopControllerTest extends TestCase
     public function test_shop_rejects_invalid_producer(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.shop.index', ['producer' => 99999]))
@@ -122,6 +128,7 @@ class ShopControllerTest extends TestCase
     public function test_shop_page_renders_category_chips(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index'));
@@ -152,6 +159,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index', ['category' => 'dairy']));
@@ -168,6 +176,7 @@ class ShopControllerTest extends TestCase
     {
         $producer = Producer::factory()->create(['name' => 'Hof Testgut']);
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index'));
@@ -194,6 +203,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index', ['category' => 'vegetables', 'producer' => $producer1->id]));
@@ -224,6 +234,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index'));
@@ -245,6 +256,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.show', $product));
@@ -264,6 +276,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.shop.show', $product))
@@ -287,6 +300,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)->get(route('app.shop.index'));
 
@@ -305,6 +319,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.shop.show', $product))
@@ -326,6 +341,7 @@ class ShopControllerTest extends TestCase
     public function test_shop_rejects_invalid_sort(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.shop.index', ['sort' => 'invalid']))
@@ -335,6 +351,7 @@ class ShopControllerTest extends TestCase
     public function test_shop_rejects_query_longer_than_120_characters(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.shop.index', ['q' => str_repeat('a', 121)]))
@@ -352,6 +369,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index', ['q' => 'ZZZ_NO_MATCH_ZZZ']));
@@ -376,6 +394,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index', ['q' => 'Unique Apple']));
@@ -409,6 +428,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index', ['sort' => 'price_asc']));
@@ -439,6 +459,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index', ['sort' => 'price_desc']));
@@ -460,6 +481,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $response = $this->actingAs($user)
             ->get(route('app.shop.index', [
@@ -491,6 +513,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.shop.show', $product))
@@ -510,6 +533,7 @@ class ShopControllerTest extends TestCase
         ]);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
 
         $this->actingAs($user)
             ->get(route('app.shop.show', $product))

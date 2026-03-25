@@ -24,9 +24,9 @@ return [
     |
     */
     'included_value_by_size' => [
-        'small' => 25,
+        'small' => 20,
         'medium' => 35,
-        'large' => 45,
+        'large' => 42,
     ],
 
     /*

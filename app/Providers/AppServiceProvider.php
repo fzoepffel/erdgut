@@ -10,11 +10,13 @@ use App\Policies\ProducerPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\UserPolicy;
 use App\Support\RequiredSecretValidator;
+use App\Support\SubscriberAccess;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 
@@ -41,6 +43,13 @@ class AppServiceProvider extends ServiceProvider
         Producer::observe(CatalogAuditObserver::class);
 
         Gate::define('admin', static fn (User $user): bool => $user->isAdmin());
+
+        View::composer('layouts.app', function (\Illuminate\View\View $view): void {
+            $view->with(
+                'hasSubscriberNav',
+                SubscriberAccess::hasFullSubscriberExperience(auth()->user())
+            );
+        });
 
         $this->configureRateLimiting();
 

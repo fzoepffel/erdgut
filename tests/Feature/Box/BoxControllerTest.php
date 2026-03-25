@@ -19,6 +19,7 @@ class BoxControllerTest extends TestCase
     public function test_owner_can_open_box_detail_page(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $box = Box::factory()->create([
             'user_id' => $user->id,
             'week_start_date' => now()->startOfWeek()->toDateString(),
@@ -47,7 +48,7 @@ class BoxControllerTest extends TestCase
     public function test_box_show_displays_budget_details_when_user_has_active_subscription(): void
     {
         $user = User::factory()->create();
-        Subscription::factory()->create([
+        Subscription::factory()->withPaymentToken()->create([
             'user_id' => $user->id,
             'box_size' => 'medium',
         ]);
@@ -69,7 +70,9 @@ class BoxControllerTest extends TestCase
     public function test_non_owner_cannot_open_box_placeholder_page(): void
     {
         $owner = User::factory()->create();
+        $this->subscribeUserFully($owner);
         $otherUser = User::factory()->create();
+        $this->subscribeUserFully($otherUser);
         $box = Box::factory()->create([
             'user_id' => $owner->id,
         ]);
@@ -82,6 +85,7 @@ class BoxControllerTest extends TestCase
     public function test_edit_mode_is_active_for_editable_box_before_deadline(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $box = Box::factory()->create([
             'user_id' => $user->id,
             'status' => BoxStatus::Editable,
@@ -98,6 +102,7 @@ class BoxControllerTest extends TestCase
     public function test_edit_mode_is_blocked_when_box_status_is_not_editable(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $box = Box::factory()->create([
             'user_id' => $user->id,
             'status' => BoxStatus::Locked,
@@ -114,6 +119,7 @@ class BoxControllerTest extends TestCase
     public function test_edit_mode_is_blocked_when_deadline_has_passed(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $box = Box::factory()->create([
             'user_id' => $user->id,
             'status' => BoxStatus::Editable,
@@ -130,6 +136,7 @@ class BoxControllerTest extends TestCase
     public function test_current_route_redirects_to_current_week_box_when_available(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         Box::factory()->create([
             'user_id' => $user->id,
             'week_start_date' => now()->subWeeks(2)->startOfWeek()->toDateString(),
@@ -147,6 +154,7 @@ class BoxControllerTest extends TestCase
     public function test_current_route_redirects_to_dashboard_when_no_current_box_exists(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         Box::factory()->create([
             'user_id' => $user->id,
             'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
@@ -161,6 +169,7 @@ class BoxControllerTest extends TestCase
     public function test_patch_quantity_increases_item_quantity_and_estimated_value(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create(['unit_price' => 5.00]);
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -193,6 +202,7 @@ class BoxControllerTest extends TestCase
     public function test_patch_quantity_decreases_item_quantity_and_estimated_value(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create(['unit_price' => 4.00]);
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -225,6 +235,7 @@ class BoxControllerTest extends TestCase
     public function test_patch_quantity_minus_one_when_quantity_is_one_returns_422(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -249,6 +260,7 @@ class BoxControllerTest extends TestCase
     public function test_patch_quantity_with_invalid_delta_returns_422(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -273,7 +285,9 @@ class BoxControllerTest extends TestCase
     public function test_patch_quantity_on_another_users_box_returns_403(): void
     {
         $owner = User::factory()->create();
+        $this->subscribeUserFully($owner);
         $otherUser = User::factory()->create();
+        $this->subscribeUserFully($otherUser);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $owner->id,
@@ -296,6 +310,7 @@ class BoxControllerTest extends TestCase
     public function test_patch_quantity_on_non_editable_box_returns_403(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -318,6 +333,7 @@ class BoxControllerTest extends TestCase
     public function test_patch_quantity_when_deadline_passed_returns_403(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -340,6 +356,7 @@ class BoxControllerTest extends TestCase
     public function test_patch_quantity_with_item_from_different_box_returns_404(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -367,6 +384,7 @@ class BoxControllerTest extends TestCase
     public function test_delete_removes_item_and_recalculates_estimated_value(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product1 = Product::factory()->create(['unit_price' => 5.00]);
         $product2 = Product::factory()->create(['unit_price' => 3.00]);
         $box = Box::factory()->create([
@@ -406,7 +424,9 @@ class BoxControllerTest extends TestCase
     public function test_delete_on_another_users_box_returns_403(): void
     {
         $owner = User::factory()->create();
+        $this->subscribeUserFully($owner);
         $otherUser = User::factory()->create();
+        $this->subscribeUserFully($otherUser);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $owner->id,
@@ -429,6 +449,7 @@ class BoxControllerTest extends TestCase
     public function test_delete_on_non_editable_box_returns_403(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -451,6 +472,7 @@ class BoxControllerTest extends TestCase
     public function test_delete_when_deadline_passed_returns_403(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -473,6 +495,7 @@ class BoxControllerTest extends TestCase
     public function test_delete_with_item_from_different_box_returns_404(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -500,6 +523,7 @@ class BoxControllerTest extends TestCase
     public function test_post_add_item_creates_extra_and_recalculates_value(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create([
             'unit_price' => 4.50,
             'is_available' => true,
@@ -540,6 +564,7 @@ class BoxControllerTest extends TestCase
         Config::set('box.customer_box_editing_enabled', false);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create([
             'unit_price' => 4.50,
             'is_available' => true,
@@ -565,6 +590,7 @@ class BoxControllerTest extends TestCase
     public function test_post_add_item_rejects_unpublished_product(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create([
             'is_available' => true,
             'is_published' => false,
@@ -587,6 +613,7 @@ class BoxControllerTest extends TestCase
     public function test_post_add_item_increments_existing_product(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create([
             'unit_price' => 3.00,
             'is_available' => true,
@@ -624,6 +651,7 @@ class BoxControllerTest extends TestCase
     public function test_post_add_item_rejects_invalid_product(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $box = Box::factory()->create([
             'user_id' => $user->id,
             'status' => BoxStatus::Editable,
@@ -642,7 +670,9 @@ class BoxControllerTest extends TestCase
     public function test_post_add_item_on_another_users_box_returns_403(): void
     {
         $owner = User::factory()->create();
+        $this->subscribeUserFully($owner);
         $otherUser = User::factory()->create();
+        $this->subscribeUserFully($otherUser);
         $product = Product::factory()->create(['is_available' => true]);
         $box = Box::factory()->create([
             'user_id' => $owner->id,
@@ -661,6 +691,7 @@ class BoxControllerTest extends TestCase
     public function test_post_add_item_returns_403_when_box_status_is_locked(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create(['is_available' => true]);
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -679,6 +710,7 @@ class BoxControllerTest extends TestCase
     public function test_post_add_item_returns_403_when_box_status_is_delivered(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create(['is_available' => true]);
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -697,6 +729,7 @@ class BoxControllerTest extends TestCase
     public function test_post_add_item_returns_403_when_deadline_is_past(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create(['is_available' => true]);
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -715,6 +748,7 @@ class BoxControllerTest extends TestCase
     public function test_post_add_item_rejects_unavailable_product_with_422(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create(['is_available' => false]);
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -734,6 +768,7 @@ class BoxControllerTest extends TestCase
     public function test_patch_quantity_on_delivered_box_returns_403(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -756,6 +791,7 @@ class BoxControllerTest extends TestCase
     public function test_delete_on_delivered_box_returns_403(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $product = Product::factory()->create();
         $box = Box::factory()->create([
             'user_id' => $user->id,
@@ -778,6 +814,7 @@ class BoxControllerTest extends TestCase
     public function test_show_edit_mode_on_delivered_box_shows_blocked_reason(): void
     {
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $box = Box::factory()->create([
             'user_id' => $user->id,
             'status' => BoxStatus::Delivered,
@@ -796,6 +833,7 @@ class BoxControllerTest extends TestCase
         Config::set('box.customer_box_editing_enabled', false);
 
         $user = User::factory()->create();
+        $this->subscribeUserFully($user);
         $weekStart = now()->startOfWeek();
         $box = Box::factory()->create([
             'user_id' => $user->id,
