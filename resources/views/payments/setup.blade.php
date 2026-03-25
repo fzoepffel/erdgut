@@ -72,6 +72,22 @@
                                         email: {{ json_encode($subscription->user->email) }},
                                         locale: {{ json_encode($sumupLocale) }},
                                         showSaveCardOption: false,
+                                        onLoad: function() {
+                                            // SumUp ignores showSaveCardOption for SETUP_RECURRING_PAYMENT.
+                                            // Auto-enable the "save card" toggle so the mandate is always
+                                            // created — without it no token is returned and the flow fails.
+                                            const poll = setInterval(function() {
+                                                const cb = document.querySelector('input[type="checkbox"]');
+                                                if (cb && !cb.checked) {
+                                                    cb.click();
+                                                    clearInterval(poll);
+                                                } else if (cb && cb.checked) {
+                                                    clearInterval(poll);
+                                                }
+                                            }, 100);
+                                            // Give up after 5 s to avoid infinite polling.
+                                            setTimeout(function() { clearInterval(poll); }, 5000);
+                                        },
                                         onResponse: function(type, body) {
                                             if (type === 'success' && body?.status !== 'FAILED') {
                                                 const checkoutId = body?.id ?? {{ json_encode($checkoutId) }};
