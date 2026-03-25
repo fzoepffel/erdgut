@@ -24,9 +24,8 @@ class AdminBoxPlannerController extends Controller
     {
         $this->authorize('admin');
 
-        $weekCount = config('admin.box_planner_weeks_ahead');
         $firstMonday = WeeklyBoxPlannerService::defaultUpcomingWeekMonday();
-        $weeks = $this->weeklyBoxPlanner->horizonWeekStarts($firstMonday, $weekCount);
+        $weeks = $this->weeklyBoxPlanner->horizonWeekStarts($firstMonday);
 
         $subscriptions = Subscription::query()
             ->where('status', SubscriptionStatus::Active)

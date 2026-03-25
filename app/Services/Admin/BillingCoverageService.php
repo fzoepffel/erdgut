@@ -29,9 +29,8 @@ final class BillingCoverageService
      */
     public function buildMatrix(Carbon $today): array
     {
-        $weekCount = config('admin.box_planner_weeks_ahead');
         $firstMonday = WeeklyBoxPlannerService::defaultUpcomingWeekMonday($today);
-        $weeks = $this->weeklyBoxPlanner->horizonWeekStarts($firstMonday, $weekCount);
+        $weeks = $this->weeklyBoxPlanner->horizonWeekStarts($firstMonday);
 
         $subscriptions = Subscription::query()
             ->where('status', SubscriptionStatus::Active)

@@ -40,13 +40,28 @@ final class WeeklyBoxPlannerService
     }
 
     /**
+     * Planner horizon length from config, safe when {@see config()} is null (e.g. stale `config:cache` missing newer keys).
+     */
+    public static function configWeeksAhead(): int
+    {
+        $v = config('admin.box_planner_weeks_ahead');
+        if ($v === null || $v === '') {
+            return 4;
+        }
+
+        return min(max((int) $v, 1), 8);
+    }
+
+    /**
      * @return list<Carbon> Consecutive Mondays, same time-of-day as $firstMonday.
      */
-    public function horizonWeekStarts(Carbon $firstMonday, int $weekCount): array
+    public function horizonWeekStarts(Carbon $firstMonday, ?int $weekCount = null): array
     {
+        $n = $weekCount ?? self::configWeeksAhead();
+
         $weeks = [];
         $d = $firstMonday->copy();
-        for ($i = 0; $i < $weekCount; $i++) {
+        for ($i = 0; $i < $n; $i++) {
             $weeks[] = $d->copy();
             $d->addWeek();
         }

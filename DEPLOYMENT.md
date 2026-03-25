@@ -11,7 +11,7 @@ This project uses GitHub Actions to build and deploy a Laravel app to IONOS Web 
 
 ## Operator / admin backoffice
 
-Staff with `is_admin` sign in like any user, then open **`/app/admin`** (or use the **Admin** link in the app nav). The backoffice sidebar lists **Overview**, **Catalog** (producers/products), and **Operations** (users, subscriptions, deliveries, payments, upcoming charges). After changing optional `ADMIN_UPCOMING_CHARGES_DAYS` or `ADMIN_PENDING_PAYMENT_STALE_HOURS` in `.env`, run `php artisan config:clear` if configuration is cached on the server.
+Staff with `is_admin` sign in like any user, then open **`/app/admin`** (or use the **Admin** link in the app nav). The backoffice sidebar lists **Overview**, **Catalog** (producers/products), and **Operations** (users, subscriptions, deliveries, payments, upcoming charges, weekly box planner, billing coverage). After changing optional `ADMIN_*` keys in `.env` (including `ADMIN_BOX_PLANNER_WEEKS_AHEAD`, `ADMIN_UPCOMING_CHARGES_DAYS`, `ADMIN_PENDING_PAYMENT_STALE_HOURS`), run **`php artisan config:clear`** on the server if configuration is cached. A **stale** `config:cache` from before newer `config/admin.php` keys existed can make the box planner and billing coverage pages return HTTP 500 until the cache is cleared or rebuilt (`config:cache` after deploy).
 
 ## Setup
 
