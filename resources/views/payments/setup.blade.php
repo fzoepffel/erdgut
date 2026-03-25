@@ -89,7 +89,12 @@
                                             setTimeout(function() { clearInterval(poll); }, 5000);
                                         },
                                         onResponse: function(type, body) {
-                                            if (type === 'success' && body?.status !== 'FAILED') {
+                                            if (type === 'success') {
+                                                // For SETUP_RECURRING_PAYMENT the checkout status is
+                                                // often FAILED (the 1 EUR auth is reversed) but the
+                                                // token is still issued.  Always redirect to the
+                                                // server-side complete handler which validates the
+                                                // token and decides whether to proceed.
                                                 const checkoutId = body?.id ?? {{ json_encode($checkoutId) }};
                                                 const target = new URL('{{ route('app.payments.setup.complete') }}', window.location.origin);
                                                 target.searchParams.set('checkout', checkoutId);
@@ -97,11 +102,6 @@
                                                 target.searchParams.set('intent', 'update');
                                                 @endif
                                                 window.location.href = target.toString();
-                                                return;
-                                            }
-
-                                            if (type === 'success' && body?.status === 'FAILED') {
-                                                widgetError = genericDecline;
                                                 return;
                                             }
 

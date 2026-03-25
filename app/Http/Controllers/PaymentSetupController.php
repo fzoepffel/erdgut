@@ -238,19 +238,17 @@ class PaymentSetupController extends Controller
                 ->with('status', 'payment-setup-failed');
         }
 
+        // SETUP_RECURRING_PAYMENT checkouts often report status FAILED because
+        // the 1 EUR authorization is reversed, but SumUp still issues a reusable
+        // token.  This is expected — we only care that a token was obtained.
         if ($checkoutStatus === 'FAILED') {
-            SumUpCheckoutLogger::warning('Payment setup: checkout status FAILED — refusing to save token from failed checkout.', [
+            SumUpCheckoutLogger::info('Payment setup: checkout status FAILED but token obtained — proceeding (expected for SETUP_RECURRING_PAYMENT).', [
                 'subscription_id' => $subscription->id,
                 'user_id' => $request->user()->id,
                 'checkout_id' => $checkoutId,
                 'intent' => $intent,
                 'token_source' => $tokenSource,
-                'checkout' => $snapshot,
             ]);
-
-            return redirect()
-                ->route('app.payments.history')
-                ->with('status', 'payment-setup-failed');
         }
 
         $subscriptionLifecycleService = app(SubscriptionLifecycleService::class);
