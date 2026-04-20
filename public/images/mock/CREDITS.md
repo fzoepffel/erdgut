@@ -33,8 +33,8 @@ All assets in `public/images/mock/` and `public/videos/mock/` are placeholders s
 | `stalls/bakery/product.jpg` | `NqyJZprqP9c` |
 | `products/vegetables.jpg` | `Msb2ZTv_k_0` |
 | `products/fruit.jpg` | `d2M1utLpT9E` |
-| `products/dairy.jpg` | `K8d7oyd8spQ` |
-| `products/bakery.jpg` | `_VQ16PZJ8iY` |
+| `products/dairy.jpg` | `YW_5rJvAdKw` |
+| `products/bakery.jpg` | `rsWZ-P9FbQ4` |
 | `products/fish.jpg` | `0Ar1dmjSrKA` |
 | `products/meat.jpg` | `kqytZ3VFb_o` |
 | `boxes/box-hero.jpg` | `1610348725531-843dff563e2c` |
