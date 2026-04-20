@@ -8,6 +8,7 @@ use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\Subscription;
+use App\Services\SubscriberWeeklyDeliverySync;
 use App\Support\BoxCompositionService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -19,7 +20,8 @@ use Illuminate\Support\Carbon;
 final class WeeklyBoxPlannerService
 {
     public function __construct(
-        private readonly BoxCompositionService $compositionService
+        private readonly BoxCompositionService $compositionService,
+        private readonly SubscriberWeeklyDeliverySync $weeklyDeliverySync,
     ) {}
 
     /**
@@ -136,13 +138,17 @@ final class WeeklyBoxPlannerService
             return $existing;
         }
 
-        return Box::create([
+        $box = Box::create([
             'user_id' => $subscription->user_id,
             'week_start_date' => $weekStart->toDateString(),
             'status' => BoxStatus::Editable,
             'modification_deadline_at' => $this->modificationDeadlineForWeek($weekStart),
             'estimated_value' => 0,
         ]);
+
+        $this->weeklyDeliverySync->syncForUserWeek($subscription->user_id, $weekStart);
+
+        return $box;
     }
 
     /**
@@ -163,6 +169,8 @@ final class WeeklyBoxPlannerService
         ]);
 
         $this->compositionService->compose($box, (string) $subscription->box_size);
+
+        $this->weeklyDeliverySync->syncForUserWeek($subscription->user_id, $weekStart);
 
         return true;
     }

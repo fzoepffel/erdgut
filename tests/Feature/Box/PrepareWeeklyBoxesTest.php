@@ -3,9 +3,12 @@
 namespace Tests\Feature\Box;
 
 use App\Enums\BoxStatus;
+use App\Enums\DeliveryStatus;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
+use App\Models\Address;
 use App\Models\Box;
+use App\Models\Delivery;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -53,6 +56,35 @@ class PrepareWeeklyBoxesTest extends TestCase
         $this->assertNotNull($box);
         $this->assertSame(BoxStatus::Editable, $box->status);
         $this->assertEquals(0, (float) $box->estimated_value);
+    }
+
+    public function test_creates_canonical_delivery_when_subscriber_has_primary_address(): void
+    {
+        $user = User::factory()->create();
+        Address::factory()->create([
+            'user_id' => $user->id,
+            'is_primary' => true,
+        ]);
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'plan' => SubscriptionPlan::Weekly,
+            'box_size' => 'small',
+        ]);
+
+        $monday = Carbon::today()->next(Carbon::MONDAY)->toDateString();
+
+        $this->artisan('boxes:prepare', ['--week' => $monday])
+            ->assertSuccessful();
+
+        $expectedShipDate = Carbon::parse($monday)->addDays(2)->toDateString();
+
+        $this->assertTrue(Delivery::query()
+            ->where('user_id', $user->id)
+            ->where('is_weekly_override', false)
+            ->whereDate('scheduled_for_date', $expectedShipDate)
+            ->where('status', DeliveryStatus::Scheduled)
+            ->exists());
     }
 
     public function test_skips_existing_box_for_same_user_and_week(): void
