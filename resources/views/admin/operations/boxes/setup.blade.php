@@ -165,11 +165,17 @@
                                         </div>
                                     </div>
 
-                                    <div class="mt-2 h-1.5 w-full rounded-full bg-gray-100">
+                                    <div class="relative mt-2 h-1.5 w-full rounded-full bg-gray-100">
                                         <div
                                             class="h-1.5 rounded-full"
                                             :class="progressClass(size)"
                                             :style="'width:'+ progressWidth(size) +'%'"
+                                        ></div>
+                                        <div
+                                            class="absolute -top-0.5 h-2.5 w-0.5 bg-gray-500"
+                                            :style="'left:'+ targetMarkerPct(size) +'%'"
+                                            :title="{{ json_encode(__('admin.box_setup.target_short')) }} +': '+ formatEur(size.meta.target)"
+                                            aria-hidden="true"
                                         ></div>
                                     </div>
 
@@ -299,8 +305,8 @@
                     retailClass(size) {
                         const r = this.retailSum(size);
                         if (r > size.meta.max + 0.005) return 'text-rose-700';
-                        if (r >= size.meta.target - 0.005) return 'text-emerald-700';
-                        return 'text-gray-900';
+                        if (r > size.meta.target + 0.005) return 'text-amber-700';
+                        return 'text-emerald-700';
                     },
                     progressWidth(size) {
                         if (size.meta.max <= 0) return 0;
@@ -310,8 +316,13 @@
                     progressClass(size) {
                         const r = this.retailSum(size);
                         if (r > size.meta.max + 0.005) return 'bg-rose-500';
-                        if (r >= size.meta.target - 0.005) return 'bg-emerald-500';
-                        return 'bg-amber-400';
+                        if (r > size.meta.target + 0.005) return 'bg-amber-400';
+                        return 'bg-emerald-500';
+                    },
+                    targetMarkerPct(size) {
+                        if (size.meta.max <= 0) return 0;
+                        const pct = (size.meta.target / size.meta.max) * 100;
+                        return Math.max(0, Math.min(100, pct));
                     },
                     get stockRows() {
                         const used = {};

@@ -20,8 +20,13 @@ class AdminBoxController extends Controller
             'items' => fn ($q) => $q->orderBy('id')->with('product:id,name'),
         ]);
 
-        $catalogProducts = Product::query()
-            ->visibleInCatalog()
+        $catalogQuery = Product::query();
+        if ($box->week_start_date !== null) {
+            $catalogQuery->availableForWeek($box->week_start_date);
+        } else {
+            $catalogQuery->visibleInCatalog();
+        }
+        $catalogProducts = $catalogQuery
             ->orderBy('name')
             ->get(['id', 'name']);
 

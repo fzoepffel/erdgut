@@ -140,7 +140,7 @@ class WeeklyBoxSetupServiceTest extends TestCase
         $this->assertSame(1, $small['n']);
         $this->assertEqualsWithDelta(20.0, $small['max'], 0.001);
         $this->assertEqualsWithDelta(14.0, $small['target'], 0.001);
-        $this->assertLessThanOrEqual($small['max'] + 0.005, $small['retail_sum']);
+        $this->assertLessThanOrEqual($small['target'] + 0.005, $small['retail_sum']);
         $this->assertFalse($small['over_target']);
         $this->assertFalse($small['from_existing']);
 
