@@ -11,6 +11,7 @@ use App\Http\Requests\SubscriptionUpdateRequest;
 use App\Models\Subscription;
 use App\Support\SubscriptionLifecycleService;
 use App\Support\SubscriptionUpdateService;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -112,6 +113,39 @@ class SubscriptionController extends Controller
                 $subscription,
                 $request->validated()['pause_from'],
                 $request->validated()['pause_until'],
+                $request->user()->id
+            );
+        } catch (DomainException) {
+            return redirect()
+                ->route('app.subscriptions.show')
+                ->with('status', 'subscription-action-not-allowed');
+        }
+
+        return redirect()
+            ->route('app.subscriptions.show')
+            ->with('status', 'subscription-pause-scheduled');
+    }
+
+    public function skipNextWeek(
+        Request $request,
+        SubscriptionLifecycleService $subscriptionLifecycleService
+    ): RedirectResponse {
+        $subscription = $this->resolveSubscription($request);
+
+        if ($subscription === null) {
+            return redirect()
+                ->route('app.subscriptions.show')
+                ->with('status', 'subscription-missing');
+        }
+
+        $nextMonday = CarbonImmutable::today()->next(CarbonImmutable::MONDAY);
+        $endOfNextWeek = $nextMonday->endOfWeek();
+
+        try {
+            $subscriptionLifecycleService->schedulePause(
+                $subscription,
+                $nextMonday->toDateString(),
+                $endOfNextWeek->toDateString(),
                 $request->user()->id
             );
         } catch (DomainException) {

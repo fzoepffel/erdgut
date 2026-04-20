@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Log;
 
 class SubscriptionLifecycleService
 {
+    public function __construct(private SubscriptionSkipCleanupService $skipCleanup) {}
+
     public function schedulePause(
         Subscription $subscription,
         string $pauseFrom,
@@ -62,6 +64,8 @@ class SubscriptionLifecycleService
                 'pause_until' => $until->toDateString(),
                 'timestamp' => now()->toIso8601String(),
             ]);
+
+            $this->skipCleanup->cleanupWindow($subscription, $from, $until);
 
             return $subscription->fresh();
         });

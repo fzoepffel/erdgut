@@ -81,29 +81,15 @@ class ProducersPageTest extends TestCase
         $response->assertSee('data-testid="producer-card-signup-link"', false);
     }
 
-    public function test_authenticated_user_sees_shop_link_with_producer_filter(): void
+    public function test_authenticated_user_sees_products_catalog_link(): void
     {
         $user = User::factory()->create();
-        $producer = Producer::factory()->create(['name' => 'Shop Link Farm']);
+        Producer::factory()->create(['name' => 'Products Link Farm']);
 
         $response = $this->actingAs($user)->get(route('public.producers'));
 
         $response->assertOk();
-        $response->assertSee(route('app.shop.index', ['producer' => $producer->id]), false);
-        $response->assertSee('data-testid="producer-card-shop-link"', false);
-    }
-
-    public function test_authenticated_user_does_not_see_shop_link_when_shop_disabled(): void
-    {
-        config(['features.shop_extras_enabled' => false]);
-
-        $user = User::factory()->create();
-        Producer::factory()->create(['name' => 'No Shop Farm']);
-
-        $response = $this->actingAs($user)->get(route('public.producers'));
-
-        $response->assertOk();
-        $response->assertDontSee('data-testid="producer-card-shop-link"', false);
-        $response->assertSee('Shop extras are not available right now.', false);
+        $response->assertSee(route('app.products.index'), false);
+        $response->assertSee('data-testid="producer-card-products-link"', false);
     }
 }

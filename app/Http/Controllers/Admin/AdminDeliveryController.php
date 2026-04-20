@@ -7,6 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminDeliveriesIndexRequest;
 use App\Models\Delivery;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AdminDeliveryController extends Controller
 {
@@ -50,5 +53,22 @@ class AdminDeliveryController extends Controller
             'deliveries' => $deliveries,
             'deliveryStatuses' => DeliveryStatus::cases(),
         ]);
+    }
+
+    public function updateStatus(Request $request, Delivery $delivery): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        $validated = $request->validate([
+            'status' => ['required', 'string', Rule::in(array_map(fn (DeliveryStatus $s) => $s->value, DeliveryStatus::cases()))],
+        ]);
+
+        $delivery->update([
+            'status' => DeliveryStatus::from($validated['status']),
+        ]);
+
+        return redirect()
+            ->back()
+            ->with('status', 'admin-delivery-status-updated');
     }
 }

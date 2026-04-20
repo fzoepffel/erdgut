@@ -81,11 +81,18 @@
                             </a>
 
                             @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled)
+                                <form method="POST" action="{{ route('app.subscriptions.skip.next') }}" class="inline">
+                                    @csrf
+                                    <x-secondary-button type="submit">
+                                        {{ __('subscriptions.skip_next_week_cta') }}
+                                    </x-secondary-button>
+                                </form>
+
                                 <x-secondary-button
                                     x-data=""
                                     x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-pause')"
                                 >
-                                    {{ __('Pause delivery window') }}
+                                    {{ __('subscriptions.skip_range_cta') }}
                                 </x-secondary-button>
                             @endif
 
@@ -94,7 +101,7 @@
                                     x-data=""
                                     x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-resume')"
                                 >
-                                    {{ __('Resume subscription') }}
+                                    {{ __('subscriptions.end_skip_cta') }}
                                 </x-secondary-button>
                             @endif
 
@@ -160,12 +167,12 @@
                             </section>
 
                             <section aria-labelledby="sub-section-pause">
-                                <h3 id="sub-section-pause" class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('Delivery pause') }}</h3>
+                                <h3 id="sub-section-pause" class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('subscriptions.skip_section_title') }}</h3>
                                 <p class="mt-2 text-sm text-gray-600">
                                     @if ($subscription->hasPauseWindow())
-                                        {{ __('Paused from :from until :until.', ['from' => $subscription->pause_from?->format('d.m.Y'), 'until' => $subscription->pause_until?->format('d.m.Y')]) }}
+                                        {{ __('subscriptions.skip_window_text', ['from' => $subscription->pause_from?->format('d.m.Y'), 'until' => $subscription->pause_until?->format('d.m.Y')]) }}
                                     @else
-                                        {{ __('No delivery pause scheduled. Use “Pause delivery window” to skip billing and deliveries for a date range.') }}
+                                        {{ __('subscriptions.no_skip_window_text') }}
                                     @endif
                                 </p>
                             </section>
@@ -221,16 +228,16 @@
                                 @csrf
 
                                 <h2 class="text-lg font-medium text-gray-900">
-                                    {{ __('Pause delivery window') }}
+                                    {{ __('subscriptions.skip_range_modal_title') }}
                                 </h2>
 
                                 <p class="mt-2 text-sm text-gray-600">
-                                    {{ __('Choose the start and end dates for your pause. During this period we pause billing and deliveries according to your plan. You can resume earlier with “Resume subscription” if needed.') }}
+                                    {{ __('subscriptions.skip_range_modal_intro') }}
                                 </p>
 
                                 <div class="mt-4 space-y-4">
                                     <div>
-                                        <x-input-label for="pause_from" :value="__('Pause from')" />
+                                        <x-input-label for="pause_from" :value="__('subscriptions.skip_from_label')" />
                                         <x-text-input
                                             id="pause_from"
                                             name="pause_from"
@@ -243,7 +250,7 @@
                                     </div>
 
                                     <div>
-                                        <x-input-label for="pause_until" :value="__('Pause until')" />
+                                        <x-input-label for="pause_until" :value="__('subscriptions.skip_until_label')" />
                                         <x-text-input
                                             id="pause_until"
                                             name="pause_until"
@@ -262,7 +269,7 @@
                                     </x-secondary-button>
 
                                     <x-primary-button>
-                                        {{ __('Save pause timeframe') }}
+                                        {{ __('subscriptions.skip_range_save') }}
                                     </x-primary-button>
                                 </div>
                             </form>
@@ -273,11 +280,11 @@
                                 @csrf
 
                                 <h2 class="text-lg font-medium text-gray-900">
-                                    {{ __('Resume subscription now?') }}
+                                    {{ __('subscriptions.end_skip_modal_title') }}
                                 </h2>
 
                                 <p class="mt-2 text-sm text-gray-600">
-                                    {{ __('Your subscription becomes active again immediately. The next charge date is recalculated from today. Scheduled deliveries follow your usual rhythm after that.') }}
+                                    {{ __('subscriptions.end_skip_modal_intro') }}
                                 </p>
 
                                 <div class="mt-6 flex justify-end gap-2">
@@ -286,7 +293,7 @@
                                     </x-secondary-button>
 
                                     <x-primary-button>
-                                        {{ __('Yes, resume now') }}
+                                        {{ __('subscriptions.end_skip_confirm') }}
                                     </x-primary-button>
                                 </div>
                             </form>

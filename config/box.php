@@ -4,18 +4,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Customer box editing (shop extras / quantity changes)
-    |--------------------------------------------------------------------------
-    |
-    | When false, authenticated customers cannot mutate box line items via the
-    | app (admin tools may still change boxes in later tickets). Launch use:
-    | preset boxes only.
-    |
-    */
-    'customer_box_editing_enabled' => (bool) env('CUSTOMER_BOX_EDITING_ENABLED', true),
-
-    /*
-    |--------------------------------------------------------------------------
     | Included value by box size (EUR)
     |--------------------------------------------------------------------------
     |

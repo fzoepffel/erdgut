@@ -84,7 +84,7 @@ class DemoSubscriptionBoxSeederTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('Berlin')
-            ->assertSee('Modify box')
+            ->assertSee('View box')
             ->assertSee('View current box');
     }
 

@@ -8,6 +8,4 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'shop_extras_enabled' => env('FEATURE_SHOP_EXTRAS', true),
-
 ];

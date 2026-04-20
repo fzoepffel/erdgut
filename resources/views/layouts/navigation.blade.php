@@ -31,12 +31,10 @@
                             <x-nav-link :href="route('app.deliveries.index')" :active="request()->routeIs('app.deliveries.*') && !request()->routeIs('app.deliveries.preferences.*')">
                                 {{ __('Deliveries') }}
                             </x-nav-link>
-                            @if(config('features.shop_extras_enabled', true))
-                                <x-nav-link :href="route('app.shop.index')" :active="request()->routeIs('app.shop.*')">
-                                    {{ __('Shop extras') }}
-                                </x-nav-link>
-                            @endif
                         @endif
+                        <x-nav-link :href="route('app.products.index')" :active="request()->routeIs('app.products.*')">
+                            {{ __('products.index_title') }}
+                        </x-nav-link>
                         @can('admin')
                             <x-nav-link :href="route('app.admin.dashboard')" :active="request()->routeIs('app.admin.*')">
                                 {{ __('Admin') }}
@@ -125,12 +123,10 @@
                     <x-responsive-nav-link :href="route('app.deliveries.index')" :active="request()->routeIs('app.deliveries.*') && !request()->routeIs('app.deliveries.preferences.*')">
                         {{ __('Deliveries') }}
                     </x-responsive-nav-link>
-                    @if(config('features.shop_extras_enabled', true))
-                        <x-responsive-nav-link :href="route('app.shop.index')" :active="request()->routeIs('app.shop.*')">
-                            {{ __('Shop extras') }}
-                        </x-responsive-nav-link>
-                    @endif
                 @endif
+                <x-responsive-nav-link :href="route('app.products.index')" :active="request()->routeIs('app.products.*')">
+                    {{ __('products.index_title') }}
+                </x-responsive-nav-link>
                 @can('admin')
                     <x-responsive-nav-link :href="route('app.admin.dashboard')" :active="request()->routeIs('app.admin.*')">
                         {{ __('Admin') }}

@@ -20,6 +20,7 @@ use App\Http\Controllers\Marketing\AboutController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\ProducerController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\SubscriptionOnboardController;
 use App\Models\User;
@@ -54,16 +55,14 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/payments/history', route('app.payments.history', absolute: false));
         $this->assertSame('/app/boxes/current', route('app.boxes.current', absolute: false));
         $this->assertSame('/app/boxes/1', route('app.boxes.show', ['box' => 1], absolute: false));
-        $this->assertSame('/app/boxes/1/items', route('app.boxes.items.add', ['box' => 1], absolute: false));
-        $this->assertSame('/app/boxes/1/items/2', route('app.boxes.items.updateQuantity', ['box' => 1, 'item' => 2], absolute: false));
-        $this->assertSame('/app/boxes/1/items/2', route('app.boxes.items.remove', ['box' => 1, 'item' => 2], absolute: false));
         $this->assertSame('/app/deliveries/1', route('app.deliveries.show', ['delivery' => 1], absolute: false));
-        $this->assertSame('/app/deliveries/1/skip', route('app.deliveries.skip', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/deliveries/1/gift', route('app.deliveries.gift', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/deliveries/preferences', route('app.deliveries.preferences.edit', absolute: false));
         $this->assertSame('/app/deliveries/preferences', route('app.deliveries.preferences.update', absolute: false));
-        $this->assertSame('/app/shop', route('app.shop.index', absolute: false));
-        $this->assertSame('/app/shop/1', route('app.shop.show', ['product' => 1], absolute: false));
+        $this->assertSame('/app/products', route('app.products.index', absolute: false));
+        $this->assertSame('/app/products/1', route('app.products.show', ['product' => 1], absolute: false));
+        $this->assertSame('/app/subscriptions/skip-next', route('app.subscriptions.skip.next', absolute: false));
+        $this->assertSame('/app/admin/deliveries/1/status', route('app.admin.deliveries.status.update', ['delivery' => 1], absolute: false));
         $this->assertSame('/app/payments/setup', route('app.payments.setup', absolute: false));
         $this->assertSame('/app/payments/setup/complete', route('app.payments.setup.complete', absolute: false));
         $this->assertSame('/app/payments/update', route('app.payments.update', absolute: false));
@@ -241,7 +240,6 @@ class RouteGroupingTest extends TestCase
         $boxCurrentRoute = RouteFacade::getRoutes()->getByName('app.boxes.current');
         $boxRoute = RouteFacade::getRoutes()->getByName('app.boxes.show');
         $deliveryShowRoute = RouteFacade::getRoutes()->getByName('app.deliveries.show');
-        $deliverySkipRoute = RouteFacade::getRoutes()->getByName('app.deliveries.skip');
         $deliveryGiftRoute = RouteFacade::getRoutes()->getByName('app.deliveries.gift');
         $deliveryPreferencesEditRoute = RouteFacade::getRoutes()->getByName('app.deliveries.preferences.edit');
         $deliveryPreferencesUpdateRoute = RouteFacade::getRoutes()->getByName('app.deliveries.preferences.update');
@@ -249,7 +247,6 @@ class RouteGroupingTest extends TestCase
         $this->assertNotNull($boxCurrentRoute);
         $this->assertNotNull($boxRoute);
         $this->assertNotNull($deliveryShowRoute);
-        $this->assertNotNull($deliverySkipRoute);
         $this->assertNotNull($deliveryGiftRoute);
         $this->assertNotNull($deliveryPreferencesEditRoute);
         $this->assertNotNull($deliveryPreferencesUpdateRoute);
@@ -261,22 +258,8 @@ class RouteGroupingTest extends TestCase
             ? explode('@', $boxRoute->getAction('controller'))
             : []);
 
-        $boxItemsUpdateRoute = RouteFacade::getRoutes()->getByName('app.boxes.items.updateQuantity');
-        $this->assertNotNull($boxItemsUpdateRoute);
-        $this->assertSame([BoxController::class, 'updateItemQuantity'], $boxItemsUpdateRoute->getAction('controller')
-            ? explode('@', $boxItemsUpdateRoute->getAction('controller'))
-            : []);
-
-        $boxItemsRemoveRoute = RouteFacade::getRoutes()->getByName('app.boxes.items.remove');
-        $this->assertNotNull($boxItemsRemoveRoute);
-        $this->assertSame([BoxController::class, 'removeItem'], $boxItemsRemoveRoute->getAction('controller')
-            ? explode('@', $boxItemsRemoveRoute->getAction('controller'))
-            : []);
         $this->assertSame([DeliveryController::class, 'show'], $deliveryShowRoute->getAction('controller')
             ? explode('@', $deliveryShowRoute->getAction('controller'))
-            : []);
-        $this->assertSame([DeliveryController::class, 'skip'], $deliverySkipRoute->getAction('controller')
-            ? explode('@', $deliverySkipRoute->getAction('controller'))
             : []);
         $this->assertSame([DeliveryController::class, 'gift'], $deliveryGiftRoute->getAction('controller')
             ? explode('@', $deliveryGiftRoute->getAction('controller'))
@@ -286,6 +269,57 @@ class RouteGroupingTest extends TestCase
             : []);
         $this->assertSame([DeliveryPreferencesController::class, 'update'], $deliveryPreferencesUpdateRoute->getAction('controller')
             ? explode('@', $deliveryPreferencesUpdateRoute->getAction('controller'))
+            : []);
+
+        // Removed customer-side mutation routes
+        $this->assertFalse(RouteFacade::has('app.boxes.items.add'));
+        $this->assertFalse(RouteFacade::has('app.boxes.items.updateQuantity'));
+        $this->assertFalse(RouteFacade::has('app.boxes.items.remove'));
+        $this->assertFalse(RouteFacade::has('app.deliveries.skip'));
+        $this->assertFalse(RouteFacade::has('app.deliveries.postpone'));
+        $this->assertFalse(RouteFacade::has('app.deliveries.override.update'));
+        $this->assertFalse(RouteFacade::has('app.shop.index'));
+        $this->assertFalse(RouteFacade::has('app.shop.show'));
+    }
+
+    public function test_products_catalog_routes_use_product_controller(): void
+    {
+        $indexRoute = RouteFacade::getRoutes()->getByName('app.products.index');
+        $showRoute = RouteFacade::getRoutes()->getByName('app.products.show');
+
+        $this->assertNotNull($indexRoute);
+        $this->assertNotNull($showRoute);
+
+        $this->assertSame([ProductController::class, 'index'], $indexRoute->getAction('controller')
+            ? explode('@', $indexRoute->getAction('controller'))
+            : []);
+        $this->assertSame([ProductController::class, 'show'], $showRoute->getAction('controller')
+            ? explode('@', $showRoute->getAction('controller'))
+            : []);
+
+        $this->assertContains('auth', $indexRoute->gatherMiddleware());
+        $this->assertContains('verified', $indexRoute->gatherMiddleware());
+    }
+
+    public function test_admin_delivery_status_update_route_wires_controller_and_throttle(): void
+    {
+        $route = RouteFacade::getRoutes()->getByName('app.admin.deliveries.status.update');
+        $this->assertNotNull($route);
+        $this->assertSame([AdminDeliveryController::class, 'updateStatus'], $route->getAction('controller')
+            ? explode('@', $route->getAction('controller'))
+            : []);
+        $this->assertContains('auth', $route->gatherMiddleware());
+        $this->assertContains('verified', $route->gatherMiddleware());
+        $this->assertContains('admin', $route->gatherMiddleware());
+        $this->assertContains('throttle:30,1', $route->gatherMiddleware());
+    }
+
+    public function test_subscription_skip_next_route_uses_subscription_controller(): void
+    {
+        $route = RouteFacade::getRoutes()->getByName('app.subscriptions.skip.next');
+        $this->assertNotNull($route);
+        $this->assertSame([SubscriptionController::class, 'skipNextWeek'], $route->getAction('controller')
+            ? explode('@', $route->getAction('controller'))
             : []);
     }
 

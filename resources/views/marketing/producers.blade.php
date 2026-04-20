@@ -147,24 +147,20 @@
                             </div>
                             <div class="border-t border-gray-100 pt-4">
                                 @auth
-                                    @if ($shopExtrasEnabled)
-                                        <a
-                                            href="{{ route('app.shop.index', ['producer' => $producer->id]) }}"
-                                            class="inline-flex w-full justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
-                                            data-testid="producer-card-shop-link"
-                                        >
-                                            View in shop
-                                        </a>
-                                    @else
-                                        <p class="text-xs text-gray-500">Shop extras are not available right now.</p>
-                                    @endif
+                                    <a
+                                        href="{{ route('app.products.index') }}"
+                                        class="inline-flex w-full justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                                        data-testid="producer-card-products-link"
+                                    >
+                                        Browse products
+                                    </a>
                                 @else
                                     <a
                                         href="{{ route('auth.register') }}"
                                         class="inline-flex w-full justify-center rounded-md border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50"
                                         data-testid="producer-card-signup-link"
                                     >
-                                        Sign up to shop extras
+                                        Sign up to browse products
                                     </a>
                                     <p class="mt-2 text-center text-xs text-gray-500">
                                         Already a customer?

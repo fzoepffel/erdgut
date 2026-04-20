@@ -26,8 +26,8 @@ use App\Http\Controllers\Operations\CronRunController;
 use App\Http\Controllers\Operations\HealthcheckController;
 use App\Http\Controllers\PaymentHistoryController;
 use App\Http\Controllers\PaymentSetupController;
+use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\SubscriptionOnboardController;
 use Illuminate\Support\Facades\Route;
@@ -67,36 +67,26 @@ Route::middleware(['auth', 'verified'])
             Route::get('/edit', [SubscriptionController::class, 'edit'])->name('edit');
             Route::patch('/', [SubscriptionController::class, 'update'])->name('update');
             Route::post('/pause', [SubscriptionController::class, 'pause'])->middleware('throttle:subscription-actions')->name('pause');
+            Route::post('/skip-next', [SubscriptionController::class, 'skipNextWeek'])->middleware('throttle:subscription-actions')->name('skip.next');
             Route::post('/resume', [SubscriptionController::class, 'resume'])->middleware('throttle:subscription-actions')->name('resume');
             Route::post('/cancel', [SubscriptionController::class, 'cancel'])->middleware('throttle:subscription-actions')->name('cancel');
         });
+
+        Route::get('products', [CustomerProductController::class, 'index'])->name('products.index');
+        Route::get('products/{product}', [CustomerProductController::class, 'show'])->name('products.show');
 
         Route::middleware('subscriber.full')->group(function () {
             Route::prefix('deliveries')->name('deliveries.')->group(function () {
                 Route::get('/', [DeliveryController::class, 'index'])->name('index');
                 Route::get('/preferences', [DeliveryPreferencesController::class, 'edit'])->name('preferences.edit');
                 Route::patch('/preferences', [DeliveryPreferencesController::class, 'update'])->name('preferences.update');
-                Route::patch('/{delivery}/override', [DeliveryController::class, 'updateOverride'])->name('override.update');
                 Route::get('/{delivery}', [DeliveryController::class, 'show'])->name('show');
-                Route::post('/{delivery}/skip', [DeliveryController::class, 'skip'])->name('skip');
-                Route::post('/{delivery}/postpone', [DeliveryController::class, 'postpone'])->name('postpone');
                 Route::get('/{delivery}/gift', [DeliveryController::class, 'gift'])->name('gift');
                 Route::post('/{delivery}/gift', [DeliveryController::class, 'storeGift'])->name('gift.store');
             });
             Route::prefix('boxes')->name('boxes.')->group(function () {
                 Route::get('/current', [BoxController::class, 'current'])->name('current');
-                Route::post('/{box}/items', [BoxController::class, 'addItem'])->name('items.add');
-                Route::patch('/{box}/items/{item}', [BoxController::class, 'updateItemQuantity'])
-                    ->scopeBindings()
-                    ->name('items.updateQuantity');
-                Route::delete('/{box}/items/{item}', [BoxController::class, 'removeItem'])
-                    ->scopeBindings()
-                    ->name('items.remove');
                 Route::get('/{box}', [BoxController::class, 'show'])->name('show');
-            });
-            Route::prefix('shop')->name('shop.')->group(function () {
-                Route::get('/', [ShopController::class, 'index'])->name('index');
-                Route::get('/{product}', [ShopController::class, 'show'])->name('show');
             });
             Route::prefix('payments')->name('payments.')->group(function () {
                 Route::get('/history', [PaymentHistoryController::class, 'index'])->name('history');
@@ -114,6 +104,9 @@ Route::middleware(['auth', 'verified'])
             Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
             Route::get('subscriptions', [AdminSubscriptionController::class, 'index'])->name('subscriptions.index');
             Route::get('deliveries', [AdminDeliveryController::class, 'index'])->name('deliveries.index');
+            Route::patch('deliveries/{delivery}/status', [AdminDeliveryController::class, 'updateStatus'])
+                ->middleware('throttle:30,1')
+                ->name('deliveries.status.update');
             Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
             Route::get('billing/upcoming', [AdminUpcomingChargeController::class, 'index'])->name('billing.upcoming');
             Route::get('billing/coverage', [AdminBillingCoverageController::class, 'index'])->name('billing.coverage');
