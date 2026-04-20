@@ -534,6 +534,7 @@
     "admin.box_items.flash_added": "Zeile hinzugefügt und Boxwert neu berechnet.",
     "admin.box_items.flash_updated": "Menge aktualisiert und Boxwert neu berechnet.",
     "admin.box_items.flash_removed": "Zeile entfernt und Boxwert neu berechnet.",
+    "admin.box_items.product_unavailable_this_week": "Das Produkt ist in dieser Woche nicht im Wochen-Katalog verfügbar.",
     "boxes.customer_editing_disabled_notice": "Änderungen am Boxinhalt in der App sind vorübergehend nicht möglich. Ihre Box folgt der wöchentlichen Voreinstellung.",
     "boxes.edit_mode_blocked_customer_disabled": "Bearbeitungsmodus ist ausgeschaltet, da die Selbstbedienung für Boxänderungen deaktiviert ist.",
     "admin.metrics.users_total_label": "Registrierte Nutzer",

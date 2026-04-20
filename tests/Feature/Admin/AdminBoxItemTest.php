@@ -8,6 +8,7 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Product;
+use App\Models\ProductWeekStock;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -80,6 +81,12 @@ class AdminBoxItemTest extends TestCase
             'is_published' => true,
             'metadata' => ['unit' => 'kg'],
         ]);
+        ProductWeekStock::create([
+            'product_id' => $product->id,
+            'week_start_date' => $weekStart->toDateString(),
+            'planned_quantity' => 10,
+            'unit' => 'kg',
+        ]);
 
         $this->actingAs($admin)
             ->post(route('app.admin.boxes.items.store', $box), [
@@ -142,11 +149,46 @@ class AdminBoxItemTest extends TestCase
 
         $admin = User::factory()->admin()->create();
         $customer = User::factory()->create();
+        $weekStart = Carbon::today()->next(Carbon::MONDAY);
         $box = Box::factory()->create([
             'user_id' => $customer->id,
+            'week_start_date' => $weekStart->toDateString(),
             'status' => BoxStatus::Locked,
             'modification_deadline_at' => now()->subDay(),
         ]);
+        $product = Product::factory()->create([
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductWeekStock::create([
+            'product_id' => $product->id,
+            'week_start_date' => $weekStart->toDateString(),
+            'planned_quantity' => 5,
+            'unit' => 'piece',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.items.store', $box), [
+                'product_id' => $product->id,
+                'quantity' => 1,
+            ])
+            ->assertRedirect(route('app.admin.boxes.show', $box));
+    }
+
+    public function test_admin_cannot_add_product_without_weekly_stock(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-24 12:00:00'));
+
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $weekStart = Carbon::parse('2026-03-30');
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $weekStart->toDateString(),
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => $weekStart->copy()->addDays(5),
+        ]);
+
         $product = Product::factory()->create([
             'is_available' => true,
             'is_published' => true,
@@ -157,7 +199,53 @@ class AdminBoxItemTest extends TestCase
                 'product_id' => $product->id,
                 'quantity' => 1,
             ])
-            ->assertRedirect(route('app.admin.boxes.show', $box));
+            ->assertSessionHasErrors(['product_id']);
+
+        $this->assertDatabaseMissing('box_items', [
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+        ]);
+    }
+
+    public function test_admin_box_show_dropdown_only_lists_products_with_weekly_stock(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-24 12:00:00'));
+
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $weekStart = Carbon::parse('2026-03-30');
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $weekStart->toDateString(),
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => $weekStart->copy()->addDays(5),
+        ]);
+
+        $available = Product::factory()->create([
+            'name' => 'Available-Week-Product',
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductWeekStock::create([
+            'product_id' => $available->id,
+            'week_start_date' => $weekStart->toDateString(),
+            'planned_quantity' => 10,
+            'unit' => 'piece',
+        ]);
+
+        $unavailable = Product::factory()->create([
+            'name' => 'Not-In-Week-Product',
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.boxes.show', $box))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Available-Week-Product', $html);
+        $this->assertStringNotContainsString('Not-In-Week-Product', $html);
     }
 
     public function test_admin_box_show_does_not_emit_sumup_strings(): void

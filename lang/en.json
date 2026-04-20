@@ -227,6 +227,7 @@
     "admin.box_items.flash_added": "Line added and box value recalculated.",
     "admin.box_items.flash_updated": "Quantity updated and box value recalculated.",
     "admin.box_items.flash_removed": "Line removed and box value recalculated.",
+    "admin.box_items.product_unavailable_this_week": "This product is not in the weekly catalog for this week.",
     "boxes.customer_editing_disabled_notice": "Changing box contents in the app is temporarily unavailable. Your box will follow the weekly preset.",
     "boxes.edit_mode_blocked_customer_disabled": "Edit mode is unavailable because self-service box editing is turned off.",
     "Welcome": "Welcome",
