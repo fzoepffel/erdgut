@@ -1,0 +1,357 @@
+@php
+    $initialState = [
+        'margin_rate' => $data['margin_rate'],
+        'stock' => $data['stock'],
+        'sizes' => [],
+    ];
+    $sizeMeta = [];
+    foreach ($data['size_blocks'] as $block) {
+        $sizeMeta[$block['box_size']] = [
+            'n' => $block['n'],
+            'ttc' => $block['ttc'],
+            'target' => $block['target'],
+            'max' => $block['max'],
+        ];
+        $initialState['sizes'][$block['box_size']] = array_map(fn ($line) => [
+            'product_id' => $line['product_id'],
+            'quantity' => $line['quantity'],
+        ], $block['lines']);
+    }
+    $initialState['size_meta'] = $sizeMeta;
+@endphp
+<x-admin-layout>
+    <x-slot name="header">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                {{ __('admin.box_setup.setup_title', ['date' => $week->translatedFormat('d.m.Y')]) }}
+            </h2>
+            <a href="{{ route('app.admin.boxes.index') }}" class="text-sm font-medium text-emerald-700 hover:underline">
+                {{ __('admin.box_setup.back_to_overview') }}
+            </a>
+        </div>
+    </x-slot>
+
+    <div class="py-4 sm:py-6">
+        <div class="mx-auto max-w-[1600px] space-y-4 px-4 sm:px-6 lg:px-8">
+            @if ($errors->any())
+                <div class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900" role="alert">
+                    <ul class="list-inside list-disc space-y-1">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            @if (empty($data['size_blocks']))
+                <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+                    {{ __('admin.box_setup.no_eligible_subs') }}
+                </div>
+            @elseif (empty($data['stock']))
+                <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+                    {{ __('admin.box_setup.no_stock_warning') }}
+                    <a href="{{ route('app.admin.products.weekly.show', ['week' => $week->toDateString()]) }}" class="font-medium underline">
+                        {{ __('admin.box_setup.goto_weekly_catalog') }}
+                    </a>
+                </div>
+            @endif
+
+            <div
+                x-data="boxSetup(@js($initialState))"
+                x-cloak
+            >
+                <form method="post" action="{{ route('app.admin.boxes.setup.apply', ['week' => $week->toDateString()]) }}">
+                    @csrf
+                    <input type="hidden" name="week_start_date" value="{{ $week->toDateString() }}" />
+
+                    <div class="grid gap-4 lg:grid-cols-[minmax(280px,1fr)_3fr]">
+                        {{-- Left panel: stock overview --}}
+                        <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-semibold text-gray-900">
+                                    {{ __('admin.box_setup.stock_heading') }}
+                                </h3>
+                                <span
+                                    class="text-xs font-semibold"
+                                    :class="anyOver ? 'text-rose-700' : 'text-gray-500'"
+                                >
+                                    <template x-if="anyOver">
+                                        <span>{{ __('admin.box_setup.over_planned_warning') }}</span>
+                                    </template>
+                                </span>
+                            </div>
+                            <div class="mt-3 max-h-[70vh] overflow-auto">
+                                <table class="min-w-full text-xs">
+                                    <thead class="sticky top-0 bg-white">
+                                        <tr class="border-b border-gray-200 text-left text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                                            <th class="py-1.5">{{ __('admin.box_setup.col_product') }}</th>
+                                            <th class="py-1.5 text-right">{{ __('admin.box_setup.col_planned') }}</th>
+                                            <th class="py-1.5 text-right">{{ __('admin.box_setup.col_used') }}</th>
+                                            <th class="py-1.5 text-right">{{ __('admin.box_setup.col_remaining') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        <template x-for="row in stockRows" :key="row.product_id">
+                                            <tr :class="row.remaining < 0 ? 'bg-rose-50' : ''">
+                                                <td class="py-1 pr-2">
+                                                    <div class="font-medium text-gray-900" x-text="row.name"></div>
+                                                    <div class="text-[10px] text-gray-500">
+                                                        <span x-text="row.unit"></span>
+                                                        ·
+                                                        <span x-text="formatEur(row.unit_price)"></span>
+                                                    </div>
+                                                </td>
+                                                <td class="py-1 text-right tabular-nums text-gray-700" x-text="formatNumber(row.planned)"></td>
+                                                <td class="py-1 text-right tabular-nums" :class="row.remaining < 0 ? 'font-semibold text-rose-700' : 'text-gray-700'" x-text="formatNumber(row.used_total)"></td>
+                                                <td class="py-1 text-right tabular-nums" :class="row.remaining < 0 ? 'font-semibold text-rose-700' : 'text-gray-700'" x-text="formatNumber(row.remaining)"></td>
+                                            </tr>
+                                        </template>
+                                        <template x-if="stockRows.length === 0">
+                                            <tr>
+                                                <td colspan="4" class="py-4 text-center text-gray-500">{{ __('admin.box_setup.stock_empty') }}</td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {{-- Right panel: size cards --}}
+                        <div class="grid gap-4" :class="sizes.length === 1 ? 'grid-cols-1' : (sizes.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3')">
+                            <template x-for="size in sizes" :key="size.key">
+                                <div class="flex flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                                    <div class="flex items-start justify-between">
+                                        <div>
+                                            <h3 class="text-sm font-semibold text-gray-900">
+                                                <span x-text="sizeLabel(size.key)"></span>
+                                            </h3>
+                                            <p class="text-xs text-gray-500">
+                                                <span x-text="size.meta.n"></span>
+                                                {{ __('admin.box_setup.boxes_suffix') }}
+                                            </p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-[11px] uppercase tracking-wide text-gray-500">
+                                                {{ __('admin.box_setup.retail_sum') }}
+                                            </p>
+                                            <p class="text-sm font-semibold tabular-nums" :class="retailClass(size)">
+                                                <span x-text="formatEur(retailSum(size))"></span>
+                                            </p>
+                                            <p class="text-[11px] text-gray-500">
+                                                {{ __('admin.box_setup.target_short') }}:
+                                                <span x-text="formatEur(size.meta.target)"></span>
+                                                /
+                                                {{ __('admin.box_setup.max_short') }}:
+                                                <span x-text="formatEur(size.meta.max)"></span>
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-2 h-1.5 w-full rounded-full bg-gray-100">
+                                        <div
+                                            class="h-1.5 rounded-full"
+                                            :class="progressClass(size)"
+                                            :style="'width:'+ progressWidth(size) +'%'"
+                                        ></div>
+                                    </div>
+
+                                    <ul class="mt-3 flex-1 divide-y divide-gray-100 text-xs">
+                                        <template x-for="(line, idx) in size.lines" :key="size.key+'-'+idx">
+                                            <li class="flex items-center gap-2 py-1.5">
+                                                <input
+                                                    type="hidden"
+                                                    :name="'sizes['+size.key+']['+idx+'][product_id]'"
+                                                    :value="line.product_id"
+                                                />
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="truncate font-medium text-gray-900" x-text="productName(line.product_id)"></div>
+                                                    <div class="text-[11px] text-gray-500">
+                                                        <span x-text="productUnit(line.product_id)"></span>
+                                                        ·
+                                                        <span x-text="formatEur(productPrice(line.product_id))"></span>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        class="rounded border border-gray-200 px-1.5 text-gray-600 hover:bg-gray-50"
+                                                        @click="decQty(size.key, idx)"
+                                                        aria-label="{{ __('admin.box_setup.decrease') }}"
+                                                    >−</button>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        step="1"
+                                                        class="w-14 rounded border-gray-300 text-center text-xs tabular-nums shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                        :name="'sizes['+size.key+']['+idx+'][quantity]'"
+                                                        x-model.number="line.quantity"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        class="rounded border border-gray-200 px-1.5 text-gray-600 hover:bg-gray-50"
+                                                        @click="incQty(size.key, idx)"
+                                                        aria-label="{{ __('admin.box_setup.increase') }}"
+                                                    >+</button>
+                                                    <button
+                                                        type="button"
+                                                        class="ml-1 text-rose-600 hover:text-rose-800"
+                                                        @click="removeLine(size.key, idx)"
+                                                        aria-label="{{ __('admin.box_setup.remove_line') }}"
+                                                    >×</button>
+                                                </div>
+                                            </li>
+                                        </template>
+                                        <template x-if="size.lines.length === 0">
+                                            <li class="py-2 text-center text-gray-500">{{ __('admin.box_setup.size_lines_empty') }}</li>
+                                        </template>
+                                    </ul>
+
+                                    <div class="mt-3 flex items-center gap-2">
+                                        <select
+                                            class="min-w-0 flex-1 rounded border-gray-300 text-xs shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                            x-model="size.addProductId"
+                                        >
+                                            <option value="">{{ __('admin.box_setup.add_placeholder') }}</option>
+                                            <template x-for="row in addableOptions(size)" :key="'add-'+size.key+'-'+row.product_id">
+                                                <option :value="row.product_id" x-text="row.name + ' (' + formatEur(row.unit_price) + ')'"></option>
+                                            </template>
+                                        </select>
+                                        <button
+                                            type="button"
+                                            class="rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                            :disabled="!size.addProductId"
+                                            @click="addLine(size.key)"
+                                        >
+                                            {{ __('admin.box_setup.add_line') }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex items-center justify-between">
+                        <p class="text-xs text-gray-500">
+                            {{ __('admin.box_setup.save_hint') }}
+                        </p>
+                        <button
+                            type="submit"
+                            class="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                        >
+                            {{ __('admin.box_setup.save_button') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('boxSetup', (initial) => ({
+                    marginRate: initial.margin_rate,
+                    stockById: Object.fromEntries(initial.stock.map(r => [r.product_id, { ...r }])),
+                    sizes: Object.entries(initial.sizes).map(([key, lines]) => ({
+                        key,
+                        meta: initial.size_meta[key],
+                        addProductId: '',
+                        lines: lines.map(l => ({ product_id: Number(l.product_id), quantity: Number(l.quantity) })),
+                    })),
+                    sizeLabel(key) {
+                        const labels = @js([
+                            'small' => __('admin.box_setup.size_small'),
+                            'medium' => __('admin.box_setup.size_medium'),
+                            'large' => __('admin.box_setup.size_large'),
+                        ]);
+                        return labels[key] ?? key;
+                    },
+                    productName(pid) {
+                        return this.stockById[pid]?.name ?? '—';
+                    },
+                    productUnit(pid) {
+                        return this.stockById[pid]?.unit ?? '';
+                    },
+                    productPrice(pid) {
+                        return this.stockById[pid]?.unit_price ?? 0;
+                    },
+                    retailSum(size) {
+                        return size.lines.reduce((acc, l) => acc + (this.productPrice(l.product_id) * Math.max(0, l.quantity || 0)), 0);
+                    },
+                    retailClass(size) {
+                        const r = this.retailSum(size);
+                        if (r > size.meta.max + 0.005) return 'text-rose-700';
+                        if (r >= size.meta.target - 0.005) return 'text-emerald-700';
+                        return 'text-gray-900';
+                    },
+                    progressWidth(size) {
+                        if (size.meta.max <= 0) return 0;
+                        const pct = (this.retailSum(size) / size.meta.max) * 100;
+                        return Math.max(0, Math.min(100, pct));
+                    },
+                    progressClass(size) {
+                        const r = this.retailSum(size);
+                        if (r > size.meta.max + 0.005) return 'bg-rose-500';
+                        if (r >= size.meta.target - 0.005) return 'bg-emerald-500';
+                        return 'bg-amber-400';
+                    },
+                    get stockRows() {
+                        const used = {};
+                        for (const size of this.sizes) {
+                            const n = size.meta.n;
+                            for (const line of size.lines) {
+                                const pid = Number(line.product_id);
+                                const qty = Math.max(0, line.quantity || 0);
+                                used[pid] = (used[pid] || 0) + qty * n;
+                            }
+                        }
+                        return Object.values(this.stockById).map(row => {
+                            const u = used[row.product_id] || 0;
+                            return {
+                                ...row,
+                                used_total: Math.round(u * 100) / 100,
+                                remaining: Math.round((row.planned - u) * 100) / 100,
+                            };
+                        }).sort((a, b) => a.name.localeCompare(b.name));
+                    },
+                    get anyOver() {
+                        return this.stockRows.some(r => r.remaining < 0);
+                    },
+                    addableOptions(size) {
+                        const used = new Set(size.lines.map(l => Number(l.product_id)));
+                        return this.stockRows.filter(r => !used.has(Number(r.product_id)) && r.remaining > 0);
+                    },
+                    addLine(sizeKey) {
+                        const size = this.sizes.find(s => s.key === sizeKey);
+                        if (!size || !size.addProductId) return;
+                        const pid = Number(size.addProductId);
+                        size.lines.push({ product_id: pid, quantity: 1 });
+                        size.addProductId = '';
+                    },
+                    removeLine(sizeKey, idx) {
+                        const size = this.sizes.find(s => s.key === sizeKey);
+                        if (!size) return;
+                        size.lines.splice(idx, 1);
+                    },
+                    incQty(sizeKey, idx) {
+                        const size = this.sizes.find(s => s.key === sizeKey);
+                        if (!size) return;
+                        size.lines[idx].quantity = Number(size.lines[idx].quantity || 0) + 1;
+                    },
+                    decQty(sizeKey, idx) {
+                        const size = this.sizes.find(s => s.key === sizeKey);
+                        if (!size) return;
+                        const next = Number(size.lines[idx].quantity || 0) - 1;
+                        size.lines[idx].quantity = next < 1 ? 1 : next;
+                    },
+                    formatNumber(v) {
+                        const n = Number(v) || 0;
+                        return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(n);
+                    },
+                formatEur(v) {
+                    const n = Number(v) || 0;
+                    return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' €';
+                },
+            }));
+        });
+    </script>
+</x-admin-layout>

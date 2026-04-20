@@ -3,9 +3,8 @@
 use App\Http\Controllers\Account\UserAccessProbeController;
 use App\Http\Controllers\Admin\AdminBillingCoverageController;
 use App\Http\Controllers\Admin\AdminBoxController;
-use App\Http\Controllers\Admin\AdminBoxDistributionController;
 use App\Http\Controllers\Admin\AdminBoxItemController;
-use App\Http\Controllers\Admin\AdminBoxPlannerController;
+use App\Http\Controllers\Admin\AdminBoxSetupController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
 use App\Http\Controllers\Admin\AdminPaymentController;
@@ -121,17 +120,14 @@ Route::middleware(['auth', 'verified'])
             Route::post('billing/charge', [AdminBillingCoverageController::class, 'charge'])
                 ->middleware('throttle:12,1')
                 ->name('billing.charge');
-            Route::get('boxes/planner', [AdminBoxPlannerController::class, 'index'])->name('boxes.planner');
-            Route::get('boxes/planner/canonical-preview', [AdminBoxPlannerController::class, 'canonicalPreview'])
-                ->name('boxes.planner.canonical-preview');
-            Route::post('boxes/planner/canonical-apply', [AdminBoxPlannerController::class, 'canonicalApply'])
+            Route::get('boxes', [AdminBoxSetupController::class, 'index'])->name('boxes.index');
+            Route::get('boxes/setup/{week}', [AdminBoxSetupController::class, 'show'])
+                ->where('week', '\d{4}-\d{2}-\d{2}')
+                ->name('boxes.setup.show');
+            Route::post('boxes/setup/{week}', [AdminBoxSetupController::class, 'apply'])
+                ->where('week', '\d{4}-\d{2}-\d{2}')
                 ->middleware('throttle:12,1')
-                ->name('boxes.planner.canonical-apply');
-            Route::get('boxes/distribute', [AdminBoxDistributionController::class, 'show'])->name('boxes.distribute');
-            Route::post('boxes/distribute', [AdminBoxDistributionController::class, 'apply'])
-                ->middleware('throttle:12,1')
-                ->name('boxes.distribute.apply');
-            Route::post('boxes', [AdminBoxController::class, 'store'])->name('boxes.store');
+                ->name('boxes.setup.apply');
             Route::post('boxes/{box}/items', [AdminBoxItemController::class, 'store'])->name('boxes.items.store');
             Route::patch('boxes/{box}/items/{item}', [AdminBoxItemController::class, 'update'])
                 ->scopeBindings()

@@ -1,0 +1,335 @@
+<?php
+
+namespace Tests\Feature\Admin;
+
+use App\Enums\BoxStatus;
+use App\Enums\SubscriptionPlan;
+use App\Enums\SubscriptionStatus;
+use App\Models\Box;
+use App\Models\BoxItem;
+use App\Models\Product;
+use App\Models\ProductWeekStock;
+use App\Models\Subscription;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Tests\TestCase;
+
+class AdminBoxSetupTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow(null);
+
+        parent::tearDown();
+    }
+
+    public function test_guest_is_redirected_from_index_and_setup(): void
+    {
+        $monday = '2026-05-04';
+
+        $this->get(route('app.admin.boxes.index'))->assertRedirect('/auth/login');
+        $this->get(route('app.admin.boxes.setup.show', ['week' => $monday]))->assertRedirect('/auth/login');
+        $this->post(route('app.admin.boxes.setup.apply', ['week' => $monday]), [])->assertRedirect('/auth/login');
+    }
+
+    public function test_non_admin_receives_forbidden(): void
+    {
+        $user = User::factory()->create(['is_admin' => false]);
+        $monday = '2026-05-04';
+
+        $this->actingAs($user)
+            ->get(route('app.admin.boxes.index'))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->get(route('app.admin.boxes.setup.show', ['week' => $monday]))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->post(route('app.admin.boxes.setup.apply', ['week' => $monday]), [
+                'week_start_date' => $monday,
+                'sizes' => [],
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_admin_sees_calendar_overview_index(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.boxes.index'))
+            ->assertOk()
+            ->assertSee(__('admin.box_setup.title'));
+    }
+
+    public function test_admin_can_open_setup_dialog_with_initial_distribution(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $customer = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'box_size' => 'medium',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+        ]);
+
+        $product = Product::factory()->create([
+            'name' => 'Setup Dialog Carrot',
+            'unit_price' => 2.50,
+            'is_available' => true,
+            'is_published' => true,
+            'metadata' => ['unit' => 'bundle'],
+        ]);
+        ProductWeekStock::create([
+            'product_id' => $product->id,
+            'week_start_date' => $monday->toDateString(),
+            'planned_quantity' => 20,
+            'unit' => 'bundle',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.boxes.setup.show', ['week' => $monday->toDateString()]))
+            ->assertOk()
+            ->assertSee('Setup Dialog Carrot');
+    }
+
+    public function test_apply_rejects_non_monday_week(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.setup.apply', ['week' => '2026-05-04']), [
+                'week_start_date' => '2026-05-06',
+                'sizes' => ['small' => []],
+            ])
+            ->assertSessionHasErrors(['week_start_date']);
+    }
+
+    public function test_apply_rejects_product_without_weekly_stock(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $product = Product::factory()->create([
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.setup.apply', ['week' => $monday->toDateString()]), [
+                'week_start_date' => $monday->toDateString(),
+                'sizes' => [
+                    'small' => [
+                        ['product_id' => $product->id, 'quantity' => 1],
+                    ],
+                ],
+            ])
+            ->assertSessionHasErrors(['sizes.small.0.product_id']);
+    }
+
+    public function test_apply_creates_box_items_for_eligible_subscriptions(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $customer = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'box_size' => 'small',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+        ]);
+
+        $product = Product::factory()->create([
+            'unit_price' => 2.00,
+            'is_available' => true,
+            'is_published' => true,
+            'metadata' => ['unit' => 'piece'],
+        ]);
+        ProductWeekStock::create([
+            'product_id' => $product->id,
+            'week_start_date' => $monday->toDateString(),
+            'planned_quantity' => 10,
+            'unit' => 'piece',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.setup.apply', ['week' => $monday->toDateString()]), [
+                'week_start_date' => $monday->toDateString(),
+                'sizes' => [
+                    'small' => [
+                        ['product_id' => $product->id, 'quantity' => 3],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('app.admin.boxes.index'))
+            ->assertSessionHas('status');
+
+        $box = Box::query()
+            ->where('user_id', $customer->id)
+            ->whereDate('week_start_date', $monday->toDateString())
+            ->first();
+
+        $this->assertNotNull($box);
+        $this->assertSame(BoxStatus::Editable, $box->status);
+        $this->assertSame(1, $box->items()->count());
+
+        $item = $box->items()->first();
+        $this->assertSame($product->id, $item->product_id);
+        $this->assertEqualsWithDelta(3.0, (float) $item->quantity, 0.001);
+    }
+
+    public function test_apply_replaces_non_extra_items_but_keeps_extras(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $customer = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'box_size' => 'small',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+        ]);
+
+        $existingBox = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => $monday->copy()->subDays(2),
+        ]);
+        $oldProduct = Product::factory()->create([
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        $extraProduct = Product::factory()->create([
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        BoxItem::factory()->create([
+            'box_id' => $existingBox->id,
+            'product_id' => $oldProduct->id,
+            'quantity' => 5,
+            'is_extra' => false,
+        ]);
+        BoxItem::factory()->create([
+            'box_id' => $existingBox->id,
+            'product_id' => $extraProduct->id,
+            'quantity' => 1,
+            'is_extra' => true,
+        ]);
+
+        $newProduct = Product::factory()->create([
+            'unit_price' => 2.00,
+            'is_available' => true,
+            'is_published' => true,
+            'metadata' => ['unit' => 'piece'],
+        ]);
+        ProductWeekStock::create([
+            'product_id' => $newProduct->id,
+            'week_start_date' => $monday->toDateString(),
+            'planned_quantity' => 10,
+            'unit' => 'piece',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.setup.apply', ['week' => $monday->toDateString()]), [
+                'week_start_date' => $monday->toDateString(),
+                'sizes' => [
+                    'small' => [
+                        ['product_id' => $newProduct->id, 'quantity' => 2],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('app.admin.boxes.index'));
+
+        $this->assertDatabaseMissing('box_items', [
+            'box_id' => $existingBox->id,
+            'product_id' => $oldProduct->id,
+        ]);
+        $this->assertDatabaseHas('box_items', [
+            'box_id' => $existingBox->id,
+            'product_id' => $extraProduct->id,
+            'is_extra' => true,
+        ]);
+        $this->assertDatabaseHas('box_items', [
+            'box_id' => $existingBox->id,
+            'product_id' => $newProduct->id,
+            'is_extra' => false,
+        ]);
+    }
+
+    public function test_apply_skips_locked_or_delivered_boxes(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $customer = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'box_size' => 'small',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+        ]);
+
+        $lockedBox = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Locked,
+        ]);
+        $existingItem = BoxItem::factory()->create([
+            'box_id' => $lockedBox->id,
+            'is_extra' => false,
+        ]);
+
+        $product = Product::factory()->create([
+            'unit_price' => 2.00,
+            'is_available' => true,
+            'is_published' => true,
+            'metadata' => ['unit' => 'piece'],
+        ]);
+        ProductWeekStock::create([
+            'product_id' => $product->id,
+            'week_start_date' => $monday->toDateString(),
+            'planned_quantity' => 10,
+            'unit' => 'piece',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.setup.apply', ['week' => $monday->toDateString()]), [
+                'week_start_date' => $monday->toDateString(),
+                'sizes' => [
+                    'small' => [
+                        ['product_id' => $product->id, 'quantity' => 2],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('app.admin.boxes.index'));
+
+        $this->assertDatabaseHas('box_items', ['id' => $existingItem->id]);
+        $this->assertDatabaseMissing('box_items', [
+            'box_id' => $lockedBox->id,
+            'product_id' => $product->id,
+        ]);
+    }
+}

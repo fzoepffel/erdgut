@@ -4,9 +4,8 @@ namespace Tests\Feature\Routing;
 
 use App\Http\Controllers\Admin\AdminBillingCoverageController;
 use App\Http\Controllers\Admin\AdminBoxController;
-use App\Http\Controllers\Admin\AdminBoxDistributionController;
 use App\Http\Controllers\Admin\AdminBoxItemController;
-use App\Http\Controllers\Admin\AdminBoxPlannerController;
+use App\Http\Controllers\Admin\AdminBoxSetupController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
 use App\Http\Controllers\Admin\AdminPaymentController;
@@ -76,8 +75,9 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/admin/billing/upcoming', route('app.admin.billing.upcoming', absolute: false));
         $this->assertSame('/app/admin/billing/coverage', route('app.admin.billing.coverage', absolute: false));
         $this->assertSame('/app/admin/billing/charge', route('app.admin.billing.charge', absolute: false));
-        $this->assertSame('/app/admin/boxes/planner', route('app.admin.boxes.planner', absolute: false));
-        $this->assertSame('/app/admin/boxes/distribute', route('app.admin.boxes.distribute', absolute: false));
+        $this->assertSame('/app/admin/boxes', route('app.admin.boxes.index', absolute: false));
+        $this->assertSame('/app/admin/boxes/setup/2026-04-27', route('app.admin.boxes.setup.show', ['week' => '2026-04-27'], absolute: false));
+        $this->assertSame('/app/admin/boxes/setup/2026-04-27', route('app.admin.boxes.setup.apply', ['week' => '2026-04-27'], absolute: false));
         $this->assertSame('/app/admin/boxes/1/items', route('app.admin.boxes.items.store', ['box' => 1], absolute: false));
         $this->assertSame('/app/admin/boxes/1/items/2', route('app.admin.boxes.items.update', ['box' => 1, 'item' => 2], absolute: false));
         $this->assertSame('/app/admin/boxes/1/items/2', route('app.admin.boxes.items.destroy', ['box' => 1, 'item' => 2], absolute: false));
@@ -144,8 +144,8 @@ class RouteGroupingTest extends TestCase
             'app.admin.users.index',
             'app.admin.subscriptions.index',
             'app.admin.deliveries.index',
-            'app.admin.boxes.planner',
-            'app.admin.boxes.distribute',
+            'app.admin.boxes.index',
+            'app.admin.boxes.setup.show',
             'app.admin.boxes.show',
             'app.admin.payments.index',
             'app.admin.billing.upcoming',
@@ -160,35 +160,12 @@ class RouteGroupingTest extends TestCase
             $this->assertContains('admin', $route->gatherMiddleware(), $name);
         }
 
-        foreach (['app.admin.boxes.planner.canonical-preview'] as $name) {
-            $route = RouteFacade::getRoutes()->getByName($name);
-            $this->assertNotNull($route);
-            $this->assertContains('auth', $route->gatherMiddleware());
-            $this->assertContains('verified', $route->gatherMiddleware());
-            $this->assertContains('admin', $route->gatherMiddleware());
-        }
-
-        foreach (['app.admin.boxes.planner.canonical-apply'] as $name) {
-            $route = RouteFacade::getRoutes()->getByName($name);
-            $this->assertNotNull($route);
-            $this->assertContains('auth', $route->gatherMiddleware());
-            $this->assertContains('verified', $route->gatherMiddleware());
-            $this->assertContains('admin', $route->gatherMiddleware());
-            $this->assertContains('throttle:12,1', $route->gatherMiddleware());
-        }
-
-        $storeBoxRoute = RouteFacade::getRoutes()->getByName('app.admin.boxes.store');
-        $this->assertNotNull($storeBoxRoute);
-        $this->assertContains('auth', $storeBoxRoute->gatherMiddleware());
-        $this->assertContains('verified', $storeBoxRoute->gatherMiddleware());
-        $this->assertContains('admin', $storeBoxRoute->gatherMiddleware());
-
-        $distributeApplyRoute = RouteFacade::getRoutes()->getByName('app.admin.boxes.distribute.apply');
-        $this->assertNotNull($distributeApplyRoute);
-        $this->assertContains('auth', $distributeApplyRoute->gatherMiddleware());
-        $this->assertContains('verified', $distributeApplyRoute->gatherMiddleware());
-        $this->assertContains('admin', $distributeApplyRoute->gatherMiddleware());
-        $this->assertContains('throttle:12,1', $distributeApplyRoute->gatherMiddleware());
+        $setupApplyRoute = RouteFacade::getRoutes()->getByName('app.admin.boxes.setup.apply');
+        $this->assertNotNull($setupApplyRoute);
+        $this->assertContains('auth', $setupApplyRoute->gatherMiddleware());
+        $this->assertContains('verified', $setupApplyRoute->gatherMiddleware());
+        $this->assertContains('admin', $setupApplyRoute->gatherMiddleware());
+        $this->assertContains('throttle:12,1', $setupApplyRoute->gatherMiddleware());
 
         $billingChargeRoute = RouteFacade::getRoutes()->getByName('app.admin.billing.charge');
         $this->assertNotNull($billingChargeRoute);
@@ -234,12 +211,9 @@ class RouteGroupingTest extends TestCase
             'app.admin.users.index' => [AdminUserController::class, 'index'],
             'app.admin.subscriptions.index' => [AdminSubscriptionController::class, 'index'],
             'app.admin.deliveries.index' => [AdminDeliveryController::class, 'index'],
-            'app.admin.boxes.planner' => [AdminBoxPlannerController::class, 'index'],
-            'app.admin.boxes.planner.canonical-preview' => [AdminBoxPlannerController::class, 'canonicalPreview'],
-            'app.admin.boxes.planner.canonical-apply' => [AdminBoxPlannerController::class, 'canonicalApply'],
-            'app.admin.boxes.distribute' => [AdminBoxDistributionController::class, 'show'],
-            'app.admin.boxes.distribute.apply' => [AdminBoxDistributionController::class, 'apply'],
-            'app.admin.boxes.store' => [AdminBoxController::class, 'store'],
+            'app.admin.boxes.index' => [AdminBoxSetupController::class, 'index'],
+            'app.admin.boxes.setup.show' => [AdminBoxSetupController::class, 'show'],
+            'app.admin.boxes.setup.apply' => [AdminBoxSetupController::class, 'apply'],
             'app.admin.boxes.items.store' => [AdminBoxItemController::class, 'store'],
             'app.admin.boxes.items.update' => [AdminBoxItemController::class, 'update'],
             'app.admin.boxes.items.destroy' => [AdminBoxItemController::class, 'destroy'],

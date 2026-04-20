@@ -3,10 +3,10 @@
     <x-slot name="header">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('admin.box_planner.box_detail_title', ['id' => $box->id]) }}
+                {{ __('admin.box_setup.box_detail_title', ['id' => $box->id]) }}
             </h2>
-            <a href="{{ route('app.admin.boxes.planner') }}" class="text-sm font-medium text-emerald-700 hover:underline">
-                {{ __('admin.box_planner.back_to_planner') }}
+            <a href="{{ route('app.admin.boxes.index') }}" class="text-sm font-medium text-emerald-700 hover:underline">
+                {{ __('admin.box_setup.back_to_overview') }}
             </a>
         </div>
     </x-slot>
@@ -35,7 +35,7 @@
                     <dd class="mt-1 text-gray-900">{{ $box->user?->email ?? '—' }}</dd>
                 </div>
                 <div>
-                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_planner.week_start') }}</dt>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.week_start') }}</dt>
                     <dd class="mt-1 text-gray-900">{{ $box->week_start_date?->translatedFormat('d.m.Y') ?? '—' }}</dd>
                 </div>
                 <div>
@@ -43,7 +43,7 @@
                     <dd class="mt-1 text-gray-900">{{ $box->status->value }}</dd>
                 </div>
                 <div>
-                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_planner.modification_deadline') }}</dt>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.modification_deadline') }}</dt>
                     <dd class="mt-1 text-gray-900">{{ $box->modification_deadline_at?->translatedFormat('d.m.Y H:i') ?? '—' }}</dd>
                 </div>
             </dl>
@@ -53,29 +53,29 @@
                     class="rounded-lg border p-4 text-sm shadow-sm {{ $budgetDetails['over_budget'] ? 'border-rose-300 bg-rose-50' : 'border-gray-100 bg-white' }}"
                     role="status"
                 >
-                    <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.box_planner.budget_heading') }}</h3>
+                    <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.box_setup.budget_heading') }}</h3>
                     <dl class="mt-3 grid gap-2 sm:grid-cols-2">
                         <div>
-                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_planner.included_budget_label') }}</dt>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.included_budget_label') }}</dt>
                             <dd class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['included_budget'], 2, ',', '.') }} €</dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_planner.estimated_retail_label') }}</dt>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.estimated_retail_label') }}</dt>
                             <dd class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['estimated_value'], 2, ',', '.') }} €</dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_planner.remainder_label') }}</dt>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.remainder_label') }}</dt>
                             <dd class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['remainder'], 2, ',', '.') }} €</dd>
                         </div>
                         @if ($budgetDetails['planning_hint'] !== null)
                             <div>
-                                <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_planner.planning_hint_label') }}</dt>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.planning_hint_label') }}</dt>
                                 <dd class="mt-1 tabular-nums text-gray-700">{{ number_format($budgetDetails['planning_hint'], 2, ',', '.') }} €</dd>
                             </div>
                         @endif
                     </dl>
                     @if ($budgetDetails['over_budget'])
-                        <p class="mt-3 text-sm font-semibold text-rose-800">{{ __('admin.box_planner.over_budget_detail_notice') }}</p>
+                        <p class="mt-3 text-sm font-semibold text-rose-800">{{ __('admin.box_setup.over_budget_detail_notice') }}</p>
                     @endif
                 </div>
             @endif
@@ -88,19 +88,19 @@
 
             <div class="rounded-lg border border-gray-100 bg-white shadow-sm">
                 <div class="border-b border-gray-100 px-4 py-3">
-                    <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.box_planner.items_heading') }}</h3>
+                    <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.box_setup.items_heading') }}</h3>
                 </div>
                 @if ($box->items->isEmpty())
-                    <p class="p-4 text-sm text-gray-600">{{ __('admin.box_planner.items_empty') }}</p>
+                    <p class="p-4 text-sm text-gray-600">{{ __('admin.box_setup.items_empty') }}</p>
                 @else
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
-                            <caption class="sr-only">{{ __('admin.box_planner.items_table_caption') }}</caption>
+                            <caption class="sr-only">{{ __('admin.box_setup.items_table_caption') }}</caption>
                             <thead>
                                 <tr class="text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                    <th scope="col" class="px-4 py-2">{{ __('admin.box_planner.col_product') }}</th>
-                                    <th scope="col" class="px-4 py-2">{{ __('admin.box_planner.col_quantity') }}</th>
-                                    <th scope="col" class="px-4 py-2">{{ __('admin.box_planner.col_extra') }}</th>
+                                    <th scope="col" class="px-4 py-2">{{ __('admin.box_setup.col_product') }}</th>
+                                    <th scope="col" class="px-4 py-2">{{ __('admin.box_setup.col_quantity') }}</th>
+                                    <th scope="col" class="px-4 py-2">{{ __('admin.box_setup.col_extra') }}</th>
                                     @if ($adminCanMutateItems)
                                         <th scope="col" class="px-4 py-2">{{ __('admin.box_items.col_actions') }}</th>
                                     @endif
@@ -140,7 +140,7 @@
                                             @endif
                                         </td>
                                         <td class="px-4 py-3 text-gray-700">
-                                            {{ $item->is_extra ? __('admin.box_planner.yes') : __('admin.box_planner.no') }}
+                                            {{ $item->is_extra ? __('admin.box_setup.yes') : __('admin.box_setup.no') }}
                                         </td>
                                         @if ($adminCanMutateItems)
                                             <td class="px-4 py-3">

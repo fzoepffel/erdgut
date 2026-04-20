@@ -100,11 +100,11 @@
             {{ __('admin.operations.nav_deliveries') }}
         </a>
         <a
-            href="{{ route('app.admin.boxes.planner') }}"
+            href="{{ route('app.admin.boxes.index') }}"
             @click="adminSidebarOpen = false"
             class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.boxes.*') ? $navActive : $navInactive }}"
         >
-            {{ __('admin.operations.nav_boxes_planner') }}
+            {{ __('admin.operations.nav_boxes_setup') }}
         </a>
         <a
             href="{{ route('app.admin.payments.index') }}"
