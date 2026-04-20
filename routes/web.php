@@ -128,6 +128,9 @@ Route::middleware(['auth', 'verified'])
                 ->where('week', '\d{4}-\d{2}-\d{2}')
                 ->middleware('throttle:12,1')
                 ->name('boxes.setup.apply');
+            Route::get('boxes/week/{week}', [AdminBoxSetupController::class, 'weekBoxes'])
+                ->where('week', '\d{4}-\d{2}-\d{2}')
+                ->name('boxes.week.show');
             Route::post('boxes/{box}/items', [AdminBoxItemController::class, 'store'])->name('boxes.items.store');
             Route::patch('boxes/{box}/items/{item}', [AdminBoxItemController::class, 'update'])
                 ->scopeBindings()

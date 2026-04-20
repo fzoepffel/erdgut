@@ -33,6 +33,7 @@ class AdminBoxSetupTest extends TestCase
         $this->get(route('app.admin.boxes.index'))->assertRedirect('/auth/login');
         $this->get(route('app.admin.boxes.setup.show', ['week' => $monday]))->assertRedirect('/auth/login');
         $this->post(route('app.admin.boxes.setup.apply', ['week' => $monday]), [])->assertRedirect('/auth/login');
+        $this->get(route('app.admin.boxes.week.show', ['week' => $monday]))->assertRedirect('/auth/login');
     }
 
     public function test_non_admin_receives_forbidden(): void
@@ -53,6 +54,10 @@ class AdminBoxSetupTest extends TestCase
                 'week_start_date' => $monday,
                 'sizes' => [],
             ])
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->get(route('app.admin.boxes.week.show', ['week' => $monday]))
             ->assertForbidden();
     }
 
@@ -331,5 +336,47 @@ class AdminBoxSetupTest extends TestCase
             'box_id' => $lockedBox->id,
             'product_id' => $product->id,
         ]);
+    }
+
+    public function test_week_boxes_page_lists_boxes_with_links_to_single_box_editor(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $customer = User::factory()->create(['email' => 'weekly-customer@example.test']);
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'box_size' => 'small',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+        ]);
+
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Editable,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.boxes.week.show', ['week' => $monday->toDateString()]))
+            ->assertOk()
+            ->assertSee('weekly-customer@example.test')
+            ->assertSee(route('app.admin.boxes.show', $box), false);
+    }
+
+    public function test_week_boxes_page_renders_empty_state_when_no_boxes(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.boxes.week.show', ['week' => $monday->toDateString()]))
+            ->assertOk()
+            ->assertSee(__('admin.box_setup.week_boxes_empty'));
     }
 }

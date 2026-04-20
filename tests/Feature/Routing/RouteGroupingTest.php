@@ -78,6 +78,7 @@ class RouteGroupingTest extends TestCase
         $this->assertSame('/app/admin/boxes', route('app.admin.boxes.index', absolute: false));
         $this->assertSame('/app/admin/boxes/setup/2026-04-27', route('app.admin.boxes.setup.show', ['week' => '2026-04-27'], absolute: false));
         $this->assertSame('/app/admin/boxes/setup/2026-04-27', route('app.admin.boxes.setup.apply', ['week' => '2026-04-27'], absolute: false));
+        $this->assertSame('/app/admin/boxes/week/2026-04-27', route('app.admin.boxes.week.show', ['week' => '2026-04-27'], absolute: false));
         $this->assertSame('/app/admin/boxes/1/items', route('app.admin.boxes.items.store', ['box' => 1], absolute: false));
         $this->assertSame('/app/admin/boxes/1/items/2', route('app.admin.boxes.items.update', ['box' => 1, 'item' => 2], absolute: false));
         $this->assertSame('/app/admin/boxes/1/items/2', route('app.admin.boxes.items.destroy', ['box' => 1, 'item' => 2], absolute: false));
@@ -146,6 +147,7 @@ class RouteGroupingTest extends TestCase
             'app.admin.deliveries.index',
             'app.admin.boxes.index',
             'app.admin.boxes.setup.show',
+            'app.admin.boxes.week.show',
             'app.admin.boxes.show',
             'app.admin.payments.index',
             'app.admin.billing.upcoming',
@@ -214,6 +216,7 @@ class RouteGroupingTest extends TestCase
             'app.admin.boxes.index' => [AdminBoxSetupController::class, 'index'],
             'app.admin.boxes.setup.show' => [AdminBoxSetupController::class, 'show'],
             'app.admin.boxes.setup.apply' => [AdminBoxSetupController::class, 'apply'],
+            'app.admin.boxes.week.show' => [AdminBoxSetupController::class, 'weekBoxes'],
             'app.admin.boxes.items.store' => [AdminBoxItemController::class, 'store'],
             'app.admin.boxes.items.update' => [AdminBoxItemController::class, 'update'],
             'app.admin.boxes.items.destroy' => [AdminBoxItemController::class, 'destroy'],
