@@ -104,11 +104,16 @@ final class WeeklyBoxSetupService
     }
 
     /**
-     * Build the initial auto-distribution payload for the setup dialog.
+     * Build the initial distribution payload for the setup dialog.
+     *
+     * If any editable box already exists for the week, per-size lines are loaded from a
+     * representative (lowest-id) box for that size. Sizes without any existing box fall back
+     * to the round-robin auto-allocator.
      *
      * @return array{
      *     week_start_date: string,
      *     margin_rate: float,
+     *     has_existing: bool,
      *     size_blocks: list<array{
      *         box_size: string,
      *         n: int,
@@ -117,6 +122,7 @@ final class WeeklyBoxSetupService
      *         max: float,
      *         retail_sum: float,
      *         over_target: bool,
+     *         from_existing: bool,
      *         lines: list<array{product_id: int, name: string, unit: string, unit_price: float, quantity: int}>,
      *     }>,
      *     stock: list<array{
@@ -127,6 +133,7 @@ final class WeeklyBoxSetupService
      *         planned: float,
      *         used_total: float,
      *         remaining: float,
+     *         missing_stock: bool,
      *     }>,
      * }
      */
@@ -140,16 +147,156 @@ final class WeeklyBoxSetupService
             ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
 
         $stockRows = $this->loadStockRows($week);
-
         $sizeConfigs = $this->sizeConfigsFromSubs($subsBySize, $marginRate);
-        $sizeBlocks = $this->allocateProducts($sizeConfigs, $stockRows);
+
+        $existingBlocks = $this->loadExistingSizeBlocks($week, $subsBySize, $sizeConfigs, $stockRows);
+        $sizesWithExisting = [];
+        foreach ($existingBlocks as $block) {
+            $sizesWithExisting[$block['box_size']] = true;
+        }
+
+        $autoConfigs = array_filter(
+            $sizeConfigs,
+            fn (array $_cfg, string $size) => ! isset($sizesWithExisting[$size]),
+            ARRAY_FILTER_USE_BOTH
+        );
+        $autoBlocks = $autoConfigs === []
+            ? []
+            : $this->allocateProducts($autoConfigs, $stockRows);
+
+        $mergedBlocks = [];
+        foreach (array_keys($sizeConfigs) as $size) {
+            foreach ($existingBlocks as $block) {
+                if ($block['box_size'] === $size) {
+                    $mergedBlocks[] = $block;
+
+                    continue 2;
+                }
+            }
+            foreach ($autoBlocks as $block) {
+                if ($block['box_size'] === $size) {
+                    $mergedBlocks[] = $block + ['from_existing' => false];
+
+                    continue 2;
+                }
+            }
+        }
 
         return [
             'week_start_date' => $week->toDateString(),
             'margin_rate' => $marginRate,
-            'size_blocks' => $sizeBlocks,
-            'stock' => $this->buildStockSummary($stockRows, $sizeBlocks, $sizeConfigs),
+            'has_existing' => $existingBlocks !== [],
+            'size_blocks' => $mergedBlocks,
+            'stock' => $this->buildStockSummary($stockRows, $mergedBlocks, $sizeConfigs),
         ];
+    }
+
+    /**
+     * Build per-size blocks from the lowest-id existing editable box's non-extra items, for each
+     * size that has such a box. Sizes without an existing box are omitted (caller falls back to
+     * auto-allocation). Products referenced by those items that are not in the weekly stock rows
+     * are appended to $stockRows with planned=0 and a `missing_stock` flag so the UI can flag them.
+     *
+     * @param  Collection<string, EloquentCollection<int, Subscription>>  $subsBySize
+     * @param  array<string, array{n: int, ttc: float, target: float, max: float}>  $sizeConfigs
+     * @param  array<int, array{product: Product, planned: float, unit: string, missing_stock?: bool}>  $stockRows
+     * @return list<array<string, mixed>>
+     */
+    private function loadExistingSizeBlocks(
+        Carbon $week,
+        Collection $subsBySize,
+        array $sizeConfigs,
+        array &$stockRows,
+    ): array {
+        $eligibleUserIds = [];
+        foreach ($subsBySize as $size => $subs) {
+            foreach ($subs as $sub) {
+                $eligibleUserIds[(int) $sub->user_id] = (string) $size;
+            }
+        }
+        if ($eligibleUserIds === []) {
+            return [];
+        }
+
+        $boxes = Box::query()
+            ->forWeek($week->toDateString())
+            ->where('status', BoxStatus::Editable)
+            ->whereIn('user_id', array_keys($eligibleUserIds))
+            ->with([
+                'items' => fn ($q) => $q->where('is_extra', false)
+                    ->with('product:id,name,category,unit_price,metadata,is_available,is_published'),
+            ])
+            ->orderBy('id')
+            ->get();
+
+        if ($boxes->isEmpty()) {
+            return [];
+        }
+
+        $representativeBySize = [];
+        foreach ($boxes as $box) {
+            $size = $eligibleUserIds[(int) $box->user_id] ?? null;
+            if ($size === null) {
+                continue;
+            }
+            if (isset($representativeBySize[$size])) {
+                continue;
+            }
+            $representativeBySize[$size] = $box;
+        }
+
+        $blocks = [];
+        foreach ($sizeConfigs as $size => $cfg) {
+            $box = $representativeBySize[$size] ?? null;
+            if ($box === null) {
+                continue;
+            }
+            $lines = [];
+            $retailSum = 0.0;
+            foreach ($box->items as $item) {
+                $product = $item->product;
+                if ($product === null) {
+                    continue;
+                }
+                $pid = (int) $product->id;
+                $unitPrice = (float) $product->unit_price;
+                $qty = (int) max(1, (int) round((float) $item->quantity));
+                $unit = (string) ($item->unit ?: ($product->metadata['unit'] ?? 'piece'));
+
+                if (! isset($stockRows[$pid])) {
+                    $stockRows[$pid] = [
+                        'product' => $product,
+                        'planned' => 0.0,
+                        'unit' => $unit,
+                        'missing_stock' => true,
+                    ];
+                }
+
+                $lines[] = [
+                    'product_id' => $pid,
+                    'name' => (string) $product->name,
+                    'unit' => $unit,
+                    'unit_price' => round($unitPrice, 2),
+                    'quantity' => $qty,
+                ];
+                $retailSum += $unitPrice * $qty;
+            }
+            usort($lines, fn (array $a, array $b) => strcmp($a['name'], $b['name']));
+
+            $blocks[] = [
+                'box_size' => (string) $size,
+                'n' => $cfg['n'],
+                'ttc' => $cfg['ttc'],
+                'target' => $cfg['target'],
+                'max' => $cfg['max'],
+                'retail_sum' => round($retailSum, 2),
+                'over_target' => $retailSum > $cfg['max'] + 0.005,
+                'from_existing' => true,
+                'lines' => $lines,
+            ];
+        }
+
+        return $blocks;
     }
 
     /**
@@ -372,11 +519,13 @@ final class WeeklyBoxSetupService
     }
 
     /**
-     * Auto-distribution core.
+     * Auto-distribution core (round-robin by category then price).
      *
      * Per product: quota_{p,s} = floor(planned_p × share_s / n_s) per box (share_s = ttc_s × n_s / Σ ttc × n).
-     * Per size (largest TTC first): greedy pick (expensive first) up to max, stop when target reached.
-     * Remainder pass (cheapest first) tops up whatever is left under max.
+     * For each size (largest TTC first): cycle over products in canonical order (category order from
+     * config('box.composition_by_size.small') + alphabetical fallback; within category unit_price DESC
+     * tiebreak id ASC), adding 1 unit per candidate per pass while it fits under max and has quota.
+     * Stop when target reached, or when a full pass adds no units.
      *
      * @param  array<string, array{n: int, ttc: float, target: float, max: float}>  $sizeConfigs
      * @param  array<int, array{product: Product, planned: float, unit: string}>  $stockRows
@@ -397,18 +546,16 @@ final class WeeklyBoxSetupService
         $weightSum = $weightSum > 0 ? $weightSum : 1.0;
 
         $perBoxQuota = [];
-        $remainderPool = [];
         foreach ($stockRows as $pid => $row) {
             $planned = $row['planned'];
-            $allocatedTotal = 0.0;
             foreach ($sizeConfigs as $size => $cfg) {
                 $share = $weights[$size] / $weightSum;
                 $perBox = (int) floor($planned * $share / max($cfg['n'], 1));
                 $perBoxQuota[$pid][$size] = max(0, $perBox);
-                $allocatedTotal += $perBoxQuota[$pid][$size] * $cfg['n'];
             }
-            $remainderPool[$pid] = max(0.0, $planned - $allocatedTotal);
         }
+
+        $orderedPids = $this->buildCanonicalProductOrder($stockRows);
 
         $sizeLines = [];
         $sizeRetail = [];
@@ -417,80 +564,40 @@ final class WeeklyBoxSetupService
             $sizeRetail[$size] = 0.0;
         }
 
-        $candidatesExpensiveFirst = array_values($stockRows);
-        usort($candidatesExpensiveFirst, function (array $a, array $b) {
-            $cmp = (float) $b['product']->unit_price <=> (float) $a['product']->unit_price;
-            if ($cmp !== 0) {
-                return $cmp;
-            }
-
-            return (int) $a['product']->id <=> (int) $b['product']->id;
-        });
-
         foreach ($sizeOrder as $size) {
             $cfg = $sizeConfigs[$size];
-            foreach ($candidatesExpensiveFirst as $row) {
+            while (true) {
                 if ($sizeRetail[$size] >= $cfg['target']) {
                     break;
                 }
-                $pid = (int) $row['product']->id;
-                $quota = $perBoxQuota[$pid][$size] ?? 0;
-                if ($quota <= 0) {
-                    continue;
+                $addedThisPass = 0;
+                foreach ($orderedPids as $pid) {
+                    if ($sizeRetail[$size] >= $cfg['target']) {
+                        break;
+                    }
+                    $quota = $perBoxQuota[$pid][$size] ?? 0;
+                    if ($quota <= 0) {
+                        continue;
+                    }
+                    $row = $stockRows[$pid] ?? null;
+                    if ($row === null) {
+                        continue;
+                    }
+                    $price = (float) $row['product']->unit_price;
+                    if ($price <= 0) {
+                        continue;
+                    }
+                    if ($sizeRetail[$size] + $price > $cfg['max'] + 0.005) {
+                        continue;
+                    }
+                    $sizeLines[$size][$pid] = ($sizeLines[$size][$pid] ?? 0) + 1;
+                    $sizeRetail[$size] += $price;
+                    $perBoxQuota[$pid][$size] -= 1;
+                    $addedThisPass++;
                 }
-                $price = (float) $row['product']->unit_price;
-                if ($price <= 0) {
-                    continue;
-                }
-                $maxUnitsFitting = (int) floor(($cfg['max'] - $sizeRetail[$size] + 0.005) / $price);
-                $unitsToAdd = min($quota, $maxUnitsFitting);
-                if ($unitsToAdd <= 0) {
-                    continue;
-                }
-
-                $sizeLines[$size][$pid] = ($sizeLines[$size][$pid] ?? 0) + $unitsToAdd;
-                $sizeRetail[$size] += $unitsToAdd * $price;
-                $perBoxQuota[$pid][$size] -= $unitsToAdd;
-            }
-        }
-
-        $candidatesCheapestFirst = array_values($stockRows);
-        usort($candidatesCheapestFirst, function (array $a, array $b) {
-            $cmp = (float) $a['product']->unit_price <=> (float) $b['product']->unit_price;
-            if ($cmp !== 0) {
-                return $cmp;
-            }
-
-            return (int) $a['product']->id <=> (int) $b['product']->id;
-        });
-
-        foreach ($sizeOrder as $size) {
-            $cfg = $sizeConfigs[$size];
-            if ($sizeRetail[$size] >= $cfg['target']) {
-                continue;
-            }
-            foreach ($candidatesCheapestFirst as $row) {
-                if ($sizeRetail[$size] >= $cfg['target']) {
+                if ($addedThisPass === 0) {
                     break;
                 }
-                $pid = (int) $row['product']->id;
-                $price = (float) $row['product']->unit_price;
-                if ($price <= 0) {
-                    continue;
-                }
-                $availableRemainder = (int) floor(($remainderPool[$pid] ?? 0) / max($cfg['n'], 1));
-                if ($availableRemainder <= 0) {
-                    continue;
-                }
-                $maxUnitsFitting = (int) floor(($cfg['max'] - $sizeRetail[$size] + 0.005) / $price);
-                $unitsToAdd = min($availableRemainder, $maxUnitsFitting);
-                if ($unitsToAdd <= 0) {
-                    continue;
-                }
-
-                $sizeLines[$size][$pid] = ($sizeLines[$size][$pid] ?? 0) + $unitsToAdd;
-                $sizeRetail[$size] += $unitsToAdd * $price;
-                $remainderPool[$pid] = max(0.0, ($remainderPool[$pid] ?? 0) - $unitsToAdd * $cfg['n']);
             }
         }
 
@@ -528,6 +635,50 @@ final class WeeklyBoxSetupService
     }
 
     /**
+     * Canonical product order for round-robin: category order from config (with alphabetical fallback
+     * for unknown categories), then unit_price DESC, tiebreak id ASC.
+     *
+     * @param  array<int, array{product: Product, planned: float, unit: string}>  $stockRows
+     * @return list<int>
+     */
+    private function buildCanonicalProductOrder(array $stockRows): array
+    {
+        $baseOrder = array_keys((array) config('box.composition_by_size.small', []));
+        if ($baseOrder === []) {
+            $baseOrder = ['vegetables', 'fruit', 'dairy', 'bakery'];
+        }
+        $baseIndex = array_flip($baseOrder);
+
+        $seenCategories = [];
+        foreach ($stockRows as $row) {
+            $seenCategories[(string) $row['product']->category] = true;
+        }
+        $unknown = array_diff(array_keys($seenCategories), $baseOrder);
+        sort($unknown);
+        $categoryOrder = array_merge($baseOrder, $unknown);
+        $categoryIndex = array_flip($categoryOrder);
+
+        $rows = array_values($stockRows);
+        usort($rows, function (array $a, array $b) use ($categoryIndex, $baseIndex) {
+            $catA = (string) $a['product']->category;
+            $catB = (string) $b['product']->category;
+            $ia = $categoryIndex[$catA] ?? (count($baseIndex) + 999);
+            $ib = $categoryIndex[$catB] ?? (count($baseIndex) + 999);
+            if ($ia !== $ib) {
+                return $ia <=> $ib;
+            }
+            $priceCmp = (float) $b['product']->unit_price <=> (float) $a['product']->unit_price;
+            if ($priceCmp !== 0) {
+                return $priceCmp;
+            }
+
+            return (int) $a['product']->id <=> (int) $b['product']->id;
+        });
+
+        return array_map(fn (array $row) => (int) $row['product']->id, $rows);
+    }
+
+    /**
      * @param  array<int, array{product: Product, planned: float, unit: string}>  $stockRows
      * @param  list<array<string, mixed>>  $sizeBlocks
      * @param  array<string, array{n: int, ttc: float, target: float, max: float}>  $sizeConfigs
@@ -559,6 +710,7 @@ final class WeeklyBoxSetupService
                 'planned' => round($planned, 2),
                 'used_total' => $u,
                 'remaining' => round($planned - $u, 2),
+                'missing_stock' => (bool) ($row['missing_stock'] ?? false),
             ];
         }
         usort($out, fn (array $a, array $b) => strcmp($a['name'], $b['name']));

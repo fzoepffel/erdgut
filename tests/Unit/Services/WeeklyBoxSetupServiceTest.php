@@ -58,9 +58,17 @@ class WeeklyBoxSetupServiceTest extends TestCase
         ]);
     }
 
-    private function createStockedProduct(Carbon $monday, float $unitPrice, float $plannedQty, string $unit = 'piece'): Product
-    {
+    private function createStockedProduct(
+        Carbon $monday,
+        float $unitPrice,
+        float $plannedQty,
+        string $unit = 'piece',
+        ?string $name = null,
+        string $category = 'vegetables',
+    ): Product {
         $product = Product::factory()->create([
+            'name' => $name ?? 'Prod-'.uniqid(),
+            'category' => $category,
             'unit_price' => $unitPrice,
             'is_available' => true,
             'is_published' => true,
@@ -113,22 +121,20 @@ class WeeklyBoxSetupServiceTest extends TestCase
         $this->assertSame(1, $target['boxes_count']);
     }
 
-    public function test_build_initial_distribution_allocates_within_target_and_max(): void
+    public function test_build_initial_distribution_allocates_with_round_robin_variety(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-04-27'));
         $monday = Carbon::parse('2026-05-04');
 
         $this->createSubscription('small');
 
-        $this->createStockedProduct($monday, 5.0, 20);
-        $this->createStockedProduct($monday, 3.0, 20);
-        $this->createStockedProduct($monday, 2.0, 20);
+        $p5 = $this->createStockedProduct($monday, 5.0, 20, category: 'vegetables');
+        $p3 = $this->createStockedProduct($monday, 3.0, 20, category: 'vegetables');
+        $p2 = $this->createStockedProduct($monday, 2.0, 20, category: 'vegetables');
 
         $data = $this->service()->buildInitialDistribution($monday);
 
         $this->assertSame($monday->toDateString(), $data['week_start_date']);
-        $this->assertNotEmpty($data['size_blocks']);
-
         $small = collect($data['size_blocks'])->firstWhere('box_size', 'small');
         $this->assertNotNull($small);
         $this->assertSame(1, $small['n']);
@@ -136,6 +142,120 @@ class WeeklyBoxSetupServiceTest extends TestCase
         $this->assertEqualsWithDelta(14.0, $small['target'], 0.001);
         $this->assertLessThanOrEqual($small['max'] + 0.005, $small['retail_sum']);
         $this->assertFalse($small['over_target']);
+        $this->assertFalse($small['from_existing']);
+
+        $qtyByPid = collect($small['lines'])->pluck('quantity', 'product_id');
+        $this->assertGreaterThanOrEqual(1, $qtyByPid[$p5->id] ?? 0);
+        $this->assertGreaterThanOrEqual(1, $qtyByPid[$p3->id] ?? 0);
+        $this->assertGreaterThanOrEqual(1, $qtyByPid[$p2->id] ?? 0);
+
+        $maxQty = $qtyByPid->max();
+        $minQty = $qtyByPid->min();
+        $this->assertLessThanOrEqual(1, $maxQty - $minQty);
+    }
+
+    public function test_build_initial_distribution_orders_by_category_then_price(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+        $monday = Carbon::parse('2026-05-04');
+
+        $this->createSubscription('small');
+
+        $vegA = $this->createStockedProduct($monday, 3.0, 20, category: 'vegetables');
+        $vegB = $this->createStockedProduct($monday, 2.0, 20, category: 'vegetables');
+        $fruitC = $this->createStockedProduct($monday, 4.0, 20, category: 'fruit');
+
+        $data = $this->service()->buildInitialDistribution($monday);
+        $small = collect($data['size_blocks'])->firstWhere('box_size', 'small');
+        $qtyByPid = collect($small['lines'])->pluck('quantity', 'product_id');
+
+        $this->assertSame(2, $qtyByPid[$vegA->id] ?? 0);
+        $this->assertSame(2, $qtyByPid[$vegB->id] ?? 0);
+        $this->assertSame(1, $qtyByPid[$fruitC->id] ?? 0);
+        $this->assertEqualsWithDelta(14.0, $small['retail_sum'], 0.001);
+    }
+
+    public function test_build_initial_distribution_loads_existing_box_lines(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+        $monday = Carbon::parse('2026-05-04');
+
+        $sub = $this->createSubscription('small');
+
+        $prodA = $this->createStockedProduct($monday, 5.0, 20, category: 'vegetables');
+        $prodB = $this->createStockedProduct($monday, 3.0, 20, category: 'fruit');
+
+        $box = Box::factory()->create([
+            'user_id' => $sub->user_id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Editable,
+        ]);
+        BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $prodA->id,
+            'quantity' => 4,
+            'is_extra' => false,
+        ]);
+        BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $prodB->id,
+            'quantity' => 2,
+            'is_extra' => false,
+        ]);
+        BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $prodA->id,
+            'is_extra' => true,
+        ]);
+
+        $data = $this->service()->buildInitialDistribution($monday);
+
+        $this->assertTrue($data['has_existing']);
+
+        $small = collect($data['size_blocks'])->firstWhere('box_size', 'small');
+        $this->assertNotNull($small);
+        $this->assertTrue($small['from_existing']);
+
+        $lines = collect($small['lines'])->keyBy('product_id');
+        $this->assertSame(4, (int) ($lines[$prodA->id]['quantity'] ?? 0));
+        $this->assertSame(2, (int) ($lines[$prodB->id]['quantity'] ?? 0));
+        $this->assertCount(2, $small['lines']);
+    }
+
+    public function test_build_initial_distribution_flags_missing_stock_products_from_existing_box(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+        $monday = Carbon::parse('2026-05-04');
+
+        $sub = $this->createSubscription('small');
+
+        $orphanProduct = Product::factory()->create([
+            'unit_price' => 4.0,
+            'category' => 'vegetables',
+            'is_available' => true,
+            'is_published' => true,
+            'metadata' => ['unit' => 'piece'],
+        ]);
+
+        $box = Box::factory()->create([
+            'user_id' => $sub->user_id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Editable,
+        ]);
+        BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $orphanProduct->id,
+            'quantity' => 3,
+            'is_extra' => false,
+        ]);
+
+        $data = $this->service()->buildInitialDistribution($monday);
+
+        $stock = collect($data['stock'])->firstWhere('product_id', $orphanProduct->id);
+        $this->assertNotNull($stock);
+        $this->assertTrue($stock['missing_stock']);
+        $this->assertEqualsWithDelta(0.0, $stock['planned'], 0.001);
+        $this->assertEqualsWithDelta(3.0, $stock['used_total'], 0.001);
     }
 
     public function test_build_initial_distribution_returns_empty_blocks_when_no_subscriptions(): void

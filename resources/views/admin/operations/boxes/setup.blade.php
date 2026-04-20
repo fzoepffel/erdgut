@@ -25,9 +25,16 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('admin.box_setup.setup_title', ['date' => $week->translatedFormat('d.m.Y')]) }}
             </h2>
-            <a href="{{ route('app.admin.boxes.index') }}" class="text-sm font-medium text-emerald-700 hover:underline">
-                {{ __('admin.box_setup.back_to_overview') }}
-            </a>
+            <div class="flex items-center gap-4">
+                @if ($data['has_existing'] ?? false)
+                    <a href="{{ route('app.admin.boxes.week.show', ['week' => $week->toDateString()]) }}" class="text-sm font-medium text-emerald-700 hover:underline">
+                        {{ __('admin.box_setup.cta_view_boxes') }}
+                    </a>
+                @endif
+                <a href="{{ route('app.admin.boxes.index') }}" class="text-sm font-medium text-emerald-700 hover:underline">
+                    {{ __('admin.box_setup.back_to_overview') }}
+                </a>
+            </div>
         </div>
     </x-slot>
 
@@ -53,6 +60,12 @@
                     <a href="{{ route('app.admin.products.weekly.show', ['week' => $week->toDateString()]) }}" class="font-medium underline">
                         {{ __('admin.box_setup.goto_weekly_catalog') }}
                     </a>
+                </div>
+            @endif
+
+            @if ($data['has_existing'] ?? false)
+                <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status">
+                    {{ __('admin.box_setup.existing_distribution_notice') }}
                 </div>
             @endif
 
@@ -92,9 +105,14 @@
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
                                         <template x-for="row in stockRows" :key="row.product_id">
-                                            <tr :class="row.remaining < 0 ? 'bg-rose-50' : ''">
+                                            <tr :class="row.remaining < 0 ? 'bg-rose-50' : (row.missing_stock ? 'bg-amber-50/50' : '')">
                                                 <td class="py-1 pr-2">
-                                                    <div class="font-medium text-gray-900" x-text="row.name"></div>
+                                                    <div class="flex items-center gap-1.5">
+                                                        <span class="truncate font-medium text-gray-900" x-text="row.name"></span>
+                                                        <template x-if="row.missing_stock">
+                                                            <span class="rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800" x-text="stockOutOfWeekLabel"></span>
+                                                        </template>
+                                                    </div>
                                                     <div class="text-[10px] text-gray-500">
                                                         <span x-text="row.unit"></span>
                                                         ·
@@ -250,7 +268,8 @@
         document.addEventListener('alpine:init', () => {
             Alpine.data('boxSetup', (initial) => ({
                     marginRate: initial.margin_rate,
-                    stockById: Object.fromEntries(initial.stock.map(r => [r.product_id, { ...r }])),
+                    stockById: Object.fromEntries(initial.stock.map(r => [r.product_id, { ...r, missing_stock: !!r.missing_stock }])),
+                    stockOutOfWeekLabel: @js(__('admin.box_setup.stock_out_of_week')),
                     sizes: Object.entries(initial.sizes).map(([key, lines]) => ({
                         key,
                         meta: initial.size_meta[key],
@@ -305,11 +324,13 @@
                             }
                         }
                         return Object.values(this.stockById).map(row => {
+                            const planned = Number(row.planned ?? 0);
                             const u = used[row.product_id] || 0;
                             return {
                                 ...row,
+                                planned,
                                 used_total: Math.round(u * 100) / 100,
-                                remaining: Math.round((row.planned - u) * 100) / 100,
+                                remaining: Math.round((planned - u) * 100) / 100,
                             };
                         }).sort((a, b) => a.name.localeCompare(b.name));
                     },
@@ -318,7 +339,7 @@
                     },
                     addableOptions(size) {
                         const used = new Set(size.lines.map(l => Number(l.product_id)));
-                        return this.stockRows.filter(r => !used.has(Number(r.product_id)) && r.remaining > 0);
+                        return this.stockRows.filter(r => !used.has(Number(r.product_id)) && !r.missing_stock && r.remaining > 0);
                     },
                     addLine(sizeKey) {
                         const size = this.sizes.find(s => s.key === sizeKey);

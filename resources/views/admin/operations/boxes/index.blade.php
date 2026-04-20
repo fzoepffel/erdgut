@@ -84,13 +84,21 @@
                             </ul>
                         </div>
 
-                        <div class="mt-4">
+                        <div class="mt-4 space-y-2">
                             <a
                                 href="{{ route('app.admin.boxes.setup.show', ['week' => $row['week_start_date']]) }}"
                                 class="inline-flex w-full items-center justify-center rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
                             >
                                 {{ $row['boxes_count'] > 0 ? __('admin.box_setup.cta_review') : __('admin.box_setup.cta_setup') }}
                             </a>
+                            @if ($row['boxes_count'] > 0)
+                                <a
+                                    href="{{ route('app.admin.boxes.week.show', ['week' => $row['week_start_date']]) }}"
+                                    class="inline-flex w-full items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                                >
+                                    {{ __('admin.box_setup.cta_view_boxes') }}
+                                </a>
+                            @endif
                         </div>
                     </div>
                 @endforeach
