@@ -11,6 +11,12 @@
 
     <div class="py-8 sm:py-12">
         <div class="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
+            @if (session('status') === 'admin-delivery-status-updated')
+                <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    {{ __('admin.deliveries.status.updated_notice') }}
+                </p>
+            @endif
+
             <div class="rounded-lg border border-gray-100 bg-white shadow-sm sm:rounded-lg">
                 <div class="space-y-4 p-4 text-gray-900 sm:p-6">
                     <form method="get" action="{{ route('app.admin.deliveries.index') }}" class="flex flex-col flex-wrap gap-3 sm:flex-row sm:items-end">
@@ -55,6 +61,7 @@
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.user') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.scheduled_for') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.status') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.deliveries.status.column') }}</th>
                                         <th scope="col" class="py-2 pe-0">{{ __('admin.operations.address_summary') }}</th>
                                     </tr>
                                 </thead>
@@ -65,6 +72,29 @@
                                             <td class="py-3 pe-4 text-gray-900">{{ $delivery->user?->email ?? '—' }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $delivery->scheduled_for_date?->toDateString() ?? '—' }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $delivery->status->value }}</td>
+                                            <td class="py-3 pe-4">
+                                                <form method="POST" action="{{ route('app.admin.deliveries.status.update', $delivery) }}" class="flex items-center gap-2">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <label class="sr-only" for="delivery-status-{{ $delivery->id }}">
+                                                        {{ __('admin.deliveries.status.label') }}
+                                                    </label>
+                                                    <select
+                                                        id="delivery-status-{{ $delivery->id }}"
+                                                        name="status"
+                                                        class="block rounded-md border-gray-300 text-xs shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
+                                                    >
+                                                        @foreach ($deliveryStatuses as $st)
+                                                            <option value="{{ $st->value }}" @selected($delivery->status === $st)>
+                                                                {{ __('admin.deliveries.status.'.$st->value) }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <button type="submit" class="inline-flex items-center rounded-md bg-gray-900 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-gray-800">
+                                                        {{ __('admin.deliveries.status.save') }}
+                                                    </button>
+                                                </form>
+                                            </td>
                                             <td class="py-3 pe-0 text-gray-600">
                                                 @if ($delivery->address)
                                                     {{ $delivery->address->street_line_1 }}, {{ $delivery->address->postal_code }} {{ $delivery->address->city }}

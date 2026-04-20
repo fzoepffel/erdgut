@@ -121,7 +121,6 @@ class DashboardPageTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSeeInOrder(['slot-1', 'slot-2', 'slot-3', 'slot-4'])
-            ->assertSee('Change delivery')
             ->assertSee('Gift box')
             ->assertDontSee('slot-5')
             ->assertDontSee('past-slot')
@@ -195,12 +194,11 @@ class DashboardPageTest extends TestCase
         $response = $this->actingAs($user)->get(route('app.dashboard'));
 
         $response->assertOk()
-            ->assertSee('Modify by:')
-            ->assertSee('Modify box')
-            ->assertSee(route('app.boxes.show', ['box' => $box, 'mode' => 'edit']), false)
-            ->assertSee(route('app.deliveries.show', $delivery), false)
-            ->assertSee(route('app.deliveries.gift', $delivery), false)
-            ->assertSee(route('app.deliveries.skip', $delivery), false);
+            ->assertSee(route('app.boxes.show', ['box' => $box]), false)
+            ->assertSee(route('app.deliveries.gift', $delivery), false);
+
+        $response->assertDontSee('Modify box');
+        $response->assertDontSee('Skip week');
     }
 
     public function test_dashboard_shows_current_week_box_summary_with_items_and_value(): void

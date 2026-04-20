@@ -73,7 +73,6 @@ class ProducerController extends Controller
             ],
             'hasAnyProducers' => $hasAnyProducers,
             'filtersActive' => $filtersActive,
-            'shopExtrasEnabled' => config('features.shop_extras_enabled', true),
         ]);
     }
 }

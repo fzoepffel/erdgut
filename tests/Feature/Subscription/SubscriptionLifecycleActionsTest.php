@@ -6,6 +6,7 @@ use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -243,7 +244,7 @@ class SubscriptionLifecycleActionsTest extends TestCase
             ->assertSessionHasErrors(['cancellation_reason']);
     }
 
-    public function test_subscription_overview_renders_lifecycle_controls_and_pause_window(): void
+    public function test_subscription_overview_renders_skip_controls_and_pause_window(): void
     {
         $user = User::factory()->create();
         Subscription::factory()->create([
@@ -256,10 +257,41 @@ class SubscriptionLifecycleActionsTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.subscriptions.show'))
             ->assertOk()
-            ->assertSee('Pause delivery window')
-            ->assertSee('Resume subscription')
+            ->assertSee(__('subscriptions.skip_next_week_cta'))
+            ->assertSee(__('subscriptions.skip_range_cta'))
+            ->assertSee(__('subscriptions.end_skip_cta'))
             ->assertSee('Cancel subscription')
             ->assertSee('01.04.2026')
             ->assertSee('15.04.2026');
+    }
+
+    public function test_user_can_skip_next_week(): void
+    {
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('app.subscriptions.skip.next'))
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-pause-scheduled');
+
+        $subscription->refresh();
+
+        $nextMonday = CarbonImmutable::today()->next(CarbonImmutable::MONDAY);
+        $this->assertSame($nextMonday->toDateString(), $subscription->pause_from?->toDateString());
+        $this->assertSame($nextMonday->endOfWeek()->toDateString(), $subscription->pause_until?->toDateString());
+    }
+
+    public function test_skip_next_week_without_subscription_returns_missing(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post(route('app.subscriptions.skip.next'))
+            ->assertRedirect(route('app.subscriptions.show'))
+            ->assertSessionHas('status', 'subscription-missing');
     }
 }

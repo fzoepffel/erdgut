@@ -1,6 +1,5 @@
 @php
     $firstDeliveryCard = $deliveryCards->first();
-    $deadlineCard = $deliveryCards->first(fn ($c) => $c['deadline'] !== null);
 @endphp
 
 <x-app-layout>
@@ -20,8 +19,23 @@
 
             @if (session('status') === 'subscriber-area-requires-setup')
                 <p class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
-                    {{ __('Complete your subscription and payment setup to access deliveries, shop extras, and billing.') }}
+                    {{ __('Complete your subscription and payment setup to access deliveries and billing.') }}
                 </p>
+            @endif
+
+            @if ($primarySubscription && $primarySubscription->isWithinPauseWindow(now()))
+                <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-4" role="status">
+                    <p class="text-sm text-amber-900">
+                        <span class="font-semibold">{{ __('subscriptions.active_skip_banner') }}</span>
+                        — {{ __('subscriptions.skip_window_text', ['from' => $primarySubscription->pause_from?->format('d.m.Y'), 'until' => $primarySubscription->pause_until?->format('d.m.Y')]) }}
+                    </p>
+                    <form method="POST" action="{{ route('app.subscriptions.resume') }}" class="mt-3 sm:mt-0">
+                        @csrf
+                        <button type="submit" class="inline-flex shrink-0 items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
+                            {{ __('subscriptions.end_skip_cta') }}
+                        </button>
+                    </form>
+                </div>
             @endif
 
             @if (session('status') === 'subscription-onboarded')
@@ -78,28 +92,21 @@
                         @endif
                     </div>
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Box changes') }}</p>
-                        @if ($deadlineCard && $deadlineCard['deadline'])
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Your box') }}</p>
+                        @if ($currentBox)
                             <p class="mt-2 text-sm text-gray-700">
-                                {{ __('Modify your box by') }}
-                                <span class="font-semibold text-gray-900">{{ $deadlineCard['deadline']->format('D, d M Y H:i') }}</span>
+                                {{ __('Week of :date', ['date' => $currentBox->week_start_date->format('d M Y')]) }}
                             </p>
-                            @if ($deadlineCard['box'] && $deadlineCard['canModifyBox'])
-                                <a href="{{ route('app.boxes.show', ['box' => $deadlineCard['box'], 'mode' => 'edit']) }}" class="mt-2 inline-block text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                                    {{ __('Modify box now') }}
-                                </a>
-                            @endif
+                            <a href="{{ route('app.boxes.current') }}" class="mt-2 inline-block text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                                {{ __('View current box') }}
+                            </a>
+                        @elseif ($primarySubscription)
+                            <p class="mt-2 text-sm text-gray-600">{{ __('No box for this week yet.') }}</p>
+                            <a href="{{ route('app.subscriptions.show') }}" class="mt-2 inline-block text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                                {{ __('View subscription') }}
+                            </a>
                         @else
-                            <p class="mt-2 text-sm text-gray-600">{{ __('No box modification window is open right now.') }}</p>
-                            @if ($currentBox)
-                                <a href="{{ route('app.boxes.current') }}" class="mt-2 inline-block text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                                    {{ __('View current box') }}
-                                </a>
-                            @elseif ($primarySubscription)
-                                <a href="{{ route('app.subscriptions.show') }}" class="mt-2 inline-block text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                                    {{ __('View subscription') }}
-                                </a>
-                            @endif
+                            <p class="mt-2 text-sm text-gray-600">{{ __('Start a subscription to receive a weekly box.') }}</p>
                         @endif
                     </div>
                     <div class="sm:col-span-2 lg:col-span-1">
@@ -143,11 +150,12 @@
                         <a href="{{ route('app.subscriptions.show') }}" class="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 shadow-sm hover:bg-emerald-50">
                             {{ __('Subscription') }}
                         </a>
-                        @if (config('features.shop_extras_enabled', true))
-                            <a href="{{ route('app.shop.index') }}" class="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 shadow-sm hover:bg-emerald-50">
-                                {{ __('Shop extras') }}
-                            </a>
-                        @endif
+                        <a href="{{ route('app.products.index') }}" class="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 shadow-sm hover:bg-emerald-50">
+                            {{ __('products.index_title') }}
+                        </a>
+                        <a href="{{ route('public.producers') }}" class="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 shadow-sm hover:bg-emerald-50">
+                            {{ __('Producers') }}
+                        </a>
                         <a href="{{ route('app.payments.history') }}" class="inline-flex items-center rounded-md border border-emerald-600 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 shadow-sm hover:bg-emerald-50">
                             {{ __('Payments') }}
                         </a>
@@ -207,23 +215,10 @@
                                         @endif
 
                                         <div class="mt-3 flex flex-wrap gap-2">
-                                            @if ($box && $card['canModifyBox'])
-                                                <a href="{{ route('app.boxes.show', ['box' => $box, 'mode' => 'edit']) }}" class="rounded-md border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
-                                                    {{ __('Modify box') }}
+                                            @if ($box)
+                                                <a href="{{ route('app.boxes.show', ['box' => $box]) }}" class="rounded-md border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
+                                                    {{ __('View box') }}
                                                 </a>
-                                            @endif
-
-                                            <a href="{{ route('app.deliveries.show', $delivery) }}" class="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">
-                                                {{ __('Change delivery') }}
-                                            </a>
-
-                                            @if ($delivery->status->value === 'scheduled')
-                                                <form method="POST" action="{{ route('app.deliveries.skip', $delivery) }}">
-                                                    @csrf
-                                                    <button type="submit" class="rounded-md border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50">
-                                                        {{ __('Skip week') }}
-                                                    </button>
-                                                </form>
                                             @endif
 
                                             <a href="{{ route('app.deliveries.gift', $delivery) }}" class="rounded-md border border-purple-400 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-50">
