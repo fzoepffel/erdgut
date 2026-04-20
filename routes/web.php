@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
 use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminWeeklyCatalogController;
 use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoxController;
@@ -140,6 +141,11 @@ Route::middleware(['auth', 'verified'])
                 ->name('boxes.items.destroy');
             Route::get('boxes/{box}', [AdminBoxController::class, 'show'])->name('boxes.show');
             Route::resource('producers', ProducerController::class)->except(['show']);
+            Route::get('products/weekly/{week?}', [AdminWeeklyCatalogController::class, 'show'])
+                ->name('products.weekly.show');
+            Route::post('products/weekly/{week}', [AdminWeeklyCatalogController::class, 'save'])
+                ->middleware('throttle:24,1')
+                ->name('products.weekly.save');
             Route::resource('products', ProductController::class)->except(['show']);
         });
     });

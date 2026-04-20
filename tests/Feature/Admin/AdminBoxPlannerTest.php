@@ -7,6 +7,7 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Product;
+use App\Models\ProductWeekStock;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -357,6 +358,73 @@ class AdminBoxPlannerTest extends TestCase
         $ids1 = $box1->items()->orderBy('product_id')->pluck('product_id')->all();
         $ids2 = $box2->items()->orderBy('product_id')->pluck('product_id')->all();
         $this->assertSame($ids1, $ids2);
+    }
+
+    public function test_canonical_preview_shows_over_planned_banner_and_apply_still_succeeds(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-24'));
+
+        Config::set('box.composition_by_size.small', [
+            'vegetables' => 1,
+        ]);
+
+        $product = Product::factory()->create([
+            'category' => 'vegetables',
+            'is_available' => true,
+            'is_published' => true,
+            'unit_price' => 1.00,
+            'name' => 'OverPlanVeg',
+        ]);
+
+        $admin = User::factory()->admin()->create();
+        $c1 = User::factory()->create();
+        $c2 = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $c1->id,
+            'status' => SubscriptionStatus::Active,
+            'plan' => SubscriptionPlan::Weekly,
+            'box_size' => 'small',
+        ]);
+        Subscription::factory()->create([
+            'user_id' => $c2->id,
+            'status' => SubscriptionStatus::Active,
+            'plan' => SubscriptionPlan::Weekly,
+            'box_size' => 'small',
+        ]);
+
+        $monday = Carbon::today()->next(Carbon::MONDAY)->toDateString();
+
+        // Plan only 1 unit but two eligible subs each need one.
+        ProductWeekStock::create([
+            'product_id' => $product->id,
+            'week_start_date' => $monday,
+            'planned_quantity' => 1,
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.boxes.planner.canonical-preview', ['week_start_date' => $monday]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(__('admin.box_fill_canonical.banner_over_planned'), $html);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.planner.canonical-apply'), [
+                'week_start_date' => $monday,
+                'confirm_fill' => '1',
+                'templates' => [
+                    'small' => [
+                        'lines' => [
+                            ['product_id' => $product->id, 'quantity' => 1],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('app.admin.boxes.planner'))
+            ->assertSessionHas('status');
+
+        $this->assertNotNull(Box::forUser($c1->id)->forWeek($monday)->first());
+        $this->assertNotNull(Box::forUser($c2->id)->forWeek($monday)->first());
     }
 
     public function test_canonical_apply_rejects_unpublished_catalog_product(): void

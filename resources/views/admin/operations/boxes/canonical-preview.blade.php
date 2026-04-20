@@ -27,6 +27,12 @@
             </p>
             <p class="text-xs text-gray-500">{{ __('admin.box_fill_canonical.edit_hint') }}</p>
 
+            @if (($preview['over_planned'] ?? false))
+                <div class="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900" role="alert">
+                    {{ __('admin.box_fill_canonical.banner_over_planned') }}
+                </div>
+            @endif
+
             @if ($preview['size_blocks'] === [])
                 <p class="text-sm text-gray-600">{{ __('admin.box_fill_canonical.no_blocks') }}</p>
             @else
@@ -46,6 +52,11 @@
                                     ({{ __('admin.box_fill_canonical.cap_used') }} {{ number_format($block['cap_used'], 2, ',', '.') }} € ·
                                     {{ __('admin.box_fill_canonical.template_total') }} {{ number_format($block['template_total'], 2, ',', '.') }} €)
                                 </span>
+                                @if (! empty($block['over_planned']))
+                                    <span class="ms-2 rounded bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">
+                                        {{ __('admin.box_fill_canonical.badge_over_planned') }}
+                                    </span>
+                                @endif
                             </h3>
                             <p class="mt-2 text-xs text-gray-600">{{ __('admin.box_fill_canonical.same_lines_hint') }}</p>
 
@@ -55,13 +66,20 @@
                                         <tr class="text-left text-xs font-medium uppercase tracking-wide text-gray-500">
                                             <th class="py-2 pe-2">{{ __('admin.box_planner.col_product') }}</th>
                                             <th class="py-2 pe-2">{{ __('admin.box_planner.col_quantity') }}</th>
+                                            <th class="py-2 pe-2">{{ __('admin.box_fill_canonical.col_planned') }}</th>
+                                            <th class="py-2 pe-2">{{ __('admin.box_fill_canonical.col_remaining') }}</th>
                                             <th class="py-2 pe-2">{{ __('admin.box_fill_canonical.col_remove') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
                                         @foreach ($block['template_lines'] as $line)
-                                            @php $p = $line['product']; @endphp
-                                            <tr>
+                                            @php
+                                                $p = $line['product'];
+                                                $planned = $line['planned_available'] ?? null;
+                                                $remaining = $line['remaining_after_fill'] ?? null;
+                                                $over = ! empty($line['over']);
+                                            @endphp
+                                            <tr class="{{ $over ? 'bg-rose-50' : '' }}">
                                                 <td class="py-2 pe-2 align-top">
                                                     <select
                                                         name="templates[{{ $size }}][lines][{{ $lineIndex }}][product_id]"
@@ -82,6 +100,24 @@
                                                         max="500"
                                                         class="w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                     />
+                                                    <div class="mt-1 text-xs text-gray-500">
+                                                        {{ __('admin.box_fill_canonical.needed_label') }}
+                                                        {{ rtrim(rtrim(number_format((float) ($line['needed'] ?? 0), 2, ',', '.'), '0'), ',') }}
+                                                    </div>
+                                                </td>
+                                                <td class="py-2 pe-2 align-top tabular-nums text-sm">
+                                                    @if ($planned === null)
+                                                        <span class="text-gray-400">—</span>
+                                                    @else
+                                                        {{ rtrim(rtrim(number_format((float) $planned, 2, ',', '.'), '0'), ',') }}
+                                                    @endif
+                                                </td>
+                                                <td class="py-2 pe-2 align-top tabular-nums text-sm {{ $over ? 'font-semibold text-rose-700' : 'text-gray-700' }}">
+                                                    @if ($remaining === null)
+                                                        <span class="text-gray-400">—</span>
+                                                    @else
+                                                        {{ rtrim(rtrim(number_format((float) $remaining, 2, ',', '.'), '0'), ',') }}
+                                                    @endif
                                                 </td>
                                                 <td class="py-2 pe-2 align-top">
                                                     <label class="inline-flex items-center gap-1 text-xs text-gray-600">
@@ -117,6 +153,8 @@
                                                         class="w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                     />
                                                 </td>
+                                                <td class="py-2 pe-2 align-top text-xs text-gray-400">—</td>
+                                                <td class="py-2 pe-2 align-top text-xs text-gray-400">—</td>
                                                 <td class="py-2 pe-2 align-top text-xs text-gray-400">—</td>
                                             </tr>
                                             @php $lineIndex++; @endphp

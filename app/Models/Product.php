@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
@@ -104,5 +106,62 @@ class Product extends Model
     public function scopeVisibleInCatalog(Builder $query): void
     {
         $query->where('is_available', true)->where('is_published', true);
+    }
+
+    /**
+     * Weekly planned stock rows for this product.
+     */
+    public function weekStocks(): HasMany
+    {
+        return $this->hasMany(ProductWeekStock::class);
+    }
+
+    /**
+     * Products with a positive planned quantity for the given Monday.
+     */
+    public function scopeAvailableForWeek(Builder $query, Carbon $week): void
+    {
+        $date = $week->copy()->startOfDay()->toDateString();
+        $query->visibleInCatalog()->whereHas(
+            'weekStocks',
+            fn ($q) => $q->whereDate('week_start_date', $date)->where('planned_quantity', '>', 0)
+        );
+    }
+
+    /**
+     * Planned quantity in the weekly catalog for this product (0.0 if no row).
+     */
+    public function plannedQuantityForWeek(Carbon $week): float
+    {
+        $date = $week->copy()->startOfDay()->toDateString();
+        $stock = $this->weekStocks()
+            ->whereDate('week_start_date', $date)
+            ->first();
+
+        return $stock !== null ? (float) $stock->planned_quantity : 0.0;
+    }
+
+    /**
+     * Sum of box item quantities already assigned to boxes that start on the given Monday.
+     */
+    public function distributedQuantityForWeek(Carbon $week): float
+    {
+        $date = $week->copy()->startOfDay()->toDateString();
+
+        $sum = DB::table('box_items')
+            ->join('boxes', 'boxes.id', '=', 'box_items.box_id')
+            ->where('box_items.product_id', $this->id)
+            ->whereDate('boxes.week_start_date', $date)
+            ->sum('box_items.quantity');
+
+        return (float) $sum;
+    }
+
+    /**
+     * Remaining = planned − distributed (may be negative → over-allocated).
+     */
+    public function remainingForWeek(Carbon $week): float
+    {
+        return round($this->plannedQuantityForWeek($week) - $this->distributedQuantityForWeek($week), 2);
     }
 }

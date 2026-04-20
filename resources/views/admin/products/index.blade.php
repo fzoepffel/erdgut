@@ -11,12 +11,20 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('Products') }}
             </h2>
-            <a
-                href="{{ route('app.admin.products.create') }}"
-                class="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
-            >
-                {{ __('Add product') }}
-            </a>
+            <div class="flex flex-wrap items-center gap-2">
+                <a
+                    href="{{ route('app.admin.products.weekly.show') }}"
+                    class="inline-flex items-center rounded-md border border-emerald-600 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                >
+                    {{ __('admin.weekly_catalog.nav_label') }}
+                </a>
+                <a
+                    href="{{ route('app.admin.products.create') }}"
+                    class="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                >
+                    {{ __('Add product') }}
+                </a>
+            </div>
         </div>
     </x-slot>
 

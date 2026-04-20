@@ -63,9 +63,16 @@
         <a
             href="{{ route('app.admin.products.index') }}"
             @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.products.*') ? $navActive : $navInactive }}"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.products.index') || request()->routeIs('app.admin.products.create') || request()->routeIs('app.admin.products.edit') ? $navActive : $navInactive }}"
         >
             {{ __('Products') }}
+        </a>
+        <a
+            href="{{ route('app.admin.products.weekly.show') }}"
+            @click="adminSidebarOpen = false"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.products.weekly.*') ? $navActive : $navInactive }}"
+        >
+            {{ __('admin.weekly_catalog.nav_label') }}
         </a>
 
         <p class="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-amber-800/80">

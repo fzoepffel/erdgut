@@ -6,11 +6,13 @@ use App\Enums\BoxStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Product;
+use App\Models\ProductWeekStock;
 use App\Models\Subscription;
 use App\Support\BoxValueRecalculationService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Admin bulk fills for the weekly planner: canonical per-size fill (Wochenmenü).
@@ -26,11 +28,22 @@ final class AdminBoxPlannerFillService
     /**
      * @return array{
      *     week_start_date: string,
+     *     over_planned: bool,
      *     size_blocks: list<array{
      *         box_size: string,
      *         cap_used: float,
-     *         template_lines: list,
+     *         template_lines: list<array{
+     *             product: Product,
+     *             quantity: float,
+     *             unit: string,
+     *             line_total: float,
+     *             planned_available: float|null,
+     *             needed: float,
+     *             remaining_after_fill: float|null,
+     *             over: bool,
+     *         }>,
      *         template_total: float,
+     *         over_planned: bool,
      *         subscriptions: list<array{
      *             subscription: Subscription,
      *             box: Box|null,
@@ -49,6 +62,7 @@ final class AdminBoxPlannerFillService
         $bySize = $eligible->groupBy(fn (Subscription $s): string => (string) $s->box_size);
 
         $sizeBlocks = [];
+        $anyOverPlanned = false;
 
         foreach ($bySize as $size => $subs) {
             /** @var Collection<int, Subscription> $subs */
@@ -61,6 +75,36 @@ final class AdminBoxPlannerFillService
             $cap = max(0.0, round((float) $cap, 2));
 
             $template = $this->canonicalTemplateBuilder->build((string) $size, $cap);
+
+            $nSubs = $subs->count();
+            $enrichedLines = [];
+            $blockOver = false;
+            foreach ($template['lines'] as $line) {
+                /** @var Product $product */
+                $product = $line['product'];
+                $qty = (float) $line['quantity'];
+                $needed = round($qty * $nSubs, 2);
+
+                $stock = $this->findStock($product->id, $weekStart);
+                $planned = $stock !== null ? (float) $stock->planned_quantity : null;
+                $remaining = $planned !== null ? round($planned - $needed, 2) : null;
+                $over = $remaining !== null && $remaining < 0;
+
+                if ($over) {
+                    $blockOver = true;
+                }
+
+                $enrichedLines[] = array_merge($line, [
+                    'planned_available' => $planned,
+                    'needed' => $needed,
+                    'remaining_after_fill' => $remaining,
+                    'over' => $over,
+                ]);
+            }
+
+            if ($blockOver) {
+                $anyOverPlanned = true;
+            }
 
             $subscriptionRows = [];
             foreach ($subs as $subscription) {
@@ -86,16 +130,26 @@ final class AdminBoxPlannerFillService
             $sizeBlocks[] = [
                 'box_size' => (string) $size,
                 'cap_used' => $cap,
-                'template_lines' => $template['lines'],
+                'template_lines' => $enrichedLines,
                 'template_total' => $template['total'],
+                'over_planned' => $blockOver,
                 'subscriptions' => $subscriptionRows,
             ];
         }
 
         return [
             'week_start_date' => $weekStart->toDateString(),
+            'over_planned' => $anyOverPlanned,
             'size_blocks' => $sizeBlocks,
         ];
+    }
+
+    private function findStock(int $productId, Carbon $week): ?ProductWeekStock
+    {
+        return ProductWeekStock::query()
+            ->where('product_id', $productId)
+            ->whereDate('week_start_date', $week->toDateString())
+            ->first();
     }
 
     /**
@@ -105,6 +159,8 @@ final class AdminBoxPlannerFillService
     {
         $weekStart = $weekStart->copy()->startOfDay();
         $updated = 0;
+
+        $this->logIfOverPlanned($weekStart, $templatesBySize);
 
         DB::transaction(function () use ($weekStart, $templatesBySize, &$updated): void {
             foreach ($this->weeklyBoxPlanner->eligibleSubscriptionsForWeek($weekStart) as $subscription) {
@@ -158,6 +214,48 @@ final class AdminBoxPlannerFillService
         });
 
         return $updated;
+    }
+
+    /**
+     * Best-effort soft warning: logs a warning when a custom template would
+     * exceed the planned weekly stock. Apply is never blocked.
+     *
+     * @param  array<string, array{lines: list<array{product_id: int, quantity: float}>}>  $templatesBySize
+     */
+    private function logIfOverPlanned(Carbon $weekStart, array $templatesBySize): void
+    {
+        $subsBySize = $this->weeklyBoxPlanner->eligibleSubscriptionsForWeek($weekStart)
+            ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
+
+        $totalsByProduct = [];
+        foreach ($templatesBySize as $size => $block) {
+            $lines = is_array($block['lines'] ?? null) ? $block['lines'] : [];
+            $n = $subsBySize->get((string) $size)?->count() ?? 0;
+            if ($n <= 0) {
+                continue;
+            }
+            foreach ($lines as $line) {
+                $pid = (int) ($line['product_id'] ?? 0);
+                $qty = (float) ($line['quantity'] ?? 0);
+                if ($pid < 1 || $qty <= 0) {
+                    continue;
+                }
+                $totalsByProduct[$pid] = ($totalsByProduct[$pid] ?? 0.0) + $qty * $n;
+            }
+        }
+
+        foreach ($totalsByProduct as $pid => $needed) {
+            $stock = $this->findStock((int) $pid, $weekStart);
+            $planned = $stock !== null ? (float) $stock->planned_quantity : null;
+            if ($planned !== null && $needed > $planned + 0.005) {
+                Log::warning('admin_box_planner.canonical_over_planned', [
+                    'week_start_date' => $weekStart->toDateString(),
+                    'product_id' => $pid,
+                    'planned' => $planned,
+                    'needed' => round($needed, 2),
+                ]);
+            }
+        }
     }
 
     /**
