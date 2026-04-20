@@ -587,7 +587,7 @@ final class WeeklyBoxSetupService
                     if ($price <= 0) {
                         continue;
                     }
-                    if ($sizeRetail[$size] + $price > $cfg['max'] + 0.005) {
+                    if ($sizeRetail[$size] + $price > $cfg['target'] + 0.005) {
                         continue;
                     }
                     $sizeLines[$size][$pid] = ($sizeLines[$size][$pid] ?? 0) + 1;
