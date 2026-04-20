@@ -44,7 +44,11 @@ class DashboardController extends Controller
         $deliveryCards = $upcomingDeliveries->map(function (Delivery $delivery) use ($userId): ?array {
             $effectiveDelivery = $delivery->overrideDeliveries->first() ?? $delivery;
 
-            if ($effectiveDelivery->status !== DeliveryStatus::Scheduled) {
+            // Hide only standalone skipped base rows (same rule as before). When a weekly
+            // override exists—e.g. gift flow marks the override as skipped—the base row may
+            // still read "scheduled" but the effective row is skipped; we must still show
+            // that week so the dashboard matches the deliveries timeline.
+            if ($effectiveDelivery->status === DeliveryStatus::Skipped && $delivery->overrideDeliveries->isEmpty()) {
                 return null;
             }
 
