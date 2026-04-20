@@ -12,26 +12,29 @@
 @endphp
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            @if ($intent === 'update')
-                {{ __('Update payment method') }}
-            @else
-                {{ __('Set up payment method') }}
-            @endif
-        </h2>
+        <div class="flex flex-col gap-2">
+            <p class="eyebrow text-category-fish">{{ __('Billing') }}</p>
+            <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
+                @if ($intent === 'update')
+                    {{ __('Update payment method') }}
+                @else
+                    {{ __('Set up payment method') }}
+                @endif
+            </h1>
+        </div>
     </x-slot>
 
-    <div class="py-8 sm:py-12">
-        <div class="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-8">
-            <div class="rounded-lg border border-emerald-100 bg-emerald-50/80 px-4 py-4 sm:px-5">
-                <p class="text-sm font-semibold text-emerald-900">
+    <div class="py-10 sm:py-16">
+        <div class="mx-auto max-w-3xl space-y-8 px-4 sm:px-6 lg:px-8">
+            <div class="border border-category-fish/40 bg-category-fish/5 px-4 py-3 sm:px-5">
+                <p class="eyebrow text-category-fish">
                     @if ($intent === 'update')
                         {{ __('Step 1: Confirm update') }}
                     @else
                         {{ __('Step 1: Add a payment method') }}
                     @endif
                 </p>
-                <p class="mt-2 text-sm text-emerald-800">
+                <p class="mt-2 text-sm text-brand-ink/80">
                     @if ($intent === 'update')
                         {{ __('You will replace the card used for subscription charges. Your new details are processed securely; we only store a payment token from our provider, not your full card number.') }}
                     @else
@@ -40,12 +43,13 @@
                 </p>
             </div>
 
-            <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                <div class="border-b border-gray-100 px-4 py-4 sm:px-6">
-                    <h3 id="payment-widget-heading" class="text-base font-semibold text-gray-900">
+            <div class="border border-brand-ink/15">
+                <div class="border-b border-brand-ink/10 px-4 py-5 sm:px-6">
+                    <p class="eyebrow text-category-fish">{{ __('Card') }}</p>
+                    <h3 id="payment-widget-heading" class="mt-2 font-display text-2xl text-brand-ink">
                         {{ __('Payment details') }}
                     </h3>
-                    <p class="mt-1 text-sm text-gray-600">
+                    <p class="mt-2 text-sm text-brand-ink/70">
                         {{ __('Enter your card in the form below, then submit. You will return here or to your payment overview when setup is complete.') }}
                     </p>
                 </div>
@@ -134,11 +138,11 @@
                     >
                         <div
                             id="sumup-card"
-                            class="min-h-[12rem] rounded-lg border border-dashed border-gray-300 p-6"
+                            class="min-h-[12rem] border border-dashed border-brand-ink/25 p-6"
                             role="region"
                             aria-labelledby="payment-widget-heading"
                         >
-                            <p class="text-sm text-gray-500">
+                            <p class="text-sm text-brand-ink/60">
                                 {{ __('Loading payment widget...') }}
                             </p>
                         </div>
@@ -147,27 +151,21 @@
                             x-show="widgetError"
                             x-cloak
                             x-text="widgetError"
-                            class="mt-3 text-sm text-red-600"
+                            class="mt-3 text-sm text-category-meat"
                             role="alert"
                             aria-live="polite"
                         ></p>
                     </div>
 
-                    <p class="mt-4 text-xs text-gray-500">
+                    <p class="mt-4 text-xs text-brand-ink/60">
                         {{ __('Payments are processed by SumUp, a licensed payment provider. Erdgut never sees your full card number.') }}
                     </p>
 
                     <div class="mt-6 flex flex-wrap gap-3">
-                        <a
-                            href="{{ route('app.payments.history') }}"
-                            class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
-                        >
+                        <a href="{{ route('app.payments.history') }}" class="btn-ghost text-xs">
                             {{ __('Back to payment overview') }}
                         </a>
-                        <a
-                            href="{{ route('app.subscriptions.show') }}"
-                            class="inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
-                        >
+                        <a href="{{ route('app.subscriptions.show') }}" class="btn-solid text-xs">
                             {{ __('Subscription overview') }}
                         </a>
                     </div>

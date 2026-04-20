@@ -1,14 +1,16 @@
 @extends('layouts.marketing')
 
 @section('content')
-<div class="flex min-h-[60vh] items-center justify-center px-4">
+<div class="flex min-h-[60vh] items-center justify-center px-4 py-16 sm:py-24">
     <div class="max-w-md text-center">
-        <p class="text-6xl font-bold text-emerald-700">404</p>
-        <h1 class="mt-4 text-2xl font-semibold text-gray-900">Seite nicht gefunden</h1>
-        <p class="mt-2 text-gray-600">Die angeforderte Seite existiert nicht oder wurde verschoben.</p>
-        <a href="{{ route('public.home') }}" class="mt-6 inline-block rounded-md bg-emerald-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800">
-            Zur Startseite
-        </a>
+        <p class="eyebrow text-category-produce">{{ __('Error 404') }}</p>
+        <h1 class="mt-4 font-display text-5xl font-semibold text-brand-ink sm:text-6xl">{{ __('Page not found') }}</h1>
+        <p class="mt-4 text-base leading-relaxed text-brand-ink/75">{{ __('The page you are looking for does not exist or has been moved.') }}</p>
+        <div class="mt-8 flex justify-center">
+            <x-solid-link :href="route('public.home')">
+                {{ __('Back to home') }}
+            </x-solid-link>
+        </div>
     </div>
 </div>
 @endsection

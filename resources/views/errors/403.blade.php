@@ -1,20 +1,22 @@
 @extends('layouts.marketing')
 
 @section('content')
-<div class="flex min-h-[60vh] items-center justify-center px-4">
+<div class="flex min-h-[60vh] items-center justify-center px-4 py-16 sm:py-24">
     <div class="max-w-md text-center">
-        <p class="text-6xl font-bold text-emerald-700">403</p>
-        <h1 class="mt-4 text-2xl font-semibold text-gray-900">Zugriff verweigert</h1>
-        <p class="mt-2 text-gray-600">Du hast keine Berechtigung, diese Seite aufzurufen.</p>
-        @auth
-            <a href="{{ route('app.dashboard') }}" class="mt-6 inline-block rounded-md bg-emerald-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800">
-                Zum Dashboard
-            </a>
-        @else
-            <a href="{{ route('public.home') }}" class="mt-6 inline-block rounded-md bg-emerald-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800">
-                Zur Startseite
-            </a>
-        @endauth
+        <p class="eyebrow text-category-meat">{{ __('Error 403') }}</p>
+        <h1 class="mt-4 font-display text-5xl font-semibold text-brand-ink sm:text-6xl">{{ __('Access denied') }}</h1>
+        <p class="mt-4 text-base leading-relaxed text-brand-ink/75">{{ __('You do not have permission to access this page.') }}</p>
+        <div class="mt-8 flex justify-center">
+            @auth
+                <x-solid-link :href="route('app.dashboard')">
+                    {{ __('Go to dashboard') }}
+                </x-solid-link>
+            @else
+                <x-solid-link :href="route('public.home')">
+                    {{ __('Back to home') }}
+                </x-solid-link>
+            @endauth
+        </div>
     </div>
 </div>
 @endsection

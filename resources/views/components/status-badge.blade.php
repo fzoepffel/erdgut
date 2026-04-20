@@ -6,13 +6,13 @@
 @php
     $statusValue = is_object($value) && isset($value->value) ? $value->value : (string) $value;
 
-    $baseClasses = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium';
+    $baseClasses = 'inline-flex items-center px-2.5 py-1 text-[11px] font-semibold uppercase tracking-eyebrow';
     $statusClasses = match ($statusValue) {
-        'scheduled', 'editable', 'active', 'paid' => 'bg-emerald-100 text-emerald-700',
-        'delivered' => 'bg-sky-100 text-sky-700',
-        'locked', 'paused', 'pending' => 'bg-amber-100 text-amber-700',
-        'skipped', 'cancelled', 'failed' => 'bg-rose-100 text-rose-700',
-        default => 'bg-gray-100 text-gray-700',
+        'scheduled', 'editable', 'active', 'paid' => 'bg-category-produce/10 text-category-produce',
+        'delivered' => 'bg-category-produce text-white',
+        'locked', 'paused', 'pending' => 'border border-brand-ink text-brand-ink',
+        'skipped', 'cancelled', 'failed' => 'bg-category-meat/10 text-category-meat',
+        default => 'bg-brand-ink/10 text-brand-ink/80',
     };
 
     $label = ucfirst(str_replace('_', ' ', $statusValue));

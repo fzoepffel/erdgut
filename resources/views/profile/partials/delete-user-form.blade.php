@@ -1,10 +1,10 @@
 <div class="space-y-6">
     <header>
-        <h3 class="text-lg font-semibold text-gray-900">
+        <h3 class="font-display text-xl text-brand-ink">
             {{ __('Delete account') }}
         </h3>
 
-        <p class="mt-1 text-sm text-gray-600">
+        <p class="mt-2 text-sm leading-relaxed text-brand-ink/75">
             {{ __('Once your account is deleted, all of its resources and data will be permanently deleted. Before deleting your account, please download any data or information that you wish to retain.') }}
         </p>
     </header>
@@ -15,15 +15,16 @@
     >{{ __('Delete account') }}</x-danger-button>
 
     <x-modal name="confirm-user-deletion" :show="$errors->userDeletion->isNotEmpty()" focusable>
-        <form method="post" action="{{ route('account.profile.destroy') }}" class="p-6" aria-labelledby="confirm-deletion-title">
+        <form method="post" action="{{ route('account.profile.destroy') }}" class="bg-brand-cream p-6" aria-labelledby="confirm-deletion-title">
             @csrf
             @method('delete')
 
-            <h2 id="confirm-deletion-title" class="text-lg font-medium text-gray-900">
+            <p class="eyebrow text-category-meat">{{ __('Confirm') }}</p>
+            <h2 id="confirm-deletion-title" class="mt-2 font-display text-2xl text-brand-ink">
                 {{ __('Are you sure you want to delete your account?') }}
             </h2>
 
-            <p id="confirm-deletion-desc" class="mt-1 text-sm text-gray-600">
+            <p id="confirm-deletion-desc" class="mt-3 text-sm leading-relaxed text-brand-ink/75">
                 {{ __('Once your account is deleted, all of its resources and data will be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.') }}
             </p>
 

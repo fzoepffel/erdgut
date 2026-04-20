@@ -1,3 +1,95 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-brand-cream text-brand-ink;
+        font-feature-settings: 'ss01', 'cv11';
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        @apply font-display;
+        font-optical-sizing: auto;
+    }
+
+    ::selection {
+        @apply bg-brand-ink text-brand-cream;
+    }
+}
+
+@layer components {
+    /* Scroll reveal primitive (Apple-style swoosh-in)
+       Elements start invisible + translated; toggle .is-visible via IntersectionObserver. */
+    .reveal {
+        opacity: 0;
+        transform: translateY(28px);
+        transition:
+            opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+            transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+        will-change: opacity, transform;
+    }
+
+    .reveal.is-visible {
+        opacity: 1;
+        transform: none;
+    }
+
+    .reveal--fade {
+        transform: none;
+    }
+
+    .reveal--scale {
+        transform: translateY(28px) scale(0.98);
+    }
+
+    .reveal--scale.is-visible {
+        transform: none;
+    }
+
+    .reveal-stagger > * {
+        transition-delay: calc(var(--i, 0) * 90ms);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .reveal,
+        .reveal--scale,
+        .reveal-stagger > * {
+            opacity: 1 !important;
+            transform: none !important;
+            transition: none !important;
+        }
+    }
+
+    /* Editorial eyebrow shared style */
+    .eyebrow {
+        @apply font-sans text-xs font-semibold uppercase tracking-eyebrow;
+    }
+
+    /* Ghost (outlined) button base used by x-ghost-button / x-secondary-button */
+    .btn-ghost {
+        @apply inline-flex items-center justify-center border border-brand-ink bg-transparent px-6 py-3 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink transition duration-200 hover:bg-brand-ink hover:text-brand-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cream;
+    }
+
+    .btn-solid {
+        @apply inline-flex items-center justify-center bg-brand-ink px-6 py-3 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream transition duration-200 hover:bg-brand-ink/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cream;
+    }
+
+    .btn-danger {
+        @apply inline-flex items-center justify-center border border-category-meat bg-transparent px-6 py-3 text-xs font-semibold uppercase tracking-eyebrow text-category-meat transition duration-200 hover:bg-category-meat hover:text-brand-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-category-meat focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cream;
+    }
+
+    /* Text input restyled for cream background */
+    .input-field {
+        @apply block w-full border-0 border-b border-brand-ink/30 bg-transparent px-0 py-2 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-brand-ink focus:ring-0;
+    }
+}

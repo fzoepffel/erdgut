@@ -1,212 +1,279 @@
 @extends('layouts.marketing')
 
+@push('scripts')
+    @vite(['resources/js/hero-parallax.js'])
+@endpush
+
 @section('content')
-    {{-- Hero: single primary CTA per auth state (ERD-169) --}}
-    <section class="bg-gradient-to-b from-emerald-50 to-white" aria-labelledby="home-hero-heading">
-        <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-            <div class="mx-auto max-w-3xl text-center sm:text-left">
-                <p class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">
-                    Farm-to-consumer in Berlin
-                </p>
-                <h1 id="home-hero-heading" class="mt-6 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-                    Fresh weekly boxes from local farms, delivered transparently.
-                </h1>
-                <p class="mt-6 text-lg leading-8 text-gray-600">
-                    Erdgut connects Berlin households with small-scale producers through a simple subscription.
-                    See where your food comes from and support fair pricing for farmers.
-                </p>
-                <div class="mt-10 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center" data-testid="home-hero-ctas">
-                    @auth
-                        <a
-                            href="{{ route('app.dashboard') }}"
-                            class="inline-flex justify-center rounded-md bg-emerald-700 px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-                            data-testid="home-primary-cta-authenticated"
-                        >
-                            Go to dashboard
-                        </a>
-                        <a
-                            href="{{ route('app.subscriptions.create') }}"
-                            class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-6 py-3 text-center text-sm font-semibold text-gray-800 transition hover:border-emerald-600 hover:text-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-                            data-testid="home-secondary-cta-subscription"
-                        >
-                            Start subscription
-                        </a>
-                    @else
-                        <a
-                            href="{{ route('auth.register') }}"
-                            class="inline-flex justify-center rounded-md bg-emerald-700 px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-                            data-testid="home-primary-cta-guest"
-                        >
-                            Get started
-                        </a>
-                        <a
-                            href="{{ route('auth.login') }}"
-                            class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-6 py-3 text-center text-sm font-semibold text-gray-800 transition hover:border-emerald-600 hover:text-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-                            data-testid="home-secondary-cta-login"
-                        >
-                            Log in
-                        </a>
-                    @endauth
-                </div>
-                <p class="mt-4 text-sm text-gray-500">
-                    <a href="{{ route('public.about') }}" class="font-medium text-emerald-800 underline-offset-4 hover:underline">Learn how Erdgut works</a>
-                </p>
+    <section class="relative overflow-hidden" aria-labelledby="home-hero-heading">
+        <div class="relative h-[82vh] min-h-[620px] w-full overflow-hidden bg-brand-ink/80">
+            <video
+                class="absolute inset-0 h-full w-full object-cover opacity-90"
+                autoplay
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                poster="{{ asset('images/mock/hero/hero-poster.jpg') }}"
+                data-parallax
+            >
+                <source src="{{ asset('videos/mock/hero-loop.webm') }}" type="video/webm">
+                <source src="{{ asset('videos/mock/hero-loop.mp4') }}" type="video/mp4">
+            </video>
+            <div class="absolute inset-0 bg-gradient-to-b from-brand-ink/20 via-brand-ink/35 to-brand-ink/65"></div>
+
+            <div class="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8 lg:pb-24">
+                <x-reveal variant="fade" class="mb-8">
+                    <x-application-logo variant="outline" :with-wordmark="false" class="h-20 w-auto opacity-90 invert brightness-0 sm:h-24" alt="" />
+                </x-reveal>
+                <x-reveal variant="fade-up" delay="100">
+                    <p class="eyebrow text-brand-cream/80">{{ __('Farm-to-consumer in Berlin') }}</p>
+                </x-reveal>
+                <x-reveal variant="fade-up" delay="200">
+                    <h1 id="home-hero-heading" class="mt-4 max-w-4xl font-display text-5xl font-semibold leading-[1.05] tracking-tight text-brand-cream sm:text-6xl lg:text-7xl">
+                        {{ __('Fresh weekly boxes from local farms, delivered transparently.') }}
+                    </h1>
+                </x-reveal>
+                <x-reveal variant="fade-up" delay="300">
+                    <p class="mt-6 max-w-xl text-base leading-relaxed text-brand-cream/85 sm:text-lg">
+                        {{ __('Erdgut connects Berlin households with small-scale producers through a simple subscription. See where your food comes from and support fair pricing for farmers.') }}
+                    </p>
+                </x-reveal>
+                <x-reveal variant="fade-up" delay="400">
+                    <div class="mt-10 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center" data-testid="home-hero-ctas">
+                        @auth
+                            <a
+                                href="{{ route('app.dashboard') }}"
+                                class="inline-flex items-center justify-center border border-brand-cream bg-brand-cream px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-ink transition hover:bg-transparent hover:text-brand-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cream"
+                                data-testid="home-primary-cta-authenticated"
+                            >
+                                {{ __('Go to dashboard') }}
+                            </a>
+                            <a
+                                href="{{ route('app.subscriptions.create') }}"
+                                class="inline-flex items-center justify-center border border-brand-cream/70 px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream transition hover:border-brand-cream hover:bg-brand-cream/10"
+                                data-testid="home-secondary-cta-subscription"
+                            >
+                                {{ __('Start subscription') }}
+                            </a>
+                        @else
+                            <a
+                                href="{{ route('auth.register') }}"
+                                class="inline-flex items-center justify-center border border-brand-cream bg-brand-cream px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-ink transition hover:bg-transparent hover:text-brand-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cream"
+                                data-testid="home-primary-cta-guest"
+                            >
+                                {{ __('Get started') }}
+                            </a>
+                            <a
+                                href="{{ route('auth.login') }}"
+                                class="inline-flex items-center justify-center border border-brand-cream/70 px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream transition hover:border-brand-cream hover:bg-brand-cream/10"
+                                data-testid="home-secondary-cta-login"
+                            >
+                                {{ __('Log in') }}
+                            </a>
+                        @endauth
+                    </div>
+                </x-reveal>
             </div>
         </div>
     </section>
 
     {{-- Trust signals --}}
-    <section class="border-y border-emerald-100 bg-white" aria-labelledby="home-trust-heading">
-        <h2 id="home-trust-heading" class="sr-only">Why customers trust Erdgut</h2>
-        <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-            <ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4" data-testid="home-trust-row">
-                <li class="flex gap-3">
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800" aria-hidden="true">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    </span>
-                    <div>
-                        <p class="text-sm font-semibold text-gray-900">Regional producers</p>
-                        <p class="mt-1 text-sm text-gray-600">Food from farms and growers near Berlin.</p>
-                    </div>
-                </li>
-                <li class="flex gap-3">
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800" aria-hidden="true">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    </span>
-                    <div>
-                        <p class="text-sm font-semibold text-gray-900">Transparent origins</p>
-                        <p class="mt-1 text-sm text-gray-600">Every product is tied to a named producer.</p>
-                    </div>
-                </li>
-                <li class="flex gap-3">
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800" aria-hidden="true">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                    </span>
-                    <div>
-                        <p class="text-sm font-semibold text-gray-900">Flexible delivery</p>
-                        <p class="mt-1 text-sm text-gray-600">Skip, postpone, or adjust when life changes.</p>
-                    </div>
-                </li>
-                <li class="flex gap-3">
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800" aria-hidden="true">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                    </span>
-                    <div>
-                        <p class="text-sm font-semibold text-gray-900">Secure payment</p>
-                        <p class="mt-1 text-sm text-gray-600">Card handling via SumUp—no card data stored on our servers.</p>
-                    </div>
-                </li>
+    <section class="border-b border-brand-ink/10" aria-labelledby="home-trust-heading">
+        <h2 id="home-trust-heading" class="sr-only">{{ __('Why customers trust Erdgut') }}</h2>
+        <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+            <ul class="grid gap-10 reveal-stagger sm:grid-cols-2 lg:grid-cols-4" data-testid="home-trust-row">
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:0">
+                    <span class="eyebrow text-category-produce">{{ __('01') }}</span>
+                    <p class="font-display text-xl text-brand-ink">{{ __('Regional producers') }}</p>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Food from farms and growers near Berlin.') }}</p>
+                </x-reveal>
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:1">
+                    <span class="eyebrow text-category-fish">{{ __('02') }}</span>
+                    <p class="font-display text-xl text-brand-ink">{{ __('Transparent origins') }}</p>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Every product is tied to a named producer.') }}</p>
+                </x-reveal>
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:2">
+                    <span class="eyebrow text-category-meat">{{ __('03') }}</span>
+                    <p class="font-display text-xl text-brand-ink">{{ __('Flexible delivery') }}</p>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Skip, postpone, or adjust when life changes.') }}</p>
+                </x-reveal>
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:3">
+                    <span class="eyebrow text-brand-ink">{{ __('04') }}</span>
+                    <p class="font-display text-xl text-brand-ink">{{ __('Secure payment') }}</p>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Card handling via SumUp—no card data stored on our servers.') }}</p>
+                </x-reveal>
             </ul>
         </div>
     </section>
 
+    {{-- Stalls editorial strip --}}
+    <section class="border-b border-brand-ink/10" aria-labelledby="home-stalls-heading">
+        <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+            <x-section-heading
+                eyebrow="{{ __('Five stalls, one market') }}"
+                color="produce"
+                title="{{ __('Vegetables, fruit, bread, dairy, fish and meat — curated weekly.') }}"
+                lead="{{ __('Each stall is run by producers we know by name. The colours travel with the food from profile to box to invoice.') }}"
+                id="home-stalls-heading"
+            />
+
+            <div class="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                @php
+                    $stalls = [
+                        ['slug' => 'produce', 'label' => __('Greengrocer'), 'tagline' => __('Roots, greens, fruit'), 'image' => 'stalls/produce/scene.jpg'],
+                        ['slug' => 'bakery', 'label' => __('Bakery'), 'tagline' => __('Sourdough & pastry'), 'image' => 'stalls/bakery/scene.jpg'],
+                        ['slug' => 'dairy', 'label' => __('Dairy'), 'tagline' => __('Milk, butter, cheese'), 'image' => 'stalls/dairy/scene.jpg'],
+                        ['slug' => 'fish', 'label' => __('Fishmonger'), 'tagline' => __('Line-caught & smoked'), 'image' => 'stalls/fish/scene.jpg'],
+                        ['slug' => 'meat', 'label' => __('Butcher'), 'tagline' => __('Pasture-raised cuts'), 'image' => 'stalls/meat/scene.jpg'],
+                    ];
+                    $stallColor = [
+                        'produce' => 'text-category-produce',
+                        'bakery' => 'text-brand-ink',
+                        'dairy' => 'text-brand-ink',
+                        'fish' => 'text-category-fish',
+                        'meat' => 'text-category-meat',
+                    ];
+                @endphp
+                @foreach ($stalls as $i => $stall)
+                    <x-reveal variant="fade-up" delay="{{ $i * 80 }}" class="group flex flex-col gap-4">
+                        <div class="relative aspect-[3/4] overflow-hidden bg-brand-ink/5">
+                            <img src="{{ asset('images/mock/' . $stall['image']) }}" alt="" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy">
+                        </div>
+                        <div>
+                            <p class="eyebrow {{ $stallColor[$stall['slug']] }}">{{ $stall['label'] }}</p>
+                            <p class="mt-2 font-display text-lg text-brand-ink">{{ $stall['tagline'] }}</p>
+                        </div>
+                    </x-reveal>
+                @endforeach
+            </div>
+        </div>
+    </section>
+
     {{-- How it works --}}
-    <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8" aria-labelledby="home-steps-heading">
-        <div class="mx-auto max-w-2xl text-center">
-            <h2 id="home-steps-heading" class="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-                How it works
-            </h2>
-            <p class="mt-4 text-base text-gray-600">
-                From signup to your doorstep in four steps.
-            </p>
+    <section class="border-b border-brand-ink/10" aria-labelledby="home-steps-heading">
+        <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+            <x-section-heading
+                eyebrow="{{ __('How it works') }}"
+                color="fish"
+                title="{{ __('From signup to your doorstep in four steps.') }}"
+                lead="{{ __('A predictable rhythm that leaves room for the unpredictable parts of your week.') }}"
+                id="home-steps-heading"
+            />
+            <ol class="mt-16 grid gap-12 reveal-stagger md:grid-cols-2 lg:grid-cols-4" data-testid="home-how-it-works">
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:0">
+                    <span class="font-display text-6xl font-semibold text-brand-ink/20">01</span>
+                    <h3 class="font-display text-2xl text-brand-ink">{{ __('Create your account') }}</h3>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Register and verify your email to get started.') }}</p>
+                </x-reveal>
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:1">
+                    <span class="font-display text-6xl font-semibold text-brand-ink/20">02</span>
+                    <h3 class="font-display text-2xl text-brand-ink">{{ __('Choose your plan') }}</h3>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Pick box size and set preferences and dietary notes.') }}</p>
+                </x-reveal>
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:2">
+                    <span class="font-display text-6xl font-semibold text-brand-ink/20">03</span>
+                    <h3 class="font-display text-2xl text-brand-ink">{{ __('We build your week') }}</h3>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Your box is composed from seasonal, regional produce.') }}</p>
+                </x-reveal>
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:3">
+                    <span class="font-display text-6xl font-semibold text-brand-ink/20">04</span>
+                    <h3 class="font-display text-2xl text-brand-ink">{{ __('You stay in control') }}</h3>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Change delivery, skip a week, or add extras before the deadline.') }}</p>
+                </x-reveal>
+            </ol>
         </div>
-        <ol class="mx-auto mt-12 grid max-w-5xl gap-8 md:grid-cols-2 lg:grid-cols-4" data-testid="home-how-it-works">
-            <li class="relative rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-700 text-sm font-bold text-white" aria-hidden="true">1</span>
-                <h3 class="mt-4 text-lg font-semibold text-gray-900">Create your account</h3>
-                <p class="mt-2 text-sm leading-6 text-gray-600">Register and verify your email to get started.</p>
-            </li>
-            <li class="relative rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-700 text-sm font-bold text-white" aria-hidden="true">2</span>
-                <h3 class="mt-4 text-lg font-semibold text-gray-900">Choose your plan</h3>
-                <p class="mt-2 text-sm leading-6 text-gray-600">Pick box size and set preferences and dietary notes.</p>
-            </li>
-            <li class="relative rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-700 text-sm font-bold text-white" aria-hidden="true">3</span>
-                <h3 class="mt-4 text-lg font-semibold text-gray-900">We build your week</h3>
-                <p class="mt-2 text-sm leading-6 text-gray-600">Your box is composed from seasonal, regional produce.</p>
-            </li>
-            <li class="relative rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-700 text-sm font-bold text-white" aria-hidden="true">4</span>
-                <h3 class="mt-4 text-lg font-semibold text-gray-900">You stay in control</h3>
-                <p class="mt-2 text-sm leading-6 text-gray-600">Change delivery, skip a week, or add extras before the deadline.</p>
-            </li>
-        </ol>
     </section>
 
-    {{-- Social proof (placeholder pattern until real testimonials) --}}
-    <section class="bg-emerald-900 text-white" aria-labelledby="home-social-heading">
-        <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-            <div class="mx-auto max-w-3xl text-center" data-testid="home-social-proof">
-                <h2 id="home-social-heading" class="text-2xl font-bold tracking-tight sm:text-3xl">
-                    Join Berlin households supporting local food
+    {{-- Pull quote --}}
+    <section class="bg-brand-ink text-brand-cream" aria-labelledby="home-social-heading">
+        <div class="mx-auto max-w-5xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
+            <div data-testid="home-social-proof">
+                <x-reveal variant="fade-up">
+                    <p class="eyebrow text-brand-cream/60">{{ __('From the community') }}</p>
+                </x-reveal>
+                <x-reveal variant="fade-up" delay="150">
+                    <blockquote class="mt-8 font-display text-3xl leading-snug text-brand-cream sm:text-4xl lg:text-5xl">
+                        <span aria-hidden="true" class="text-category-produce/80">“</span>{{ __('Join Berlin households supporting local food') }}<span aria-hidden="true" class="text-category-produce/80">”</span>
+                    </blockquote>
+                </x-reveal>
+                <x-reveal variant="fade-up" delay="300">
+                    <p class="mt-8 max-w-xl text-base leading-relaxed text-brand-cream/80">
+                        {{ __('We are onboarding early supporters—real stories and numbers will appear here as the community grows.') }}
+                    </p>
+                </x-reveal>
+            </div>
+        </div>
+    </section>
+
+    {{-- Value props --}}
+    <section class="border-b border-brand-ink/10" aria-labelledby="home-values-heading">
+        <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+            <h2 id="home-values-heading" class="sr-only">{{ __('What you get with Erdgut') }}</h2>
+            <div class="grid gap-12 reveal-stagger md:grid-cols-3" data-testid="home-value-cards">
+                <x-reveal as="article" variant="fade-up" class="flex flex-col gap-4 border-t border-brand-ink/20 pt-8" style="--i:0">
+                    <p class="eyebrow text-category-produce">{{ __('Producers') }}</p>
+                    <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ __('Know every producer') }}</h3>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">
+                        {{ __('Products link back to people and places—not anonymous supply chains—so you can trust what lands in your kitchen.') }}
+                    </p>
+                </x-reveal>
+                <x-reveal as="article" variant="fade-up" class="flex flex-col gap-4 border-t border-brand-ink/20 pt-8" style="--i:1">
+                    <p class="eyebrow text-category-fish">{{ __('Your week') }}</p>
+                    <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ __('Built around your week') }}</h3>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">
+                        {{ __('See deadlines, tweak your box when it is editable, and align delivery with your routine.') }}
+                    </p>
+                </x-reveal>
+                <x-reveal as="article" variant="fade-up" class="flex flex-col gap-4 border-t border-brand-ink/20 pt-8" style="--i:2">
+                    <p class="eyebrow text-category-meat">{{ __('Fair share') }}</p>
+                    <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ __('Fair share for farmers') }}</h3>
+                    <p class="text-sm leading-relaxed text-brand-ink/70">
+                        {{ __('We focus on direct relationships and clear value so more of what you pay supports the people who grow your food.') }}
+                    </p>
+                </x-reveal>
+            </div>
+        </div>
+    </section>
+
+    {{-- Bottom CTA --}}
+    <section class="relative" aria-labelledby="home-bottom-cta-heading">
+        <div class="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6 sm:py-32 lg:px-8">
+            <x-reveal variant="fade-up">
+                <p class="eyebrow text-category-produce">{{ __('Join the table') }}</p>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="150">
+                <h2 id="home-bottom-cta-heading" class="mt-6 font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl lg:text-6xl">
+                    {{ __('Ready to eat better and support Berlin\'s producers?') }}
                 </h2>
-                <p class="mt-4 text-base text-emerald-100">
-                    We are onboarding early supporters—real stories and numbers will appear here as the community grows.
-                </p>
-                <p class="mt-2 text-xs uppercase tracking-wide text-emerald-200/80">
-                    TODO: replace with testimonials or impact stats when available
-                </p>
-            </div>
-        </div>
-    </section>
-
-    {{-- Deeper value props (complements trust row) --}}
-    <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8" aria-labelledby="home-values-heading">
-        <h2 id="home-values-heading" class="sr-only">What you get with Erdgut</h2>
-        <div class="grid gap-6 md:grid-cols-3" data-testid="home-value-cards">
-            <article class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h3 class="text-lg font-semibold text-gray-900">Know every producer</h3>
-                <p class="mt-3 text-sm leading-6 text-gray-600">
-                    Products link back to people and places—not anonymous supply chains—so you can trust what lands in your kitchen.
-                </p>
-            </article>
-            <article class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h3 class="text-lg font-semibold text-gray-900">Built around your week</h3>
-                <p class="mt-3 text-sm leading-6 text-gray-600">
-                    See deadlines, tweak your box when it is editable, and align delivery with your routine.
-                </p>
-            </article>
-            <article class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h3 class="text-lg font-semibold text-gray-900">Fair share for farmers</h3>
-                <p class="mt-3 text-sm leading-6 text-gray-600">
-                    We focus on direct relationships and clear value so more of what you pay supports the people who grow your food.
-                </p>
-            </article>
-        </div>
-    </section>
-
-    {{-- Bottom CTA (mobile long-scroll) --}}
-    <section class="border-t border-gray-100 bg-gray-50" aria-labelledby="home-bottom-cta-heading">
-        <div class="mx-auto max-w-7xl px-4 py-12 text-center sm:px-6 lg:px-8">
-            <h2 id="home-bottom-cta-heading" class="text-xl font-bold text-gray-900 sm:text-2xl">
-                Ready to eat better and support Berlin&apos;s producers?
-            </h2>
-            <div class="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-                @auth
-                    <a
-                        href="{{ route('app.dashboard') }}"
-                        class="inline-flex justify-center rounded-md bg-emerald-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
-                        data-testid="home-bottom-primary-authenticated"
-                    >
-                        Go to dashboard
-                    </a>
-                @else
-                    <a
-                        href="{{ route('auth.register') }}"
-                        class="inline-flex justify-center rounded-md bg-emerald-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
-                        data-testid="home-bottom-primary-guest"
-                    >
-                        Get started
-                    </a>
-                    <a
-                        href="{{ route('auth.login') }}"
-                        class="inline-flex justify-center text-sm font-semibold text-emerald-800 underline-offset-4 hover:underline"
-                    >
-                        Already have an account? Log in
-                    </a>
-                @endauth
-            </div>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="300">
+                <div class="mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+                    @auth
+                        <a
+                            href="{{ route('app.dashboard') }}"
+                            class="btn-solid"
+                            data-testid="home-bottom-primary-authenticated"
+                        >
+                            {{ __('Go to dashboard') }}
+                        </a>
+                    @else
+                        <a
+                            href="{{ route('auth.register') }}"
+                            class="btn-solid"
+                            data-testid="home-bottom-primary-guest"
+                        >
+                            {{ __('Get started') }}
+                        </a>
+                        <a
+                            href="{{ route('auth.login') }}"
+                            class="inline-flex items-center justify-center text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                        >
+                            {{ __('Already have an account? Log in') }}
+                        </a>
+                    @endauth
+                </div>
+            </x-reveal>
         </div>
     </section>
 @endsection

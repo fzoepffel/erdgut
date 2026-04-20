@@ -12,7 +12,40 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                sans: ['Inter', ...defaultTheme.fontFamily.sans],
+                display: ['Fraunces', ...defaultTheme.fontFamily.serif],
+            },
+            colors: {
+                brand: {
+                    cream: '#f4ece3',
+                    ink: '#3c3025',
+                    'ink-soft': '#6b5b4c',
+                },
+                category: {
+                    fish: {
+                        DEFAULT: '#1c397d',
+                        soft: '#b5daea',
+                    },
+                    meat: {
+                        DEFAULT: '#ae2033',
+                        soft: '#e5bcc0',
+                    },
+                    produce: {
+                        DEFAULT: '#21341d',
+                        soft: '#79954d',
+                    },
+                    dairy: {
+                        DEFAULT: '#3c3025',
+                        soft: '#ffffff',
+                    },
+                    bakery: {
+                        DEFAULT: '#3c3025',
+                        soft: '#ffffff',
+                    },
+                },
+            },
+            letterSpacing: {
+                eyebrow: '0.12em',
             },
         },
     },

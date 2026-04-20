@@ -37,7 +37,7 @@ class BoxControllerTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.boxes.show', $box))
             ->assertOk()
-            ->assertSee('This week\'s box')
+            ->assertSee('Your weekly food box')
             ->assertSee('Test Tomatoes')
             ->assertSee('1.50 kg')
             ->assertSee('Estimated value')

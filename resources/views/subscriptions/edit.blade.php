@@ -1,141 +1,142 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Edit subscription') }}
-        </h2>
+        <div class="flex flex-col gap-2">
+            <p class="eyebrow text-category-produce">{{ __('Subscription') }}</p>
+            <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
+                {{ __('Edit subscription') }}
+            </h1>
+        </div>
     </x-slot>
 
-    <div class="py-8 sm:py-12">
-        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg border border-gray-100">
-                <div class="p-6 text-gray-900">
-                    <p class="mb-6 text-sm text-gray-600">
-                        {{ __('Adjust your delivery rhythm, box size, preferences, and allergies.') }}
-                    </p>
+    <div class="py-10 sm:py-16">
+        <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+            <div class="border border-brand-ink/15 p-6 sm:p-8">
+                <p class="text-base text-brand-ink/80">
+                    {{ __('Adjust your delivery rhythm, box size, preferences, and allergies.') }}
+                </p>
 
-                    <form method="post" action="{{ route('app.subscriptions.update') }}" class="space-y-8">
-                        @csrf
-                        @method('patch')
+                <form method="post" action="{{ route('app.subscriptions.update') }}" class="mt-6 space-y-10">
+                    @csrf
+                    @method('patch')
 
-                        <fieldset>
-                            <legend class="text-sm font-medium text-gray-900">{{ __('Delivery rhythm') }}</legend>
-                            <p class="mt-1 text-xs text-gray-500">{{ __('Changing the rhythm while your subscription is active updates your next charge date from today forward.') }}</p>
-                            <div class="mt-3 space-y-3">
-                                @foreach (\App\Enums\SubscriptionPlan::cases() as $planOption)
-                                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-4 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50">
-                                        <input
-                                            type="radio"
-                                            name="plan"
-                                            value="{{ $planOption->value }}"
-                                            class="mt-1 border-gray-300 text-emerald-600 focus:ring-emerald-600"
-                                            @checked(old('plan', $subscription->plan->value) === $planOption->value)
-                                            required
-                                        />
-                                        <span>
-                                            <span class="block text-sm font-medium text-gray-900">
-                                                {{ $planOption === \App\Enums\SubscriptionPlan::Weekly ? __('Weekly delivery') : __('Biweekly delivery') }}
-                                            </span>
-                                            <span class="mt-0.5 block text-xs text-gray-600">
-                                                {{ $planOption === \App\Enums\SubscriptionPlan::Weekly
-                                                    ? __('Charged and delivered every week.')
-                                                    : __('Charged and delivered every two weeks.') }}
-                                            </span>
+                    <fieldset>
+                        <legend class="eyebrow text-brand-ink">{{ __('Delivery rhythm') }}</legend>
+                        <p class="mt-2 text-sm text-brand-ink/70">{{ __('Changing the rhythm while your subscription is active updates your next charge date from today forward.') }}</p>
+                        <div class="mt-4 space-y-3">
+                            @foreach (\App\Enums\SubscriptionPlan::cases() as $planOption)
+                                <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-category-produce has-[:checked]:bg-category-produce/5">
+                                    <input
+                                        type="radio"
+                                        name="plan"
+                                        value="{{ $planOption->value }}"
+                                        class="mt-1 border-brand-ink/30 text-category-produce focus:ring-category-produce"
+                                        @checked(old('plan', $subscription->plan->value) === $planOption->value)
+                                        required
+                                    />
+                                    <span>
+                                        <span class="block font-display text-base text-brand-ink">
+                                            {{ $planOption === \App\Enums\SubscriptionPlan::Weekly ? __('Weekly delivery') : __('Biweekly delivery') }}
                                         </span>
-                                    </label>
-                                @endforeach
-                            </div>
-                            <x-input-error class="mt-2" :messages="$errors->get('plan')" />
-                        </fieldset>
-
-                        <div>
-                            <x-input-label for="box_size" :value="__('Box size')" />
-                            <select
-                                id="box_size"
-                                name="box_size"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
-                                required
-                            >
-                                @foreach (['small', 'medium', 'large'] as $size)
-                                    <option value="{{ $size }}" @selected(old('box_size', $subscription->box_size) === $size)>
-                                        {{ __(ucfirst($size)) }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <x-input-error class="mt-2" :messages="$errors->get('box_size')" />
-                        </div>
-
-                        <fieldset class="space-y-3">
-                            <legend class="text-sm font-medium text-gray-900">{{ __('Preferences') }}</legend>
-
-                            <label class="inline-flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    name="preferences[veg_only]"
-                                    value="1"
-                                    @checked((bool) old('preferences.veg_only', data_get($subscription->preferences, 'veg_only', false)))
-                                    class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600"
-                                />
-                                <span class="text-sm text-gray-700">{{ __('Veg option only') }}</span>
-                            </label>
-
-                            <label class="inline-flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    name="preferences[meat_add_on]"
-                                    value="1"
-                                    @checked((bool) old('preferences.meat_add_on', data_get($subscription->preferences, 'meat_add_on', false)))
-                                    class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600"
-                                />
-                                <span class="text-sm text-gray-700">{{ __('Meat add-on') }}</span>
-                            </label>
-
-                            <label class="inline-flex items-start gap-2">
-                                <input
-                                    type="checkbox"
-                                    name="preferences[eggs_dairy_add_on]"
-                                    value="1"
-                                    @checked((bool) old('preferences.eggs_dairy_add_on', data_get($subscription->preferences, 'eggs_dairy_add_on', false)))
-                                    class="mt-1 rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600"
-                                />
-                                <span>
-                                    <span class="text-sm text-gray-700">{{ __('Eggs or dairy add-on') }}</span>
-                                    <span class="mt-0.5 block text-xs text-gray-500">
-                                        {{ __('Eggs or dairy add-on hint', ['amount' => number_format((float) config('box.eggs_dairy_add_on_eur'), 2, ',', '.')]) }}
+                                        <span class="mt-1 block text-sm text-brand-ink/70">
+                                            {{ $planOption === \App\Enums\SubscriptionPlan::Weekly
+                                                ? __('Charged and delivered every week.')
+                                                : __('Charged and delivered every two weeks.') }}
+                                        </span>
                                     </span>
-                                </span>
-                            </label>
+                                </label>
+                            @endforeach
+                        </div>
+                        <x-input-error class="mt-2" :messages="$errors->get('plan')" />
+                    </fieldset>
 
-                            <x-input-error class="mt-2" :messages="$errors->get('preferences.veg_only')" />
-                            <x-input-error class="mt-2" :messages="$errors->get('preferences.meat_add_on')" />
-                            <x-input-error class="mt-2" :messages="$errors->get('preferences.eggs_dairy_add_on')" />
-                        </fieldset>
+                    <div>
+                        <x-input-label for="box_size" :value="__('Box size')" />
+                        <select
+                            id="box_size"
+                            name="box_size"
+                            class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream px-4 py-2.5 text-base text-brand-ink focus:border-category-produce focus:outline-none focus:ring-0"
+                            required
+                        >
+                            @foreach (['small', 'medium', 'large'] as $size)
+                                <option value="{{ $size }}" @selected(old('box_size', $subscription->box_size) === $size)>
+                                    {{ __(ucfirst($size)) }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <x-input-error class="mt-2" :messages="$errors->get('box_size')" />
+                    </div>
 
-                        @php
-                            $oldAllergies = old('allergies');
-                            $allergiesValue = is_array($oldAllergies) ? implode(', ', $oldAllergies) : $allergiesInput;
-                        @endphp
-                        <div>
-                            <x-input-label for="allergies" :value="__('Allergies (comma separated)')" />
-                            <x-text-input
-                                id="allergies"
-                                name="allergies"
-                                type="text"
-                                class="mt-1 block w-full"
-                                :value="$allergiesValue"
-                                placeholder="{{ __('e.g. nuts, gluten') }}"
+                    <fieldset class="space-y-3">
+                        <legend class="eyebrow text-brand-ink">{{ __('Preferences') }}</legend>
+
+                        <label class="flex items-center gap-3">
+                            <input
+                                type="checkbox"
+                                name="preferences[veg_only]"
+                                value="1"
+                                @checked((bool) old('preferences.veg_only', data_get($subscription->preferences, 'veg_only', false)))
+                                class="border-brand-ink/30 text-category-produce focus:ring-category-produce"
                             />
-                            <x-input-error class="mt-2" :messages="$errors->get('allergies')" />
-                            <x-input-error class="mt-2" :messages="$errors->get('allergies.*')" />
-                        </div>
+                            <span class="text-sm text-brand-ink">{{ __('Veg option only') }}</span>
+                        </label>
 
-                        <div class="flex flex-wrap items-center gap-4">
-                            <x-primary-button>{{ __('Save changes') }}</x-primary-button>
-                            <a href="{{ route('app.subscriptions.show') }}" class="text-sm text-gray-600 hover:text-gray-900">
-                                {{ __('Cancel') }}
-                            </a>
-                        </div>
-                    </form>
-                </div>
+                        <label class="flex items-center gap-3">
+                            <input
+                                type="checkbox"
+                                name="preferences[meat_add_on]"
+                                value="1"
+                                @checked((bool) old('preferences.meat_add_on', data_get($subscription->preferences, 'meat_add_on', false)))
+                                class="border-brand-ink/30 text-category-produce focus:ring-category-produce"
+                            />
+                            <span class="text-sm text-brand-ink">{{ __('Meat add-on') }}</span>
+                        </label>
+
+                        <label class="flex items-start gap-3">
+                            <input
+                                type="checkbox"
+                                name="preferences[eggs_dairy_add_on]"
+                                value="1"
+                                @checked((bool) old('preferences.eggs_dairy_add_on', data_get($subscription->preferences, 'eggs_dairy_add_on', false)))
+                                class="mt-1 border-brand-ink/30 text-category-produce focus:ring-category-produce"
+                            />
+                            <span>
+                                <span class="block text-sm text-brand-ink">{{ __('Eggs or dairy add-on') }}</span>
+                                <span class="mt-1 block text-xs text-brand-ink/60">
+                                    {{ __('Eggs or dairy add-on hint', ['amount' => number_format((float) config('box.eggs_dairy_add_on_eur'), 2, ',', '.')]) }}
+                                </span>
+                            </span>
+                        </label>
+
+                        <x-input-error class="mt-2" :messages="$errors->get('preferences.veg_only')" />
+                        <x-input-error class="mt-2" :messages="$errors->get('preferences.meat_add_on')" />
+                        <x-input-error class="mt-2" :messages="$errors->get('preferences.eggs_dairy_add_on')" />
+                    </fieldset>
+
+                    @php
+                        $oldAllergies = old('allergies');
+                        $allergiesValue = is_array($oldAllergies) ? implode(', ', $oldAllergies) : $allergiesInput;
+                    @endphp
+                    <div>
+                        <x-input-label for="allergies" :value="__('Allergies (comma separated)')" />
+                        <x-text-input
+                            id="allergies"
+                            name="allergies"
+                            type="text"
+                            class="mt-2 block w-full"
+                            :value="$allergiesValue"
+                            placeholder="{{ __('e.g. nuts, gluten') }}"
+                        />
+                        <x-input-error class="mt-2" :messages="$errors->get('allergies')" />
+                        <x-input-error class="mt-2" :messages="$errors->get('allergies.*')" />
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-4 pt-2">
+                        <x-primary-button>{{ __('Save changes') }}</x-primary-button>
+                        <a href="{{ route('app.subscriptions.show') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
+                            {{ __('Cancel') }}
+                        </a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

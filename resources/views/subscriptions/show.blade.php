@@ -6,346 +6,332 @@
 
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Subscription overview') }}
-        </h2>
+        <div class="flex flex-col gap-2">
+            <p class="eyebrow text-category-produce">{{ __('Subscription') }}</p>
+            <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
+                {{ __('Subscription overview') }}
+            </h1>
+        </div>
     </x-slot>
 
-    <div class="py-8 sm:py-12">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg border border-gray-100">
-                <div class="p-6 text-gray-900">
-                    @if (session('status') === 'subscription-updated')
-                        <p class="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                            {{ __('Subscription details saved.') }}
-                        </p>
-                    @elseif (session('status') === 'subscription-pause-scheduled')
-                        <p class="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                            {{ __('Pause timeframe saved.') }}
-                        </p>
-                    @elseif (session('status') === 'subscription-resumed')
-                        <p class="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                            {{ __('Subscription resumed immediately.') }}
-                        </p>
-                    @elseif (session('status') === 'subscription-cancelled')
-                        <p class="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                            {{ __('Subscription cancelled.') }}
-                        </p>
-                    @elseif (session('status') === 'subscription-created')
-                        <p class="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                            {{ __('Subscription created. Set up your payment method to activate billing.') }}
-                        </p>
-                        <div class="mb-4 rounded-md border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-sm text-emerald-900">
-                            <span class="font-semibold">{{ __('Step 2 of 2: Payment') }}</span>
-                            — {{ __('Use “Set up payment method” below to complete your subscription.') }}
-                        </div>
-                    @elseif (session('status') === 'subscription-missing')
-                        <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                            {{ __('No subscription available to edit yet.') }}
-                        </p>
-                    @elseif (session('status') === 'subscription-action-not-allowed')
-                        <p class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                            {{ __('This subscription action is not allowed in the current state.') }}
-                        </p>
-                    @elseif (in_array(session('status'), [
-                        'payment-already-setup',
-                        'payment-updated',
-                        'payment-update-unavailable',
-                        'payment-setup-success',
-                        'payment-setup-failed',
-                        'payment-setup-unavailable',
-                    ], true))
-                        @include('payments.partials.session-status')
+    <div class="py-10 sm:py-16">
+        <div class="mx-auto max-w-4xl space-y-8 px-4 sm:px-6 lg:px-8">
+            @if (session('status') === 'subscription-updated')
+                <p class="border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink">
+                    {{ __('Subscription details saved.') }}
+                </p>
+            @elseif (session('status') === 'subscription-pause-scheduled')
+                <p class="border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink">
+                    {{ __('Pause timeframe saved.') }}
+                </p>
+            @elseif (session('status') === 'subscription-resumed')
+                <p class="border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink">
+                    {{ __('Subscription resumed immediately.') }}
+                </p>
+            @elseif (session('status') === 'subscription-cancelled')
+                <p class="border border-brand-ink/20 bg-brand-ink/[0.03] px-4 py-3 text-sm text-brand-ink">
+                    {{ __('Subscription cancelled.') }}
+                </p>
+            @elseif (session('status') === 'subscription-created')
+                <p class="border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink">
+                    {{ __('Subscription created. Set up your payment method to activate billing.') }}
+                </p>
+                <div class="border border-brand-ink/20 bg-brand-ink/[0.03] px-4 py-3 text-sm text-brand-ink">
+                    <span class="font-semibold">{{ __('Step 2 of 2: Payment') }}</span>
+                    — {{ __('Use "Set up payment method" below to complete your subscription.') }}
+                </div>
+            @elseif (session('status') === 'subscription-missing')
+                <p class="border border-brand-ink/20 bg-brand-ink/[0.03] px-4 py-3 text-sm text-brand-ink">
+                    {{ __('No subscription available to edit yet.') }}
+                </p>
+            @elseif (session('status') === 'subscription-action-not-allowed')
+                <p class="border border-brand-ink/20 bg-brand-ink/[0.03] px-4 py-3 text-sm text-brand-ink">
+                    {{ __('This subscription action is not allowed in the current state.') }}
+                </p>
+            @elseif (in_array(session('status'), [
+                'payment-already-setup',
+                'payment-updated',
+                'payment-update-unavailable',
+                'payment-setup-success',
+                'payment-setup-failed',
+                'payment-setup-unavailable',
+            ], true))
+                @include('payments.partials.session-status')
+            @endif
+
+            @if ($subscription === null)
+                <x-empty-state
+                    :title="__('No subscription yet')"
+                    :description="__('Start a subscription to choose your box rhythm, size, and dietary preferences. You can set up payment right after.')"
+                    variant="card"
+                >
+                    <x-slot name="action">
+                        <x-solid-link :href="route('app.subscriptions.onboard')">
+                            {{ __('Create subscription') }}
+                        </x-solid-link>
+                    </x-slot>
+                </x-empty-state>
+            @else
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('app.subscriptions.edit') }}" class="btn-solid text-xs">
+                        {{ __('Edit subscription') }}
+                    </a>
+
+                    @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled)
+                        <form method="POST" action="{{ route('app.subscriptions.skip.next') }}" class="inline">
+                            @csrf
+                            <x-secondary-button type="submit">
+                                {{ __('subscriptions.skip_next_week_cta') }}
+                            </x-secondary-button>
+                        </form>
+
+                        <x-secondary-button
+                            x-data=""
+                            x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-pause')"
+                        >
+                            {{ __('subscriptions.skip_range_cta') }}
+                        </x-secondary-button>
                     @endif
 
-                    @if ($subscription === null)
-                        <div class="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-6">
-                            <h3 class="text-base font-semibold text-gray-900">{{ __('No subscription yet') }}</h3>
-                            <p class="mt-2 text-sm text-gray-600">
-                                {{ __('Start a subscription to choose your box rhythm, size, and dietary preferences. You can set up payment right after.') }}
-                            </p>
-                            <a
-                                href="{{ route('app.subscriptions.onboard') }}"
-                                class="mt-4 inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-                            >
-                                {{ __('Create subscription') }}
-                            </a>
-                        </div>
-                    @else
-                        <div class="mb-8 flex flex-wrap gap-2">
-                            <a
-                                href="{{ route('app.subscriptions.edit') }}"
-                                class="inline-flex items-center rounded-md bg-gray-900 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-gray-800"
-                            >
-                                {{ __('Edit subscription') }}
-                            </a>
-
-                            @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled)
-                                <form method="POST" action="{{ route('app.subscriptions.skip.next') }}" class="inline">
-                                    @csrf
-                                    <x-secondary-button type="submit">
-                                        {{ __('subscriptions.skip_next_week_cta') }}
-                                    </x-secondary-button>
-                                </form>
-
-                                <x-secondary-button
-                                    x-data=""
-                                    x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-pause')"
-                                >
-                                    {{ __('subscriptions.skip_range_cta') }}
-                                </x-secondary-button>
-                            @endif
-
-                            @if ($subscription->status === \App\Enums\SubscriptionStatus::Paused || $subscription->hasPauseWindow())
-                                <x-secondary-button
-                                    x-data=""
-                                    x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-resume')"
-                                >
-                                    {{ __('subscriptions.end_skip_cta') }}
-                                </x-secondary-button>
-                            @endif
-
-                            @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled)
-                                <x-danger-button
-                                    x-data=""
-                                    x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-cancel')"
-                                >
-                                    {{ __('Cancel subscription') }}
-                                </x-danger-button>
-                            @endif
-                        </div>
-
-                        <div class="space-y-8">
-                            <section aria-labelledby="sub-section-plan">
-                                <h3 id="sub-section-plan" class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('Subscription and box') }}</h3>
-                                <dl class="mt-3 space-y-3">
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500">{{ __('Delivery rhythm') }}</dt>
-                                        <dd class="mt-1 text-sm text-gray-900">
-                                            {{ $subscription->plan === \App\Enums\SubscriptionPlan::Weekly ? __('Weekly delivery') : __('Biweekly delivery') }}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500">{{ __('Box size') }}</dt>
-                                        <dd class="mt-1 text-sm text-gray-900">{{ __(ucfirst($subscription->box_size)) }}</dd>
-                                    </div>
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500">{{ __('Status') }}</dt>
-                                        <dd class="mt-1">
-                                            <x-status-badge :value="$subscription->status" type="subscription" />
-                                        </dd>
-                                    </div>
-                                </dl>
-                            </section>
-
-                            <section aria-labelledby="sub-section-diet">
-                                <h3 id="sub-section-diet" class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('Diet and allergies') }}</h3>
-                                <dl class="mt-3 space-y-3">
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500">{{ __('Veg option only') }}</dt>
-                                        <dd class="mt-1 text-sm text-gray-900">{{ $vegOnly ? __('Yes') : __('No') }}</dd>
-                                    </div>
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500">{{ __('Meat add-on') }}</dt>
-                                        <dd class="mt-1 text-sm text-gray-900">{{ $meatAddOn ? __('Yes') : __('No') }}</dd>
-                                    </div>
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500">{{ __('Eggs or dairy add-on') }}</dt>
-                                        <dd class="mt-1 text-sm text-gray-900">{{ $eggsDairyAddOn ? __('Yes') : __('No') }}</dd>
-                                    </div>
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500">{{ __('Allergies') }}</dt>
-                                        <dd class="mt-1 text-sm text-gray-900">
-                                            @if (! empty($subscription->allergies))
-                                                {{ implode(', ', $subscription->allergies) }}
-                                            @else
-                                                {{ __('None listed') }}
-                                            @endif
-                                        </dd>
-                                    </div>
-                                </dl>
-                            </section>
-
-                            <section aria-labelledby="sub-section-pause">
-                                <h3 id="sub-section-pause" class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('subscriptions.skip_section_title') }}</h3>
-                                <p class="mt-2 text-sm text-gray-600">
-                                    @if ($subscription->hasPauseWindow())
-                                        {{ __('subscriptions.skip_window_text', ['from' => $subscription->pause_from?->format('d.m.Y'), 'until' => $subscription->pause_until?->format('d.m.Y')]) }}
-                                    @else
-                                        {{ __('subscriptions.no_skip_window_text') }}
-                                    @endif
-                                </p>
-                            </section>
-
-                            <section aria-labelledby="sub-section-billing">
-                                <h3 id="sub-section-billing" class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('Billing and payments') }}</h3>
-                                <p class="mt-2 text-sm text-gray-600">
-                                    <span class="font-medium text-gray-800">{{ __('Next charge date') }}:</span>
-                                    {{ $billingDateDisplay }}
-                                </p>
-                                <div class="mt-4 flex flex-wrap gap-2">
-                                    @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled && empty($subscription->sumup_token))
-                                        <a
-                                            href="{{ route('app.subscriptions.onboard.payment') }}"
-                                            class="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white shadow-sm transition hover:bg-emerald-700"
-                                        >
-                                            {{ __('Set up payment method') }}
-                                        </a>
-                                    @endif
-
-                                    @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled && ! empty($subscription->sumup_token))
-                                        <a
-                                            href="{{ route('app.payments.update') }}"
-                                            class="inline-flex items-center rounded-md border border-emerald-600 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-emerald-800 shadow-sm transition hover:bg-emerald-50"
-                                        >
-                                            {{ __('Update payment method') }}
-                                        </a>
-                                    @endif
-
-                                    <a
-                                        href="{{ route('app.payments.history') }}"
-                                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 shadow-sm transition hover:bg-gray-50"
-                                    >
-                                        {{ __('Payments and billing') }}
-                                    </a>
-                                </div>
-                            </section>
-
-                            @if ($subscription->status === \App\Enums\SubscriptionStatus::Cancelled && $subscription->cancellation_reason)
-                                <section aria-labelledby="sub-section-cancel-reason">
-                                    <h3 id="sub-section-cancel-reason" class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('Cancellation reason') }}</h3>
-                                    <p class="mt-2 text-sm text-gray-900">{{ $subscription->cancellation_reason }}</p>
-                                </section>
-                            @endif
-                        </div>
-
-                        <x-modal
-                            name="confirm-subscription-pause"
-                            :show="$errors->has('pause_from') || $errors->has('pause_until')"
-                            focusable
+                    @if ($subscription->status === \App\Enums\SubscriptionStatus::Paused || $subscription->hasPauseWindow())
+                        <x-secondary-button
+                            x-data=""
+                            x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-resume')"
                         >
-                            <form method="post" action="{{ route('app.subscriptions.pause') }}" class="p-6">
-                                @csrf
+                            {{ __('subscriptions.end_skip_cta') }}
+                        </x-secondary-button>
+                    @endif
 
-                                <h2 class="text-lg font-medium text-gray-900">
-                                    {{ __('subscriptions.skip_range_modal_title') }}
-                                </h2>
-
-                                <p class="mt-2 text-sm text-gray-600">
-                                    {{ __('subscriptions.skip_range_modal_intro') }}
-                                </p>
-
-                                <div class="mt-4 space-y-4">
-                                    <div>
-                                        <x-input-label for="pause_from" :value="__('subscriptions.skip_from_label')" />
-                                        <x-text-input
-                                            id="pause_from"
-                                            name="pause_from"
-                                            type="date"
-                                            class="mt-1 block w-full"
-                                            :value="old('pause_from', $subscription->pause_from?->format('Y-m-d'))"
-                                            required
-                                        />
-                                        <x-input-error class="mt-2" :messages="$errors->get('pause_from')" />
-                                    </div>
-
-                                    <div>
-                                        <x-input-label for="pause_until" :value="__('subscriptions.skip_until_label')" />
-                                        <x-text-input
-                                            id="pause_until"
-                                            name="pause_until"
-                                            type="date"
-                                            class="mt-1 block w-full"
-                                            :value="old('pause_until', $subscription->pause_until?->format('Y-m-d'))"
-                                            required
-                                        />
-                                        <x-input-error class="mt-2" :messages="$errors->get('pause_until')" />
-                                    </div>
-                                </div>
-
-                                <div class="mt-6 flex justify-end gap-2">
-                                    <x-secondary-button type="button" x-on:click="$dispatch('close')">
-                                        {{ __('Close') }}
-                                    </x-secondary-button>
-
-                                    <x-primary-button>
-                                        {{ __('subscriptions.skip_range_save') }}
-                                    </x-primary-button>
-                                </div>
-                            </form>
-                        </x-modal>
-
-                        <x-modal name="confirm-subscription-resume" focusable>
-                            <form method="post" action="{{ route('app.subscriptions.resume') }}" class="p-6">
-                                @csrf
-
-                                <h2 class="text-lg font-medium text-gray-900">
-                                    {{ __('subscriptions.end_skip_modal_title') }}
-                                </h2>
-
-                                <p class="mt-2 text-sm text-gray-600">
-                                    {{ __('subscriptions.end_skip_modal_intro') }}
-                                </p>
-
-                                <div class="mt-6 flex justify-end gap-2">
-                                    <x-secondary-button type="button" x-on:click="$dispatch('close')">
-                                        {{ __('Not now') }}
-                                    </x-secondary-button>
-
-                                    <x-primary-button>
-                                        {{ __('subscriptions.end_skip_confirm') }}
-                                    </x-primary-button>
-                                </div>
-                            </form>
-                        </x-modal>
-
-                        <x-modal
-                            name="confirm-subscription-cancel"
-                            :show="$errors->has('cancellation_reason')"
-                            focusable
+                    @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled)
+                        <x-danger-button
+                            x-data=""
+                            x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-cancel')"
                         >
-                            <form method="post" action="{{ route('app.subscriptions.cancel') }}" class="p-6">
-                                @csrf
-
-                                <h2 class="text-lg font-medium text-gray-900">
-                                    {{ __('Cancel subscription') }}
-                                </h2>
-
-                                <p class="mt-2 text-sm text-gray-600">
-                                    {{ __('This ends your subscription. Outstanding deliveries may still apply depending on your billing cycle; you will not be charged for future cycles after cancellation.') }}
-                                </p>
-
-                                <ul class="mt-3 list-inside list-disc text-sm text-gray-600">
-                                    <li>{{ __('Your plan and payment method will no longer be used for new charges.') }}</li>
-                                    <li>{{ __('You can subscribe again later with a new signup if we offer it.') }}</li>
-                                </ul>
-
-                                <div class="mt-4">
-                                    <x-input-label for="cancellation_reason" :value="__('Reason (optional)')" />
-                                    <textarea
-                                        id="cancellation_reason"
-                                        name="cancellation_reason"
-                                        rows="3"
-                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
-                                        placeholder="{{ __('Optional feedback') }}"
-                                    >{{ old('cancellation_reason') }}</textarea>
-                                    <x-input-error class="mt-2" :messages="$errors->get('cancellation_reason')" />
-                                </div>
-
-                                <div class="mt-6 flex justify-end gap-2">
-                                    <x-secondary-button type="button" x-on:click="$dispatch('close')">
-                                        {{ __('Keep subscription') }}
-                                    </x-secondary-button>
-
-                                    <x-danger-button>
-                                        {{ __('Confirm cancellation') }}
-                                    </x-danger-button>
-                                </div>
-                            </form>
-                        </x-modal>
+                            {{ __('Cancel subscription') }}
+                        </x-danger-button>
                     @endif
                 </div>
-            </div>
+
+                <div class="space-y-8">
+                    <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-plan">
+                        <p class="eyebrow text-category-produce">{{ __('Plan') }}</p>
+                        <h3 id="sub-section-plan" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Subscription and box') }}</h3>
+                        <dl class="mt-6 grid gap-5 sm:grid-cols-3">
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Delivery rhythm') }}</dt>
+                                <dd class="mt-2 font-display text-lg text-brand-ink">
+                                    {{ $subscription->plan === \App\Enums\SubscriptionPlan::Weekly ? __('Weekly delivery') : __('Biweekly delivery') }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Box size') }}</dt>
+                                <dd class="mt-2 font-display text-lg text-brand-ink">{{ __(ucfirst($subscription->box_size)) }}</dd>
+                            </div>
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Status') }}</dt>
+                                <dd class="mt-2">
+                                    <x-status-badge :value="$subscription->status" type="subscription" />
+                                </dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-diet">
+                        <p class="eyebrow text-category-produce">{{ __('Preferences') }}</p>
+                        <h3 id="sub-section-diet" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Diet and allergies') }}</h3>
+                        <dl class="mt-6 grid gap-5 sm:grid-cols-2">
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Veg option only') }}</dt>
+                                <dd class="mt-2 text-base text-brand-ink">{{ $vegOnly ? __('Yes') : __('No') }}</dd>
+                            </div>
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Meat add-on') }}</dt>
+                                <dd class="mt-2 text-base text-brand-ink">{{ $meatAddOn ? __('Yes') : __('No') }}</dd>
+                            </div>
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Eggs or dairy add-on') }}</dt>
+                                <dd class="mt-2 text-base text-brand-ink">{{ $eggsDairyAddOn ? __('Yes') : __('No') }}</dd>
+                            </div>
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Allergies') }}</dt>
+                                <dd class="mt-2 text-base text-brand-ink">
+                                    @if (! empty($subscription->allergies))
+                                        {{ implode(', ', $subscription->allergies) }}
+                                    @else
+                                        {{ __('None listed') }}
+                                    @endif
+                                </dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section @class([
+                        'border p-6 sm:p-8',
+                        'border-category-produce/40 bg-category-produce/5' => $subscription->hasPauseWindow(),
+                        'border-brand-ink/15' => ! $subscription->hasPauseWindow(),
+                    ]) aria-labelledby="sub-section-pause">
+                        <p class="eyebrow text-category-produce">{{ __('Skip window') }}</p>
+                        <h3 id="sub-section-pause" class="mt-2 font-display text-2xl text-brand-ink">{{ __('subscriptions.skip_section_title') }}</h3>
+                        <p class="mt-4 text-base leading-relaxed text-brand-ink/80">
+                            @if ($subscription->hasPauseWindow())
+                                {{ __('subscriptions.skip_window_text', ['from' => $subscription->pause_from?->format('d.m.Y'), 'until' => $subscription->pause_until?->format('d.m.Y')]) }}
+                            @else
+                                {{ __('subscriptions.no_skip_window_text') }}
+                            @endif
+                        </p>
+                    </section>
+
+                    <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-billing">
+                        <p class="eyebrow text-category-fish">{{ __('Billing') }}</p>
+                        <h3 id="sub-section-billing" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Billing and payments') }}</h3>
+                        <p class="mt-4 text-base text-brand-ink/80">
+                            <span class="font-semibold text-brand-ink">{{ __('Next charge date') }}:</span>
+                            {{ $billingDateDisplay }}
+                        </p>
+                        <div class="mt-6 flex flex-wrap gap-2">
+                            @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled && empty($subscription->sumup_token))
+                                <a href="{{ route('app.subscriptions.onboard.payment') }}" class="btn-solid text-xs">
+                                    {{ __('Set up payment method') }}
+                                </a>
+                            @endif
+
+                            @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled && ! empty($subscription->sumup_token))
+                                <a href="{{ route('app.payments.update') }}" class="btn-ghost text-xs">
+                                    {{ __('Update payment method') }}
+                                </a>
+                            @endif
+
+                            <a href="{{ route('app.payments.history') }}" class="btn-ghost text-xs">
+                                {{ __('Payments and billing') }}
+                            </a>
+                        </div>
+                    </section>
+
+                    @if ($subscription->status === \App\Enums\SubscriptionStatus::Cancelled && $subscription->cancellation_reason)
+                        <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-cancel-reason">
+                            <p class="eyebrow text-category-meat">{{ __('Cancelled') }}</p>
+                            <h3 id="sub-section-cancel-reason" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Cancellation reason') }}</h3>
+                            <p class="mt-4 text-base leading-relaxed text-brand-ink/80">{{ $subscription->cancellation_reason }}</p>
+                        </section>
+                    @endif
+                </div>
+
+                <x-modal
+                    name="confirm-subscription-pause"
+                    :show="$errors->has('pause_from') || $errors->has('pause_until')"
+                    focusable
+                >
+                    <form method="post" action="{{ route('app.subscriptions.pause') }}" class="bg-brand-cream p-6">
+                        @csrf
+
+                        <p class="eyebrow text-category-produce">{{ __('Skip') }}</p>
+                        <h2 class="mt-2 font-display text-2xl text-brand-ink">
+                            {{ __('subscriptions.skip_range_modal_title') }}
+                        </h2>
+
+                        <p class="mt-3 text-sm leading-relaxed text-brand-ink/75">
+                            {{ __('subscriptions.skip_range_modal_intro') }}
+                        </p>
+
+                        <div class="mt-5 space-y-5">
+                            <div>
+                                <x-input-label for="pause_from" :value="__('subscriptions.skip_from_label')" />
+                                <x-text-input id="pause_from" name="pause_from" type="date" class="mt-2 block w-full"
+                                    :value="old('pause_from', $subscription->pause_from?->format('Y-m-d'))" required />
+                                <x-input-error class="mt-2" :messages="$errors->get('pause_from')" />
+                            </div>
+
+                            <div>
+                                <x-input-label for="pause_until" :value="__('subscriptions.skip_until_label')" />
+                                <x-text-input id="pause_until" name="pause_until" type="date" class="mt-2 block w-full"
+                                    :value="old('pause_until', $subscription->pause_until?->format('Y-m-d'))" required />
+                                <x-input-error class="mt-2" :messages="$errors->get('pause_until')" />
+                            </div>
+                        </div>
+
+                        <div class="mt-6 flex justify-end gap-2">
+                            <x-secondary-button type="button" x-on:click="$dispatch('close')">
+                                {{ __('Close') }}
+                            </x-secondary-button>
+
+                            <x-primary-button>
+                                {{ __('subscriptions.skip_range_save') }}
+                            </x-primary-button>
+                        </div>
+                    </form>
+                </x-modal>
+
+                <x-modal name="confirm-subscription-resume" focusable>
+                    <form method="post" action="{{ route('app.subscriptions.resume') }}" class="bg-brand-cream p-6">
+                        @csrf
+
+                        <p class="eyebrow text-category-produce">{{ __('Resume') }}</p>
+                        <h2 class="mt-2 font-display text-2xl text-brand-ink">
+                            {{ __('subscriptions.end_skip_modal_title') }}
+                        </h2>
+
+                        <p class="mt-3 text-sm leading-relaxed text-brand-ink/75">
+                            {{ __('subscriptions.end_skip_modal_intro') }}
+                        </p>
+
+                        <div class="mt-6 flex justify-end gap-2">
+                            <x-secondary-button type="button" x-on:click="$dispatch('close')">
+                                {{ __('Not now') }}
+                            </x-secondary-button>
+
+                            <x-primary-button>
+                                {{ __('subscriptions.end_skip_confirm') }}
+                            </x-primary-button>
+                        </div>
+                    </form>
+                </x-modal>
+
+                <x-modal
+                    name="confirm-subscription-cancel"
+                    :show="$errors->has('cancellation_reason')"
+                    focusable
+                >
+                    <form method="post" action="{{ route('app.subscriptions.cancel') }}" class="bg-brand-cream p-6">
+                        @csrf
+
+                        <p class="eyebrow text-category-meat">{{ __('Cancel') }}</p>
+                        <h2 class="mt-2 font-display text-2xl text-brand-ink">
+                            {{ __('Cancel subscription') }}
+                        </h2>
+
+                        <p class="mt-3 text-sm leading-relaxed text-brand-ink/75">
+                            {{ __('This ends your subscription. Outstanding deliveries may still apply depending on your billing cycle; you will not be charged for future cycles after cancellation.') }}
+                        </p>
+
+                        <ul class="mt-3 list-inside list-disc text-sm text-brand-ink/75">
+                            <li>{{ __('Your plan and payment method will no longer be used for new charges.') }}</li>
+                            <li>{{ __('You can subscribe again later with a new signup if we offer it.') }}</li>
+                        </ul>
+
+                        <div class="mt-5">
+                            <x-input-label for="cancellation_reason" :value="__('Reason (optional)')" />
+                            <textarea
+                                id="cancellation_reason"
+                                name="cancellation_reason"
+                                rows="3"
+                                class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream px-4 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-category-produce focus:outline-none focus:ring-0"
+                                placeholder="{{ __('Optional feedback') }}"
+                            >{{ old('cancellation_reason') }}</textarea>
+                            <x-input-error class="mt-2" :messages="$errors->get('cancellation_reason')" />
+                        </div>
+
+                        <div class="mt-6 flex justify-end gap-2">
+                            <x-secondary-button type="button" x-on:click="$dispatch('close')">
+                                {{ __('Keep subscription') }}
+                            </x-secondary-button>
+
+                            <x-danger-button>
+                                {{ __('Confirm cancellation') }}
+                            </x-danger-button>
+                        </div>
+                    </form>
+                </x-modal>
+            @endif
         </div>
     </div>
 </x-app-layout>

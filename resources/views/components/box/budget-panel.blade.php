@@ -9,20 +9,21 @@
 @endphp
 
 <section
-    class="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 shadow-sm"
+    class="border border-brand-ink/15 bg-brand-ink/[0.02] p-6"
     aria-labelledby="box-budget-heading"
 >
-    <h3 id="box-budget-heading" class="text-sm font-semibold text-emerald-900">
-        {{ __('Value & budget') }}
+    <p class="eyebrow text-category-produce">{{ __('Value & budget') }}</p>
+    <h3 id="box-budget-heading" class="mt-2 font-display text-xl text-brand-ink">
+        {{ __('Weekly totals') }}
     </h3>
-    <dl class="mt-3 space-y-2 text-sm">
+    <dl class="mt-5 space-y-3 border-t border-brand-ink/15 pt-4 text-sm">
         <div class="flex justify-between gap-3">
-            <dt class="text-gray-600">{{ __('Items') }}</dt>
-            <dd class="font-medium text-gray-900">{{ $itemCount }}</dd>
+            <dt class="text-brand-ink/70">{{ __('Items') }}</dt>
+            <dd class="font-medium text-brand-ink">{{ $itemCount }}</dd>
         </div>
         <div class="flex justify-between gap-3">
-            <dt class="text-gray-600">{{ __('Estimated value') }}</dt>
-            <dd class="font-medium text-gray-900">
+            <dt class="text-brand-ink/70">{{ __('Estimated value') }}</dt>
+            <dd class="font-medium text-brand-ink">
                 @if ($bindEstimate)
                     <span x-text="'EUR ' + estimatedValue.toFixed(2)"></span>
                 @else
@@ -32,25 +33,25 @@
         </div>
         @if ($budgetDetails !== null)
             <div class="flex justify-between gap-3">
-                <dt class="text-gray-600">{{ __('Included in subscription') }}</dt>
-                <dd class="font-medium text-gray-900">
+                <dt class="text-brand-ink/70">{{ __('Included in subscription') }}</dt>
+                <dd class="font-medium text-brand-ink">
                     EUR {{ number_format($budgetDetails['included_value'], 2) }}
                 </dd>
             </div>
             <div class="flex justify-between gap-3">
-                <dt class="text-gray-600">{{ __('Remaining budget') }}</dt>
+                <dt class="text-brand-ink/70">{{ __('Remaining budget') }}</dt>
                 @if ($bindEstimate)
                     <dd
                         class="font-medium"
-                        :class="includedValue !== null && (includedValue - estimatedValue) >= 0 ? 'text-emerald-700' : 'text-amber-600'"
+                        :class="includedValue !== null && (includedValue - estimatedValue) >= 0 ? 'text-category-produce' : 'text-category-meat'"
                         x-text="formatRemainder()"
                     ></dd>
                 @else
                     <dd
                         @class([
                             'font-medium',
-                            'text-emerald-700' => $budgetDetails['remainder'] >= 0,
-                            'text-amber-600' => $budgetDetails['remainder'] < 0,
+                            'text-category-produce' => $budgetDetails['remainder'] >= 0,
+                            'text-category-meat' => $budgetDetails['remainder'] < 0,
                         ])
                     >
                         @if ($budgetDetails['remainder'] >= 0)
