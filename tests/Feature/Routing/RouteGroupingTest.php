@@ -211,7 +211,12 @@ class RouteGroupingTest extends TestCase
         $map = [
             'app.admin.users.index' => [AdminUserController::class, 'index'],
             'app.admin.subscriptions.index' => [AdminSubscriptionController::class, 'index'],
+            'app.admin.deliveries.sync-from-boxes' => [AdminDeliveryController::class, 'syncFromBoxes'],
+            'app.admin.deliveries.create' => [AdminDeliveryController::class, 'create'],
+            'app.admin.deliveries.store' => [AdminDeliveryController::class, 'store'],
             'app.admin.deliveries.index' => [AdminDeliveryController::class, 'index'],
+            'app.admin.deliveries.edit' => [AdminDeliveryController::class, 'edit'],
+            'app.admin.deliveries.update' => [AdminDeliveryController::class, 'update'],
             'app.admin.boxes.index' => [AdminBoxSetupController::class, 'index'],
             'app.admin.boxes.setup.show' => [AdminBoxSetupController::class, 'show'],
             'app.admin.boxes.setup.apply' => [AdminBoxSetupController::class, 'apply'],

@@ -16,6 +16,37 @@
                     {{ __('admin.deliveries.status.updated_notice') }}
                 </p>
             @endif
+            @if (session('status') === 'admin-deliveries-synced')
+                <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    {{ __('admin.deliveries.synced_notice', ['count' => session('admin_deliveries_sync_count', 0), 'from' => session('admin_deliveries_sync_from', '')]) }}
+                </p>
+            @endif
+            @if (session('status') === 'admin-delivery-created')
+                <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    {{ __('admin.deliveries.created_notice') }}
+                </p>
+            @endif
+            @if (session('status') === 'admin-delivery-updated')
+                <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    {{ __('admin.deliveries.updated_notice') }}
+                </p>
+            @endif
+
+            <div class="flex flex-col gap-3 rounded-lg border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+                <form method="post" action="{{ route('app.admin.deliveries.sync-from-boxes') }}" class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    @csrf
+                    <div>
+                        <label for="sync-from" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.deliveries.sync_from_label') }}</label>
+                        <input id="sync-from" type="date" name="from" value="{{ old('from') }}" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-auto" />
+                    </div>
+                    <button type="submit" class="inline-flex items-center rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-500">
+                        {{ __('admin.deliveries.sync_button') }}
+                    </button>
+                </form>
+                <a href="{{ route('app.admin.deliveries.create') }}" class="inline-flex items-center justify-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+                    {{ __('admin.deliveries.new_delivery') }}
+                </a>
+            </div>
 
             <div class="rounded-lg border border-gray-100 bg-white shadow-sm sm:rounded-lg">
                 <div class="space-y-4 p-4 text-gray-900 sm:p-6">
@@ -62,7 +93,8 @@
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.scheduled_for') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.status') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.deliveries.status.column') }}</th>
-                                        <th scope="col" class="py-2 pe-0">{{ __('admin.operations.address_summary') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.operations.address_summary') }}</th>
+                                        <th scope="col" class="py-2 pe-0">{{ __('admin.deliveries.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
@@ -95,12 +127,17 @@
                                                     </button>
                                                 </form>
                                             </td>
-                                            <td class="py-3 pe-0 text-gray-600">
+                                            <td class="py-3 pe-4 text-gray-600">
                                                 @if ($delivery->address)
                                                     {{ $delivery->address->street_line_1 }}, {{ $delivery->address->postal_code }} {{ $delivery->address->city }}
                                                 @else
                                                     —
                                                 @endif
+                                            </td>
+                                            <td class="py-3 pe-0">
+                                                <a href="{{ route('app.admin.deliveries.edit', $delivery) }}" class="text-sm font-semibold text-emerald-700 hover:text-emerald-900">
+                                                    {{ __('admin.deliveries.edit_link') }}
+                                                </a>
                                             </td>
                                         </tr>
                                     @endforeach

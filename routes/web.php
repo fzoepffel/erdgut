@@ -103,7 +103,18 @@ Route::middleware(['auth', 'verified'])
             Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
             Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
             Route::get('subscriptions', [AdminSubscriptionController::class, 'index'])->name('subscriptions.index');
+            Route::post('deliveries/sync-from-boxes', [AdminDeliveryController::class, 'syncFromBoxes'])
+                ->middleware('throttle:12,1')
+                ->name('deliveries.sync-from-boxes');
+            Route::get('deliveries/create', [AdminDeliveryController::class, 'create'])->name('deliveries.create');
+            Route::post('deliveries', [AdminDeliveryController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('deliveries.store');
             Route::get('deliveries', [AdminDeliveryController::class, 'index'])->name('deliveries.index');
+            Route::get('deliveries/{delivery}/edit', [AdminDeliveryController::class, 'edit'])->name('deliveries.edit');
+            Route::patch('deliveries/{delivery}', [AdminDeliveryController::class, 'update'])
+                ->middleware('throttle:30,1')
+                ->name('deliveries.update');
             Route::patch('deliveries/{delivery}/status', [AdminDeliveryController::class, 'updateStatus'])
                 ->middleware('throttle:30,1')
                 ->name('deliveries.status.update');
