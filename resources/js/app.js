@@ -4,6 +4,7 @@ import Alpine from 'alpinejs';
 import intersect from '@alpinejs/intersect';
 
 import './hero-parallax';
+import './reveal-observer';
 
 window.Alpine = Alpine;
 

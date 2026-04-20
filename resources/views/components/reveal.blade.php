@@ -16,7 +16,6 @@
 
 <{{ $as }}
     {{ $attributes->class($variantClass)->merge(['style' => $style]) }}
-    x-intersect.once="$el.classList.add('is-visible')"
 >
     {{ $slot }}
 </{{ $as }}>
