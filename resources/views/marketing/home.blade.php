@@ -13,8 +13,7 @@
                 poster="{{ asset('images/mock/hero/hero-poster.jpg') }}"
                 data-parallax
             >
-                <source src="{{ asset('videos/mock/hero-loop.webm') }}" type="video/webm">
-                <source src="{{ asset('videos/mock/hero-loop.mp4') }}" type="video/mp4">
+                <source src="{{ asset('videos/mock/newvid.mp4') }}" type="video/mp4">
             </video>
             <div class="absolute inset-0 bg-gradient-to-b from-brand-ink/20 via-brand-ink/35 to-brand-ink/65"></div>
 
