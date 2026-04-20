@@ -1,9 +1,5 @@
 @extends('layouts.marketing')
 
-@push('scripts')
-    @vite(['resources/js/hero-parallax.js'])
-@endpush
-
 @section('content')
     <section class="relative overflow-hidden" aria-labelledby="home-hero-heading">
         <div class="relative h-[82vh] min-h-[620px] w-full overflow-hidden bg-brand-ink/80">
