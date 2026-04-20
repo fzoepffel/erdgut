@@ -5,9 +5,19 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('admin.box_setup.box_detail_title', ['id' => $box->id]) }}
             </h2>
-            <a href="{{ route('app.admin.boxes.index') }}" class="text-sm font-medium text-emerald-700 hover:underline">
-                {{ __('admin.box_setup.back_to_overview') }}
-            </a>
+            <div class="flex items-center gap-4">
+                @if ($box->week_start_date !== null)
+                    <a
+                        href="{{ route('app.admin.boxes.week.show', ['week' => $box->week_start_date->toDateString()]) }}"
+                        class="text-sm font-medium text-emerald-700 hover:underline"
+                    >
+                        {{ __('admin.box_setup.cta_view_boxes') }}
+                    </a>
+                @endif
+                <a href="{{ route('app.admin.boxes.index') }}" class="text-sm font-medium text-emerald-700 hover:underline">
+                    {{ __('admin.box_setup.back_to_overview') }}
+                </a>
+            </div>
         </div>
     </x-slot>
 
