@@ -87,9 +87,10 @@ class PaymentStepController extends OnboardingController
 
         $draft = $this->drafts->findCurrent($request);
 
-        // Attempt to confirm via SumUp if webhook hasn't fired yet.
+        // Webhook is authoritative; the return-url only triggers a server-side
+        // verification against SumUp in case the webhook hasn't fired yet.
         if ($order->status === OrderStatus::PendingPayment) {
-            $this->attemptToConfirm($order, $request);
+            $this->trialOrders->confirmPaidFromProvider($order);
         }
 
         $order->refresh();
@@ -144,15 +145,5 @@ class PaymentStepController extends OnboardingController
             'special_instructions' => $data['special_instructions'] ?? null,
             'is_test' => (bool) $user->is_test,
         ]);
-    }
-
-    private function attemptToConfirm(Order $order, Request $request): void
-    {
-        // In this minimal integration the webhook handler is the authoritative path.
-        // As a convenience in the test environment, if the query carries ?paid=1
-        // or the checkout returned success via SumUp, we mark the order paid here.
-        if ($request->query('paid') === '1') {
-            $this->trialOrders->markOrderPaid($order);
-        }
     }
 }

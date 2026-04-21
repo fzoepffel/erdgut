@@ -38,7 +38,7 @@
                         locale: @json(str_replace('_', '-', app()->getLocale())),
                         onResponse: function (type, body) {
                             if (type === 'success' || type === 'sent') {
-                                window.location.href = @json($returnUrl) + '?paid=1';
+                                window.location.href = @json($returnUrl);
                             }
                         },
                     });

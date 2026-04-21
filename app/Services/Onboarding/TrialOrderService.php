@@ -127,6 +127,74 @@ class TrialOrderService
     }
 
     /**
+     * Verify with SumUp whether the latest pending payment for this order has
+     * been settled, and if so mark the order + payment paid. Never trust the
+     * browser — this is the authoritative server-side check used by the
+     * return-url handler as a webhook fallback.
+     *
+     * Returns true if the order is now paid (either because we just marked it,
+     * or it was already paid). Returns false if the checkout is still pending,
+     * failed, or we couldn't verify for any reason.
+     */
+    public function confirmPaidFromProvider(Order $order): bool
+    {
+        if ($order->status === OrderStatus::Paid) {
+            return true;
+        }
+
+        if ($order->status !== OrderStatus::PendingPayment) {
+            return false;
+        }
+
+        $payment = Payment::query()
+            ->where('order_id', $order->id)
+            ->whereNotNull('sumup_checkout_id')
+            ->latest()
+            ->first();
+
+        if ($payment === null || $payment->sumup_checkout_id === null) {
+            return false;
+        }
+
+        try {
+            $checkout = $this->sumUpService->getCheckout($payment->sumup_checkout_id);
+        } catch (Throwable $e) {
+            SumUpCheckoutLogger::warning('Trial order: failed to verify checkout with SumUp.', [
+                'order_id' => $order->id,
+                'payment_id' => $payment->id,
+                'checkout_id' => $payment->sumup_checkout_id,
+                'exception_class' => $e::class,
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
+            ]);
+
+            return false;
+        }
+
+        $status = strtoupper((string) data_get($checkout, 'status', ''));
+
+        if ($status !== 'PAID') {
+            SumUpCheckoutLogger::info('Trial order: return-url verification — checkout not paid yet.', [
+                'order_id' => $order->id,
+                'payment_id' => $payment->id,
+                'checkout_id' => $payment->sumup_checkout_id,
+                'checkout_status' => $status ?: null,
+            ]);
+
+            return false;
+        }
+
+        $this->markOrderPaid($order);
+
+        SumUpCheckoutLogger::info('Trial order: return-url verification — marked paid.', [
+            'order_id' => $order->id,
+            'payment_id' => $payment->id,
+            'checkout_id' => $payment->sumup_checkout_id,
+        ]);
+
+        return true;
+    }
+
+    /**
      * Idempotently mark an order (and its pending payment) as paid. Safe to call
      * from either the return-url callback or the webhook handler.
      */
