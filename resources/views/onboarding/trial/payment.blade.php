@@ -20,15 +20,25 @@
         >
             {{ __('Unable to load payment widget. Please refresh and try again.') }}
         </p>
+        <p id="sumup-card-payment-error"
+           class="mt-3 hidden border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+           role="alert"
+        >
+            {{ __('Payment did not go through. Please check your card details and try again — no charge has been made.') }}
+        </p>
         <script type="text/javascript" src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"></script>
         <script type="text/javascript">
             (function () {
-                function showError() {
+                function showLoadError() {
                     var el = document.getElementById('sumup-card-error');
                     if (el) { el.classList.remove('hidden'); }
                 }
+                function showPaymentError() {
+                    var el = document.getElementById('sumup-card-payment-error');
+                    if (el) { el.classList.remove('hidden'); }
+                }
                 if (typeof SumUpCard === 'undefined' || !SumUpCard || typeof SumUpCard.mount !== 'function') {
-                    showError();
+                    showLoadError();
                     return;
                 }
                 try {
@@ -37,13 +47,21 @@
                         checkoutId: @json($checkoutId),
                         locale: @json(str_replace('_', '-', app()->getLocale())),
                         onResponse: function (type, body) {
-                            if (type === 'success' || type === 'sent') {
+                            // Log every widget callback for diagnostics; SumUp docs define:
+                            // sent | auth-screen | success | error | fail | invalid
+                            try { console.log('[SumUp widget]', type, body); } catch (_) {}
+                            if (type === 'success') {
+                                // Server will verify with SumUp before marking paid.
                                 window.location.href = @json($returnUrl);
+                                return;
+                            }
+                            if (type === 'error' || type === 'fail') {
+                                showPaymentError();
                             }
                         },
                     });
                 } catch (e) {
-                    showError();
+                    showLoadError();
                 }
             })();
         </script>
