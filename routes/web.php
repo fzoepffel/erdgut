@@ -20,6 +20,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DeliveryPreferencesController;
 use App\Http\Controllers\Marketing\AboutController;
+use App\Http\Controllers\Marketing\ComingSoonController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\ProducerController as MarketingProducerController;
@@ -43,7 +44,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::name('public.')->group(function () {
     Route::get('/cron/run', CronRunController::class)->name('cron.run');
-    Route::get('/', [HomeController::class, 'index'])->name('home');
+    Route::get('/', ComingSoonController::class)->name('home');
+    Route::get('/home', [HomeController::class, 'index'])->name('marketing-home');
     Route::get('/about', [AboutController::class, 'index'])->name('about');
     Route::get('/producers', [MarketingProducerController::class, 'index'])->name('producers');
     Route::get('/contact', [ContactController::class, 'create'])->name('contact');

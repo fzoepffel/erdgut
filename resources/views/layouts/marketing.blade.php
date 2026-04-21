@@ -20,12 +20,12 @@
         <div class="flex min-h-screen flex-col">
             <header x-data="{ open: false }" class="sticky top-0 z-50 border-b border-brand-ink/10 bg-brand-cream/95 backdrop-blur">
                 <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-                    <a href="{{ route('public.home') }}" class="flex items-center">
+                    <a href="{{ route('public.marketing-home') }}" class="flex items-center">
                         <x-application-logo variant="filled" class="h-11 w-auto" />
                     </a>
 
                     <nav class="hidden items-center gap-10 text-sm font-medium md:flex">
-                        <a href="{{ route('public.home') }}" class="text-brand-ink/80 transition hover:text-brand-ink {{ request()->routeIs('public.home') ? 'text-brand-ink' : '' }}">{{ __('Home') }}</a>
+                        <a href="{{ route('public.marketing-home') }}" class="text-brand-ink/80 transition hover:text-brand-ink {{ request()->routeIs('public.marketing-home') ? 'text-brand-ink' : '' }}">{{ __('Home') }}</a>
                         <a href="{{ route('public.about') }}" class="text-brand-ink/80 transition hover:text-brand-ink {{ request()->routeIs('public.about') ? 'text-brand-ink' : '' }}">{{ __('About') }}</a>
                         <a href="{{ route('public.producers') }}" class="text-brand-ink/80 transition hover:text-brand-ink {{ request()->routeIs('public.producers') ? 'text-brand-ink' : '' }}">{{ __('Producers') }}</a>
                         <a href="{{ route('public.contact') }}" class="text-brand-ink/80 transition hover:text-brand-ink {{ request()->routeIs('public.contact') ? 'text-brand-ink' : '' }}">{{ __('Contact') }}</a>
@@ -62,7 +62,7 @@
 
                 <div x-show="open" x-transition class="border-t border-brand-ink/10 px-4 py-6 md:hidden" style="display: none;">
                     <div class="space-y-3 text-base font-medium">
-                        <a href="{{ route('public.home') }}" class="block text-brand-ink">{{ __('Home') }}</a>
+                        <a href="{{ route('public.marketing-home') }}" class="block text-brand-ink">{{ __('Home') }}</a>
                         <a href="{{ route('public.about') }}" class="block text-brand-ink/80">{{ __('About') }}</a>
                         <a href="{{ route('public.producers') }}" class="block text-brand-ink/80">{{ __('Producers') }}</a>
                         <a href="{{ route('public.contact') }}" class="block text-brand-ink/80">{{ __('Contact') }}</a>

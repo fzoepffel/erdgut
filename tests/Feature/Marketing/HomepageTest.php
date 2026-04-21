@@ -10,9 +10,24 @@ class HomepageTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_homepage_renders_for_guest_with_primary_and_secondary_ctas(): void
+    public function test_root_renders_coming_soon_page(): void
     {
         $response = $this->get(route('public.home'));
+
+        $response->assertOk();
+        $response->assertSee('data-testid="coming-soon"', false);
+        // Translated tagline (test suite runs with APP_LOCALE=en).
+        $response->assertSee('Fresh produce is on its way.', false);
+        $response->assertSee('hallo@erdgut.de', false);
+
+        // Coming-soon page must not leak the full marketing nav / CTAs.
+        $response->assertDontSee('data-testid="home-cta-try-box"', false);
+        $response->assertDontSee('data-testid="home-cta-subscribe"', false);
+    }
+
+    public function test_marketing_home_renders_for_guest_with_primary_and_secondary_ctas(): void
+    {
+        $response = $this->get(route('public.marketing-home'));
 
         $response->assertOk();
         $response->assertSee('Fresh weekly boxes from local farms, delivered transparently.', false);
@@ -33,11 +48,11 @@ class HomepageTest extends TestCase
         $response->assertSee('data-testid="home-bottom-primary-guest"', false);
     }
 
-    public function test_homepage_renders_for_authenticated_user_with_dashboard_and_subscription_links(): void
+    public function test_marketing_home_renders_for_authenticated_user_with_dashboard_and_subscription_links(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->get(route('public.home'));
+        $response = $this->actingAs($user)->get(route('public.marketing-home'));
 
         $response->assertOk();
         $response->assertSee(route('app.dashboard'), false);
@@ -47,5 +62,16 @@ class HomepageTest extends TestCase
         $response->assertSee('data-testid="home-cta-try-box"', false);
         $response->assertSee('data-testid="home-cta-subscribe"', false);
         $response->assertSee('data-testid="home-bottom-primary-authenticated"', false);
+    }
+
+    public function test_marketing_home_nav_home_link_points_to_marketing_home_not_coming_soon(): void
+    {
+        $response = $this->get(route('public.marketing-home'));
+
+        $response->assertOk();
+        // The "Home" link in the marketing nav should route back to /home,
+        // not to the coming-soon page at /, so authenticated visitors can
+        // navigate the real site without bouncing through the holding page.
+        $response->assertSee('href="'.route('public.marketing-home').'"', false);
     }
 }

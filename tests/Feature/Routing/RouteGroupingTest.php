@@ -17,6 +17,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DeliveryPreferencesController;
 use App\Http\Controllers\Marketing\AboutController;
+use App\Http\Controllers\Marketing\ComingSoonController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\ProducerController;
@@ -34,6 +35,7 @@ class RouteGroupingTest extends TestCase
     public function test_core_named_routes_use_expected_paths(): void
     {
         $this->assertSame('/', route('public.home', absolute: false));
+        $this->assertSame('/home', route('public.marketing-home', absolute: false));
         $this->assertSame('/about', route('public.about', absolute: false));
         $this->assertSame('/producers', route('public.producers', absolute: false));
         $this->assertSame('/contact', route('public.contact', absolute: false));
@@ -175,9 +177,20 @@ class RouteGroupingTest extends TestCase
         $this->assertContains('throttle:12,1', $billingChargeRoute->gatherMiddleware());
     }
 
-    public function test_public_home_route_uses_marketing_home_controller(): void
+    public function test_public_home_route_uses_coming_soon_controller(): void
     {
         $homeRoute = RouteFacade::getRoutes()->getByName('public.home');
+
+        $this->assertNotNull($homeRoute);
+        $this->assertStringContainsString(
+            ComingSoonController::class,
+            (string) $homeRoute->getAction('controller')
+        );
+    }
+
+    public function test_public_marketing_home_route_uses_marketing_home_controller(): void
+    {
+        $homeRoute = RouteFacade::getRoutes()->getByName('public.marketing-home');
 
         $this->assertNotNull($homeRoute);
         $this->assertSame([HomeController::class, 'index'], $homeRoute->getAction('controller')
