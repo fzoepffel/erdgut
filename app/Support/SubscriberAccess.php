@@ -54,7 +54,12 @@ final class SubscriberAccess
     }
 
     /**
-     * User has at least one trial order but no non-cancelled subscription.
+     * User has at least one paid/scheduled/delivered trial order but no non-cancelled subscription.
+     *
+     * Note: PendingPayment orders are intentionally excluded — those represent an
+     * in-progress onboarding attempt (possibly abandoned), not a real trial experience
+     * the user has committed to. Until payment confirms, we treat the user as still
+     * onboarding and show the welcome dashboard.
      */
     public static function hasTrialOrderOnly(?User $user): bool
     {
@@ -65,7 +70,6 @@ final class SubscriberAccess
         $hasOpenOrder = Order::query()
             ->where('user_id', $user->getAuthIdentifier())
             ->whereIn('status', [
-                OrderStatus::PendingPayment->value,
                 OrderStatus::Paid->value,
                 OrderStatus::Scheduled->value,
                 OrderStatus::Delivered->value,

@@ -13,23 +13,58 @@
     </div>
 
     @if ($checkoutId)
-        <div id="sumup-card" class="mt-6 border border-brand-ink/15 p-4 bg-white"></div>
+        <div id="sumup-card" class="mt-6 border border-brand-ink/15 p-4 bg-white min-h-[320px]"></div>
+        <p id="sumup-card-error"
+           class="mt-3 hidden border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+           role="alert"
+        >
+            {{ __('Unable to load payment widget. Please refresh and try again.') }}
+        </p>
         <script type="text/javascript" src="https://gateway.sumup.com/gateway/ecom/card/v2.0/sdk.js"></script>
         <script type="text/javascript">
-            SumUpCard.mount({
-                id: 'sumup-card',
-                checkoutId: @json($checkoutId),
-                onResponse: function (type, body) {
-                    if (type === 'success' || type === 'sent') {
-                        window.location.href = @json($returnUrl) + '?paid=1';
-                    }
+            (function () {
+                function showError() {
+                    var el = document.getElementById('sumup-card-error');
+                    if (el) { el.classList.remove('hidden'); }
                 }
-            });
+                if (typeof SumUpCard === 'undefined' || !SumUpCard || typeof SumUpCard.mount !== 'function') {
+                    showError();
+                    return;
+                }
+                try {
+                    SumUpCard.mount({
+                        id: 'sumup-card',
+                        checkoutId: @json($checkoutId),
+                        locale: @json(str_replace('_', '-', app()->getLocale())),
+                        onResponse: function (type, body) {
+                            if (type === 'success' || type === 'sent') {
+                                window.location.href = @json($returnUrl) + '?paid=1';
+                            }
+                        },
+                    });
+                } catch (e) {
+                    showError();
+                }
+            })();
         </script>
     @else
-        <p class="mt-6 text-sm text-red-700 bg-red-50 border border-red-200 p-3">
-            {{ __('Payment is temporarily unavailable. Please try again shortly.') }}
-        </p>
-        <a href="{{ route('app.onboarding.step.commitment') }}" class="mt-4 inline-block text-sm underline">{{ __('Back') }}</a>
+        <div class="mt-6 border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+            <p class="font-semibold">{{ __('Payment could not be started') }}</p>
+            <p class="mt-1">
+                {{ __('We could not reach the payment provider just now. Please try again in a moment — no charge has been made.') }}
+            </p>
+        </div>
+        <div class="mt-4 flex flex-wrap items-center gap-4 text-sm">
+            <a
+                href="{{ route('app.onboarding.step.trial_payment') }}"
+                class="inline-flex items-center justify-center border border-brand-ink bg-brand-ink px-5 py-2 font-semibold uppercase tracking-eyebrow text-white transition hover:bg-brand-ink/90"
+                data-testid="trial-payment-retry"
+            >
+                {{ __('Try again') }}
+            </a>
+            <a href="{{ route('app.onboarding.step.commitment') }}" class="underline">
+                {{ __('Back') }}
+            </a>
+        </div>
     @endif
 @endsection

@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\Onboarding\OnboardingDraftManager;
 use App\Services\Onboarding\TrialOrderService;
+use App\Support\SumUpCheckoutLogger;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -45,17 +46,34 @@ class PaymentStepController extends OnboardingController
         $returnUrl = route('app.onboarding.trial.payment.complete', ['order' => $order->id], absolute: true);
 
         $checkoutId = null;
+        $checkoutError = null;
         try {
             $checkout = $this->trialOrders->initiateCheckout($order, $returnUrl);
             $checkoutId = (string) (data_get($checkout, 'id') ?? '') ?: null;
+
+            if ($checkoutId === null) {
+                // SumUp returned without a usable id; surface a clean error instead of a blank widget area.
+                $checkoutError = 'no_checkout_id';
+                SumUpCheckoutLogger::warning('Trial payment step: SumUp returned no checkout id.', [
+                    'order_id' => $order->id,
+                    'return_url' => $returnUrl,
+                ]);
+            }
         } catch (Throwable $e) {
             report($e);
+            $checkoutError = 'checkout_creation_failed';
+            SumUpCheckoutLogger::warning('Trial payment step: SumUp checkout creation failed.', [
+                'order_id' => $order->id,
+                'exception_class' => $e::class,
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
+            ]);
         }
 
         return view('onboarding.trial.payment', [
             'draft' => $draft,
             'order' => $order,
             'checkoutId' => $checkoutId,
+            'checkoutError' => $checkoutError,
             'returnUrl' => $returnUrl,
         ]);
     }

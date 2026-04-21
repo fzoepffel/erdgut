@@ -25,12 +25,13 @@ class DashboardController extends Controller
 
         $user = $request->user();
 
-        // Trial-only dashboard: user has an open trial order, no active subscription yet.
+        // Trial-only dashboard: user has a paid/scheduled/delivered trial order, no active subscription.
+        // Pending-payment orders are intentionally excluded — they represent an in-progress or
+        // abandoned onboarding attempt and must not surface as a real trial experience.
         if (SubscriberAccess::hasTrialOrderOnly($user)) {
             $trialOrder = Order::query()
                 ->where('user_id', $user->id)
                 ->whereIn('status', [
-                    OrderStatus::PendingPayment->value,
                     OrderStatus::Paid->value,
                     OrderStatus::Scheduled->value,
                     OrderStatus::Delivered->value,
@@ -117,10 +118,10 @@ class DashboardController extends Controller
             && empty($primarySubscription->sumup_token);
 
         // Small trial strip when a subscriber also has an open trial order (e.g. trial first, then subscribed).
+        // PendingPayment intentionally excluded — only show the strip for confirmed trials.
         $openTrialOrder = Order::query()
             ->where('user_id', $userId)
             ->whereIn('status', [
-                OrderStatus::PendingPayment->value,
                 OrderStatus::Paid->value,
                 OrderStatus::Scheduled->value,
             ])

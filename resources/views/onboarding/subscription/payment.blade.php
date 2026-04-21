@@ -12,17 +12,38 @@
         <div class="flex justify-between"><span>{{ __('First box') }}</span><span>EUR {{ number_format((float) config('box.trial_price_ttc', 35), 2) }}</span></div>
     </div>
 
-    <div id="sumup-card" class="mt-6 border border-brand-ink/15 p-4 bg-white"></div>
+    <div id="sumup-card" class="mt-6 border border-brand-ink/15 p-4 bg-white min-h-[320px]"></div>
+    <p id="sumup-card-error"
+       class="mt-3 hidden border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+       role="alert"
+    >
+        {{ __('Unable to load payment widget. Please refresh and try again.') }}
+    </p>
     <script type="text/javascript" src="https://gateway.sumup.com/gateway/ecom/card/v2.0/sdk.js"></script>
     <script type="text/javascript">
-        SumUpCard.mount({
-            id: 'sumup-card',
-            checkoutId: @json($checkoutId),
-            onResponse: function (type) {
-                if (type === 'success' || type === 'sent') {
-                    window.location.href = @json(route('app.payments.setup.complete'));
-                }
+        (function () {
+            function showError() {
+                var el = document.getElementById('sumup-card-error');
+                if (el) { el.classList.remove('hidden'); }
             }
-        });
+            if (typeof SumUpCard === 'undefined' || !SumUpCard || typeof SumUpCard.mount !== 'function') {
+                showError();
+                return;
+            }
+            try {
+                SumUpCard.mount({
+                    id: 'sumup-card',
+                    checkoutId: @json($checkoutId),
+                    locale: @json(str_replace('_', '-', app()->getLocale())),
+                    onResponse: function (type) {
+                        if (type === 'success' || type === 'sent') {
+                            window.location.href = @json(route('app.payments.setup.complete'));
+                        }
+                    },
+                });
+            } catch (e) {
+                showError();
+            }
+        })();
     </script>
 @endsection
