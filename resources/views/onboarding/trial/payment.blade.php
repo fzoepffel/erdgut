@@ -20,7 +20,7 @@
         >
             {{ __('Unable to load payment widget. Please refresh and try again.') }}
         </p>
-        <script type="text/javascript" src="https://gateway.sumup.com/gateway/ecom/card/v2.0/sdk.js"></script>
+        <script type="text/javascript" src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"></script>
         <script type="text/javascript">
             (function () {
                 function showError() {
