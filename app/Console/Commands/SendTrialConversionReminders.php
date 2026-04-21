@@ -7,8 +7,8 @@ use App\Mail\TrialConvertToSubscriptionMail;
 use App\Models\Order;
 use App\Models\Subscription;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /**
@@ -54,6 +54,7 @@ class SendTrialConversionReminders extends Command
 
             if ($dryRun) {
                 $this->line("Would send conversion mail for order #{$order->id}");
+
                 continue;
             }
 

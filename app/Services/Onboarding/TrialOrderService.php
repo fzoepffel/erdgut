@@ -29,15 +29,15 @@ class TrialOrderService
 
     /**
      * @param  array<string, mixed>  $payload
-     *     Expected keys:
-     *     - address_id (int)
-     *     - box_size (string)
-     *     - preferences (array)
-     *     - allergies (array)
-     *     - preferred_timeslot (?string)
-     *     - preferred_delivery_window (?string)
-     *     - special_instructions (?string)
-     *     - is_test (bool)
+     *                                         Expected keys:
+     *                                         - address_id (int)
+     *                                         - box_size (string)
+     *                                         - preferences (array)
+     *                                         - allergies (array)
+     *                                         - preferred_timeslot (?string)
+     *                                         - preferred_delivery_window (?string)
+     *                                         - special_instructions (?string)
+     *                                         - is_test (bool)
      */
     public function createOrder(User $user, array $payload): Order
     {

@@ -17,17 +17,27 @@ use Illuminate\Support\Str;
 class OnboardingDraftManager
 {
     public const STEP_ACCOUNT = 'account';
+
     public const STEP_ADDRESS = 'address';
+
     public const STEP_PREFERENCES = 'preferences';
+
     public const STEP_COMMITMENT = 'commitment';
+
     public const STEP_TRIAL_DELIVERY = 'trial_delivery';
+
     public const STEP_TRIAL_PAYMENT = 'trial_payment';
+
     public const STEP_SUBSCRIPTION_SCHEDULE = 'subscription_schedule';
+
     public const STEP_SUBSCRIPTION_PAYMENT = 'subscription_payment';
+
     public const STEP_COMPLETE = 'complete';
 
     public const INTENT_UNDECIDED = 'undecided';
+
     public const INTENT_TRIAL = 'trial';
+
     public const INTENT_SUBSCRIPTION = 'subscription';
 
     public const DRAFT_TTL_DAYS = 7;

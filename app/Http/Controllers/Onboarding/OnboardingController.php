@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Onboarding;
 
 use App\Http\Controllers\Controller;
+use App\Models\OnboardingDraft;
+use App\Models\Order;
 use App\Services\Onboarding\OnboardingDraftManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,21 +38,21 @@ class OnboardingController extends Controller
         return $this->redirectToNextStep($draft, $request);
     }
 
-    protected function redirectToNextStep(\App\Models\OnboardingDraft $draft, Request $request): RedirectResponse
+    protected function redirectToNextStep(OnboardingDraft $draft, Request $request): RedirectResponse
     {
         $next = $this->drafts->nextStep($draft, $request->user());
 
         return redirect()->route('app.onboarding.step.'.$next);
     }
 
-    private function prefillFromOrder(\App\Models\OnboardingDraft $draft, int $orderId, Request $request): void
+    private function prefillFromOrder(OnboardingDraft $draft, int $orderId, Request $request): void
     {
         $user = $request->user();
         if ($user === null) {
             return;
         }
 
-        $order = \App\Models\Order::query()
+        $order = Order::query()
             ->where('user_id', $user->id)
             ->find($orderId);
 

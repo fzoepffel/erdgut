@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\SubscriptionStatus;
 use App\Http\Requests\SubscriptionCancelRequest;
 use App\Http\Requests\SubscriptionPauseRequest;
 use App\Http\Requests\SubscriptionResumeRequest;

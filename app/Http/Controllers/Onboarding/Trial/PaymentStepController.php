@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Onboarding\Trial;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Onboarding\OnboardingController;
 use App\Models\Order;
+use App\Models\User;
 use App\Services\Onboarding\OnboardingDraftManager;
 use App\Services\Onboarding\TrialOrderService;
 use Illuminate\Contracts\View\View;
@@ -103,7 +104,7 @@ class PaymentStepController extends OnboardingController
     /**
      * @param  array<string, mixed>  $data
      */
-    private function findOrCreateOrder(\App\Models\User $user, array $data): Order
+    private function findOrCreateOrder(User $user, array $data): Order
     {
         $existing = Order::query()
             ->where('user_id', $user->id)

@@ -66,7 +66,7 @@ class AdminOrderController extends Controller
 
         $validated = $request->validate([
             'scheduled_for_date' => ['required', 'date', 'after_or_equal:today'],
-            'timeslot' => ['required', 'string', 'in:' . implode(',', Delivery::allowedTimeslots())],
+            'timeslot' => ['required', 'string', 'in:'.implode(',', Delivery::allowedTimeslots())],
         ]);
 
         if ($order->status === OrderStatus::Cancelled || $order->status === OrderStatus::Refunded) {
