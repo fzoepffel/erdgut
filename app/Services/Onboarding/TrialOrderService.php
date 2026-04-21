@@ -96,9 +96,11 @@ class TrialOrderService
 
         $reference = 'order-'.$order->id.'-attempt-'.$attemptNumber.'-'.now()->timestamp;
 
+        // Note: the $returnUrl argument is the *browser* return URL (redirect_url).
+        // SumUp's `return_url` is the webhook endpoint and is set centrally in
+        // SumUpService::createCheckout().
         $extra = [];
         if ($returnUrl !== null) {
-            $extra['return_url'] = $returnUrl;
             $extra['redirect_url'] = $returnUrl;
         }
 

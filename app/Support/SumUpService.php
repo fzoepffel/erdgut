@@ -52,12 +52,15 @@ class SumUpService
             'merchant_code' => $this->merchantCode,
         ]);
 
+        // SumUp semantics (see https://developer.sumup.com/online-payments/webhooks):
+        //   return_url   -> server-to-server webhook endpoint SumUp POSTs to
+        //   redirect_url -> browser URL used by hosted checkout flows
         if (! isset($payload['return_url'])) {
-            $payload['return_url'] = $this->checkoutReturnUrl();
+            $payload['return_url'] = $this->webhookUrl();
         }
 
         if (! isset($payload['redirect_url'])) {
-            $payload['redirect_url'] = $this->checkoutReturnUrl();
+            $payload['redirect_url'] = $this->browserRedirectUrl();
         }
 
         $returnUrl = (string) ($payload['return_url'] ?? '');
@@ -92,10 +95,25 @@ class SumUpService
     }
 
     /**
-     * URL SumUp may open in the customer's browser after 3DS or similar steps.
-     * Must not be the API webhook endpoint (that is POST-only, server-to-server).
+     * Server-to-server webhook endpoint SumUp POSTs checkout status updates to.
+     * Per SumUp docs this is the `return_url` field on a checkout.
      */
-    private function checkoutReturnUrl(): string
+    private function webhookUrl(): string
+    {
+        $configured = trim((string) config('sumup.webhook_url', ''));
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        return route('sumup.webhook', absolute: true);
+    }
+
+    /**
+     * URL SumUp opens in the customer's browser for hosted checkout flows.
+     * Per SumUp docs this is the `redirect_url` field on a checkout.
+     * Must not be the webhook endpoint (that is POST-only, server-to-server).
+     */
+    private function browserRedirectUrl(): string
     {
         $configured = trim((string) config('sumup.checkout_return_url', ''));
         if ($configured !== '') {

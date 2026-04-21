@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('boxes:lock')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('subscriptions:charge')->dailyAt('06:00')->withoutOverlapping();
         $schedule->command('payments:retry')->dailyAt('08:00')->withoutOverlapping();
+        $schedule->command('sumup:reconcile-pending-payments')->everyFiveMinutes()->withoutOverlapping();
         $schedule->command('subscriptions:pause-exhausted')->dailyAt('09:00')->withoutOverlapping();
         $schedule->command('notifications:delivery-reminders')->dailyAt('18:00')->withoutOverlapping();
         $schedule->command('notifications:box-deadlines')->dailyAt('10:00')->withoutOverlapping();
