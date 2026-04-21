@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\AdminBoxItemController;
 use App\Http\Controllers\Admin\AdminBoxSetupController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
+use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
@@ -19,6 +20,15 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DeliveryPreferencesController;
 use App\Http\Controllers\Marketing\AboutController;
+use App\Http\Controllers\Onboarding\AccountStepController;
+use App\Http\Controllers\Onboarding\AddressStepController;
+use App\Http\Controllers\Onboarding\CommitmentStepController;
+use App\Http\Controllers\Onboarding\OnboardingController;
+use App\Http\Controllers\Onboarding\PreferencesStepController;
+use App\Http\Controllers\Onboarding\Subscription\PaymentStepController as SubscriptionWizardPaymentController;
+use App\Http\Controllers\Onboarding\Subscription\ScheduleStepController as SubscriptionWizardScheduleController;
+use App\Http\Controllers\Onboarding\Trial\DeliveryStepController as TrialWizardDeliveryController;
+use App\Http\Controllers\Onboarding\Trial\PaymentStepController as TrialWizardPaymentController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\ProducerController as MarketingProducerController;
@@ -29,7 +39,6 @@ use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SubscriptionController;
-use App\Http\Controllers\SubscriptionOnboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::name('public.')->group(function () {
@@ -43,6 +52,48 @@ Route::name('public.')->group(function () {
     Route::get('/health', HealthcheckController::class)->name('health');
 });
 
+// Onboarding wizard — guest-allowed entry, auth enforced after the account step.
+Route::name('app.onboarding.')
+    ->prefix('onboard')
+    ->group(function () {
+        Route::get('/', [OnboardingController::class, 'start'])->name('start');
+
+        Route::get('/account', [AccountStepController::class, 'show'])->name('step.account');
+        Route::post('/account', [AccountStepController::class, 'store'])
+            ->middleware('throttle:6,1')
+            ->name('step.account.store');
+
+        Route::middleware('auth')->group(function () {
+            Route::get('/address', [AddressStepController::class, 'show'])->name('step.address');
+            Route::post('/address', [AddressStepController::class, 'store'])->name('step.address.store');
+
+            Route::get('/preferences', [PreferencesStepController::class, 'show'])->name('step.preferences');
+            Route::post('/preferences', [PreferencesStepController::class, 'store'])->name('step.preferences.store');
+
+            Route::get('/commitment', [CommitmentStepController::class, 'show'])->name('step.commitment');
+            Route::post('/commitment', [CommitmentStepController::class, 'store'])->name('step.commitment.store');
+
+            Route::get('/trial/delivery', [TrialWizardDeliveryController::class, 'show'])->name('step.trial_delivery');
+            Route::post('/trial/delivery', [TrialWizardDeliveryController::class, 'store'])->name('step.trial_delivery.store');
+
+            Route::get('/trial/payment', [TrialWizardPaymentController::class, 'show'])->name('step.trial_payment');
+            Route::get('/trial/payment/{order}/complete', [TrialWizardPaymentController::class, 'complete'])
+                ->name('trial.payment.complete');
+            Route::get('/trial/complete/{order}', [TrialWizardPaymentController::class, 'confirmation'])
+                ->name('trial.complete');
+
+            Route::get('/subscription/schedule', [SubscriptionWizardScheduleController::class, 'show'])->name('step.subscription_schedule');
+            Route::post('/subscription/schedule', [SubscriptionWizardScheduleController::class, 'store'])->name('step.subscription_schedule.store');
+
+            Route::get('/subscription/payment', [SubscriptionWizardPaymentController::class, 'show'])
+                ->middleware('throttle:payment-setup')
+                ->name('step.subscription_payment');
+            Route::get('/subscription/complete', [SubscriptionWizardPaymentController::class, 'complete'])
+                ->middleware('throttle:payment-setup')
+                ->name('subscription.complete');
+        });
+    });
+
 Route::middleware(['auth', 'verified'])
     ->prefix('app')
     ->name('app.')
@@ -50,16 +101,11 @@ Route::middleware(['auth', 'verified'])
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         Route::prefix('subscriptions')->name('subscriptions.')->group(function () {
-            Route::get('/onboard', [SubscriptionOnboardController::class, 'showStep1'])->name('onboard');
-            Route::post('/onboard', [SubscriptionOnboardController::class, 'storeStep1'])
-                ->middleware('throttle:subscription-actions')
-                ->name('onboard.store');
-            Route::get('/onboard/payment', [SubscriptionOnboardController::class, 'showStep2'])
-                ->middleware('throttle:payment-setup')
-                ->name('onboard.payment');
-            Route::get('/onboard/complete', [SubscriptionOnboardController::class, 'complete'])
-                ->middleware('throttle:payment-setup')
-                ->name('onboard.complete');
+            // Legacy onboard routes kept as permanent redirects into the wizard.
+            Route::get('/onboard', fn () => redirect()->route('app.onboarding.start', ['intent' => 'subscription']))->name('onboard');
+            Route::post('/onboard', fn () => redirect()->route('app.onboarding.start', ['intent' => 'subscription']))->name('onboard.store');
+            Route::get('/onboard/payment', fn () => redirect()->route('app.onboarding.start', ['intent' => 'subscription']))->name('onboard.payment');
+            Route::get('/onboard/complete', fn () => redirect()->route('app.onboarding.start', ['intent' => 'subscription']))->name('onboard.complete');
 
             Route::get('/', [SubscriptionController::class, 'show'])->name('show');
             Route::get('/create', [SubscriptionController::class, 'create'])->name('create');
@@ -150,6 +196,18 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:24,1')
                 ->name('products.weekly.save');
             Route::resource('products', ProductController::class)->except(['show']);
+
+            Route::get('orders', [AdminOrderController::class, 'index'])->name('orders.index');
+            Route::get('orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
+            Route::post('orders/{order}/schedule', [AdminOrderController::class, 'schedule'])
+                ->middleware('throttle:30,1')
+                ->name('orders.schedule');
+            Route::post('orders/{order}/compose', [AdminOrderController::class, 'compose'])
+                ->middleware('throttle:30,1')
+                ->name('orders.compose');
+            Route::post('orders/{order}/mark-delivered', [AdminOrderController::class, 'markDelivered'])
+                ->middleware('throttle:30,1')
+                ->name('orders.mark-delivered');
         });
     });
 

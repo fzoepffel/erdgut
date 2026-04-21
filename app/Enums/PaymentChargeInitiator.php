@@ -9,4 +9,6 @@ enum PaymentChargeInitiator: string
     case AdminManual = 'admin_manual';
 
     case Retry = 'retry';
+
+    case TrialCustomer = 'trial_customer';
 }

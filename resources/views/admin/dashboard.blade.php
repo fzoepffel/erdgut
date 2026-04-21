@@ -73,6 +73,21 @@
                     <p class="mt-1 text-sm font-medium text-amber-900 tabular-nums">{{ __('admin.metrics.expected_amount', ['amount' => number_format($metrics->upcomingBillableAmount7d, 2, ',', '.')]) }}</p>
                     <p class="mt-1 text-xs text-gray-500">{{ __('admin.metrics.upcoming_charges_hint') }}</p>
                 </div>
+                <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-trial-pending-scheduling">
+                    <p class="text-sm font-medium text-gray-600">{{ __('Trial orders to schedule') }}</p>
+                    <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersPendingScheduling) }}</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ __('Paid trial orders without a delivery date.') }}</p>
+                </div>
+                <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-trial-boxes-to-compose">
+                    <p class="text-sm font-medium text-gray-600">{{ __('Trial boxes to compose') }}</p>
+                    <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersBoxesToCompose) }}</p>
+                </div>
+                <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-trial-conversion-30d">
+                    <p class="text-sm font-medium text-gray-600">{{ __('Trial → subscription (30d)') }}</p>
+                    <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialConversionRate30d * 100, 1) }}%</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ __(':converted of :delivered delivered', ['converted' => $metrics->trialOrdersConvertedLast30d, 'delivered' => $metrics->trialOrdersDeliveredLast30d]) }}</p>
+                </div>
+
                 <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm sm:col-span-2 lg:col-span-1" data-testid="admin-metric-upcoming-30d">
                     <p class="text-sm font-medium text-gray-600">{{ __('admin.metrics.upcoming_charges_30d_label') }}</p>
                     <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->upcomingBillableCharges30dCount) }}</p>

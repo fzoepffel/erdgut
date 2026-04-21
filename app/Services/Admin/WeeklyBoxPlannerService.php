@@ -121,6 +121,7 @@ final class WeeklyBoxPlannerService
         return Box::query()
             ->forUser($userId)
             ->forWeek($weekStart->toDateString())
+            ->whereNull('order_id')
             ->exists();
     }
 
@@ -132,6 +133,7 @@ final class WeeklyBoxPlannerService
         $existing = Box::query()
             ->forUser($subscription->user_id)
             ->forWeek($weekStart->toDateString())
+            ->whereNull('order_id')
             ->first();
 
         if ($existing instanceof Box) {

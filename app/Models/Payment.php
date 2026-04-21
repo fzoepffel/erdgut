@@ -20,6 +20,20 @@ class Payment extends Model
     /** @use HasFactory<PaymentFactory> */
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::saving(function (Payment $payment): void {
+            $hasSubscription = ! empty($payment->subscription_id);
+            $hasOrder = ! empty($payment->order_id);
+
+            if ($hasSubscription === $hasOrder) {
+                throw new \DomainException(
+                    'Payment must belong to exactly one of subscription_id or order_id.'
+                );
+            }
+        });
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -38,6 +52,7 @@ class Payment extends Model
      */
     protected $fillable = [
         'subscription_id',
+        'order_id',
         'box_id',
         'fulfillment_week_start',
         'charge_initiator',
@@ -72,11 +87,19 @@ class Payment extends Model
     }
 
     /**
-     * Get the subscription that owns this payment attempt.
+     * Get the subscription that owns this payment attempt (null for one-off trial orders).
      */
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
+    }
+
+    /**
+     * Get the one-off order this payment attempt belongs to (null for subscription charges).
+     */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
     }
 
     public function box(): BelongsTo

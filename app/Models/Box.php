@@ -25,6 +25,7 @@ class Box extends Model
      */
     protected $fillable = [
         'user_id',
+        'order_id',
         'week_start_date',
         'status',
         'modification_deadline_at',
@@ -54,6 +55,19 @@ class Box extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Trial order this box belongs to, if any.
+     */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function isTrial(): bool
+    {
+        return $this->order_id !== null;
     }
 
     /**

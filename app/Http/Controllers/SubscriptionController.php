@@ -34,7 +34,7 @@ class SubscriptionController extends Controller
 
     public function create(Request $request): RedirectResponse
     {
-        return redirect()->route('app.subscriptions.onboard');
+        return redirect()->route('app.onboarding.start', ['intent' => 'subscription']);
     }
 
     public function store(SubscriptionStoreRequest $request): RedirectResponse
@@ -43,20 +43,8 @@ class SubscriptionController extends Controller
             return redirect()->route('app.subscriptions.show');
         }
 
-        $validated = $request->validated();
-
-        Subscription::create([
-            'user_id' => $request->user()->id,
-            'plan' => $validated['plan'],
-            'box_size' => $validated['box_size'],
-            'preferences' => $validated['preferences'],
-            'allergies' => $validated['allergies'] ?? [],
-            'status' => SubscriptionStatus::Active,
-        ]);
-
-        return redirect()
-            ->route('app.subscriptions.onboard.payment')
-            ->with('status', 'subscription-created');
+        // Create-from-scratch via POST is superseded by the wizard; redirect there.
+        return redirect()->route('app.onboarding.start', ['intent' => 'subscription']);
     }
 
     public function edit(Request $request): View|RedirectResponse

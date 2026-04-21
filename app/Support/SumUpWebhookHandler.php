@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use App\Enums\OrderStatus;
 use App\Enums\SubscriptionStatus;
+use App\Models\Order;
 use App\Models\Payment;
 use App\Notifications\PaymentFailedNotification;
 use App\Notifications\PaymentSuccessNotification;
@@ -95,17 +97,22 @@ class SumUpWebhookHandler
 
         if ($status === 'PAID') {
             $subscription = $payment->subscription;
+            $order = $payment->order;
             $shouldAdvanceNextChargeDate = $subscription !== null
                 && $subscription->status === SubscriptionStatus::Active;
 
-            DB::transaction(function () use ($payment, $subscription, $shouldAdvanceNextChargeDate): void {
+            DB::transaction(function () use ($payment, $subscription, $order, $shouldAdvanceNextChargeDate): void {
                 $payment->markPaid();
 
                 if ($subscription !== null) {
                     $subscription->markTrialBillingCompletedIfPending();
                 }
 
-                if ($shouldAdvanceNextChargeDate) {
+                if ($order !== null && $order->status === OrderStatus::PendingPayment) {
+                    $order->markPaid();
+                }
+
+                if ($shouldAdvanceNextChargeDate && $subscription !== null) {
                     $nextChargeDate = $this->subscriptionLifecycleService->computeNextChargeDate($subscription);
                     $subscription->update(['next_charge_date' => $nextChargeDate]);
                 }
@@ -115,6 +122,7 @@ class SumUpWebhookHandler
                 'checkout_id' => $checkoutId,
                 'payment_id' => $payment->id,
                 'subscription_id' => $subscription?->id,
+                'order_id' => $order?->id,
                 'previous_status' => Payment::STATUS_PENDING,
                 'new_status' => Payment::STATUS_PAID,
                 'advanced_next_charge_date' => $shouldAdvanceNextChargeDate,
@@ -122,7 +130,7 @@ class SumUpWebhookHandler
                 'timestamp' => now()->toIso8601String(),
             ]);
 
-            $user = $subscription?->user;
+            $user = $subscription?->user ?? $order?->user;
             if ($user !== null) {
                 $user->notify(new PaymentSuccessNotification($payment));
             }
@@ -145,7 +153,7 @@ class SumUpWebhookHandler
                 'timestamp' => now()->toIso8601String(),
             ]);
 
-            $user = $payment->subscription?->user;
+            $user = $payment->subscription?->user ?? $payment->order?->user;
             if ($user !== null) {
                 $user->notify(new PaymentFailedNotification($payment));
             }

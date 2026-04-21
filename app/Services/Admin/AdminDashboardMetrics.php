@@ -3,7 +3,9 @@
 namespace App\Services\Admin;
 
 use App\Console\Commands\ChargeSubscriptions;
+use App\Enums\OrderStatus;
 use App\Enums\SubscriptionStatus;
+use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Producer;
 use App\Models\Product;
@@ -72,6 +74,35 @@ final class AdminDashboardMetrics
         $amount7 = $in7->sum(fn (Subscription $s): float => $s->expectedChargeAmount());
         $amount30 = $candidates30->sum(fn (Subscription $s): float => $s->expectedChargeAmount());
 
+        $thirtyDaysAgo = $today->copy()->subDays(30);
+
+        $trialOrdersPendingScheduling = (int) Order::query()
+            ->where('status', OrderStatus::Paid->value)
+            ->whereNull('scheduled_for_date')
+            ->count();
+
+        $trialOrdersBoxesToCompose = (int) Order::query()
+            ->whereIn('status', [OrderStatus::Paid->value, OrderStatus::Scheduled->value])
+            ->whereNull('box_id')
+            ->count();
+
+        $trialOrdersDeliveredLast30d = (int) Order::query()
+            ->where('status', OrderStatus::Delivered->value)
+            ->where('delivered_at', '>=', $thirtyDaysAgo)
+            ->count();
+
+        $trialOrdersConvertedLast30d = (int) Order::query()
+            ->where('status', OrderStatus::Delivered->value)
+            ->where('delivered_at', '>=', $thirtyDaysAgo)
+            ->whereHas('user.subscriptions', function ($q) {
+                $q->where('status', SubscriptionStatus::Active->value);
+            })
+            ->count();
+
+        $trialConversionRate30d = $trialOrdersDeliveredLast30d > 0
+            ? round($trialOrdersConvertedLast30d / $trialOrdersDeliveredLast30d, 4)
+            : 0.0;
+
         return new AdminDashboardMetricsSnapshot(
             usersTotal: $usersTotal,
             usersVerified: $usersVerified,
@@ -88,6 +119,11 @@ final class AdminDashboardMetrics
             upcomingBillableCharges30dCount: $candidates30->count(),
             upcomingBillableAmount7d: round($amount7, 2),
             upcomingBillableAmount30d: round($amount30, 2),
+            trialOrdersPendingScheduling: $trialOrdersPendingScheduling,
+            trialOrdersBoxesToCompose: $trialOrdersBoxesToCompose,
+            trialOrdersDeliveredLast30d: $trialOrdersDeliveredLast30d,
+            trialOrdersConvertedLast30d: $trialOrdersConvertedLast30d,
+            trialConversionRate30d: $trialConversionRate30d,
         );
     }
 }

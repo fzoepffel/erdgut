@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureOnboardingDraft;
 use App\Http\Middleware\EnsureSubscriberHasPayment;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\SecurityHeaders;
@@ -18,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('subscriptions:pause-exhausted')->dailyAt('09:00')->withoutOverlapping();
         $schedule->command('notifications:delivery-reminders')->dailyAt('18:00')->withoutOverlapping();
         $schedule->command('notifications:box-deadlines')->dailyAt('10:00')->withoutOverlapping();
+        $schedule->command('trials:send-conversion-reminders')->dailyAt('11:00')->withoutOverlapping();
+        $schedule->command('onboarding:prune-drafts')->dailyAt('03:30')->withoutOverlapping();
     })
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
@@ -33,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => EnsureUserIsAdmin::class,
             'subscriber.full' => EnsureSubscriberHasPayment::class,
             'sumup.webhook.verify' => VerifySumUpWebhookSignature::class,
+            'onboarding.draft' => EnsureOnboardingDraft::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

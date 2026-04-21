@@ -96,6 +96,26 @@ final class AdminOperationalAlerts
             );
         }
 
+        if ($snapshot->trialOrdersPendingScheduling > 0) {
+            $alerts[] = new AdminOperationalAlert(
+                severity: 'warning',
+                messageKey: 'admin.alerts.trial_orders_pending_scheduling',
+                messageParams: ['count' => $snapshot->trialOrdersPendingScheduling],
+                href: route('app.admin.orders.index', ['status' => 'paid'], false),
+                linkTextKey: 'admin.alerts.link_trial_orders',
+            );
+        }
+
+        if ($snapshot->trialOrdersBoxesToCompose > 0) {
+            $alerts[] = new AdminOperationalAlert(
+                severity: 'info',
+                messageKey: 'admin.alerts.trial_orders_boxes_to_compose',
+                messageParams: ['count' => $snapshot->trialOrdersBoxesToCompose],
+                href: route('app.admin.orders.index', ['status' => 'scheduled'], false),
+                linkTextKey: 'admin.alerts.link_trial_orders',
+            );
+        }
+
         if ($snapshot->productsDraft > 0) {
             $alerts[] = new AdminOperationalAlert(
                 severity: 'warning',

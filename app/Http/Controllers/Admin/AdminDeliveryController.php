@@ -37,6 +37,7 @@ class AdminDeliveryController extends Controller
                 'timeslot',
                 'is_weekly_override',
                 'overrides_delivery_id',
+                'order_id',
                 'created_at',
             ])
             ->with([

@@ -47,6 +47,20 @@
                 </p>
             @endif
 
+            @isset($openTrialOrder)
+                @if ($openTrialOrder)
+                    <div class="flex flex-col gap-3 border border-category-produce/40 bg-category-produce/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" data-testid="dashboard-trial-strip">
+                        <p class="text-sm text-brand-ink">
+                            <span class="font-semibold">{{ __('Trial box') }}</span>
+                            — {{ __('Order #:id · :status', ['id' => $openTrialOrder->id, 'status' => $openTrialOrder->status->label()]) }}
+                            @if ($openTrialOrder->scheduled_for_date)
+                                · {{ $openTrialOrder->scheduled_for_date->format('D d M') }}
+                            @endif
+                        </p>
+                    </div>
+                @endif
+            @endisset
+
             @if ($needsPaymentSetup)
                 <div class="flex flex-col gap-3 border border-category-meat/40 bg-category-meat/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <p class="text-sm text-brand-ink">

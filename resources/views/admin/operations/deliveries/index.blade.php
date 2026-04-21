@@ -101,7 +101,12 @@
                                     @foreach ($deliveries as $delivery)
                                         <tr>
                                             <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $delivery->id }}</td>
-                                            <td class="py-3 pe-4 text-gray-900">{{ $delivery->user?->email ?? '—' }}</td>
+                                            <td class="py-3 pe-4 text-gray-900">
+                                                {{ $delivery->user?->email ?? '—' }}
+                                                @if ($delivery->order_id)
+                                                    <span class="ml-1 inline-flex items-center rounded bg-category-produce/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-category-produce" data-testid="admin-delivery-trial-badge">{{ __('Trial') }}</span>
+                                                @endif
+                                            </td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $delivery->scheduled_for_date?->toDateString() ?? '—' }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $delivery->status->value }}</td>
                                             <td class="py-3 pe-4">

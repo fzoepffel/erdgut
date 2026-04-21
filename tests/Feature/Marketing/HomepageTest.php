@@ -19,10 +19,12 @@ class HomepageTest extends TestCase
         $response->assertSee('How it works', false);
         $response->assertSee('Join Berlin households supporting local food', false);
         $response->assertSee(route('public.about'), false);
-        $response->assertSee(route('auth.register'), false);
         $response->assertSee(route('auth.login'), false);
+        $response->assertSee(route('app.onboarding.start', ['intent' => 'trial']), false);
+        $response->assertSee(route('app.onboarding.start', ['intent' => 'subscription']), false);
 
-        $response->assertSee('data-testid="home-primary-cta-guest"', false);
+        $response->assertSee('data-testid="home-cta-try-box"', false);
+        $response->assertSee('data-testid="home-cta-subscribe"', false);
         $response->assertSee('data-testid="home-secondary-cta-login"', false);
         $response->assertSee('data-testid="home-trust-row"', false);
         $response->assertSee('data-testid="home-how-it-works"', false);
@@ -39,9 +41,11 @@ class HomepageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee(route('app.dashboard'), false);
-        $response->assertSee(route('app.subscriptions.create'), false);
+        $response->assertSee(route('app.onboarding.start', ['intent' => 'trial']), false);
+        $response->assertSee(route('app.onboarding.start', ['intent' => 'subscription']), false);
         $response->assertSee('data-testid="home-primary-cta-authenticated"', false);
-        $response->assertSee('data-testid="home-secondary-cta-subscription"', false);
+        $response->assertSee('data-testid="home-cta-try-box"', false);
+        $response->assertSee('data-testid="home-cta-subscribe"', false);
         $response->assertSee('data-testid="home-bottom-primary-authenticated"', false);
     }
 }

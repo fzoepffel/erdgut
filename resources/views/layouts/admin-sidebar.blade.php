@@ -93,6 +93,13 @@
             {{ __('admin.operations.nav_subscriptions') }}
         </a>
         <a
+            href="{{ route('app.admin.orders.index') }}"
+            @click="adminSidebarOpen = false"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.orders.*') ? $navActive : $navInactive }}"
+        >
+            {{ __('Trial orders') }}
+        </a>
+        <a
             href="{{ route('app.admin.deliveries.index') }}"
             @click="adminSidebarOpen = false"
             class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.deliveries.*') ? $navActive : $navInactive }}"

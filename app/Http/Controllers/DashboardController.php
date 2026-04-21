@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Enums\BoxStatus;
 use App\Enums\DeliveryStatus;
+use App\Enums\OrderStatus;
 use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\Delivery;
+use App\Models\Order;
 use App\Models\Subscription;
 use App\Support\SubscriberAccess;
 use Illuminate\Contracts\View\View;
@@ -21,11 +23,32 @@ class DashboardController extends Controller
             return redirect()->route('app.admin.dashboard');
         }
 
-        if (SubscriberAccess::shouldShowWelcomeDashboard($request->user())) {
+        $user = $request->user();
+
+        // Trial-only dashboard: user has an open trial order, no active subscription yet.
+        if (SubscriberAccess::hasTrialOrderOnly($user)) {
+            $trialOrder = Order::query()
+                ->where('user_id', $user->id)
+                ->whereIn('status', [
+                    OrderStatus::PendingPayment->value,
+                    OrderStatus::Paid->value,
+                    OrderStatus::Scheduled->value,
+                    OrderStatus::Delivered->value,
+                ])
+                ->with(['address', 'box.items.product'])
+                ->latest()
+                ->first();
+
+            return view('dashboard-trial', [
+                'order' => $trialOrder,
+            ]);
+        }
+
+        if (SubscriberAccess::shouldShowWelcomeDashboard($user)) {
             return view('dashboard-welcome');
         }
 
-        $userId = $request->user()->id;
+        $userId = $user->id;
         $today = now()->toDateString();
 
         $upcomingDeliveries = Delivery::query()
@@ -93,12 +116,24 @@ class DashboardController extends Controller
             && $primarySubscription->status === SubscriptionStatus::Active
             && empty($primarySubscription->sumup_token);
 
+        // Small trial strip when a subscriber also has an open trial order (e.g. trial first, then subscribed).
+        $openTrialOrder = Order::query()
+            ->where('user_id', $userId)
+            ->whereIn('status', [
+                OrderStatus::PendingPayment->value,
+                OrderStatus::Paid->value,
+                OrderStatus::Scheduled->value,
+            ])
+            ->latest()
+            ->first();
+
         return view('dashboard', [
             'deliveryCards' => $deliveryCards,
             'upcomingBoxes' => $upcomingBoxes,
             'currentBox' => $currentBox,
             'primarySubscription' => $primarySubscription,
             'needsPaymentSetup' => $needsPaymentSetup,
+            'openTrialOrder' => $openTrialOrder,
         ]);
     }
 }

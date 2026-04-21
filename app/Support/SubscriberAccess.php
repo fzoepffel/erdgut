@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use App\Enums\OrderStatus;
 use App\Enums\SubscriptionStatus;
+use App\Models\Order;
 use App\Models\Subscription;
 use App\Models\User;
 
@@ -42,8 +44,65 @@ final class SubscriberAccess
             return false;
         }
 
+        if (self::hasTrialOrderOnly($user)) {
+            return false;
+        }
+
         $sub = Subscription::billingSubscriptionForUser($user);
 
         return $sub === null || $sub->status === SubscriptionStatus::Cancelled;
+    }
+
+    /**
+     * User has at least one trial order but no non-cancelled subscription.
+     */
+    public static function hasTrialOrderOnly(?User $user): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        $hasOpenOrder = Order::query()
+            ->where('user_id', $user->getAuthIdentifier())
+            ->whereIn('status', [
+                OrderStatus::PendingPayment->value,
+                OrderStatus::Paid->value,
+                OrderStatus::Scheduled->value,
+                OrderStatus::Delivered->value,
+            ])
+            ->exists();
+
+        if (! $hasOpenOrder) {
+            return false;
+        }
+
+        $sub = Subscription::billingSubscriptionForUser($user);
+
+        return $sub === null || $sub->status === SubscriptionStatus::Cancelled;
+    }
+
+    /**
+     * User has any kind of purchase history (subscription or paid/scheduled/delivered order).
+     */
+    public static function hasAnyPurchaseHistory(?User $user): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        $sub = Subscription::billingSubscriptionForUser($user);
+
+        if ($sub !== null && $sub->status !== SubscriptionStatus::Cancelled) {
+            return true;
+        }
+
+        return Order::query()
+            ->where('user_id', $user->getAuthIdentifier())
+            ->whereIn('status', [
+                OrderStatus::Paid->value,
+                OrderStatus::Scheduled->value,
+                OrderStatus::Delivered->value,
+            ])
+            ->exists();
     }
 }

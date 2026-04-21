@@ -141,6 +141,36 @@ class SumUpService
         ]);
     }
 
+    /**
+     * Create a one-time checkout (no stored mandate) suitable for guest or trial purchases.
+     *
+     * The customer enters card details on SumUp's hosted checkout; the returned checkout
+     * object contains a `hosted_checkout_url` (or similar) that we redirect the browser to.
+     *
+     * @param  array<string, mixed>  $extraParams  optional fields like `return_url`, `redirect_url`
+     */
+    public function createOneTimeCheckout(
+        float $amount,
+        string $checkoutReference,
+        string $description,
+        ?string $customerId = null,
+        array $extraParams = []
+    ): object {
+        $params = array_merge([
+            'checkout_reference' => $checkoutReference,
+            'amount' => $amount,
+            'currency' => $this->currency,
+            'description' => $description,
+            'purpose' => 'CHECKOUT',
+        ], $extraParams);
+
+        if ($customerId !== null && $customerId !== '') {
+            $params['customer_id'] = $customerId;
+        }
+
+        return $this->createCheckout($params);
+    }
+
     public function processCheckout(string $checkoutId, string $token, string $customerId): object
     {
         try {

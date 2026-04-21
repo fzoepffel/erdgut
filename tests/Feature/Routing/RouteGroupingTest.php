@@ -22,7 +22,6 @@ use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\ProducerController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SubscriptionController;
-use App\Http\Controllers\SubscriptionOnboardController;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route as RouteFacade;
@@ -371,18 +370,9 @@ class RouteGroupingTest extends TestCase
         $this->assertNotNull($onboardStoreRoute);
         $this->assertNotNull($onboardPaymentRoute);
         $this->assertNotNull($onboardCompleteRoute);
-        $this->assertSame([SubscriptionOnboardController::class, 'showStep1'], $onboardStep1Route->getAction('controller')
-            ? explode('@', $onboardStep1Route->getAction('controller'))
-            : []);
-        $this->assertSame([SubscriptionOnboardController::class, 'storeStep1'], $onboardStoreRoute->getAction('controller')
-            ? explode('@', $onboardStoreRoute->getAction('controller'))
-            : []);
-        $this->assertSame([SubscriptionOnboardController::class, 'showStep2'], $onboardPaymentRoute->getAction('controller')
-            ? explode('@', $onboardPaymentRoute->getAction('controller'))
-            : []);
-        $this->assertSame([SubscriptionOnboardController::class, 'complete'], $onboardCompleteRoute->getAction('controller')
-            ? explode('@', $onboardCompleteRoute->getAction('controller'))
-            : []);
+        foreach ([$onboardStep1Route, $onboardStoreRoute, $onboardPaymentRoute, $onboardCompleteRoute] as $legacyOnboardRoute) {
+            $this->assertInstanceOf(\Closure::class, $legacyOnboardRoute->getAction('uses'));
+        }
 
         $deliveriesIndexRoute = RouteFacade::getRoutes()->getByName('app.deliveries.index');
         $this->assertNotNull($deliveriesIndexRoute);

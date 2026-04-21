@@ -23,5 +23,10 @@ final readonly class AdminDashboardMetricsSnapshot
         public int $upcomingBillableCharges30dCount,
         public float $upcomingBillableAmount7d,
         public float $upcomingBillableAmount30d,
+        public int $trialOrdersPendingScheduling = 0,
+        public int $trialOrdersBoxesToCompose = 0,
+        public int $trialOrdersDeliveredLast30d = 0,
+        public int $trialOrdersConvertedLast30d = 0,
+        public float $trialConversionRate30d = 0.0,
     ) {}
 }

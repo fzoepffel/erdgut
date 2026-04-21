@@ -55,46 +55,28 @@ class SubscriptionOverviewTest extends TestCase
             ->assertSee('Create subscription');
     }
 
-    public function test_user_without_subscription_can_create_one(): void
+    public function test_user_without_subscription_is_redirected_to_onboarding_wizard(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['email_verified_at' => now()]);
+        $wizard = route('app.onboarding.start', ['intent' => 'subscription']);
 
         $this->actingAs($user)
             ->get(route('app.subscriptions.create'))
-            ->assertRedirect(route('app.subscriptions.onboard'));
+            ->assertRedirect($wizard);
 
         $this->actingAs($user)
             ->get(route('app.subscriptions.onboard'))
-            ->assertOk()
-            ->assertSee('Create subscription')
-            ->assertSee('Box size');
-
-        $this->actingAs($user)
-            ->post(route('app.subscriptions.store'), [
-                'plan' => 'weekly',
-                'box_size' => 'medium',
-                'preferences' => ['veg_only' => '0', 'meat_add_on' => '0', 'eggs_dairy_add_on' => '0'],
-                'allergies' => '',
-            ])
-            ->assertRedirect(route('app.subscriptions.onboard.payment'))
-            ->assertSessionHas('status', 'subscription-created');
-
-        $this->assertDatabaseHas('subscriptions', [
-            'user_id' => $user->id,
-            'plan' => 'weekly',
-            'box_size' => 'medium',
-            'status' => 'active',
-        ]);
+            ->assertRedirect($wizard);
     }
 
-    public function test_user_with_subscription_is_redirected_from_create(): void
+    public function test_user_with_subscription_is_redirected_from_create_to_wizard_entry(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['email_verified_at' => now()]);
         Subscription::factory()->create(['user_id' => $user->id]);
 
         $this->actingAs($user)
             ->get(route('app.subscriptions.create'))
-            ->assertRedirect(route('app.subscriptions.onboard'));
+            ->assertRedirect(route('app.onboarding.start', ['intent' => 'subscription']));
     }
 
     public function test_subscription_overview_does_not_show_other_users_subscription(): void
@@ -114,9 +96,9 @@ class SubscriptionOverviewTest extends TestCase
             ->assertDontSee('Large');
     }
 
-    public function test_store_persists_biweekly_plan(): void
+    public function test_store_redirects_to_wizard_and_does_not_create_subscription(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['email_verified_at' => now()]);
 
         $this->actingAs($user)
             ->post(route('app.subscriptions.store'), [
@@ -125,14 +107,9 @@ class SubscriptionOverviewTest extends TestCase
                 'preferences' => ['veg_only' => '0', 'meat_add_on' => '0', 'eggs_dairy_add_on' => '0'],
                 'allergies' => '',
             ])
-            ->assertRedirect(route('app.subscriptions.onboard.payment'))
-            ->assertSessionHas('status', 'subscription-created');
+            ->assertRedirect(route('app.onboarding.start', ['intent' => 'subscription']));
 
-        $this->assertDatabaseHas('subscriptions', [
-            'user_id' => $user->id,
-            'plan' => 'biweekly',
-            'box_size' => 'small',
-        ]);
+        $this->assertDatabaseCount('subscriptions', 0);
     }
 
     public function test_store_rejects_invalid_plan(): void
@@ -140,14 +117,13 @@ class SubscriptionOverviewTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->from(route('app.subscriptions.onboard'))
+            ->from(route('app.subscriptions.show'))
             ->post(route('app.subscriptions.store'), [
                 'plan' => 'daily',
                 'box_size' => 'medium',
                 'preferences' => ['veg_only' => '0', 'meat_add_on' => '0', 'eggs_dairy_add_on' => '0'],
                 'allergies' => '',
             ])
-            ->assertRedirect(route('app.subscriptions.onboard'))
             ->assertSessionHasErrors(['plan']);
 
         $this->assertDatabaseCount('subscriptions', 0);

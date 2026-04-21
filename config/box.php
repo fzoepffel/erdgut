@@ -34,6 +34,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Standalone trial order (one-off, no subscription)
+    |--------------------------------------------------------------------------
+    |
+    | Used by the trial-order flow where a user pays for a single box with no
+    | recurring mandate. Separate from trial_price_ttc (which governs the
+    | first charge of an existing recurring subscription).
+    |
+    */
+    'trial_price_oneoff_ttc' => (float) env('BOX_TRIAL_PRICE_ONEOFF_TTC', 35),
+
+    'trial_scheduling_promise_days' => (int) env('BOX_TRIAL_SCHEDULING_PROMISE_DAYS', 14),
+
+    'trial_description' => (string) env('BOX_TRIAL_DESCRIPTION', 'Erdgut trial box — one-time delivery'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Optional eggs / dairy add-on (TTC, same for all box sizes)
     |--------------------------------------------------------------------------
     |

@@ -311,28 +311,6 @@ class PaymentSetupController extends Controller
         return $customerId;
     }
 
-    private function createSetupCheckout(Subscription $subscription, string $customerId, SumUpService $sumUpService): ?string
-    {
-        try {
-            $checkout = $sumUpService->createSetupCheckout(
-                customerId: $customerId,
-                checkoutReference: 'sub-'.$subscription->id.'-setup-'.now()->timestamp,
-                description: 'Setup recurring payment for subscription #'.$subscription->id
-            );
-
-            return data_get($checkout, 'id');
-        } catch (Throwable $exception) {
-            SumUpCheckoutLogger::warning('Failed to create SumUp setup checkout.', [
-                'subscription_id' => $subscription->id,
-                'sumup_customer_id' => $customerId,
-                'exception_class' => $exception::class,
-                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($exception->getMessage()),
-            ]);
-
-            return null;
-        }
-    }
-
     private function createUpdateCheckout(Subscription $subscription, string $customerId, SumUpService $sumUpService): ?string
     {
         try {

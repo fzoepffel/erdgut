@@ -35,6 +35,9 @@
                     </p>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="400">
+                    @php
+                        $trialEnabled = (bool) config('features.trial_orders_enabled', true);
+                    @endphp
                     <div class="mt-10 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center" data-testid="home-hero-ctas">
                         @auth
                             <a
@@ -44,24 +47,42 @@
                             >
                                 {{ __('Go to dashboard') }}
                             </a>
+                            @if ($trialEnabled)
+                                <a
+                                    href="{{ route('app.onboarding.start', ['intent' => 'trial']) }}"
+                                    class="inline-flex items-center justify-center border border-brand-cream/70 px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream transition hover:border-brand-cream hover:bg-brand-cream/10"
+                                    data-testid="home-cta-try-box"
+                                >
+                                    {{ __('Try a box') }}
+                                </a>
+                            @endif
                             <a
-                                href="{{ route('app.subscriptions.create') }}"
+                                href="{{ route('app.onboarding.start', ['intent' => 'subscription']) }}"
                                 class="inline-flex items-center justify-center border border-brand-cream/70 px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream transition hover:border-brand-cream hover:bg-brand-cream/10"
-                                data-testid="home-secondary-cta-subscription"
+                                data-testid="home-cta-subscribe"
                             >
-                                {{ __('Start subscription') }}
+                                {{ __('Subscribe') }}
                             </a>
                         @else
+                            @if ($trialEnabled)
+                                <a
+                                    href="{{ route('app.onboarding.start', ['intent' => 'trial']) }}"
+                                    class="inline-flex items-center justify-center border border-brand-cream bg-brand-cream px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-ink transition hover:bg-transparent hover:text-brand-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cream"
+                                    data-testid="home-cta-try-box"
+                                >
+                                    {{ __('Try a box') }}
+                                </a>
+                            @endif
                             <a
-                                href="{{ route('auth.register') }}"
-                                class="inline-flex items-center justify-center border border-brand-cream bg-brand-cream px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-ink transition hover:bg-transparent hover:text-brand-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cream"
-                                data-testid="home-primary-cta-guest"
+                                href="{{ route('app.onboarding.start', ['intent' => 'subscription']) }}"
+                                class="inline-flex items-center justify-center border {{ $trialEnabled ? 'border-brand-cream/70' : 'border-brand-cream bg-brand-cream text-brand-ink' }} px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow {{ $trialEnabled ? 'text-brand-cream' : '' }} transition hover:border-brand-cream hover:bg-brand-cream/10"
+                                data-testid="home-cta-subscribe"
                             >
-                                {{ __('Get started') }}
+                                {{ __('Subscribe') }}
                             </a>
                             <a
                                 href="{{ route('auth.login') }}"
-                                class="inline-flex items-center justify-center border border-brand-cream/70 px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream transition hover:border-brand-cream hover:bg-brand-cream/10"
+                                class="inline-flex items-center justify-center px-4 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream/90 hover:underline"
                                 data-testid="home-secondary-cta-login"
                             >
                                 {{ __('Log in') }}
@@ -144,6 +165,30 @@
             </div>
         </div>
     </section>
+
+    {{-- Trial promo --}}
+    @if ((bool) config('features.trial_orders_enabled', true))
+    <section class="border-b border-brand-ink/10 bg-category-produce/5" aria-labelledby="home-trial-heading" data-testid="home-trial-section">
+        <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+                <p class="eyebrow text-category-produce">{{ __('No commitment') }}</p>
+                <h2 id="home-trial-heading" class="mt-3 font-display text-3xl font-semibold leading-tight text-brand-ink sm:text-4xl">
+                    {{ __('Try one box before you commit.') }}
+                </h2>
+                <p class="mt-4 max-w-2xl text-base leading-relaxed text-brand-ink/75">
+                    {{ __('EUR :amount for a single Erdgut box — one delivery, no subscription, no stored card. You pick the date; we handle the rest.', ['amount' => number_format((float) config('box.trial_price_oneoff_ttc', 35), 0)]) }}
+                </p>
+            </div>
+            <a
+                href="{{ route('app.onboarding.start', ['intent' => 'trial']) }}"
+                class="btn-solid bg-category-produce text-white hover:bg-category-produce/90 px-6 py-3 text-sm font-semibold uppercase tracking-eyebrow"
+                data-testid="home-trial-cta"
+            >
+                {{ __('Try a box') }}
+            </a>
+        </div>
+    </section>
+    @endif
 
     {{-- How it works --}}
     <section class="border-b border-brand-ink/10" aria-labelledby="home-steps-heading">
@@ -254,7 +299,7 @@
                         </a>
                     @else
                         <a
-                            href="{{ route('auth.register') }}"
+                            href="{{ route('app.onboarding.start') }}"
                             class="btn-solid"
                             data-testid="home-bottom-primary-guest"
                         >

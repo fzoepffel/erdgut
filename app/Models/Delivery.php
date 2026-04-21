@@ -22,6 +22,7 @@ class Delivery extends Model
     protected $fillable = [
         'user_id',
         'address_id',
+        'order_id',
         'scheduled_for_date',
         'timeslot',
         'status',
@@ -60,6 +61,14 @@ class Delivery extends Model
     public function address(): BelongsTo
     {
         return $this->belongsTo(Address::class);
+    }
+
+    /**
+     * Trial order this delivery fulfills, if any.
+     */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
     }
 
     /**

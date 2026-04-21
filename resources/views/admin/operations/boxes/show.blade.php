@@ -39,6 +39,13 @@
                 </div>
             @endif
 
+            @if ($box->isTrial())
+                <div class="rounded-md border border-category-produce/30 bg-category-produce/10 px-3 py-2 text-sm" data-testid="admin-box-trial-badge">
+                    {{ __('Trial order box') }} —
+                    <a class="underline" href="{{ route('app.admin.orders.show', $box->order_id) }}">{{ __('Open order #:id', ['id' => $box->order_id]) }}</a>
+                </div>
+            @endif
+
             <dl class="grid gap-4 rounded-lg border border-gray-100 bg-white p-4 text-sm shadow-sm sm:grid-cols-2">
                 <div>
                     <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.operations.user') }}</dt>
