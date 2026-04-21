@@ -16,13 +16,17 @@ class HomepageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('data-testid="coming-soon"', false);
-        // Translated tagline (test suite runs with APP_LOCALE=en).
+        // Translated strings (test suite runs with APP_LOCALE=en).
         $response->assertSee('Fresh produce is on its way.', false);
+        $response->assertSee('producer', false);
         $response->assertSee('hallo@erdgut.de', false);
 
         // Coming-soon page must not leak the full marketing nav / CTAs.
         $response->assertDontSee('data-testid="home-cta-try-box"', false);
         $response->assertDontSee('data-testid="home-cta-subscribe"', false);
+
+        // No social links on the holding page (we don't have those channels yet).
+        $response->assertDontSee('instagram.com', false);
     }
 
     public function test_marketing_home_renders_for_guest_with_primary_and_secondary_ctas(): void

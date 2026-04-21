@@ -23,8 +23,7 @@
         >
             <x-application-logo
                 variant="filled"
-                :withWordmark="false"
-                class="h-40 w-auto sm:h-56 md:h-72"
+                class="h-32 w-auto sm:h-40 md:h-48"
             />
 
             <h1 class="mt-10 font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl md:text-6xl">
@@ -35,25 +34,22 @@
                 {{ __('Noch sind wir auf dem Feld und ernten das Beste der Saison. In Kürze kannst du dich hier selbst davon überzeugen.') }}
             </p>
 
-            <div class="mt-12 flex flex-col items-center gap-3 text-sm text-brand-ink/70 sm:flex-row sm:gap-8">
-                <a
-                    href="https://www.instagram.com/erdgut.berlin/"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                    class="font-medium underline-offset-4 transition hover:text-brand-ink hover:underline"
-                >
-                    {{ __('Folge uns auf Instagram') }}
-                </a>
-                <a
-                    href="mailto:hallo@erdgut.de"
-                    class="font-medium underline-offset-4 transition hover:text-brand-ink hover:underline"
-                >
-                    hallo@erdgut.de
-                </a>
+            <div class="mt-14 max-w-xl space-y-3 text-sm text-brand-ink/70 sm:text-base">
+                <p>{{ __('Du bist Produzent:in und möchtest deine Erzeugnisse über uns anbieten?') }}</p>
+                <p>{{ __('Oder möchtest du als Kund:in dabei sein, sobald es losgeht?') }}</p>
+                <p class="pt-2">
+                    {{ __('Schreib uns gern:') }}
+                    <a
+                        href="mailto:hallo@erdgut.de"
+                        class="font-semibold text-brand-ink underline-offset-4 transition hover:underline"
+                    >
+                        hallo@erdgut.de
+                    </a>
+                </p>
             </div>
 
             <p class="mt-16 text-xs uppercase tracking-eyebrow text-brand-ink/50">
-                {{ __('Erdgut Kollektiv · Berlin') }}
+                Erdgut
             </p>
         </div>
     </body>
