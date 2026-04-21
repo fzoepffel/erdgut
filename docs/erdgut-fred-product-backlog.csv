@@ -1,0 +1,391 @@
+Ticket ID,Title,Epic,Phase,Priority,Status,Estimate Hours,Depends On,Description,Acceptance Criteria,Tags
+ERD-194,Editorial content model for mission vision and impact (CMS vs static Blade),Product vision & marketing,Phase 10 - Product vision & marketing,P1,Backlog,8,ERD-168,Decide how non-developers will update long-form marketing content (Terroirs-style depth). Options: (1) static Blade + lang files + JSON content blocks; (2) lightweight Filament/nova page resource; (3) headless CMS. Document trade-offs for IONOS PHP-only hosting. Reference: public marketing routes in routes/web.php (public.home public.about). Overlaps ERD-169/ERD-170 scope—this ticket is the data model decision; visual redesign stays in those UX tickets.,"Add:
+- Written ADR or docs/CONTENT-MODEL.md choosing approach and rationale for Erdgut.
+- If static-first: convention for content files (e.g. lang/de/marketing.php or resources/markdown/) and who edits them.
+- If CMS: spike branch listing dependencies and deploy implications.
+
+Remove:
+- N/A.
+
+Replace:
+- Ad hoc copy scattered only in Blade with a single documented pattern once product agrees.
+
+Out of scope:
+- Full redesign of home/about layout (ERD-169/ERD-170); implementing all pages in one go.
+
+Verification:
+- Doc reviewed; README or CLAUDE.md links to CONTENT-MODEL.md; team can point to one source of truth.",content;marketing;planning;fred
+ERD-195,Home page narrative arc beyond current hero (values transparency regional positioning),Product vision & marketing,Phase 10 - Product vision & marketing,P1,Backlog,10,ERD-168;ERD-169;ERD-194,"Extend GET / (public.home) with Terroirs-inspired storytelling: who we are, regional Berlin/Brandenburg positioning, transparency on sourcing and pricing. Builds on resources/views/marketing/home.blade.php. Depends on content model (ERD-194) for where copy lives. ERD-169 owns UX/visual redesign; this ticket adds the missing narrative sections and content structure Fred requested.","Add:
+- New homepage sections (or placeholders with clear copy keys) for: vision, trust/transparency, regional roots, and CTA path to signup.
+- i18n strings in lang/de.json and lang/en.json for all new UI copy.
+
+Remove:
+- Redundant placeholder blocks that duplicate the same message three times (where product agrees).
+
+Replace:
+- Generic marketing filler with Fred-approved messaging once product supplies copy.
+
+Out of scope:
+- Changing subscription or payment flows; hero video asset (existing newvid.mp4).
+
+Verification:
+- Manual: public.home renders; mobile stack reads clearly; no broken links; RouteGroupingTest still passes if route names unchanged.",marketing;frontend;fred;public.home
+ERD-196,About page depth sourcing philosophy team farm story FAQ expansion,Product vision & marketing,Phase 10 - Product vision & marketing,P2,Backlog,8,ERD-168;ERD-170;ERD-194,"Deepen GET /about (public.about): project story, sourcing philosophy, and FAQ aligned with Notion 'general information'. resources/views/marketing/about.blade.php. Coordinate with ERD-170 (UX redesign) so scope is content + structure; ERD-170 may still handle visual polish.","Add:
+- Additional sections: sourcing philosophy, how producers are chosen, FAQ block (accordion optional), link to producers listing and contact.
+- Structured headings for accessibility and SEO.
+
+Remove:
+- N/A
+
+Replace:
+- Thin placeholder paragraphs where Fred provides final copy.
+
+Out of scope:
+- Replacing producer mock photos (separate content task).
+
+Verification:
+- public.about loads; FAQ expandable if implemented; links to public.producers and public.contact work.",marketing;frontend;fred;public.about
+ERD-197,Optional Our model page pricing fairness and subscription economics,Product vision & marketing,Phase 10 - Product vision & marketing,P2,Backlog,6,ERD-168;ERD-199,Optional new route (e.g. GET /model or /fairness) explaining 30% margin vs 40% market context in plain language—not hidden only in config/box.php admin_planning_margin_rate. Customer-facing transparency per Fred plan. Depends on ERD-199 so numbers align with config and legal review.,"Add:
+- New marketing route + Blade view OR dedicated section on About if product prefers fewer routes.
+- Copy explaining subscription economics at a high level (no misleading precision); link to subscription signup.
+
+Remove:
+- N/A
+
+Replace:
+- N/A
+
+Out of scope:
+- Legal/financial advice; real-time margin calculation for customers.
+
+Verification:
+- Page loads; no contradictions with subscription checkout copy; i18n complete.",marketing;frontend;fred;pricing-transparency
+ERD-198,Productised offer definitions Trial Small Standard Big meals SKU eligibility,Commercial offer & pricing,Phase 11 - Commercial offer & pricing,P0,Backlog,16,ERD-189,"Encode Fred's offer table in product rules: Trial 35€ one-time; Small 20€; Standard 35€; Big 42€; meal counts (# meals 3 vs 6-7); product count ranges (5-8 vs 10-15); Big = +20% quantity vs Standard at same price/quantity ratio. Today: box_size small/medium/large maps to config/box.php included_value_* and composition_by_size. Trial is trial_price_ttc + trial_completed_at on subscriptions. Extend domain model (enums, validation, onboarding UI) so marketing and charges use one canonical definition. Aligns with Admin box planner ERD-190/193.","Add:
+- Documented offer matrix in docs or config; Subscription/box creation flows reflect Trial vs recurring sizes.
+- Validation rules preventing invalid combinations; clear customer copy for Trial vs Standard box.
+
+Remove:
+- Ambiguous use of 'medium' without mapping to 'Standard' in customer language (where product agrees).
+
+Replace:
+- Any hardcoded prices in Blade that duplicate config without a single source.
+
+Out of scope:
+- Automatic inventory allocation (ERD-191); payment provider changes.
+
+Verification:
+- Feature tests for subscription create/update with each box_size; config-driven amounts match expected_charge or documented rules.",subscription;pricing;domain;fred
+ERD-199,Align config box.php and customer copy with target cost margin display ops hint,Commercial offer & pricing,Phase 11 - Commercial offer & pricing,P1,Backlog,6,ERD-198,Surface target cost (13€/23€/27.5€) and 30% margin as ops hints in admin (already partially via admin_planning_margin_rate) and ensure customer-facing copy does not promise unrealistic COGS. Links: config/box.php admin_planning_margin_rate included_value_by_size.,"Add:
+- Admin UI helper text or tooltip showing implied target cost from margin rate (if not already complete).
+- Glossary for support: what numbers mean.
+
+Remove:
+- Customer-facing raw COGS if product considers it sensitive.
+
+Replace:
+- Misleading 'discount' language if economics change.
+
+Out of scope:
+- ERP integration.
+
+Verification:
+- Admin planner screens show consistent numbers; no PII; German strings.",admin;pricing;fred
+ERD-200,Eggs dairy add-on first-class line item in UI and charge breakdown,Commercial offer & pricing,Phase 11 - Commercial offer & pricing,P0,Backlog,8,ERD-198,preferences.eggs_dairy_add_on exists in SubscriptionStoreRequest and config eggs_dairy_add_on_eur. Ensure subscription show/edit onboarding and payment history clearly show add-on line item and total. Fred plan: ~4-5€ per box when opted in.,"Add:
+- Line-item display on app.subscriptions.show and payment-related views where amounts are shown.
+- Receipt-style breakdown in app.payments.history if not present.
+
+Remove:
+- N/A
+
+Replace:
+- Hidden add-on in a single lump sum without explanation.
+
+Out of scope:
+- Multiple dairy SKUs (shop-driven extras deferred to ERD-202/shop).
+
+Verification:
+- Feature test: toggle add-on changes expected charge amount and displayed breakdown.",subscription;payments;frontend;fred
+ERD-201,Delivery fee line item config charge math not included messaging,Commercial offer & pricing,Phase 11 - Commercial offer & pricing,P0,Backlog,12,ERD-198;ERD-208,"Fred plan: delivery cost not included in box price; pickup at storage/market free. Introduce config for delivery_fee_eur (or zone-based later), apply in charge calculation alongside box + add-ons, and show in customer copy. Depends on ERD-208 for fulfillment mode. Touches ChargeSubscriptions/SumUp amount assembly and app views.","Add:
+- Config keys and .env.example for delivery fee rules (flat rate MVP acceptable).
+- Charge pipeline includes delivery when address mode is delivery.
+- Clear copy: 'Delivery fee added at checkout' or equivalent.
+
+Remove:
+- N/A
+
+Replace:
+- Any assumption that shipping is always zero.
+
+Out of scope:
+- Zone-based fees (ERD-209 may extend).
+
+Verification:
+- Unit/integration tests on charge amount with/without delivery; no double charge.",delivery;payments;pricing;fred
+ERD-202,Meat optional occasional box modifier roadmap flag and admin catalog rules,Commercial offer & pricing,Phase 11 - Commercial offer & pricing,P2,Backlog,8,ERD-198;ERD-161,"Fred: meat not priority; optional add-on long-term; occasional KP Hendlhof-style products. Implement feature flag or catalog rules: meat_add_on preference, seasonal meat products, admin flags on products. composition_by_size may already pull categories—ensure meat can be excluded by default and enabled selectively.","Add:
+- Documented rules for when meat appears in box composition vs opt-in.
+- Admin ability to mark products as occasional/special (may reuse is_seasonal/is_available metadata).
+
+Remove:
+- N/A
+
+Replace:
+- N/A
+
+Out of scope:
+- Full meat subscription tier.
+
+Verification:
+- Box composition respects veg_only and meat_add_on preferences in tests.",catalog;box;fred
+ERD-203,Skip policy engine max skips per month yearly cap strike accrual,Subscription policy engine,Phase 12 - Subscription policy engine,P0,Backlog,20,ERD-175,"Replace open-ended skip with Fred rules: max 1 skip/month ideal; ~6 weeks/year; strike game (start with 2 skips +1 every 4 weeks if unused). app/Http/Controllers/SubscriptionController.php skipNextWeek; SubscriptionSkipCleanupService; DB fields for pause/skip tracking. May require new columns: skip_credits_used_this_month, skip_strikes_balance, last_accrual_at.","Add:
+- Domain service SkipPolicyService enforcing limits before allowing skip.
+- Persisted state for accrual; admin visibility for exceptions.
+
+Remove:
+- Unlimited skip if product forbids (configurable kill switch).
+
+Replace:
+- Ad-hoc skip with policy-tested flows.
+
+Out of scope:
+- Full gamification UI beyond clear messaging.
+
+Verification:
+- Feature tests: cannot skip when over limit; accrual cron or weekly job if specified by product.",subscription;domain;fred
+ERD-204,Give box to friend vs give to association separate flows eligibility,Subscription policy engine,Phase 12 - Subscription policy engine,P1,Backlog,8,ERD-176,"Extend gift flow: deliveries gift routes exist; add association donation path (recipient type, maybe no address—pickup hub) and eligibility rules. Fred plan: give to someone or association. Coordinate with DeliveryController gift/storeGift.","Add:
+- Recipient type enum: friend vs association; copy and validation for each.
+- If association: capture org name/contact or voucher handoff per product spec.
+
+Remove:
+- N/A
+
+Replace:
+- Single generic 'gift' copy that does not explain billing impact.
+
+Out of scope:
+- Tax receipts for donations.
+
+Verification:
+- Feature tests for gift store; subscriber still billed as per product rules.",delivery;subscription;fred
+ERD-205,Payment frequency weekly default vs monthly prepay with 5 percent discount,Subscription policy engine,Phase 12 - Subscription policy engine,P1,Backlog,16,ERD-189,Fred: weekly payment default; optional monthly prepay with 5% discount. SubscriptionPlan enum today: weekly|biweekly. Extend billing to support monthly prepay + discount in charge logic and SumUp amounts. Coordinate with ERD-189 manual vs scheduled charges.,"Add:
+- subscription plan or billing_mode field; discount application in charge service.
+- Customer UI to choose mode; clear APR-equivalent copy avoided.
+
+Remove:
+- N/A
+
+Replace:
+- Single weekly path only.
+
+Out of scope:
+- Annual billing.
+
+Verification:
+- Tests: monthly prepay totals = 4× weekly × 0.95 (or product formula); idempotent charges.",payments;subscription;fred
+ERD-206,Cancellation and pause notice one month advance rule enforce or communicate,Subscription policy engine,Phase 12 - Subscription policy engine,P0,Backlog,10,,"Fred: cancel/pause 1 month notice. Either enforce in SubscriptionController cancel/pause with earliest effective date, or show binding copy + email confirmation. Legal/product to confirm. subscription cancelled_at pause_from pause_until fields exist.","Add:
+- Business rule implementation OR explicit legal copy that notice is policy without technical enforcement.
+- Countdown or earliest effective date on cancel/pause UI.
+
+Remove:
+- Immediate cancel if product requires notice (configurable).
+
+Replace:
+- Ambiguous cancel button.
+
+Out of scope:
+- Dunning for unpaid weeks.
+
+Verification:
+- Feature tests for earliest cancel date; translations.",subscription;legal;fred
+ERD-207,Cut-off calendar for subscription week prefs extras box edit Wed deadline,Subscription policy box deadlines,Phase 12 - Subscription policy engine,P0,Backlog,14,ERD-190,Surface deadlines: change delivery prefs; add extras; modify box—Wed 23:59 example for week of 8–12 June. Link to box lock rules in Box model and admin planner. Customer sees countdown on app.boxes.current app.deliveries. Aligns with Fred June phased rollout note.,"Add:
+- Central DeadlineService or config for cut-off day-of-week and time (Europe/Berlin).
+- UI badges showing days/hours until lock for editable box.
+
+Remove:
+- Silent edits after lock without error.
+
+Replace:
+- Hardcoded deadline strings in Blade.
+
+Out of scope:
+- SMS reminders.
+
+Verification:
+- Tests for edge of week boundary; feature test read-only after lock.",box;delivery;fred
+ERD-208,Pickup vs delivery address types pricing rules free pickup hub market,Delivery & logistics,Phase 13 - Delivery & logistics,P0,Backlog,12,,Fred: pickup at storage/market free; delivery TBD. Add fulfillment_mode on delivery_preferences or address: pickup vs delivery; pricing in ERD-201. Models: DeliveryPreference Address Delivery in app/Models.,"Add:
+- Schema + UI for choosing pickup location vs delivery address.
+- Free pickup when mode is pickup; hide delivery fee when pickup.
+
+Remove:
+- N/A
+
+Replace:
+- Single address-only flow if product wants explicit pickup points.
+
+Out of scope:
+- Multi-hub pickup network optimization.
+
+Verification:
+- Migration reversible; feature tests for fee application.",delivery;address;fred
+ERD-209,Delivery zones PLZ area to allowed weekdays customer eligibility,Delivery & logistics,Phase 13 - Delivery & logistics,P0,Backlog,18,ERD-208,Fred: cannot serve Neukölln south and Prenzlauer Berg same day—zones map to delivery days. Implement delivery_zones table or JSON rules: postal code prefixes → allowed weekday set; validation at signup/address save. Admin CRUD optional in Phase 1.,"Add:
+- Zone model + validation on Address postal_code.
+- Customer error message when address out of service or wrong day.
+
+Remove:
+- N/A
+
+Replace:
+- One-size-fits-all timeslot without zone logic.
+
+Out of scope:
+- Map polygon drawing UI.
+
+Verification:
+- Tests for allowed/blocked PLZ; admin seed for Berlin zones.",delivery;zones;fred
+ERD-210,Route templates and max detour ops data model (not full solver),Delivery & logistics,Phase 13 - Delivery & logistics,P1,Backlog,8,ERD-209,Fred: standardized routes with small detours max 10 min. MVP: store route_template id on delivery or run sheet; fields for base route name and max_detour_minutes. No solver—ops assigns manually or CSV import.,"Add:
+- Tables or config structure for route templates linked to zones.
+- Admin or ops doc for how to assign routes.
+
+Remove:
+- N/A
+
+Replace:
+- N/A
+
+Out of scope:
+- OR-Tools vehicle routing.
+
+Verification:
+- Migrations; optional admin list view.",delivery;ops;fred
+ERD-211,Timeslot model extension restaurant vs B2C windows Wed–Fri delivery,Delivery & logistics,Phase 13 - Delivery & logistics,P1,Backlog,8,ERD-208;ERD-209,Fred: not on restaurant days; suggest Wed–Fri or Mon–Fri B2C end of day. Extend preferred_timeslot delivery_preferences to support multiple windows or link to zone defaults. Align Delivery model timeslot.,"Add:
+- Enum or structured timeslots (morning/evening) per zone/day.
+- Customer UI shows only valid slots for their address.
+
+Remove:
+- N/A
+
+Replace:
+- Free-text timeslot if product wants constrained choices.
+
+Out of scope:
+- Real-time driver tracking.
+
+Verification:
+- Tests for invalid slot rejected.",delivery;fred
+ERD-212,Multi-image product gallery schema admin upload PDP carousel,Shop & catalog UX,Phase 14 - Shop & catalog UX,P1,Backlog,8,ERD-161;ERD-178,Crowdfarming-style multiple photos per product. Today Product has image_path single. Add product_images table or JSON array; admin upload multiple; customer PDP carousel. ERD-178 owns PDP UX; this ticket is data + admin + minimal carousel.,"Add:
+- Migration + model relation ProductImage or media collection.
+- Admin forms for ordering images; alt text per image.
+
+Remove:
+- N/A
+
+Replace:
+- Single image assumption in shop views where updated.
+
+Out of scope:
+- CDN external to app storage.
+
+Verification:
+- Feature test admin upload; customer PDP shows gallery.",catalog;admin;media;fred
+ERD-213,Product facets tags origin taste producer category filter chips catalog,Shop & catalog UX,Phase 14 - Shop & catalog UX,P1,Backlog,12,ERD-178;ERD-212,Vinello-style tags: origin taste region producer. Use metadata JSON or tags table; filter chips on app.products.index. ERD-178 covers layout; extend ProductController queries + filters.,"Add:
+- Tag/facet taxonomy (config or DB); filter query params; chip UI.
+- i18n for facet labels.
+
+Remove:
+- N/A
+
+Replace:
+- Category-only filter if superseded.
+
+Out of scope:
+- Elasticsearch.
+
+Verification:
+- Tests: filter narrows results; published-only products.",catalog;shop;frontend;fred
+ERD-214,Sold-by-weight kg g steppers validation vs Product metadata,Shop & catalog UX,Phase 14 - Shop & catalog UX,P1,Backlog,10,ERD-178,Plattform2020-style quantity by weight. Extend product metadata: unit (kg|g|piece); min step; box quantity steppers on app.boxes and shop extras. Validate server-side.,"Add:
+- Metadata schema for weight units; quantity validation rules.
+- Accessible number inputs.
+
+Remove:
+- N/A
+
+Replace:
+- Integer-only quantity where weight products exist.
+
+Out of scope:
+- Scale integration at warehouse.
+
+Verification:
+- Unit tests for validation; manual PDP add flow.",catalog;box;fred
+ERD-215,Shop performance and SEO basics for expanded PDP (lazy load alt text),Shop & catalog UX,Phase 14 - Shop & catalog UX,P2,Backlog,4,ERD-212;ERD-213,After gallery and tags: lazy-load images; meta description per product; alt text required in admin. Lighthouse-friendly PDP.,"Add:
+- loading=lazy on img; meta tags from product fields.
+- SEO checklist in doc.
+
+Remove:
+- N/A
+
+Replace:
+- N/A
+
+Out of scope:
+- Full i18n SEO hreflang.
+
+Verification:
+- Manual Lighthouse spot check; no broken images.",frontend;seo;fred
+ERD-216,Delivery route run entity stops distance duration manual or CSV import v1,Operations & analytics,Phase 15 - Operations & analytics,P1,Backlog,8,ERD-210,Foundation for KPIs: store each route execution with stops count distance km duration minutes cost driver. MVP: manual admin create or CSV import; no telematics.,"Add:
+- delivery_route_runs table + model; admin create/edit minimal.
+- CSV import command optional.
+
+Remove:
+- N/A
+
+Replace:
+- N/A
+
+Out of scope:
+- GPS auto capture.
+
+Verification:
+- Migration; factory; admin list ERD-217 consumes.",ops;delivery;analytics;fred
+ERD-217,Ops dashboard widgets orders per route stops per hour cost delivery basket empty km,Operations & analytics,Phase 15 - Operations & analytics,P1,Backlog,12,ERD-184;ERD-185;ERD-187;ERD-216,Fred KPIs: orders per route; stops per hour; cost per delivery; average basket size; % empty kilometers. Extend AdminDashboardMetrics or new admin.ops routes; read from route runs + orders + payments. Complements ERD-185 (subscriber KPIs) but logistics-focused.,"Add:
+- Admin widgets or page with definitions and formulas documented.
+- Empty km % = (distance - allocated) / distance or per product definition.
+
+Remove:
+- N/A
+
+Replace:
+- N/A
+
+Out of scope:
+- Real-time map.
+
+Verification:
+- Feature tests with seeded route runs; no sensitive PII in widgets.",admin;analytics;fred
+ERD-218,Research spike HelloFresh big-box account UX document findings no code,Research & benchmarks,Phase 10 - Product vision & marketing,P3,Backlog,0,,Fred: try HelloFresh or similar for delivery account UX inspiration. Deliverable: docs/research/hellofresh-account-ux.md with screenshots (fair use) and bullet takeaways. No production code.,"Add:
+- docs/research/ markdown with dated notes and links.
+
+Remove:
+- N/A
+
+Replace:
+- N/A
+
+Out of scope:
+- Any app code change.
+
+Verification:
+- Doc exists; linked from erdgut-fred-product-backlog.md.",research;docs;fred
+ERD-219,Traceability audit every Notion bullet maps to ticket in backlog,Program management,Phase 10 - Product vision & marketing,P3,Backlog,2,,QA: verify docs/erdgut-fred-product-backlog.md Notion mapping table covers every item from Fred meeting (vision Terroirs shop inspirations box table delivery subscription KPIs research). Update matrix if gaps found.,"Add:
+- Final checklist in erdgut-fred-product-backlog.md with sign-off line.
+
+Remove:
+- Orphan Notion bullets without ticket.
+
+Replace:
+- N/A
+
+Out of scope:
+- Implementing tickets.
+
+Verification:
+- Product owner review tick.",planning;qa;fred

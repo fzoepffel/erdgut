@@ -17,13 +17,14 @@
 ## Ticket Tracking
 
 - **Ticket source**: Open tickets live in `erdgut-mvp-tickets.csv` at project root (columns: Ticket ID, Title, Epic, Phase, Priority, **Status**, Estimate Hours, …).
+- **Fred product roadmap (ERD-194+)**: Additional backlog rows for the Fred × Erdgut Notion plan live in `docs/erdgut-fred-product-backlog.csv` with the same columns. Index and Notion mapping: `docs/erdgut-fred-product-backlog.md`. When working those tickets, mark **Status** to `Done` in that file (same commit as code), not in `erdgut-mvp-tickets.csv`, unless rows are merged later.
 - **Find next ticket**: The next ticket is the first row where `Status` is not `Done` (e.g. `Backlog` or `In Progress`). Scan the CSV from top to bottom and pick the first such row.
-- **Mark ticket done** (mandatory): After completing a ticket, you MUST set its `Status` to `Done` in `erdgut-mvp-tickets.csv`. Replace the current status value (e.g. `Backlog`) with `Done` in that row. Include this CSV change in the same commit as the implementation—do not skip this step.
+- **Mark ticket done** (mandatory): After completing a ticket, you MUST set its `Status` to `Done` in the CSV where that ticket lives (`erdgut-mvp-tickets.csv` for ERD-001–ERD-193, `docs/erdgut-fred-product-backlog.csv` for ERD-194+). Replace the current status value (e.g. `Backlog`) with `Done` in that row. Include this CSV change in the same commit as the implementation—do not skip this step.
 
 ## Git Flow After Implementing a Ticket
 
 After implementing a ticket, always suggest this workflow:
-1. Mark the ticket as `Done` in `erdgut-mvp-tickets.csv` (mandatory, same commit as code).
+1. Mark the ticket as `Done` in the correct CSV (`erdgut-mvp-tickets.csv` or `docs/erdgut-fred-product-backlog.csv`, mandatory, same commit as code).
 2. Create a new branch for the ticket (e.g. `feature/erd-XXX-description`).
 3. Commit all changes (code + CSV) to this branch.
 4. Push the branch to origin.
