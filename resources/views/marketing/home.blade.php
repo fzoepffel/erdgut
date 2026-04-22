@@ -100,22 +100,22 @@
         <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
             <ul class="grid gap-10 reveal-stagger sm:grid-cols-2 lg:grid-cols-4" data-testid="home-trust-row">
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:0">
-                    <span class="eyebrow text-category-produce">{{ __('01') }}</span>
+                    <span class="eyebrow text-category-produce">01</span>
                     <p class="font-display text-xl text-brand-ink">{{ __('Regional producers') }}</p>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Food from farms and growers near Berlin.') }}</p>
                 </x-reveal>
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:1">
-                    <span class="eyebrow text-category-fish">{{ __('02') }}</span>
+                    <span class="eyebrow text-category-fish">02</span>
                     <p class="font-display text-xl text-brand-ink">{{ __('Transparent origins') }}</p>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Every product is tied to a named producer.') }}</p>
                 </x-reveal>
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:2">
-                    <span class="eyebrow text-category-meat">{{ __('03') }}</span>
+                    <span class="eyebrow text-category-meat">03</span>
                     <p class="font-display text-xl text-brand-ink">{{ __('Flexible delivery') }}</p>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Skip, postpone, or adjust when life changes.') }}</p>
                 </x-reveal>
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:3">
-                    <span class="eyebrow text-brand-ink">{{ __('04') }}</span>
+                    <span class="eyebrow text-brand-ink">04</span>
                     <p class="font-display text-xl text-brand-ink">{{ __('Secure payment') }}</p>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Card handling via SumUp—no card data stored on our servers.') }}</p>
                 </x-reveal>
