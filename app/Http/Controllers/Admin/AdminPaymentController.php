@@ -19,11 +19,13 @@ class AdminPaymentController extends Controller
         $dateField = $validated['date_field'] ?? 'created_at';
         $sort = $validated['sort'] ?? 'created_at';
         $direction = $validated['direction'] ?? 'desc';
+        $kind = $validated['kind'] ?? null;
 
         $query = Payment::query()
             ->select([
                 'id',
                 'subscription_id',
+                'order_id',
                 'amount',
                 'currency',
                 'status',
@@ -36,10 +38,22 @@ class AdminPaymentController extends Controller
             ->with([
                 'subscription:id,user_id,plan,status',
                 'subscription.user:id,email',
+                'order:id,user_id',
+                'order.user:id,email',
             ]);
+
+        if ($kind === 'subscription') {
+            $query->whereNotNull('subscription_id');
+        } elseif ($kind === 'order') {
+            $query->whereNotNull('order_id');
+        }
 
         if (! empty($validated['subscription_id'])) {
             $query->where('subscription_id', (int) $validated['subscription_id']);
+        }
+
+        if (! empty($validated['order_id'])) {
+            $query->where('order_id', (int) $validated['order_id']);
         }
 
         if (($validated['stale_pending'] ?? null) === '1') {
@@ -65,6 +79,7 @@ class AdminPaymentController extends Controller
         return view('admin.operations.payments.index', [
             'payments' => $payments,
             'dateField' => $dateField,
+            'kind' => $kind,
         ]);
     }
 }

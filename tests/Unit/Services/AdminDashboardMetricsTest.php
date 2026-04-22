@@ -85,6 +85,10 @@ class AdminDashboardMetricsTest extends TestCase
         $this->assertSame(1, $metrics->upcomingBillableCharges30dCount);
         $this->assertSame(20.0, $metrics->upcomingBillableAmount7d);
         $this->assertSame(20.0, $metrics->upcomingBillableAmount30d);
+        $this->assertSame(0, $metrics->trialOrdersPendingPayment);
+        $this->assertSame(0, $metrics->trialOrdersPaidNeedsScheduling);
+        $this->assertSame(0, $metrics->trialOrdersScheduledNeedsBox);
+        $this->assertSame(0, $metrics->trialOrdersReadyToDeliver);
     }
 
     public function test_upcoming_excludes_active_subscription_without_token(): void

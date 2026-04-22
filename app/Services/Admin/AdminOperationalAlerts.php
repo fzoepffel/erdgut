@@ -3,6 +3,7 @@
 namespace App\Services\Admin;
 
 use App\Enums\SubscriptionStatus;
+use App\Enums\OrderProductType;
 use App\Models\Payment;
 use App\Models\Subscription;
 use Illuminate\Support\Carbon;
@@ -101,7 +102,10 @@ final class AdminOperationalAlerts
                 severity: 'warning',
                 messageKey: 'admin.alerts.trial_orders_pending_scheduling',
                 messageParams: ['count' => $snapshot->trialOrdersPendingScheduling],
-                href: route('app.admin.orders.index', ['status' => 'paid'], false),
+                href: route('app.admin.orders.index', [
+                    'product_type' => OrderProductType::TrialBox->value,
+                    'status' => 'paid',
+                ], false),
                 linkTextKey: 'admin.alerts.link_trial_orders',
             );
         }
@@ -111,7 +115,10 @@ final class AdminOperationalAlerts
                 severity: 'info',
                 messageKey: 'admin.alerts.trial_orders_boxes_to_compose',
                 messageParams: ['count' => $snapshot->trialOrdersBoxesToCompose],
-                href: route('app.admin.orders.index', ['status' => 'scheduled'], false),
+                href: route('app.admin.orders.index', [
+                    'product_type' => OrderProductType::TrialBox->value,
+                    'status' => 'scheduled',
+                ], false),
                 linkTextKey: 'admin.alerts.link_trial_orders',
             );
         }

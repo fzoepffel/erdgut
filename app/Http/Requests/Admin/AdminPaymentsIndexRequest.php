@@ -19,6 +19,7 @@ class AdminPaymentsIndexRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'kind' => ['nullable', 'string', Rule::in(['subscription', 'order'])],
             'status' => ['nullable', 'string', Rule::in([
                 Payment::STATUS_PENDING,
                 Payment::STATUS_PAID,
@@ -32,6 +33,7 @@ class AdminPaymentsIndexRequest extends FormRequest
             'stale_pending' => ['nullable', 'string', Rule::in(['1'])],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
             'subscription_id' => ['nullable', 'integer', 'exists:subscriptions,id'],
+            'order_id' => ['nullable', 'integer', 'exists:orders,id'],
         ];
     }
 }
