@@ -3,6 +3,7 @@
 namespace Tests\Feature\Database;
 
 use App\Models\Producer;
+use App\Models\ProducerTranslation;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,24 +16,32 @@ class ProducerModelCrudTest extends TestCase
     public function test_producer_can_be_created_updated_and_deleted(): void
     {
         $producer = Producer::create([
-            'name' => 'Hof Sonnenfeld',
-            'region' => 'Bayern',
-            'description' => 'Familienbetrieb mit saisonalem Gemuese.',
             'image_url' => 'https://example.com/producers/sonnenfeld.jpg',
         ]);
 
         $this->assertDatabaseHas('producers', [
             'id' => $producer->id,
-            'name' => 'Hof Sonnenfeld',
-            'region' => 'Bayern',
+            'image_url' => 'https://example.com/producers/sonnenfeld.jpg',
         ]);
 
-        $producer->update([
-            'region' => 'Hessen',
-        ]);
+        foreach (['de', 'en', 'fr'] as $locale) {
+            ProducerTranslation::query()->create([
+                'producer_id' => $producer->id,
+                'locale' => $locale,
+                'name' => 'Hof Sonnenfeld',
+                'region' => 'Bayern',
+                'description' => 'Familienbetrieb mit saisonalem Gemüse.',
+            ]);
+        }
 
-        $this->assertDatabaseHas('producers', [
-            'id' => $producer->id,
+        ProducerTranslation::query()
+            ->where('producer_id', $producer->id)
+            ->where('locale', 'de')
+            ->update(['region' => 'Hessen']);
+
+        $this->assertDatabaseHas('producer_translations', [
+            'producer_id' => $producer->id,
+            'locale' => 'de',
             'region' => 'Hessen',
         ]);
 
@@ -40,6 +49,10 @@ class ProducerModelCrudTest extends TestCase
 
         $this->assertDatabaseMissing('producers', [
             'id' => $producer->id,
+        ]);
+
+        $this->assertDatabaseMissing('producer_translations', [
+            'producer_id' => $producer->id,
         ]);
     }
 

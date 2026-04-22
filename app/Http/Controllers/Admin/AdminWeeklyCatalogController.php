@@ -27,12 +27,25 @@ class AdminWeeklyCatalogController extends Controller
 
         $rows = $this->weeklyCatalog->rowsForWeek($monday);
 
+        $locale = app()->getLocale();
         $catalogProducts = Product::query()
+            ->select('products.*')
+            ->join('product_translations as pt', function ($join) use ($locale): void {
+                $join->on('pt.product_id', '=', 'products.id')->where('pt.locale', '=', $locale);
+            })
             ->visibleInCatalog()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+            ->with('translations')
+            ->orderBy('pt.name')
+            ->get(['products.id']);
 
-        $producers = Producer::query()->orderBy('name')->get(['id', 'name']);
+        $producers = Producer::query()
+            ->select('producers.*')
+            ->join('producer_translations as pt', function ($join) use ($locale): void {
+                $join->on('pt.producer_id', '=', 'producers.id')->where('pt.locale', '=', $locale);
+            })
+            ->with('translations')
+            ->orderBy('pt.name')
+            ->get(['producers.id']);
 
         $overCount = $rows->filter(fn (array $r): bool => (bool) ($r['over'] ?? false))->count();
 

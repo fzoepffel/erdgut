@@ -35,16 +35,18 @@ class AdminProducerTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('app.admin.producers.store'), [
-                'name' => 'Hof Sonnenfeld',
-                'region' => 'Uckermark',
-                'description' => 'Organic vegetables.',
+                'translations' => [
+                    'de' => ['name' => 'Hof Sonnenfeld', 'region' => 'Uckermark', 'description' => 'Bio-Gemüse aus der Region.'],
+                    'en' => ['name' => 'Sonnenfeld Farm', 'region' => 'Uckermark', 'description' => 'Organic vegetables from the region.'],
+                    'fr' => ['name' => 'Ferme Sonnenfeld', 'region' => 'Uckermark', 'description' => 'Légumes bio de la région.'],
+                ],
             ])
             ->assertRedirect();
 
-        $this->assertDatabaseHas('producers', [
+        $this->assertDatabaseHas('producer_translations', [
+            'locale' => 'de',
             'name' => 'Hof Sonnenfeld',
             'region' => 'Uckermark',
-            'is_test' => false,
         ]);
     }
 
@@ -56,12 +58,18 @@ class AdminProducerTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('app.admin.producers.store'), [
-                'name' => 'With Photo',
+                'translations' => [
+                    'de' => ['name' => 'With Photo', 'region' => 'Berlin', 'description' => 'Beschreibung.'],
+                    'en' => ['name' => 'With Photo', 'region' => 'Berlin', 'description' => 'Description.'],
+                    'fr' => ['name' => 'With Photo', 'region' => 'Berlin', 'description' => 'Description.'],
+                ],
                 'image' => $file,
             ])
             ->assertRedirect();
 
-        $producer = Producer::query()->where('name', 'With Photo')->firstOrFail();
+        $producer = Producer::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', 'With Photo'))
+            ->firstOrFail();
         $this->assertNotNull($producer->image_path);
         Storage::disk('public')->assertExists($producer->image_path);
     }
@@ -108,8 +116,10 @@ class AdminProducerTest extends TestCase
     public function test_admin_producers_index_filters_by_name_or_region(): void
     {
         $admin = User::factory()->admin()->create();
-        Producer::factory()->create(['name' => 'North Hill Farm', 'region' => 'Müritz']);
-        Producer::factory()->create(['name' => 'South Fields', 'region' => 'Spreewald']);
+        $a = Producer::factory()->create();
+        $b = Producer::factory()->create();
+        $a->translations()->where('locale', 'en')->update(['name' => 'North Hill Farm', 'region' => 'Müritz']);
+        $b->translations()->where('locale', 'en')->update(['name' => 'South Fields', 'region' => 'Spreewald']);
 
         $this->actingAs($admin)
             ->get(route('app.admin.producers.index', ['q' => 'North Hill']))

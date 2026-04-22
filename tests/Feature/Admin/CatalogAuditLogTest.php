@@ -28,13 +28,19 @@ class CatalogAuditLogTest extends TestCase
         $this->actingAs($admin)
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
-                'name' => 'Audit Apple',
+                'translations' => [
+                    'de' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'en' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'fr' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                ],
                 'category' => 'fruit',
                 'unit_price' => '1.00',
             ])
             ->assertRedirect();
 
-        $product = Product::query()->where('name', 'Audit Apple')->firstOrFail();
+        $product = Product::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', 'Audit Apple'))
+            ->firstOrFail();
 
         $this->assertDatabaseCount('catalog_audit_logs', 1);
         $this->assertDatabaseHas('catalog_audit_logs', [
@@ -47,7 +53,11 @@ class CatalogAuditLogTest extends TestCase
         $this->actingAs($admin)
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
-                'name' => 'Audit Apple Renamed',
+                'translations' => [
+                    'de' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'en' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'fr' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                ],
                 'category' => 'fruit',
                 'unit_price' => '2.00',
                 'is_available' => '1',
@@ -77,11 +87,17 @@ class CatalogAuditLogTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('app.admin.producers.store'), [
-                'name' => 'Audit Farm',
+                'translations' => [
+                    'de' => ['name' => 'Audit Farm', 'region' => 'Berlin', 'description' => '—'],
+                    'en' => ['name' => 'Audit Farm', 'region' => 'Berlin', 'description' => '—'],
+                    'fr' => ['name' => 'Audit Farm', 'region' => 'Berlin', 'description' => '—'],
+                ],
             ])
             ->assertRedirect();
 
-        $producer = Producer::query()->where('name', 'Audit Farm')->firstOrFail();
+        $producer = Producer::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', 'Audit Farm'))
+            ->firstOrFail();
 
         $this->assertTrue(
             CatalogAuditLog::query()->where('action', 'created')->where('auditable_id', $producer->id)->exists()

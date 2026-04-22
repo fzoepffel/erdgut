@@ -245,7 +245,8 @@ class DashboardPageTest extends TestCase
             'week_start_date' => now()->startOfWeek()->toDateString(),
             'estimated_value' => 44.20,
         ]);
-        $product = Product::factory()->create(['name' => 'Test Carrots']);
+        $product = Product::factory()->create();
+        $product->translations()->where('locale', 'en')->update(['name' => 'Test Carrots']);
         BoxItem::factory()->create([
             'box_id' => $currentBox->id,
             'product_id' => $product->id,

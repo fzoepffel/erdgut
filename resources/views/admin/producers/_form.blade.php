@@ -1,6 +1,7 @@
 @php
     /** @var \App\Models\Producer|null $producer */
     $isEdit = $producer !== null;
+    $locales = ['de' => 'DE', 'en' => 'EN', 'fr' => 'FR'];
 @endphp
 
 <form method="post" action="{{ $action }}" class="space-y-6" enctype="multipart/form-data">
@@ -9,22 +10,63 @@
         @method($method)
     @endif
 
-    <div>
-        <x-input-label for="name" :value="__('Name')" />
-        <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name', $producer?->name)" required />
-        <x-input-error class="mt-2" :messages="$errors->get('name')" />
-    </div>
+    <div class="space-y-6">
+        <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-gray-900">{{ __('Translations') }}</h2>
+            <p class="text-xs text-gray-600">{{ __('All three languages are required.') }}</p>
+        </div>
 
-    <div>
-        <x-input-label for="region" :value="__('Region')" />
-        <x-text-input id="region" name="region" type="text" class="mt-1 block w-full" :value="old('region', $producer?->region)" />
-        <x-input-error class="mt-2" :messages="$errors->get('region')" />
-    </div>
+        @foreach ($locales as $locale => $label)
+            @php
+                $t = $producer?->translations?->firstWhere('locale', $locale);
+            @endphp
 
-    <div>
-        <x-input-label for="description" :value="__('Description')" />
-        <textarea id="description" name="description" rows="4" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm">{{ old('description', $producer?->description) }}</textarea>
-        <x-input-error class="mt-2" :messages="$errors->get('description')" />
+            <div class="rounded border border-gray-200 bg-white p-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-sm font-semibold text-gray-900">{{ $label }}</p>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 gap-6">
+                    <div>
+                        <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" />
+                        <x-text-input
+                            :id="'translations_'.$locale.'_name'"
+                            :name="'translations['.$locale.'][name]'"
+                            type="text"
+                            class="mt-1 block w-full"
+                            :value="old('translations.'.$locale.'.name', $t?->name)"
+                            required
+                        />
+                        <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.name')" />
+                    </div>
+
+                    <div>
+                        <x-input-label :for="'translations_'.$locale.'_region'" :value="__('Region')" />
+                        <x-text-input
+                            :id="'translations_'.$locale.'_region'"
+                            :name="'translations['.$locale.'][region]'"
+                            type="text"
+                            class="mt-1 block w-full"
+                            :value="old('translations.'.$locale.'.region', $t?->region)"
+                            required
+                        />
+                        <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.region')" />
+                    </div>
+
+                    <div>
+                        <x-input-label :for="'translations_'.$locale.'_description'" :value="__('Description')" />
+                        <textarea
+                            id="{{ 'translations_'.$locale.'_description' }}"
+                            name="{{ 'translations['.$locale.'][description]' }}"
+                            rows="4"
+                            class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+                            required
+                        >{{ old('translations.'.$locale.'.description', $t?->description) }}</textarea>
+                        <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.description')" />
+                    </div>
+                </div>
+            </div>
+        @endforeach
     </div>
 
     <div>

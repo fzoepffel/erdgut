@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\StoreProductRequest;
 use App\Http\Requests\Admin\UpdateProductRequest;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductTranslation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -18,6 +19,14 @@ use Illuminate\View\View;
 
 class ProductController extends Controller
 {
+    /**
+     * @return list<string>
+     */
+    private function locales(): array
+    {
+        return ['de', 'en', 'fr'];
+    }
+
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Product::class);
@@ -29,15 +38,27 @@ class ProductController extends Controller
             'available' => ['nullable', 'string', Rule::in(['0', '1'])],
         ]);
 
-        $query = Product::query()->with('producer');
+        $locale = app()->getLocale();
+        $query = Product::query()
+            ->select('products.*')
+            ->join('product_translations as pt', function ($join) use ($locale): void {
+                $join->on('pt.product_id', '=', 'products.id')->where('pt.locale', '=', $locale);
+            })
+            ->leftJoin('producers', 'producers.id', '=', 'products.producer_id')
+            ->leftJoin('producer_translations as prt', function ($join) use ($locale): void {
+                $join->on('prt.producer_id', '=', 'producers.id')->where('prt.locale', '=', $locale);
+            })
+            ->with(['producer.translations', 'translations']);
 
         $search = isset($validated['q']) ? trim($validated['q']) : '';
         if ($search !== '') {
             $escaped = addcslashes($search, '%_\\');
             $query->where(function ($q) use ($escaped): void {
-                $q->where('name', 'like', '%'.$escaped.'%')
+                $q->where('pt.name', 'like', '%'.$escaped.'%')
                     ->orWhereHas('producer', function ($pq) use ($escaped): void {
-                        $pq->where('name', 'like', '%'.$escaped.'%');
+                        $pq->whereHas('translations', function ($tq) use ($escaped): void {
+                            $tq->where('locale', app()->getLocale())->where('name', 'like', '%'.$escaped.'%');
+                        });
                     });
             });
         }
@@ -56,7 +77,7 @@ class ProductController extends Controller
         }
 
         $products = $query
-            ->orderBy('name')
+            ->orderBy('pt.name')
             ->paginate(24)
             ->withQueryString();
 
@@ -71,7 +92,13 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         return view('admin.products.create', [
-            'producers' => Producer::query()->orderBy('name')->get(),
+            'producers' => Producer::query()
+                ->select('producers.*')
+                ->join('producer_translations as pt', function ($join): void {
+                    $join->on('pt.producer_id', '=', 'producers.id')->where('pt.locale', '=', app()->getLocale());
+                })
+                ->orderBy('pt.name')
+                ->get(),
             'categories' => ProductCategory::values(),
         ]);
     }
@@ -80,7 +107,9 @@ class ProductController extends Controller
     {
         $this->authorize('create', Product::class);
 
-        $payload = $this->normalizedPayload($this->validatedProductAttributes($request->validated(), ['image']));
+        $validated = $request->validated();
+        $payload = $this->normalizedPayload($this->validatedProductAttributes($validated, ['image', 'translations']));
+        $translations = $validated['translations'];
 
         $product = DB::transaction(function () use ($payload, $request): Product {
             $product = Product::query()->create($payload);
@@ -93,6 +122,21 @@ class ProductController extends Controller
             return $product->fresh();
         });
 
+        DB::transaction(function () use ($product, $translations): void {
+            foreach ($this->locales() as $locale) {
+                ProductTranslation::query()->updateOrCreate(
+                    ['product_id' => $product->id, 'locale' => $locale],
+                    [
+                        'name' => $translations[$locale]['name'],
+                        'unit' => $translations[$locale]['unit'],
+                        'origin' => $translations[$locale]['origin'],
+                        'variety' => $translations[$locale]['variety'],
+                        'taste_profile' => $translations[$locale]['taste_profile'],
+                    ]
+                );
+            }
+        });
+
         return redirect()
             ->route('app.admin.products.edit', $product)
             ->with('status', __('Product created.'));
@@ -103,8 +147,14 @@ class ProductController extends Controller
         $this->authorize('update', $product);
 
         return view('admin.products.edit', [
-            'product' => $product->load('producer'),
-            'producers' => Producer::query()->orderBy('name')->get(),
+            'product' => $product->load(['producer', 'translations']),
+            'producers' => Producer::query()
+                ->select('producers.*')
+                ->join('producer_translations as pt', function ($join): void {
+                    $join->on('pt.producer_id', '=', 'producers.id')->where('pt.locale', '=', app()->getLocale());
+                })
+                ->orderBy('pt.name')
+                ->get(),
             'categories' => ProductCategory::values(),
         ]);
     }
@@ -113,7 +163,9 @@ class ProductController extends Controller
     {
         $this->authorize('update', $product);
 
-        $payload = $this->normalizedPayload($this->validatedProductAttributes($request->validated(), ['image', 'remove_image']));
+        $validated = $request->validated();
+        $payload = $this->normalizedPayload($this->validatedProductAttributes($validated, ['image', 'remove_image', 'translations']));
+        $translations = $validated['translations'];
 
         if ($request->boolean('remove_image')) {
             $this->deletePublicImage($product->image_path);
@@ -127,6 +179,21 @@ class ProductController extends Controller
                 $this->deletePublicImage($product->refresh()->image_path);
                 $path = $this->storeUploadedImage($request->file('image'), $product);
                 $product->update(['image_path' => $path]);
+            }
+        });
+
+        DB::transaction(function () use ($product, $translations): void {
+            foreach ($this->locales() as $locale) {
+                ProductTranslation::query()->updateOrCreate(
+                    ['product_id' => $product->id, 'locale' => $locale],
+                    [
+                        'name' => $translations[$locale]['name'],
+                        'unit' => $translations[$locale]['unit'],
+                        'origin' => $translations[$locale]['origin'],
+                        'variety' => $translations[$locale]['variety'],
+                        'taste_profile' => $translations[$locale]['taste_profile'],
+                    ]
+                );
             }
         });
 

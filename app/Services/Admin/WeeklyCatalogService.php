@@ -3,6 +3,7 @@
 namespace App\Services\Admin;
 
 use App\Models\Product;
+use App\Models\ProductTranslation;
 use App\Models\ProductWeekStock;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -32,7 +33,7 @@ final class WeeklyCatalogService
         /** @var Collection<int, ProductWeekStock> $stocks */
         $stocks = ProductWeekStock::query()
             ->whereDate('week_start_date', $date)
-            ->with('product')
+            ->with('product.translations')
             ->get()
             ->sortBy(fn (ProductWeekStock $s) => $s->product?->name ?? '')
             ->values();
@@ -92,17 +93,33 @@ final class WeeklyCatalogService
                         'producer_id' => isset($new['producer_id']) && $new['producer_id'] !== ''
                             ? (int) $new['producer_id']
                             : null,
-                        'name' => (string) ($new['name'] ?? ''),
                         'category' => (string) ($new['category'] ?? ''),
                         'unit_price' => $unitPrice,
                         'is_seasonal' => false,
                         'is_available' => true,
                         'is_published' => isset($new['is_published']) ? (bool) $new['is_published'] : true,
-                        'metadata' => array_filter([
-                            'unit' => $unit,
-                        ], fn ($v) => $v !== null && $v !== ''),
+                        'metadata' => null,
                         'is_test' => false,
                     ]);
+
+                    $name = (string) ($new['name'] ?? '');
+                    $unitText = (string) ($unit ?? '');
+                    $defaults = [
+                        'origin' => 'regional',
+                        'variety' => '-',
+                        'taste_profile' => '-',
+                    ];
+                    foreach (['de', 'en', 'fr'] as $locale) {
+                        ProductTranslation::query()->create([
+                            'product_id' => $product->id,
+                            'locale' => $locale,
+                            'name' => $name,
+                            'unit' => $unitText,
+                            'origin' => $defaults['origin'],
+                            'variety' => $defaults['variety'],
+                            'taste_profile' => $defaults['taste_profile'],
+                        ]);
+                    }
 
                     ProductWeekStock::create([
                         'product_id' => $product->id,

@@ -6,6 +6,14 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreProducerRequest extends FormRequest
 {
+    /**
+     * @return list<string>
+     */
+    private function locales(): array
+    {
+        return ['de', 'en', 'fr'];
+    }
+
     public function authorize(): bool
     {
         return $this->user()?->can('admin') ?? false;
@@ -16,10 +24,19 @@ class StoreProducerRequest extends FormRequest
      */
     public function rules(): array
     {
+        $rules = [
+            'translations' => ['required', 'array'],
+        ];
+
+        foreach ($this->locales() as $locale) {
+            $rules["translations.$locale"] = ['required', 'array'];
+            $rules["translations.$locale.name"] = ['required', 'string', 'max:255'];
+            $rules["translations.$locale.region"] = ['required', 'string', 'max:255'];
+            $rules["translations.$locale.description"] = ['required', 'string'];
+        }
+
         return [
-            'name' => ['required', 'string', 'max:255'],
-            'region' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            ...$rules,
             'image_url' => ['nullable', 'string', 'max:2048'],
             'is_test' => ['boolean'],
             'image' => ['nullable', 'image', 'max:5120'],

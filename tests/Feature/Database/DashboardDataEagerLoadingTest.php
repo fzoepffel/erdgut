@@ -29,8 +29,11 @@ class DashboardDataEagerLoadingTest extends TestCase
                 'primaryAddress',
                 'subscriptions.payments',
                 'payments',
+                'boxes.items.product.translations',
+                'boxes.items.product.producer.translations',
                 'boxes.items.product.producer',
                 'boxes.products',
+                'boxes.products.translations',
                 'deliveries.address',
             ])
             ->findOrFail($user->id);
@@ -69,8 +72,11 @@ class DashboardDataEagerLoadingTest extends TestCase
                 'primaryAddress',
                 'subscriptions.payments',
                 'payments',
+                'boxes.items.product.translations',
+                'boxes.items.product.producer.translations',
                 'boxes.items.product.producer',
                 'boxes.products',
+                'boxes.products.translations',
                 'deliveries.address',
             ])
             ->findOrFail($userId);

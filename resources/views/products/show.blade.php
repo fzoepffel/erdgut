@@ -53,10 +53,13 @@
                             </p>
                         </div>
 
-                        @if (! empty($product->description))
+                        @php
+                            $tasteProfile = $product->localizedTasteProfile();
+                        @endphp
+                        @if ($tasteProfile !== '')
                             <div class="space-y-3">
-                                <p class="eyebrow text-brand-ink/60">{{ __('About') }}</p>
-                                <p class="text-base leading-relaxed text-brand-ink/80">{{ $product->description }}</p>
+                                <p class="eyebrow text-brand-ink/60">{{ __('Taste profile') }}</p>
+                                <p class="text-base leading-relaxed text-brand-ink/80">{{ $tasteProfile }}</p>
                             </div>
                         @endif
                     </div>

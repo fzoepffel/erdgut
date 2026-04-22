@@ -17,7 +17,8 @@ class AdminBoxController extends Controller
 
         $box->load([
             'user:id,email',
-            'items' => fn ($q) => $q->orderBy('id')->with('product:id,name'),
+            'items' => fn ($q) => $q->orderBy('id')->with('product:id'),
+            'items.product.translations',
         ]);
 
         $catalogQuery = Product::query();
@@ -26,9 +27,15 @@ class AdminBoxController extends Controller
         } else {
             $catalogQuery->visibleInCatalog();
         }
+        $locale = app()->getLocale();
         $catalogProducts = $catalogQuery
-            ->orderBy('name')
-            ->get(['id', 'name']);
+            ->select('products.*')
+            ->join('product_translations as pt', function ($join) use ($locale): void {
+                $join->on('pt.product_id', '=', 'products.id')->where('pt.locale', '=', $locale);
+            })
+            ->with('translations')
+            ->orderBy('pt.name')
+            ->get(['products.id']);
 
         $subscription = Subscription::query()
             ->where('user_id', $box->user_id)
