@@ -6,7 +6,7 @@
 
     <dl class="mt-6 space-y-2 text-sm">
         <div class="flex justify-between"><dt>{{ __('Order #') }}</dt><dd class="font-mono">{{ $order->id }}</dd></div>
-        <div class="flex justify-between"><dt>{{ __('Box size') }}</dt><dd>{{ ucfirst($order->box_size) }}</dd></div>
+        <div class="flex justify-between"><dt>{{ __('Box size') }}</dt><dd>{{ __(ucfirst($order->box_size)) }}</dd></div>
         <div class="flex justify-between"><dt>{{ __('Status') }}</dt><dd>{{ $order->status->label() }}</dd></div>
     </dl>
 

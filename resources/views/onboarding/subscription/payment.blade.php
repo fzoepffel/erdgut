@@ -8,7 +8,7 @@
 
     <div class="mt-4 border border-brand-ink/15 bg-white/60 p-4 text-sm space-y-1">
         <div class="flex justify-between"><span>{{ __('Plan') }}</span><span>{{ ucfirst($subscription->plan->value) }}</span></div>
-        <div class="flex justify-between"><span>{{ __('Box size') }}</span><span>{{ ucfirst($subscription->box_size) }}</span></div>
+        <div class="flex justify-between"><span>{{ __('Box size') }}</span><span>{{ __(ucfirst($subscription->box_size)) }}</span></div>
         <div class="flex justify-between"><span>{{ __('First box') }}</span><span>EUR {{ number_format((float) config('box.trial_price_ttc', 35), 2) }}</span></div>
     </div>
 

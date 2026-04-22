@@ -26,7 +26,7 @@
                 <dl class="px-6 py-5 grid sm:grid-cols-2 gap-4 text-sm">
                     <div>
                         <dt class="text-brand-ink/60">{{ __('Box size') }}</dt>
-                        <dd class="mt-1 font-medium">{{ ucfirst($order->box_size) }}</dd>
+                        <dd class="mt-1 font-medium">{{ __(ucfirst($order->box_size)) }}</dd>
                     </div>
                     <div>
                         <dt class="text-brand-ink/60">{{ __('Delivery window') }}</dt>

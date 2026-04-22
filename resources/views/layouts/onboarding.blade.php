@@ -52,7 +52,7 @@
                                     @php($data = $draft->data ?? [])
                                     <div class="flex justify-between">
                                         <dt>{{ __('Size') }}</dt>
-                                        <dd class="font-medium">{{ ucfirst($data['box_size'] ?? '—') }}</dd>
+                                        <dd class="font-medium">{{ isset($data['box_size']) ? __(ucfirst($data['box_size'])) : '—' }}</dd>
                                     </div>
                                     <div class="flex justify-between">
                                         <dt>{{ __('Intent') }}</dt>

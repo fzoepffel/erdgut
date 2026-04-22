@@ -8,7 +8,7 @@
 
     <div class="mt-4 border border-brand-ink/15 bg-white/60 p-4 text-sm space-y-1">
         <div class="flex justify-between"><span>{{ __('Order #') }}</span><span class="font-mono">{{ $order->id }}</span></div>
-        <div class="flex justify-between"><span>{{ __('Box size') }}</span><span>{{ ucfirst($order->box_size) }}</span></div>
+        <div class="flex justify-between"><span>{{ __('Box size') }}</span><span>{{ __(ucfirst($order->box_size)) }}</span></div>
         <div class="flex justify-between"><span>{{ __('Amount') }}</span><span>EUR {{ number_format((float) $order->amount, 2) }}</span></div>
     </div>
 

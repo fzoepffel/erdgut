@@ -10,12 +10,12 @@
         <fieldset>
             <legend class="text-sm font-semibold">{{ __('Box size') }}</legend>
             <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                @foreach(['small' => '~6 items (EUR 20 value)', 'medium' => '~11 items (EUR 35 value)', 'large' => '~15 items (EUR 42 value)'] as $size => $desc)
+                @foreach(['small', 'medium', 'large'] as $size)
                     <label class="border border-brand-ink/30 p-4 flex items-start gap-2 cursor-pointer has-[:checked]:border-category-produce has-[:checked]:bg-category-produce/5">
                         <input type="radio" name="box_size" value="{{ $size }}" {{ ($data['box_size'] ?? 'medium') === $size ? 'checked' : '' }} class="mt-1">
                         <span>
-                            <span class="block font-medium">{{ ucfirst($size) }}</span>
-                            <span class="block text-xs text-brand-ink/70">{{ $desc }}</span>
+                            <span class="block font-medium">{{ __(ucfirst($size)) }}</span>
+                            <span class="block text-xs text-brand-ink/70">{{ __('box_size.description.' . $size) }}</span>
                         </span>
                     </label>
                 @endforeach

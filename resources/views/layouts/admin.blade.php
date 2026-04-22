@@ -37,6 +37,9 @@
                             </svg>
                         </button>
                         <span class="text-sm font-semibold text-amber-900">{{ __('Administration') }}</span>
+                        <div class="ml-auto">
+                            <x-language-selector align="right" />
+                        </div>
                     </header>
 
                     @isset($header)

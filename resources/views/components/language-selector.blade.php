@@ -22,13 +22,14 @@
         data-current-locale="{{ $current }}"
         class="inline-flex"
     >
-        <x-dropdown align="{{ $align }}" width="40">
+        <x-dropdown align="{{ $align }}" width="48">
             <x-slot name="trigger">
                 <button
                     type="button"
-                    class="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-ink/80 transition hover:text-brand-ink focus:outline-none"
+                    class="inline-flex items-center gap-2 rounded-full px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-ink/80 transition hover:text-brand-ink focus:outline-none"
                     aria-label="{{ __('Language') }}"
                 >
+                    <x-flag :locale="$current" class="h-4 w-6 shrink-0 overflow-hidden rounded-sm ring-1 ring-brand-ink/10" />
                     <span>{{ strtoupper($current) }}</span>
                     @unless ($isCompact)
                         <svg class="h-3 w-3 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" aria-hidden="true">
@@ -46,11 +47,12 @@
                     @endphp
                     <a
                         href="{{ route('public.locale.switch', $code) }}"
-                        class="flex items-center justify-between px-4 py-2 text-sm transition hover:bg-brand-ink/5 {{ $isActive ? 'font-semibold text-brand-ink' : 'text-brand-ink/80' }}"
+                        class="flex items-center gap-3 px-4 py-2 text-sm transition hover:bg-brand-ink/5 {{ $isActive ? 'font-semibold text-brand-ink' : 'text-brand-ink/80' }}"
                         data-locale="{{ $code }}"
                         @if ($isActive) aria-current="true" @endif
                     >
-                        <span>{{ $label }}</span>
+                        <x-flag :locale="$code" class="h-4 w-6 shrink-0 overflow-hidden rounded-sm ring-1 ring-brand-ink/10" />
+                        <span class="flex-1">{{ $label }}</span>
                         <span class="text-xs uppercase tracking-wide text-brand-ink/40">{{ strtoupper($code) }}</span>
                     </a>
                 @endforeach

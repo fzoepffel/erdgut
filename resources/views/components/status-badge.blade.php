@@ -15,7 +15,10 @@
         default => 'bg-brand-ink/10 text-brand-ink/80',
     };
 
-    $label = ucfirst(str_replace('_', ' ', $statusValue));
+    $humanLabel = ucfirst(str_replace('_', ' ', $statusValue));
+    $translationKey = 'status.' . $statusValue;
+    $translated = __($translationKey);
+    $label = $translated === $translationKey ? $humanLabel : $translated;
 @endphp
 
 <span {{ $attributes->class([$baseClasses, $statusClasses]) }} data-status-type="{{ $type }}">

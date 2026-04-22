@@ -1,30 +1,32 @@
 @extends('emails.layout')
 
 @section('content')
-    <h2 style="margin-top:0; color:#111827;">Your trial box is confirmed</h2>
+    <h2 style="margin-top:0; color:#111827;">{{ __('emails.trial_confirmation.heading') }}</h2>
 
-    <p>Hi {{ $order->user->name }},</p>
+    <p>{{ __('emails.greeting', ['name' => $order->user->name]) }}</p>
 
     <p>
-        Thanks for trying Erdgut! We've received your payment for a <strong>{{ ucfirst($order->box_size) }}</strong>
-        trial box (EUR {{ number_format((float) $order->amount, 2, ',', '.') }}, one-time, no subscription).
+        {!! __('emails.trial_confirmation.intro', [
+            'size' => '<strong>'.e(__(ucfirst($order->box_size))).'</strong>',
+            'amount' => number_format((float) $order->amount, 2, ',', '.'),
+        ]) !!}
     </p>
 
     <p>
-        We'll confirm your exact delivery date within {{ $promiseDays }} days
+        {{ __('emails.trial_confirmation.delivery_line', ['days' => $promiseDays]) }}
         @if($order->preferred_delivery_window)
-            (you asked for: <em>{{ $order->preferred_delivery_window }}</em>)
+            ({{ __('emails.trial_confirmation.requested_window') }} <em>{{ $order->preferred_delivery_window }}</em>)
         @endif
-        and send a reminder before we knock on your door.
+        {{ __('emails.trial_confirmation.reminder_line') }}
     </p>
 
     <p style="margin-top:24px;">
         <a href="{{ url('/app/dashboard') }}" style="background:#047857;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;">
-            View my order
+            {{ __('emails.trial_confirmation.cta') }}
         </a>
     </p>
 
     <p style="margin-top:32px;color:#6b7280;font-size:14px;">
-        Order #{{ $order->id }}
+        {{ __('emails.order_ref', ['id' => $order->id]) }}
     </p>
 @endsection

@@ -52,7 +52,7 @@
                         class="inline-flex items-center justify-center p-2 text-brand-ink md:hidden"
                         @click="open = !open"
                         :aria-expanded="open"
-                        aria-label="Toggle navigation"
+                        aria-label="{{ __('Toggle navigation') }}"
                     >
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16" />

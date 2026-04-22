@@ -24,8 +24,8 @@
                 </tr>
                 <tr>
                     <td style="padding: 24px 32px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280;">
-                        <p style="margin: 0;">&copy; {{ date('Y') }} Erdgut. Farm-to-consumer produce.</p>
-                        <p style="margin: 8px 0 0 0;">Transparent sourcing. Fair pricing. Weekly delivery.</p>
+                        <p style="margin: 0;">&copy; {{ date('Y') }} Erdgut. {{ __('emails.layout.tagline') }}</p>
+                        <p style="margin: 8px 0 0 0;">{{ __('emails.layout.subtagline') }}</p>
                     </td>
                 </tr>
             </table>

@@ -156,5 +156,8 @@
                 {{ __('Log Out') }}
             </button>
         </form>
+        <div class="mt-3 px-3">
+            <x-language-selector align="left" />
+        </div>
     </div>
 </aside>

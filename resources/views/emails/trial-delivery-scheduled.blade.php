@@ -1,29 +1,32 @@
 @extends('emails.layout')
 
 @section('content')
-    <h2 style="margin-top:0; color:#111827;">Your delivery date is set</h2>
+    <h2 style="margin-top:0; color:#111827;">{{ __('emails.trial_scheduled.heading') }}</h2>
 
-    <p>Hi {{ $order->user->name }},</p>
+    <p>{{ __('emails.greeting', ['name' => $order->user->name]) }}</p>
 
     <p>
-        Good news — your trial box will arrive on
-        <strong>{{ optional($order->scheduled_for_date)->format('l, d F Y') }}</strong>
+        {!! __('emails.trial_scheduled.intro', [
+            'date' => '<strong>'.e(optional($order->scheduled_for_date)->format('l, d F Y')).'</strong>',
+        ]) !!}
         @if($order->preferred_timeslot)
-            between <strong>{{ $order->preferred_timeslot }}</strong>
+            {!! __('emails.trial_scheduled.between', [
+                'slot' => '<strong>'.e($order->preferred_timeslot).'</strong>',
+            ]) !!}
         @endif.
     </p>
 
     <p>
-        We'll send a short reminder the day before. If you need to change anything, just reply to this email.
+        {{ __('emails.trial_scheduled.reminder_line') }}
     </p>
 
     <p style="margin-top:24px;">
         <a href="{{ url('/app/dashboard') }}" style="background:#047857;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;">
-            View order details
+            {{ __('emails.trial_scheduled.cta') }}
         </a>
     </p>
 
     <p style="margin-top:32px;color:#6b7280;font-size:14px;">
-        Order #{{ $order->id }}
+        {{ __('emails.order_ref', ['id' => $order->id]) }}
     </p>
 @endsection
