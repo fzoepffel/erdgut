@@ -14,9 +14,12 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|fraunces:400,500,600,700,800&display=swap" rel="stylesheet" />
 
-        @vite(['resources/css/app.css'])
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
+        <div class="absolute right-4 top-4 sm:right-6 sm:top-6">
+            <x-language-selector variant="compact" />
+        </div>
         <div
             data-testid="coming-soon"
             class="flex min-h-screen flex-col items-center justify-center px-6 py-16 text-center"

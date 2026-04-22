@@ -32,6 +32,7 @@
                     </nav>
 
                     <div class="hidden items-center gap-3 md:flex">
+                        <x-language-selector />
                         @auth
                             <x-ghost-link :href="route('app.dashboard')">
                                 {{ __('Dashboard') }}
@@ -67,7 +68,11 @@
                         <a href="{{ route('public.producers') }}" class="block text-brand-ink/80">{{ __('Producers') }}</a>
                         <a href="{{ route('public.contact') }}" class="block text-brand-ink/80">{{ __('Contact') }}</a>
                     </div>
-                    <div class="mt-5 space-y-3 border-t border-brand-ink/10 pt-5">
+                    <div class="mt-5 border-t border-brand-ink/10 pt-5">
+                        <div class="mb-4">
+                            <x-language-selector align="left" />
+                        </div>
+                        <div class="space-y-3">
                         @auth
                             <x-ghost-link :href="route('app.dashboard')" class="w-full justify-center">
                                 {{ __('Dashboard') }}
@@ -78,6 +83,7 @@
                                 {{ __('Sign up') }}
                             </x-solid-link>
                         @endauth
+                        </div>
                     </div>
                 </div>
             </header>

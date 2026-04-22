@@ -19,13 +19,16 @@
                         <x-application-logo variant="outline" class="h-10 w-auto" />
                         <span class="font-display text-lg font-semibold">{{ config('app.name', 'Erdgut') }}</span>
                     </a>
-                    @auth
-                        <form method="POST" action="{{ route('auth.logout') }}">@csrf
-                            <button type="submit" class="text-sm text-brand-ink/60 hover:text-brand-ink underline-offset-4 hover:underline">{{ __('Log out') }}</button>
-                        </form>
-                    @else
-                        <a href="{{ route('auth.login') }}" class="text-sm text-brand-ink/60 hover:text-brand-ink underline-offset-4 hover:underline">{{ __('Log in') }}</a>
-                    @endauth
+                    <div class="flex items-center gap-4">
+                        <x-language-selector />
+                        @auth
+                            <form method="POST" action="{{ route('auth.logout') }}">@csrf
+                                <button type="submit" class="text-sm text-brand-ink/60 hover:text-brand-ink underline-offset-4 hover:underline">{{ __('Log out') }}</button>
+                            </form>
+                        @else
+                            <a href="{{ route('auth.login') }}" class="text-sm text-brand-ink/60 hover:text-brand-ink underline-offset-4 hover:underline">{{ __('Log in') }}</a>
+                        @endauth
+                    </div>
                 </div>
             </header>
 

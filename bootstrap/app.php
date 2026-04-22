@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureOnboardingDraft;
 use App\Http\Middleware\EnsureSubscriberHasPayment;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\VerifySumUpWebhookSignature;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
@@ -31,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->append(SecurityHeaders::class);
+        $middleware->web(append: [SetLocale::class]);
         $middleware->redirectGuestsTo('/auth/login');
         $middleware->redirectUsersTo('/app/dashboard');
         $middleware->alias([

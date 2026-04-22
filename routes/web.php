@@ -19,6 +19,7 @@ use App\Http\Controllers\BoxController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DeliveryPreferencesController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Marketing\AboutController;
 use App\Http\Controllers\Marketing\ComingSoonController;
 use App\Http\Controllers\Marketing\ContactController;
@@ -52,6 +53,10 @@ Route::name('public.')->group(function () {
     Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact')->name('contact.store');
 
     Route::get('/health', HealthcheckController::class)->name('health');
+
+    Route::get('/locale/{locale}', [LocaleController::class, 'switch'])
+        ->whereAlpha('locale')
+        ->name('locale.switch');
 });
 
 // Onboarding wizard — guest-allowed entry, auth enforced after the account step.

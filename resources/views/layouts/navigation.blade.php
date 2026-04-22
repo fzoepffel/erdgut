@@ -39,7 +39,8 @@
                 </div>
             </div>
 
-            <div class="hidden sm:flex sm:items-center">
+            <div class="hidden sm:flex sm:items-center sm:gap-2">
+                <x-language-selector />
                 <x-dropdown align="right" width="56">
                     <x-slot name="trigger">
                         <button type="button" class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-brand-ink/80 transition duration-200 hover:text-brand-ink focus:outline-none">
@@ -141,6 +142,10 @@
                 <x-responsive-nav-link :href="route('account.profile.edit')">
                     {{ __('Account settings') }}
                 </x-responsive-nav-link>
+
+                <div class="px-4 py-2">
+                    <x-language-selector align="left" />
+                </div>
 
                 <form method="POST" action="{{ route('auth.logout') }}">
                     @csrf
