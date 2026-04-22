@@ -49,6 +49,10 @@ class AdminDeliveryController extends Controller
             $query->where('status', DeliveryStatus::from($validated['status']));
         }
 
+        if (($validated['trial_only'] ?? null) === '1') {
+            $query->whereNotNull('order_id');
+        }
+
         if (! empty($validated['date_from'])) {
             $query->whereDate('scheduled_for_date', '>=', $validated['date_from']);
         }

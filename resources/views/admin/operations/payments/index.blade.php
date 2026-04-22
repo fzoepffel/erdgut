@@ -1,6 +1,8 @@
 @php
     $hasFilters = filled(request('status'))
+        || filled(request('kind'))
         || filled(request('subscription_id'))
+        || filled(request('order_id'))
         || filled(request('date_from'))
         || filled(request('date_to'))
         || (request('date_field') && request('date_field') !== 'created_at');
@@ -21,6 +23,18 @@
                         <input type="hidden" name="sort" value="{{ request('sort', 'created_at') }}" />
                         <input type="hidden" name="direction" value="{{ request('direction', 'desc') }}" />
                         <div class="w-full sm:w-auto">
+                            <label for="admin-pay-kind" class="mb-1 block text-xs font-medium text-gray-600">{{ __('Type') }}</label>
+                            <select
+                                id="admin-pay-kind"
+                                name="kind"
+                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-44"
+                            >
+                                <option value="">{{ __('All') }}</option>
+                                <option value="subscription" @selected(request('kind') === 'subscription')>{{ __('Subscription') }}</option>
+                                <option value="order" @selected(request('kind') === 'order')>{{ __('Trial order') }}</option>
+                            </select>
+                        </div>
+                        <div class="w-full sm:w-auto">
                             <label for="admin-pay-subscription" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.filter_subscription_id') }}</label>
                             <input
                                 id="admin-pay-subscription"
@@ -28,6 +42,18 @@
                                 name="subscription_id"
                                 min="1"
                                 value="{{ request('subscription_id') }}"
+                                placeholder="ID"
+                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-32"
+                            />
+                        </div>
+                        <div class="w-full sm:w-auto">
+                            <label for="admin-pay-order" class="mb-1 block text-xs font-medium text-gray-600">{{ __('Order') }} ID</label>
+                            <input
+                                id="admin-pay-order"
+                                type="number"
+                                name="order_id"
+                                min="1"
+                                value="{{ request('order_id') }}"
                                 placeholder="ID"
                                 class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-32"
                             />
@@ -79,7 +105,8 @@
                                     <tr class="text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                                         <th scope="col" class="py-2 pe-4">ID</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.user') }}</th>
-                                        <th scope="col" class="py-2 pe-4">{{ __('admin.operations.subscription') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('Type') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('Source') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.amount') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.status') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.attempt') }}</th>
@@ -93,8 +120,21 @@
                                     @foreach ($payments as $payment)
                                         <tr data-testid="admin-payment-row-{{ $payment->id }}">
                                             <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $payment->id }}</td>
-                                            <td class="py-3 pe-4 text-gray-900">{{ $payment->subscription?->user?->email ?? '—' }}</td>
-                                            <td class="py-3 pe-4 tabular-nums text-gray-600">#{{ $payment->subscription_id }}</td>
+                                            <td class="py-3 pe-4 text-gray-900">
+                                                {{ $payment->subscription?->user?->email ?? $payment->order?->user?->email ?? '—' }}
+                                            </td>
+                                            <td class="py-3 pe-4 text-gray-600">
+                                                {{ $payment->subscription_id ? __('Subscription') : __('Trial order') }}
+                                            </td>
+                                            <td class="py-3 pe-4 tabular-nums text-gray-600">
+                                                @if ($payment->subscription_id)
+                                                    #{{ $payment->subscription_id }}
+                                                @elseif ($payment->order_id)
+                                                    #{{ $payment->order_id }}
+                                                @else
+                                                    —
+                                                @endif
+                                            </td>
                                             <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $payment->amount }} {{ $payment->currency }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $payment->status }}</td>
                                             <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $payment->attempt_number }}</td>

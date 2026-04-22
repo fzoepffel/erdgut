@@ -11,6 +11,18 @@
 
             <div class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
                 <form method="get" class="flex flex-wrap items-end gap-3">
+                    @if (! empty($productType))
+                        <input type="hidden" name="product_type" value="{{ $productType }}" />
+                    @endif
+                    @if (request('needs_schedule'))
+                        <input type="hidden" name="needs_schedule" value="{{ request('needs_schedule') }}" />
+                    @endif
+                    @if (request('needs_box'))
+                        <input type="hidden" name="needs_box" value="{{ request('needs_box') }}" />
+                    @endif
+                    @if (request('ready_to_deliver'))
+                        <input type="hidden" name="ready_to_deliver" value="{{ request('ready_to_deliver') }}" />
+                    @endif
                     <div>
                         <label for="status" class="mb-1 block text-xs font-medium text-gray-600">{{ __('Status') }}</label>
                         <select id="status" name="status" class="rounded-md border-gray-300 text-sm">

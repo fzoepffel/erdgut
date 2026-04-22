@@ -63,6 +63,49 @@
             </section>
 
             <section class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 class="font-semibold text-gray-800">{{ __('Payments') }}</h3>
+                    <a
+                        href="{{ route('app.admin.payments.index', ['kind' => 'order', 'order_id' => $order->id]) }}"
+                        class="text-sm font-medium text-emerald-700 hover:underline"
+                    >
+                        {{ __('Open in payments') }}
+                    </a>
+                </div>
+
+                @if ($order->payments->isEmpty())
+                    <p class="mt-3 text-sm text-gray-500">{{ __('No payments found.') }}</p>
+                @else
+                    <div class="mt-3 overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr class="text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                    <th class="px-3 py-2">ID</th>
+                                    <th class="px-3 py-2">{{ __('admin.operations.amount') }}</th>
+                                    <th class="px-3 py-2">{{ __('admin.operations.status') }}</th>
+                                    <th class="px-3 py-2">{{ __('admin.operations.created_at') }}</th>
+                                    <th class="px-3 py-2">paid_at</th>
+                                    <th class="px-3 py-2">failed_at</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($order->payments as $payment)
+                                    <tr>
+                                        <td class="px-3 py-2 font-mono text-gray-700">#{{ $payment->id }}</td>
+                                        <td class="px-3 py-2 tabular-nums text-gray-700">{{ $payment->amount }} {{ $payment->currency }}</td>
+                                        <td class="px-3 py-2 text-gray-700">{{ $payment->status }}</td>
+                                        <td class="px-3 py-2 text-gray-600">{{ $payment->created_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') }}</td>
+                                        <td class="px-3 py-2 text-gray-600">{{ $payment->paid_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>
+                                        <td class="px-3 py-2 text-gray-600">{{ $payment->failed_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </section>
+
+            <section class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
                 <div class="flex items-center justify-between">
                     <h3 class="font-semibold text-gray-800">{{ __('Box') }}</h3>
                     <form method="post" action="{{ route('app.admin.orders.compose', $order) }}">

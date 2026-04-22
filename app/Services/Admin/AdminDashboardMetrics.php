@@ -3,6 +3,7 @@
 namespace App\Services\Admin;
 
 use App\Console\Commands\ChargeSubscriptions;
+use App\Enums\OrderProductType;
 use App\Enums\OrderStatus;
 use App\Enums\SubscriptionStatus;
 use App\Models\Order;
@@ -76,22 +77,49 @@ final class AdminDashboardMetrics
 
         $thirtyDaysAgo = $today->copy()->subDays(30);
 
+        $trialOrdersPendingPayment = (int) Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
+            ->where('status', OrderStatus::PendingPayment->value)
+            ->count();
+
+        $trialOrdersPaidNeedsScheduling = (int) Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
+            ->where('status', OrderStatus::Paid->value)
+            ->whereNull('scheduled_for_date')
+            ->count();
+
+        $trialOrdersScheduledNeedsBox = (int) Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
+            ->where('status', OrderStatus::Scheduled->value)
+            ->whereNull('box_id')
+            ->count();
+
+        $trialOrdersReadyToDeliver = (int) Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
+            ->where('status', OrderStatus::Scheduled->value)
+            ->whereNotNull('box_id')
+            ->count();
+
         $trialOrdersPendingScheduling = (int) Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
             ->where('status', OrderStatus::Paid->value)
             ->whereNull('scheduled_for_date')
             ->count();
 
         $trialOrdersBoxesToCompose = (int) Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
             ->whereIn('status', [OrderStatus::Paid->value, OrderStatus::Scheduled->value])
             ->whereNull('box_id')
             ->count();
 
         $trialOrdersDeliveredLast30d = (int) Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
             ->where('status', OrderStatus::Delivered->value)
             ->where('delivered_at', '>=', $thirtyDaysAgo)
             ->count();
 
         $trialOrdersConvertedLast30d = (int) Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
             ->where('status', OrderStatus::Delivered->value)
             ->where('delivered_at', '>=', $thirtyDaysAgo)
             ->whereHas('user.subscriptions', function ($q) {
@@ -119,6 +147,10 @@ final class AdminDashboardMetrics
             upcomingBillableCharges30dCount: $candidates30->count(),
             upcomingBillableAmount7d: round($amount7, 2),
             upcomingBillableAmount30d: round($amount30, 2),
+            trialOrdersPendingPayment: $trialOrdersPendingPayment,
+            trialOrdersPaidNeedsScheduling: $trialOrdersPaidNeedsScheduling,
+            trialOrdersScheduledNeedsBox: $trialOrdersScheduledNeedsBox,
+            trialOrdersReadyToDeliver: $trialOrdersReadyToDeliver,
             trialOrdersPendingScheduling: $trialOrdersPendingScheduling,
             trialOrdersBoxesToCompose: $trialOrdersBoxesToCompose,
             trialOrdersDeliveredLast30d: $trialOrdersDeliveredLast30d,

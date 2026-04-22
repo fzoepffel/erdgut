@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\BoxStatus;
 use App\Enums\DeliveryStatus;
+use App\Enums\OrderProductType;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Mail\TrialDeliveryScheduledMail;
@@ -25,12 +26,30 @@ class AdminOrderController extends Controller
         $this->authorize('admin');
 
         $status = $request->string('status')->toString();
+        $productType = $request->string('product_type')->toString();
+
         $query = Order::query()
             ->with(['user:id,email,name', 'address:id,street_line_1,postal_code,city'])
             ->latest();
 
+        if ($productType !== '' && in_array($productType, array_column(OrderProductType::cases(), 'value'), true)) {
+            $query->where('product_type', $productType);
+        }
+
         if ($status !== '' && in_array($status, array_column(OrderStatus::cases(), 'value'), true)) {
             $query->where('status', $status);
+        }
+
+        if ($request->boolean('needs_schedule')) {
+            $query->whereNull('scheduled_for_date');
+        }
+
+        if ($request->boolean('needs_box')) {
+            $query->whereNull('box_id');
+        }
+
+        if ($request->boolean('ready_to_deliver')) {
+            $query->whereNotNull('box_id');
         }
 
         $orders = $query->paginate(25)->withQueryString();
@@ -38,6 +57,7 @@ class AdminOrderController extends Controller
         return view('admin.orders.index', [
             'orders' => $orders,
             'status' => $status,
+            'productType' => $productType,
             'statuses' => OrderStatus::cases(),
         ]);
     }
