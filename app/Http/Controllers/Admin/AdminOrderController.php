@@ -7,10 +7,13 @@ use App\Enums\DeliveryStatus;
 use App\Enums\OrderProductType;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminTrialOrderBoxSetupApplyRequest;
 use App\Mail\TrialDeliveryScheduledMail;
 use App\Models\Box;
 use App\Models\Delivery;
 use App\Models\Order;
+use App\Services\Admin\TrialWeeklyBoxSetupService;
+use App\Services\Admin\WeeklyBoxPlannerService;
 use App\Support\BoxCompositionService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -74,15 +77,51 @@ class AdminOrderController extends Controller
             'payments' => fn ($q) => $q->latest(),
         ]);
 
+        $setupWeek = null;
+        $setupData = null;
+        if ($order->product_type === OrderProductType::TrialBox
+            && in_array($order->status, [OrderStatus::Paid, OrderStatus::Scheduled], true)
+        ) {
+            $setupWeek = $this->resolveMondayForTrialSetup($order, request()->string('week')->toString());
+
+            $setupService = app(TrialWeeklyBoxSetupService::class);
+            $setupData = $setupService->buildInitialDistribution($setupWeek, [$order->id]);
+        }
+
         return view('admin.orders.show', [
             'order' => $order,
             'timeslots' => Delivery::allowedTimeslots(),
+            'setupWeek' => $setupWeek,
+            'setupData' => $setupData,
         ]);
+    }
+
+    public function applyBoxSetup(AdminTrialOrderBoxSetupApplyRequest $request, Order $order): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        $week = Carbon::parse($request->validated('week_start_date'))->startOfDay();
+        $sizes = $request->sizeLines();
+
+        $setupService = app(TrialWeeklyBoxSetupService::class);
+        $updated = $setupService->applyDistribution($week, [$order->id], $sizes);
+
+        return redirect()
+            ->route('app.admin.orders.show', ['order' => $order, 'week' => $week->toDateString()])
+            ->with('status', __('admin.trial_order_box_setup.flash_applied', ['count' => $updated]));
     }
 
     public function schedule(Request $request, Order $order): RedirectResponse
     {
         $this->authorize('admin');
+
+        if ($order->product_type === OrderProductType::TrialBox) {
+            $order->loadMissing(['box.items' => fn ($q) => $q->where('is_extra', false)]);
+            $hasBoxWithItems = $order->box !== null && $order->box->items->isNotEmpty();
+            if (! $hasBoxWithItems) {
+                return back()->with('status', __('admin.trial_order_schedule.validation_needs_box'));
+            }
+        }
 
         $validated = $request->validate([
             'scheduled_for_date' => ['required', 'date', 'after_or_equal:today'],
@@ -133,6 +172,12 @@ class AdminOrderController extends Controller
     {
         $this->authorize('admin');
 
+        if ($order->product_type === OrderProductType::TrialBox) {
+            return redirect()
+                ->route('app.admin.orders.show', $order)
+                ->with('status', __('admin.trial_order_box_setup.flash_redirected_from_compose'));
+        }
+
         if ($order->status === OrderStatus::Cancelled || $order->status === OrderStatus::Refunded) {
             return back()->with('status', 'order-not-composable');
         }
@@ -172,5 +217,25 @@ class AdminOrderController extends Controller
         return redirect()
             ->route('app.admin.orders.show', $order)
             ->with('status', 'order-delivered');
+    }
+
+    private function resolveMondayForTrialSetup(Order $order, string $weekQuery): Carbon
+    {
+        if ($weekQuery !== '') {
+            $candidate = Carbon::parse($weekQuery)->startOfDay();
+            if ($candidate->isMonday()) {
+                return $candidate;
+            }
+        }
+
+        $boxWeek = $order->box?->week_start_date;
+        if ($boxWeek !== null) {
+            $d = Carbon::parse($boxWeek)->startOfDay();
+            if ($d->isMonday()) {
+                return $d;
+            }
+        }
+
+        return WeeklyBoxPlannerService::defaultUpcomingWeekMonday();
     }
 }

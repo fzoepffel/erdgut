@@ -10,7 +10,8 @@
             @endif
 
             <div class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-                <form method="get" class="flex flex-wrap items-end gap-3">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <form method="get" class="flex flex-wrap items-end gap-3">
                     @if (! empty($productType))
                         <input type="hidden" name="product_type" value="{{ $productType }}" />
                     @endif
@@ -34,9 +35,19 @@
                     </div>
                     <button class="inline-flex rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white">{{ __('Filter') }}</button>
                     @if ($status)
-                        <a href="{{ route('app.admin.orders.index') }}" class="text-sm text-gray-600 underline">{{ __('Reset') }}</a>
+                        <a href="{{ route('app.admin.orders.index', array_filter(['product_type' => $productType])) }}" class="text-sm text-gray-600 underline">{{ __('Reset') }}</a>
                     @endif
-                </form>
+                    </form>
+
+                    @if ($productType === 'trial_box')
+                        <a
+                            href="{{ route('app.admin.trial-boxes.setup.select') }}"
+                            class="inline-flex items-center justify-center rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"
+                        >
+                            {{ __('admin.trial_box_setup.bulk_entrypoint') }}
+                        </a>
+                    @endif
+                </div>
             </div>
 
             <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
