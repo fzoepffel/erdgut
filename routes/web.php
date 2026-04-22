@@ -223,10 +223,6 @@ Route::middleware(['auth', 'verified'])
 
             Route::get('orders', [AdminOrderController::class, 'index'])->name('orders.index');
             Route::get('orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
-            Route::post('orders/{order}/box-setup', [AdminOrderController::class, 'applyBoxSetup'])
-                ->whereNumber('order')
-                ->middleware('throttle:12,1')
-                ->name('orders.box-setup.apply');
             Route::post('orders/{order}/schedule', [AdminOrderController::class, 'schedule'])
                 ->middleware('throttle:30,1')
                 ->name('orders.schedule');
