@@ -96,4 +96,3 @@ class AdminTrialBoxSetupController extends Controller
         return WeeklyBoxPlannerService::defaultUpcomingWeekMonday();
     }
 }
-

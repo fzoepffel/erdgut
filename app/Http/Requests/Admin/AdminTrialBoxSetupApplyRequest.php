@@ -177,4 +177,3 @@ class AdminTrialBoxSetupApplyRequest extends FormRequest
         return $sizes;
     }
 }
-
