@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-produce">{{ __('Step 1 of 2') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('Step 1 of 2') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Create subscription') }}
             </h1>
@@ -10,8 +10,8 @@
 
     <div class="py-10 sm:py-16">
         <div class="mx-auto max-w-3xl space-y-8 px-4 sm:px-6 lg:px-8">
-            <div class="border border-category-produce/40 bg-category-produce/5 px-4 py-3">
-                <p class="eyebrow text-category-produce">{{ __('Step 1 of 2: Box and preferences') }}</p>
+            <div class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3">
+                <p class="eyebrow text-chapter-produce">{{ __('Step 1 of 2: Box and preferences') }}</p>
                 <p class="mt-2 text-sm text-brand-ink/80">{{ __('After creating your subscription, you will set up payment on the next page (step 2).') }}</p>
             </div>
 
@@ -28,12 +28,12 @@
                         <p class="mt-2 text-sm text-brand-ink/70">{{ __('How often we bill and plan your box cycle.') }}</p>
                         <div class="mt-4 space-y-3">
                             @foreach (\App\Enums\SubscriptionPlan::cases() as $planOption)
-                                <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-category-produce has-[:checked]:bg-category-produce/5">
+                                <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
                                     <input
                                         type="radio"
                                         name="plan"
                                         value="{{ $planOption->value }}"
-                                        class="mt-1 border-brand-ink/30 text-category-produce focus:ring-category-produce"
+                                        class="mt-1 border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
                                         @checked(old('plan', $subscription->plan->value) === $planOption->value)
                                         required
                                     />
@@ -58,7 +58,7 @@
                         <select
                             id="box_size"
                             name="box_size"
-                            class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream px-4 py-2.5 text-base text-brand-ink focus:border-category-produce focus:outline-none focus:ring-0"
+                            class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream px-4 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
                             required
                         >
                             @foreach (['small', 'medium', 'large'] as $size)
@@ -85,7 +85,7 @@
                                 name="preferences[veg_only]"
                                 value="1"
                                 @checked((bool) old('preferences.veg_only', data_get($subscription->preferences, 'veg_only', false)))
-                                class="border-brand-ink/30 text-category-produce focus:ring-category-produce"
+                                class="border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
                             />
                             <span class="text-sm text-brand-ink">{{ __('Veg option only') }}</span>
                         </label>
@@ -96,7 +96,7 @@
                                 name="preferences[meat_add_on]"
                                 value="1"
                                 @checked((bool) old('preferences.meat_add_on', data_get($subscription->preferences, 'meat_add_on', false)))
-                                class="border-brand-ink/30 text-category-produce focus:ring-category-produce"
+                                class="border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
                             />
                             <span class="text-sm text-brand-ink">{{ __('Meat add-on') }}</span>
                         </label>
@@ -107,7 +107,7 @@
                                 name="preferences[eggs_dairy_add_on]"
                                 value="1"
                                 @checked((bool) old('preferences.eggs_dairy_add_on', data_get($subscription->preferences, 'eggs_dairy_add_on', false)))
-                                class="mt-1 border-brand-ink/30 text-category-produce focus:ring-category-produce"
+                                class="mt-1 border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
                             />
                             <span>
                                 <span class="block text-sm text-brand-ink">{{ __('Eggs or dairy add-on') }}</span>

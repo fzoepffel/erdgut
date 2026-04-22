@@ -19,7 +19,7 @@
 
             <div class="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8 lg:pb-24">
                 <x-reveal variant="fade" class="mb-8">
-                    <x-application-logo variant="outline" :with-wordmark="false" class="h-20 w-auto opacity-90 invert brightness-0 sm:h-24" alt="" />
+                    <x-application-logo variant="white" :with-wordmark="false" class="h-20 w-auto opacity-90 sm:h-24" alt="" />
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="100">
                     <p class="eyebrow text-brand-cream/80">{{ __('Farm-to-consumer in Berlin') }}</p>
@@ -100,17 +100,17 @@
         <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
             <ul class="grid gap-10 reveal-stagger sm:grid-cols-2 lg:grid-cols-4" data-testid="home-trust-row">
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:0">
-                    <span class="eyebrow text-category-produce">01</span>
+                    <span class="eyebrow text-chapter-produce">01</span>
                     <p class="font-display text-xl text-brand-ink">{{ __('Regional producers') }}</p>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Food from farms and growers near Berlin.') }}</p>
                 </x-reveal>
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:1">
-                    <span class="eyebrow text-category-fish">02</span>
+                    <span class="eyebrow text-chapter-fish">02</span>
                     <p class="font-display text-xl text-brand-ink">{{ __('Transparent origins') }}</p>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Every product is tied to a named producer.') }}</p>
                 </x-reveal>
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-3" style="--i:2">
-                    <span class="eyebrow text-category-meat">03</span>
+                    <span class="eyebrow text-chapter-meat">03</span>
                     <p class="font-display text-xl text-brand-ink">{{ __('Flexible delivery') }}</p>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Skip, postpone, or adjust when life changes.') }}</p>
                 </x-reveal>
@@ -144,11 +144,11 @@
                         ['slug' => 'meat', 'label' => __('Butcher'), 'tagline' => __('Pasture-raised cuts'), 'image' => 'stalls/meat/scene.jpg'],
                     ];
                     $stallColor = [
-                        'produce' => 'text-category-produce',
+                        'produce' => 'text-chapter-produce',
                         'bakery' => 'text-brand-ink',
                         'dairy' => 'text-brand-ink',
-                        'fish' => 'text-category-fish',
-                        'meat' => 'text-category-meat',
+                        'fish' => 'text-chapter-fish',
+                        'meat' => 'text-chapter-meat',
                     ];
                 @endphp
                 @foreach ($stalls as $i => $stall)
@@ -168,10 +168,10 @@
 
     {{-- Trial promo --}}
     @if ((bool) config('features.trial_orders_enabled', true))
-    <section class="border-b border-brand-ink/10 bg-category-produce/5" aria-labelledby="home-trial-heading" data-testid="home-trial-section">
+    <section class="border-b border-brand-ink/10 bg-chapter-produce/5" aria-labelledby="home-trial-heading" data-testid="home-trial-section">
         <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
             <div>
-                <p class="eyebrow text-category-produce">{{ __('No commitment') }}</p>
+                <p class="eyebrow text-chapter-produce">{{ __('No commitment') }}</p>
                 <h2 id="home-trial-heading" class="mt-3 font-display text-3xl font-semibold leading-tight text-brand-ink sm:text-4xl">
                     {{ __('Try one box before you commit.') }}
                 </h2>
@@ -181,7 +181,7 @@
             </div>
             <a
                 href="{{ route('app.onboarding.start', ['intent' => 'trial']) }}"
-                class="btn-solid bg-category-produce text-white hover:bg-category-produce/90 px-6 py-3 text-sm font-semibold uppercase tracking-eyebrow"
+                class="btn-solid bg-chapter-produce text-white hover:bg-chapter-produce/90 px-6 py-3 text-sm font-semibold uppercase tracking-eyebrow"
                 data-testid="home-trial-cta"
             >
                 {{ __('Try a box') }}
@@ -234,7 +234,7 @@
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="150">
                     <blockquote class="mt-8 font-display text-3xl leading-snug text-brand-cream sm:text-4xl lg:text-5xl">
-                        <span aria-hidden="true" class="text-category-produce/80">“</span>{{ __('Join Berlin households supporting local food') }}<span aria-hidden="true" class="text-category-produce/80">”</span>
+                        <span aria-hidden="true" class="text-chapter-produce/80">“</span>{{ __('Join Berlin households supporting local food') }}<span aria-hidden="true" class="text-chapter-produce/80">”</span>
                     </blockquote>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="300">
@@ -252,21 +252,21 @@
             <h2 id="home-values-heading" class="sr-only">{{ __('What you get with Erdgut') }}</h2>
             <div class="grid gap-12 reveal-stagger md:grid-cols-3" data-testid="home-value-cards">
                 <x-reveal as="article" variant="fade-up" class="flex flex-col gap-4 border-t border-brand-ink/20 pt-8" style="--i:0">
-                    <p class="eyebrow text-category-produce">{{ __('Producers') }}</p>
+                    <p class="eyebrow text-chapter-produce">{{ __('Producers') }}</p>
                     <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ __('Know every producer') }}</h3>
                     <p class="text-sm leading-relaxed text-brand-ink/70">
                         {{ __('Products link back to people and places—not anonymous supply chains—so you can trust what lands in your kitchen.') }}
                     </p>
                 </x-reveal>
                 <x-reveal as="article" variant="fade-up" class="flex flex-col gap-4 border-t border-brand-ink/20 pt-8" style="--i:1">
-                    <p class="eyebrow text-category-fish">{{ __('Your week') }}</p>
+                    <p class="eyebrow text-chapter-fish">{{ __('Your week') }}</p>
                     <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ __('Built around your week') }}</h3>
                     <p class="text-sm leading-relaxed text-brand-ink/70">
                         {{ __('See deadlines, tweak your box when it is editable, and align delivery with your routine.') }}
                     </p>
                 </x-reveal>
                 <x-reveal as="article" variant="fade-up" class="flex flex-col gap-4 border-t border-brand-ink/20 pt-8" style="--i:2">
-                    <p class="eyebrow text-category-meat">{{ __('Fair share') }}</p>
+                    <p class="eyebrow text-chapter-meat">{{ __('Fair share') }}</p>
                     <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ __('Fair share for farmers') }}</h3>
                     <p class="text-sm leading-relaxed text-brand-ink/70">
                         {{ __('We focus on direct relationships and clear value so more of what you pay supports the people who grow your food.') }}
@@ -280,7 +280,7 @@
     <section class="relative" aria-labelledby="home-bottom-cta-heading">
         <div class="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6 sm:py-32 lg:px-8">
             <x-reveal variant="fade-up">
-                <p class="eyebrow text-category-produce">{{ __('Join the table') }}</p>
+                <p class="eyebrow text-chapter-produce">{{ __('Join the table') }}</p>
             </x-reveal>
             <x-reveal variant="fade-up" delay="150">
                 <h2 id="home-bottom-cta-heading" class="mt-6 font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl lg:text-6xl">

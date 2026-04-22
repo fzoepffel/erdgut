@@ -11,7 +11,7 @@
             <legend class="text-sm font-semibold">{{ __('Box size') }}</legend>
             <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 @foreach(['small', 'medium', 'large'] as $size)
-                    <label class="border border-brand-ink/30 p-4 flex items-start gap-2 cursor-pointer has-[:checked]:border-category-produce has-[:checked]:bg-category-produce/5">
+                    <label class="border border-brand-ink/30 p-4 flex items-start gap-2 cursor-pointer has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
                         <input type="radio" name="box_size" value="{{ $size }}" {{ ($data['box_size'] ?? 'medium') === $size ? 'checked' : '' }} class="mt-1">
                         <span>
                             <span class="block font-medium">{{ __(ucfirst($size)) }}</span>
@@ -50,7 +50,7 @@
         </div>
 
         <div class="flex justify-end pt-2">
-            <button type="submit" class="bg-category-produce text-white px-5 py-2 font-medium hover:bg-category-produce/90">{{ __('Continue') }}</button>
+            <button type="submit" class="bg-chapter-produce text-white px-5 py-2 font-medium hover:bg-chapter-produce/90">{{ __('Continue') }}</button>
         </div>
     </form>
 @endsection

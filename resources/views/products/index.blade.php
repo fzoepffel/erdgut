@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-produce">{{ __('products.index_title') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('products.index_title') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Five stalls, curated weekly.') }}
             </h1>
@@ -51,7 +51,7 @@
                                 </div>
                                 <div class="flex flex-1 flex-col gap-2">
                                     @if ($catEnum)
-                                        <x-category-badge :category="$catEnum" />
+                                        <x-chapter-badge :category="$catEnum" />
                                     @else
                                         <span class="eyebrow text-brand-ink/60">{{ $product->category }}</span>
                                     @endif

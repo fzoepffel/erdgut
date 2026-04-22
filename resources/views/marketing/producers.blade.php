@@ -5,7 +5,7 @@
         <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
             <div class="max-w-4xl">
                 <x-reveal variant="fade-up">
-                    <p class="eyebrow text-category-produce">{{ __('Local producer network') }}</p>
+                    <p class="eyebrow text-chapter-produce">{{ __('Local producer network') }}</p>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="100">
                     <h1 id="producers-hero-heading" class="mt-5 font-display text-5xl font-semibold leading-[1.05] tracking-tight text-brand-ink sm:text-6xl lg:text-7xl">
@@ -37,7 +37,7 @@
                         <select
                             id="filter-region"
                             name="region"
-                            class="mt-2 block w-full border-0 border-b border-brand-ink/25 bg-transparent px-0 py-2 text-sm text-brand-ink focus:border-category-produce focus:outline-none focus:ring-0"
+                            class="mt-2 block w-full border-0 border-b border-brand-ink/25 bg-transparent px-0 py-2 text-sm text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
                         >
                             <option value="">{{ __('All regions') }}</option>
                             @foreach ($regions as $regionOption)
@@ -54,7 +54,7 @@
                             value="{{ $filters['q'] }}"
                             maxlength="100"
                             placeholder="{{ __('Producer name or keywords…') }}"
-                            class="mt-2 block w-full border-0 border-b border-brand-ink/25 bg-transparent px-0 py-2 text-sm text-brand-ink placeholder:text-brand-ink/40 focus:border-category-produce focus:outline-none focus:ring-0"
+                            class="mt-2 block w-full border-0 border-b border-brand-ink/25 bg-transparent px-0 py-2 text-sm text-brand-ink placeholder:text-brand-ink/40 focus:border-chapter-produce focus:outline-none focus:ring-0"
                         >
                     </div>
                     <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -124,7 +124,7 @@
                             >
                         </div>
                         <div class="flex flex-1 flex-col gap-3">
-                            <p class="eyebrow text-category-produce">{{ $producer->region }}</p>
+                            <p class="eyebrow text-chapter-produce">{{ $producer->region }}</p>
                             <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ $producer->name }}</h3>
                             @php
                                 $desc = $producer->description ?? '';
@@ -138,7 +138,7 @@
                                     @if ($descLong)
                                         <button
                                             type="button"
-                                            class="mt-3 text-xs font-semibold uppercase tracking-eyebrow text-category-produce underline-offset-4 hover:underline"
+                                            class="mt-3 text-xs font-semibold uppercase tracking-eyebrow text-chapter-produce underline-offset-4 hover:underline"
                                             @click="expanded = !expanded"
                                             :aria-expanded="expanded"
                                             x-text="expanded ? '{{ __('Show less') }}' : '{{ __('Read more') }}'"

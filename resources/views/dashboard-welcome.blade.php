@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-produce">{{ __('Welcome') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('Welcome') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Welcome to Erdgut') }}
             </h1>
@@ -21,7 +21,7 @@
 
             <section class="border border-brand-ink/15" data-testid="welcome-subscription-card">
                 <div class="border-b border-brand-ink/15 px-8 py-6">
-                    <p class="eyebrow text-category-produce">{{ __('Two simple steps') }}</p>
+                    <p class="eyebrow text-chapter-produce">{{ __('Two simple steps') }}</p>
                     <h2 class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
                         {{ __('Start your subscription') }}
                     </h2>
@@ -66,7 +66,7 @@
                     aria-labelledby="welcome-trial-heading"
                 >
                     <div class="px-8 py-6">
-                        <p class="eyebrow text-category-produce">{{ __('No commitment') }}</p>
+                        <p class="eyebrow text-chapter-produce">{{ __('No commitment') }}</p>
                         <h2
                             id="welcome-trial-heading"
                             class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl"

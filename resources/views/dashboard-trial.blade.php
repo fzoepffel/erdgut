@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-produce">{{ __('Your trial') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('Your trial') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Your Erdgut trial box') }}
             </h1>
@@ -17,7 +17,7 @@
             <section class="border border-brand-ink/15 bg-white">
                 <div class="border-b border-brand-ink/15 px-6 py-5 flex items-center justify-between">
                     <div>
-                        <p class="eyebrow text-category-produce">{{ __('Order') }} #{{ $order->id }}</p>
+                        <p class="eyebrow text-chapter-produce">{{ __('Order') }} #{{ $order->id }}</p>
                         <p class="mt-1 text-sm text-brand-ink/70">{{ __('Status') }}: <span class="font-semibold text-brand-ink">{{ $order->status->label() }}</span></p>
                     </div>
                     <span class="font-display text-3xl font-semibold">EUR {{ number_format((float) $order->amount, 2) }}</span>
@@ -58,7 +58,7 @@
 
                 @if ($order->box)
                     <div class="border-t border-brand-ink/10 px-6 py-5">
-                        <p class="eyebrow text-category-produce">{{ __('What is in your box') }}</p>
+                        <p class="eyebrow text-chapter-produce">{{ __('What is in your box') }}</p>
                         <ul class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                             @foreach ($order->box->items as $item)
                                 <li class="flex justify-between border-b border-brand-ink/5 pb-1">
@@ -75,14 +75,14 @@
                 @endif
             </section>
 
-            <section class="border border-category-produce/30 bg-category-produce/5 p-6">
-                <p class="eyebrow text-category-produce">{{ __('Like what you got?') }}</p>
+            <section class="border border-chapter-produce/30 bg-chapter-produce/5 p-6">
+                <p class="eyebrow text-chapter-produce">{{ __('Like what you got?') }}</p>
                 <h2 class="mt-2 font-display text-2xl">{{ __('Turn your trial into a weekly box') }}</h2>
                 <p class="mt-2 text-sm text-brand-ink/75">
                     {{ __('Keep your preferences and address — you just need to pick cadence and add a card.') }}
                 </p>
                 <a href="{{ route('app.onboarding.start', ['intent' => 'subscription', 'from_order' => $order->id]) }}"
-                   class="mt-4 inline-flex items-center border border-category-produce bg-category-produce text-white px-5 py-2 text-sm font-semibold uppercase tracking-eyebrow hover:bg-category-produce/90"
+                   class="mt-4 inline-flex items-center border border-chapter-produce bg-chapter-produce text-white px-5 py-2 text-sm font-semibold uppercase tracking-eyebrow hover:bg-chapter-produce/90"
                    data-testid="dashboard-trial-convert-cta">
                     {{ __('Start my subscription') }}
                 </a>

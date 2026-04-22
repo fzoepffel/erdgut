@@ -18,7 +18,7 @@
                 <span aria-hidden="true">&larr;</span> {{ __('products.back_to_list') }}
             </a>
             @if ($catEnum)
-                <x-category-badge :category="$catEnum" class="w-fit" />
+                <x-chapter-badge :category="$catEnum" class="w-fit" />
             @endif
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ $product->name }}

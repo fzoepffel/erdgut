@@ -9,7 +9,7 @@
             </div>
 
             <div>
-                <p class="eyebrow text-category-produce">{{ __('footer.contact_heading') }}</p>
+                <p class="eyebrow text-chapter-produce">{{ __('footer.contact_heading') }}</p>
                 <ul class="mt-4 space-y-2 text-sm text-brand-ink/80">
                     <li>
                         <a class="underline-offset-4 hover:underline" href="mailto:hallo@erdgut.de">{{ __('footer.contact_general') }}: hallo@erdgut.de</a>
@@ -24,7 +24,7 @@
             </div>
 
             <div>
-                <p class="eyebrow text-category-produce">{{ __('footer.visit_heading') }}</p>
+                <p class="eyebrow text-chapter-produce">{{ __('footer.visit_heading') }}</p>
                 <div class="mt-4 space-y-3 text-sm text-brand-ink/80">
                     <a href="https://instagram.com" target="_blank" rel="noopener" class="inline-flex items-center gap-2 underline-offset-4 hover:underline">
                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

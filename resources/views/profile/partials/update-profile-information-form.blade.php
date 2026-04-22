@@ -1,6 +1,6 @@
 <section>
     <header>
-        <p class="eyebrow text-category-produce">{{ __('Profile') }}</p>
+        <p class="eyebrow text-chapter-produce">{{ __('Profile') }}</p>
         <h2 id="settings-profile-heading" class="mt-2 font-display text-2xl text-brand-ink">
             {{ __('Profile and contact') }}
         </h2>
@@ -50,14 +50,14 @@
                         <button
                             form="send-verification"
                             type="submit"
-                            class="font-medium text-brand-ink underline underline-offset-4 hover:text-category-produce focus:outline-none focus:ring-2 focus:ring-category-produce focus:ring-offset-2"
+                            class="font-medium text-brand-ink underline underline-offset-4 hover:text-chapter-produce focus:outline-none focus:ring-2 focus:ring-chapter-produce focus:ring-offset-2"
                         >
                             {{ __('Click here to re-send the verification email.') }}
                         </button>
                     </p>
 
                     @if (session('status') === 'verification-link-sent')
-                        <p class="mt-2 text-sm font-medium text-category-produce" role="status">
+                        <p class="mt-2 text-sm font-medium text-chapter-produce" role="status">
                             {{ __('A new verification link has been sent to your email address.') }}
                         </p>
                     @endif

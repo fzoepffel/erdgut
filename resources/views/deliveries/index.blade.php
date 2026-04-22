@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-produce">{{ __('Deliveries') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('Deliveries') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Deliveries timeline') }}
             </h1>
@@ -11,7 +11,7 @@
     <div class="py-10 sm:py-16">
         <div class="mx-auto max-w-5xl space-y-8 px-4 sm:px-6 lg:px-8">
             <div class="border border-brand-ink/15 bg-brand-ink/[0.02] px-6 py-5">
-                <p class="eyebrow text-category-produce">{{ __('Default delivery settings') }}</p>
+                <p class="eyebrow text-chapter-produce">{{ __('Default delivery settings') }}</p>
                 <p class="mt-2 text-sm leading-relaxed text-brand-ink/75">
                     {{ __('deliveries.default_settings_intro') }}
                 </p>
@@ -21,7 +21,7 @@
             </div>
 
             @if (session('status') === 'delivery-gifted')
-                <p class="border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink">
+                <p class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink">
                     {{ __('Gift delivery scheduled. Your original week was skipped; the gift ships on the date you chose.') }}
                 </p>
             @elseif (session('status') === 'delivery-gift-already-delivered')
@@ -84,14 +84,14 @@
                                 id="delivery-{{ $baseDelivery->id }}"
                                 @class([
                                     'border p-6 sm:p-8',
-                                    'border-category-produce ring-1 ring-category-produce' => $isFocused,
+                                    'border-chapter-produce ring-1 ring-chapter-produce' => $isFocused,
                                     'border-brand-ink/15' => ! $isFocused,
                                 ])
                                 aria-labelledby="delivery-heading-{{ $baseDelivery->id }}"
                             >
                                 <div class="flex flex-wrap items-start justify-between gap-3">
                                     <div>
-                                        <p class="eyebrow text-category-produce">{{ $relativeWeekLabel ?? __('Upcoming') }}</p>
+                                        <p class="eyebrow text-chapter-produce">{{ $relativeWeekLabel ?? __('Upcoming') }}</p>
                                         <h3 id="delivery-heading-{{ $baseDelivery->id }}" class="mt-2 font-display text-2xl text-brand-ink">
                                             {{ $baseDelivery->scheduled_for_date->format('l, d M Y') }}
                                         </h3>

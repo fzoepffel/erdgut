@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-produce">{{ __('Account') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('Account') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Account settings') }}
             </h1>
@@ -22,15 +22,15 @@
                 </div>
             </section>
 
-            <section class="border border-category-meat/40 bg-category-meat/5 p-6 sm:p-8" aria-labelledby="settings-danger-heading">
-                <p class="eyebrow text-category-meat">{{ __('Danger zone') }}</p>
+            <section class="border border-chapter-meat/40 bg-chapter-meat/5 p-6 sm:p-8" aria-labelledby="settings-danger-heading">
+                <p class="eyebrow text-chapter-meat">{{ __('Danger zone') }}</p>
                 <h2 id="settings-danger-heading" class="mt-2 font-display text-2xl text-brand-ink">
                     {{ __('Danger zone') }}
                 </h2>
                 <p class="mt-3 text-sm leading-relaxed text-brand-ink/80">
                     {{ __('Actions here permanently affect your account. You will be asked to confirm with your password.') }}
                 </p>
-                <div class="mt-6 max-w-xl border-t border-category-meat/30 pt-6">
+                <div class="mt-6 max-w-xl border-t border-chapter-meat/30 pt-6">
                     @include('profile.partials.delete-user-form')
                 </div>
             </section>

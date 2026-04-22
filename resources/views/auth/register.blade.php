@@ -1,6 +1,6 @@
 <x-guest-layout>
     <div class="mb-8">
-        <p class="eyebrow text-category-produce">{{ __('Join Erdgut') }}</p>
+        <p class="eyebrow text-chapter-produce">{{ __('Join Erdgut') }}</p>
         <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink">{{ __('Create your account') }}</h1>
     </div>
 

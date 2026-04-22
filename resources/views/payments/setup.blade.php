@@ -13,7 +13,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-fish">{{ __('Billing') }}</p>
+            <p class="eyebrow text-chapter-fish">{{ __('Billing') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 @if ($intent === 'update')
                     {{ __('Update payment method') }}
@@ -26,8 +26,8 @@
 
     <div class="py-10 sm:py-16">
         <div class="mx-auto max-w-3xl space-y-8 px-4 sm:px-6 lg:px-8">
-            <div class="border border-category-fish/40 bg-category-fish/5 px-4 py-3 sm:px-5">
-                <p class="eyebrow text-category-fish">
+            <div class="border border-chapter-fish/40 bg-chapter-fish/5 px-4 py-3 sm:px-5">
+                <p class="eyebrow text-chapter-fish">
                     @if ($intent === 'update')
                         {{ __('Step 1: Confirm update') }}
                     @else
@@ -45,7 +45,7 @@
 
             <div class="border border-brand-ink/15">
                 <div class="border-b border-brand-ink/10 px-4 py-5 sm:px-6">
-                    <p class="eyebrow text-category-fish">{{ __('Card') }}</p>
+                    <p class="eyebrow text-chapter-fish">{{ __('Card') }}</p>
                     <h3 id="payment-widget-heading" class="mt-2 font-display text-2xl text-brand-ink">
                         {{ __('Payment details') }}
                     </h3>
@@ -151,7 +151,7 @@
                             x-show="widgetError"
                             x-cloak
                             x-text="widgetError"
-                            class="mt-3 text-sm text-category-meat"
+                            class="mt-3 text-sm text-chapter-meat"
                             role="alert"
                             aria-live="polite"
                         ></p>

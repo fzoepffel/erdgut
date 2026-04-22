@@ -12,7 +12,7 @@
     class="border border-brand-ink/15 bg-brand-ink/[0.02] p-6"
     aria-labelledby="box-budget-heading"
 >
-    <p class="eyebrow text-category-produce">{{ __('Value & budget') }}</p>
+    <p class="eyebrow text-chapter-produce">{{ __('Value & budget') }}</p>
     <h3 id="box-budget-heading" class="mt-2 font-display text-xl text-brand-ink">
         {{ __('Weekly totals') }}
     </h3>
@@ -43,15 +43,15 @@
                 @if ($bindEstimate)
                     <dd
                         class="font-medium"
-                        :class="includedValue !== null && (includedValue - estimatedValue) >= 0 ? 'text-category-produce' : 'text-category-meat'"
+                        :class="includedValue !== null && (includedValue - estimatedValue) >= 0 ? 'text-chapter-produce' : 'text-chapter-meat'"
                         x-text="formatRemainder()"
                     ></dd>
                 @else
                     <dd
                         @class([
                             'font-medium',
-                            'text-category-produce' => $budgetDetails['remainder'] >= 0,
-                            'text-category-meat' => $budgetDetails['remainder'] < 0,
+                            'text-chapter-produce' => $budgetDetails['remainder'] >= 0,
+                            'text-chapter-meat' => $budgetDetails['remainder'] < 0,
                         ])
                     >
                         @if ($budgetDetails['remainder'] >= 0)

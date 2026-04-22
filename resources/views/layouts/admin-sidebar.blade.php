@@ -23,7 +23,7 @@
             class="flex items-center gap-2 text-amber-950"
             @click="adminSidebarOpen = false"
         >
-            <x-application-logo class="block h-8 w-auto fill-current text-amber-800" />
+            <x-application-logo class="block h-8 w-auto" />
             <span class="text-sm font-semibold tracking-tight">{{ config('app.name') }}</span>
         </a>
         <button

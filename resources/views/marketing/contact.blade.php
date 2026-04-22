@@ -5,7 +5,7 @@
         <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
             <div class="max-w-4xl">
                 <x-reveal variant="fade-up">
-                    <p class="eyebrow text-category-fish">{{ __('Contact') }}</p>
+                    <p class="eyebrow text-chapter-fish">{{ __('Contact') }}</p>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="100">
                     <h1 id="contact-hero-heading" class="mt-5 font-display text-5xl font-semibold leading-[1.05] tracking-tight text-brand-ink sm:text-6xl lg:text-7xl">
@@ -27,12 +27,12 @@
         @if (session('status') === 'contact-submitted')
             <div
                 id="contact-success"
-                class="mb-12 border border-category-produce/40 bg-category-produce/5 p-8 text-brand-ink"
+                class="mb-12 border border-chapter-produce/40 bg-chapter-produce/5 p-8 text-brand-ink"
                 role="status"
                 tabindex="-1"
                 data-testid="contact-success"
             >
-                <p class="eyebrow text-category-produce">{{ __('Message received') }}</p>
+                <p class="eyebrow text-chapter-produce">{{ __('Message received') }}</p>
                 <h3 class="mt-4 font-display text-2xl text-brand-ink">{{ __('We\'ll be in touch soon.') }}</h3>
                 <ul class="mt-4 list-inside list-disc space-y-2 text-sm leading-relaxed text-brand-ink/75">
                     <li>{{ __('Your message is in our inbox and we’ve logged it for the team.') }}</li>
@@ -59,7 +59,7 @@
                 @csrf
 
                 <fieldset class="space-y-6">
-                    <legend class="eyebrow text-category-produce">{{ __('Your details') }}</legend>
+                    <legend class="eyebrow text-chapter-produce">{{ __('Your details') }}</legend>
 
                     <div>
                         <label for="name" class="block text-sm font-medium text-brand-ink">{{ __('Name') }}</label>
@@ -72,14 +72,14 @@
                             autocomplete="name"
                             @class([
                                 'mt-1 block w-full border-0 border-b bg-transparent px-0 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:outline-none focus:ring-0',
-                                'border-brand-ink/30 focus:border-category-produce' => ! $errors->has('name'),
-                                'border-category-meat focus:border-category-meat' => $errors->has('name'),
+                                'border-brand-ink/30 focus:border-chapter-produce' => ! $errors->has('name'),
+                                'border-chapter-meat focus:border-chapter-meat' => $errors->has('name'),
                             ])
                             aria-invalid="{{ $errors->has('name') ? 'true' : 'false' }}"
                             @if ($errors->has('name')) aria-describedby="name-error" @endif
                         >
                         @error('name')
-                            <p id="name-error" class="mt-2 text-sm text-category-meat" role="alert">{{ $message }}</p>
+                            <p id="name-error" class="mt-2 text-sm text-chapter-meat" role="alert">{{ $message }}</p>
                         @enderror
                     </div>
 
@@ -95,21 +95,21 @@
                             inputmode="email"
                             @class([
                                 'mt-1 block w-full border-0 border-b bg-transparent px-0 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:outline-none focus:ring-0',
-                                'border-brand-ink/30 focus:border-category-produce' => ! $errors->has('email'),
-                                'border-category-meat focus:border-category-meat' => $errors->has('email'),
+                                'border-brand-ink/30 focus:border-chapter-produce' => ! $errors->has('email'),
+                                'border-chapter-meat focus:border-chapter-meat' => $errors->has('email'),
                             ])
                             aria-invalid="{{ $errors->has('email') ? 'true' : 'false' }}"
                             @if ($errors->has('email')) aria-describedby="email-error" @endif
                         >
                         <p class="mt-2 text-xs text-brand-ink/60">{{ __('We’ll only use this address to reply to your message.') }}</p>
                         @error('email')
-                            <p id="email-error" class="mt-2 text-sm text-category-meat" role="alert">{{ $message }}</p>
+                            <p id="email-error" class="mt-2 text-sm text-chapter-meat" role="alert">{{ $message }}</p>
                         @enderror
                     </div>
                 </fieldset>
 
                 <fieldset class="space-y-6">
-                    <legend class="eyebrow text-category-produce">{{ __('Your message') }}</legend>
+                    <legend class="eyebrow text-chapter-produce">{{ __('Your message') }}</legend>
 
                     <div>
                         <label for="subject" class="block text-sm font-medium text-brand-ink">{{ __('Subject') }} <span class="font-normal text-brand-ink/50">({{ __('optional') }})</span></label>
@@ -121,14 +121,14 @@
                             autocomplete="off"
                             @class([
                                 'mt-1 block w-full border-0 border-b bg-transparent px-0 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:outline-none focus:ring-0',
-                                'border-brand-ink/30 focus:border-category-produce' => ! $errors->has('subject'),
-                                'border-category-meat focus:border-category-meat' => $errors->has('subject'),
+                                'border-brand-ink/30 focus:border-chapter-produce' => ! $errors->has('subject'),
+                                'border-chapter-meat focus:border-chapter-meat' => $errors->has('subject'),
                             ])
                             aria-invalid="{{ $errors->has('subject') ? 'true' : 'false' }}"
                             @if ($errors->has('subject')) aria-describedby="subject-error" @endif
                         >
                         @error('subject')
-                            <p id="subject-error" class="mt-2 text-sm text-category-meat" role="alert">{{ $message }}</p>
+                            <p id="subject-error" class="mt-2 text-sm text-chapter-meat" role="alert">{{ $message }}</p>
                         @enderror
                     </div>
 
@@ -142,14 +142,14 @@
                             autocomplete="off"
                             @class([
                                 'mt-1 block w-full border bg-brand-cream/60 px-4 py-3 text-base text-brand-ink placeholder:text-brand-ink/40 focus:outline-none focus:ring-0',
-                                'border-brand-ink/30 focus:border-category-produce' => ! $errors->has('message'),
-                                'border-category-meat focus:border-category-meat' => $errors->has('message'),
+                                'border-brand-ink/30 focus:border-chapter-produce' => ! $errors->has('message'),
+                                'border-chapter-meat focus:border-chapter-meat' => $errors->has('message'),
                             ])
                             aria-invalid="{{ $errors->has('message') ? 'true' : 'false' }}"
                             @if ($errors->has('message')) aria-describedby="message-error" @endif
                         >{{ old('message') }}</textarea>
                         @error('message')
-                            <p id="message-error" class="mt-2 text-sm text-category-meat" role="alert">{{ $message }}</p>
+                            <p id="message-error" class="mt-2 text-sm text-chapter-meat" role="alert">{{ $message }}</p>
                         @enderror
                     </div>
                 </fieldset>

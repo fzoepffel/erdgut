@@ -19,7 +19,7 @@
             @csrf
             @method('delete')
 
-            <p class="eyebrow text-category-meat">{{ __('Confirm') }}</p>
+            <p class="eyebrow text-chapter-meat">{{ __('Confirm') }}</p>
             <h2 id="confirm-deletion-title" class="mt-2 font-display text-2xl text-brand-ink">
                 {{ __('Are you sure you want to delete your account?') }}
             </h2>

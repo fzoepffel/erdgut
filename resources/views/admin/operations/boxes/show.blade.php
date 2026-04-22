@@ -40,7 +40,7 @@
             @endif
 
             @if ($box->isTrial())
-                <div class="rounded-md border border-category-produce/30 bg-category-produce/10 px-3 py-2 text-sm" data-testid="admin-box-trial-badge">
+                <div class="rounded-md border border-chapter-produce/30 bg-chapter-produce/10 px-3 py-2 text-sm" data-testid="admin-box-trial-badge">
                     {{ __('Trial order box') }} —
                     <a class="underline" href="{{ route('app.admin.orders.show', $box->order_id) }}">{{ __('Open order #:id', ['id' => $box->order_id]) }}</a>
                 </div>

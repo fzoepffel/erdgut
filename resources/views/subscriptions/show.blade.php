@@ -7,7 +7,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-produce">{{ __('Subscription') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('Subscription') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Subscription overview') }}
             </h1>
@@ -17,15 +17,15 @@
     <div class="py-10 sm:py-16">
         <div class="mx-auto max-w-4xl space-y-8 px-4 sm:px-6 lg:px-8">
             @if (session('status') === 'subscription-updated')
-                <p class="border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink">
+                <p class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink">
                     {{ __('Subscription details saved.') }}
                 </p>
             @elseif (session('status') === 'subscription-pause-scheduled')
-                <p class="border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink">
+                <p class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink">
                     {{ __('Pause timeframe saved.') }}
                 </p>
             @elseif (session('status') === 'subscription-resumed')
-                <p class="border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink">
+                <p class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink">
                     {{ __('Subscription resumed immediately.') }}
                 </p>
             @elseif (session('status') === 'subscription-cancelled')
@@ -33,7 +33,7 @@
                     {{ __('Subscription cancelled.') }}
                 </p>
             @elseif (session('status') === 'subscription-created')
-                <p class="border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink">
+                <p class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink">
                     {{ __('Subscription created. Set up your payment method to activate billing.') }}
                 </p>
                 <div class="border border-brand-ink/20 bg-brand-ink/[0.03] px-4 py-3 text-sm text-brand-ink">
@@ -114,7 +114,7 @@
 
                 <div class="space-y-8">
                     <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-plan">
-                        <p class="eyebrow text-category-produce">{{ __('Plan') }}</p>
+                        <p class="eyebrow text-chapter-produce">{{ __('Plan') }}</p>
                         <h3 id="sub-section-plan" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Subscription and box') }}</h3>
                         <dl class="mt-6 grid gap-5 sm:grid-cols-3">
                             <div>
@@ -137,7 +137,7 @@
                     </section>
 
                     <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-diet">
-                        <p class="eyebrow text-category-produce">{{ __('Preferences') }}</p>
+                        <p class="eyebrow text-chapter-produce">{{ __('Preferences') }}</p>
                         <h3 id="sub-section-diet" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Diet and allergies') }}</h3>
                         <dl class="mt-6 grid gap-5 sm:grid-cols-2">
                             <div>
@@ -167,10 +167,10 @@
 
                     <section @class([
                         'border p-6 sm:p-8',
-                        'border-category-produce/40 bg-category-produce/5' => $subscription->hasPauseWindow(),
+                        'border-chapter-produce/40 bg-chapter-produce/5' => $subscription->hasPauseWindow(),
                         'border-brand-ink/15' => ! $subscription->hasPauseWindow(),
                     ]) aria-labelledby="sub-section-pause">
-                        <p class="eyebrow text-category-produce">{{ __('Skip window') }}</p>
+                        <p class="eyebrow text-chapter-produce">{{ __('Skip window') }}</p>
                         <h3 id="sub-section-pause" class="mt-2 font-display text-2xl text-brand-ink">{{ __('subscriptions.skip_section_title') }}</h3>
                         <p class="mt-4 text-base leading-relaxed text-brand-ink/80">
                             @if ($subscription->hasPauseWindow())
@@ -182,7 +182,7 @@
                     </section>
 
                     <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-billing">
-                        <p class="eyebrow text-category-fish">{{ __('Billing') }}</p>
+                        <p class="eyebrow text-chapter-fish">{{ __('Billing') }}</p>
                         <h3 id="sub-section-billing" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Billing and payments') }}</h3>
                         <p class="mt-4 text-base text-brand-ink/80">
                             <span class="font-semibold text-brand-ink">{{ __('Next charge date') }}:</span>
@@ -209,7 +209,7 @@
 
                     @if ($subscription->status === \App\Enums\SubscriptionStatus::Cancelled && $subscription->cancellation_reason)
                         <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-cancel-reason">
-                            <p class="eyebrow text-category-meat">{{ __('Cancelled') }}</p>
+                            <p class="eyebrow text-chapter-meat">{{ __('Cancelled') }}</p>
                             <h3 id="sub-section-cancel-reason" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Cancellation reason') }}</h3>
                             <p class="mt-4 text-base leading-relaxed text-brand-ink/80">{{ $subscription->cancellation_reason }}</p>
                         </section>
@@ -224,7 +224,7 @@
                     <form method="post" action="{{ route('app.subscriptions.pause') }}" class="bg-brand-cream p-6">
                         @csrf
 
-                        <p class="eyebrow text-category-produce">{{ __('Skip') }}</p>
+                        <p class="eyebrow text-chapter-produce">{{ __('Skip') }}</p>
                         <h2 class="mt-2 font-display text-2xl text-brand-ink">
                             {{ __('subscriptions.skip_range_modal_title') }}
                         </h2>
@@ -265,7 +265,7 @@
                     <form method="post" action="{{ route('app.subscriptions.resume') }}" class="bg-brand-cream p-6">
                         @csrf
 
-                        <p class="eyebrow text-category-produce">{{ __('Resume') }}</p>
+                        <p class="eyebrow text-chapter-produce">{{ __('Resume') }}</p>
                         <h2 class="mt-2 font-display text-2xl text-brand-ink">
                             {{ __('subscriptions.end_skip_modal_title') }}
                         </h2>
@@ -294,7 +294,7 @@
                     <form method="post" action="{{ route('app.subscriptions.cancel') }}" class="bg-brand-cream p-6">
                         @csrf
 
-                        <p class="eyebrow text-category-meat">{{ __('Cancel') }}</p>
+                        <p class="eyebrow text-chapter-meat">{{ __('Cancel') }}</p>
                         <h2 class="mt-2 font-display text-2xl text-brand-ink">
                             {{ __('Cancel subscription') }}
                         </h2>
@@ -314,7 +314,7 @@
                                 id="cancellation_reason"
                                 name="cancellation_reason"
                                 rows="3"
-                                class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream px-4 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-category-produce focus:outline-none focus:ring-0"
+                                class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream px-4 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-chapter-produce focus:outline-none focus:ring-0"
                                 placeholder="{{ __('Optional feedback') }}"
                             >{{ old('cancellation_reason') }}</textarea>
                             <x-input-error class="mt-2" :messages="$errors->get('cancellation_reason')" />

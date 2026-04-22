@@ -5,7 +5,7 @@
 
     <x-slot name="header">
         <div class="flex flex-col gap-3">
-            <p class="eyebrow text-category-produce">{{ __('Your weekly food box') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('Your weekly food box') }}</p>
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                     {{ __('Week of :date', ['date' => $weekLabelDate]) }}
@@ -40,7 +40,7 @@
 
             <section class="border border-brand-ink/15" aria-labelledby="box-items-heading">
                 <div class="border-b border-brand-ink/15 px-6 py-5">
-                    <p class="eyebrow text-category-produce">{{ __('Contents') }}</p>
+                    <p class="eyebrow text-chapter-produce">{{ __('Contents') }}</p>
                     <h3 id="box-items-heading" class="mt-2 font-display text-xl text-brand-ink">
                         {{ __('This week in the box') }}
                     </h3>
@@ -61,11 +61,11 @@
                             });
                             $stallOrder = ['produce', 'bakery', 'dairy', 'fish', 'meat', 'other'];
                             $stallColor = [
-                                'produce' => 'text-category-produce',
+                                'produce' => 'text-chapter-produce',
                                 'bakery' => 'text-brand-ink',
                                 'dairy' => 'text-brand-ink',
-                                'fish' => 'text-category-fish',
-                                'meat' => 'text-category-meat',
+                                'fish' => 'text-chapter-fish',
+                                'meat' => 'text-chapter-meat',
                                 'other' => 'text-brand-ink/60',
                             ];
                             $stallLabel = [

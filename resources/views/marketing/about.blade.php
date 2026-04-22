@@ -6,7 +6,7 @@
             <div class="grid items-center gap-12 lg:grid-cols-12 lg:gap-16" data-testid="about-hero">
                 <div class="lg:col-span-6">
                     <x-reveal variant="fade-up">
-                        <p class="eyebrow text-category-produce">{{ __('About Erdgut') }}</p>
+                        <p class="eyebrow text-chapter-produce">{{ __('About Erdgut') }}</p>
                     </x-reveal>
                     <x-reveal variant="fade-up" delay="100">
                         <h1 id="about-hero-heading" class="mt-5 font-display text-5xl font-semibold leading-[1.05] tracking-tight text-brand-ink sm:text-6xl lg:text-7xl">
@@ -72,22 +72,22 @@
                 id="about-story-heading"
             />
             <ol class="mt-16 grid gap-12 reveal-stagger md:grid-cols-3" data-testid="about-story-arc">
-                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4 border-t border-category-produce pt-8" style="--i:0">
-                    <p class="eyebrow text-category-produce">{{ __('Chapter 01') }}</p>
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4 border-t border-chapter-produce pt-8" style="--i:0">
+                    <p class="eyebrow text-chapter-produce">{{ __('Chapter 01') }}</p>
                     <h3 class="font-display text-2xl text-brand-ink">{{ __('Why Berlin') }}</h3>
                     <p class="text-sm leading-relaxed text-brand-ink/75">
                         {{ __("The city's appetite for organic and regional food keeps growing. We focus on connections that stay short, seasonal, and honest.") }}
                     </p>
                 </x-reveal>
-                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4 border-t border-category-produce pt-8" style="--i:1">
-                    <p class="eyebrow text-category-produce">{{ __('Chapter 02') }}</p>
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4 border-t border-chapter-produce pt-8" style="--i:1">
+                    <p class="eyebrow text-chapter-produce">{{ __('Chapter 02') }}</p>
                     <h3 class="font-display text-2xl text-brand-ink">{{ __('Why a weekly box') }}</h3>
                     <p class="text-sm leading-relaxed text-brand-ink/75">
                         {{ __('A predictable rhythm helps producers plan harvests and lets you adjust one transparent order instead of juggling many small shops.') }}
                     </p>
                 </x-reveal>
-                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4 border-t border-category-produce pt-8" style="--i:2">
-                    <p class="eyebrow text-category-produce">{{ __('Chapter 03') }}</p>
+                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4 border-t border-chapter-produce pt-8" style="--i:2">
+                    <p class="eyebrow text-chapter-produce">{{ __('Chapter 03') }}</p>
                     <h3 class="font-display text-2xl text-brand-ink">{{ __("What we're building") }}</h3>
                     <p class="text-sm leading-relaxed text-brand-ink/75">
                         {{ __("A calm subscriber experience: know your next delivery, change your box when it's open, and see the names behind every product.") }}
@@ -115,9 +115,9 @@
                     ['eyebrow' => 'meat', 'title' => __('Fair share'), 'desc' => __('Pricing and relationships designed so more value stays with producers.')],
                 ];
                 $valueColors = [
-                    'produce' => 'text-category-produce',
-                    'fish' => 'text-category-fish',
-                    'meat' => 'text-category-meat',
+                    'produce' => 'text-chapter-produce',
+                    'fish' => 'text-chapter-fish',
+                    'meat' => 'text-chapter-meat',
                 ];
             @endphp
             <ul class="mt-16 grid gap-10 reveal-stagger sm:grid-cols-2 lg:grid-cols-4" data-testid="about-values-row">
@@ -137,7 +137,7 @@
         <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
             <div class="grid gap-12 lg:grid-cols-12 lg:gap-16" data-testid="about-team-place">
                 <x-reveal variant="fade-up" class="lg:col-span-7">
-                    <p class="eyebrow text-category-produce">{{ __('Team') }}</p>
+                    <p class="eyebrow text-chapter-produce">{{ __('Team') }}</p>
                     <h2 id="about-team-heading" class="mt-4 font-display text-3xl font-semibold leading-tight text-brand-ink sm:text-4xl lg:text-5xl">
                         {{ __('Small team, local partners.') }}
                     </h2>
@@ -179,14 +179,14 @@
                     <div>
                         <button
                             type="button"
-                            class="flex w-full items-center justify-between py-6 text-left font-display text-lg text-brand-ink transition hover:text-category-produce"
+                            class="flex w-full items-center justify-between py-6 text-left font-display text-lg text-brand-ink transition hover:text-chapter-produce"
                             @click="open = open === {{ $i + 1 }} ? null : {{ $i + 1 }}"
                             :aria-expanded="open === {{ $i + 1 }}"
                             aria-controls="about-faq-panel-{{ $i + 1 }}"
                             id="about-faq-trigger-{{ $i + 1 }}"
                         >
                             <span>{{ $item['q'] }}</span>
-                            <span class="ml-4 text-category-produce text-2xl leading-none" x-text="open === {{ $i + 1 }} ? '−' : '+'"></span>
+                            <span class="ml-4 text-chapter-produce text-2xl leading-none" x-text="open === {{ $i + 1 }} ? '−' : '+'"></span>
                         </button>
                         <div
                             id="about-faq-panel-{{ $i + 1 }}"
@@ -213,7 +213,7 @@
     <section aria-labelledby="about-bottom-cta-heading">
         <div class="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6 sm:py-32 lg:px-8">
             <x-reveal variant="fade-up">
-                <p class="eyebrow text-category-produce">{{ __('Start your box') }}</p>
+                <p class="eyebrow text-chapter-produce">{{ __('Start your box') }}</p>
             </x-reveal>
             <x-reveal variant="fade-up" delay="150">
                 <h2 id="about-bottom-cta-heading" class="mt-6 font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl lg:text-6xl">

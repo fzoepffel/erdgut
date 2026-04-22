@@ -2,7 +2,7 @@
 
 @php
     use App\Support\ProductCategoryStyle;
-    $colorClass = ProductCategoryStyle::textClassForStall($color);
+    $colorClass = ProductCategoryStyle::textClassForChapter($color);
 @endphp
 
 <{{ $as }} {{ $attributes->class(['eyebrow', $colorClass]) }}>

@@ -32,7 +32,7 @@
         </div>
         <div class="flex justify-between items-center pt-2">
             <a href="{{ route('login') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:underline">{{ __('Already have an account? Log in') }}</a>
-            <button type="submit" class="bg-category-produce text-white px-5 py-2 font-medium hover:bg-category-produce/90">{{ __('Continue') }}</button>
+            <button type="submit" class="bg-chapter-produce text-white px-5 py-2 font-medium hover:bg-chapter-produce/90">{{ __('Continue') }}</button>
         </div>
     </form>
 @endsection

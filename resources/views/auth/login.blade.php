@@ -1,6 +1,6 @@
 <x-guest-layout>
     <div class="mb-8">
-        <p class="eyebrow text-category-produce">{{ __('Welcome back') }}</p>
+        <p class="eyebrow text-chapter-produce">{{ __('Welcome back') }}</p>
         <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink">{{ __('Log in to your account') }}</h1>
     </div>
 
@@ -23,7 +23,7 @@
 
         <div class="block">
             <label for="remember_me" class="inline-flex items-center">
-                <input id="remember_me" type="checkbox" class="rounded border-brand-ink/30 bg-transparent text-brand-ink focus:ring-category-produce" name="remember">
+                <input id="remember_me" type="checkbox" class="rounded border-brand-ink/30 bg-transparent text-brand-ink focus:ring-chapter-produce" name="remember">
                 <span class="ms-2 text-sm text-brand-ink/70">{{ __('Remember me') }}</span>
             </label>
         </div>

@@ -1,6 +1,6 @@
 <x-guest-layout>
     <div class="mb-6">
-        <p class="eyebrow text-category-produce">{{ __('Secure area') }}</p>
+        <p class="eyebrow text-chapter-produce">{{ __('Secure area') }}</p>
         <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink">{{ __('Confirm your password') }}</h1>
         <p class="mt-4 text-sm leading-relaxed text-brand-ink/75">
             {{ __('This is a protected area. Confirm your password to continue to your Erdgut account.') }}

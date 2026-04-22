@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-produce">{{ __('Preferences') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('Preferences') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Delivery preferences') }}
             </h1>
@@ -11,7 +11,7 @@
     <div class="py-10 sm:py-16">
         <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
             @if (session('status') === 'delivery-preferences-updated')
-                <p class="mb-8 border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink">
+                <p class="mb-8 border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink">
                     {{ __('Delivery preferences saved.') }}
                 </p>
             @endif
@@ -22,7 +22,7 @@
                     @method('patch')
 
                     <fieldset class="space-y-5">
-                        <legend class="eyebrow text-category-produce">{{ __('Address') }}</legend>
+                        <legend class="eyebrow text-chapter-produce">{{ __('Address') }}</legend>
 
                         <div class="grid gap-5 sm:grid-cols-2">
                             <div class="sm:col-span-2">
@@ -82,7 +82,7 @@
                     </fieldset>
 
                     <fieldset class="space-y-5 border-t border-brand-ink/15 pt-8">
-                        <legend class="eyebrow text-category-produce">{{ __('Scheduling') }}</legend>
+                        <legend class="eyebrow text-chapter-produce">{{ __('Scheduling') }}</legend>
 
                         <div>
                             <x-input-label for="preferred_timeslot" :value="__('Preferred timeslot')" />
@@ -96,7 +96,7 @@
                                 id="instructions"
                                 name="instructions"
                                 rows="3"
-                                class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream/60 px-4 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-category-produce focus:outline-none focus:ring-0"
+                                class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream/60 px-4 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-chapter-produce focus:outline-none focus:ring-0"
                             >{{ old('instructions', $deliveryPreference?->instructions ?? $address?->delivery_instructions) }}</textarea>
                             <x-input-error class="mt-2" :messages="$errors->get('instructions')" />
                         </div>

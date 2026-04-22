@@ -75,7 +75,7 @@
                       class="mt-1 w-full border border-brand-ink/30 p-2">{{ old('delivery_instructions', $address?->delivery_instructions) }}</textarea>
         </div>
         <div class="flex justify-end pt-2">
-            <button type="submit" class="bg-category-produce text-white px-5 py-2 font-medium hover:bg-category-produce/90">{{ __('Continue') }}</button>
+            <button type="submit" class="bg-chapter-produce text-white px-5 py-2 font-medium hover:bg-chapter-produce/90">{{ __('Continue') }}</button>
         </div>
     </form>
 @endsection

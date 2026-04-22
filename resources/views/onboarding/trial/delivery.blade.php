@@ -12,7 +12,7 @@
             <legend class="text-sm font-semibold">{{ __('Preferred timeslot') }}</legend>
             <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 @foreach($timeslots as $slot)
-                    <label class="border border-brand-ink/30 p-3 flex items-center gap-2 cursor-pointer has-[:checked]:border-category-produce has-[:checked]:bg-category-produce/5">
+                    <label class="border border-brand-ink/30 p-3 flex items-center gap-2 cursor-pointer has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
                         <input type="radio" name="preferred_timeslot" value="{{ $slot }}" {{ ($data['preferred_timeslot'] ?? '') === $slot ? 'checked' : '' }}>
                         <span class="text-sm font-medium">{{ $slot }}</span>
                     </label>
@@ -35,7 +35,7 @@
         </div>
 
         <div class="flex justify-end pt-2">
-            <button type="submit" class="bg-category-produce text-white px-5 py-2 font-medium hover:bg-category-produce/90">{{ __('Continue to payment') }}</button>
+            <button type="submit" class="bg-chapter-produce text-white px-5 py-2 font-medium hover:bg-chapter-produce/90">{{ __('Continue to payment') }}</button>
         </div>
     </form>
 @endsection

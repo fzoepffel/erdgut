@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-produce">{{ __('Gift') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('Gift') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Gift this box') }}
             </h1>
@@ -62,7 +62,7 @@
 
                     <div>
                         <x-input-label for="delivery_instructions" :value="__('Delivery notes (optional)')" />
-                        <textarea id="delivery_instructions" name="delivery_instructions" rows="2" class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream/60 px-4 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-category-produce focus:outline-none focus:ring-0">{{ old('delivery_instructions') }}</textarea>
+                        <textarea id="delivery_instructions" name="delivery_instructions" rows="2" class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream/60 px-4 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-chapter-produce focus:outline-none focus:ring-0">{{ old('delivery_instructions') }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('delivery_instructions')" />
                     </div>
 

@@ -5,7 +5,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-produce">{{ __('Dashboard') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('Dashboard') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('This week') }}
             </h1>
@@ -27,7 +27,7 @@
             @endif
 
             @if ($primarySubscription && $primarySubscription->isWithinPauseWindow(now()))
-                <div class="flex flex-col gap-3 border border-category-produce/40 bg-category-produce/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" role="status">
+                <div class="flex flex-col gap-3 border border-chapter-produce/40 bg-chapter-produce/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" role="status">
                     <p class="text-sm text-brand-ink">
                         <span class="font-semibold">{{ __('subscriptions.active_skip_banner') }}</span>
                         — {{ __('subscriptions.skip_window_text', ['from' => $primarySubscription->pause_from?->format('d.m.Y'), 'until' => $primarySubscription->pause_until?->format('d.m.Y')]) }}
@@ -42,14 +42,14 @@
             @endif
 
             @if (session('status') === 'subscription-onboarded')
-                <p class="border border-category-produce/40 bg-category-produce/5 px-4 py-3 text-sm text-brand-ink" role="status">
+                <p class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink" role="status">
                     {{ __('Your subscription is active. Deliveries and the full app are now available.') }}
                 </p>
             @endif
 
             @isset($openTrialOrder)
                 @if ($openTrialOrder)
-                    <div class="flex flex-col gap-3 border border-category-produce/40 bg-category-produce/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" data-testid="dashboard-trial-strip">
+                    <div class="flex flex-col gap-3 border border-chapter-produce/40 bg-chapter-produce/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" data-testid="dashboard-trial-strip">
                         <p class="text-sm text-brand-ink">
                             <span class="font-semibold">{{ __('Trial box') }}</span>
                             — {{ __('Order #:id · :status', ['id' => $openTrialOrder->id, 'status' => $openTrialOrder->status->label()]) }}
@@ -62,7 +62,7 @@
             @endisset
 
             @if ($needsPaymentSetup)
-                <div class="flex flex-col gap-3 border border-category-meat/40 bg-category-meat/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex flex-col gap-3 border border-chapter-meat/40 bg-chapter-meat/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <p class="text-sm text-brand-ink">
                         <span class="font-semibold">{{ __('Add a payment method') }}</span>
                         — {{ __('Complete setup so we can charge your subscription on schedule.') }}
@@ -76,7 +76,7 @@
             {{-- This week at a glance --}}
             <section class="border border-brand-ink/15" aria-labelledby="dashboard-this-week-heading">
                 <div class="border-b border-brand-ink/15 px-6 py-6">
-                    <p class="eyebrow text-category-produce">{{ __('At a glance') }}</p>
+                    <p class="eyebrow text-chapter-produce">{{ __('At a glance') }}</p>
                     <h2 id="dashboard-this-week-heading" class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
                         {{ __('This week at a glance') }}
                     </h2>
@@ -86,7 +86,7 @@
                 </div>
                 <div class="grid gap-8 p-6 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
-                        <p class="eyebrow text-category-produce">{{ __('Next delivery') }}</p>
+                        <p class="eyebrow text-chapter-produce">{{ __('Next delivery') }}</p>
                         @if ($firstDeliveryCard)
                             @php($delivery = $firstDeliveryCard['delivery'])
                             <p class="mt-3 font-display text-2xl text-brand-ink">{{ $delivery->scheduled_for_date->format('D, d M Y') }}</p>
@@ -110,7 +110,7 @@
                         @endif
                     </div>
                     <div>
-                        <p class="eyebrow text-category-fish">{{ __('Your box') }}</p>
+                        <p class="eyebrow text-chapter-fish">{{ __('Your box') }}</p>
                         @if ($currentBox)
                             <p class="mt-3 font-display text-2xl text-brand-ink">
                                 {{ __('Week of :date', ['date' => $currentBox->week_start_date->format('d M Y')]) }}
@@ -128,7 +128,7 @@
                         @endif
                     </div>
                     <div class="sm:col-span-2 lg:col-span-1">
-                        <p class="eyebrow text-category-meat">{{ __('Subscription') }}</p>
+                        <p class="eyebrow text-chapter-meat">{{ __('Subscription') }}</p>
                         @if ($primarySubscription)
                             <p class="mt-3 font-display text-2xl text-brand-ink">
                                 @switch($primarySubscription->status)

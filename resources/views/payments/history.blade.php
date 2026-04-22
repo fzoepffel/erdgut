@@ -16,7 +16,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
-            <p class="eyebrow text-category-fish">{{ __('Billing') }}</p>
+            <p class="eyebrow text-chapter-fish">{{ __('Billing') }}</p>
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Payments and billing') }}
             </h1>
@@ -27,8 +27,8 @@
         <div class="mx-auto max-w-4xl space-y-8 px-4 sm:px-6 lg:px-8">
             @include('payments.partials.session-status')
 
-            <div class="border border-category-fish/40 bg-category-fish/5 px-4 py-5 sm:px-6">
-                <p class="eyebrow text-category-fish">{{ __('Payment method status') }}</p>
+            <div class="border border-chapter-fish/40 bg-chapter-fish/5 px-4 py-5 sm:px-6">
+                <p class="eyebrow text-chapter-fish">{{ __('Payment method status') }}</p>
                 @if ($hasPaymentMethod)
                     <p class="mt-3 text-base text-brand-ink/80">
                         {{ __('A payment method is saved for your subscription. Recurring charges use this card via our payment partner.') }}
@@ -67,7 +67,7 @@
 
             <section class="border border-brand-ink/15" aria-labelledby="{{ $ledgerHeadingId }}">
                 <div class="border-b border-brand-ink/10 px-4 py-5 sm:px-6">
-                    <p class="eyebrow text-category-produce">{{ __('Charges') }}</p>
+                    <p class="eyebrow text-chapter-produce">{{ __('Charges') }}</p>
                     <h2 id="{{ $ledgerHeadingId }}" class="mt-2 font-display text-2xl text-brand-ink">
                         {{ __('Charge history') }}
                     </h2>
@@ -112,7 +112,7 @@
                                             <dd class="font-medium text-brand-ink">{{ $payment->attempt_number }}</dd>
                                         </div>
                                         @if ($payment->status === \App\Models\Payment::STATUS_FAILED)
-                                            <div class="mt-2 border border-category-meat/30 bg-category-meat/5 px-2 py-1.5 text-xs text-brand-ink">
+                                            <div class="mt-2 border border-chapter-meat/30 bg-chapter-meat/5 px-2 py-1.5 text-xs text-brand-ink">
                                                 @if ($showFailureHint($payment->failure_reason))
                                                     {{ $payment->failure_reason }}
                                                 @else
@@ -173,7 +173,7 @@
                                             </td>
                                         </tr>
                                         @if ($payment->status === \App\Models\Payment::STATUS_FAILED)
-                                            <tr class="bg-category-meat/5">
+                                            <tr class="bg-chapter-meat/5">
                                                 <td colspan="5" class="px-4 py-2 text-xs text-brand-ink">
                                                     @if ($showFailureHint($payment->failure_reason))
                                                         {{ $payment->failure_reason }}

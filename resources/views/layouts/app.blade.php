@@ -8,7 +8,7 @@
 
         <title>{{ config('app.name', 'Erdgut') }}</title>
 
-        <link rel="icon" type="image/png" href="{{ asset('images/logo/erdgut-onion-filled.png') }}">
+        <link rel="icon" type="image/png" href="{{ asset('images/logo/erdgut-mark.png') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">

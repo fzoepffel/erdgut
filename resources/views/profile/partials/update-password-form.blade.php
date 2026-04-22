@@ -1,6 +1,6 @@
 <section>
     <header>
-        <p class="eyebrow text-category-produce">{{ __('Security') }}</p>
+        <p class="eyebrow text-chapter-produce">{{ __('Security') }}</p>
         <h2 id="settings-password-heading" class="mt-2 font-display text-2xl text-brand-ink">
             {{ __('Sign-in security') }}
         </h2>

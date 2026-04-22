@@ -5,10 +5,15 @@
 ])
 
 @php
-    $onion = $withWordmark ? '' : '-onion';
-    $file = match ($variant) {
-        'outline' => "erdgut{$onion}-outline.png",
-        default => "erdgut{$onion}-filled.png",
+    // Map legacy (filled|outline) prop values to the new asset set.
+    // outline → white, used on dark hero overlays in place of the old invert hack.
+    $isWhite = $variant === 'outline' || $variant === 'white';
+
+    $file = match (true) {
+        $withWordmark && $isWhite => 'erdgut-white.png',
+        $withWordmark => 'erdgut.png',
+        $isWhite => 'erdgut-mark-white.png',
+        default => 'erdgut-mark.png',
     };
 @endphp
 

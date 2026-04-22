@@ -1,6 +1,6 @@
 <x-guest-layout>
     <div class="mb-8">
-        <p class="eyebrow text-category-produce">{{ __('Password reset') }}</p>
+        <p class="eyebrow text-chapter-produce">{{ __('Password reset') }}</p>
         <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink">{{ __('Forgot your password?') }}</h1>
         <p class="mt-4 text-sm leading-relaxed text-brand-ink/70">
             {{ __('Enter your email and we’ll send a link to choose a new one.') }}

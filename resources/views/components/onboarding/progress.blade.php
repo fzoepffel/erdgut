@@ -25,7 +25,7 @@
 <ol class="flex flex-wrap items-center gap-2 text-xs text-brand-ink/70" role="list" aria-label="{{ __('Onboarding progress') }}">
     @foreach ($sharedSteps as $i => $s)
         <li class="flex items-center gap-1">
-            <span class="w-6 h-6 flex items-center justify-center rounded-full {{ $i < $currentIndex ? 'bg-category-produce text-white' : ($i === $currentIndex ? 'bg-brand-ink text-white' : 'bg-brand-ink/10') }}">{{ $i + 1 }}</span>
+            <span class="w-6 h-6 flex items-center justify-center rounded-full {{ $i < $currentIndex ? 'bg-chapter-produce text-white' : ($i === $currentIndex ? 'bg-brand-ink text-white' : 'bg-brand-ink/10') }}">{{ $i + 1 }}</span>
             <span class="{{ $i === $currentIndex ? 'font-semibold text-brand-ink' : '' }}">{{ $s['label'] }}</span>
             @if (! $loop->last)<span class="mx-2 text-brand-ink/30">›</span>@endif
         </li>
