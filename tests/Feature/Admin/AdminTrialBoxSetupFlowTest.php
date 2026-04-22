@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\OrderProductType;
 use App\Enums\OrderStatus;
+use App\Models\Box;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductWeekStock;
@@ -76,7 +77,7 @@ class AdminTrialBoxSetupFlowTest extends TestCase
 
         $orderA->refresh();
         $this->assertNotNull($orderA->box_id);
-        $this->assertTrue(\App\Models\Box::query()
+        $this->assertTrue(Box::query()
             ->whereKey($orderA->box_id)
             ->where('order_id', $orderA->id)
             ->whereDate('week_start_date', $week->toDateString())
@@ -87,4 +88,3 @@ class AdminTrialBoxSetupFlowTest extends TestCase
         ]);
     }
 }
-

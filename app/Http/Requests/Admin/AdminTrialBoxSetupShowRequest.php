@@ -56,4 +56,3 @@ class AdminTrialBoxSetupShowRequest extends FormRequest
         }
     }
 }
-
