@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Enums\PaymentChargeInitiator;
 use App\Enums\OrderProductType;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentChargeInitiator;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Subscription;
@@ -71,4 +71,3 @@ class AdminPaymentsIndexTest extends TestCase
             ->assertSee((string) $payment->id);
     }
 }
-

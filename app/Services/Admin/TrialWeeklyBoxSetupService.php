@@ -164,7 +164,7 @@ final class TrialWeeklyBoxSetupService
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', $orderIds), fn (int $id) => $id > 0)));
         if ($ids === []) {
-            return new EloquentCollection();
+            return new EloquentCollection;
         }
 
         return Order::query()
@@ -686,4 +686,3 @@ final class TrialWeeklyBoxSetupService
         }
     }
 }
-

@@ -52,4 +52,3 @@ class AdminDeliveriesIndexFilterTest extends TestCase
             ->assertDontSee($weeklyUser->email);
     }
 }
-
