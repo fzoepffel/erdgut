@@ -393,6 +393,7 @@ final class WeeklyBoxSetupService
                 $box = Box::query()
                     ->forUser($subscription->user_id)
                     ->forWeek($week->toDateString())
+                    ->whereNull('order_id')
                     ->first();
 
                 $skippedNotEditable = $box !== null && $box->status !== BoxStatus::Editable;
@@ -496,10 +497,18 @@ final class WeeklyBoxSetupService
     }
 
     /**
-     * @return array<int, array{product: Product, planned: float, unit: string}>
+     * Weekly stock rows with remaining-aware allocation quantities.
+     *
+     * The `available` field is `max(0, planned - distributed)` where distributed is the sum of
+     * all box items already assigned to any box in that week (subscription + trial).
+     *
+     * @return array<int, array{product: Product, planned: float, available: float, distributed: float, unit: string}>
      */
     private function loadStockRows(Carbon $week): array
     {
+        $week = $week->copy()->startOfDay();
+        $distributed = $this->loadDistributedQuantities($week);
+
         $rows = ProductWeekStock::query()
             ->whereDate('week_start_date', $week->toDateString())
             ->where('planned_quantity', '>', 0)
@@ -516,11 +525,41 @@ final class WeeklyBoxSetupService
             if (! (bool) $product->is_available || ! (bool) $product->is_published) {
                 continue;
             }
+            $planned = (float) $row->planned_quantity;
+            $used = (float) ($distributed[(int) $product->id] ?? 0.0);
             $out[(int) $product->id] = [
                 'product' => $product,
-                'planned' => (float) $row->planned_quantity,
+                'planned' => $planned,
+                'distributed' => round($used, 2),
+                'available' => max(0.0, round($planned - $used, 2)),
                 'unit' => (string) ($row->unit ?? $product->metadata['unit'] ?? 'piece'),
             ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<int, float> product_id => distributed quantity in boxes for that week.
+     */
+    private function loadDistributedQuantities(Carbon $week): array
+    {
+        $date = $week->copy()->startOfDay()->toDateString();
+
+        $rows = DB::table('box_items')
+            ->join('boxes', 'boxes.id', '=', 'box_items.box_id')
+            ->selectRaw('box_items.product_id as product_id, SUM(box_items.quantity) as q')
+            ->whereDate('boxes.week_start_date', $date)
+            ->groupBy('box_items.product_id')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $pid = (int) ($row->product_id ?? 0);
+            if ($pid < 1) {
+                continue;
+            }
+            $out[$pid] = (float) ($row->q ?? 0);
         }
 
         return $out;
@@ -536,7 +575,7 @@ final class WeeklyBoxSetupService
      * Stop when target reached, or when a full pass adds no units.
      *
      * @param  array<string, array{n: int, ttc: float, target: float, max: float}>  $sizeConfigs
-     * @param  array<int, array{product: Product, planned: float, unit: string}>  $stockRows
+     * @param  array<int, array{product: Product, planned: float, available: float, distributed: float, unit: string}>  $stockRows
      * @return list<array<string, mixed>>
      */
     private function allocateProducts(array $sizeConfigs, array $stockRows): array
@@ -555,7 +594,7 @@ final class WeeklyBoxSetupService
 
         $perBoxQuota = [];
         foreach ($stockRows as $pid => $row) {
-            $planned = $row['planned'];
+            $planned = (float) ($row['available'] ?? 0.0);
             foreach ($sizeConfigs as $size => $cfg) {
                 $share = $weights[$size] / $weightSum;
                 $perBox = (int) floor($planned * $share / max($cfg['n'], 1));
@@ -687,10 +726,10 @@ final class WeeklyBoxSetupService
     }
 
     /**
-     * @param  array<int, array{product: Product, planned: float, unit: string}>  $stockRows
+     * @param  array<int, array{product: Product, planned: float, available: float, distributed: float, unit: string}>  $stockRows
      * @param  list<array<string, mixed>>  $sizeBlocks
      * @param  array<string, array{n: int, ttc: float, target: float, max: float}>  $sizeConfigs
-     * @return list<array{product_id: int, name: string, unit: string, unit_price: float, planned: float, used_total: float, remaining: float}>
+     * @return list<array{product_id: int, name: string, unit: string, unit_price: float, planned: float, baseline_used: float, used_total: float, remaining: float}>
      */
     private function buildStockSummary(array $stockRows, array $sizeBlocks, array $sizeConfigs): array
     {
@@ -709,13 +748,16 @@ final class WeeklyBoxSetupService
             /** @var Product $product */
             $product = $row['product'];
             $planned = (float) $row['planned'];
-            $u = round((float) ($used[$pid] ?? 0), 2);
+            $baseline = (float) ($row['distributed'] ?? 0.0);
+            $proposed = (float) ($used[$pid] ?? 0.0);
+            $u = round($baseline + $proposed, 2);
             $out[] = [
                 'product_id' => (int) $pid,
                 'name' => (string) $product->name,
                 'unit' => (string) $row['unit'],
                 'unit_price' => round((float) $product->unit_price, 2),
                 'planned' => round($planned, 2),
+                'baseline_used' => round($baseline, 2),
                 'used_total' => $u,
                 'remaining' => round($planned - $u, 2),
                 'missing_stock' => (bool) ($row['missing_stock'] ?? false),
@@ -735,6 +777,8 @@ final class WeeklyBoxSetupService
     {
         $subsBySize = $this->weeklyBoxPlanner->eligibleSubscriptionsForWeek($week)
             ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
+
+        $baselineDistributed = $this->loadDistributedQuantities($week);
 
         $totalsByProduct = [];
         foreach ($sizes as $size => $lines) {
@@ -758,12 +802,16 @@ final class WeeklyBoxSetupService
                 ->whereDate('week_start_date', $week->toDateString())
                 ->first();
             $planned = $stock !== null ? (float) $stock->planned_quantity : null;
-            if ($planned !== null && $needed > $planned + 0.005) {
+            $already = (float) ($baselineDistributed[(int) $pid] ?? 0.0);
+            $total = $already + $needed;
+            if ($planned !== null && $total > $planned + 0.005) {
                 Log::warning('admin_box_setup.over_planned', [
                     'week_start_date' => $week->toDateString(),
                     'product_id' => $pid,
                     'planned' => $planned,
+                    'already_distributed' => round($already, 2),
                     'needed' => round($needed, 2),
+                    'total_after_apply' => round($total, 2),
                 ]);
             }
         }

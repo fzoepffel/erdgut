@@ -109,6 +109,40 @@ class WeeklyBoxSetupServiceTest extends TestCase
         }
     }
 
+    public function test_auto_distribution_respects_remaining_when_week_has_existing_box_items(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+        $monday = Carbon::parse('2026-05-04');
+
+        $this->createSubscription('small');
+
+        $product = $this->createStockedProduct($monday, 2.0, 10, unit: 'piece', name: 'RemainProd', category: 'vegetables');
+
+        // Existing allocation already consumed 9 out of 10 units for that week.
+        // Use a non-eligible box owner so weekly setup cannot reuse it as a representative template.
+        $otherUser = User::factory()->create();
+        $existingBox = Box::factory()->create([
+            'user_id' => $otherUser->id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Editable,
+        ]);
+        BoxItem::factory()->for($existingBox)->create([
+            'product_id' => $product->id,
+            'quantity' => 9,
+            'is_extra' => false,
+        ]);
+
+        $data = $this->service()->buildInitialDistribution($monday);
+        $small = collect($data['size_blocks'])->firstWhere('box_size', 'small');
+        $this->assertNotNull($small);
+
+        $line = collect($small['lines'])->firstWhere('product_id', $product->id);
+        $this->assertNotNull($line);
+
+        // Only 1 unit should be allocatable due to remaining stock.
+        $this->assertSame(1, (int) $line['quantity']);
+    }
+
     public function test_calendar_overview_marks_partial_when_some_boxes_exist(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-04-27'));
