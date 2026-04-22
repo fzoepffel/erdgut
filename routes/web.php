@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\AdminBoxSetupController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
 use App\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\AdminTrialBoxSetupController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
@@ -188,6 +189,15 @@ Route::middleware(['auth', 'verified'])
             Route::get('boxes/week/{week}', [AdminBoxSetupController::class, 'weekBoxes'])
                 ->where('week', '\d{4}-\d{2}-\d{2}')
                 ->name('boxes.week.show');
+
+            Route::get('trial-boxes/setup', [AdminTrialBoxSetupController::class, 'select'])->name('trial-boxes.setup.select');
+            Route::get('trial-boxes/setup/{week}', [AdminTrialBoxSetupController::class, 'show'])
+                ->where('week', '\d{4}-\d{2}-\d{2}')
+                ->name('trial-boxes.setup.show');
+            Route::post('trial-boxes/setup/{week}', [AdminTrialBoxSetupController::class, 'apply'])
+                ->where('week', '\d{4}-\d{2}-\d{2}')
+                ->middleware('throttle:12,1')
+                ->name('trial-boxes.setup.apply');
             Route::post('boxes/{box}/items', [AdminBoxItemController::class, 'store'])->name('boxes.items.store');
             Route::patch('boxes/{box}/items/{item}', [AdminBoxItemController::class, 'update'])
                 ->scopeBindings()
