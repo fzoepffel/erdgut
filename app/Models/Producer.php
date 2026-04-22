@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Database\Factories\ProducerFactory;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasMany as HasManyRelation;
 use Illuminate\Support\Facades\Storage;
 
 class Producer extends Model
@@ -19,9 +21,6 @@ class Producer extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'name',
-        'region',
-        'description',
         'image_url',
         'image_path',
         'is_test',
@@ -45,6 +44,57 @@ class Producer extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    /**
+     * @return HasManyRelation<ProducerTranslation, $this>
+     */
+    public function translations(): HasManyRelation
+    {
+        return $this->hasMany(ProducerTranslation::class);
+    }
+
+    public function translationFor(?string $locale = null): ?ProducerTranslation
+    {
+        $locale = $locale ?? app()->getLocale();
+        $fallbacks = array_values(array_unique([$locale, 'de', 'en', 'fr']));
+
+        /** @var Collection<int, ProducerTranslation>|null $loaded */
+        $loaded = $this->getRelationValue('translations');
+        if ($loaded instanceof Collection) {
+            foreach ($fallbacks as $l) {
+                $t = $loaded->firstWhere('locale', $l);
+                if ($t !== null) {
+                    return $t;
+                }
+            }
+
+            return null;
+        }
+
+        foreach ($fallbacks as $l) {
+            $t = $this->translations()->where('locale', $l)->first();
+            if ($t !== null) {
+                return $t;
+            }
+        }
+
+        return null;
+    }
+
+    public function getNameAttribute(): string
+    {
+        return $this->translationFor()?->name ?? '';
+    }
+
+    public function getRegionAttribute(): ?string
+    {
+        return $this->translationFor()?->region;
+    }
+
+    public function getDescriptionAttribute(): ?string
+    {
+        return $this->translationFor()?->description;
     }
 
     /**

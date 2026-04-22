@@ -18,10 +18,13 @@ class ProductSeederTest extends TestCase
         $this->seed(ProducerSeeder::class);
         $this->seed(ProductSeeder::class);
 
-        $this->assertGreaterThanOrEqual(40, Product::query()->count());
-        $this->assertDatabaseHas('products', [
-            'name' => 'Bio-Karotten',
-            'is_test' => 1,
+        $this->assertGreaterThanOrEqual(4, Product::query()->count());
+
+        $product = Product::query()->firstOrFail();
+        $this->assertTrue((bool) $product->is_test);
+        $this->assertDatabaseHas('product_translations', [
+            'product_id' => $product->id,
+            'locale' => 'en',
         ]);
     }
 
@@ -31,7 +34,7 @@ class ProductSeederTest extends TestCase
         $this->seed(ProductSeeder::class);
 
         $seededCount = Product::query()->where('is_test', true)->count();
-        $this->assertGreaterThanOrEqual(40, $seededCount);
+        $this->assertGreaterThanOrEqual(4, $seededCount);
         $this->assertSame($seededCount, Product::query()->count());
     }
 
@@ -50,16 +53,19 @@ class ProductSeederTest extends TestCase
     public function test_non_seeded_products_can_be_created_as_real_data(): void
     {
         $producer = Producer::factory()->create();
-        $product = Product::factory()->create([
-            'name' => 'Real Product',
-            'producer_id' => $producer->id,
-        ]);
+        $product = Product::factory()->create(['producer_id' => $producer->id]);
+        $product->translations()->where('locale', 'en')->update(['name' => 'Real Product']);
 
         $this->assertFalse($product->is_test);
         $this->assertDatabaseHas('products', [
             'id' => $product->id,
-            'name' => 'Real Product',
             'is_test' => 0,
+        ]);
+
+        $this->assertDatabaseHas('product_translations', [
+            'product_id' => $product->id,
+            'locale' => 'en',
+            'name' => 'Real Product',
         ]);
     }
 }

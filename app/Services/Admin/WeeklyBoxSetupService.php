@@ -224,7 +224,10 @@ final class WeeklyBoxSetupService
             ->whereIn('user_id', array_keys($eligibleUserIds))
             ->with([
                 'items' => fn ($q) => $q->where('is_extra', false)
-                    ->with('product:id,name,category,unit_price,metadata,is_available,is_published'),
+                    ->with([
+                        'product:id,category,unit_price,metadata,is_available,is_published',
+                        'product.translations',
+                    ]),
             ])
             ->orderBy('id')
             ->get();

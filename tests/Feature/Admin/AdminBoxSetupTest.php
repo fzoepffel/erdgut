@@ -90,12 +90,12 @@ class AdminBoxSetupTest extends TestCase
         ]);
 
         $product = Product::factory()->create([
-            'name' => 'Setup Dialog Carrot',
             'unit_price' => 2.50,
             'is_available' => true,
             'is_published' => true,
-            'metadata' => ['unit' => 'bundle'],
+            'metadata' => null,
         ]);
+        $product->translations()->where('locale', 'en')->update(['name' => 'Setup Dialog Carrot']);
         ProductWeekStock::create([
             'product_id' => $product->id,
             'week_start_date' => $monday->toDateString(),

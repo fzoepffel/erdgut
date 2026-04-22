@@ -4,6 +4,7 @@ namespace Tests\Feature\Database;
 
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductTranslation;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -18,21 +19,28 @@ class ProductModelCrudTest extends TestCase
 
         $product = Product::create([
             'producer_id' => $producer->id,
-            'name' => 'Bio Karotten',
             'category' => 'vegetables',
             'unit_price' => 3.49,
             'is_seasonal' => true,
             'is_available' => true,
-            'metadata' => [
+            'metadata' => null,
+        ]);
+
+        foreach (['de', 'en', 'fr'] as $locale) {
+            ProductTranslation::query()->create([
+                'product_id' => $product->id,
+                'locale' => $locale,
+                'name' => 'Bio Karotten',
                 'unit' => 'kg',
                 'origin' => 'Bayern',
-            ],
-        ]);
+                'variety' => '—',
+                'taste_profile' => 'Süß und knackig.',
+            ]);
+        }
 
         $this->assertDatabaseHas('products', [
             'id' => $product->id,
             'producer_id' => $producer->id,
-            'name' => 'Bio Karotten',
             'category' => 'vegetables',
             'unit_price' => 3.49,
             'is_seasonal' => 1,
@@ -40,7 +48,7 @@ class ProductModelCrudTest extends TestCase
         ]);
 
         $this->assertSame($producer->id, $product->producer->id);
-        $this->assertSame('kg', $product->metadata['unit']);
+        $this->assertSame('Bio Karotten', $product->fresh()->name);
     }
 
     public function test_product_producer_relationship_is_belongs_to(): void

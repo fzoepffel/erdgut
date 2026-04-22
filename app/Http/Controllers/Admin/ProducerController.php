@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreProducerRequest;
 use App\Http\Requests\Admin\UpdateProducerRequest;
 use App\Models\Producer;
+use App\Models\ProducerTranslation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -15,6 +16,14 @@ use Illuminate\View\View;
 
 class ProducerController extends Controller
 {
+    /**
+     * @return list<string>
+     */
+    private function locales(): array
+    {
+        return ['de', 'en', 'fr'];
+    }
+
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Producer::class);
@@ -23,19 +32,26 @@ class ProducerController extends Controller
             'q' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $query = Producer::query()->withCount('products');
+        $locale = app()->getLocale();
+        $query = Producer::query()
+            ->select('producers.*')
+            ->join('producer_translations as pt', function ($join) use ($locale): void {
+                $join->on('pt.producer_id', '=', 'producers.id')->where('pt.locale', '=', $locale);
+            })
+            ->with('translations')
+            ->withCount('products');
 
         $search = isset($validated['q']) ? trim($validated['q']) : '';
         if ($search !== '') {
             $escaped = addcslashes($search, '%_\\');
             $query->where(function ($q) use ($escaped): void {
-                $q->where('name', 'like', '%'.$escaped.'%')
-                    ->orWhere('region', 'like', '%'.$escaped.'%');
+                $q->where('pt.name', 'like', '%'.$escaped.'%')
+                    ->orWhere('pt.region', 'like', '%'.$escaped.'%');
             });
         }
 
         $producers = $query
-            ->orderBy('name')
+            ->orderBy('pt.name')
             ->paginate(24)
             ->withQueryString();
 
@@ -55,7 +71,9 @@ class ProducerController extends Controller
     {
         $this->authorize('create', Producer::class);
 
-        $payload = $this->validatedProducerAttributes($request->validated(), ['image']);
+        $validated = $request->validated();
+        $payload = $this->validatedProducerAttributes($validated, ['image', 'translations']);
+        $translations = $validated['translations'];
 
         $producer = DB::transaction(function () use ($payload, $request): Producer {
             $producer = Producer::query()->create($payload);
@@ -68,6 +86,19 @@ class ProducerController extends Controller
             return $producer->fresh();
         });
 
+        DB::transaction(function () use ($producer, $translations): void {
+            foreach ($this->locales() as $locale) {
+                ProducerTranslation::query()->updateOrCreate(
+                    ['producer_id' => $producer->id, 'locale' => $locale],
+                    [
+                        'name' => $translations[$locale]['name'],
+                        'region' => $translations[$locale]['region'],
+                        'description' => $translations[$locale]['description'],
+                    ]
+                );
+            }
+        });
+
         return redirect()
             ->route('app.admin.producers.edit', $producer)
             ->with('status', __('Producer created.'));
@@ -78,7 +109,7 @@ class ProducerController extends Controller
         $this->authorize('update', $producer);
 
         return view('admin.producers.edit', [
-            'producer' => $producer,
+            'producer' => $producer->load('translations'),
         ]);
     }
 
@@ -86,7 +117,9 @@ class ProducerController extends Controller
     {
         $this->authorize('update', $producer);
 
-        $payload = $this->validatedProducerAttributes($request->validated(), ['image', 'remove_image']);
+        $validated = $request->validated();
+        $payload = $this->validatedProducerAttributes($validated, ['image', 'remove_image', 'translations']);
+        $translations = $validated['translations'];
 
         if ($request->boolean('remove_image')) {
             $this->deletePublicImage($producer->image_path);
@@ -100,6 +133,19 @@ class ProducerController extends Controller
                 $this->deletePublicImage($producer->refresh()->image_path);
                 $path = $this->storeUploadedImage($request->file('image'), $producer);
                 $producer->update(['image_path' => $path]);
+            }
+        });
+
+        DB::transaction(function () use ($producer, $translations): void {
+            foreach ($this->locales() as $locale) {
+                ProducerTranslation::query()->updateOrCreate(
+                    ['producer_id' => $producer->id, 'locale' => $locale],
+                    [
+                        'name' => $translations[$locale]['name'],
+                        'region' => $translations[$locale]['region'],
+                        'description' => $translations[$locale]['description'],
+                    ]
+                );
             }
         });
 

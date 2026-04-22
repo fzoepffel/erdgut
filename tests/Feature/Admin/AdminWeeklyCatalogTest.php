@@ -157,7 +157,9 @@ class AdminWeeklyCatalogTest extends TestCase
             ])
             ->assertRedirect();
 
-        $product = Product::query()->where('name', 'Fresh Inline Carrots')->first();
+        $product = Product::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', 'Fresh Inline Carrots'))
+            ->first();
         $this->assertNotNull($product);
         $this->assertEqualsWithDelta(1.99, (float) $product->unit_price, 0.001);
         $this->assertTrue($product->is_published);
