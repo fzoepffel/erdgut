@@ -66,14 +66,25 @@ class WeeklyBoxSetupServiceTest extends TestCase
         ?string $name = null,
         string $category = 'vegetables',
     ): Product {
+        $resolvedName = $name ?? 'Prod-'.uniqid();
         $product = Product::factory()->create([
-            'name' => $name ?? 'Prod-'.uniqid(),
             'category' => $category,
             'unit_price' => $unitPrice,
             'is_available' => true,
             'is_published' => true,
-            'metadata' => ['unit' => $unit],
+            'metadata' => null,
         ]);
+        foreach (['de', 'en', 'fr'] as $locale) {
+            $product->translations()
+                ->where('locale', $locale)
+                ->update([
+                    'name' => $resolvedName,
+                    'unit' => $unit,
+                    'origin' => 'regional',
+                    'variety' => '-',
+                    'taste_profile' => '-',
+                ]);
+        }
         ProductWeekStock::create([
             'product_id' => $product->id,
             'week_start_date' => $monday->toDateString(),

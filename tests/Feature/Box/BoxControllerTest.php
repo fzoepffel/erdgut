@@ -25,7 +25,8 @@ class BoxControllerTest extends TestCase
             'week_start_date' => now()->startOfWeek()->toDateString(),
             'estimated_value' => 45.80,
         ]);
-        $product = Product::factory()->create(['name' => 'Test Tomatoes']);
+        $product = Product::factory()->create();
+        $product->translations()->where('locale', 'en')->update(['name' => 'Test Tomatoes']);
         BoxItem::factory()->create([
             'box_id' => $box->id,
             'product_id' => $product->id,

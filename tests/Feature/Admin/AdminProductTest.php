@@ -44,9 +44,12 @@ class AdminProductTest extends TestCase
     public function test_admin_products_index_filters_by_search_query(): void
     {
         $admin = User::factory()->admin()->create();
-        $producer = Producer::factory()->create(['name' => 'Alpha Farm Co']);
-        Product::factory()->create(['name' => 'Zebra Apples', 'producer_id' => $producer->id]);
-        Product::factory()->create(['name' => 'Other Pears']);
+        $producer = Producer::factory()->create();
+        $producer->translations()->where('locale', 'en')->update(['name' => 'Alpha Farm Co']);
+        $zebra = Product::factory()->create(['producer_id' => $producer->id]);
+        $zebra->translations()->where('locale', 'en')->update(['name' => 'Zebra Apples']);
+        $other = Product::factory()->create();
+        $other->translations()->where('locale', 'en')->update(['name' => 'Other Pears']);
 
         $this->actingAs($admin)
             ->get(route('app.admin.products.index', ['q' => 'Zebra']))
@@ -64,18 +67,19 @@ class AdminProductTest extends TestCase
     {
         $admin = User::factory()->admin()->create();
         $producer = Producer::factory()->create();
-        Product::factory()->create([
+        $fruit = Product::factory()->create([
             'producer_id' => $producer->id,
-            'name' => 'Only Fruit Row',
             'category' => 'fruit',
             'is_published' => true,
         ]);
-        Product::factory()->create([
+        $fruit->translations()->where('locale', 'en')->update(['name' => 'Only Fruit Row']);
+
+        $veg = Product::factory()->create([
             'producer_id' => $producer->id,
-            'name' => 'Veg Row',
             'category' => 'vegetables',
             'is_published' => false,
         ]);
+        $veg->translations()->where('locale', 'en')->update(['name' => 'Veg Row']);
 
         $this->actingAs($admin)
             ->get(route('app.admin.products.index', [
@@ -123,25 +127,36 @@ class AdminProductTest extends TestCase
         $this->actingAs($admin)
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
-                'name' => 'Admin Test Apples',
+                'translations' => [
+                    'de' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'Leicht süß und knackig.'],
+                    'en' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'Lightly sweet and crisp.'],
+                    'fr' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'Légèrement sucrées et croquantes.'],
+                ],
                 'category' => 'fruit',
                 'unit_price' => '2.50',
-                'metadata' => [
-                    'unit' => 'kg',
-                    'origin' => 'test-region',
-                ],
             ])
             ->assertRedirect();
 
+        $product = Product::query()
+            ->where('producer_id', $producer->id)
+            ->where('category', 'fruit')
+            ->firstOrFail();
+
         $this->assertDatabaseHas('products', [
+            'id' => $product->id,
             'producer_id' => $producer->id,
-            'name' => 'Admin Test Apples',
             'category' => 'fruit',
             'unit_price' => 2.5,
             'is_available' => false,
             'is_published' => true,
             'is_seasonal' => false,
             'is_test' => false,
+        ]);
+
+        $this->assertDatabaseHas('product_translations', [
+            'product_id' => $product->id,
+            'locale' => 'en',
+            'name' => 'Admin Test Apples',
         ]);
     }
 
@@ -155,7 +170,11 @@ class AdminProductTest extends TestCase
         $this->actingAs($admin)
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
-                'name' => 'With Image',
+                'translations' => [
+                    'de' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'en' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'fr' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                ],
                 'category' => 'vegetables',
                 'unit_price' => '1.00',
                 'is_available' => '1',
@@ -163,7 +182,9 @@ class AdminProductTest extends TestCase
             ])
             ->assertRedirect();
 
-        $product = Product::query()->where('name', 'With Image')->firstOrFail();
+        $product = Product::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', 'With Image'))
+            ->firstOrFail();
         $this->assertNotNull($product->image_path);
         Storage::disk('public')->assertExists($product->image_path);
     }
@@ -216,7 +237,11 @@ class AdminProductTest extends TestCase
         $this->actingAs($user)
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
-                'name' => 'Blocked',
+                'translations' => [
+                    'de' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'en' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'fr' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                ],
                 'category' => 'fruit',
                 'unit_price' => '1.00',
             ])
@@ -225,7 +250,11 @@ class AdminProductTest extends TestCase
         $this->actingAs($user)
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
-                'name' => 'Hijacked',
+                'translations' => [
+                    'de' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'en' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'fr' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                ],
                 'category' => 'fruit',
                 'unit_price' => '9.99',
             ])
@@ -242,16 +271,20 @@ class AdminProductTest extends TestCase
         $producer = Producer::factory()->create();
         $product = Product::factory()->create([
             'producer_id' => $producer->id,
-            'name' => 'Old Name',
             'category' => 'vegetables',
             'unit_price' => 1.00,
             'is_available' => true,
         ]);
+        $product->translations()->where('locale', 'en')->update(['name' => 'Old Name']);
 
         $this->actingAs($admin)
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
-                'name' => 'New Name',
+                'translations' => [
+                    'de' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'en' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'fr' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                ],
                 'category' => 'fruit',
                 'unit_price' => '3.25',
                 'is_available' => '1',

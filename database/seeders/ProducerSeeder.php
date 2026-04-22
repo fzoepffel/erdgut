@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Producer;
+use App\Models\ProducerTranslation;
 use Illuminate\Database\Seeder;
 
 class ProducerSeeder extends Seeder
@@ -15,74 +16,123 @@ class ProducerSeeder extends Seeder
      */
     public function run(): void
     {
-        $producers = [
+        // Make the seed idempotent and keep environments clean: replace existing test producers.
+        Producer::query()->where('is_test', true)->delete();
+
+        $rows = [
             [
-                'name' => 'Hof Sonnenfeld',
-                'region' => 'Bayern',
-                'description' => 'Familienbetrieb mit Fokus auf saisonales Freilandgemuese und kurze Lieferwege.',
-                'image_url' => null,
+                'translations' => [
+                    'de' => [
+                        'name' => 'Hof Sonnenfeld',
+                        'region' => 'Brandenburg',
+                        'description' => 'Familienbetrieb mit Fokus auf saisonales Freilandgemüse und kurze Lieferwege.',
+                    ],
+                    'en' => [
+                        'name' => 'Sonnenfeld Farm',
+                        'region' => 'Brandenburg',
+                        'description' => 'Family-run farm focused on seasonal open-field vegetables and short delivery routes.',
+                    ],
+                    'fr' => [
+                        'name' => 'Ferme Sonnenfeld',
+                        'region' => 'Brandebourg',
+                        'description' => 'Exploitation familiale axée sur les légumes de saison en plein champ et des circuits courts.',
+                    ],
+                ],
             ],
             [
-                'name' => 'Obstgut Rheinau',
-                'region' => 'Baden-Wuerttemberg',
-                'description' => 'Apfel- und Birnenspezialist mit alten Sorten und schonender Lagerung.',
-                'image_url' => null,
+                'translations' => [
+                    'de' => [
+                        'name' => 'Obstgut Rheinau',
+                        'region' => 'Baden-Württemberg',
+                        'description' => 'Apfel- und Birnenspezialist mit alten Sorten und schonender Lagerung.',
+                    ],
+                    'en' => [
+                        'name' => 'Rheinau Orchard',
+                        'region' => 'Baden-Württemberg',
+                        'description' => 'Apple and pear specialist with heritage varieties and gentle storage.',
+                    ],
+                    'fr' => [
+                        'name' => 'Verger de Rheinau',
+                        'region' => 'Bade-Wurtemberg',
+                        'description' => 'Spécialiste des pommes et des poires, variétés anciennes et stockage soigné.',
+                    ],
+                ],
             ],
             [
-                'name' => 'Gaertnerei Morgenrot',
-                'region' => 'Hessen',
-                'description' => 'Bio-zertifizierte Gaertnerei fuer Blattgemuese, Kraeuter und essbare Blueten.',
-                'image_url' => null,
+                'translations' => [
+                    'de' => [
+                        'name' => 'Gärtnerei Morgenrot',
+                        'region' => 'Berlin',
+                        'description' => 'Bio-zertifizierte Gärtnerei für Blattgemüse, Kräuter und essbare Blüten.',
+                    ],
+                    'en' => [
+                        'name' => 'Morgenrot Market Garden',
+                        'region' => 'Berlin',
+                        'description' => 'Organic-certified market garden for leafy greens, herbs, and edible flowers.',
+                    ],
+                    'fr' => [
+                        'name' => 'Maraîchage Morgenrot',
+                        'region' => 'Berlin',
+                        'description' => 'Maraîchage bio certifié : légumes feuilles, herbes et fleurs comestibles.',
+                    ],
+                ],
             ],
             [
-                'name' => 'Milchhof Lindenau',
-                'region' => 'Niedersachsen',
-                'description' => 'Regionaler Milchhof mit Weidehaltung und handwerklich verarbeiteten Produkten.',
-                'image_url' => null,
+                'translations' => [
+                    'de' => [
+                        'name' => 'Milchhof Lindenau',
+                        'region' => 'Mecklenburg-Vorpommern',
+                        'description' => 'Regionaler Milchhof mit Weidehaltung und handwerklich verarbeiteten Produkten.',
+                    ],
+                    'en' => [
+                        'name' => 'Lindenau Dairy',
+                        'region' => 'Mecklenburg-Vorpommern',
+                        'description' => 'Regional dairy farm with pasture grazing and craft-made products.',
+                    ],
+                    'fr' => [
+                        'name' => 'Laiterie Lindenau',
+                        'region' => 'Mecklembourg-Poméranie-Occidentale',
+                        'description' => 'Ferme laitière régionale avec pâturage et produits artisanaux.',
+                    ],
+                ],
             ],
             [
-                'name' => 'Backstube Kornhaus',
-                'region' => 'Nordrhein-Westfalen',
-                'description' => 'Traditionsbaeckerei mit Sauerteigbroten aus regionalem Getreide.',
-                'image_url' => null,
-            ],
-            [
-                'name' => 'Gemuesekollektiv Uferacker',
-                'region' => 'Brandenburg',
-                'description' => 'Kleines Kollektiv fuer vielfaeltige Gemuesekulturen und bodenschonende Anbauweisen.',
-                'image_url' => null,
-            ],
-            [
-                'name' => 'Biohof Tannengrund',
-                'region' => 'Rheinland-Pfalz',
-                'description' => 'Mischbetrieb mit Gemuese, Eiern und regenerativen Bodenaufbauprojekten.',
-                'image_url' => null,
-            ],
-            [
-                'name' => 'Kraeuterfarm Alpengruen',
-                'region' => 'Bayern',
-                'description' => 'Spezialisiert auf Frischkraeuter, Microgreens und essbare Pflanzenmischungen.',
-                'image_url' => null,
-            ],
-            [
-                'name' => 'Fruchtmanufaktur Elbtal',
-                'region' => 'Sachsen',
-                'description' => 'Verarbeitet Ueberschuesse zu Fruchtaufstrichen, Sirupen und Kompotten.',
-                'image_url' => null,
-            ],
-            [
-                'name' => 'Kartoffelhof Nordstern',
-                'region' => 'Schleswig-Holstein',
-                'description' => 'Anbau verschiedener Kartoffelsorten mit Schwerpunkt auf Geschmack und Lagerfaehigkeit.',
-                'image_url' => null,
+                'translations' => [
+                    'de' => [
+                        'name' => 'Backstube Kornhaus',
+                        'region' => 'Berlin',
+                        'description' => 'Traditionsbäckerei mit Sauerteigbroten aus regionalem Getreide.',
+                    ],
+                    'en' => [
+                        'name' => 'Kornhaus Bakery',
+                        'region' => 'Berlin',
+                        'description' => 'Traditional bakery with sourdough loaves from regional grains.',
+                    ],
+                    'fr' => [
+                        'name' => 'Boulangerie Kornhaus',
+                        'region' => 'Berlin',
+                        'description' => 'Boulangerie traditionnelle : pains au levain à base de céréales régionales.',
+                    ],
+                ],
             ],
         ];
 
-        foreach ($producers as $producer) {
-            Producer::query()->updateOrCreate(
-                ['name' => $producer['name']],
-                [...$producer, 'is_test' => true]
-            );
+        foreach ($rows as $row) {
+            $producer = Producer::query()->create([
+                'image_url' => null,
+                'image_path' => null,
+                'is_test' => true,
+            ]);
+
+            foreach (['de', 'en', 'fr'] as $locale) {
+                ProducerTranslation::query()->create([
+                    'producer_id' => $producer->id,
+                    'locale' => $locale,
+                    'name' => $row['translations'][$locale]['name'],
+                    'region' => $row['translations'][$locale]['region'],
+                    'description' => $row['translations'][$locale]['description'],
+                ]);
+            }
         }
     }
 }

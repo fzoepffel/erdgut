@@ -76,11 +76,10 @@ class AdminBoxItemTest extends TestCase
             'estimated_value' => 10.00,
         ]);
         $product = Product::factory()->create([
-            'name' => 'Admin Catalog Apple',
             'is_available' => true,
             'is_published' => true,
-            'metadata' => ['unit' => 'kg'],
         ]);
+        $product->translations()->where('locale', 'en')->update(['name' => 'Admin Catalog Apple']);
         ProductWeekStock::create([
             'product_id' => $product->id,
             'week_start_date' => $weekStart->toDateString(),
@@ -222,10 +221,10 @@ class AdminBoxItemTest extends TestCase
         ]);
 
         $available = Product::factory()->create([
-            'name' => 'Available-Week-Product',
             'is_available' => true,
             'is_published' => true,
         ]);
+        $available->translations()->where('locale', 'en')->update(['name' => 'Available-Week-Product']);
         ProductWeekStock::create([
             'product_id' => $available->id,
             'week_start_date' => $weekStart->toDateString(),
@@ -234,10 +233,10 @@ class AdminBoxItemTest extends TestCase
         ]);
 
         $unavailable = Product::factory()->create([
-            'name' => 'Not-In-Week-Product',
             'is_available' => true,
             'is_published' => true,
         ]);
+        $unavailable->translations()->where('locale', 'en')->update(['name' => 'Not-In-Week-Product']);
 
         $html = $this->actingAs($admin)
             ->get(route('app.admin.boxes.show', $box))

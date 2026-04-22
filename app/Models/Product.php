@@ -4,11 +4,13 @@ namespace App\Models;
 
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasMany as HasManyRelation;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +27,6 @@ class Product extends Model
      */
     protected $fillable = [
         'producer_id',
-        'name',
         'category',
         'unit_price',
         'is_seasonal',
@@ -59,6 +60,67 @@ class Product extends Model
     public function producer(): BelongsTo
     {
         return $this->belongsTo(Producer::class);
+    }
+
+    /**
+     * @return HasManyRelation<ProductTranslation, $this>
+     */
+    public function translations(): HasManyRelation
+    {
+        return $this->hasMany(ProductTranslation::class);
+    }
+
+    public function translationFor(?string $locale = null): ?ProductTranslation
+    {
+        $locale = $locale ?? app()->getLocale();
+        $fallbacks = array_values(array_unique([$locale, 'de', 'en', 'fr']));
+
+        /** @var Collection<int, ProductTranslation>|null $loaded */
+        $loaded = $this->getRelationValue('translations');
+        if ($loaded instanceof Collection) {
+            foreach ($fallbacks as $l) {
+                $t = $loaded->firstWhere('locale', $l);
+                if ($t !== null) {
+                    return $t;
+                }
+            }
+
+            return null;
+        }
+
+        foreach ($fallbacks as $l) {
+            $t = $this->translations()->where('locale', $l)->first();
+            if ($t !== null) {
+                return $t;
+            }
+        }
+
+        return null;
+    }
+
+    public function getNameAttribute(): string
+    {
+        return $this->translationFor()?->name ?? '';
+    }
+
+    public function localizedUnit(?string $locale = null): string
+    {
+        return $this->translationFor($locale)?->unit ?? '';
+    }
+
+    public function localizedOrigin(?string $locale = null): string
+    {
+        return $this->translationFor($locale)?->origin ?? '';
+    }
+
+    public function localizedVariety(?string $locale = null): string
+    {
+        return $this->translationFor($locale)?->variety ?? '';
+    }
+
+    public function localizedTasteProfile(?string $locale = null): string
+    {
+        return $this->translationFor($locale)?->taste_profile ?? '';
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Producer;
+use App\Models\ProducerTranslation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -12,6 +13,21 @@ class ProducerFactory extends Factory
 {
     protected $model = Producer::class;
 
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Producer $producer): void {
+            foreach (['de', 'en', 'fr'] as $locale) {
+                ProducerTranslation::query()->create([
+                    'producer_id' => $producer->id,
+                    'locale' => $locale,
+                    'name' => fake()->company().' ('.$locale.')',
+                    'region' => fake()->city(),
+                    'description' => fake()->sentence(),
+                ]);
+            }
+        });
+    }
+
     /**
      * Define the model's default state.
      *
@@ -20,9 +36,6 @@ class ProducerFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->company(),
-            'region' => fake()->city(),
-            'description' => fake()->sentence(),
             'image_url' => fake()->imageUrl(),
             'image_path' => null,
             'is_test' => false,

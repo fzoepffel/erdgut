@@ -3,6 +3,11 @@
 // Second batch of translations (covers keys the first audit pass missed).
 
 return [
+    // ---- Admin translation UI ---------------------------------------------
+    'Translations' => ['de' => 'Übersetzungen', 'en' => 'Translations', 'fr' => 'Traductions'],
+    'All three languages are required.' => ['de' => 'Alle drei Sprachen sind erforderlich.', 'en' => 'All three languages are required.', 'fr' => 'Les trois langues sont obligatoires.'],
+    'Unit' => ['de' => 'Einheit', 'en' => 'Unit', 'fr' => 'Unité'],
+
     // ---- Empty states ------------------------------------------------------
     'No orders found.' => ['de' => 'Keine Bestellungen gefunden.',                       'en' => 'No orders found.',                          'fr' => 'Aucune commande trouvée.'],
     'No box composed yet.' => ['de' => 'Noch keine Box zusammengestellt.',                    'en' => 'No box composed yet.',                      'fr' => 'Box pas encore composée.'],

@@ -1,6 +1,7 @@
 @php
     /** @var \App\Models\Product|null $product */
     $isEdit = $product !== null;
+    $locales = ['de' => 'DE', 'en' => 'EN', 'fr' => 'FR'];
 @endphp
 
 <form method="post" action="{{ $action }}" class="space-y-6" enctype="multipart/form-data">
@@ -22,10 +23,89 @@
         <x-input-error class="mt-2" :messages="$errors->get('producer_id')" />
     </div>
 
-    <div>
-        <x-input-label for="name" :value="__('Name')" />
-        <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name', $product?->name)" required />
-        <x-input-error class="mt-2" :messages="$errors->get('name')" />
+    <div class="space-y-6">
+        <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-gray-900">{{ __('Translations') }}</h2>
+            <p class="text-xs text-gray-600">{{ __('All three languages are required.') }}</p>
+        </div>
+
+        @foreach ($locales as $locale => $label)
+            @php
+                $t = $product?->translations?->firstWhere('locale', $locale);
+            @endphp
+
+            <div class="rounded border border-gray-200 bg-white p-4">
+                <p class="text-sm font-semibold text-gray-900">{{ $label }}</p>
+
+                <div class="mt-4 grid grid-cols-1 gap-6">
+                    <div>
+                        <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" />
+                        <x-text-input
+                            :id="'translations_'.$locale.'_name'"
+                            :name="'translations['.$locale.'][name]'"
+                            type="text"
+                            class="mt-1 block w-full"
+                            :value="old('translations.'.$locale.'.name', $t?->name)"
+                            required
+                        />
+                        <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.name')" />
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
+                        <div>
+                            <x-input-label :for="'translations_'.$locale.'_unit'" :value="__('Unit')" />
+                            <x-text-input
+                                :id="'translations_'.$locale.'_unit'"
+                                :name="'translations['.$locale.'][unit]'"
+                                type="text"
+                                class="mt-1 block w-full"
+                                :value="old('translations.'.$locale.'.unit', $t?->unit)"
+                                required
+                            />
+                            <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.unit')" />
+                        </div>
+
+                        <div>
+                            <x-input-label :for="'translations_'.$locale.'_origin'" :value="__('Origin')" />
+                            <x-text-input
+                                :id="'translations_'.$locale.'_origin'"
+                                :name="'translations['.$locale.'][origin]'"
+                                type="text"
+                                class="mt-1 block w-full"
+                                :value="old('translations.'.$locale.'.origin', $t?->origin)"
+                                required
+                            />
+                            <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.origin')" />
+                        </div>
+
+                        <div>
+                            <x-input-label :for="'translations_'.$locale.'_variety'" :value="__('Variety')" />
+                            <x-text-input
+                                :id="'translations_'.$locale.'_variety'"
+                                :name="'translations['.$locale.'][variety]'"
+                                type="text"
+                                class="mt-1 block w-full"
+                                :value="old('translations.'.$locale.'.variety', $t?->variety)"
+                                required
+                            />
+                            <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.variety')" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('Taste profile')" />
+                        <textarea
+                            id="{{ 'translations_'.$locale.'_taste_profile' }}"
+                            name="{{ 'translations['.$locale.'][taste_profile]' }}"
+                            rows="2"
+                            class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+                            required
+                        >{{ old('translations.'.$locale.'.taste_profile', $t?->taste_profile) }}</textarea>
+                        <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.taste_profile')" />
+                    </div>
+                </div>
+            </div>
+        @endforeach
     </div>
 
     <div>
@@ -67,27 +147,6 @@
     <x-input-error class="mt-2" :messages="$errors->get('is_available')" />
     <x-input-error class="mt-2" :messages="$errors->get('is_published')" />
     <x-input-error class="mt-2" :messages="$errors->get('is_test')" />
-
-    <div>
-        <x-input-label for="metadata_unit" :value="__('Metadata: unit')" />
-        <x-text-input id="metadata_unit" name="metadata[unit]" type="text" class="mt-1 block w-full" :value="old('metadata.unit', $product?->metadata['unit'] ?? '')" />
-        <x-input-error class="mt-2" :messages="$errors->get('metadata.unit')" />
-    </div>
-    <div>
-        <x-input-label for="metadata_origin" :value="__('Metadata: origin')" />
-        <x-text-input id="metadata_origin" name="metadata[origin]" type="text" class="mt-1 block w-full" :value="old('metadata.origin', $product?->metadata['origin'] ?? '')" />
-        <x-input-error class="mt-2" :messages="$errors->get('metadata.origin')" />
-    </div>
-    <div>
-        <x-input-label for="metadata_variety" :value="__('Metadata: variety')" />
-        <x-text-input id="metadata_variety" name="metadata[variety]" type="text" class="mt-1 block w-full" :value="old('metadata.variety', $product?->metadata['variety'] ?? '')" />
-        <x-input-error class="mt-2" :messages="$errors->get('metadata.variety')" />
-    </div>
-    <div>
-        <x-input-label for="metadata_taste_profile" :value="__('Metadata: taste profile')" />
-        <textarea id="metadata_taste_profile" name="metadata[taste_profile]" rows="2" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm">{{ old('metadata.taste_profile', $product?->metadata['taste_profile'] ?? '') }}</textarea>
-        <x-input-error class="mt-2" :messages="$errors->get('metadata.taste_profile')" />
-    </div>
 
     <div
         x-data="{

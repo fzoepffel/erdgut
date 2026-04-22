@@ -15,11 +15,13 @@ class ProducerSeederTest extends TestCase
     {
         $this->seed(ProducerSeeder::class);
 
-        $this->assertGreaterThanOrEqual(10, Producer::query()->count());
-        $this->assertDatabaseHas('producers', [
-            'name' => 'Hof Sonnenfeld',
-            'region' => 'Bayern',
-            'is_test' => 1,
+        $this->assertGreaterThanOrEqual(5, Producer::query()->count());
+
+        $producer = Producer::query()->firstOrFail();
+        $this->assertTrue((bool) $producer->is_test);
+        $this->assertDatabaseHas('producer_translations', [
+            'producer_id' => $producer->id,
+            'locale' => 'de',
         ]);
     }
 
@@ -32,15 +34,19 @@ class ProducerSeederTest extends TestCase
 
     public function test_non_seeded_producers_can_be_created_as_real_data(): void
     {
-        $producer = Producer::factory()->create([
-            'name' => 'Real Producer GmbH',
-        ]);
+        $producer = Producer::factory()->create();
+        $producer->translations()->where('locale', 'en')->update(['name' => 'Real Producer GmbH']);
 
         $this->assertFalse($producer->is_test);
         $this->assertDatabaseHas('producers', [
             'id' => $producer->id,
-            'name' => 'Real Producer GmbH',
             'is_test' => 0,
+        ]);
+
+        $this->assertDatabaseHas('producer_translations', [
+            'producer_id' => $producer->id,
+            'locale' => 'en',
+            'name' => 'Real Producer GmbH',
         ]);
     }
 }

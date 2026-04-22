@@ -15,12 +15,17 @@ class ProducerController extends Controller
      */
     public function index(Request $request): View
     {
+        $locale = app()->getLocale();
         $regions = Producer::query()
-            ->whereNotNull('region')
-            ->where('region', '!=', '')
+            ->select('pt.region')
+            ->join('producer_translations as pt', function ($join) use ($locale): void {
+                $join->on('pt.producer_id', '=', 'producers.id')->where('pt.locale', '=', $locale);
+            })
+            ->whereNotNull('pt.region')
+            ->where('pt.region', '!=', '')
             ->distinct()
-            ->orderBy('region')
-            ->pluck('region')
+            ->orderBy('pt.region')
+            ->pluck('pt.region')
             ->values();
 
         $regionInput = $request->input('region');
@@ -44,18 +49,24 @@ class ProducerController extends Controller
             ]
         )->validate();
 
-        $query = Producer::query()->orderBy('name');
+        $query = Producer::query()
+            ->select('producers.*')
+            ->join('producer_translations as pt', function ($join) use ($locale): void {
+                $join->on('pt.producer_id', '=', 'producers.id')->where('pt.locale', '=', $locale);
+            })
+            ->with('translations')
+            ->orderBy('pt.name');
 
         if (! empty($validated['region'])) {
-            $query->where('region', $validated['region']);
+            $query->where('pt.region', $validated['region']);
         }
 
         if (! empty($validated['q'])) {
             $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], trim($validated['q']));
             $pattern = '%'.$escaped.'%';
             $query->where(function ($q) use ($pattern) {
-                $q->where('name', 'like', $pattern)
-                    ->orWhere('description', 'like', $pattern);
+                $q->where('pt.name', 'like', $pattern)
+                    ->orWhere('pt.description', 'like', $pattern);
             });
         }
 
