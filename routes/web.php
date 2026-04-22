@@ -156,6 +156,13 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
             Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
+            Route::post('users', [AdminUserController::class, 'storeAdmin'])
+                ->middleware('throttle:12,1')
+                ->name('users.store-admin');
+            Route::delete('users/{user}', [AdminUserController::class, 'destroy'])
+                ->whereNumber('user')
+                ->middleware('throttle:12,1')
+                ->name('users.destroy');
             Route::get('subscriptions', [AdminSubscriptionController::class, 'index'])->name('subscriptions.index');
             Route::post('deliveries/sync-from-boxes', [AdminDeliveryController::class, 'syncFromBoxes'])
                 ->middleware('throttle:12,1')

@@ -32,6 +32,8 @@ class AdminSubscriptionController extends Controller
             ])
             ->with(['user:id,email']);
 
+        $query->whereHas('user', fn ($uq) => $uq->where('is_admin', false));
+
         if (($validated['missing_payment'] ?? null) === '1') {
             $query->where('status', SubscriptionStatus::Active)
                 ->whereNull('sumup_token');
