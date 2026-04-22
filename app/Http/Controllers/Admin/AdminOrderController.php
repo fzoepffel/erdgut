@@ -7,12 +7,11 @@ use App\Enums\DeliveryStatus;
 use App\Enums\OrderProductType;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\AdminTrialOrderBoxSetupApplyRequest;
 use App\Mail\TrialDeliveryScheduledMail;
 use App\Models\Box;
 use App\Models\Delivery;
 use App\Models\Order;
-use App\Services\Admin\TrialWeeklyBoxSetupService;
+use App\Models\Product;
 use App\Services\Admin\WeeklyBoxPlannerService;
 use App\Support\BoxCompositionService;
 use Illuminate\Contracts\View\View;
@@ -73,42 +72,75 @@ class AdminOrderController extends Controller
             'user',
             'address',
             'box.items.product',
+            'box.items.product.translations',
             'deliveries.address',
             'payments' => fn ($q) => $q->latest(),
         ]);
 
-        $setupWeek = null;
-        $setupData = null;
-        if ($order->product_type === OrderProductType::TrialBox
-            && in_array($order->status, [OrderStatus::Paid, OrderStatus::Scheduled], true)
-        ) {
-            $setupWeek = $this->resolveMondayForTrialSetup($order, request()->string('week')->toString());
+        $trialSetupWeek = null;
+        $bulkSetupUrl = null;
+        $catalogProducts = collect();
+        $budgetDetails = null;
+        $adminCanMutateItems = false;
 
-            $setupService = app(TrialWeeklyBoxSetupService::class);
-            $setupData = $setupService->buildInitialDistribution($setupWeek, [$order->id]);
+        $isTrial = $order->product_type === OrderProductType::TrialBox;
+        $isEligible = $isTrial && in_array($order->status, [OrderStatus::Paid, OrderStatus::Scheduled], true);
+        $hasBoxWithItems = $order->box !== null && $order->box->items->where('is_extra', false)->isNotEmpty();
+
+        if ($isEligible && ! $hasBoxWithItems) {
+            $trialSetupWeek = $this->resolveMondayForTrialSetup($order, request()->string('week')->toString());
+            $bulkSetupUrl = route('app.admin.trial-boxes.setup.show', [
+                'week' => $trialSetupWeek->toDateString(),
+                'order_ids' => [$order->id],
+            ]);
+        }
+
+        if ($isEligible && $order->box !== null) {
+            $box = $order->box;
+            $adminCanMutateItems = $box->allowsAdminLineEdits();
+
+            $catalogQuery = Product::query();
+            if ($box->week_start_date !== null) {
+                $catalogQuery->availableForWeek($box->week_start_date);
+            } else {
+                $catalogQuery->visibleInCatalog();
+            }
+
+            $locale = app()->getLocale();
+            $catalogProducts = $catalogQuery
+                ->select('products.*')
+                ->join('product_translations as pt', function ($join) use ($locale): void {
+                    $join->on('pt.product_id', '=', 'products.id')->where('pt.locale', '=', $locale);
+                })
+                ->with('translations')
+                ->orderBy('pt.name')
+                ->get(['products.id']);
+
+            $included = round((float) config('box.included_value_by_size.'.(string) $order->box_size, 0), 2);
+            $estimated = round((float) ($box->estimated_value ?? 0), 2);
+            $marginRate = (float) config('box.admin_planning_margin_rate', 0);
+            $planningHint = $marginRate > 0 && $marginRate < 1
+                ? round($included * (1 - $marginRate), 2)
+                : null;
+
+            $budgetDetails = [
+                'included_budget' => $included,
+                'estimated_value' => $estimated,
+                'remainder' => round($included - $estimated, 2),
+                'over_budget' => $estimated > $included + 0.005,
+                'planning_hint' => $planningHint,
+            ];
         }
 
         return view('admin.orders.show', [
             'order' => $order,
             'timeslots' => Delivery::allowedTimeslots(),
-            'setupWeek' => $setupWeek,
-            'setupData' => $setupData,
+            'trialSetupWeek' => $trialSetupWeek,
+            'bulkSetupUrl' => $bulkSetupUrl,
+            'catalogProducts' => $catalogProducts,
+            'adminCanMutateItems' => $adminCanMutateItems,
+            'budgetDetails' => $budgetDetails,
         ]);
-    }
-
-    public function applyBoxSetup(AdminTrialOrderBoxSetupApplyRequest $request, Order $order): RedirectResponse
-    {
-        $this->authorize('admin');
-
-        $week = Carbon::parse($request->validated('week_start_date'))->startOfDay();
-        $sizes = $request->sizeLines();
-
-        $setupService = app(TrialWeeklyBoxSetupService::class);
-        $updated = $setupService->applyDistribution($week, [$order->id], $sizes);
-
-        return redirect()
-            ->route('app.admin.orders.show', ['order' => $order, 'week' => $week->toDateString()])
-            ->with('status', __('admin.trial_order_box_setup.flash_applied', ['count' => $updated]));
     }
 
     public function schedule(Request $request, Order $order): RedirectResponse
