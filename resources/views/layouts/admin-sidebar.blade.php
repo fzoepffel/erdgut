@@ -93,7 +93,7 @@
             {{ __('admin.operations.nav_subscriptions') }}
         </a>
         <a
-            href="{{ route('app.admin.orders.index') }}"
+            href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box']) }}"
             @click="adminSidebarOpen = false"
             class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.orders.*') ? $navActive : $navInactive }}"
         >
@@ -112,13 +112,6 @@
             class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.boxes.*') ? $navActive : $navInactive }}"
         >
             {{ __('admin.operations.nav_boxes_setup') }}
-        </a>
-        <a
-            href="{{ route('app.admin.trial-boxes.setup.select') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.trial-boxes.*') ? $navActive : $navInactive }}"
-        >
-            {{ __('admin.trial_box_setup.nav_label') }}
         </a>
         <a
             href="{{ route('app.admin.payments.index') }}"
