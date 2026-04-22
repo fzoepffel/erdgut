@@ -37,6 +37,8 @@ final class WeeklyBoxSetupService
      *     status: string,
      *     eligible_count: int,
      *     boxes_count: int,
+     *     trial_boxes_count: int,
+     *     total_boxes_count: int,
      *     total_estimated_value: float,
      *     per_size: array<string, array{eligible: int, boxes: int}>,
      * }>
@@ -53,10 +55,12 @@ final class WeeklyBoxSetupService
 
             $boxes = Box::query()
                 ->forWeek($week->toDateString())
-                ->get(['id', 'user_id', 'estimated_value']);
+                ->get(['id', 'user_id', 'order_id', 'estimated_value']);
 
-            $boxesByUser = $boxes->keyBy('user_id');
             $boxesUsers = $boxes->pluck('user_id')->all();
+
+            $subscriptionBoxesCount = (int) $boxes->whereNull('order_id')->count();
+            $trialBoxesCount = (int) $boxes->whereNotNull('order_id')->count();
 
             $boxesBySize = $eligible
                 ->filter(fn (Subscription $s) => in_array($s->user_id, $boxesUsers, true))
@@ -71,15 +75,16 @@ final class WeeklyBoxSetupService
             }
 
             $eligibleCount = $eligible->count();
-            $boxesCount = $boxes->count();
-            $status = $this->resolveStatus($eligibleCount, $boxesCount);
+            $status = $this->resolveStatus($eligibleCount, $subscriptionBoxesCount);
 
             $rows[] = [
                 'week_start_date' => $week->toDateString(),
                 'week' => $week,
                 'status' => $status,
                 'eligible_count' => $eligibleCount,
-                'boxes_count' => $boxesCount,
+                'boxes_count' => $subscriptionBoxesCount,
+                'trial_boxes_count' => $trialBoxesCount,
+                'total_boxes_count' => $boxes->count(),
                 'total_estimated_value' => round((float) $boxes->sum(fn (Box $b) => (float) $b->estimated_value), 2),
                 'per_size' => $perSize,
             ];

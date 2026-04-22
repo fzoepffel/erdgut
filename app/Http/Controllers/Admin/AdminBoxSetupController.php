@@ -65,6 +65,7 @@ class AdminBoxSetupController extends Controller
             ->forWeek($monday->toDateString())
             ->with([
                 'user:id,email,name',
+                'order:id,box_size',
                 'items:id,box_id,is_extra',
             ])
             ->orderBy('id')
@@ -77,10 +78,11 @@ class AdminBoxSetupController extends Controller
         $rows = $boxes->map(function (Box $box) use ($subsByUserId): array {
             $sub = $subsByUserId->get((int) $box->user_id);
             $items = $box->items;
+            $boxSize = $sub?->box_size ?? $box->order?->box_size;
 
             return [
                 'box' => $box,
-                'box_size' => $sub?->box_size ?? null,
+                'box_size' => $boxSize !== null ? (string) $boxSize : null,
                 'non_extra_count' => $items->where('is_extra', false)->count(),
                 'extra_count' => $items->where('is_extra', true)->count(),
             ];

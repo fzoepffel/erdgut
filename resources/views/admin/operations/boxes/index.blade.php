@@ -59,6 +59,11 @@
                             <div>
                                 <dt class="text-xs text-gray-500">{{ __('admin.box_setup.boxes_set_up') }}</dt>
                                 <dd class="mt-0.5 tabular-nums text-gray-900">{{ $row['boxes_count'] }}</dd>
+                                @if (($row['trial_boxes_count'] ?? 0) > 0)
+                                    <dd class="mt-0.5 text-xs text-gray-500">
+                                        {{ __('Trial boxes') }}: <span class="tabular-nums">{{ $row['trial_boxes_count'] }}</span>
+                                    </dd>
+                                @endif
                             </div>
                             <div class="col-span-2">
                                 <dt class="text-xs text-gray-500">{{ __('admin.box_setup.total_value') }}</dt>
@@ -89,9 +94,9 @@
                                 href="{{ route('app.admin.boxes.setup.show', ['week' => $row['week_start_date']]) }}"
                                 class="inline-flex w-full items-center justify-center rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
                             >
-                                {{ $row['boxes_count'] > 0 ? __('admin.box_setup.cta_review') : __('admin.box_setup.cta_setup') }}
+                                {{ ($row['total_boxes_count'] ?? $row['boxes_count']) > 0 ? __('admin.box_setup.cta_review') : __('admin.box_setup.cta_setup') }}
                             </a>
-                            @if ($row['boxes_count'] > 0)
+                            @if (($row['total_boxes_count'] ?? $row['boxes_count']) > 0)
                                 <a
                                     href="{{ route('app.admin.boxes.week.show', ['week' => $row['week_start_date']]) }}"
                                     class="inline-flex w-full items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"

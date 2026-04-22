@@ -23,6 +23,7 @@ class AdminDeliveriesIndexRequest extends FormRequest
                 static fn (DeliveryStatus $s): string => $s->value,
                 DeliveryStatus::cases()
             ))],
+            'trial_only' => ['nullable', 'string', Rule::in(['1'])],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],

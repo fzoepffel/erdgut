@@ -13,6 +13,60 @@
         <div class="mx-auto max-w-7xl space-y-8 px-4 sm:px-6 lg:px-8">
             @include('admin.partials.operational-alerts', ['alerts' => $operationalAlerts])
 
+            <div class="rounded-lg border border-gray-100 bg-white p-6 shadow-sm sm:rounded-lg" data-testid="admin-trial-pipeline">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-900">{{ __('admin.trials.pipeline_title') }}</h3>
+                        <p class="mt-1 text-sm text-gray-600">{{ __('admin.trials.pipeline_hint') }}</p>
+                    </div>
+                    <a
+                        href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box']) }}"
+                        class="text-sm font-medium text-emerald-700 hover:underline"
+                    >
+                        {{ __('admin.trials.pipeline_link_all') }}
+                    </a>
+                </div>
+
+                <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <a
+                        href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box', 'status' => 'pending_payment']) }}"
+                        class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition hover:border-gray-200"
+                        data-testid="admin-trial-pipeline-pending-payment"
+                    >
+                        <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_pending_payment') }}</p>
+                        <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersPendingPayment) }}</p>
+                    </a>
+
+                    <a
+                        href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box', 'status' => 'paid', 'needs_schedule' => '1']) }}"
+                        class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition hover:border-gray-200"
+                        data-testid="admin-trial-pipeline-needs-scheduling"
+                    >
+                        <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_paid_needs_scheduling') }}</p>
+                        <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersPaidNeedsScheduling) }}</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ __('admin.trials.pipeline_paid_needs_scheduling_hint') }}</p>
+                    </a>
+
+                    <a
+                        href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box', 'status' => 'scheduled', 'needs_box' => '1']) }}"
+                        class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition hover:border-gray-200"
+                        data-testid="admin-trial-pipeline-needs-box"
+                    >
+                        <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_scheduled_needs_box') }}</p>
+                        <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersScheduledNeedsBox) }}</p>
+                    </a>
+
+                    <a
+                        href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box', 'status' => 'scheduled', 'ready_to_deliver' => '1']) }}"
+                        class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition hover:border-gray-200"
+                        data-testid="admin-trial-pipeline-ready"
+                    >
+                        <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_ready_to_deliver') }}</p>
+                        <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersReadyToDeliver) }}</p>
+                    </a>
+                </div>
+            </div>
+
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-users-total">
                     <p class="text-sm font-medium text-gray-600">{{ __('admin.metrics.users_total_label') }}</p>
@@ -74,16 +128,16 @@
                     <p class="mt-1 text-xs text-gray-500">{{ __('admin.metrics.upcoming_charges_hint') }}</p>
                 </div>
                 <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-trial-pending-scheduling">
-                    <p class="text-sm font-medium text-gray-600">{{ __('Trial orders to schedule') }}</p>
+                    <p class="text-sm font-medium text-gray-600">{{ __('admin.metrics.trial_orders_to_schedule_label') }}</p>
                     <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersPendingScheduling) }}</p>
-                    <p class="mt-1 text-xs text-gray-500">{{ __('Paid trial orders without a delivery date.') }}</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ __('admin.metrics.trial_orders_to_schedule_hint') }}</p>
                 </div>
                 <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-trial-boxes-to-compose">
-                    <p class="text-sm font-medium text-gray-600">{{ __('Trial boxes to compose') }}</p>
+                    <p class="text-sm font-medium text-gray-600">{{ __('admin.metrics.trial_boxes_to_compose_label') }}</p>
                     <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersBoxesToCompose) }}</p>
                 </div>
                 <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-trial-conversion-30d">
-                    <p class="text-sm font-medium text-gray-600">{{ __('Trial → subscription (30d)') }}</p>
+                    <p class="text-sm font-medium text-gray-600">{{ __('admin.metrics.trial_conversion_30d_label') }}</p>
                     <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialConversionRate30d * 100, 1) }}%</p>
                     <p class="mt-1 text-xs text-gray-500">{{ __(':converted of :delivered delivered', ['converted' => $metrics->trialOrdersConvertedLast30d, 'delivered' => $metrics->trialOrdersDeliveredLast30d]) }}</p>
                 </div>

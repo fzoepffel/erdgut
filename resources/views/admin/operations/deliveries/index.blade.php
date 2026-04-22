@@ -1,5 +1,6 @@
 @php
-    $hasFilters = filled(request('status')) || filled(request('date_from')) || filled(request('date_to'));
+    $hasFilters = filled(request('status')) || filled(request('date_from')) || filled(request('date_to')) || request('trial_only') === '1';
+    $trialOnly = request('trial_only') === '1';
 @endphp
 
 <x-admin-layout>
@@ -59,6 +60,10 @@
                                     <option value="{{ $st->value }}" @selected(request('status') === $st->value)>{{ $st->value }}</option>
                                 @endforeach
                             </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input id="admin-del-trial-only" type="checkbox" name="trial_only" value="1" @checked($trialOnly) class="rounded border-gray-300 text-emerald-700 shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                            <label for="admin-del-trial-only" class="text-sm text-gray-700">{{ __('Trial only') }}</label>
                         </div>
                         <div class="w-full sm:w-auto">
                             <label for="admin-del-from" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.date_from') }}</label>
