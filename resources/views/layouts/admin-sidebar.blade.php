@@ -114,6 +114,13 @@
             {{ __('admin.operations.nav_boxes_setup') }}
         </a>
         <a
+            href="{{ route('app.admin.trial-boxes.setup.select') }}"
+            @click="adminSidebarOpen = false"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.trial-boxes.*') ? $navActive : $navInactive }}"
+        >
+            {{ __('admin.trial_box_setup.nav_label') }}
+        </a>
+        <a
             href="{{ route('app.admin.payments.index') }}"
             @click="adminSidebarOpen = false"
             class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.payments.*') ? $navActive : $navInactive }}"
