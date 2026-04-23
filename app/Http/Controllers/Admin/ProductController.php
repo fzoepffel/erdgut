@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\Allergen;
+use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
+use App\Enums\TasteProfile;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreProductRequest;
 use App\Http\Requests\Admin\UpdateProductRequest;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\ProductTranslation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -91,16 +95,7 @@ class ProductController extends Controller
     {
         $this->authorize('create', Product::class);
 
-        return view('admin.products.create', [
-            'producers' => Producer::query()
-                ->select('producers.*')
-                ->join('producer_translations as pt', function ($join): void {
-                    $join->on('pt.producer_id', '=', 'producers.id')->where('pt.locale', '=', app()->getLocale());
-                })
-                ->orderBy('pt.name')
-                ->get(),
-            'categories' => ProductCategory::values(),
-        ]);
+        return view('admin.products.create', $this->formViewData(null));
     }
 
     public function store(StoreProductRequest $request): RedirectResponse
@@ -108,15 +103,21 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         $validated = $request->validated();
-        $payload = $this->normalizedPayload($this->validatedProductAttributes($validated, ['image', 'translations']));
+        $payload = $this->buildCoreAttributes($validated);
         $translations = $validated['translations'];
 
-        $product = DB::transaction(function () use ($payload, $request): Product {
+        $product = DB::transaction(function () use ($payload, $validated, $request): Product {
             $product = Product::query()->create($payload);
 
             if ($request->hasFile('image')) {
                 $path = $this->storeUploadedImage($request->file('image'), $product);
                 $product->update(['image_path' => $path]);
+            }
+
+            $this->syncPairings($product, $validated['pairings'] ?? []);
+
+            if ($request->hasFile('gallery_images')) {
+                $this->storeGalleryUploads($product, $request->file('gallery_images'));
             }
 
             return $product->fresh();
@@ -146,17 +147,7 @@ class ProductController extends Controller
     {
         $this->authorize('update', $product);
 
-        return view('admin.products.edit', [
-            'product' => $product->load(['producer', 'translations']),
-            'producers' => Producer::query()
-                ->select('producers.*')
-                ->join('producer_translations as pt', function ($join): void {
-                    $join->on('pt.producer_id', '=', 'producers.id')->where('pt.locale', '=', app()->getLocale());
-                })
-                ->orderBy('pt.name')
-                ->get(),
-            'categories' => ProductCategory::values(),
-        ]);
+        return view('admin.products.edit', $this->formViewData($product));
     }
 
     public function update(UpdateProductRequest $request, Product $product): RedirectResponse
@@ -164,7 +155,7 @@ class ProductController extends Controller
         $this->authorize('update', $product);
 
         $validated = $request->validated();
-        $payload = $this->normalizedPayload($this->validatedProductAttributes($validated, ['image', 'remove_image', 'translations']));
+        $payload = $this->buildCoreAttributes($validated);
         $translations = $validated['translations'];
 
         if ($request->boolean('remove_image')) {
@@ -172,13 +163,23 @@ class ProductController extends Controller
             $payload['image_path'] = null;
         }
 
-        DB::transaction(function () use ($request, $product, $payload): void {
+        DB::transaction(function () use ($request, $product, $payload, $validated): void {
             $product->update($payload);
 
             if ($request->hasFile('image')) {
                 $this->deletePublicImage($product->refresh()->image_path);
                 $path = $this->storeUploadedImage($request->file('image'), $product);
                 $product->update(['image_path' => $path]);
+            }
+
+            $this->syncPairings($product, $validated['pairings'] ?? []);
+
+            $this->removeGalleryImages($validated['gallery_remove'] ?? [], $product);
+
+            $this->updateGalleryAlts($validated['gallery_alt'] ?? [], $product);
+
+            if ($request->hasFile('gallery_images')) {
+                $this->storeGalleryUploads($product, $request->file('gallery_images'));
             }
         });
 
@@ -213,6 +214,9 @@ class ProductController extends Controller
         }
 
         $this->deletePublicImage($product->image_path);
+        foreach ($product->images as $image) {
+            $this->deletePublicImage($image->path);
+        }
         $product->delete();
 
         return redirect()
@@ -221,33 +225,171 @@ class ProductController extends Controller
     }
 
     /**
-     * @param  array<string, mixed>  $validated
-     * @param  list<string>  $without
+     * View data shared by create + edit forms.
+     *
      * @return array<string, mixed>
      */
-    private function validatedProductAttributes(array $validated, array $without): array
+    private function formViewData(?Product $product): array
     {
-        foreach ($without as $key) {
-            unset($validated[$key]);
-        }
+        $locale = app()->getLocale();
 
-        return $validated;
+        $pairableProducts = Product::query()
+            ->select('products.id')
+            ->join('product_translations as pt', function ($j) use ($locale): void {
+                $j->on('pt.product_id', '=', 'products.id')->where('pt.locale', '=', $locale);
+            })
+            ->when($product !== null, fn ($q) => $q->where('products.id', '!=', $product->id))
+            ->orderBy('pt.name')
+            ->with('translations')
+            ->get();
+
+        return [
+            'product' => $product?->load(['producer', 'translations', 'images', 'pairings.translations']),
+            'producers' => Producer::query()
+                ->select('producers.*')
+                ->join('producer_translations as pt', function ($join) use ($locale): void {
+                    $join->on('pt.producer_id', '=', 'producers.id')->where('pt.locale', '=', $locale);
+                })
+                ->orderBy('pt.name')
+                ->get(),
+            'categories' => ProductCategory::values(),
+            'allergenCases' => Allergen::cases(),
+            'dietaryCases' => DietaryTag::cases(),
+            'tasteCases' => TasteProfile::cases(),
+            'pairableProducts' => $pairableProducts,
+        ];
     }
 
     /**
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    private function normalizedPayload(array $payload): array
+    private function buildCoreAttributes(array $validated): array
     {
-        if (isset($payload['metadata']) && is_array($payload['metadata'])) {
-            $payload['metadata'] = array_filter(
-                $payload['metadata'],
-                static fn (mixed $v): bool => $v !== null && $v !== ''
-            );
-        }
+        $payload = [
+            'producer_id' => $validated['producer_id'],
+            'category' => $validated['category'],
+            'unit_price' => $validated['unit_price'],
+            'is_seasonal' => (bool) ($validated['is_seasonal'] ?? false),
+            'is_available' => (bool) ($validated['is_available'] ?? false),
+            'is_published' => (bool) ($validated['is_published'] ?? false),
+            'is_test' => (bool) ($validated['is_test'] ?? false),
+            'allergens' => $this->normalizeEnumArray($validated['allergens'] ?? null),
+            'dietary_tags' => $this->normalizeEnumArray($validated['dietary_tags'] ?? null),
+            'taste_profile_tags' => $this->normalizeEnumArray($validated['taste_profile_tags'] ?? null),
+        ];
+
+        $buyingPrice = $validated['buying_price'] ?? null;
+        $payload['buying_price_cents'] = ($buyingPrice === null || $buyingPrice === '')
+            ? null
+            : (int) round(((float) $buyingPrice) * 100);
 
         return $payload;
+    }
+
+    /**
+     * @param  list<string>|null  $values
+     * @return list<string>|null
+     */
+    private function normalizeEnumArray(?array $values): ?array
+    {
+        if ($values === null) {
+            return null;
+        }
+        $values = array_values(array_unique(array_filter(
+            $values,
+            static fn ($v) => is_string($v) && $v !== ''
+        )));
+
+        return $values === [] ? null : $values;
+    }
+
+    /**
+     * @param  list<int>  $pairedIds
+     */
+    private function syncPairings(Product $product, array $pairedIds): void
+    {
+        $clean = array_values(array_unique(array_filter(
+            array_map('intval', $pairedIds),
+            static fn (int $id) => $id > 0 && $id !== $product->id
+        )));
+
+        $product->pairings()->sync($clean);
+    }
+
+    /**
+     * @param  list<UploadedFile>  $files
+     */
+    private function storeGalleryUploads(Product $product, array $files): void
+    {
+        $nextPosition = ((int) $product->images()->max('position')) + 1;
+
+        foreach ($files as $file) {
+            if (! $file instanceof UploadedFile) {
+                continue;
+            }
+
+            $path = Storage::disk('public')->putFile('products/'.$product->id, $file);
+
+            ProductImage::query()->create([
+                'product_id' => $product->id,
+                'path' => $path,
+                'position' => $nextPosition++,
+                'is_primary' => false,
+            ]);
+        }
+    }
+
+    /**
+     * @param  list<int>  $ids
+     */
+    private function removeGalleryImages(array $ids, Product $product): void
+    {
+        if ($ids === []) {
+            return;
+        }
+
+        $images = ProductImage::query()
+            ->whereIn('id', $ids)
+            ->where('product_id', $product->id)
+            ->get();
+
+        foreach ($images as $image) {
+            $this->deletePublicImage($image->path);
+            $image->delete();
+        }
+    }
+
+    /**
+     * @param  array<int|string, string|null>  $alts
+     */
+    private function updateGalleryAlts(array $alts, Product $product): void
+    {
+        if ($alts === []) {
+            return;
+        }
+
+        $normalized = [];
+        foreach ($alts as $id => $alt) {
+            $id = (int) $id;
+            if ($id <= 0) {
+                continue;
+            }
+            $normalized[$id] = is_string($alt) && $alt !== '' ? $alt : null;
+        }
+
+        if ($normalized === []) {
+            return;
+        }
+
+        $images = ProductImage::query()
+            ->whereIn('id', array_keys($normalized))
+            ->where('product_id', $product->id)
+            ->get();
+
+        foreach ($images as $image) {
+            $image->update(['alt' => $normalized[$image->id] ?? null]);
+        }
     }
 
     private function storeUploadedImage(UploadedFile $file, Product $product): string

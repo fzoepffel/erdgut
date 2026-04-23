@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Enums\Allergen;
+use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
+use App\Enums\TasteProfile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -43,11 +46,24 @@ class StoreProductRequest extends FormRequest
             'producer_id' => ['required', 'integer', 'exists:producers,id'],
             'category' => ['required', 'string', Rule::in(ProductCategory::values())],
             'unit_price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'is_seasonal' => ['boolean'],
             'is_available' => ['boolean'],
             'is_published' => ['boolean'],
             'is_test' => ['boolean'],
             'image' => ['nullable', 'image', 'max:5120'],
+            'allergens' => ['nullable', 'array'],
+            'allergens.*' => ['string', Rule::in(Allergen::values())],
+            'dietary_tags' => ['nullable', 'array'],
+            'dietary_tags.*' => ['string', Rule::in(DietaryTag::values())],
+            'taste_profile_tags' => ['nullable', 'array'],
+            'taste_profile_tags.*' => ['string', Rule::in(TasteProfile::values())],
+            'pairings' => ['nullable', 'array'],
+            'pairings.*' => ['integer', 'exists:products,id'],
+            'gallery_images' => ['nullable', 'array', 'max:12'],
+            'gallery_images.*' => ['image', 'max:5120'],
+            'gallery_alt' => ['nullable', 'array'],
+            'gallery_alt.*' => ['nullable', 'string', 'max:255'],
         ];
     }
 
