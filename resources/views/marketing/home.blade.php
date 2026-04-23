@@ -1,9 +1,7 @@
-@extends('layouts.marketing', ['transparentOverHero' => true])
+@extends('layouts.marketing')
 
 @section('content')
-    {{-- Hero: video + editorial headline. The header sits transparently over
-         this section and solidifies once the user scrolls past it, so the
-         brand mark appears in exactly one place at any moment. --}}
+    {{-- Hero: video + editorial headline, sits below the olive-green masthead. --}}
     <section class="relative overflow-hidden" aria-labelledby="home-hero-heading">
         <div class="relative h-[82vh] min-h-[620px] w-full overflow-hidden bg-brand-ink/80">
             <video

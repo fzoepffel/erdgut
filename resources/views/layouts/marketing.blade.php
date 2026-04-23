@@ -35,48 +35,54 @@
     </head>
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
         <div class="flex min-h-screen flex-col">
-            @php($transparentOverHero = $transparentOverHero ?? false)
-            <header
-                x-data="{ open: false, scrolled: false, transparent: {{ $transparentOverHero ? 'true' : 'false' }} }"
-                x-init="if (transparent) { const onScroll = () => scrolled = window.scrollY > 40; onScroll(); window.addEventListener('scroll', onScroll, { passive: true }); }"
-                :class="transparent && !scrolled && !open ? 'bg-transparent border-transparent' : 'bg-brand-cream/95 backdrop-blur border-brand-ink/10'"
-                class="sticky top-0 z-50 border-b transition-colors duration-300"
-            >
+            {{-- Olive-green masthead styled to match the coming-soon page:
+                 soft chapter-produce background (#709452) with the onion mark
+                 and wordmark both masked in the darker chapter-produce green
+                 (#21341d). Same CSS-mask technique coming-soon uses, so we
+                 don't need a dedicated white/alt colour asset. --}}
+            <header x-data="{ open: false }" class="sticky top-0 z-50 border-b" style="background-color: #709452; border-color: rgba(33, 52, 29, 0.15);">
                 <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-                    <a href="{{ route('public.marketing-home') }}" class="relative flex items-center">
-                        <x-application-logo variant="filled" layout="inline" class="h-10 w-auto transition-opacity duration-300 sm:h-11" x-bind:class="transparent && !scrolled && !open ? 'opacity-0' : 'opacity-100'" />
-                        @if ($transparentOverHero)
-                            <x-application-logo variant="white" layout="inline" class="absolute inset-y-0 left-0 h-10 w-auto transition-opacity duration-300 sm:h-11" x-bind:class="transparent && !scrolled && !open ? 'opacity-100' : 'opacity-0'" />
-                        @endif
+                    <a href="{{ route('public.marketing-home') }}" class="flex items-center gap-3">
+                        <span
+                            aria-hidden="true"
+                            class="block h-10 w-10 shrink-0 sm:h-11 sm:w-11"
+                            style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-mark-tight.png') }}') no-repeat center / contain; mask: url('{{ asset('images/logo/erdgut-mark-tight.png') }}') no-repeat center / contain;"
+                        ></span>
+                        <span
+                            role="img"
+                            aria-label="Erdgut"
+                            class="block h-8 w-40 sm:h-9 sm:w-44"
+                            style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain; mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain;"
+                        ></span>
                     </a>
 
                     <nav class="hidden items-center gap-10 text-sm font-medium md:flex">
-                        <a href="{{ route('public.marketing-home') }}" class="transition hover:opacity-100" :class="transparent && !scrolled ? 'text-brand-cream/90 hover:text-brand-cream' : 'text-brand-ink/80 hover:text-brand-ink {{ request()->routeIs('public.marketing-home') ? '!text-brand-ink' : '' }}'">{{ __('Home') }}</a>
-                        <a href="{{ route('public.about') }}" class="transition" :class="transparent && !scrolled ? 'text-brand-cream/90 hover:text-brand-cream' : 'text-brand-ink/80 hover:text-brand-ink {{ request()->routeIs('public.about') ? '!text-brand-ink' : '' }}'">{{ __('About') }}</a>
-                        <a href="{{ route('public.producers') }}" class="transition" :class="transparent && !scrolled ? 'text-brand-cream/90 hover:text-brand-cream' : 'text-brand-ink/80 hover:text-brand-ink {{ request()->routeIs('public.producers') ? '!text-brand-ink' : '' }}'">{{ __('Producers') }}</a>
-                        <a href="{{ route('public.contact') }}" class="transition" :class="transparent && !scrolled ? 'text-brand-cream/90 hover:text-brand-cream' : 'text-brand-ink/80 hover:text-brand-ink {{ request()->routeIs('public.contact') ? '!text-brand-ink' : '' }}'">{{ __('Contact') }}</a>
+                        <a href="{{ route('public.marketing-home') }}" class="transition hover:opacity-100 {{ request()->routeIs('public.marketing-home') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.marketing-home') ? '#21341d' : 'rgba(33, 52, 29, 0.75)' }};">{{ __('Home') }}</a>
+                        <a href="{{ route('public.about') }}" class="transition {{ request()->routeIs('public.about') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.about') ? '#21341d' : 'rgba(33, 52, 29, 0.75)' }};">{{ __('About') }}</a>
+                        <a href="{{ route('public.producers') }}" class="transition {{ request()->routeIs('public.producers') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.producers') ? '#21341d' : 'rgba(33, 52, 29, 0.75)' }};">{{ __('Producers') }}</a>
+                        <a href="{{ route('public.contact') }}" class="transition {{ request()->routeIs('public.contact') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.contact') ? '#21341d' : 'rgba(33, 52, 29, 0.75)' }};">{{ __('Contact') }}</a>
                     </nav>
 
-                    <div class="hidden items-center gap-3 md:flex" :class="transparent && !scrolled ? 'text-brand-cream' : 'text-brand-ink'">
+                    <div class="hidden items-center gap-3 md:flex" style="color: #21341d;">
                         <x-language-selector />
                         @auth
-                            <x-ghost-link :href="route('app.dashboard')">
+                            <a href="{{ route('app.dashboard') }}" class="inline-flex items-center justify-center border px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:bg-[#21341d] hover:text-[#709452]" style="border-color: #21341d; color: #21341d;">
                                 {{ __('Dashboard') }}
-                            </x-ghost-link>
+                            </a>
                         @else
-                            <a href="{{ route('auth.login') }}" class="text-sm font-medium transition" :class="transparent && !scrolled ? 'text-brand-cream/90 hover:text-brand-cream' : 'text-brand-ink/80 hover:text-brand-ink'">
+                            <a href="{{ route('auth.login') }}" class="text-sm font-medium transition" style="color: rgba(33, 52, 29, 0.8);">
                                 {{ __('Log in') }}
                             </a>
-                            <x-solid-link :href="route('auth.register')">
+                            <a href="{{ route('auth.register') }}" class="inline-flex items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: #21341d; color: #f1e7d6;">
                                 {{ __('Sign up') }}
-                            </x-solid-link>
+                            </a>
                         @endauth
                     </div>
 
                     <button
                         type="button"
                         class="inline-flex items-center justify-center p-2 md:hidden"
-                        :class="transparent && !scrolled && !open ? 'text-brand-cream' : 'text-brand-ink'"
+                        style="color: #21341d;"
                         @click="open = !open"
                         :aria-expanded="open"
                         aria-label="{{ __('Toggle navigation') }}"
@@ -88,27 +94,27 @@
                     </button>
                 </div>
 
-                <div x-show="open" x-transition class="border-t border-brand-ink/10 px-4 py-6 md:hidden" style="display: none;">
+                <div x-show="open" x-transition class="border-t px-4 py-6 md:hidden" style="display: none; border-color: rgba(33, 52, 29, 0.15);">
                     <div class="space-y-3 text-base font-medium">
-                        <a href="{{ route('public.marketing-home') }}" class="block text-brand-ink">{{ __('Home') }}</a>
-                        <a href="{{ route('public.about') }}" class="block text-brand-ink/80">{{ __('About') }}</a>
-                        <a href="{{ route('public.producers') }}" class="block text-brand-ink/80">{{ __('Producers') }}</a>
-                        <a href="{{ route('public.contact') }}" class="block text-brand-ink/80">{{ __('Contact') }}</a>
+                        <a href="{{ route('public.marketing-home') }}" class="block" style="color: #21341d;">{{ __('Home') }}</a>
+                        <a href="{{ route('public.about') }}" class="block" style="color: rgba(33, 52, 29, 0.8);">{{ __('About') }}</a>
+                        <a href="{{ route('public.producers') }}" class="block" style="color: rgba(33, 52, 29, 0.8);">{{ __('Producers') }}</a>
+                        <a href="{{ route('public.contact') }}" class="block" style="color: rgba(33, 52, 29, 0.8);">{{ __('Contact') }}</a>
                     </div>
-                    <div class="mt-5 border-t border-brand-ink/10 pt-5">
+                    <div class="mt-5 border-t pt-5" style="border-color: rgba(33, 52, 29, 0.15);">
                         <div class="mb-4">
                             <x-language-selector align="left" />
                         </div>
                         <div class="space-y-3">
                         @auth
-                            <x-ghost-link :href="route('app.dashboard')" class="w-full justify-center">
+                            <a href="{{ route('app.dashboard') }}" class="inline-flex w-full items-center justify-center border px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:bg-[#21341d] hover:text-[#709452]" style="border-color: #21341d; color: #21341d;">
                                 {{ __('Dashboard') }}
-                            </x-ghost-link>
+                            </a>
                         @else
-                            <a href="{{ route('auth.login') }}" class="block text-sm font-medium text-brand-ink/80">{{ __('Log in') }}</a>
-                            <x-solid-link :href="route('auth.register')" class="w-full justify-center">
+                            <a href="{{ route('auth.login') }}" class="block text-sm font-medium" style="color: rgba(33, 52, 29, 0.8);">{{ __('Log in') }}</a>
+                            <a href="{{ route('auth.register') }}" class="inline-flex w-full items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: #21341d; color: #f1e7d6;">
                                 {{ __('Sign up') }}
-                            </x-solid-link>
+                            </a>
                         @endauth
                         </div>
                     </div>
