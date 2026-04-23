@@ -22,7 +22,7 @@
             data-testid="coming-soon"
             class="min-h-screen w-full"
         >
-            <div class="mx-auto grid min-h-screen w-full max-w-[1600px] grid-cols-1 md:grid-cols-[minmax(0,_1fr)_minmax(0,_2fr)]">
+            <div class="mx-auto grid min-h-screen w-full max-w-[1600px] grid-cols-1 md:grid-cols-[160px_minmax(0,_1fr)] lg:grid-cols-[200px_minmax(0,_1fr)]">
                 {{-- Left column: catalogue-style cabbage illustration stripe
                      (image is pre-cropped to the cabbage texture only — no
                      baked-in text to worry about) --}}
@@ -31,7 +31,7 @@
                         src="{{ asset('images/chapters/cabbage.png') }}"
                         alt=""
                         aria-hidden="true"
-                        class="absolute inset-0 h-full w-full select-none object-cover"
+                        class="absolute inset-0 h-full w-full select-none object-contain object-left"
                     />
                 </div>
                 <div class="relative block h-40 overflow-hidden sm:h-48 md:hidden">
@@ -55,7 +55,7 @@
                         <div
                             role="img"
                             aria-label="Erdgut"
-                            class="h-16 w-80 sm:h-20 sm:w-96 md:h-28 md:w-[34rem] lg:h-32 lg:w-[40rem]"
+                            class="h-10 w-52 sm:h-12 sm:w-60 md:h-16 md:w-80 lg:h-20 lg:w-96"
                             style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain; mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain;"
                         ></div>
                         <div class="pt-2">
