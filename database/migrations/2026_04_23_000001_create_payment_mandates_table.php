@@ -18,7 +18,7 @@ return new class extends Migration
             $table->timestamp('revoked_at')->nullable();
             $table->timestamps();
 
-            $table->unique(['user_id', 'provider']);
+            $table->index(['user_id', 'provider', 'status']);
             $table->index('status');
         });
     }

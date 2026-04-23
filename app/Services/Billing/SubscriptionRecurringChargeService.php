@@ -78,8 +78,8 @@ final class SubscriptionRecurringChargeService
             Log::info('payment.created', $logPayload);
         }
 
-        $token = trim((string) $subscription->sumup_token);
-        $customerId = trim((string) $subscription->sumup_customer_id);
+        $token = (string) ($subscription->activeSumupToken() ?? '');
+        $customerId = (string) ($subscription->activeSumupCustomerId() ?? '');
 
         if ($token === '' || $customerId === '') {
             $payment->markFailed('Missing payment token or customer ID — payment method not set up');
@@ -102,7 +102,7 @@ final class SubscriptionRecurringChargeService
         try {
             $checkout = $this->sumUpService->createRecurringCheckout(
                 amount: $amount,
-                customerId: (string) $subscription->sumup_customer_id,
+                customerId: $customerId,
                 checkoutReference: $checkoutReference,
                 description: $checkoutDescription
             );
@@ -126,8 +126,8 @@ final class SubscriptionRecurringChargeService
 
             $this->sumUpService->processCheckout(
                 $checkoutId,
-                (string) $subscription->sumup_token,
-                (string) $subscription->sumup_customer_id
+                $token,
+                $customerId
             );
         } catch (Throwable $e) {
             $sumupResponseBody = null;

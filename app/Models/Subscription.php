@@ -110,6 +110,53 @@ class Subscription extends Model
     }
 
     /**
+     * Active SumUp token for this subscription. Prefers the linked mandate,
+     * falls back to the legacy `sumup_token` column for subscriptions that
+     * predate the mandate cutover. Returns null if no credentials are
+     * available (e.g. manual billing modes, revoked mandate, never set up).
+     */
+    public function activeSumupToken(): ?string
+    {
+        $mandate = $this->relationLoaded('paymentMandate')
+            ? $this->paymentMandate
+            : $this->paymentMandate()->first();
+
+        if ($mandate !== null && $mandate->isActive() && $mandate->provider_token !== null && $mandate->provider_token !== '') {
+            return $mandate->provider_token;
+        }
+
+        $legacy = trim((string) $this->sumup_token);
+
+        return $legacy === '' ? null : $legacy;
+    }
+
+    /**
+     * Active SumUp customer id. Same precedence as {@see activeSumupToken}.
+     */
+    public function activeSumupCustomerId(): ?string
+    {
+        $mandate = $this->relationLoaded('paymentMandate')
+            ? $this->paymentMandate
+            : $this->paymentMandate()->first();
+
+        if ($mandate !== null && $mandate->isActive() && $mandate->provider_customer_id !== null && $mandate->provider_customer_id !== '') {
+            return $mandate->provider_customer_id;
+        }
+
+        $legacy = trim((string) $this->sumup_customer_id);
+
+        return $legacy === '' ? null : $legacy;
+    }
+
+    /**
+     * Whether this subscription can be charged automatically via SumUp.
+     */
+    public function hasActiveSumupCredentials(): bool
+    {
+        return $this->activeSumupToken() !== null && $this->activeSumupCustomerId() !== null;
+    }
+
+    /**
      * Get the address for this subscription's deliveries.
      *
      * May be null — in that case the delivery projector falls back to
