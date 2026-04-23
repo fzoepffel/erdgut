@@ -1,7 +1,7 @@
 @extends('layouts.onboarding', ['step' => 'preferences', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-produce">{{ __('Your preferences') }}</p>
+    <p class="eyebrow text-chapter-eggdairy">{{ __('Your preferences') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('What should go in your box?') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('Pick your size and dietary preferences — you can change this later.') }}

@@ -1,7 +1,7 @@
 @extends('layouts.onboarding', ['step' => 'trial_delivery', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-produce">{{ __('Your first delivery') }}</p>
+    <p class="eyebrow text-chapter-fish">{{ __('Your first delivery') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('When would you like us to come by?') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('We schedule trial deliveries manually. We will confirm your exact date within :days days.', ['days' => $promiseDays]) }}
