@@ -171,7 +171,7 @@
                             class="flex h-full min-h-[220px] w-full overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] {{ $chapterPanelBg[$chapter['slug']] }}"
                             data-testid="home-chapter-tile-{{ $chapter['slug'] }}"
                         >
-                            <div class="relative flex w-16 shrink-0 items-center justify-center overflow-hidden p-3 sm:w-20 sm:p-4">
+                            <div class="relative flex w-16 shrink-0 items-stretch overflow-hidden sm:w-20">
                                 <img
                                     src="{{ asset('images/chapters/' . $chapter['image']) }}"
                                     alt=""
