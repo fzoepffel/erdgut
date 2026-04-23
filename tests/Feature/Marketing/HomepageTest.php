@@ -34,10 +34,12 @@ class HomepageTest extends TestCase
         $response = $this->get(route('public.marketing-home'));
 
         $response->assertOk();
-        $response->assertSee('Fresh weekly boxes from local farms, delivered transparently.', false);
-        $response->assertSee('How it works', false);
-        $response->assertSee('Join Berlin households supporting local food', false);
+        // New editorial hero + founder letter + chapter strip copy.
+        $response->assertSee('Weekly from small farms, in the rhythm of the seasons.', false);
+        $response->assertSee('Why we started Erdgut.', false);
+        $response->assertSee('Seven chapters, one season.', false);
         $response->assertSee(route('public.about'), false);
+        $response->assertSee(route('public.producers'), false);
         $response->assertSee(route('auth.login'), false);
         $response->assertSee(route('app.onboarding.start', ['intent' => 'trial']), false);
         $response->assertSee(route('app.onboarding.start', ['intent' => 'subscription']), false);
@@ -45,7 +47,8 @@ class HomepageTest extends TestCase
         $response->assertSee('data-testid="home-cta-try-box"', false);
         $response->assertSee('data-testid="home-cta-subscribe"', false);
         $response->assertSee('data-testid="home-secondary-cta-login"', false);
-        $response->assertSee('data-testid="home-trust-row"', false);
+        $response->assertSee('data-testid="home-founder-letter"', false);
+        $response->assertSee('data-testid="home-chapter-strip"', false);
         $response->assertSee('data-testid="home-how-it-works"', false);
         $response->assertSee('data-testid="home-social-proof"', false);
         $response->assertSee('data-testid="home-value-cards"', false);

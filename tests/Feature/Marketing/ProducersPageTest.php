@@ -62,7 +62,7 @@ class ProducersPageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('data-testid="empty-state"', false);
-        $response->assertSee('No producers available yet', false);
+        $response->assertSee('No producers on the page yet', false);
     }
 
     public function test_producers_page_shows_filtered_empty_when_no_matches(): void
