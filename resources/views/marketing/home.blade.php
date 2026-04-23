@@ -25,7 +25,7 @@
 
             <div class="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8 lg:pb-24">
                 <x-reveal variant="fade" class="mb-8">
-                    <x-application-logo variant="white" class="h-16 w-auto opacity-95 sm:h-20" alt="Erdgut" />
+                    <x-application-logo variant="white" class="h-24 w-auto opacity-95 sm:h-28 lg:h-32" alt="Erdgut" />
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="100">
                     <p class="eyebrow text-brand-cream/85">{{ __('An Erdgut for Berlin') }}</p>

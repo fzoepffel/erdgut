@@ -4,10 +4,10 @@
 @endphp
 <nav x-data="{ mobileMenuOpen: false }" class="relative z-50 border-b border-brand-ink/10 bg-brand-cream/95 backdrop-blur">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div class="flex h-16 items-center justify-between">
+        <div class="flex h-20 items-center justify-between">
             <div class="flex items-center gap-10">
                 <a href="{{ $isOperator ? route('app.admin.dashboard') : route('app.dashboard') }}" class="flex items-center">
-                    <x-application-logo variant="filled" class="block h-10 w-auto" />
+                    <x-application-logo variant="filled" class="block h-14 w-auto" />
                 </a>
 
                 <div class="hidden items-center gap-8 sm:flex">

@@ -3,7 +3,7 @@
         <x-triple-star class="opacity-70" />
         <div class="mt-10 grid gap-8 md:grid-cols-3 md:items-start">
             <div class="flex flex-col gap-3">
-                <x-application-logo variant="filled" :withWordmark="false" class="h-10 w-auto" />
+                <x-application-logo variant="filled" :withWordmark="false" class="h-16 w-auto" />
                 <p class="font-editorial text-sm italic leading-relaxed text-brand-ink/70">
                     {{ __('footer.tagline') }}
                 </p>

@@ -2,7 +2,7 @@
     <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="grid gap-10 md:grid-cols-3">
             <div>
-                <x-application-logo variant="filled" class="h-14 w-auto" />
+                <x-application-logo variant="filled" class="h-20 w-auto" />
                 <p class="mt-5 text-sm leading-relaxed text-brand-ink/70">
                     {{ __('footer.tagline') }}
                 </p>

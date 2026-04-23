@@ -8,7 +8,9 @@
 
         <title>{{ $title ?? config('app.name', 'Erdgut') }}</title>
 
-        <link rel="icon" type="image/png" href="{{ asset('images/logo/erdgut-mark.png') }}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/logo/erdgut-favicon-32.png') }}">
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('images/logo/erdgut-favicon-192.png') }}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo/erdgut-favicon-180.png') }}">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
 
@@ -20,7 +22,7 @@
             <header x-data="{ open: false }" class="sticky top-0 z-50 border-b border-brand-ink/10 bg-brand-cream/95 backdrop-blur">
                 <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
                     <a href="{{ route('public.marketing-home') }}" class="flex items-center">
-                        <x-application-logo variant="filled" class="h-11 w-auto" />
+                        <x-application-logo variant="filled" class="h-16 w-auto" />
                     </a>
 
                     <nav class="hidden items-center gap-10 text-sm font-medium md:flex">

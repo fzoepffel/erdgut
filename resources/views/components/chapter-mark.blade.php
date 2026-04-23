@@ -32,11 +32,11 @@
     $file = "images/chapters/{$mark}{$suffix}.png";
 
     $sizeClasses = match ($size) {
-        'xs' => 'h-6 w-6',
-        'sm' => 'h-10 w-10',
-        'md' => 'h-16 w-16',
-        'lg' => 'h-24 w-24',
-        'xl' => 'h-36 w-36',
+        'xs' => 'h-8 w-8',
+        'sm' => 'h-14 w-14',
+        'md' => 'h-20 w-20',
+        'lg' => 'h-32 w-32',
+        'xl' => 'h-48 w-48',
         default => $size, // raw Tailwind utility string
     };
 

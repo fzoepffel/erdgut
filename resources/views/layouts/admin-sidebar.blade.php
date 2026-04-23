@@ -17,13 +17,13 @@
     :class="adminSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
     aria-label="{{ __('admin.shell.sidebar_label') }}"
 >
-    <div class="flex h-16 shrink-0 items-center border-b border-amber-100 px-4">
+    <div class="flex h-20 shrink-0 items-center border-b border-amber-100 px-4">
         <a
             href="{{ route('app.admin.dashboard') }}"
             class="flex items-center gap-2 text-amber-950"
             @click="adminSidebarOpen = false"
         >
-            <x-application-logo class="block h-8 w-auto" />
+            <x-application-logo :withWordmark="false" class="block h-12 w-auto" />
             <span class="text-sm font-semibold tracking-tight">{{ config('app.name') }}</span>
         </a>
         <button

@@ -6,7 +6,9 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://gateway.sumup.com; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; font-src 'self' https://fonts.bunny.net; frame-src https://gateway.sumup.com; connect-src 'self' https://gateway.sumup.com https://api.sumup.com https://js.sumup.com; img-src 'self' data: https:">
         <title>{{ config('app.name', 'Erdgut') }} — {{ $title ?? __('Get started') }}</title>
-        <link rel="icon" type="image/png" href="{{ asset('images/logo/erdgut-mark.png') }}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/logo/erdgut-favicon-32.png') }}">
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('images/logo/erdgut-favicon-192.png') }}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo/erdgut-favicon-180.png') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
@@ -15,7 +17,7 @@
             <header class="border-b border-brand-ink/10 bg-brand-paper">
                 <div class="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
                     <a href="{{ route('public.home') }}" class="flex items-center gap-3">
-                        <x-application-logo variant="filled" :withWordmark="false" class="h-10 w-auto" />
+                        <x-application-logo variant="filled" :withWordmark="false" class="h-14 w-auto" />
                         <span class="flex flex-col leading-tight">
                             <span class="eyebrow text-chapter-produce">{{ __('A seat at the table') }}</span>
                             <span class="font-display text-base font-semibold text-brand-ink">{{ config('app.name', 'Erdgut') }}</span>
