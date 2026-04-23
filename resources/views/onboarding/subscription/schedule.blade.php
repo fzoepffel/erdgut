@@ -1,7 +1,7 @@
 @extends('layouts.onboarding', ['step' => 'subscription_schedule', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-produce">{{ __('Your schedule') }}</p>
+    <p class="eyebrow text-chapter-fish">{{ __('Your schedule') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Pick your delivery rhythm') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('You can pause, skip, or cancel from your dashboard at any time.') }}

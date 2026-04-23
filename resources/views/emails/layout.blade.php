@@ -11,18 +11,29 @@
         <td style="padding: 0 16px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf5ec; border: 1px solid #2c241c;">
                 <tr>
-                    <td style="padding: 32px 32px 8px 32px; border-bottom: 1px solid rgba(44, 36, 28, 0.15);">
-                        <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #21341d;">
+                    <td style="padding: 32px 32px 16px 32px; border-bottom: 1px solid rgba(44, 36, 28, 0.15); text-align: center;">
+                        <p style="margin: 0 0 10px 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #21341d;">
                             {{ __('emails.layout.eyebrow') }}
                         </p>
-                        <h1 style="margin: 0 0 24px 0; font-family: Georgia, 'Times New Roman', serif; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; color: #2c241c;">
+                        <h1 style="margin: 0 0 8px 0; font-family: Georgia, 'Times New Roman', serif; font-size: 32px; font-weight: 600; letter-spacing: -0.01em; color: #2c241c;">
                             {{ config('app.name') }}
                         </h1>
+                        <p style="margin: 0; font-size: 14px; letter-spacing: 0.35em; color: #c53a2b;">&#x2731; &#x2731; &#x2731;</p>
                     </td>
                 </tr>
                 <tr>
                     <td style="padding: 32px;">
                         @yield('content')
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 32px 24px 32px;">
+                        <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6b5b4c;">
+                            {{ __('emails.layout.signed_off') }}
+                        </p>
+                        <p style="margin: 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 18px; color: #2c241c;">
+                            {{ __('emails.layout.signature') }}
+                        </p>
                     </td>
                 </tr>
                 <tr>

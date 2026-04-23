@@ -1,7 +1,7 @@
 @extends('layouts.onboarding', ['step' => 'address', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-produce">{{ __('Your address') }}</p>
+    <p class="eyebrow text-chapter-producers">{{ __('Your address') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Where should we deliver?') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('Primary delivery address and gate / floor details so we can find you.') }}
