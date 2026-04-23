@@ -1,56 +1,60 @@
 @extends('layouts.onboarding', ['step' => 'preferences', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <h1 class="font-display text-3xl font-semibold">{{ __('What should go in your box?') }}</h1>
-    <p class="mt-2 text-sm text-brand-ink/70">{{ __('Pick your size and dietary preferences — you can change this later.') }}</p>
+    <p class="eyebrow text-chapter-produce">{{ __('Your preferences') }}</p>
+    <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('What should go in your box?') }}</h1>
+    <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
+        {{ __('Pick your size and dietary preferences — you can change this later.') }}
+    </p>
 
-    <form method="POST" action="{{ route('app.onboarding.step.preferences.store') }}" class="mt-6 space-y-6">
+    <form method="POST" action="{{ route('app.onboarding.step.preferences.store') }}" class="mt-8 space-y-8">
         @csrf
 
         <fieldset>
-            <legend class="text-sm font-semibold">{{ __('Box size') }}</legend>
-            <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <legend class="eyebrow text-brand-ink/80">{{ __('Box size') }}</legend>
+            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 @foreach(['small', 'medium', 'large'] as $size)
-                    <label class="border border-brand-ink/30 p-4 flex items-start gap-2 cursor-pointer has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
-                        <input type="radio" name="box_size" value="{{ $size }}" {{ ($data['box_size'] ?? 'medium') === $size ? 'checked' : '' }} class="mt-1">
-                        <span>
-                            <span class="block font-medium">{{ __(ucfirst($size)) }}</span>
-                            <span class="block text-xs text-brand-ink/70">{{ __('box_size.description.' . $size) }}</span>
+                    <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-5 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
+                        <input type="radio" name="box_size" value="{{ $size }}" {{ ($data['box_size'] ?? 'medium') === $size ? 'checked' : '' }} class="mt-1 sr-only">
+                        <span class="flex flex-col gap-1">
+                            <span class="font-display text-lg font-semibold text-brand-ink">{{ __(ucfirst($size)) }}</span>
+                            <span class="text-xs leading-relaxed text-brand-ink/70">{{ __('box_size.description.' . $size) }}</span>
                         </span>
                     </label>
                 @endforeach
             </div>
-            @error('box_size')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+            <x-input-error :messages="$errors->get('box_size')" class="mt-3" />
         </fieldset>
 
         <fieldset>
-            <legend class="text-sm font-semibold">{{ __('Preferences') }}</legend>
-            <div class="mt-3 space-y-2">
+            <legend class="eyebrow text-brand-ink/80">{{ __('Preferences') }}</legend>
+            <div class="mt-4 space-y-3">
                 @foreach([
                     'veg_only' => 'Vegetarian / vegan only',
                     'meat_add_on' => 'Add a meat portion each delivery',
                     'eggs_dairy_add_on' => 'Add eggs / dairy selection (+ EUR 4.50)'
                 ] as $key => $label)
-                    <label class="flex items-center gap-2">
+                    <label class="flex cursor-pointer items-center gap-3 border border-brand-ink/15 px-4 py-3 transition hover:border-brand-ink/30 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
                         <input type="hidden" name="preferences[{{ $key }}]" value="0">
                         <input type="checkbox" name="preferences[{{ $key }}]" value="1"
+                               class="h-4 w-4 border-brand-ink/40 text-chapter-produce focus:ring-chapter-produce"
                                {{ !empty($data['preferences'][$key] ?? false) ? 'checked' : '' }}>
-                        <span class="text-sm">{{ __($label) }}</span>
+                        <span class="text-sm text-brand-ink/80">{{ __($label) }}</span>
                     </label>
                 @endforeach
             </div>
         </fieldset>
 
         <div>
-            <label for="allergies" class="block text-sm font-semibold">{{ __('Allergies and exclusions') }}</label>
-            <p class="text-xs text-brand-ink/70 mb-2">{{ __('Comma-separated. We will avoid these in every box.') }}</p>
-            <input id="allergies" name="allergies" type="text"
-                   value="{{ old('allergies', implode(', ', $data['allergies'] ?? [])) }}"
-                   class="w-full border border-brand-ink/30 p-2">
+            <x-input-label for="allergies" :value="__('Allergies and exclusions')" />
+            <p class="mt-1 text-xs text-brand-ink/65">{{ __('Comma-separated. We will avoid these in every box.') }}</p>
+            <x-text-input id="allergies" name="allergies" type="text"
+                          :value="old('allergies', implode(', ', $data['allergies'] ?? []))"
+                          class="mt-2" />
         </div>
 
-        <div class="flex justify-end pt-2">
-            <button type="submit" class="bg-chapter-produce text-white px-5 py-2 font-medium hover:bg-chapter-produce/90">{{ __('Continue') }}</button>
+        <div class="flex justify-end pt-4">
+            <x-primary-button>{{ __('Continue') }}</x-primary-button>
         </div>
     </form>
 @endsection

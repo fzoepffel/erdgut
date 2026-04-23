@@ -22,12 +22,21 @@
     }
 @endphp
 
-<ol class="flex flex-wrap items-center gap-2 text-xs text-brand-ink/70" role="list" aria-label="{{ __('Onboarding progress') }}">
+<ol class="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs uppercase tracking-eyebrow text-brand-ink/55" role="list" aria-label="{{ __('Onboarding progress') }}">
     @foreach ($sharedSteps as $i => $s)
-        <li class="flex items-center gap-1">
-            <span class="w-6 h-6 flex items-center justify-center rounded-full {{ $i < $currentIndex ? 'bg-chapter-produce text-white' : ($i === $currentIndex ? 'bg-brand-ink text-white' : 'bg-brand-ink/10') }}">{{ $i + 1 }}</span>
+        <li class="flex items-center gap-2">
+            <span
+                @class([
+                    'flex h-6 w-6 items-center justify-center border font-display text-[0.7rem] font-semibold leading-none',
+                    'border-chapter-produce bg-chapter-produce text-white' => $i < $currentIndex,
+                    'border-brand-ink bg-brand-ink text-brand-cream' => $i === $currentIndex,
+                    'border-brand-ink/25 text-brand-ink/40' => $i > $currentIndex,
+                ])
+            >
+                {{ str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) }}
+            </span>
             <span class="{{ $i === $currentIndex ? 'font-semibold text-brand-ink' : '' }}">{{ $s['label'] }}</span>
-            @if (! $loop->last)<span class="mx-2 text-brand-ink/30">›</span>@endif
+            @if (! $loop->last)<span class="text-brand-ink/25" aria-hidden="true">·</span>@endif
         </li>
     @endforeach
 </ol>

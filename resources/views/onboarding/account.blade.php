@@ -1,38 +1,43 @@
 @extends('layouts.onboarding', ['step' => 'account', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <h1 class="font-display text-3xl font-semibold">{{ __('Create your account') }}</h1>
-    <p class="mt-2 text-sm text-brand-ink/70">{{ __('We will save your details so you can manage deliveries later.') }}</p>
+    <p class="eyebrow text-chapter-produce">{{ __('Your account') }}</p>
+    <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Create your account') }}</h1>
+    <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
+        {{ __('We will save your details so you can manage deliveries later.') }}
+    </p>
 
-    <form method="POST" action="{{ route('app.onboarding.step.account.store') }}" class="mt-6 space-y-5">
+    <form method="POST" action="{{ route('app.onboarding.step.account.store') }}" class="mt-8 space-y-6">
         @csrf
         <div>
-            <label for="name" class="block text-sm font-medium">{{ __('Full name') }}</label>
-            <input id="name" name="name" type="text" value="{{ old('name') }}" required class="mt-1 w-full border border-brand-ink/30 p-2">
-            @error('name')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+            <x-input-label for="name" :value="__('Full name')" />
+            <x-text-input id="name" name="name" type="text" :value="old('name')" required autocomplete="name" class="mt-2" />
+            <x-input-error :messages="$errors->get('name')" class="mt-2" />
         </div>
         <div>
-            <label for="email" class="block text-sm font-medium">{{ __('Email') }}</label>
-            <input id="email" name="email" type="email" value="{{ old('email') }}" required class="mt-1 w-full border border-brand-ink/30 p-2">
-            @error('email')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+            <x-input-label for="email" :value="__('Email')" />
+            <x-text-input id="email" name="email" type="email" :value="old('email')" required autocomplete="email" class="mt-2" />
+            <x-input-error :messages="$errors->get('email')" class="mt-2" />
         </div>
         <div>
-            <label for="phone" class="block text-sm font-medium">{{ __('Phone (for delivery updates)') }}</label>
-            <input id="phone" name="phone" type="tel" value="{{ old('phone') }}" class="mt-1 w-full border border-brand-ink/30 p-2">
-            @error('phone')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+            <x-input-label for="phone" :value="__('Phone (for delivery updates)')" />
+            <x-text-input id="phone" name="phone" type="tel" :value="old('phone')" autocomplete="tel" class="mt-2" />
+            <x-input-error :messages="$errors->get('phone')" class="mt-2" />
         </div>
         <div>
-            <label for="password" class="block text-sm font-medium">{{ __('Password') }}</label>
-            <input id="password" name="password" type="password" required class="mt-1 w-full border border-brand-ink/30 p-2">
-            @error('password')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+            <x-input-label for="password" :value="__('Password')" />
+            <x-text-input id="password" name="password" type="password" required autocomplete="new-password" class="mt-2" />
+            <x-input-error :messages="$errors->get('password')" class="mt-2" />
         </div>
         <div>
-            <label for="password_confirmation" class="block text-sm font-medium">{{ __('Confirm password') }}</label>
-            <input id="password_confirmation" name="password_confirmation" type="password" required class="mt-1 w-full border border-brand-ink/30 p-2">
+            <x-input-label for="password_confirmation" :value="__('Confirm password')" />
+            <x-text-input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password" class="mt-2" />
         </div>
-        <div class="flex justify-between items-center pt-2">
-            <a href="{{ route('login') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:underline">{{ __('Already have an account? Log in') }}</a>
-            <button type="submit" class="bg-chapter-produce text-white px-5 py-2 font-medium hover:bg-chapter-produce/90">{{ __('Continue') }}</button>
+        <div class="flex flex-wrap items-center justify-between gap-4 pt-4">
+            <a href="{{ route('login') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
+                {{ __('Already have an account? Log in') }}
+            </a>
+            <x-primary-button>{{ __('Continue') }}</x-primary-button>
         </div>
     </form>
 @endsection

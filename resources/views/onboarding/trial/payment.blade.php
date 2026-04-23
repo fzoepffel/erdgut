@@ -1,27 +1,37 @@
 @extends('layouts.onboarding', ['step' => 'trial_payment', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <h1 class="font-display text-3xl font-semibold">{{ __('Secure your trial box') }}</h1>
-    <p class="mt-2 text-sm text-brand-ink/70">
+    <p class="eyebrow text-chapter-produce">{{ __('Your payment') }}</p>
+    <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Secure your trial box') }}</h1>
+    <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('One-time charge of EUR :amount. No subscription, no stored card.', ['amount' => number_format((float) $order->amount, 2)]) }}
     </p>
 
-    <div class="mt-4 border border-brand-ink/15 bg-white/60 p-4 text-sm space-y-1">
-        <div class="flex justify-between"><span>{{ __('Order #') }}</span><span class="font-mono">{{ $order->id }}</span></div>
-        <div class="flex justify-between"><span>{{ __('Box size') }}</span><span>{{ __(ucfirst($order->box_size)) }}</span></div>
-        <div class="flex justify-between"><span>{{ __('Amount') }}</span><span>EUR {{ number_format((float) $order->amount, 2) }}</span></div>
-    </div>
+    <dl class="mt-6 border border-brand-ink/15 bg-brand-ink/[0.02] p-5 text-sm text-brand-ink/80">
+        <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
+            <dt class="eyebrow text-brand-ink/60">{{ __('Order #') }}</dt>
+            <dd class="font-mono text-brand-ink">{{ $order->id }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
+            <dt class="eyebrow text-brand-ink/60">{{ __('Box size') }}</dt>
+            <dd class="text-brand-ink">{{ __(ucfirst($order->box_size)) }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4 py-2">
+            <dt class="eyebrow text-brand-ink/60">{{ __('Amount') }}</dt>
+            <dd class="font-display text-lg text-brand-ink">EUR {{ number_format((float) $order->amount, 2) }}</dd>
+        </div>
+    </dl>
 
     @if ($checkoutId)
-        <div id="sumup-card" class="mt-6 border border-brand-ink/15 p-4 bg-white min-h-[320px]"></div>
+        <div id="sumup-card" class="mt-6 min-h-[320px] border border-brand-ink/15 bg-white p-4"></div>
         <p id="sumup-card-error"
-           class="mt-3 hidden border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+           class="mt-3 hidden border border-chapter-meat/40 bg-chapter-meat/5 p-3 text-sm text-brand-ink"
            role="alert"
         >
             {{ __('Unable to load payment widget. Please refresh and try again.') }}
         </p>
         <p id="sumup-card-payment-error"
-           class="mt-3 hidden border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+           class="mt-3 hidden border border-chapter-meat/40 bg-chapter-meat/5 p-3 text-sm text-brand-ink"
            role="alert"
         >
             {{ __('Payment did not go through. Please check your card details and try again — no charge has been made.') }}
@@ -66,21 +76,21 @@
             })();
         </script>
     @else
-        <div class="mt-6 border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
-            <p class="font-semibold">{{ __('Payment could not be started') }}</p>
-            <p class="mt-1">
+        <div class="mt-6 border border-chapter-meat/40 bg-chapter-meat/5 p-5 text-sm text-brand-ink" role="alert">
+            <p class="eyebrow text-chapter-meat">{{ __('Payment could not be started') }}</p>
+            <p class="mt-2 leading-relaxed">
                 {{ __('We could not reach the payment provider just now. Please try again in a moment — no charge has been made.') }}
             </p>
         </div>
-        <div class="mt-4 flex flex-wrap items-center gap-4 text-sm">
+        <div class="mt-5 flex flex-wrap items-center gap-4 text-sm">
             <a
                 href="{{ route('app.onboarding.step.trial_payment') }}"
-                class="inline-flex items-center justify-center border border-brand-ink bg-brand-ink px-5 py-2 font-semibold uppercase tracking-eyebrow text-white transition hover:bg-brand-ink/90"
+                class="btn-solid"
                 data-testid="trial-payment-retry"
             >
                 {{ __('Try again') }}
             </a>
-            <a href="{{ route('app.onboarding.step.commitment') }}" class="underline">
+            <a href="{{ route('app.onboarding.step.commitment') }}" class="text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
                 {{ __('Back') }}
             </a>
         </div>

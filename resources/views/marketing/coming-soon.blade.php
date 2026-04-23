@@ -9,51 +9,97 @@
         <title>{{ __('Erdgut — Bald geht\'s los') }}</title>
         <meta name="description" content="{{ __('Frisches Gemüse aus Berliner Bauernhand. Bald kannst du dich selbst davon überzeugen.') }}">
 
-        <link rel="icon" type="image/png" href="{{ asset('images/logo/erdgut-mark.png') }}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/logo/erdgut-favicon-32.png') }}">
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('images/logo/erdgut-favicon-192.png') }}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo/erdgut-favicon-180.png') }}">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|fraunces:400,500,600,700,800&display=swap" rel="stylesheet" />
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="bg-brand-cream font-sans text-brand-ink antialiased">
-        <div class="absolute right-4 top-4 sm:right-6 sm:top-6">
-            <x-language-selector variant="compact" />
-        </div>
+    <body class="font-sans antialiased" style="background-color: #709452;">
         <div
             data-testid="coming-soon"
-            class="flex min-h-screen flex-col items-center justify-center px-6 py-16 text-center"
+            class="min-h-screen w-full"
         >
-            <x-application-logo
-                variant="filled"
-                class="h-32 w-auto sm:h-40 md:h-48"
-            />
+            <div class="mx-auto grid min-h-screen w-full max-w-[1600px] grid-cols-1 md:grid-cols-[minmax(0,_1fr)_minmax(0,_2fr)]">
+                {{-- Left column: catalogue-style textured onion illustration --}}
+                <div class="relative hidden min-h-[320px] overflow-hidden md:block">
+                    <img
+                        src="{{ asset('images/chapters/onion.png') }}"
+                        alt=""
+                        aria-hidden="true"
+                        class="absolute inset-0 h-full w-full select-none object-cover object-center"
+                    />
+                </div>
+                <div class="relative block h-56 overflow-hidden sm:h-72 md:hidden">
+                    <img
+                        src="{{ asset('images/chapters/onion.png') }}"
+                        alt=""
+                        aria-hidden="true"
+                        class="absolute inset-0 h-full w-full select-none object-cover object-center"
+                    />
+                </div>
 
-            <h1 class="mt-10 font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl md:text-6xl">
-                {{ __('Frisches Gemüse ist unterwegs.') }}
-            </h1>
+                {{-- Right column: wordmark + content --}}
+                <div class="flex flex-col px-6 py-10 sm:px-10 sm:py-14 md:px-14 md:py-16 lg:px-20">
+                    <div class="flex items-start justify-between gap-4">
+                        <h1
+                            class="font-display text-6xl font-bold leading-none tracking-tight sm:text-7xl md:text-8xl lg:text-9xl"
+                            style="color: #21341d;"
+                        >
+                            ERDGUT
+                        </h1>
+                        <div class="pt-2">
+                            <x-language-selector variant="compact" />
+                        </div>
+                    </div>
 
-            <p class="mt-5 max-w-xl text-base text-brand-ink/70 sm:text-lg">
-                {{ __('Noch sind wir auf dem Feld und ernten das Beste der Saison. In Kürze kannst du dich hier selbst davon überzeugen.') }}
-            </p>
+                    <div class="mt-10 sm:mt-14 md:mt-20">
+                        <p class="eyebrow" style="color: #21341d;">{{ __('Bald geht\'s los') }}</p>
+                        <p
+                            class="mt-6 font-display text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl"
+                            style="color: #21341d;"
+                        >
+                            {{ __('Frisches Gemüse ist unterwegs.') }}
+                        </p>
+                        <p
+                            class="mt-6 max-w-xl font-editorial text-base italic leading-relaxed sm:text-lg"
+                            style="color: rgba(33, 52, 29, 0.85);"
+                        >
+                            {{ __('Noch sind wir auf dem Feld und ernten das Beste der Saison. In Kürze kannst du dich hier selbst davon überzeugen.') }}
+                        </p>
+                    </div>
 
-            <div class="mt-14 max-w-xl space-y-3 text-sm text-brand-ink/70 sm:text-base">
-                <p>{{ __('Du bist Produzent:in und möchtest deine Erzeugnisse über uns anbieten?') }}</p>
-                <p>{{ __('Oder möchtest du als Kund:in dabei sein, sobald es losgeht?') }}</p>
-                <p class="pt-2">
-                    {{ __('Schreib uns gern:') }}
-                    <a
-                        href="mailto:kontakt@erd-gut.de"
-                        class="font-semibold text-brand-ink underline-offset-4 transition hover:underline"
-                    >
-                        kontakt@erd-gut.de
-                    </a>
-                </p>
+                    <div class="mt-12 max-w-xl border-t pt-8 sm:mt-16" style="border-color: rgba(33, 52, 29, 0.25);">
+                        <p class="eyebrow" style="color: #21341d;">{{ __('Schreib uns gern') }}</p>
+                        <p class="mt-4 text-base leading-relaxed sm:text-lg" style="color: rgba(33, 52, 29, 0.9);">
+                            {{ __('Du bist Produzent:in und möchtest deine Erzeugnisse über uns anbieten?') }}
+                        </p>
+                        <p class="mt-3 text-base leading-relaxed sm:text-lg" style="color: rgba(33, 52, 29, 0.9);">
+                            {{ __('Oder möchtest du als Kund:in dabei sein, sobald es losgeht?') }}
+                        </p>
+                        <p class="mt-6">
+                            <a
+                                href="mailto:kontakt@erd-gut.de"
+                                class="font-display text-2xl font-semibold underline decoration-2 underline-offset-4 transition hover:opacity-80 sm:text-3xl"
+                                style="color: #21341d;"
+                            >
+                                kontakt@erd-gut.de
+                            </a>
+                        </p>
+                    </div>
+
+                    <div class="mt-auto flex flex-col items-start gap-3 pt-12 sm:pt-16">
+                        <div class="flex items-center gap-2 text-lg" style="color: #c53a2b;">
+                            <span>&#x2731;</span><span>&#x2731;</span><span>&#x2731;</span>
+                        </div>
+                        <p class="font-editorial text-sm italic" style="color: rgba(33, 52, 29, 0.65);">
+                            {{ __('In the rhythm of the seasons.') }}
+                        </p>
+                    </div>
+                </div>
             </div>
-
-            <p class="mt-16 text-xs uppercase tracking-eyebrow text-brand-ink/50">
-                Erdgut
-            </p>
         </div>
     </body>
 </html>
