@@ -154,15 +154,6 @@
                         ['slug' => 'producers', 'label' => __('Producers'), 'tagline' => __('The people behind the food'), 'href' => route('public.producers'), 'image' => 'catalog-strip-producers.png'],
                         ['slug' => 'almanach', 'label' => __('Almanac'), 'tagline' => __('Seasons, stories, traditions'), 'href' => route('public.about'), 'image' => 'catalog-strip-almanach.png'],
                     ];
-                    $chapterInk = [
-                        'produce' => 'text-chapter-produce',
-                        'meat' => 'text-chapter-meat',
-                        'fish' => 'text-chapter-fish',
-                        'eggdairy' => 'text-chapter-eggdairy',
-                        'bread' => 'text-chapter-bread',
-                        'producers' => 'text-chapter-producers',
-                        'almanach' => 'text-chapter-almanach',
-                    ];
                     $chapterPanelBg = [
                         'produce' => 'bg-chapter-produce',
                         'meat' => 'bg-chapter-meat',
@@ -172,24 +163,15 @@
                         'producers' => 'bg-chapter-producers',
                         'almanach' => 'bg-chapter-almanach',
                     ];
-                    $chapterBorder = [
-                        'produce' => 'hover:border-chapter-produce',
-                        'meat' => 'hover:border-chapter-meat',
-                        'fish' => 'hover:border-chapter-fish',
-                        'eggdairy' => 'hover:border-chapter-eggdairy',
-                        'bread' => 'hover:border-chapter-bread',
-                        'producers' => 'hover:border-chapter-producers',
-                        'almanach' => 'hover:border-chapter-almanach',
-                    ];
                 @endphp
                 @foreach ($chapters as $i => $chapter)
                     <x-reveal variant="fade-up" delay="{{ $i * 60 }}" class="group flex">
                         <a
                             href="{{ $chapter['href'] }}"
-                            class="flex h-full min-h-[220px] w-full overflow-hidden border border-brand-ink/10 bg-brand-paper transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] {{ $chapterBorder[$chapter['slug']] }}"
+                            class="flex h-full min-h-[220px] w-full overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] {{ $chapterPanelBg[$chapter['slug']] }}"
                             data-testid="home-chapter-tile-{{ $chapter['slug'] }}"
                         >
-                            <div class="relative w-28 shrink-0 overflow-hidden sm:w-36 {{ $chapterPanelBg[$chapter['slug']] }}">
+                            <div class="relative w-28 shrink-0 overflow-hidden sm:w-36">
                                 <img
                                     src="{{ asset('images/chapters/' . $chapter['image']) }}"
                                     alt=""
@@ -199,12 +181,12 @@
                                 />
                             </div>
                             <div class="flex flex-1 flex-col justify-between gap-6 p-6 sm:p-7">
-                                <p class="eyebrow {{ $chapterInk[$chapter['slug']] }}">{{ sprintf('%02d', $i + 1) }} &nbsp;·&nbsp; {{ __('Chapter') }}</p>
+                                <p class="eyebrow text-brand-cream/80">{{ sprintf('%02d', $i + 1) }} &nbsp;·&nbsp; {{ __('Chapter') }}</p>
                                 <div>
-                                    <h3 class="font-display text-2xl leading-tight {{ $chapterInk[$chapter['slug']] }} sm:text-3xl">{{ $chapter['label'] }}</h3>
-                                    <p class="mt-2 font-editorial text-sm italic leading-relaxed text-brand-ink/70 sm:text-base">{{ $chapter['tagline'] }}</p>
+                                    <h3 class="font-display text-2xl leading-tight sm:text-3xl">{{ $chapter['label'] }}</h3>
+                                    <p class="mt-2 font-editorial text-sm italic leading-relaxed text-brand-cream/80 sm:text-base">{{ $chapter['tagline'] }}</p>
                                 </div>
-                                <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow transition-[gap] duration-200 group-hover:gap-3 {{ $chapterInk[$chapter['slug']] }}">
+                                <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream/90 transition-[gap] duration-200 group-hover:gap-3 group-hover:text-brand-cream">
                                     {{ __('Open chapter') }}
                                     <span aria-hidden="true">&rarr;</span>
                                 </span>
