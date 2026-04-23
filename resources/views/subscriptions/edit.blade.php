@@ -5,6 +5,9 @@
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Edit subscription') }}
             </h1>
+            <p class="mt-3 max-w-2xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
+                {{ __('Adjust the cadence, shape it to your week.') }}
+            </p>
         </div>
     </x-slot>
 

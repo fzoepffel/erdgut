@@ -5,6 +5,9 @@
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Create subscription') }}
             </h1>
+            <p class="mt-3 max-w-2xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
+                {{ __('Begin the weekly rhythm — the table, set for you.') }}
+            </p>
         </div>
     </x-slot>
 

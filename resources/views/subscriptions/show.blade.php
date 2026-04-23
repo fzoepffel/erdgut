@@ -11,6 +11,9 @@
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Subscription overview') }}
             </h1>
+            <p class="mt-3 max-w-2xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
+                {{ __('Your weekly rhythm — tuned to your table.') }}
+            </p>
         </div>
     </x-slot>
 
@@ -345,6 +348,13 @@
                         </div>
                     </form>
                 </x-modal>
+
+                <div class="flex flex-col items-center gap-3 pt-8">
+                    <x-triple-star class="opacity-70" />
+                    <p class="font-editorial text-sm italic text-brand-ink/60">
+                        {{ __('In the rhythm of the harvest, week by week.') }}
+                    </p>
+                </div>
             @endif
         </div>
     </div>
