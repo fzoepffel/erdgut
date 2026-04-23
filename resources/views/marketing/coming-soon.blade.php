@@ -23,13 +23,15 @@
             class="min-h-screen w-full"
         >
             <div class="mx-auto grid min-h-screen w-full max-w-[1600px] grid-cols-1 md:grid-cols-[minmax(0,_1fr)_minmax(0,_2fr)]">
-                {{-- Left column: catalogue-style cabbage illustration stripe --}}
+                {{-- Left column: catalogue-style cabbage illustration stripe
+                     (image is pre-cropped to the cabbage texture only — no
+                     baked-in text to worry about) --}}
                 <div class="relative hidden min-h-[320px] overflow-hidden md:block">
                     <img
                         src="{{ asset('images/chapters/cabbage.png') }}"
                         alt=""
                         aria-hidden="true"
-                        class="absolute inset-0 h-full w-full select-none object-cover object-left-top"
+                        class="absolute inset-0 h-full w-full select-none object-cover"
                     />
                 </div>
                 <div class="relative block h-40 overflow-hidden sm:h-48 md:hidden">
@@ -37,7 +39,7 @@
                         src="{{ asset('images/chapters/cabbage.png') }}"
                         alt=""
                         aria-hidden="true"
-                        class="absolute inset-0 h-full w-full select-none object-cover object-left-top"
+                        class="absolute inset-0 h-full w-full select-none object-cover object-center"
                     />
                 </div>
 
@@ -46,14 +48,15 @@
                     <div class="flex items-start justify-between gap-4">
                         {{--
                             Erdgut wordmark rendered via CSS mask on the brand's official
-                            wordmark PNG, filled in dark chapter-produce green so it reads
+                            wordmark PNG (pre-cropped to the tight glyph bounds, aspect
+                            ~5:1), filled in dark chapter-produce green so it reads
                             against the olive-green page background.
                         --}}
                         <div
                             role="img"
                             aria-label="Erdgut"
-                            class="h-14 w-40 sm:h-16 sm:w-48 md:h-20 md:w-60"
-                            style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-wordmark.png') }}') no-repeat left center / contain; mask: url('{{ asset('images/logo/erdgut-wordmark.png') }}') no-repeat left center / contain;"
+                            class="h-16 w-80 sm:h-20 sm:w-96 md:h-28 md:w-[34rem] lg:h-32 lg:w-[40rem]"
+                            style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain; mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain;"
                         ></div>
                         <div class="pt-2">
                             <x-language-selector variant="compact" />
