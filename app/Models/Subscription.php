@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use App\Console\Commands\ChargeSubscriptions;
+use App\Enums\BillingMode;
+use App\Enums\FulfillmentMode;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
+use App\Services\Billing\BoxPricing;
 use Database\Factories\SubscriptionFactory;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,6 +43,12 @@ class Subscription extends Model
      */
     protected $fillable = [
         'user_id',
+        'payment_mandate_id',
+        'address_id',
+        'delivery_weekday',
+        'preferred_timeslot',
+        'fulfillment_mode',
+        'billing_mode',
         'plan',
         'box_size',
         'preferences',
@@ -66,6 +75,9 @@ class Subscription extends Model
         return [
             'plan' => SubscriptionPlan::class,
             'status' => SubscriptionStatus::class,
+            'billing_mode' => BillingMode::class,
+            'fulfillment_mode' => FulfillmentMode::class,
+            'delivery_weekday' => 'integer',
             'preferences' => 'array',
             'allergies' => 'array',
             'next_charge_date' => 'date',
@@ -85,6 +97,90 @@ class Subscription extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the payment mandate used to charge this subscription, if any.
+     *
+     * Null for manual billing modes.
+     */
+    public function paymentMandate(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMandate::class);
+    }
+
+    /**
+     * Active SumUp token for this subscription. Prefers the linked mandate,
+     * falls back to the legacy `sumup_token` column for subscriptions that
+     * predate the mandate cutover. Returns null if no credentials are
+     * available (e.g. manual billing modes, revoked mandate, never set up).
+     */
+    public function activeSumupToken(): ?string
+    {
+        $mandate = $this->relationLoaded('paymentMandate')
+            ? $this->paymentMandate
+            : $this->paymentMandate()->first();
+
+        if ($mandate !== null && $mandate->isActive() && $mandate->provider_token !== null && $mandate->provider_token !== '') {
+            return $mandate->provider_token;
+        }
+
+        $legacy = trim((string) $this->sumup_token);
+
+        return $legacy === '' ? null : $legacy;
+    }
+
+    /**
+     * Active SumUp customer id. Same precedence as {@see activeSumupToken}.
+     */
+    public function activeSumupCustomerId(): ?string
+    {
+        $mandate = $this->relationLoaded('paymentMandate')
+            ? $this->paymentMandate
+            : $this->paymentMandate()->first();
+
+        if ($mandate !== null && $mandate->isActive() && $mandate->provider_customer_id !== null && $mandate->provider_customer_id !== '') {
+            return $mandate->provider_customer_id;
+        }
+
+        $legacy = trim((string) $this->sumup_customer_id);
+
+        return $legacy === '' ? null : $legacy;
+    }
+
+    /**
+     * Whether this subscription can be charged automatically via SumUp.
+     */
+    public function hasActiveSumupCredentials(): bool
+    {
+        return $this->activeSumupToken() !== null && $this->activeSumupCustomerId() !== null;
+    }
+
+    /**
+     * Get the address for this subscription's deliveries.
+     *
+     * May be null — in that case the delivery projector falls back to
+     * the user's primary address at delivery-creation time.
+     */
+    public function address(): BelongsTo
+    {
+        return $this->belongsTo(Address::class);
+    }
+
+    /**
+     * Get all boxes composed for this subscription.
+     */
+    public function boxes(): HasMany
+    {
+        return $this->hasMany(Box::class);
+    }
+
+    /**
+     * Get all one-off skip weeks scheduled for this subscription.
+     */
+    public function skipWeeks(): HasMany
+    {
+        return $this->hasMany(SubscriptionSkipWeek::class);
     }
 
     /**
@@ -188,11 +284,9 @@ class Subscription extends Model
      */
     public function baseBillingAmountTtc(): float
     {
-        if ($this->isTrialBillingPending()) {
-            return round((float) config('box.trial_price_ttc', 35), 2);
-        }
-
-        return round((float) config('box.included_value_by_size.'.$this->box_size, 35), 2);
+        return $this->isTrialBillingPending()
+            ? BoxPricing::subscriptionTrialFlatTtc()
+            : BoxPricing::sizeBaseTtc((string) $this->box_size);
     }
 
     /**
@@ -201,7 +295,7 @@ class Subscription extends Model
      */
     public function expectedChargeAmount(): float
     {
-        return round($this->baseBillingAmountTtc() + $this->eggsDairyAddOnAmount(), 2);
+        return BoxPricing::subscriptionRecurringTotal($this);
     }
 
     /**
@@ -209,7 +303,7 @@ class Subscription extends Model
      */
     public function includedValueForBudget(): float
     {
-        return $this->expectedChargeAmount();
+        return BoxPricing::subscriptionIncludedValueForBudget($this);
     }
 
     /**
@@ -217,7 +311,7 @@ class Subscription extends Model
      */
     public function nominalIncludedValueTtc(): float
     {
-        return round((float) config('box.included_value_by_size.'.$this->box_size, 35), 2);
+        return BoxPricing::sizeBaseTtc((string) $this->box_size);
     }
 
     /**

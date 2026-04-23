@@ -124,6 +124,47 @@ class TrialOrderServiceTest extends TestCase
         $this->assertSame(Payment::STATUS_PENDING, $payment->fresh()->status);
     }
 
+    public function test_create_order_uses_size_based_pricing(): void
+    {
+        config()->set('box.included_value_by_size', [
+            'small' => 20.0,
+            'medium' => 35.0,
+            'large' => 42.0,
+        ]);
+
+        $user = User::factory()->create();
+        $service = $this->app->make(TrialOrderService::class);
+
+        $order = $service->createOrder($user, [
+            'box_size' => 'large',
+            'preferences' => [],
+            'allergies' => [],
+        ]);
+
+        $this->assertSame('42.00', (string) $order->amount);
+    }
+
+    public function test_create_order_adds_eggs_dairy_add_on(): void
+    {
+        config()->set('box.included_value_by_size', [
+            'small' => 20.0,
+            'medium' => 35.0,
+            'large' => 42.0,
+        ]);
+        config()->set('box.eggs_dairy_add_on_eur', 4.5);
+
+        $user = User::factory()->create();
+        $service = $this->app->make(TrialOrderService::class);
+
+        $order = $service->createOrder($user, [
+            'box_size' => 'small',
+            'preferences' => ['eggs_dairy_add_on' => true],
+            'allergies' => [],
+        ]);
+
+        $this->assertSame('24.50', (string) $order->amount);
+    }
+
     /**
      * @return array{0: Order, 1: Payment}
      */

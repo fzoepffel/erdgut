@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\BillingMode;
 use App\Enums\PaymentChargeInitiator;
 use App\Enums\SubscriptionStatus;
+use App\Models\PaymentMandate;
 use App\Models\Subscription;
 use App\Services\Billing\SubscriptionRecurringChargeService;
 use App\Support\BillingFulfillmentWeek;
@@ -104,12 +106,22 @@ class ChargeSubscriptions extends Command
     {
         return Subscription::query()
             ->where('status', SubscriptionStatus::Active)
-            ->whereNotNull('sumup_token')
+            ->where('billing_mode', BillingMode::SumupRecurring)
+            ->where(function ($q) {
+                // Either a linked active mandate, or the legacy per-subscription token
+                // (during the mandate cutover). Both paths are resolved by
+                // Subscription::activeSumupToken() at charge time.
+                $q->whereNotNull('sumup_token')
+                    ->orWhereHas('paymentMandate', function ($pm) {
+                        $pm->where('status', PaymentMandate::STATUS_ACTIVE)
+                            ->whereNotNull('provider_token');
+                    });
+            })
             ->where(function ($q) use ($today) {
                 $q->whereNull('next_charge_date')
                     ->orWhereDate('next_charge_date', '<=', $today);
             })
-            ->with('user')
+            ->with(['user', 'paymentMandate'])
             ->get()
             ->filter(fn (Subscription $s) => ScheduledChargeEligibility::isDue($s, $today));
     }

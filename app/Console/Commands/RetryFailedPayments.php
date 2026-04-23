@@ -106,7 +106,7 @@ class RetryFailedPayments extends Command
             if ($subscription->status !== SubscriptionStatus::Active) {
                 continue;
             }
-            if (empty($subscription->sumup_token)) {
+            if (! $subscription->hasActiveSumupCredentials()) {
                 continue;
             }
             $hasPending = $subscription->payments()->where('status', Payment::STATUS_PENDING)->exists();

@@ -6,6 +6,7 @@ use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\Billing\SumUpMandateManager;
 use App\Support\SubscriptionLifecycleService;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
@@ -20,6 +21,7 @@ class SubscriptionOnboardingService
     public function __construct(
         private readonly SumUpService $sumUpService,
         private readonly SubscriptionLifecycleService $lifecycle,
+        private readonly SumUpMandateManager $mandateManager,
     ) {}
 
     /**
@@ -132,11 +134,18 @@ class SubscriptionOnboardingService
             return false;
         }
 
+        $resolvedCustomerId = $subscription->sumup_customer_id ?: $customerId;
+
+        $mandate = $this->mandateManager->ensureMandate($subscription->user);
+        $this->mandateManager->attachCustomer($mandate, (string) $resolvedCustomerId);
+        $this->mandateManager->storeToken($mandate, $token);
+        $this->mandateManager->linkToSubscription($subscription, $mandate);
+
         $nextChargeDate = $this->lifecycle->computeNextChargeDate($subscription);
 
         $subscription->update([
             'sumup_token' => $token,
-            'sumup_customer_id' => $subscription->sumup_customer_id ?: $customerId,
+            'sumup_customer_id' => $resolvedCustomerId,
             'next_charge_date' => $nextChargeDate,
         ]);
 
@@ -185,6 +194,10 @@ class SubscriptionOnboardingService
                 'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
             ]);
         }
+
+        $mandate = $this->mandateManager->ensureMandate($user);
+        $this->mandateManager->attachCustomer($mandate, $customerId);
+        $this->mandateManager->linkToSubscription($subscription, $mandate);
 
         $subscription->update(['sumup_customer_id' => $customerId]);
 

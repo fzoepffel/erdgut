@@ -26,10 +26,15 @@ class Box extends Model
     protected $fillable = [
         'user_id',
         'order_id',
+        'subscription_id',
         'week_start_date',
         'status',
         'modification_deadline_at',
         'estimated_value',
+        'preferences_snapshot',
+        'allergies_snapshot',
+        'box_size_snapshot',
+        'fulfillment_mode_snapshot',
         'is_test',
     ];
 
@@ -45,6 +50,8 @@ class Box extends Model
             'week_start_date' => 'date',
             'modification_deadline_at' => 'datetime',
             'estimated_value' => 'decimal:2',
+            'preferences_snapshot' => 'array',
+            'allergies_snapshot' => 'array',
             'is_test' => 'boolean',
         ];
     }
@@ -63,6 +70,22 @@ class Box extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * Subscription this box belongs to, if any.
+     */
+    public function subscription(): BelongsTo
+    {
+        return $this->belongsTo(Subscription::class);
+    }
+
+    /**
+     * Deliveries that fulfill this box (usually one, but overrides create more).
+     */
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(Delivery::class);
     }
 
     public function isTrial(): bool

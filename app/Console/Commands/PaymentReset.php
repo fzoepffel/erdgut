@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Payment;
+use App\Models\PaymentMandate;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Console\Command;
@@ -53,14 +54,17 @@ class PaymentReset extends Command
         }
 
         $subIds = $subscriptions->pluck('id');
+        $userIds = $subscriptions->pluck('user_id')->unique();
 
         $paymentCount = Payment::whereIn('subscription_id', $subIds)->count();
+        $mandateCount = PaymentMandate::whereIn('user_id', $userIds)->count();
         $subCount = $subscriptions->count();
 
         if (! $this->option('force')) {
             $target = $email ?? 'ALL users';
             $this->warn('This will:');
             $this->line("  • Clear sumup_token, sumup_customer_id, next_charge_date on {$subCount} subscription(s)");
+            $this->line("  • Delete {$mandateCount} payment mandate(s)");
             $this->line("  • Delete {$paymentCount} payment row(s)");
             $this->line("  • Target: {$target}");
 
@@ -76,8 +80,11 @@ class PaymentReset extends Command
         Subscription::whereIn('id', $subIds)->update([
             'sumup_token' => null,
             'sumup_customer_id' => null,
+            'payment_mandate_id' => null,
             'next_charge_date' => null,
         ]);
+
+        PaymentMandate::whereIn('user_id', $userIds)->delete();
 
         $this->info("Reset {$subCount} subscription(s) and deleted {$paymentCount} payment row(s).");
 
