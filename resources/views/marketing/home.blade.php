@@ -142,7 +142,9 @@
                 @php
                     // Each chapter reuses the catalogue strip crop (transparent PNG
                     // with the chapter-coloured illustration on the left 32% of the
-                    // original A4 cover) so the cream backdrop shows through.
+                    // original A4 cover). We render the illustration white via a
+                    // `brightness(0) invert(1)` filter and set the left column to the
+                    // full chapter colour, producing catalogue-style coloured plates.
                     $chapters = [
                         ['slug' => 'produce', 'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'), 'href' => route('app.products.index', ['category' => 'vegetables']), 'image' => 'catalog-strip-cabbage.png'],
                         ['slug' => 'meat', 'label' => __('Meat'), 'tagline' => __('Pasture-raised cuts'), 'href' => route('app.products.index', ['category' => 'meat']), 'image' => 'catalog-strip-waguy.png'],
@@ -161,6 +163,15 @@
                         'producers' => 'text-chapter-producers',
                         'almanach' => 'text-chapter-almanach',
                     ];
+                    $chapterPanelBg = [
+                        'produce' => 'bg-chapter-produce',
+                        'meat' => 'bg-chapter-meat',
+                        'fish' => 'bg-chapter-fish',
+                        'eggdairy' => 'bg-chapter-eggdairy',
+                        'bread' => 'bg-chapter-bread',
+                        'producers' => 'bg-chapter-producers',
+                        'almanach' => 'bg-chapter-almanach',
+                    ];
                     $chapterBorder = [
                         'produce' => 'hover:border-chapter-produce',
                         'meat' => 'hover:border-chapter-meat',
@@ -178,12 +189,13 @@
                             class="flex h-full min-h-[220px] w-full overflow-hidden border border-brand-ink/10 bg-brand-paper transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] {{ $chapterBorder[$chapter['slug']] }}"
                             data-testid="home-chapter-tile-{{ $chapter['slug'] }}"
                         >
-                            <div class="relative w-28 shrink-0 overflow-hidden sm:w-36">
+                            <div class="relative w-28 shrink-0 overflow-hidden sm:w-36 {{ $chapterPanelBg[$chapter['slug']] }}">
                                 <img
                                     src="{{ asset('images/chapters/' . $chapter['image']) }}"
                                     alt=""
                                     aria-hidden="true"
                                     class="absolute inset-0 h-full w-full select-none object-cover object-left"
+                                    style="filter: brightness(0) invert(1);"
                                 />
                             </div>
                             <div class="flex flex-1 flex-col justify-between gap-6 p-6 sm:p-7">
