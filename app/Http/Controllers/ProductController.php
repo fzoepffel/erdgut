@@ -41,7 +41,12 @@ class ProductController extends Controller
             throw new NotFoundHttpException;
         }
 
-        $product->loadMissing(['producer.translations', 'translations']);
+        $product->loadMissing([
+            'producer.translations',
+            'translations',
+            'images',
+            'pairings' => fn ($q) => $q->visibleInCatalog()->with(['translations', 'producer.translations', 'images']),
+        ]);
 
         return view('products.show', ['product' => $product]);
     }
