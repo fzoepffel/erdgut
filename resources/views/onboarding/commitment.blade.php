@@ -1,7 +1,7 @@
 @extends('layouts.onboarding', ['step' => 'commitment', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-produce">{{ __('Your commitment') }}</p>
+    <p class="eyebrow text-chapter-almanach">{{ __('Your commitment') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('How do you want to start?') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('Try one box, or sign up for a recurring delivery — you can always switch.') }}

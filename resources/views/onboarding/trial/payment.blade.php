@@ -1,7 +1,7 @@
 @extends('layouts.onboarding', ['step' => 'trial_payment', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-produce">{{ __('Your payment') }}</p>
+    <p class="eyebrow text-chapter-meat">{{ __('Your payment') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Secure your trial box') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('One-time charge of EUR :amount. No subscription, no stored card.', ['amount' => number_format((float) $order->amount, 2)]) }}
