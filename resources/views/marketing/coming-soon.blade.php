@@ -23,66 +23,71 @@
             class="min-h-screen w-full"
         >
             <div class="mx-auto grid min-h-screen w-full max-w-[1600px] grid-cols-1 md:grid-cols-[minmax(0,_1fr)_minmax(0,_2fr)]">
-                {{-- Left column: catalogue-style textured onion illustration --}}
+                {{-- Left column: catalogue-style cabbage illustration stripe --}}
                 <div class="relative hidden min-h-[320px] overflow-hidden md:block">
                     <img
-                        src="{{ asset('images/chapters/onion.png') }}"
+                        src="{{ asset('images/chapters/cabbage.png') }}"
                         alt=""
                         aria-hidden="true"
-                        class="absolute inset-0 h-full w-full select-none object-cover object-center"
+                        class="absolute inset-0 h-full w-full select-none object-cover object-left-top"
                     />
                 </div>
-                <div class="relative block h-56 overflow-hidden sm:h-72 md:hidden">
+                <div class="relative block h-40 overflow-hidden sm:h-48 md:hidden">
                     <img
-                        src="{{ asset('images/chapters/onion.png') }}"
+                        src="{{ asset('images/chapters/cabbage.png') }}"
                         alt=""
                         aria-hidden="true"
-                        class="absolute inset-0 h-full w-full select-none object-cover object-center"
+                        class="absolute inset-0 h-full w-full select-none object-cover object-left-top"
                     />
                 </div>
 
                 {{-- Right column: wordmark + content --}}
                 <div class="flex flex-col px-6 py-10 sm:px-10 sm:py-14 md:px-14 md:py-16 lg:px-20">
                     <div class="flex items-start justify-between gap-4">
-                        <h1
-                            class="font-display text-6xl font-bold leading-none tracking-tight sm:text-7xl md:text-8xl lg:text-9xl"
-                            style="color: #21341d;"
-                        >
-                            ERDGUT
-                        </h1>
+                        {{--
+                            Erdgut wordmark rendered via CSS mask on the brand's official
+                            wordmark PNG, filled in dark chapter-produce green so it reads
+                            against the olive-green page background.
+                        --}}
+                        <div
+                            role="img"
+                            aria-label="Erdgut"
+                            class="h-14 w-40 sm:h-16 sm:w-48 md:h-20 md:w-60"
+                            style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-wordmark.png') }}') no-repeat left center / contain; mask: url('{{ asset('images/logo/erdgut-wordmark.png') }}') no-repeat left center / contain;"
+                        ></div>
                         <div class="pt-2">
                             <x-language-selector variant="compact" />
                         </div>
                     </div>
 
-                    <div class="mt-10 sm:mt-14 md:mt-20">
+                    <div class="mt-10 sm:mt-14 md:mt-16">
                         <p class="eyebrow" style="color: #21341d;">{{ __('Bald geht\'s los') }}</p>
                         <p
-                            class="mt-6 font-display text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl"
+                            class="mt-4 font-display text-2xl font-semibold leading-snug sm:text-3xl md:text-4xl"
                             style="color: #21341d;"
                         >
                             {{ __('Frisches Gemüse ist unterwegs.') }}
                         </p>
                         <p
-                            class="mt-6 max-w-xl font-editorial text-base italic leading-relaxed sm:text-lg"
+                            class="mt-5 max-w-xl font-editorial text-base italic leading-relaxed sm:text-lg"
                             style="color: rgba(33, 52, 29, 0.85);"
                         >
                             {{ __('Noch sind wir auf dem Feld und ernten das Beste der Saison. In Kürze kannst du dich hier selbst davon überzeugen.') }}
                         </p>
                     </div>
 
-                    <div class="mt-12 max-w-xl border-t pt-8 sm:mt-16" style="border-color: rgba(33, 52, 29, 0.25);">
+                    <div class="mt-10 max-w-xl border-t pt-8 sm:mt-14" style="border-color: rgba(33, 52, 29, 0.25);">
                         <p class="eyebrow" style="color: #21341d;">{{ __('Schreib uns gern') }}</p>
-                        <p class="mt-4 text-base leading-relaxed sm:text-lg" style="color: rgba(33, 52, 29, 0.9);">
+                        <p class="mt-4 text-base leading-relaxed sm:text-base" style="color: rgba(33, 52, 29, 0.9);">
                             {{ __('Du bist Produzent:in und möchtest deine Erzeugnisse über uns anbieten?') }}
                         </p>
-                        <p class="mt-3 text-base leading-relaxed sm:text-lg" style="color: rgba(33, 52, 29, 0.9);">
+                        <p class="mt-3 text-base leading-relaxed sm:text-base" style="color: rgba(33, 52, 29, 0.9);">
                             {{ __('Oder möchtest du als Kund:in dabei sein, sobald es losgeht?') }}
                         </p>
                         <p class="mt-6">
                             <a
                                 href="mailto:kontakt@erd-gut.de"
-                                class="font-display text-2xl font-semibold underline decoration-2 underline-offset-4 transition hover:opacity-80 sm:text-3xl"
+                                class="font-display text-xl font-semibold underline decoration-2 underline-offset-4 transition hover:opacity-80 sm:text-2xl"
                                 style="color: #21341d;"
                             >
                                 kontakt@erd-gut.de
