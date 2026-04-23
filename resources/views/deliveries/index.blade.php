@@ -5,19 +5,25 @@
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Deliveries timeline') }}
             </h1>
+            <p class="mt-3 max-w-2xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
+                {{ __('Your upcoming weeks, in the order they arrive.') }}
+            </p>
         </div>
     </x-slot>
 
     <div class="py-10 sm:py-16">
         <div class="mx-auto max-w-5xl space-y-8 px-4 sm:px-6 lg:px-8">
-            <div class="border border-brand-ink/15 bg-brand-ink/[0.02] px-6 py-5">
-                <p class="eyebrow text-chapter-produce">{{ __('Default delivery settings') }}</p>
-                <p class="mt-2 text-sm leading-relaxed text-brand-ink/75">
-                    {{ __('deliveries.default_settings_intro') }}
-                </p>
-                <a href="{{ route('app.deliveries.preferences.edit') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
-                    {{ __('Open default delivery settings') }} <span aria-hidden="true">&rarr;</span>
-                </a>
+            <div class="flex flex-col gap-4 border border-brand-ink/15 bg-brand-ink/[0.02] px-6 py-5 sm:flex-row sm:items-start sm:gap-6">
+                <x-chapter-mark chapter="produce" size="xs" class="shrink-0 opacity-90" />
+                <div class="flex-1">
+                    <p class="eyebrow text-chapter-produce">{{ __('Default delivery settings') }}</p>
+                    <p class="mt-2 text-sm leading-relaxed text-brand-ink/75">
+                        {{ __('deliveries.default_settings_intro') }}
+                    </p>
+                    <a href="{{ route('app.deliveries.preferences.edit') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                        {{ __('Open default delivery settings') }} <span aria-hidden="true">&rarr;</span>
+                    </a>
+                </div>
             </div>
 
             @if (session('status') === 'delivery-gifted')
@@ -49,7 +55,7 @@
                 </x-empty-state>
             @endif
 
-            <ol class="space-y-8">
+            <ol class="space-y-8" data-testid="deliveries-timeline">
                 @foreach ($weeklyDeliveries as $row)
                     @php
                         $baseDelivery = $row['base'];
@@ -129,6 +135,15 @@
                     </x-reveal>
                 @endforeach
             </ol>
+
+            @unless ($weeklyDeliveries->isEmpty())
+                <div class="flex flex-col items-center gap-3 pt-8">
+                    <x-triple-star class="opacity-70" />
+                    <p class="font-editorial text-sm italic text-brand-ink/60">
+                        {{ __('One week at a time, in the rhythm of the harvest.') }}
+                    </p>
+                </div>
+            @endunless
         </div>
     </div>
 </x-app-layout>

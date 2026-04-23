@@ -20,6 +20,9 @@
             <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
                 {{ __('Payments and billing') }}
             </h1>
+            <p class="mt-3 max-w-2xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
+                {{ __('The ledger of your weekly rhythm — quietly kept.') }}
+            </p>
         </div>
     </x-slot>
 
@@ -67,7 +70,7 @@
 
             <section class="border border-brand-ink/15" aria-labelledby="{{ $ledgerHeadingId }}">
                 <div class="border-b border-brand-ink/10 px-4 py-5 sm:px-6">
-                    <p class="eyebrow text-chapter-produce">{{ __('Charges') }}</p>
+                    <p class="eyebrow text-chapter-fish">{{ __('Charges') }}</p>
                     <h2 id="{{ $ledgerHeadingId }}" class="mt-2 font-display text-2xl text-brand-ink">
                         {{ __('Charge history') }}
                     </h2>
@@ -190,6 +193,15 @@
                     @endif
                 </div>
             </section>
+
+            @unless ($payments->isEmpty())
+                <div class="flex flex-col items-center gap-3 pt-4">
+                    <x-triple-star class="opacity-70" />
+                    <p class="font-editorial text-sm italic text-brand-ink/60">
+                        {{ __('A quiet record, kept week by week.') }}
+                    </p>
+                </div>
+            @endunless
         </div>
     </div>
 </x-app-layout>
