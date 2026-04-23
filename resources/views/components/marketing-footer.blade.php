@@ -12,13 +12,7 @@
                 <p class="eyebrow text-chapter-produce">{{ __('footer.contact_heading') }}</p>
                 <ul class="mt-4 space-y-2 text-sm text-brand-ink/80">
                     <li>
-                        <a class="underline-offset-4 hover:underline" href="mailto:hallo@erdgut.de">{{ __('footer.contact_general') }}: hallo@erdgut.de</a>
-                    </li>
-                    <li>
-                        <a class="underline-offset-4 hover:underline" href="mailto:bestellung@erdgut.de">{{ __('footer.contact_orders') }}: bestellung@erdgut.de</a>
-                    </li>
-                    <li>
-                        <a class="underline-offset-4 hover:underline" href="mailto:einkauf@erdgut.de">{{ __('footer.contact_suppliers') }}: einkauf@erdgut.de</a>
+                        <a class="underline-offset-4 hover:underline" href="mailto:kontakt@erd-gut.de">kontakt@erd-gut.de</a>
                     </li>
                 </ul>
             </div>

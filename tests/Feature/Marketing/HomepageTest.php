@@ -19,7 +19,7 @@ class HomepageTest extends TestCase
         // Translated strings (test suite runs with APP_LOCALE=en).
         $response->assertSee('Fresh produce is on its way.', false);
         $response->assertSee('producer', false);
-        $response->assertSee('hallo@erdgut.de', false);
+        $response->assertSee('kontakt@erd-gut.de', false);
 
         // Coming-soon page must not leak the full marketing nav / CTAs.
         $response->assertDontSee('data-testid="home-cta-try-box"', false);

@@ -16,12 +16,12 @@
     </x-slot>
 
     <div class="py-10 sm:py-16">
-        <div class="mx-auto max-w-4xl space-y-8 px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-4xl space-y-10 px-4 sm:px-6 lg:px-8">
             <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="box-week-heading">
                 <h2 id="box-week-heading" class="sr-only">{{ __('Box summary') }}</h2>
                 <div class="space-y-3 text-sm">
                     @if ($modificationDeadline)
-                        <p class="text-brand-ink/75">
+                        <p class="font-editorial italic text-brand-ink/75">
                             {{ __('Box finalized on :datetime', ['datetime' => $modificationDeadline->format('d.m.Y H:i')]) }}
                         </p>
                     @endif
@@ -44,8 +44,11 @@
                     <h3 id="box-items-heading" class="mt-2 font-display text-xl text-brand-ink">
                         {{ __('This week in the box') }}
                     </h3>
+                    <p class="mt-2 font-editorial text-sm italic text-brand-ink/65">
+                        {{ __('Arranged stall by stall — the way a good market unfolds.') }}
+                    </p>
                 </div>
-                <div class="p-6">
+                <div class="p-6 sm:p-8">
                     @if ($box->items->isEmpty())
                         <x-empty-state
                             :title="__('No items in this box yet.')"
@@ -60,10 +63,18 @@
                                 return $enum?->stall() ?? 'other';
                             });
                             $stallOrder = ['produce', 'bakery', 'dairy', 'fish', 'meat', 'other'];
+                            $stallChapter = [
+                                'produce' => 'produce',
+                                'bakery' => 'bread',
+                                'dairy' => 'eggdairy',
+                                'fish' => 'fish',
+                                'meat' => 'meat',
+                                'other' => null,
+                            ];
                             $stallColor = [
                                 'produce' => 'text-chapter-produce',
-                                'bakery' => 'text-brand-ink',
-                                'dairy' => 'text-brand-ink',
+                                'bakery' => 'text-chapter-bread',
+                                'dairy' => 'text-chapter-eggdairy',
                                 'fish' => 'text-chapter-fish',
                                 'meat' => 'text-chapter-meat',
                                 'other' => 'text-brand-ink/60',
@@ -77,12 +88,17 @@
                                 'other' => __('Other'),
                             ];
                         @endphp
-                        <div class="space-y-8">
+                        <div class="space-y-10">
                             @foreach ($stallOrder as $stall)
                                 @if (isset($grouped[$stall]))
                                     <div>
-                                        <p class="eyebrow {{ $stallColor[$stall] }}">{{ $stallLabel[$stall] }}</p>
-                                        <ul class="mt-3 divide-y divide-brand-ink/10 border-t border-brand-ink/15">
+                                        <div class="flex items-center gap-3">
+                                            @if ($stallChapter[$stall])
+                                                <x-chapter-mark :chapter="$stallChapter[$stall]" size="xs" class="shrink-0 opacity-90" />
+                                            @endif
+                                            <p class="eyebrow {{ $stallColor[$stall] }}">{{ $stallLabel[$stall] }}</p>
+                                        </div>
+                                        <ul class="mt-4 divide-y divide-brand-ink/10 border-t border-brand-ink/15">
                                             @foreach ($grouped[$stall] as $item)
                                                 <li class="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between">
                                                     <div>
@@ -106,6 +122,13 @@
                     @endif
                 </div>
             </section>
+
+            <div class="flex flex-col items-center gap-3 pt-4">
+                <x-triple-star class="opacity-70" />
+                <p class="font-editorial text-sm italic text-brand-ink/60">
+                    {{ __('Gathered this week, for your table.') }}
+                </p>
+            </div>
         </div>
     </div>
 </x-app-layout>

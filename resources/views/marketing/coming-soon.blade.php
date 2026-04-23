@@ -43,10 +43,10 @@
                 <p class="pt-2">
                     {{ __('Schreib uns gern:') }}
                     <a
-                        href="mailto:hallo@erdgut.de"
+                        href="mailto:kontakt@erd-gut.de"
                         class="font-semibold text-brand-ink underline-offset-4 transition hover:underline"
                     >
-                        hallo@erdgut.de
+                        kontakt@erd-gut.de
                     </a>
                 </p>
             </div>
