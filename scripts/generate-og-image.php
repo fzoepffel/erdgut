@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Generate the Open Graph / Twitter Card share image for erd-gut.de.
  *
@@ -28,7 +29,7 @@ imagefilledrectangle($canvas, 0, 0, $W, $H, $bg);
 // ----- Cabbage stripe (left) -----
 // Source image is pre-cropped to cabbage-only (~571x3509, very tall).
 // Drop it into a left-hand column ~360px wide, scaled to fill full height.
-$cabbageSrc = imagecreatefrompng(__DIR__ . '/../public/images/chapters/cabbage.png');
+$cabbageSrc = imagecreatefrompng(__DIR__.'/../public/images/chapters/cabbage.png');
 $srcW = imagesx($cabbageSrc);
 $srcH = imagesy($cabbageSrc);
 
@@ -53,7 +54,7 @@ imagecopyresampled(
 // that happens to match the page background, so compositing it directly
 // would make it invisible. We re-render it using only the alpha channel,
 // filled in dark chapter-produce green.
-$wordmarkSrc = imagecreatefrompng(__DIR__ . '/../public/images/logo/erdgut-wordmark-tight.png');
+$wordmarkSrc = imagecreatefrompng(__DIR__.'/../public/images/logo/erdgut-wordmark-tight.png');
 $wmSrcW = imagesx($wordmarkSrc);
 $wmSrcH = imagesy($wordmarkSrc);
 
@@ -81,7 +82,9 @@ imagecopyresampled(
     $wmTargetW, $wmTargetH, $wmSrcW, $wmSrcH
 );
 
-$darkR = 0x21; $darkG = 0x34; $darkB = 0x1D;
+$darkR = 0x21;
+$darkG = 0x34;
+$darkB = 0x1D;
 for ($y = 0; $y < $wmTargetH; $y++) {
     for ($x = 0; $x < $wmTargetW; $x++) {
         $c = imagecolorat($wmScaled, $x, $y);
@@ -147,9 +150,9 @@ if ($fontPath) {
 }
 
 // ----- Save -----
-$outPath = __DIR__ . '/../public/images/og/erdgut-og-default.png';
+$outPath = __DIR__.'/../public/images/og/erdgut-og-default.png';
 imagepng($canvas, $outPath, 6); // compression level 6
 
 echo "Wrote OG image: $outPath\n";
 echo "Dimensions: {$W}×{$H}\n";
-echo "File size: " . number_format(filesize($outPath)) . " bytes\n";
+echo 'File size: '.number_format(filesize($outPath))." bytes\n";
