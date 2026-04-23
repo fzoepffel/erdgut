@@ -55,14 +55,6 @@
                         class="absolute inset-0 h-full w-full select-none object-contain object-left"
                     />
                 </div>
-                <div class="relative block h-40 overflow-hidden sm:h-48 md:hidden">
-                    <img
-                        src="{{ asset('images/chapters/cabbage.png') }}"
-                        alt=""
-                        aria-hidden="true"
-                        class="absolute inset-0 h-full w-full select-none object-cover object-center"
-                    />
-                </div>
 
                 {{-- Right column: wordmark + content --}}
                 <div class="flex flex-col px-6 py-10 sm:px-10 sm:py-14 md:px-14 md:py-16 lg:px-20">
