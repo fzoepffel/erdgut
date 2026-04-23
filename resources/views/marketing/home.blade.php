@@ -138,37 +138,64 @@
                 id="home-chapters-heading"
             />
 
-            <div class="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-testid="home-chapter-strip">
+            <div class="mt-16 grid gap-5 md:grid-cols-2" data-testid="home-chapter-strip">
                 @php
+                    // Each chapter reuses the catalogue strip crop (transparent PNG
+                    // with the chapter-coloured illustration on the left 32% of the
+                    // original A4 cover) so the cream backdrop shows through.
                     $chapters = [
-                        ['slug' => 'produce', 'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'), 'href' => route('app.products.index', ['category' => 'vegetables'])],
-                        ['slug' => 'meat', 'label' => __('Meat'), 'tagline' => __('Pasture-raised cuts'), 'href' => route('app.products.index', ['category' => 'meat'])],
-                        ['slug' => 'fish', 'label' => __('Fish & Seafood'), 'tagline' => __('Line-caught & smoked'), 'href' => route('app.products.index', ['category' => 'fish'])],
-                        ['slug' => 'eggdairy', 'label' => __('Eggs & Dairy'), 'tagline' => __('Milk, butter, cheese'), 'href' => route('app.products.index', ['category' => 'dairy'])],
-                        ['slug' => 'bread', 'label' => __('Bread'), 'tagline' => __('Sourdough & pastry'), 'href' => route('app.products.index', ['category' => 'bakery'])],
-                        ['slug' => 'producers', 'label' => __('Producers'), 'tagline' => __('The people behind the food'), 'href' => route('public.producers')],
-                        ['slug' => 'almanach', 'label' => __('Almanac'), 'tagline' => __('Seasons, stories, traditions'), 'href' => route('public.about')],
+                        ['slug' => 'produce', 'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'), 'href' => route('app.products.index', ['category' => 'vegetables']), 'image' => 'catalog-strip-cabbage.png'],
+                        ['slug' => 'meat', 'label' => __('Meat'), 'tagline' => __('Pasture-raised cuts'), 'href' => route('app.products.index', ['category' => 'meat']), 'image' => 'catalog-strip-waguy.png'],
+                        ['slug' => 'fish', 'label' => __('Fish & Seafood'), 'tagline' => __('Line-caught & smoked'), 'href' => route('app.products.index', ['category' => 'fish']), 'image' => 'catalog-strip-sardines.png'],
+                        ['slug' => 'eggdairy', 'label' => __('Eggs & Dairy'), 'tagline' => __('Milk, butter, cheese'), 'href' => route('app.products.index', ['category' => 'dairy']), 'image' => 'catalog-strip-eggs.png'],
+                        ['slug' => 'bread', 'label' => __('Bread'), 'tagline' => __('Sourdough & pastry'), 'href' => route('app.products.index', ['category' => 'bakery']), 'image' => 'catalog-strip-wheat.png'],
+                        ['slug' => 'producers', 'label' => __('Producers'), 'tagline' => __('The people behind the food'), 'href' => route('public.producers'), 'image' => 'catalog-strip-producers.png'],
+                        ['slug' => 'almanach', 'label' => __('Almanac'), 'tagline' => __('Seasons, stories, traditions'), 'href' => route('public.about'), 'image' => 'catalog-strip-almanach.png'],
                     ];
-                    $chapterTileBg = [
-                        'produce' => 'bg-chapter-produce text-brand-cream',
-                        'meat' => 'bg-chapter-meat text-brand-cream',
-                        'fish' => 'bg-chapter-fish text-brand-cream',
-                        'eggdairy' => 'bg-chapter-eggdairy text-brand-cream',
-                        'bread' => 'bg-chapter-bread text-brand-cream',
-                        'producers' => 'bg-chapter-producers text-brand-cream',
-                        'almanach' => 'bg-chapter-almanach text-brand-cream',
+                    $chapterInk = [
+                        'produce' => 'text-chapter-produce',
+                        'meat' => 'text-chapter-meat',
+                        'fish' => 'text-chapter-fish',
+                        'eggdairy' => 'text-chapter-eggdairy',
+                        'bread' => 'text-chapter-bread',
+                        'producers' => 'text-chapter-producers',
+                        'almanach' => 'text-chapter-almanach',
+                    ];
+                    $chapterBorder = [
+                        'produce' => 'hover:border-chapter-produce',
+                        'meat' => 'hover:border-chapter-meat',
+                        'fish' => 'hover:border-chapter-fish',
+                        'eggdairy' => 'hover:border-chapter-eggdairy',
+                        'bread' => 'hover:border-chapter-bread',
+                        'producers' => 'hover:border-chapter-producers',
+                        'almanach' => 'hover:border-chapter-almanach',
                     ];
                 @endphp
                 @foreach ($chapters as $i => $chapter)
                     <x-reveal variant="fade-up" delay="{{ $i * 60 }}" class="group flex">
-                        <a href="{{ $chapter['href'] }}" class="flex h-full w-full flex-col justify-between gap-8 {{ $chapterTileBg[$chapter['slug']] }} p-6 transition duration-200 hover:-translate-y-1" data-testid="home-chapter-tile-{{ $chapter['slug'] }}">
-                            <div class="flex items-start justify-between">
-                                <p class="eyebrow opacity-90">{{ sprintf('%02d', $i + 1) }}</p>
-                                <x-chapter-mark :chapter="$chapter['slug']" variant="white" size="sm" class="-mr-1 -mt-1 opacity-95" />
+                        <a
+                            href="{{ $chapter['href'] }}"
+                            class="flex h-full min-h-[220px] w-full overflow-hidden border border-brand-ink/10 bg-brand-paper transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] {{ $chapterBorder[$chapter['slug']] }}"
+                            data-testid="home-chapter-tile-{{ $chapter['slug'] }}"
+                        >
+                            <div class="relative w-28 shrink-0 overflow-hidden sm:w-36">
+                                <img
+                                    src="{{ asset('images/chapters/' . $chapter['image']) }}"
+                                    alt=""
+                                    aria-hidden="true"
+                                    class="absolute inset-0 h-full w-full select-none object-cover object-left"
+                                />
                             </div>
-                            <div>
-                                <p class="font-display text-xl leading-tight sm:text-2xl">{{ $chapter['label'] }}</p>
-                                <p class="mt-2 text-xs uppercase tracking-eyebrow opacity-80">{{ $chapter['tagline'] }}</p>
+                            <div class="flex flex-1 flex-col justify-between gap-6 p-6 sm:p-7">
+                                <p class="eyebrow {{ $chapterInk[$chapter['slug']] }}">{{ sprintf('%02d', $i + 1) }} &nbsp;·&nbsp; {{ __('Chapter') }}</p>
+                                <div>
+                                    <h3 class="font-display text-2xl leading-tight {{ $chapterInk[$chapter['slug']] }} sm:text-3xl">{{ $chapter['label'] }}</h3>
+                                    <p class="mt-2 font-editorial text-sm italic leading-relaxed text-brand-ink/70 sm:text-base">{{ $chapter['tagline'] }}</p>
+                                </div>
+                                <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow transition-[gap] duration-200 group-hover:gap-3 {{ $chapterInk[$chapter['slug']] }}">
+                                    {{ __('Open chapter') }}
+                                    <span aria-hidden="true">&rarr;</span>
+                                </span>
                             </div>
                         </a>
                     </x-reveal>
