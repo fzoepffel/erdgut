@@ -12,6 +12,62 @@
         $placeholder = $categoryPlaceholders[$product->category] ?? $categoryPlaceholders['vegetables'];
         $style = $catEnum ? \App\Support\ProductCategoryStyle::for($catEnum) : null;
         $chapter = $style['chapter'] ?? null;
+
+        // Gallery: prefer product_images rows; fall back to legacy image_path; then to category placeholder.
+        $galleryUrls = $product->images
+            ->map(fn ($img) => $img->url())
+            ->filter()
+            ->values();
+        if ($galleryUrls->isEmpty() && $product->imageUrl() !== null) {
+            $galleryUrls = collect([$product->imageUrl()]);
+        }
+        if ($galleryUrls->isEmpty()) {
+            $galleryUrls = collect([$placeholder]);
+        }
+
+        $allergenLabels = [
+            \App\Enums\Allergen::Gluten->value => __('Gluten'),
+            \App\Enums\Allergen::Crustaceans->value => __('Crustaceans'),
+            \App\Enums\Allergen::Eggs->value => __('Eggs'),
+            \App\Enums\Allergen::Fish->value => __('Fish'),
+            \App\Enums\Allergen::Peanuts->value => __('Peanuts'),
+            \App\Enums\Allergen::Soybeans->value => __('Soybeans'),
+            \App\Enums\Allergen::Milk->value => __('Milk'),
+            \App\Enums\Allergen::Nuts->value => __('Nuts'),
+            \App\Enums\Allergen::Celery->value => __('Celery'),
+            \App\Enums\Allergen::Mustard->value => __('Mustard'),
+            \App\Enums\Allergen::Sesame->value => __('Sesame'),
+            \App\Enums\Allergen::Sulphites->value => __('Sulphites'),
+            \App\Enums\Allergen::Lupin->value => __('Lupin'),
+            \App\Enums\Allergen::Molluscs->value => __('Molluscs'),
+        ];
+        $dietaryLabels = [
+            \App\Enums\DietaryTag::Vegan->value => __('Vegan'),
+            \App\Enums\DietaryTag::Vegetarian->value => __('Vegetarian'),
+            \App\Enums\DietaryTag::ContainsMeat->value => __('Contains meat'),
+            \App\Enums\DietaryTag::ContainsFish->value => __('Contains fish'),
+            \App\Enums\DietaryTag::ContainsDairy->value => __('Contains dairy'),
+            \App\Enums\DietaryTag::ContainsEggs->value => __('Contains eggs'),
+        ];
+        $tasteLabels = [
+            \App\Enums\TasteProfile::Sweet->value => __('Sweet'),
+            \App\Enums\TasteProfile::Earthy->value => __('Earthy'),
+            \App\Enums\TasteProfile::Fresh->value => __('Fresh'),
+            \App\Enums\TasteProfile::Peppery->value => __('Peppery'),
+            \App\Enums\TasteProfile::Bitter->value => __('Bitter'),
+            \App\Enums\TasteProfile::Umami->value => __('Umami'),
+            \App\Enums\TasteProfile::Crisp->value => __('Crisp'),
+            \App\Enums\TasteProfile::Herbal->value => __('Herbal'),
+            \App\Enums\TasteProfile::Nutty->value => __('Nutty'),
+            \App\Enums\TasteProfile::Spicy->value => __('Spicy'),
+            \App\Enums\TasteProfile::Sour->value => __('Sour'),
+            \App\Enums\TasteProfile::Rich->value => __('Rich'),
+        ];
+
+        $dietaryTags = array_values(array_filter((array) $product->dietary_tags, fn ($v) => isset($dietaryLabels[$v])));
+        $allergens = array_values(array_filter((array) $product->allergens, fn ($v) => isset($allergenLabels[$v])));
+        $tasteTags = array_values(array_filter((array) $product->taste_profile_tags, fn ($v) => isset($tasteLabels[$v])));
+        $tasteProfile = $product->localizedTasteProfile();
     @endphp
 
     <x-slot name="header">
@@ -32,18 +88,40 @@
         <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div class="grid gap-10 lg:grid-cols-12 lg:gap-16">
                 <x-reveal variant="scale" class="lg:col-span-7">
-                    <div class="relative aspect-[4/5] overflow-hidden bg-brand-ink/5">
-                        <img
-                            src="{{ $product->imageUrl() ?? $placeholder }}"
-                            alt="{{ $product->name }}"
-                            class="h-full w-full object-cover"
-                            loading="lazy"
-                        />
-                        @if ($chapter)
-                            <div class="absolute right-4 top-4 flex h-20 w-20 items-center justify-center bg-brand-cream/90 backdrop-blur-sm sm:h-24 sm:w-24">
-                                <x-chapter-mark :chapter="$chapter" size="sm" class="opacity-90" />
-                            </div>
-                        @endif
+                    <div
+                        x-data="{ active: 0, images: @js($galleryUrls->values()->all()) }"
+                        class="space-y-3"
+                    >
+                        <div class="relative aspect-[4/5] overflow-hidden bg-brand-ink/5">
+                            <template x-for="(src, i) in images" :key="i">
+                                <img
+                                    :src="src"
+                                    alt="{{ $product->name }}"
+                                    class="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
+                                    :class="active === i ? 'opacity-100' : 'opacity-0'"
+                                    loading="lazy"
+                                />
+                            </template>
+                            @if ($chapter)
+                                <div class="absolute right-4 top-4 flex h-20 w-20 items-center justify-center bg-brand-cream/90 backdrop-blur-sm sm:h-24 sm:w-24">
+                                    <x-chapter-mark :chapter="$chapter" size="sm" class="opacity-90" />
+                                </div>
+                            @endif
+                        </div>
+
+                        <div x-show="images.length > 1" class="flex gap-2 overflow-x-auto">
+                            <template x-for="(src, i) in images" :key="i">
+                                <button
+                                    type="button"
+                                    x-on:click="active = i"
+                                    class="relative h-16 w-16 shrink-0 overflow-hidden bg-brand-ink/5 transition"
+                                    :class="active === i ? 'ring-2 ring-brand-ink' : 'ring-1 ring-brand-ink/15 hover:ring-brand-ink/40'"
+                                    :aria-current="active === i ? 'true' : 'false'"
+                                >
+                                    <img :src="src" alt="" class="h-full w-full object-cover" loading="lazy" />
+                                </button>
+                            </template>
+                        </div>
                     </div>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="150" class="lg:col-span-5">
@@ -60,13 +138,44 @@
                             </p>
                         </div>
 
-                        @php
-                            $tasteProfile = $product->localizedTasteProfile();
-                        @endphp
-                        @if ($tasteProfile !== '')
+                        @if ($dietaryTags !== [])
+                            <div class="flex flex-wrap gap-2">
+                                @foreach ($dietaryTags as $tag)
+                                    <span class="inline-flex items-center border border-brand-ink/25 bg-brand-ink/[0.03] px-3 py-1 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink">
+                                        {{ $dietaryLabels[$tag] }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        @if ($tasteProfile !== '' || $tasteTags !== [])
                             <div class="space-y-3">
                                 <p class="eyebrow text-brand-ink/60">{{ __('Taste profile') }}</p>
-                                <p class="font-editorial text-base italic leading-relaxed text-brand-ink/85">{{ $tasteProfile }}</p>
+                                @if ($tasteProfile !== '')
+                                    <p class="font-editorial text-base italic leading-relaxed text-brand-ink/85">{{ $tasteProfile }}</p>
+                                @endif
+                                @if ($tasteTags !== [])
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach ($tasteTags as $tag)
+                                            <span class="inline-flex items-center border border-brand-ink/20 px-3 py-1 text-xs italic text-brand-ink/80">
+                                                {{ $tasteLabels[$tag] }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+
+                        @if ($allergens !== [])
+                            <div class="space-y-2">
+                                <p class="eyebrow text-brand-ink/60">{{ __('Allergens') }}</p>
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach ($allergens as $a)
+                                        <span class="inline-flex items-center border border-amber-700/30 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                                            {{ $allergenLabels[$a] }}
+                                        </span>
+                                    @endforeach
+                                </div>
                             </div>
                         @endif
 
@@ -81,6 +190,38 @@
                     </div>
                 </x-reveal>
             </div>
+
+            @if ($product->pairings->isNotEmpty())
+                <section class="mt-16 space-y-6" aria-labelledby="pairings-heading">
+                    <div class="flex items-center gap-3">
+                        <x-triple-star class="opacity-60" />
+                        <h2 id="pairings-heading" class="eyebrow text-brand-ink/70">{{ __('Pair well with') }}</h2>
+                    </div>
+                    <ul class="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+                        @foreach ($product->pairings as $pair)
+                            @php
+                                $pairCatEnum = \App\Enums\ProductCategory::tryFrom($pair->category);
+                                $pairPlaceholder = $categoryPlaceholders[$pair->category] ?? $categoryPlaceholders['vegetables'];
+                                $pairImage = $pair->images->first()?->url() ?? $pair->imageUrl() ?? $pairPlaceholder;
+                            @endphp
+                            <li>
+                                <a href="{{ route('app.products.show', $pair) }}" class="group flex flex-col gap-3">
+                                    <div class="relative aspect-square w-full overflow-hidden bg-brand-ink/5">
+                                        <img src="{{ $pairImage }}" alt="{{ $pair->name }}" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" />
+                                    </div>
+                                    <div>
+                                        @if ($pairCatEnum)
+                                            <x-chapter-badge :category="$pairCatEnum" />
+                                        @endif
+                                        <p class="mt-2 font-display text-base leading-snug text-brand-ink">{{ $pair->name }}</p>
+                                        <p class="font-editorial text-xs italic text-brand-ink/60">{{ $pair->producer?->name ?? __('products.producer_unknown') }}</p>
+                                    </div>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
 
             <div class="mt-16 flex flex-col items-center gap-3">
                 <x-triple-star class="opacity-70" />

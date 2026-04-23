@@ -1,6 +1,30 @@
 <x-app-layout>
     @php
         $weekLabelDate = $box->week_start_date->format('d.m.Y');
+        $categoryPlaceholders = [
+            'vegetables' => asset('images/mock/products/vegetables.jpg'),
+            'fruit' => asset('images/mock/products/fruit.jpg'),
+            'dairy' => asset('images/mock/products/dairy.jpg'),
+            'bakery' => asset('images/mock/products/bakery.jpg'),
+            'fish' => asset('images/mock/products/fish.jpg'),
+            'meat' => asset('images/mock/products/meat.jpg'),
+        ];
+        $allergenLabels = [
+            \App\Enums\Allergen::Gluten->value => __('Gluten'),
+            \App\Enums\Allergen::Crustaceans->value => __('Crustaceans'),
+            \App\Enums\Allergen::Eggs->value => __('Eggs'),
+            \App\Enums\Allergen::Fish->value => __('Fish'),
+            \App\Enums\Allergen::Peanuts->value => __('Peanuts'),
+            \App\Enums\Allergen::Soybeans->value => __('Soybeans'),
+            \App\Enums\Allergen::Milk->value => __('Milk'),
+            \App\Enums\Allergen::Nuts->value => __('Nuts'),
+            \App\Enums\Allergen::Celery->value => __('Celery'),
+            \App\Enums\Allergen::Mustard->value => __('Mustard'),
+            \App\Enums\Allergen::Sesame->value => __('Sesame'),
+            \App\Enums\Allergen::Sulphites->value => __('Sulphites'),
+            \App\Enums\Allergen::Lupin->value => __('Lupin'),
+            \App\Enums\Allergen::Molluscs->value => __('Molluscs'),
+        ];
     @endphp
 
     <x-slot name="header">
@@ -100,16 +124,43 @@
                                         </div>
                                         <ul class="mt-4 divide-y divide-brand-ink/10 border-t border-brand-ink/15">
                                             @foreach ($grouped[$stall] as $item)
-                                                <li class="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between">
-                                                    <div>
-                                                        <span class="font-medium text-brand-ink">{{ $item->product?->name ?? __('Unknown product') }}</span>
-                                                        @if ($item->is_extra)
-                                                            <span class="ml-2 inline-flex border border-brand-ink/30 px-2 py-0.5 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink">
-                                                                {{ __('Extra add-on') }}
-                                                            </span>
-                                                        @endif
+                                                @php
+                                                    $itemCat = $item->product?->category;
+                                                    $itemPlaceholder = $categoryPlaceholders[$itemCat] ?? $categoryPlaceholders['vegetables'];
+                                                    $itemImage = $item->product?->images->first()?->url()
+                                                        ?? $item->product?->imageUrl()
+                                                        ?? $itemPlaceholder;
+                                                    $itemAllergens = array_values(array_filter((array) ($item->product?->allergens ?? []), fn ($v) => isset($allergenLabels[$v])));
+                                                @endphp
+                                                <li class="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                                    <div class="flex items-start gap-4">
+                                                        <div class="relative h-16 w-16 shrink-0 overflow-hidden bg-brand-ink/5">
+                                                            <img src="{{ $itemImage }}" alt="{{ $item->product?->name ?? '' }}" class="h-full w-full object-cover" loading="lazy" />
+                                                        </div>
+                                                        <div class="min-w-0">
+                                                            <div class="flex flex-wrap items-center gap-2">
+                                                                <span class="font-medium text-brand-ink">{{ $item->product?->name ?? __('Unknown product') }}</span>
+                                                                @if ($item->is_extra)
+                                                                    <span class="inline-flex border border-brand-ink/30 px-2 py-0.5 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink">
+                                                                        {{ __('Extra add-on') }}
+                                                                    </span>
+                                                                @endif
+                                                            </div>
+                                                            @if ($item->product?->producer?->name)
+                                                                <p class="mt-0.5 font-editorial text-xs italic text-brand-ink/60">{{ $item->product->producer->name }}</p>
+                                                            @endif
+                                                            @if ($itemAllergens !== [])
+                                                                <div class="mt-1.5 flex flex-wrap gap-1">
+                                                                    @foreach ($itemAllergens as $a)
+                                                                        <span class="inline-flex items-center border border-amber-700/30 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-eyebrow text-amber-900">
+                                                                            {{ $allergenLabels[$a] }}
+                                                                        </span>
+                                                                    @endforeach
+                                                                </div>
+                                                            @endif
+                                                        </div>
                                                     </div>
-                                                    <span class="text-sm tabular-nums text-brand-ink/70">
+                                                    <span class="text-sm tabular-nums text-brand-ink/70 sm:shrink-0">
                                                         {{ number_format((float) $item->quantity, 2) }} {{ $item->unit }}
                                                     </span>
                                                 </li>

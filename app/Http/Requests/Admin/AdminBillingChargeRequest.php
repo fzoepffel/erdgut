@@ -59,8 +59,7 @@ class AdminBillingChargeRequest extends FormRequest
                 return;
             }
 
-            $token = $subscription->sumup_token;
-            if ($token === null || $token === '') {
+            if (! $subscription->hasActiveSumupCredentials()) {
                 $validator->errors()->add(
                     'subscription_id',
                     __('admin.billing_charge.validation_missing_payment_method')

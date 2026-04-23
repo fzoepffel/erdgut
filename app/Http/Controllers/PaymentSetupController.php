@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Subscription;
+use App\Services\Billing\SumUpMandateManager;
 use App\Support\SubscriptionLifecycleService;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
@@ -23,7 +24,7 @@ class PaymentSetupController extends Controller
                 ->with('status', 'subscription-missing');
         }
 
-        if (! empty($subscription->sumup_token)) {
+        if ($subscription->activeSumupToken() !== null) {
             return redirect()
                 ->route('app.subscriptions.show')
                 ->with('status', 'payment-already-setup');
@@ -42,7 +43,7 @@ class PaymentSetupController extends Controller
                 ->with('status', 'subscription-missing');
         }
 
-        if (empty($subscription->sumup_token)) {
+        if ($subscription->activeSumupToken() === null) {
             return redirect()
                 ->route('app.subscriptions.onboard.payment')
                 ->with('status', 'payment-update-unavailable');
@@ -227,9 +228,17 @@ class PaymentSetupController extends Controller
         $subscriptionLifecycleService = app(SubscriptionLifecycleService::class);
         $nextChargeDate = $subscriptionLifecycleService->computeNextChargeDate($subscription);
 
+        $resolvedCustomerId = $subscription->sumup_customer_id ?: $customerId;
+
+        $mandateManager = app(SumUpMandateManager::class);
+        $mandate = $mandateManager->ensureMandate($subscription->user);
+        $mandateManager->attachCustomer($mandate, (string) $resolvedCustomerId);
+        $mandateManager->storeToken($mandate, $token);
+        $mandateManager->linkToSubscription($subscription, $mandate);
+
         $subscription->update([
             'sumup_token' => $token,
-            'sumup_customer_id' => $subscription->sumup_customer_id ?: $customerId,
+            'sumup_customer_id' => $resolvedCustomerId,
             'next_charge_date' => $nextChargeDate,
         ]);
 
@@ -305,6 +314,11 @@ class PaymentSetupController extends Controller
                 'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($exception->getMessage()),
             ]);
         }
+
+        $mandateManager = app(SumUpMandateManager::class);
+        $mandate = $mandateManager->ensureMandate($request->user());
+        $mandateManager->attachCustomer($mandate, $customerId);
+        $mandateManager->linkToSubscription($subscription, $mandate);
 
         $subscription->update(['sumup_customer_id' => $customerId]);
 

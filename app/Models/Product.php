@@ -29,10 +29,14 @@ class Product extends Model
         'producer_id',
         'category',
         'unit_price',
+        'buying_price_cents',
         'is_seasonal',
         'is_available',
         'is_published',
         'metadata',
+        'allergens',
+        'dietary_tags',
+        'taste_profile_tags',
         'image_path',
         'is_test',
     ];
@@ -46,10 +50,14 @@ class Product extends Model
     {
         return [
             'unit_price' => 'decimal:2',
+            'buying_price_cents' => 'integer',
             'is_seasonal' => 'boolean',
             'is_available' => 'boolean',
             'is_published' => 'boolean',
             'metadata' => 'array',
+            'allergens' => 'array',
+            'dietary_tags' => 'array',
+            'taste_profile_tags' => 'array',
             'is_test' => 'boolean',
         ];
     }
@@ -129,6 +137,36 @@ class Product extends Model
     public function boxItems(): HasMany
     {
         return $this->hasMany(BoxItem::class);
+    }
+
+    /**
+     * Get all gallery images for this product.
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class)->orderBy('position');
+    }
+
+    /**
+     * Products this product is commonly paired with.
+     */
+    public function pairings(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'product_pairings', 'product_id', 'paired_product_id')
+            ->withPivot('note')
+            ->withTimestamps();
+    }
+
+    /**
+     * Gross margin in euros: (unit_price − buying_price). Null if buying price not set.
+     */
+    public function grossMargin(): ?float
+    {
+        if ($this->buying_price_cents === null) {
+            return null;
+        }
+
+        return round(((float) $this->unit_price) - ($this->buying_price_cents / 100), 2);
     }
 
     /**

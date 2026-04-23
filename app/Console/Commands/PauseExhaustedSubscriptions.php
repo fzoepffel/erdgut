@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Enums\SubscriptionStatus;
 use App\Models\Payment;
+use App\Models\PaymentMandate;
 use App\Models\Subscription;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -63,8 +64,14 @@ class PauseExhaustedSubscriptions extends Command
     {
         $subscriptions = Subscription::query()
             ->where('status', SubscriptionStatus::Active)
-            ->whereNotNull('sumup_token')
-            ->with('user')
+            ->where(function ($q) {
+                $q->whereNotNull('sumup_token')
+                    ->orWhereHas('paymentMandate', function ($pm) {
+                        $pm->where('status', PaymentMandate::STATUS_ACTIVE)
+                            ->whereNotNull('provider_token');
+                    });
+            })
+            ->with(['user', 'paymentMandate'])
             ->get();
 
         $result = collect();

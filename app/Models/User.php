@@ -120,4 +120,24 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Box::class);
     }
+
+    /**
+     * Get all payment mandates registered for this user (one per provider).
+     */
+    public function paymentMandates(): HasMany
+    {
+        return $this->hasMany(PaymentMandate::class);
+    }
+
+    /**
+     * Current active SumUp mandate, if any.
+     */
+    public function activeSumupMandate(): ?PaymentMandate
+    {
+        return $this->paymentMandates()
+            ->where('provider', 'sumup')
+            ->where('status', PaymentMandate::STATUS_ACTIVE)
+            ->latest('id')
+            ->first();
+    }
 }

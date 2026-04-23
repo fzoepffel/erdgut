@@ -31,7 +31,11 @@ class BoxController extends Controller
     public function show(Request $request, Box $box, BudgetRemainderService $budgetRemainderService): View
     {
         abort_unless((int) $box->user_id === (int) $request->user()->id, 403);
-        $box->loadMissing('items.product');
+        $box->loadMissing([
+            'items.product.images',
+            'items.product.translations',
+            'items.product.producer.translations',
+        ]);
 
         $budgetDetails = $budgetRemainderService->getBudgetDetails($request->user(), $box);
 

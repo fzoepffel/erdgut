@@ -9,6 +9,7 @@ use App\Mail\TrialOrderConfirmationMail;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\Billing\BoxPricing;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Support\Facades\DB;
@@ -41,15 +42,18 @@ class TrialOrderService
      */
     public function createOrder(User $user, array $payload): Order
     {
-        $amount = round((float) config('box.trial_price_oneoff_ttc', 35), 2);
+        $boxSize = (string) ($payload['box_size'] ?? 'medium');
+        $preferences = $payload['preferences'] ?? [];
+        $eggsAddOn = (bool) data_get($preferences, 'eggs_dairy_add_on', false);
+        $amount = BoxPricing::trialOrderTotal($boxSize, $eggsAddOn);
 
-        return DB::transaction(function () use ($user, $payload, $amount): Order {
+        return DB::transaction(function () use ($user, $payload, $amount, $boxSize, $preferences): Order {
             $order = Order::create([
                 'user_id' => $user->id,
                 'address_id' => $payload['address_id'] ?? null,
                 'product_type' => OrderProductType::TrialBox,
-                'box_size' => $payload['box_size'] ?? 'medium',
-                'preferences' => $payload['preferences'] ?? [],
+                'box_size' => $boxSize,
+                'preferences' => $preferences,
                 'allergies' => $payload['allergies'] ?? [],
                 'preferred_timeslot' => $payload['preferred_timeslot'] ?? null,
                 'preferred_delivery_window' => $payload['preferred_delivery_window'] ?? null,
