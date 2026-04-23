@@ -44,6 +44,12 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
+// Dev-only component gallery / brand playbook. Only mounted in local env so
+// it never ships to production or staging routes.
+if (app()->environment('local')) {
+    Route::view('/dev/components', 'dev.components')->name('dev.components');
+}
+
 Route::name('public.')->group(function () {
     Route::get('/cron/run', CronRunController::class)->name('cron.run');
     Route::get('/', ComingSoonController::class)->name('home');

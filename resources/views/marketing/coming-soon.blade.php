@@ -9,8 +9,29 @@
         <title>{{ __('Erdgut — Bald geht\'s los') }}</title>
         <meta name="description" content="{{ __('Frisches Gemüse aus Berliner Bauernhand. Bald kannst du dich selbst davon überzeugen.') }}">
 
+        {{-- Open Graph / social share --}}
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="Erdgut">
+        <meta property="og:title" content="{{ __('Erdgut — Bald geht\'s los') }}">
+        <meta property="og:description" content="{{ __('Frisches Gemüse aus Berliner Bauernhand. Bald kannst du dich selbst davon überzeugen.') }}">
+        <meta property="og:url" content="{{ url()->current() }}">
+        <meta property="og:image" content="{{ asset('images/og/erdgut-og-default.png') }}">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        <meta property="og:image:alt" content="{{ __('Erdgut — Frisches Gemüse aus Berliner Bauernhand') }}">
+        <meta property="og:locale" content="{{ str_replace('-', '_', app()->getLocale() === 'de' ? 'de_DE' : (app()->getLocale() === 'fr' ? 'fr_FR' : 'en_US')) }}">
+
+        {{-- Twitter card --}}
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="{{ __('Erdgut — Bald geht\'s los') }}">
+        <meta name="twitter:description" content="{{ __('Frisches Gemüse aus Berliner Bauernhand. Bald kannst du dich selbst davon überzeugen.') }}">
+        <meta name="twitter:image" content="{{ asset('images/og/erdgut-og-default.png') }}">
+        <meta name="twitter:image:alt" content="{{ __('Erdgut — Frisches Gemüse aus Berliner Bauernhand') }}">
+
+        <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/logo/erdgut-favicon-16.png') }}">
         <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/logo/erdgut-favicon-32.png') }}">
         <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('images/logo/erdgut-favicon-192.png') }}">
+        <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('images/logo/erdgut-favicon-512.png') }}">
         <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo/erdgut-favicon-180.png') }}">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
