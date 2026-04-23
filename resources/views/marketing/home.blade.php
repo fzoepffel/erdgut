@@ -1,7 +1,9 @@
-@extends('layouts.marketing')
+@extends('layouts.marketing', ['transparentOverHero' => true])
 
 @section('content')
-    {{-- Hero: video, white wordmark, editorial headline --}}
+    {{-- Hero: video + editorial headline. The header sits transparently over
+         this section and solidifies once the user scrolls past it, so the
+         brand mark appears in exactly one place at any moment. --}}
     <section class="relative overflow-hidden" aria-labelledby="home-hero-heading">
         <div class="relative h-[82vh] min-h-[620px] w-full overflow-hidden bg-brand-ink/80">
             <video
@@ -24,9 +26,6 @@
             </div>
 
             <div class="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8 lg:pb-24">
-                <x-reveal variant="fade" class="mb-8">
-                    <x-application-logo variant="white" class="h-24 w-auto opacity-95 sm:h-28 lg:h-32" alt="Erdgut" />
-                </x-reveal>
                 <x-reveal variant="fade-up" delay="100">
                     <p class="eyebrow text-brand-cream/85">{{ __('An Erdgut for Berlin') }}</p>
                 </x-reveal>
