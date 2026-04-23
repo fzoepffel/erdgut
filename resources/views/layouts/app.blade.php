@@ -10,9 +10,8 @@
 
         <link rel="icon" type="image/png" href="{{ asset('images/logo/erdgut-mark.png') }}">
 
-        <!-- Fonts -->
+        <!-- Fonts (Manrope / Unbounded / Fraunces are imported via resources/css/app.css) -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|fraunces:400,500,600,700,800&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])

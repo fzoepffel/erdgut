@@ -8,16 +8,18 @@
         <title>{{ config('app.name', 'Erdgut') }} — {{ $title ?? __('Get started') }}</title>
         <link rel="icon" type="image/png" href="{{ asset('images/logo/erdgut-mark.png') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|fraunces:400,500,600,700,800&display=swap" rel="stylesheet" />
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
         <div class="min-h-screen flex flex-col" data-testid="onboarding-layout">
-            <header class="border-b border-brand-ink/10 bg-white/60">
-                <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-                    <a href="{{ route('public.home') }}" class="flex items-center gap-2">
-                        <x-application-logo variant="outline" class="h-10 w-auto" />
-                        <span class="font-display text-lg font-semibold">{{ config('app.name', 'Erdgut') }}</span>
+            <header class="border-b border-brand-ink/10 bg-brand-paper">
+                <div class="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
+                    <a href="{{ route('public.home') }}" class="flex items-center gap-3">
+                        <x-application-logo variant="filled" :withWordmark="false" class="h-10 w-auto" />
+                        <span class="flex flex-col leading-tight">
+                            <span class="eyebrow text-chapter-produce">{{ __('A seat at the table') }}</span>
+                            <span class="font-display text-base font-semibold text-brand-ink">{{ config('app.name', 'Erdgut') }}</span>
+                        </span>
                     </a>
                     <div class="flex items-center gap-4">
                         <x-language-selector />
@@ -45,7 +47,7 @@
                     </div>
 
                     <aside class="lg:pl-4">
-                        <div class="border border-brand-ink/15 bg-white/70 p-5 sticky top-6">
+                        <div class="border-t-2 border-chapter-produce bg-white/70 p-5 sticky top-6">
                             <p class="eyebrow text-chapter-produce">{{ __('Your box') }}</p>
                             <dl class="mt-3 text-sm space-y-2 text-brand-ink/80">
                                 @isset($draft)
