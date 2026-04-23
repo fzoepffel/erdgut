@@ -35,27 +35,36 @@
     </head>
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
         <div class="flex min-h-screen flex-col">
-            <header x-data="{ open: false }" class="sticky top-0 z-50 border-b border-brand-ink/10 bg-brand-cream/95 backdrop-blur">
+            @php($transparentOverHero = $transparentOverHero ?? false)
+            <header
+                x-data="{ open: false, scrolled: false, transparent: {{ $transparentOverHero ? 'true' : 'false' }} }"
+                x-init="if (transparent) { const onScroll = () => scrolled = window.scrollY > 40; onScroll(); window.addEventListener('scroll', onScroll, { passive: true }); }"
+                :class="transparent && !scrolled && !open ? 'bg-transparent border-transparent' : 'bg-brand-cream/95 backdrop-blur border-brand-ink/10'"
+                class="sticky top-0 z-50 border-b transition-colors duration-300"
+            >
                 <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-                    <a href="{{ route('public.marketing-home') }}" class="flex items-center">
-                        <x-application-logo variant="filled" class="h-16 w-auto" />
+                    <a href="{{ route('public.marketing-home') }}" class="relative flex items-center">
+                        <x-application-logo variant="filled" layout="inline" class="h-10 w-auto transition-opacity duration-300 sm:h-11" x-bind:class="transparent && !scrolled && !open ? 'opacity-0' : 'opacity-100'" />
+                        @if ($transparentOverHero)
+                            <x-application-logo variant="white" layout="inline" class="absolute inset-y-0 left-0 h-10 w-auto transition-opacity duration-300 sm:h-11" x-bind:class="transparent && !scrolled && !open ? 'opacity-100' : 'opacity-0'" />
+                        @endif
                     </a>
 
                     <nav class="hidden items-center gap-10 text-sm font-medium md:flex">
-                        <a href="{{ route('public.marketing-home') }}" class="text-brand-ink/80 transition hover:text-brand-ink {{ request()->routeIs('public.marketing-home') ? 'text-brand-ink' : '' }}">{{ __('Home') }}</a>
-                        <a href="{{ route('public.about') }}" class="text-brand-ink/80 transition hover:text-brand-ink {{ request()->routeIs('public.about') ? 'text-brand-ink' : '' }}">{{ __('About') }}</a>
-                        <a href="{{ route('public.producers') }}" class="text-brand-ink/80 transition hover:text-brand-ink {{ request()->routeIs('public.producers') ? 'text-brand-ink' : '' }}">{{ __('Producers') }}</a>
-                        <a href="{{ route('public.contact') }}" class="text-brand-ink/80 transition hover:text-brand-ink {{ request()->routeIs('public.contact') ? 'text-brand-ink' : '' }}">{{ __('Contact') }}</a>
+                        <a href="{{ route('public.marketing-home') }}" class="transition hover:opacity-100" :class="transparent && !scrolled ? 'text-brand-cream/90 hover:text-brand-cream' : 'text-brand-ink/80 hover:text-brand-ink {{ request()->routeIs('public.marketing-home') ? '!text-brand-ink' : '' }}'">{{ __('Home') }}</a>
+                        <a href="{{ route('public.about') }}" class="transition" :class="transparent && !scrolled ? 'text-brand-cream/90 hover:text-brand-cream' : 'text-brand-ink/80 hover:text-brand-ink {{ request()->routeIs('public.about') ? '!text-brand-ink' : '' }}'">{{ __('About') }}</a>
+                        <a href="{{ route('public.producers') }}" class="transition" :class="transparent && !scrolled ? 'text-brand-cream/90 hover:text-brand-cream' : 'text-brand-ink/80 hover:text-brand-ink {{ request()->routeIs('public.producers') ? '!text-brand-ink' : '' }}'">{{ __('Producers') }}</a>
+                        <a href="{{ route('public.contact') }}" class="transition" :class="transparent && !scrolled ? 'text-brand-cream/90 hover:text-brand-cream' : 'text-brand-ink/80 hover:text-brand-ink {{ request()->routeIs('public.contact') ? '!text-brand-ink' : '' }}'">{{ __('Contact') }}</a>
                     </nav>
 
-                    <div class="hidden items-center gap-3 md:flex">
+                    <div class="hidden items-center gap-3 md:flex" :class="transparent && !scrolled ? 'text-brand-cream' : 'text-brand-ink'">
                         <x-language-selector />
                         @auth
                             <x-ghost-link :href="route('app.dashboard')">
                                 {{ __('Dashboard') }}
                             </x-ghost-link>
                         @else
-                            <a href="{{ route('auth.login') }}" class="text-sm font-medium text-brand-ink/80 transition hover:text-brand-ink">
+                            <a href="{{ route('auth.login') }}" class="text-sm font-medium transition" :class="transparent && !scrolled ? 'text-brand-cream/90 hover:text-brand-cream' : 'text-brand-ink/80 hover:text-brand-ink'">
                                 {{ __('Log in') }}
                             </a>
                             <x-solid-link :href="route('auth.register')">
@@ -66,7 +75,8 @@
 
                     <button
                         type="button"
-                        class="inline-flex items-center justify-center p-2 text-brand-ink md:hidden"
+                        class="inline-flex items-center justify-center p-2 md:hidden"
+                        :class="transparent && !scrolled && !open ? 'text-brand-cream' : 'text-brand-ink'"
                         @click="open = !open"
                         :aria-expanded="open"
                         aria-label="{{ __('Toggle navigation') }}"
