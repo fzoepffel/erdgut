@@ -171,12 +171,12 @@
                             class="flex h-full min-h-[220px] w-full overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] {{ $chapterPanelBg[$chapter['slug']] }}"
                             data-testid="home-chapter-tile-{{ $chapter['slug'] }}"
                         >
-                            <div class="relative w-28 shrink-0 overflow-hidden sm:w-36">
+                            <div class="relative flex w-16 shrink-0 items-center justify-center overflow-hidden p-3 sm:w-20 sm:p-4">
                                 <img
                                     src="{{ asset('images/chapters/' . $chapter['image']) }}"
                                     alt=""
                                     aria-hidden="true"
-                                    class="absolute inset-0 h-full w-full select-none object-cover object-left"
+                                    class="h-full w-full select-none object-contain object-center"
                                     style="filter: brightness(0) invert(1);"
                                 />
                             </div>
