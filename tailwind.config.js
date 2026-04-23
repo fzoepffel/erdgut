@@ -12,13 +12,12 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                // Body + UI: humanist sans for warmer reading
-                sans: ['Manrope', ...defaultTheme.fontFamily.sans],
-                // Display: rounded chunky sans matching the new Erdgut wordmark.
-                // Unbounded is the best Bunny/Google Fonts match; swap to a self-hosted
-                // Tanker/Recoleta if licensed later.
-                display: ['Unbounded', 'Tanker', 'Recoleta', ...defaultTheme.fontFamily.serif],
-                // Editorial: reserved for long-form quotes and founder letters
+                // Body + UI: clean humanist sans that sits quietly under a serif
+                sans: ['Inter', ...defaultTheme.fontFamily.sans],
+                // Display + editorial: Fraunces carries headlines, long-form quotes,
+                // and the brand wordmark. Warm serif with optical sizing — lands on
+                // "farmer's almanac / groundedness" rather than fashion editorial.
+                display: ['Fraunces', ...defaultTheme.fontFamily.serif],
                 editorial: ['Fraunces', ...defaultTheme.fontFamily.serif],
             },
             colors: {

@@ -1,10 +1,9 @@
 /* Fonts served via Bunny Fonts (GDPR-friendly, Google-Fonts-compatible).
-   Manrope  — body + UI (humanist sans, warmer than Inter)
-   Unbounded — display (chunky rounded sans, matches the new Erdgut wordmark)
-   Fraunces — editorial (reserved for long-form quotes / founder voice) */
-@import url('https://fonts.bunny.net/css?family=manrope:400,500,600,700&display=swap');
-@import url('https://fonts.bunny.net/css?family=unbounded:500,600,700&display=swap');
-@import url('https://fonts.bunny.net/css?family=fraunces:400,500,600&display=swap');
+   Fraunces — display + editorial (warm serif with optical sizing; one family
+              carries headlines, long-form quotes, and brand wordmark)
+   Inter    — body + UI (clean humanist sans that sits quietly under a serif) */
+@import url('https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap');
+@import url('https://fonts.bunny.net/css?family=fraunces:300,400,500,600,700,800,900&display=swap');
 
 @tailwind base;
 @tailwind components;
