@@ -138,7 +138,7 @@
                 id="home-chapters-heading"
             />
 
-            <div class="mt-16 grid gap-5 md:grid-cols-2" data-testid="home-chapter-strip">
+            <div class="mt-16 grid gap-5 md:grid-cols-2 lg:grid-cols-12" data-testid="home-chapter-strip">
                 @php
                     // Each chapter reuses the catalogue strip crop (transparent PNG
                     // with the chapter-coloured illustration on the left 32% of the
@@ -146,13 +146,13 @@
                     // `brightness(0) invert(1)` filter and set the left column to the
                     // full chapter colour, producing catalogue-style coloured plates.
                     $chapters = [
-                        ['slug' => 'produce', 'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'), 'href' => route('app.products.index', ['category' => 'vegetables']), 'image' => 'catalog-strip-cabbage.png'],
-                        ['slug' => 'meat', 'label' => __('Meat'), 'tagline' => __('Pasture-raised cuts'), 'href' => route('app.products.index', ['category' => 'meat']), 'image' => 'catalog-strip-waguy.png'],
-                        ['slug' => 'fish', 'label' => __('Fish & Seafood'), 'tagline' => __('Line-caught & smoked'), 'href' => route('app.products.index', ['category' => 'fish']), 'image' => 'catalog-strip-sardines.png'],
-                        ['slug' => 'eggdairy', 'label' => __('Eggs & Dairy'), 'tagline' => __('Milk, butter, cheese'), 'href' => route('app.products.index', ['category' => 'dairy']), 'image' => 'catalog-strip-eggs.png'],
-                        ['slug' => 'bread', 'label' => __('Bread'), 'tagline' => __('Sourdough & pastry'), 'href' => route('app.products.index', ['category' => 'bakery']), 'image' => 'catalog-strip-wheat.png'],
-                        ['slug' => 'producers', 'label' => __('Producers'), 'tagline' => __('The people behind the food'), 'href' => route('public.producers'), 'image' => 'catalog-strip-producers.png'],
-                        ['slug' => 'almanach', 'label' => __('Almanac'), 'tagline' => __('Seasons, stories, traditions'), 'href' => route('public.about'), 'image' => 'catalog-strip-almanach.png'],
+                        ['slug' => 'produce', 'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'), 'href' => route('app.products.index', ['category' => 'vegetables']), 'image' => 'catalog-strip-cabbage.png', 'span' => 'lg:col-span-3'],
+                        ['slug' => 'meat', 'label' => __('Meat'), 'tagline' => __('Pasture-raised cuts'), 'href' => route('app.products.index', ['category' => 'meat']), 'image' => 'catalog-strip-waguy.png', 'span' => 'lg:col-span-3'],
+                        ['slug' => 'fish', 'label' => __('Fish & Seafood'), 'tagline' => __('Line-caught & smoked'), 'href' => route('app.products.index', ['category' => 'fish']), 'image' => 'catalog-strip-sardines.png', 'span' => 'lg:col-span-3'],
+                        ['slug' => 'eggdairy', 'label' => __('Eggs & Dairy'), 'tagline' => __('Milk, butter, cheese'), 'href' => route('app.products.index', ['category' => 'dairy']), 'image' => 'catalog-strip-eggs.png', 'span' => 'lg:col-span-3'],
+                        ['slug' => 'bread', 'label' => __('Bread'), 'tagline' => __('Sourdough & pastry'), 'href' => route('app.products.index', ['category' => 'bakery']), 'image' => 'catalog-strip-wheat.png', 'span' => 'lg:col-span-4'],
+                        ['slug' => 'producers', 'label' => __('Producers'), 'tagline' => __('The people behind the food'), 'href' => route('public.producers'), 'image' => 'catalog-strip-producers.png', 'span' => 'lg:col-span-4'],
+                        ['slug' => 'almanach', 'label' => __('Almanac'), 'tagline' => __('Seasons, stories, traditions'), 'href' => route('public.about'), 'image' => 'catalog-strip-almanach.png', 'span' => 'lg:col-span-4'],
                     ];
                     $chapterPanelBg = [
                         'produce' => 'bg-chapter-produce',
@@ -165,7 +165,7 @@
                     ];
                 @endphp
                 @foreach ($chapters as $i => $chapter)
-                    <x-reveal variant="fade-up" delay="{{ $i * 60 }}" class="group flex">
+                    <x-reveal variant="fade-up" delay="{{ $i * 60 }}" class="group flex {{ $chapter['span'] }}">
                         <a
                             href="{{ $chapter['href'] }}"
                             class="flex h-full min-h-[220px] w-full overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] {{ $chapterPanelBg[$chapter['slug']] }}"
@@ -183,7 +183,7 @@
                             <div class="flex flex-1 flex-col justify-between gap-6 p-6 sm:p-7">
                                 <p class="eyebrow text-brand-cream/80">{{ sprintf('%02d', $i + 1) }} &nbsp;·&nbsp; {{ __('Chapter') }}</p>
                                 <div>
-                                    <h3 class="font-display text-2xl leading-tight sm:text-3xl">{{ $chapter['label'] }}</h3>
+                                    <h3 class="font-display text-2xl leading-tight hyphens-auto break-words sm:text-3xl" lang="{{ app()->getLocale() }}">{{ $chapter['label'] }}</h3>
                                     <p class="mt-2 font-editorial text-sm italic leading-relaxed text-brand-cream/80 sm:text-base">{{ $chapter['tagline'] }}</p>
                                 </div>
                                 <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream/90 transition-[gap] duration-200 group-hover:gap-3 group-hover:text-brand-cream">
