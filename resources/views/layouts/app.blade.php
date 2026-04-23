@@ -14,7 +14,7 @@
         <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('images/logo/erdgut-favicon-512.png') }}">
         <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo/erdgut-favicon-180.png') }}">
 
-        <!-- Fonts (Manrope / Unbounded / Fraunces are imported via resources/css/app.css) -->
+        <!-- Fonts (Inter + Fraunces imported via resources/css/app.css) -->
         <link rel="preconnect" href="https://fonts.bunny.net">
 
         <!-- Scripts -->
