@@ -168,11 +168,19 @@
                 </div>
             </section>
 
+            <div class="flex flex-col items-center gap-3 py-2">
+                <x-triple-star class="opacity-60" />
+                <p class="font-editorial text-sm italic text-brand-ink/60">{{ __('The week ahead — deliveries, your box, and what comes next.') }}</p>
+            </div>
+
             <div class="grid gap-8 lg:grid-cols-3">
                 <section class="border border-brand-ink/15 lg:order-1">
                     <div class="border-b border-brand-ink/15 px-6 py-5">
                         <div class="flex items-center justify-between gap-3">
-                            <h3 class="font-display text-xl text-brand-ink">{{ __('Next deliveries') }}</h3>
+                            <div class="flex flex-col gap-1">
+                                <p class="eyebrow text-chapter-produce">{{ __('Deliveries') }}</p>
+                                <h3 class="font-display text-xl text-brand-ink">{{ __('Next deliveries') }}</h3>
+                            </div>
                             <a href="{{ route('app.deliveries.index') }}" class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
                                 {{ __('Manage all') }}
                             </a>
@@ -238,7 +246,8 @@
 
                 <section class="border border-brand-ink/15 lg:order-2">
                     <div class="border-b border-brand-ink/15 px-6 py-5">
-                        <h3 class="font-display text-xl text-brand-ink">{{ __('Current week box') }}</h3>
+                        <p class="eyebrow text-chapter-fish">{{ __('This week') }}</p>
+                        <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current week box') }}</h3>
                     </div>
                     <div class="p-6">
                         @if ($currentBox)
@@ -281,7 +290,8 @@
 
                 <section class="border border-brand-ink/15 lg:order-3">
                     <div class="border-b border-brand-ink/15 px-6 py-5">
-                        <h3 class="font-display text-xl text-brand-ink">{{ __('Current and upcoming boxes') }}</h3>
+                        <p class="eyebrow text-chapter-almanach">{{ __('Almanach') }}</p>
+                        <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current and upcoming boxes') }}</h3>
                     </div>
                     <div class="p-6">
                         @if ($upcomingBoxes->isEmpty())

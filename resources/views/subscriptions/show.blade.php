@@ -72,6 +72,20 @@
                     </x-slot>
                 </x-empty-state>
             @else
+                @php
+                    $subscriptionTabs = [
+                        ['id' => 'sub-plan', 'label' => __('Plan'), 'chapter' => 'produce'],
+                        ['id' => 'sub-diet', 'label' => __('Diet'), 'chapter' => 'eggdairy'],
+                        ['id' => 'sub-skip', 'label' => __('Skip'), 'chapter' => 'bread'],
+                        ['id' => 'sub-billing', 'label' => __('Billing'), 'chapter' => 'fish'],
+                    ];
+                    if ($subscription->status === \App\Enums\SubscriptionStatus::Cancelled && $subscription->cancellation_reason) {
+                        $subscriptionTabs[] = ['id' => 'sub-cancel', 'label' => __('Cancelled'), 'chapter' => 'meat'];
+                    }
+                @endphp
+
+                <x-chapter-tabs :items="$subscriptionTabs" sticky :label="__('Subscription sections')" class="-mx-4 sm:-mx-6 lg:-mx-8" />
+
                 <div class="flex flex-wrap gap-2">
                     <a href="{{ route('app.subscriptions.edit') }}" class="btn-solid text-xs">
                         {{ __('Edit subscription') }}
@@ -113,7 +127,7 @@
                 </div>
 
                 <div class="space-y-8">
-                    <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-plan">
+                    <section id="sub-plan" class="scroll-mt-24 border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-plan">
                         <p class="eyebrow text-chapter-produce">{{ __('Plan') }}</p>
                         <h3 id="sub-section-plan" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Subscription and box') }}</h3>
                         <dl class="mt-6 grid gap-5 sm:grid-cols-3">
@@ -136,8 +150,8 @@
                         </dl>
                     </section>
 
-                    <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-diet">
-                        <p class="eyebrow text-chapter-produce">{{ __('Preferences') }}</p>
+                    <section id="sub-diet" class="scroll-mt-24 border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-diet">
+                        <p class="eyebrow text-chapter-eggdairy">{{ __('Preferences') }}</p>
                         <h3 id="sub-section-diet" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Diet and allergies') }}</h3>
                         <dl class="mt-6 grid gap-5 sm:grid-cols-2">
                             <div>
@@ -165,12 +179,12 @@
                         </dl>
                     </section>
 
-                    <section @class([
-                        'border p-6 sm:p-8',
-                        'border-chapter-produce/40 bg-chapter-produce/5' => $subscription->hasPauseWindow(),
+                    <section id="sub-skip" @class([
+                        'scroll-mt-24 border p-6 sm:p-8',
+                        'border-chapter-bread/40 bg-chapter-bread/5' => $subscription->hasPauseWindow(),
                         'border-brand-ink/15' => ! $subscription->hasPauseWindow(),
                     ]) aria-labelledby="sub-section-pause">
-                        <p class="eyebrow text-chapter-produce">{{ __('Skip window') }}</p>
+                        <p class="eyebrow text-chapter-bread">{{ __('Skip window') }}</p>
                         <h3 id="sub-section-pause" class="mt-2 font-display text-2xl text-brand-ink">{{ __('subscriptions.skip_section_title') }}</h3>
                         <p class="mt-4 text-base leading-relaxed text-brand-ink/80">
                             @if ($subscription->hasPauseWindow())
@@ -181,7 +195,7 @@
                         </p>
                     </section>
 
-                    <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-billing">
+                    <section id="sub-billing" class="scroll-mt-24 border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-billing">
                         <p class="eyebrow text-chapter-fish">{{ __('Billing') }}</p>
                         <h3 id="sub-section-billing" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Billing and payments') }}</h3>
                         <p class="mt-4 text-base text-brand-ink/80">
@@ -208,7 +222,7 @@
                     </section>
 
                     @if ($subscription->status === \App\Enums\SubscriptionStatus::Cancelled && $subscription->cancellation_reason)
-                        <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-cancel-reason">
+                        <section id="sub-cancel" class="scroll-mt-24 border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-cancel-reason">
                             <p class="eyebrow text-chapter-meat">{{ __('Cancelled') }}</p>
                             <h3 id="sub-section-cancel-reason" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Cancellation reason') }}</h3>
                             <p class="mt-4 text-base leading-relaxed text-brand-ink/80">{{ $subscription->cancellation_reason }}</p>
