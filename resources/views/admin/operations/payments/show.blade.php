@@ -165,6 +165,27 @@
                 </div>
             @endif
 
+            @if ($payment->subscription_id || $payment->order_id)
+                <div class="rounded-lg border border-gray-100 bg-white shadow-sm">
+                    <div class="p-6 sm:p-8">
+                        <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.operations.emails.resend.section_heading') }}</h3>
+                        <p class="mt-1 text-xs text-gray-600">{{ __('admin.operations.emails.resend.section_intro') }}</p>
+                        @if (session('status') === 'admin-email-resent')
+                            <p class="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-900">{{ __('admin.operations.emails.resend.flash_resent') }}</p>
+                        @elseif (session('status') === 'admin-email-resend-not-found')
+                            <p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-900">{{ __('admin.operations.emails.resend.flash_not_found') }}</p>
+                        @endif
+                        <div class="mt-3">
+                            @if ($payment->subscription_id)
+                                <x-admin.email-resend context="subscription" :entity-id="$payment->subscription_id" />
+                            @elseif ($payment->order_id)
+                                <x-admin.email-resend context="order" :entity-id="$payment->order_id" />
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <div class="rounded-lg border border-gray-100 bg-white shadow-sm">
                 <div class="p-6 sm:p-8">
                     <h3 class="text-lg font-semibold text-gray-900">{{ __('admin.operations.payments.audit_heading') }}</h3>

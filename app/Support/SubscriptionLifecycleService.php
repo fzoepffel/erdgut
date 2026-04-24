@@ -6,12 +6,14 @@ use App\Enums\OrderProductType;
 use App\Enums\OrderStatus;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
+use App\Mail\SubscriptionCancellationMail;
 use App\Models\Order;
 use App\Models\Subscription;
 use App\Models\SubscriptionSkipWeek;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class SubscriptionLifecycleService
 {
@@ -163,7 +165,13 @@ class SubscriptionLifecycleService
                 actorUserId: $actorUserId,
             );
 
-            return $subscription->fresh();
+            $fresh = $subscription->fresh();
+            $recipient = $fresh?->user?->email;
+            if ($fresh !== null && $recipient !== null && $recipient !== '') {
+                Mail::to($recipient)->queue(new SubscriptionCancellationMail($fresh));
+            }
+
+            return $fresh;
         });
     }
 
