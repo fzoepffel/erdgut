@@ -147,7 +147,18 @@
                             <tbody class="divide-y divide-gray-100">
                                 @foreach ($box->items as $item)
                                     <tr>
-                                        <td class="px-4 py-3 text-gray-900">{{ $item->product?->name ?? '—' }}</td>
+                                        <td class="px-4 py-3 text-gray-900">
+                                            <span>{{ $item->product?->name ?? '—' }}</span>
+                                            @if (! empty($itemConflicts[$item->id]))
+                                                <span
+                                                    class="ml-2 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800"
+                                                    title="{{ __('admin.box_items.conflict_chip_title') }}"
+                                                    data-testid="admin-box-item-conflict-chip"
+                                                >
+                                                    {{ __('admin.box_items.conflict_chip_label') }}
+                                                </span>
+                                            @endif
+                                        </td>
                                         <td class="px-4 py-3 tabular-nums text-gray-700">
                                             @if ($adminCanMutateItems)
                                                 <form
@@ -207,6 +218,9 @@
                 @if ($adminCanMutateItems)
                     <div class="border-t border-gray-100 p-4">
                         <h4 class="mb-3 text-sm font-semibold text-gray-900">{{ __('admin.box_items.add_heading') }}</h4>
+                        <p class="mb-3 text-xs text-amber-800" data-testid="admin-box-force-include-hint">
+                            {{ __('admin.box_items.force_include_hint') }}
+                        </p>
                         <form method="post" action="{{ route('app.admin.boxes.items.store', $box) }}" class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                             @csrf
                             <div class="w-full sm:w-auto sm:min-w-[14rem]">

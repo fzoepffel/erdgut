@@ -57,6 +57,13 @@
                                 · {{ $openTrialOrder->scheduled_for_date->format('D d M') }}
                             @endif
                         </p>
+                        @if (! $primarySubscription)
+                            <a href="{{ route('app.onboarding.start', ['intent' => 'subscription', 'from_order' => $openTrialOrder->id]) }}"
+                               class="inline-flex items-center border border-chapter-produce bg-chapter-produce text-white px-4 py-2 text-xs font-semibold uppercase tracking-eyebrow hover:bg-chapter-produce/90"
+                               data-testid="dashboard-trial-convert-cta">
+                                {{ __('Turn your trial into a weekly box') }}
+                            </a>
+                        @endif
                     </div>
                 @endif
             @endisset
