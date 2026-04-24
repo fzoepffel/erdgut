@@ -178,7 +178,7 @@ ERD-339,Missing transactional email templates,Email,Phase 7 - Email,P2,Done,12,,
 - Plain-text alternatives.
 - Queued dispatch from lifecycle services.
 - Feature tests dispatch each.",email;templates
-ERD-340,Email deliverability (SPF + DKIM + DMARC + provider migration),Email,Phase 7 - Email,P1,Backlog,12,,"Emails often go to spam. Set SPF + DKIM + DMARC on erd-gut.de, configure proper From: kontakt@erd-gut.de + Reply-To + List-Unsubscribe, send multipart HTML+plain, and migrate SMTP -> transactional provider (Postmark or Resend). Postmark preferred for small-volume reputation.","- DNS records for SPF/DKIM/DMARC set and verified (mail-tester.com >= 9/10).
+ERD-340,Email deliverability (SPF + DKIM + DMARC + provider migration),Email,Phase 7 - Email,P1,Done,12,,"Emails often go to spam. Set SPF + DKIM + DMARC on erd-gut.de, configure proper From: kontakt@erd-gut.de + Reply-To + List-Unsubscribe, send multipart HTML+plain, and migrate SMTP -> transactional provider (Postmark or Resend). Postmark preferred for small-volume reputation.","- DNS records for SPF/DKIM/DMARC set and verified (mail-tester.com >= 9/10).
 - Laravel mail driver switched to Postmark (or Resend).
 - All transactional mails ship multipart.
 - List-Unsubscribe header on every send.
