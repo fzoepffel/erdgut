@@ -53,6 +53,32 @@
             <x-input-error :messages="$errors->get('fulfillment_mode')" class="mt-3" />
         </fieldset>
 
+        @php
+            $weekdayLabels = [
+                0 => __('Sunday'),
+                1 => __('Monday'),
+                2 => __('Tuesday'),
+                3 => __('Wednesday'),
+                4 => __('Thursday'),
+                5 => __('Friday'),
+                6 => __('Saturday'),
+            ];
+        @endphp
+
+        <fieldset x-show="fulfillment === '{{ \App\Enums\FulfillmentMode::Delivery->value }}'" x-cloak>
+            <legend class="eyebrow text-brand-ink/80">{{ __('Preferred weekday') }}</legend>
+            <p class="mt-2 text-sm text-brand-ink/70">{{ __('Pick any day within your zone window. Admin may adjust an individual delivery if needed.') }}</p>
+            <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                @foreach($allowedWeekdays as $dayValue)
+                    <label class="flex cursor-pointer items-center justify-center border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
+                        <input type="radio" name="delivery_weekday" value="{{ $dayValue }}" {{ (string) ($data['delivery_weekday'] ?? '') === (string) $dayValue ? 'checked' : '' }} class="sr-only">
+                        <span class="text-sm font-medium text-brand-ink">{{ $weekdayLabels[$dayValue] ?? $dayValue }}</span>
+                    </label>
+                @endforeach
+            </div>
+            <x-input-error :messages="$errors->get('delivery_weekday')" class="mt-3" />
+        </fieldset>
+
         <fieldset x-show="fulfillment === '{{ \App\Enums\FulfillmentMode::Delivery->value }}'" x-cloak>
             <legend class="eyebrow text-brand-ink/80">{{ __('Preferred timeslot') }}</legend>
             <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">

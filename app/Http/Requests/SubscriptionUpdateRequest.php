@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use App\Enums\FulfillmentMode;
 use App\Enums\SubscriptionPlan;
+use App\Enums\Timeslot;
+use App\Support\DeliveryZoneResolver;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -20,6 +22,9 @@ class SubscriptionUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
+        $zone = app(DeliveryZoneResolver::class);
+        $zoneKey = $zone->resolveZoneKey($this->user()?->id);
+
         return [
             'plan' => ['required', Rule::enum(SubscriptionPlan::class)],
             'fulfillment_mode' => ['required', Rule::enum(FulfillmentMode::class)],
@@ -30,6 +35,8 @@ class SubscriptionUpdateRequest extends FormRequest
             'preferences.eggs_dairy_add_on' => ['required', 'boolean'],
             'allergies' => ['nullable', 'array'],
             'allergies.*' => ['string', 'max:255'],
+            'delivery_weekday' => ['nullable', 'integer', 'between:0,6', Rule::in($zone->allowedWeekdays($zoneKey))],
+            'preferred_timeslot' => ['nullable', 'string', Rule::in($zone->allowedTimeslots($zoneKey)), Rule::enum(Timeslot::class)],
         ];
     }
 
@@ -51,6 +58,9 @@ class SubscriptionUpdateRequest extends FormRequest
                 ->all();
         }
 
+        $weekday = $this->input('delivery_weekday');
+        $timeslot = $this->input('preferred_timeslot');
+
         $this->merge([
             'preferences' => [
                 'veg_only' => $this->boolean('preferences.veg_only'),
@@ -58,6 +68,8 @@ class SubscriptionUpdateRequest extends FormRequest
                 'eggs_dairy_add_on' => $this->boolean('preferences.eggs_dairy_add_on'),
             ],
             'allergies' => $allergies,
+            'delivery_weekday' => is_numeric($weekday) ? (int) $weekday : null,
+            'preferred_timeslot' => is_string($timeslot) && $timeslot !== '' ? $timeslot : null,
         ]);
     }
 }

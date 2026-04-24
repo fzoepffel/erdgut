@@ -169,4 +169,60 @@ class AdminDeliveryCrudTest extends TestCase
             ->get(route('app.admin.deliveries.create'))
             ->assertOk();
     }
+
+    public function test_admin_reschedule_of_single_delivery_does_not_cascade(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $customer->id, 'is_primary' => true]);
+
+        $target = Delivery::factory()->create([
+            'user_id' => $customer->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => '2032-05-06',
+            'timeslot' => '08:00-12:00',
+            'status' => DeliveryStatus::Scheduled,
+            'is_weekly_override' => false,
+        ]);
+
+        $nextWeek = Delivery::factory()->create([
+            'user_id' => $customer->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => '2032-05-13',
+            'timeslot' => '08:00-12:00',
+            'status' => DeliveryStatus::Scheduled,
+            'is_weekly_override' => false,
+        ]);
+
+        $weekAfter = Delivery::factory()->create([
+            'user_id' => $customer->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => '2032-05-20',
+            'timeslot' => '08:00-12:00',
+            'status' => DeliveryStatus::Scheduled,
+            'is_weekly_override' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.deliveries.update', $target), [
+                'address_id' => $address->id,
+                'scheduled_for_date' => '2032-05-07',
+                'timeslot' => '16:00-20:00',
+                'status' => DeliveryStatus::Scheduled->value,
+            ])
+            ->assertRedirect(route('app.admin.deliveries.index'));
+
+        $target->refresh();
+        $nextWeek->refresh();
+        $weekAfter->refresh();
+
+        $this->assertSame('2032-05-07', $target->scheduled_for_date->toDateString());
+        $this->assertSame('16:00-20:00', $target->timeslot);
+
+        $this->assertSame('2032-05-13', $nextWeek->scheduled_for_date->toDateString(), 'future deliveries must not cascade from a single-row reschedule.');
+        $this->assertSame('08:00-12:00', $nextWeek->timeslot);
+
+        $this->assertSame('2032-05-20', $weekAfter->scheduled_for_date->toDateString());
+        $this->assertSame('08:00-12:00', $weekAfter->timeslot);
+    }
 }

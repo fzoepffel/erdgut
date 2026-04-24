@@ -146,6 +146,55 @@
                     </fieldset>
 
                     @php
+                        $zone = app(\App\Support\DeliveryZoneResolver::class);
+                        $zoneKey = $zone->resolveZoneKey(auth()->id());
+                        $allowedWeekdays = $zone->allowedWeekdays($zoneKey);
+                        $allowedTimeslots = $zone->allowedTimeslots($zoneKey);
+                        $weekdayLabels = [
+                            0 => __('Sunday'),
+                            1 => __('Monday'),
+                            2 => __('Tuesday'),
+                            3 => __('Wednesday'),
+                            4 => __('Thursday'),
+                            5 => __('Friday'),
+                            6 => __('Saturday'),
+                        ];
+                    @endphp
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <x-input-label for="delivery_weekday" :value="__('Preferred weekday')" />
+                            <select
+                                id="delivery_weekday"
+                                name="delivery_weekday"
+                                class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream px-4 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
+                            >
+                                <option value="">{{ __('No preference') }}</option>
+                                @foreach ($allowedWeekdays as $dayValue)
+                                    <option value="{{ $dayValue }}" @selected((string) old('delivery_weekday', $subscription->delivery_weekday) === (string) $dayValue)>
+                                        {{ $weekdayLabels[$dayValue] ?? $dayValue }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <x-input-error class="mt-2" :messages="$errors->get('delivery_weekday')" />
+                        </div>
+                        <div>
+                            <x-input-label for="preferred_timeslot" :value="__('Preferred timeslot')" />
+                            <select
+                                id="preferred_timeslot"
+                                name="preferred_timeslot"
+                                class="mt-2 block w-full border border-brand-ink/30 bg-brand-cream px-4 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
+                            >
+                                <option value="">{{ __('No preference') }}</option>
+                                @foreach ($allowedTimeslots as $slot)
+                                    <option value="{{ $slot }}" @selected(old('preferred_timeslot', $subscription->preferred_timeslot?->value) === $slot)>{{ $slot }}</option>
+                                @endforeach
+                            </select>
+                            <x-input-error class="mt-2" :messages="$errors->get('preferred_timeslot')" />
+                        </div>
+                    </div>
+
+                    @php
                         $oldAllergies = old('allergies');
                         $allergiesValue = is_array($oldAllergies) ? implode(', ', $oldAllergies) : $allergiesInput;
                     @endphp

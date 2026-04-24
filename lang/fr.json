@@ -1399,5 +1399,15 @@
     "subscriptions.skip_range_save": "Enregistrer la pause",
     "subscriptions.skip_section_title": "Pause",
     "subscriptions.skip_until_label": "Pause jusqu'au",
-    "subscriptions.skip_window_text": "Pause du :from au :until."
+    "subscriptions.skip_window_text": "Pause du :from au :until.",
+    "Sunday": "Dimanche",
+    "Monday": "Lundi",
+    "Tuesday": "Mardi",
+    "Wednesday": "Mercredi",
+    "Thursday": "Jeudi",
+    "Friday": "Vendredi",
+    "Saturday": "Samedi",
+    "No preference": "Sans préférence",
+    "Preferred weekday": "Jour de la semaine préféré",
+    "Pick any day within your zone window. Admin may adjust an individual delivery if needed.": "Choisissez un jour dans la fenêtre de votre zone. L'équipe peut ajuster une livraison spécifique si nécessaire."
 }
