@@ -37,6 +37,8 @@ class PaymentStepController extends OnboardingController
             'box_size' => $data['box_size'] ?? 'medium',
             'preferences' => $data['preferences'] ?? [],
             'allergies' => $data['allergies'] ?? [],
+            'fulfillment_mode' => $data['fulfillment_mode'] ?? null,
+            'preferred_timeslot' => $data['preferred_timeslot'] ?? null,
         ]);
 
         if (! empty($subscription->sumup_token)) {

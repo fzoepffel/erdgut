@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\FulfillmentMode;
 use App\Enums\SubscriptionPlan;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -21,6 +22,7 @@ class SubscriptionUpdateRequest extends FormRequest
     {
         return [
             'plan' => ['required', Rule::enum(SubscriptionPlan::class)],
+            'fulfillment_mode' => ['required', Rule::enum(FulfillmentMode::class)],
             'box_size' => ['required', 'string', Rule::in(['small', 'medium', 'large'])],
             'preferences' => ['required', 'array'],
             'preferences.veg_only' => ['required', 'boolean'],

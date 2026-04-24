@@ -55,6 +55,7 @@ class SubscriptionUpdateTest extends TestCase
         $this->actingAs($user)
             ->patch(route('app.subscriptions.update'), [
                 'plan' => 'weekly',
+                'fulfillment_mode' => 'delivery',
                 'box_size' => 'large',
                 'preferences' => [
                     'veg_only' => '1',
@@ -100,6 +101,7 @@ class SubscriptionUpdateTest extends TestCase
             ->from(route('app.subscriptions.edit'))
             ->patch(route('app.subscriptions.update'), [
                 'plan' => 'weekly',
+                'fulfillment_mode' => 'delivery',
                 'box_size' => 'invalid-size',
                 'preferences' => [
                     'veg_only' => '1',
@@ -130,7 +132,7 @@ class SubscriptionUpdateTest extends TestCase
             ->from(route('app.subscriptions.edit'))
             ->patch(route('app.subscriptions.update'), [])
             ->assertRedirect(route('app.subscriptions.edit'))
-            ->assertSessionHasErrors(['plan', 'box_size']);
+            ->assertSessionHasErrors(['plan', 'box_size', 'fulfillment_mode']);
     }
 
     public function test_update_rejects_allergy_exceeding_max_length(): void
@@ -147,6 +149,7 @@ class SubscriptionUpdateTest extends TestCase
             ->from(route('app.subscriptions.edit'))
             ->patch(route('app.subscriptions.update'), [
                 'plan' => 'weekly',
+                'fulfillment_mode' => 'delivery',
                 'box_size' => 'medium',
                 'preferences' => ['veg_only' => '1', 'meat_add_on' => '0'],
                 'allergies' => [str_repeat('a', 256)],
@@ -168,6 +171,7 @@ class SubscriptionUpdateTest extends TestCase
         $this->actingAs($user)
             ->patch(route('app.subscriptions.update'), [
                 'plan' => 'weekly',
+                'fulfillment_mode' => 'delivery',
                 'box_size' => 'small',
                 'preferences' => ['veg_only' => '1'],
                 'allergies' => 'gluten, lactose, shellfish',
@@ -196,6 +200,7 @@ class SubscriptionUpdateTest extends TestCase
         $this->actingAs($user)
             ->patch(route('app.subscriptions.update'), [
                 'plan' => 'weekly',
+                'fulfillment_mode' => 'delivery',
                 'box_size' => 'medium',
                 'preferences' => [
                     'veg_only' => '0',
@@ -230,6 +235,7 @@ class SubscriptionUpdateTest extends TestCase
         $this->actingAs($user)
             ->patch(route('app.subscriptions.update'), [
                 'plan' => 'weekly',
+                'fulfillment_mode' => 'delivery',
                 'box_size' => 'large',
                 'preferences' => [
                     'veg_only' => true,
@@ -259,6 +265,7 @@ class SubscriptionUpdateTest extends TestCase
             ->from(route('app.subscriptions.edit'))
             ->patch(route('app.subscriptions.update'), [
                 'plan' => 'invalid',
+                'fulfillment_mode' => 'delivery',
                 'box_size' => 'medium',
                 'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
                 'allergies' => '',
@@ -284,6 +291,7 @@ class SubscriptionUpdateTest extends TestCase
         $this->actingAs($user)
             ->patch(route('app.subscriptions.update'), [
                 'plan' => 'biweekly',
+                'fulfillment_mode' => 'delivery',
                 'box_size' => 'small',
                 'preferences' => ['veg_only' => '0', 'meat_add_on' => '0'],
                 'allergies' => '',

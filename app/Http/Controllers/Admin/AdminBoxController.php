@@ -8,6 +8,8 @@ use App\Models\Box;
 use App\Models\Product;
 use App\Models\Subscription;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class AdminBoxController extends Controller
 {
@@ -65,5 +67,22 @@ class AdminBoxController extends Controller
             'adminCanMutateItems' => $box->allowsAdminLineEdits(),
             'budgetDetails' => $budgetDetails,
         ]);
+    }
+
+    public function updateMeta(Request $request, Box $box): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        $validated = $request->validate([
+            'next_update_expected_at' => ['nullable', 'date'],
+        ]);
+
+        $box->update([
+            'next_update_expected_at' => $validated['next_update_expected_at'] ?? null,
+        ]);
+
+        return redirect()
+            ->route('app.admin.boxes.show', $box)
+            ->with('status', 'box-meta-updated');
     }
 }

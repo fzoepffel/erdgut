@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
+use App\Models\SubscriptionSkipWeek;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -67,6 +68,25 @@ class SubscriptionLifecycleService
 
             $this->skipCleanup->cleanupWindow($subscription, $from, $until);
 
+            $subscription->skipWeeks()
+                ->where('source', SubscriptionSkipWeek::SOURCE_PAUSE_WINDOW)
+                ->delete();
+
+            $cursor = $from->startOfWeek();
+            $windowEnd = $until->startOfWeek();
+            while ($cursor->lessThanOrEqualTo($windowEnd)) {
+                SubscriptionSkipWeek::updateOrCreate(
+                    [
+                        'subscription_id' => $subscription->id,
+                        'week_start_date' => $cursor->toDateString(),
+                    ],
+                    [
+                        'source' => SubscriptionSkipWeek::SOURCE_PAUSE_WINDOW,
+                    ]
+                );
+                $cursor = $cursor->addWeek();
+            }
+
             return $subscription->fresh();
         });
     }
@@ -87,6 +107,10 @@ class SubscriptionLifecycleService
                 'pause_until' => null,
                 'next_charge_date' => $nextChargeDate,
             ]);
+
+            $subscription->skipWeeks()
+                ->where('source', SubscriptionSkipWeek::SOURCE_PAUSE_WINDOW)
+                ->delete();
 
             Log::info('subscription.resumed', [
                 'subscription_id' => $subscription->id,

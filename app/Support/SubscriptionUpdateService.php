@@ -21,7 +21,7 @@ class SubscriptionUpdateService
      */
     public function update(Subscription $subscription, array $attributes, int $actorUserId): Subscription
     {
-        $payload = Arr::only($attributes, ['box_size', 'preferences', 'allergies', 'plan']);
+        $payload = Arr::only($attributes, ['box_size', 'preferences', 'allergies', 'plan', 'fulfillment_mode']);
         $payload['allergies'] = $payload['allergies'] ?? [];
 
         $before = [
@@ -29,6 +29,7 @@ class SubscriptionUpdateService
             'preferences' => $subscription->preferences ?? [],
             'allergies' => $subscription->allergies ?? [],
             'plan' => $subscription->plan,
+            'fulfillment_mode' => $subscription->fulfillment_mode,
             'next_charge_date' => $subscription->next_charge_date?->toDateString(),
         ];
 
@@ -48,6 +49,7 @@ class SubscriptionUpdateService
                 'preferences' => $subscription->preferences ?? [],
                 'allergies' => $subscription->allergies ?? [],
                 'plan' => $subscription->plan,
+                'fulfillment_mode' => $subscription->fulfillment_mode,
                 'next_charge_date' => $subscription->next_charge_date?->toDateString(),
             ];
 
@@ -74,7 +76,7 @@ class SubscriptionUpdateService
 
         foreach ($before as $key => $value) {
             $afterValue = $after[$key] ?? null;
-            if ($key === 'plan') {
+            if ($key === 'plan' || $key === 'fulfillment_mode') {
                 $beforeVal = $value instanceof \BackedEnum ? $value->value : $value;
                 $afterVal = $afterValue instanceof \BackedEnum ? $afterValue->value : $afterValue;
                 if ($beforeVal !== $afterVal) {

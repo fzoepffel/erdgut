@@ -76,7 +76,9 @@
                     @if ($box->items->isEmpty())
                         <x-empty-state
                             :title="__('No items in this box yet.')"
-                            :description="__('When the week is curated, items will appear here.')"
+                            :description="$box->next_update_expected_at
+                                ? __('Next update expected by :date', ['date' => $box->next_update_expected_at->translatedFormat('d.m.Y H:i')])
+                                : __('When the week is curated, items will appear here.')"
                             variant="inset"
                         />
                     @else

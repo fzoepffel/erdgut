@@ -128,6 +128,7 @@ Route::middleware(['auth', 'verified'])
             Route::patch('/', [SubscriptionController::class, 'update'])->name('update');
             Route::post('/pause', [SubscriptionController::class, 'pause'])->middleware('throttle:subscription-actions')->name('pause');
             Route::post('/skip-next', [SubscriptionController::class, 'skipNextWeek'])->middleware('throttle:subscription-actions')->name('skip.next');
+            Route::post('/skip-weeks', [SubscriptionController::class, 'updateSkipWeeks'])->middleware('throttle:subscription-actions')->name('skip.weeks');
             Route::post('/resume', [SubscriptionController::class, 'resume'])->middleware('throttle:subscription-actions')->name('resume');
             Route::post('/cancel', [SubscriptionController::class, 'cancel'])->middleware('throttle:subscription-actions')->name('cancel');
         });
@@ -219,6 +220,7 @@ Route::middleware(['auth', 'verified'])
                 ->scopeBindings()
                 ->name('boxes.items.destroy');
             Route::get('boxes/{box}', [AdminBoxController::class, 'show'])->name('boxes.show');
+            Route::patch('boxes/{box}/meta', [AdminBoxController::class, 'updateMeta'])->name('boxes.meta.update');
             Route::resource('producers', ProducerController::class)->except(['show']);
             Route::get('products/weekly/{week?}', [AdminWeeklyCatalogController::class, 'show'])
                 ->name('products.weekly.show');
