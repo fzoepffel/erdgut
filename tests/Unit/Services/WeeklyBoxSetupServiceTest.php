@@ -95,13 +95,14 @@ class WeeklyBoxSetupServiceTest extends TestCase
         return $product;
     }
 
-    public function test_calendar_overview_returns_four_weeks_with_not_set_up_when_no_data(): void
+    public function test_calendar_overview_returns_horizon_weeks_with_not_set_up_when_no_data(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-04-27'));
+        config()->set('admin.box_planner_weeks_ahead', 8);
 
         $rows = $this->service()->calendarOverview();
 
-        $this->assertCount(4, $rows);
+        $this->assertCount(8, $rows);
         foreach ($rows as $row) {
             $this->assertSame('not_set_up', $row['status']);
             $this->assertSame(0, $row['eligible_count']);

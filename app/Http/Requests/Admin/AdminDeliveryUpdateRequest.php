@@ -37,6 +37,7 @@ class AdminDeliveryUpdateRequest extends FormRequest
                 DeliveryStatus::cases()
             ))],
             'special_instructions' => ['nullable', 'string', 'max:2000'],
+            'reason' => ['nullable', 'string', 'max:500'],
         ];
     }
 

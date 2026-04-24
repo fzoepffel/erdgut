@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\DeliveryStatus;
 use App\Models\Address;
+use App\Models\AuditEvent;
 use App\Models\Box;
 use App\Models\Delivery;
 use App\Models\User;
@@ -224,5 +225,79 @@ class AdminDeliveryCrudTest extends TestCase
 
         $this->assertSame('2032-05-20', $weekAfter->scheduled_for_date->toDateString());
         $this->assertSame('08:00-12:00', $weekAfter->timeslot);
+    }
+
+    public function test_admin_reschedule_writes_audit_event(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $customer->id, 'is_primary' => true]);
+
+        $delivery = Delivery::factory()->create([
+            'user_id' => $customer->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => '2033-06-14',
+            'timeslot' => '08:00-12:00',
+            'status' => DeliveryStatus::Scheduled,
+            'is_weekly_override' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.deliveries.update', $delivery), [
+                'address_id' => $address->id,
+                'scheduled_for_date' => '2033-06-15',
+                'timeslot' => '16:00-20:00',
+                'status' => DeliveryStatus::Scheduled->value,
+                'reason' => 'Customer rang and asked for Wednesday afternoon.',
+            ])
+            ->assertRedirect(route('app.admin.deliveries.index'));
+
+        $event = AuditEvent::query()
+            ->where('entity_type', 'delivery')
+            ->where('entity_id', $delivery->id)
+            ->where('action', 'admin_reschedule')
+            ->first();
+
+        $this->assertNotNull($event, 'an admin_reschedule audit event must be written.');
+        $this->assertSame($admin->id, $event->actor_user_id);
+        $this->assertSame('Customer rang and asked for Wednesday afternoon.', $event->reason);
+        $this->assertSame(false, $event->metadata['cascades'] ?? null);
+        $this->assertSame('2033-06-14', $event->metadata['before']['scheduled_for_date'] ?? null);
+        $this->assertSame('2033-06-15', $event->metadata['after']['scheduled_for_date'] ?? null);
+        $this->assertSame('08:00-12:00', $event->metadata['before']['timeslot'] ?? null);
+        $this->assertSame('16:00-20:00', $event->metadata['after']['timeslot'] ?? null);
+    }
+
+    public function test_admin_update_without_reschedule_does_not_emit_reschedule_event(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $customer->id, 'is_primary' => true]);
+
+        $delivery = Delivery::factory()->create([
+            'user_id' => $customer->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => '2034-07-10',
+            'timeslot' => '08:00-12:00',
+            'status' => DeliveryStatus::Scheduled,
+            'special_instructions' => 'Old note',
+            'is_weekly_override' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.deliveries.update', $delivery), [
+                'address_id' => $address->id,
+                'scheduled_for_date' => '2034-07-10',
+                'timeslot' => '08:00-12:00',
+                'status' => DeliveryStatus::Scheduled->value,
+                'special_instructions' => 'Updated note',
+            ])
+            ->assertRedirect(route('app.admin.deliveries.index'));
+
+        $this->assertFalse(AuditEvent::query()
+            ->where('entity_type', 'delivery')
+            ->where('entity_id', $delivery->id)
+            ->where('action', 'admin_reschedule')
+            ->exists(), 'reschedule audit event must not fire when date/timeslot unchanged.');
     }
 }
