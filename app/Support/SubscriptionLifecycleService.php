@@ -12,7 +12,6 @@ use App\Models\SubscriptionSkipWeek;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class SubscriptionLifecycleService
 {
@@ -58,16 +57,19 @@ class SubscriptionLifecycleService
                 'pause_until' => $until->toDateString(),
             ]);
 
-            Log::info('subscription.pause_scheduled', [
-                'subscription_id' => $subscription->id,
-                'subscription_user_id' => $subscription->user_id,
-                'actor_user_id' => $actorUserId,
-                'previous_status' => $previousStatus->value,
-                'new_status' => $status->value,
-                'pause_from' => $from->toDateString(),
-                'pause_until' => $until->toDateString(),
-                'timestamp' => now()->toIso8601String(),
-            ]);
+            AuditLogger::log(
+                entityType: 'subscription',
+                entityId: $subscription->id,
+                action: 'paused',
+                fromState: $previousStatus->value,
+                toState: $status->value,
+                metadata: [
+                    'subscription_user_id' => $subscription->user_id,
+                    'pause_from' => $from->toDateString(),
+                    'pause_until' => $until->toDateString(),
+                ],
+                actorUserId: $actorUserId,
+            );
 
             $this->skipCleanup->cleanupWindow($subscription, $from, $until);
 
@@ -115,15 +117,18 @@ class SubscriptionLifecycleService
                 ->where('source', SubscriptionSkipWeek::SOURCE_PAUSE_WINDOW)
                 ->delete();
 
-            Log::info('subscription.resumed', [
-                'subscription_id' => $subscription->id,
-                'subscription_user_id' => $subscription->user_id,
-                'actor_user_id' => $actorUserId,
-                'previous_status' => $previousStatus->value,
-                'new_status' => SubscriptionStatus::Active->value,
-                'next_charge_date' => $nextChargeDate,
-                'timestamp' => now()->toIso8601String(),
-            ]);
+            AuditLogger::log(
+                entityType: 'subscription',
+                entityId: $subscription->id,
+                action: 'resumed',
+                fromState: $previousStatus->value,
+                toState: SubscriptionStatus::Active->value,
+                metadata: [
+                    'subscription_user_id' => $subscription->user_id,
+                    'next_charge_date' => $nextChargeDate,
+                ],
+                actorUserId: $actorUserId,
+            );
 
             return $subscription->fresh();
         });
@@ -145,15 +150,18 @@ class SubscriptionLifecycleService
                 'pause_until' => null,
             ]);
 
-            Log::info('subscription.cancelled', [
-                'subscription_id' => $subscription->id,
-                'subscription_user_id' => $subscription->user_id,
-                'actor_user_id' => $actorUserId,
-                'previous_status' => $previousStatus->value,
-                'new_status' => SubscriptionStatus::Cancelled->value,
-                'cancellation_reason' => $reason,
-                'timestamp' => now()->toIso8601String(),
-            ]);
+            AuditLogger::log(
+                entityType: 'subscription',
+                entityId: $subscription->id,
+                action: 'cancelled',
+                fromState: $previousStatus->value,
+                toState: SubscriptionStatus::Cancelled->value,
+                reason: $reason,
+                metadata: [
+                    'subscription_user_id' => $subscription->user_id,
+                ],
+                actorUserId: $actorUserId,
+            );
 
             return $subscription->fresh();
         });

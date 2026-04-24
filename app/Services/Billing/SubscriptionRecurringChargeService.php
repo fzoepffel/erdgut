@@ -8,6 +8,7 @@ use App\Enums\PaymentChargeInitiator;
 use App\Models\Box;
 use App\Models\Payment;
 use App\Models\Subscription;
+use App\Support\AuditLogger;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Support\Carbon;
@@ -55,28 +56,20 @@ final class SubscriptionRecurringChargeService
             'attempt_number' => $attemptNumber,
         ]);
 
-        if ($initiator === PaymentChargeInitiator::Retry) {
-            Log::info('payment.retry_created', [
-                'payment_id' => $payment->id,
+        AuditLogger::log(
+            entityType: 'payment',
+            entityId: $payment->id,
+            action: $initiator === PaymentChargeInitiator::Retry ? 'retry' : 'force_charge',
+            metadata: array_filter([
+                'subscription_id' => $subscription->id,
                 'previous_payment_id' => $previousPaymentId,
-                'subscription_id' => $subscription->id,
-                'attempt_number' => $attemptNumber,
-                'timestamp' => now()->toIso8601String(),
-            ]);
-        } else {
-            $logPayload = [
-                'payment_id' => $payment->id,
-                'subscription_id' => $subscription->id,
                 'amount' => $amount,
+                'currency' => $currency,
                 'attempt_number' => $attemptNumber,
                 'charge_initiator' => $initiator->value,
-                'timestamp' => now()->toIso8601String(),
-            ];
-            if ($initiatedByUserId !== null) {
-                $logPayload['initiated_by_user_id'] = $initiatedByUserId;
-            }
-            Log::info('payment.created', $logPayload);
-        }
+            ], static fn ($v) => $v !== null),
+            actorUserId: $initiatedByUserId,
+        );
 
         $token = (string) ($subscription->activeSumupToken() ?? '');
         $customerId = (string) ($subscription->activeSumupCustomerId() ?? '');

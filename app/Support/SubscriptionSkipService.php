@@ -8,7 +8,6 @@ use App\Models\Subscription;
 use App\Models\SubscriptionSkipWeek;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class SubscriptionSkipService
 {
@@ -48,13 +47,16 @@ class SubscriptionSkipService
 
             $this->advanceNextChargeDateIfSkipped($subscription);
 
-            Log::info('subscription.skip_weeks_updated', [
-                'subscription_id' => $subscription->id,
-                'subscription_user_id' => $subscription->user_id,
-                'actor_user_id' => $actorUserId,
-                'skip_weeks' => $normalized,
-                'timestamp' => now()->toIso8601String(),
-            ]);
+            AuditLogger::log(
+                entityType: 'subscription',
+                entityId: $subscription->id,
+                action: 'skip',
+                metadata: [
+                    'subscription_user_id' => $subscription->user_id,
+                    'skip_weeks' => $normalized,
+                ],
+                actorUserId: $actorUserId,
+            );
 
             return $subscription->fresh();
         });

@@ -3,10 +3,10 @@
 namespace Tests\Feature\Subscription;
 
 use App\Enums\SubscriptionPlan;
+use App\Models\AuditEvent;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class SubscriptionUpdateTest extends TestCase
@@ -42,8 +42,6 @@ class SubscriptionUpdateTest extends TestCase
 
     public function test_user_can_update_subscription_settings(): void
     {
-        Log::spy();
-
         $user = User::factory()->create();
         $subscription = Subscription::factory()->create([
             'user_id' => $user->id,
@@ -74,17 +72,16 @@ class SubscriptionUpdateTest extends TestCase
         );
         $this->assertSame(['nuts', 'gluten'], $subscription->allergies);
 
-        Log::shouldHaveReceived('info')
-            ->once()
-            ->withArgs(function (string $message, array $context) use ($subscription, $user): bool {
-                return $message === 'subscription.updated'
-                    && $context['subscription_id'] === $subscription->id
-                    && $context['subscription_user_id'] === $subscription->user_id
-                    && $context['actor_user_id'] === $user->id
-                    && in_array('box_size', $context['changed_fields'], true)
-                    && in_array('preferences', $context['changed_fields'], true)
-                    && in_array('allergies', $context['changed_fields'], true);
-            });
+        $event = AuditEvent::where('entity_type', 'subscription')
+            ->where('entity_id', $subscription->id)
+            ->where('action', 'plan_change')
+            ->first();
+        $this->assertNotNull($event);
+        $this->assertSame($user->id, $event->actor_user_id);
+        $this->assertSame($user->id, $event->metadata['subscription_user_id']);
+        $this->assertContains('box_size', $event->metadata['changed_fields']);
+        $this->assertContains('preferences', $event->metadata['changed_fields']);
+        $this->assertContains('allergies', $event->metadata['changed_fields']);
     }
 
     public function test_update_validates_box_size_and_keeps_existing_values(): void
