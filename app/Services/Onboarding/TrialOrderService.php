@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\Billing\BoxPricing;
+use App\Support\AuditLogger;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Support\Facades\DB;
@@ -220,6 +221,20 @@ class TrialOrderService
                 ->each
                 ->markPaid();
         });
+
+        AuditLogger::log(
+            entityType: 'order',
+            entityId: $order->id,
+            action: 'manual_paid',
+            fromState: OrderStatus::PendingPayment->value,
+            toState: OrderStatus::Paid->value,
+            metadata: [
+                'order_user_id' => $order->user_id,
+                'amount' => (string) $order->amount,
+                'currency' => $order->currency,
+            ],
+            actorUserId: $order->user_id,
+        );
 
         try {
             Mail::to($order->user->email)->queue(new TrialOrderConfirmationMail($order));

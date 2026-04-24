@@ -6,7 +6,6 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class SubscriptionUpdateService
 {
@@ -53,13 +52,16 @@ class SubscriptionUpdateService
                 'next_charge_date' => $subscription->next_charge_date?->toDateString(),
             ];
 
-            Log::info('subscription.updated', [
-                'subscription_id' => $subscription->id,
-                'subscription_user_id' => $subscription->user_id,
-                'actor_user_id' => $actorUserId,
-                'changed_fields' => $this->changedFields($before, $after),
-                'timestamp' => now()->toIso8601String(),
-            ]);
+            AuditLogger::log(
+                entityType: 'subscription',
+                entityId: $subscription->id,
+                action: 'plan_change',
+                metadata: [
+                    'subscription_user_id' => $subscription->user_id,
+                    'changed_fields' => $this->changedFields($before, $after),
+                ],
+                actorUserId: $actorUserId,
+            );
 
             return $subscription;
         });
