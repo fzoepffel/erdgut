@@ -34,7 +34,7 @@ class DeliveryModelWeeklyOverrideTest extends TestCase
             'id' => $delivery->id,
             'user_id' => $user->id,
             'address_id' => $address->id,
-            'scheduled_for_date' => '2026-04-15 00:00:00',
+            'scheduled_for_date' => '2026-04-15',
             'timeslot' => '12:00-16:00',
             'status' => DeliveryStatus::Scheduled->value,
         ]);
