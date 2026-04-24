@@ -45,13 +45,37 @@
             </div>
         </fieldset>
 
-        <div>
-            <x-input-label for="allergies" :value="__('Allergies and exclusions')" />
-            <p class="mt-1 text-xs text-brand-ink/65">{{ __('Comma-separated. We will avoid these in every box.') }}</p>
-            <x-text-input id="allergies" name="allergies" type="text"
-                          :value="old('allergies', implode(', ', $data['allergies'] ?? []))"
-                          class="mt-2" />
-        </div>
+        <fieldset>
+            <legend class="eyebrow text-brand-ink/80">{{ __('Allergies and exclusions') }}</legend>
+            <p class="mt-1 text-xs text-brand-ink/65">{{ __('allergens.pick_hint') }}</p>
+            @php
+                $selectedAllergens = old('allergies', $data['allergies'] ?? []);
+                if (! is_array($selectedAllergens)) {
+                    $selectedAllergens = [];
+                }
+            @endphp
+            <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                @foreach(\App\Enums\Allergen::cases() as $allergen)
+                    <label class="flex cursor-pointer items-center gap-2 border border-brand-ink/15 px-3 py-2 text-sm transition hover:border-brand-ink/30 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
+                        <input type="checkbox" name="allergies[]" value="{{ $allergen->value }}"
+                               class="h-4 w-4 border-brand-ink/40 text-chapter-produce focus:ring-chapter-produce"
+                               {{ in_array($allergen->value, $selectedAllergens, true) ? 'checked' : '' }}>
+                        <span class="text-brand-ink/85">{{ __('allergens.'.$allergen->value) }}</span>
+                    </label>
+                @endforeach
+            </div>
+            <x-input-error :messages="$errors->get('allergies')" class="mt-2" />
+            <x-input-error :messages="$errors->get('allergies.*')" class="mt-1" />
+
+            <div class="mt-5">
+                <x-input-label for="allergies_note" :value="__('allergens.note_label')" />
+                <p class="mt-1 text-xs text-brand-ink/65">{{ __('allergens.note_hint') }}</p>
+                <textarea id="allergies_note" name="allergies_note" rows="2"
+                          class="mt-2 block w-full border-brand-ink/20 bg-white px-3 py-2 text-sm shadow-none focus:border-chapter-produce focus:ring-chapter-produce"
+                          maxlength="500">{{ old('allergies_note', $data['allergies_note'] ?? '') }}</textarea>
+                <x-input-error :messages="$errors->get('allergies_note')" class="mt-2" />
+            </div>
+        </fieldset>
 
         <div class="flex justify-end pt-4">
             <x-primary-button>{{ __('Continue') }}</x-primary-button>

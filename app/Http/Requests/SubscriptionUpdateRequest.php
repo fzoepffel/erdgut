@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\Allergen;
 use App\Enums\FulfillmentMode;
 use App\Enums\SubscriptionPlan;
 use App\Enums\Timeslot;
+use App\Support\AllergyInputNormaliser;
 use App\Support\DeliveryZoneResolver;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -34,7 +36,8 @@ class SubscriptionUpdateRequest extends FormRequest
             'preferences.meat_add_on' => ['required', 'boolean'],
             'preferences.eggs_dairy_add_on' => ['required', 'boolean'],
             'allergies' => ['nullable', 'array'],
-            'allergies.*' => ['string', 'max:255'],
+            'allergies.*' => ['string', Rule::enum(Allergen::class)],
+            'allergies_note' => ['nullable', 'string', 'max:500'],
             'delivery_weekday' => ['nullable', 'integer', 'between:0,6', Rule::in($zone->allowedWeekdays($zoneKey))],
             'preferred_timeslot' => ['nullable', 'string', Rule::in($zone->allowedTimeslots($zoneKey)), Rule::enum(Timeslot::class)],
         ];
@@ -42,22 +45,6 @@ class SubscriptionUpdateRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $allergiesInput = $this->input('allergies', '');
-
-        if (is_array($allergiesInput)) {
-            $allergies = collect($allergiesInput)
-                ->map(static fn (mixed $allergy): string => trim((string) $allergy))
-                ->filter()
-                ->values()
-                ->all();
-        } else {
-            $allergies = collect(explode(',', (string) $allergiesInput))
-                ->map(static fn (string $allergy): string => trim($allergy))
-                ->filter()
-                ->values()
-                ->all();
-        }
-
         $weekday = $this->input('delivery_weekday');
         $timeslot = $this->input('preferred_timeslot');
 
@@ -67,7 +54,8 @@ class SubscriptionUpdateRequest extends FormRequest
                 'meat_add_on' => $this->boolean('preferences.meat_add_on'),
                 'eggs_dairy_add_on' => $this->boolean('preferences.eggs_dairy_add_on'),
             ],
-            'allergies' => $allergies,
+            'allergies' => AllergyInputNormaliser::toArray($this->input('allergies')),
+            'allergies_note' => AllergyInputNormaliser::normaliseNote($this->input('allergies_note')),
             'delivery_weekday' => is_numeric($weekday) ? (int) $weekday : null,
             'preferred_timeslot' => is_string($timeslot) && $timeslot !== '' ? $timeslot : null,
         ]);

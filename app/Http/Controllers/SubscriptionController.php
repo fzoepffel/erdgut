@@ -91,7 +91,6 @@ class SubscriptionController extends Controller
 
         return view('subscriptions.edit', [
             'subscription' => $subscription,
-            'allergiesInput' => implode(', ', $subscription->allergies ?? []),
         ]);
     }
 

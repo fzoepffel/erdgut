@@ -178,10 +178,28 @@
                             <div>
                                 <dt class="eyebrow text-brand-ink/60">{{ __('Allergies') }}</dt>
                                 <dd class="mt-2 text-base text-brand-ink">
-                                    @if (! empty($subscription->allergies))
-                                        {{ implode(', ', $subscription->allergies) }}
+                                    @php
+                                        $allergenList = array_values(array_filter((array) ($subscription->allergies ?? [])));
+                                    @endphp
+                                    @if ($allergenList !== [])
+                                        <ul class="flex flex-wrap gap-1.5">
+                                            @foreach ($allergenList as $allergenValue)
+                                                @php
+                                                    $case = \App\Enums\Allergen::tryFrom((string) $allergenValue);
+                                                    $allergenKey = 'allergens.'.($case?->value ?? '');
+                                                @endphp
+                                                @if ($case !== null)
+                                                    <li class="inline-flex items-center border border-brand-ink/20 bg-brand-ink/[0.04] px-2 py-0.5 text-xs">
+                                                        {{ __($allergenKey) }}
+                                                    </li>
+                                                @endif
+                                            @endforeach
+                                        </ul>
                                     @else
                                         {{ __('None listed') }}
+                                    @endif
+                                    @if (! empty($subscription->allergies_note))
+                                        <p class="mt-2 text-sm italic text-brand-ink/70">{{ $subscription->allergies_note }}</p>
                                     @endif
                                 </dd>
                             </div>

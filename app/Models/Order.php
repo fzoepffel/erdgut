@@ -21,6 +21,7 @@ class Order extends Model
         'box_size',
         'preferences',
         'allergies',
+        'allergies_note',
         'preferred_timeslot',
         'preferred_delivery_window',
         'special_instructions',
