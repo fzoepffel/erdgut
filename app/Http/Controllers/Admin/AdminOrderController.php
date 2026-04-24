@@ -6,15 +6,22 @@ use App\Enums\BoxStatus;
 use App\Enums\DeliveryStatus;
 use App\Enums\OrderProductType;
 use App\Enums\OrderStatus;
+use App\Enums\Timeslot;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminOrderStoreRequest;
 use App\Mail\TrialDeliveryScheduledMail;
+use App\Models\Address;
 use App\Models\Box;
 use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\User;
 use App\Services\Admin\WeeklyBoxPlannerService;
+use App\Services\Onboarding\TrialOrderService;
+use App\Support\AuditLogger;
 use App\Support\BoxCompositionService;
 use App\Support\DeliveryProjector;
+use App\Support\DeliveryZoneResolver;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -63,6 +70,80 @@ class AdminOrderController extends Controller
             'productType' => $productType,
             'statuses' => OrderStatus::cases(),
         ]);
+    }
+
+    public function create(Request $request, DeliveryZoneResolver $zones): View
+    {
+        $this->authorize('admin');
+
+        $users = User::query()
+            ->where('is_admin', false)
+            ->orderBy('email')
+            ->get(['id', 'email']);
+
+        $selectedUserId = $request->integer('user_id') ?: (int) old('user_id', 0);
+
+        $addresses = $selectedUserId > 0
+            ? Address::query()
+                ->where('user_id', $selectedUserId)
+                ->orderByDesc('is_primary')
+                ->orderBy('id')
+                ->get()
+            : collect();
+
+        $zoneKey = $zones->resolveZoneKey($selectedUserId > 0 ? $selectedUserId : null);
+
+        return view('admin.orders.create', [
+            'users' => $users,
+            'selectedUserId' => $selectedUserId,
+            'addresses' => $addresses,
+            'allowedTimeslots' => $zones->allowedTimeslots($zoneKey),
+            'timeslotCases' => Timeslot::cases(),
+        ]);
+    }
+
+    public function store(AdminOrderStoreRequest $request, TrialOrderService $trialOrders): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        $data = $request->validated();
+        $userId = (int) $data['user_id'];
+        $user = User::query()->findOrFail($userId);
+
+        $order = $trialOrders->createOrder($user, [
+            'address_id' => (int) $data['address_id'],
+            'box_size' => (string) $data['box_size'],
+            'preferences' => [
+                'veg_only' => (bool) ($data['preferences']['veg_only'] ?? false),
+                'meat_add_on' => (bool) ($data['preferences']['meat_add_on'] ?? false),
+                'eggs_dairy_add_on' => (bool) ($data['preferences']['eggs_dairy_add_on'] ?? false),
+            ],
+            'allergies' => array_values(array_filter((array) ($data['allergies'] ?? []), fn ($v) => is_string($v) && $v !== '')),
+            'preferred_timeslot' => $data['preferred_timeslot'] ?? null,
+            'preferred_delivery_window' => $data['preferred_delivery_window'] ?? null,
+            'special_instructions' => $data['special_instructions'] ?? null,
+            'is_test' => false,
+        ]);
+
+        AuditLogger::log(
+            entityType: 'order',
+            entityId: $order->id,
+            action: 'admin_create',
+            toState: $order->status->value,
+            reason: $data['reason'] ?? null,
+            metadata: [
+                'product_type' => $order->product_type->value,
+                'box_size' => (string) $order->box_size,
+                'amount' => (string) $order->amount,
+                'currency' => $order->currency,
+                'order_user_id' => $order->user_id,
+            ],
+            actorUserId: $request->user()?->id,
+        );
+
+        return redirect()
+            ->route('app.admin.orders.show', $order)
+            ->with('status', 'admin-order-created');
     }
 
     public function show(Order $order): View

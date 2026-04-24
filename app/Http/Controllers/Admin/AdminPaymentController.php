@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminPaymentMarkPaidExternallyRequest;
 use App\Http\Requests\Admin\AdminPaymentsIndexRequest;
 use App\Models\Payment;
+use App\Support\AuditLogger;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
 
 class AdminPaymentController extends Controller
@@ -81,5 +84,40 @@ class AdminPaymentController extends Controller
             'dateField' => $dateField,
             'kind' => $kind,
         ]);
+    }
+
+    public function markPaidExternally(AdminPaymentMarkPaidExternallyRequest $request, Payment $payment): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        if ($payment->status === Payment::STATUS_PAID) {
+            return redirect()
+                ->back()
+                ->with('status', 'admin-payment-already-paid');
+        }
+
+        $previousStatus = $payment->status;
+        $reference = (string) $request->validated('external_reference');
+        $reason = $request->validated('reason');
+
+        $payment->markPaidExternally($reference, (int) $request->user()->id);
+
+        AuditLogger::log(
+            entityType: 'payment',
+            entityId: $payment->id,
+            action: 'manual_paid',
+            fromState: $previousStatus,
+            toState: Payment::STATUS_PAID,
+            reason: $reason,
+            metadata: [
+                'external_reference' => $reference,
+                'amount' => (string) $payment->amount,
+                'currency' => $payment->currency,
+            ],
+        );
+
+        return redirect()
+            ->back()
+            ->with('status', 'admin-payment-marked-paid-externally');
     }
 }

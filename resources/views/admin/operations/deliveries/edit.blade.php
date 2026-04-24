@@ -82,6 +82,15 @@
                         @enderror
                     </div>
 
+                    <div>
+                        <label for="reason" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.deliveries.field_reason') }}</label>
+                        <input id="reason" type="text" name="reason" value="{{ old('reason') }}" maxlength="500" placeholder="{{ __('admin.deliveries.field_reason_placeholder') }}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                        <p class="mt-1 text-xs text-gray-500">{{ __('admin.deliveries.field_reason_hint') }}</p>
+                        @error('reason')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
                     <div class="flex flex-wrap gap-2 pt-2">
                         <button type="submit" class="inline-flex items-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
                             {{ __('admin.deliveries.save_update') }}

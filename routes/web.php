@@ -186,7 +186,17 @@ Route::middleware(['auth', 'verified'])
             Route::patch('deliveries/{delivery}/status', [AdminDeliveryController::class, 'updateStatus'])
                 ->middleware('throttle:30,1')
                 ->name('deliveries.status.update');
+            Route::post('deliveries/bulk-delay', [AdminDeliveryController::class, 'bulkDelay'])
+                ->middleware('throttle:10,1')
+                ->name('deliveries.bulk-delay');
+            Route::get('subscriptions/create', [AdminSubscriptionController::class, 'create'])->name('subscriptions.create');
+            Route::post('subscriptions', [AdminSubscriptionController::class, 'store'])
+                ->middleware('throttle:20,1')
+                ->name('subscriptions.store');
             Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
+            Route::post('payments/{payment}/mark-paid-externally', [AdminPaymentController::class, 'markPaidExternally'])
+                ->middleware('throttle:30,1')
+                ->name('payments.mark-paid-externally');
             Route::get('billing/upcoming', [AdminUpcomingChargeController::class, 'index'])->name('billing.upcoming');
             Route::get('billing/coverage', [AdminBillingCoverageController::class, 'index'])->name('billing.coverage');
             Route::post('billing/charge', [AdminBillingCoverageController::class, 'charge'])
@@ -221,6 +231,9 @@ Route::middleware(['auth', 'verified'])
                 ->name('boxes.items.destroy');
             Route::get('boxes/{box}', [AdminBoxController::class, 'show'])->name('boxes.show');
             Route::patch('boxes/{box}/meta', [AdminBoxController::class, 'updateMeta'])->name('boxes.meta.update');
+            Route::post('boxes/{box}/override-edit', [AdminBoxController::class, 'overrideEdit'])
+                ->middleware('throttle:30,1')
+                ->name('boxes.override-edit');
             Route::resource('producers', ProducerController::class)->except(['show']);
             Route::get('products/weekly/{week?}', [AdminWeeklyCatalogController::class, 'show'])
                 ->name('products.weekly.show');
@@ -229,6 +242,10 @@ Route::middleware(['auth', 'verified'])
                 ->name('products.weekly.save');
             Route::resource('products', ProductController::class)->except(['show']);
 
+            Route::get('orders/create', [AdminOrderController::class, 'create'])->name('orders.create');
+            Route::post('orders', [AdminOrderController::class, 'store'])
+                ->middleware('throttle:20,1')
+                ->name('orders.store');
             Route::get('orders', [AdminOrderController::class, 'index'])->name('orders.index');
             Route::get('orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
             Route::post('orders/{order}/schedule', [AdminOrderController::class, 'schedule'])
