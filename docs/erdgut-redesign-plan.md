@@ -8,23 +8,24 @@ Companion index for [`erdgut-redesign-plan.csv`](./erdgut-redesign-plan.csv). Th
 
 ## Phase 1 — Data backbone (foundation)
 
-Migrations, enums, and pricing/audit scaffolding. Most Phase 2–8 tickets depend on rows here.
+Migrations, enums, and pricing/audit scaffolding. Most Phase 2–8 tickets depend on rows here. **All schema + enum + pricing work shipped** in commit [`841d55c`](https://github.com/fzoepffel/erdgut/commit/841d55c); only the audit-logger call-site backfill remains.
 
-- ERD-300 — Migration: `payment_mandates` table
-- ERD-301 — Migration: `boxes.subscription_id` + `preferences_snapshot` + `allergies_snapshot`
-- ERD-302 — Migration: `box_items.unit_price_snapshot`
-- ERD-303 — Migration: `deliveries.box_id` FK
-- ERD-304 — Migration: subscriptions extended fields (`address_id`, `delivery_weekday`, `preferred_timeslot`, `billing_mode`)
-- ERD-305 — Migration: `audit_events` table
-- ERD-307 — Migration: `product_images` table
-- ERD-308 — Migration: products catalog expansion (allergens, dietary tags, buying price, taste profile)
-- ERD-309 — Migration: `product_pairings` pivot
-- ERD-310 — Enums: Allergen, DietaryTag, TasteProfile, BillingMode + extend DeliveryStatus
-- ERD-311 — `BoxPricing` shared service (fixes trial €35 bug)
-- ERD-312 — `AuditLogger` service + backfill call sites
-- ERD-348 — Trial pricing bug fix (uses ERD-311)
+- ERD-300 — Migration: `payment_mandates` table — **Done**
+- ERD-301 — Migration: `boxes.subscription_id` + `preferences_snapshot` + `allergies_snapshot` — **Done**
+- ERD-302 — Migration: `box_items.unit_price_snapshot` — **Done**
+- ERD-303 — Migration: `deliveries.box_id` FK — **Done**
+- ERD-304 — Migration: subscriptions extended fields (`address_id`, `delivery_weekday`, `preferred_timeslot`, `billing_mode`) — **Done**
+- ERD-305 — Migration: `audit_events` table — **Done**
+- ERD-307 — Migration: `product_images` table — **Done**
+- ERD-308 — Migration: products catalog expansion (allergens, dietary tags, buying price, taste profile) — **Done**
+- ERD-309 — Migration: `product_pairings` pivot — **Done**
+- ERD-310 — Enums: Allergen, DietaryTag, TasteProfile, BillingMode + extend DeliveryStatus — **Done**
+- ERD-311 — `BoxPricing` shared service (fixes trial €35 bug) — **Done**
+- ERD-312 — `AuditLogger` service + backfill call sites — **Backlog** (service built; lifecycle-service call sites pending)
+- ERD-348 — Trial pricing bug fix (uses ERD-311) — **Done**
 
 > ERD-306 (subscription_skip_weeks migration) was **done** under the Phase 4 branch — no new ticket needed.
+> Phase-2 follow-on `f8a3e4c` (SumUpMandateManager + billing_mode gating) is infrastructure that unlocks ERD-329 / ERD-330 but doesn't clear either on its own.
 
 ## Phase 2 — Unify code paths
 
@@ -39,10 +40,12 @@ Kill duplication, build reusable UI, fix SumUp UX.
 
 ## Phase 3 — Product catalog UX
 
-- ERD-317 — Admin product form (allergens, dietary, buying price, taste, pairings, image gallery)
-- ERD-318 — Customer product catalog (category logos, multi-image, taste chips, pairings)
-- ERD-319 — Box detail view (product images, allergen badges, pairings)
-- ERD-349 — Taste profile + "goes well with" pairings UI
+All four tickets shipped in commits [`9de83f2`](https://github.com/fzoepffel/erdgut/commit/9de83f2) (admin form) and [`6e1d60f`](https://github.com/fzoepffel/erdgut/commit/6e1d60f) (customer + box views).
+
+- ERD-317 — Admin product form (allergens, dietary, buying price, taste, pairings, image gallery) — **Done**
+- ERD-318 — Customer product catalog (category logos, multi-image, taste chips, pairings) — **Done**
+- ERD-319 — Box detail view (product images, allergen badges, pairings) — **Done**
+- ERD-349 — Taste profile + "goes well with" pairings UI — **Done**
 
 ## Phase 4 — Customer flexibility
 
@@ -89,12 +92,13 @@ Most of this phase is **done** on [`feature/phase-4-customer-flexibility`](https
 
 ## Recommended shipping order
 
-Ship two small wins first before opening Phase 1 migrations:
+Phase 1 data backbone is already in. Next highest-leverage tickets:
 
-1. **ERD-316** — SumUp widget loading state (ships this week)
-2. **ERD-336** — Trial → sub defer (pure logic fix, small blast radius)
+1. **ERD-336** — Trial → sub defer (pure logic fix, small blast radius)
+2. **ERD-316** — SumUp widget loading state
+3. **ERD-313** + **ERD-347** — Extract `WeeklyDistributionService` with allergy/diet filtering (unlocks much of Phase 2 and fixes the composition correctness gap)
 
-Then start Phase 1 migrations. Every phase is independently deployable.
+Then Phase 5 admin overrides and Phase 7 email are largely parallelizable.
 
 ## Marking tickets done
 
