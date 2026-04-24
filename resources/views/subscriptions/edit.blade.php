@@ -23,6 +23,36 @@
                     @method('patch')
 
                     <fieldset>
+                        <legend class="eyebrow text-brand-ink">{{ __('Fulfillment') }}</legend>
+                        <p class="mt-2 text-sm text-brand-ink/70">{{ __('Switch between home delivery and pickup at any time.') }}</p>
+                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            @foreach (\App\Enums\FulfillmentMode::cases() as $modeOption)
+                                <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
+                                    <input
+                                        type="radio"
+                                        name="fulfillment_mode"
+                                        value="{{ $modeOption->value }}"
+                                        class="mt-1 border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
+                                        @checked(old('fulfillment_mode', $subscription->fulfillment_mode?->value ?? \App\Enums\FulfillmentMode::Delivery->value) === $modeOption->value)
+                                        required
+                                    />
+                                    <span>
+                                        <span class="block font-display text-base text-brand-ink">
+                                            {{ $modeOption === \App\Enums\FulfillmentMode::Delivery ? __('Home delivery') : __('Pickup') }}
+                                        </span>
+                                        <span class="mt-1 block text-sm text-brand-ink/70">
+                                            {{ $modeOption === \App\Enums\FulfillmentMode::Delivery
+                                                ? __('We bring the box to your address within your neighbourhood window.')
+                                                : __('Collect at the weekly partner market — no delivery fee.') }}
+                                        </span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+                        <x-input-error class="mt-2" :messages="$errors->get('fulfillment_mode')" />
+                    </fieldset>
+
+                    <fieldset>
                         <legend class="eyebrow text-brand-ink">{{ __('Delivery rhythm') }}</legend>
                         <p class="mt-2 text-sm text-brand-ink/70">{{ __('Changing the rhythm while your subscription is active updates your next charge date from today forward.') }}</p>
                         <div class="mt-4 space-y-3">
@@ -131,6 +161,16 @@
                         />
                         <x-input-error class="mt-2" :messages="$errors->get('allergies')" />
                         <x-input-error class="mt-2" :messages="$errors->get('allergies.*')" />
+                    </div>
+
+                    @php
+                        $effectiveFrom = now()->copy()->addMonth()->startOfWeek()->format('d.m.Y');
+                    @endphp
+                    <div class="border-l-2 border-brand-ink/30 bg-brand-ink/[0.03] px-4 py-3 text-sm text-brand-ink/80">
+                        <p class="font-medium text-brand-ink">{{ __('Takes effect from the week of :date', ['date' => $effectiveFrom]) }}</p>
+                        <p class="mt-1 font-editorial italic">
+                            {{ __('Orders and changes need a month\'s lead time — we\'re still improvising our logistics. For urgent changes, write to us.') }}
+                        </p>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-4 pt-2">

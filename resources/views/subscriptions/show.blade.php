@@ -133,11 +133,17 @@
                     <section id="sub-plan" class="scroll-mt-24 border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-plan">
                         <p class="eyebrow text-chapter-produce">{{ __('Plan') }}</p>
                         <h3 id="sub-section-plan" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Subscription and box') }}</h3>
-                        <dl class="mt-6 grid gap-5 sm:grid-cols-3">
+                        <dl class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                             <div>
                                 <dt class="eyebrow text-brand-ink/60">{{ __('Delivery rhythm') }}</dt>
                                 <dd class="mt-2 font-display text-lg text-brand-ink">
                                     {{ $subscription->plan === \App\Enums\SubscriptionPlan::Weekly ? __('Weekly delivery') : __('Biweekly delivery') }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Fulfillment') }}</dt>
+                                <dd class="mt-2 font-display text-lg text-brand-ink">
+                                    {{ ($subscription->fulfillment_mode ?? \App\Enums\FulfillmentMode::Delivery) === \App\Enums\FulfillmentMode::Pickup ? __('Pickup') : __('Home delivery') }}
                                 </dd>
                             </div>
                             <div>
@@ -211,22 +217,11 @@
                                                 $isLocked = in_array($iso, $pauseLockedWeeks, true);
                                             @endphp
                                             <label class="flex cursor-pointer items-start gap-2 border border-brand-ink/20 p-3 text-sm transition hover:border-brand-ink/40 has-[:checked]:border-chapter-bread has-[:checked]:bg-chapter-bread/10 @if($isLocked) cursor-not-allowed opacity-60 @endif">
-                                                <input
-                                                    type="checkbox"
-                                                    name="weeks[]"
-                                                    value="{{ $iso }}"
-                                                    @checked($isUserSkipped || $isLocked)
-                                                    @disabled($isLocked)
-                                                    class="mt-0.5 border-brand-ink/30 text-chapter-bread focus:ring-chapter-bread"
-                                                />
+                                                <input type="checkbox" name="weeks[]" value="{{ $iso }}" @checked($isUserSkipped || $isLocked) @disabled($isLocked) class="mt-0.5 border-brand-ink/30 text-chapter-bread focus:ring-chapter-bread" />
                                                 <span>
                                                     <span class="block font-medium text-brand-ink">{{ $weekMonday->isoFormat('D. MMM') }}</span>
                                                     <span class="block text-xs text-brand-ink/60">
-                                                        @if ($isLocked)
-                                                            {{ __('Locked by pause') }}
-                                                        @else
-                                                            {{ __('Week of :date', ['date' => $weekMonday->format('d.m.Y')]) }}
-                                                        @endif
+                                                        @if ($isLocked){{ __('Locked by pause') }}@else{{ __('Week of :date', ['date' => $weekMonday->format('d.m.Y')]) }}@endif
                                                     </span>
                                                 </span>
                                             </label>
