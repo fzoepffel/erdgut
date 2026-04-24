@@ -91,6 +91,27 @@
                         </div>
                     </fieldset>
 
+                    <fieldset class="border-t border-gray-100 pt-4">
+                        <legend class="text-xs font-medium text-gray-600">{{ __('Allergies and exclusions') }}</legend>
+                        @php($selectedAllergens = is_array(old('allergies')) ? old('allergies') : [])
+                        <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            @foreach(\App\Enums\Allergen::cases() as $allergen)
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="checkbox" name="allergies[]" value="{{ $allergen->value }}"
+                                           @checked(in_array($allergen->value, $selectedAllergens, true))
+                                           class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600" />
+                                    {{ __('allergens.'.$allergen->value) }}
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('allergies.*')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        <div class="mt-3">
+                            <label for="order-allergies-note" class="mb-1 block text-xs font-medium text-gray-600">{{ __('allergens.note_label') }}</label>
+                            <textarea id="order-allergies-note" name="allergies_note" rows="2" maxlength="500" placeholder="{{ __('allergens.note_hint') }}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">{{ old('allergies_note') }}</textarea>
+                            @error('allergies_note')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                    </fieldset>
+
                     <div>
                         <label for="order-instructions" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.orders.field_special_instructions') }}</label>
                         <textarea id="order-instructions" name="special_instructions" rows="2" maxlength="1000" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">{{ old('special_instructions') }}</textarea>

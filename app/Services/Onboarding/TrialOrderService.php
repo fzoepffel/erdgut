@@ -56,6 +56,7 @@ class TrialOrderService
                 'box_size' => $boxSize,
                 'preferences' => $preferences,
                 'allergies' => $payload['allergies'] ?? [],
+                'allergies_note' => $payload['allergies_note'] ?? null,
                 'preferred_timeslot' => $payload['preferred_timeslot'] ?? null,
                 'preferred_delivery_window' => $payload['preferred_delivery_window'] ?? null,
                 'special_instructions' => $payload['special_instructions'] ?? null,

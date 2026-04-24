@@ -171,7 +171,7 @@ class SubscriptionUpdateTest extends TestCase
                 'fulfillment_mode' => 'delivery',
                 'box_size' => 'small',
                 'preferences' => ['veg_only' => '1'],
-                'allergies' => 'gluten, lactose, shellfish',
+                'allergies' => 'gluten, milk, crustaceans',
             ])
             ->assertRedirect(route('app.subscriptions.show'))
             ->assertSessionHas('status', 'subscription-updated');
@@ -181,7 +181,7 @@ class SubscriptionUpdateTest extends TestCase
         $this->assertTrue($subscription->preferences['veg_only']);
         $this->assertFalse($subscription->preferences['meat_add_on']);
         $this->assertFalse($subscription->preferences['eggs_dairy_add_on']);
-        $this->assertSame(['gluten', 'lactose', 'shellfish'], $subscription->allergies);
+        $this->assertSame(['gluten', 'milk', 'crustaceans'], $subscription->allergies);
     }
 
     public function test_user_can_enable_eggs_dairy_add_on(): void
@@ -238,7 +238,7 @@ class SubscriptionUpdateTest extends TestCase
                     'veg_only' => true,
                     'meat_add_on' => true,
                 ],
-                'allergies' => 'soy',
+                'allergies' => 'soybeans',
             ])
             ->assertRedirect(route('app.subscriptions.show'))
             ->assertSessionHas('status', 'subscription-missing');

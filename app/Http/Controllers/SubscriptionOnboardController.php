@@ -46,7 +46,8 @@ class SubscriptionOnboardController extends Controller
 
         return view('subscriptions.onboard-step1', [
             'subscription' => $subscription,
-            'allergiesInput' => '',
+            'selectedAllergens' => [],
+            'allergiesNoteValue' => '',
         ]);
     }
 
@@ -66,6 +67,7 @@ class SubscriptionOnboardController extends Controller
             'box_size' => $validated['box_size'],
             'preferences' => $validated['preferences'],
             'allergies' => $validated['allergies'] ?? [],
+            'allergies_note' => $validated['allergies_note'] ?? null,
             'delivery_weekday' => $validated['delivery_weekday'] ?? null,
             'preferred_timeslot' => $validated['preferred_timeslot'] ?? null,
             'status' => SubscriptionStatus::Active,

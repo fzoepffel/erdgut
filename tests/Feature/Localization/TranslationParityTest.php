@@ -21,6 +21,7 @@ class TranslationParityTest extends TestCase
         'admin.deliveries.status.',
         'admin.category.',
         'box_size.description.',
+        'allergens.',
     ];
 
     public function test_every_translation_key_used_in_source_exists_in_every_locale(): void

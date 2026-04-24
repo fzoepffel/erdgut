@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Enums\Allergen;
 use App\Enums\Timeslot;
+use App\Support\AllergyInputNormaliser;
 use App\Support\DeliveryZoneResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -38,8 +40,9 @@ class AdminOrderStoreRequest extends FormRequest
             'preferences.veg_only' => ['sometimes'],
             'preferences.meat_add_on' => ['sometimes'],
             'preferences.eggs_dairy_add_on' => ['sometimes'],
-            'allergies' => ['array'],
-            'allergies.*' => ['string', 'max:80'],
+            'allergies' => ['nullable', 'array'],
+            'allergies.*' => ['string', Rule::enum(Allergen::class)],
+            'allergies_note' => ['nullable', 'string', 'max:500'],
             'preferred_delivery_window' => ['nullable', 'string', 'max:255'],
             'preferred_timeslot' => [
                 'nullable',
@@ -54,8 +57,10 @@ class AdminOrderStoreRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->input('preferred_timeslot') === '') {
-            $this->merge(['preferred_timeslot' => null]);
-        }
+        $this->merge([
+            'allergies' => AllergyInputNormaliser::toArray($this->input('allergies')),
+            'allergies_note' => AllergyInputNormaliser::normaliseNote($this->input('allergies_note')),
+            'preferred_timeslot' => $this->input('preferred_timeslot') === '' ? null : $this->input('preferred_timeslot'),
+        ]);
     }
 }
