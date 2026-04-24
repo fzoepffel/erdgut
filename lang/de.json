@@ -1399,5 +1399,15 @@
     "subscriptions.skip_range_save": "Auszeit speichern",
     "subscriptions.skip_section_title": "Auszeit",
     "subscriptions.skip_until_label": "Auszeit bis",
-    "subscriptions.skip_window_text": "Auszeit von :from bis :until."
+    "subscriptions.skip_window_text": "Auszeit von :from bis :until.",
+    "Sunday": "Sonntag",
+    "Monday": "Montag",
+    "Tuesday": "Dienstag",
+    "Wednesday": "Mittwoch",
+    "Thursday": "Donnerstag",
+    "Friday": "Freitag",
+    "Saturday": "Samstag",
+    "No preference": "Keine Präferenz",
+    "Preferred weekday": "Bevorzugter Wochentag",
+    "Pick any day within your zone window. Admin may adjust an individual delivery if needed.": "Wähle einen Tag innerhalb deines Zonenfensters. Die Verwaltung kann einzelne Lieferungen bei Bedarf anpassen."
 }

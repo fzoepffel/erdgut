@@ -6,15 +6,15 @@ use App\Enums\FulfillmentMode;
 use App\Enums\SubscriptionPlan;
 use App\Http\Controllers\Onboarding\OnboardingController;
 use App\Http\Requests\Onboarding\SubscriptionScheduleStepRequest;
-use App\Models\Delivery;
 use App\Services\Onboarding\OnboardingDraftManager;
+use App\Support\DeliveryZoneResolver;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class ScheduleStepController extends OnboardingController
 {
-    public function show(Request $request): RedirectResponse|View
+    public function show(Request $request, DeliveryZoneResolver $zone): RedirectResponse|View
     {
         $user = $request->user();
         if ($user === null) {
@@ -23,13 +23,15 @@ class ScheduleStepController extends OnboardingController
 
         $draft = $this->drafts->currentOrCreate($request);
         $data = $draft->data ?? [];
+        $zoneKey = $zone->resolveZoneKey($user->id);
 
         return view('onboarding.subscription.schedule', [
             'draft' => $draft,
             'data' => $data,
             'plans' => [SubscriptionPlan::Weekly, SubscriptionPlan::Biweekly],
             'fulfillmentModes' => FulfillmentMode::cases(),
-            'timeslots' => Delivery::allowedTimeslots(),
+            'timeslots' => $zone->allowedTimeslots($zoneKey),
+            'allowedWeekdays' => $zone->allowedWeekdays($zoneKey),
         ]);
     }
 
@@ -46,6 +48,7 @@ class ScheduleStepController extends OnboardingController
         $this->drafts->update($draft, [
             'plan' => $validated['plan'],
             'fulfillment_mode' => $validated['fulfillment_mode'],
+            'delivery_weekday' => $validated['delivery_weekday'] ?? null,
             'preferred_timeslot' => $validated['preferred_timeslot'] ?? null,
             'delivery_instructions' => $validated['delivery_instructions'] ?? null,
             'subscription_schedule_completed' => true,

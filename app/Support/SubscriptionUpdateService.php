@@ -20,7 +20,7 @@ class SubscriptionUpdateService
      */
     public function update(Subscription $subscription, array $attributes, int $actorUserId): Subscription
     {
-        $payload = Arr::only($attributes, ['box_size', 'preferences', 'allergies', 'plan', 'fulfillment_mode']);
+        $payload = Arr::only($attributes, ['box_size', 'preferences', 'allergies', 'plan', 'fulfillment_mode', 'delivery_weekday', 'preferred_timeslot']);
         $payload['allergies'] = $payload['allergies'] ?? [];
 
         $before = [
@@ -29,6 +29,10 @@ class SubscriptionUpdateService
             'allergies' => $subscription->allergies ?? [],
             'plan' => $subscription->plan,
             'fulfillment_mode' => $subscription->fulfillment_mode,
+            'delivery_weekday' => $subscription->delivery_weekday,
+            'preferred_timeslot' => $subscription->preferred_timeslot instanceof \BackedEnum
+                ? $subscription->preferred_timeslot->value
+                : $subscription->preferred_timeslot,
             'next_charge_date' => $subscription->next_charge_date?->toDateString(),
         ];
 
@@ -49,6 +53,10 @@ class SubscriptionUpdateService
                 'allergies' => $subscription->allergies ?? [],
                 'plan' => $subscription->plan,
                 'fulfillment_mode' => $subscription->fulfillment_mode,
+                'delivery_weekday' => $subscription->delivery_weekday,
+                'preferred_timeslot' => $subscription->preferred_timeslot instanceof \BackedEnum
+                    ? $subscription->preferred_timeslot->value
+                    : $subscription->preferred_timeslot,
                 'next_charge_date' => $subscription->next_charge_date?->toDateString(),
             ];
 

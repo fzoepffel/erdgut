@@ -38,6 +38,7 @@ class PaymentStepController extends OnboardingController
             'preferences' => $data['preferences'] ?? [],
             'allergies' => $data['allergies'] ?? [],
             'fulfillment_mode' => $data['fulfillment_mode'] ?? null,
+            'delivery_weekday' => $data['delivery_weekday'] ?? null,
             'preferred_timeslot' => $data['preferred_timeslot'] ?? null,
         ]);
 

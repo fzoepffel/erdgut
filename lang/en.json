@@ -547,6 +547,7 @@
     "Preferences": "Preferences",
     "Preferred timeslot": "Preferred timeslot",
     "Preferred week or date": "Preferred week or date",
+    "Preferred weekday": "Preferred weekday",
     "Preferred window": "Preferred window",
     "Price": "Price",
     "Price: high to low": "Price: high to low",
@@ -1399,5 +1400,14 @@
     "subscriptions.skip_range_save": "Save break",
     "subscriptions.skip_section_title": "Break",
     "subscriptions.skip_until_label": "Break until",
-    "subscriptions.skip_window_text": "Break from :from until :until."
+    "subscriptions.skip_window_text": "Break from :from until :until.",
+    "Sunday": "Sunday",
+    "Monday": "Monday",
+    "Tuesday": "Tuesday",
+    "Wednesday": "Wednesday",
+    "Thursday": "Thursday",
+    "Friday": "Friday",
+    "Saturday": "Saturday",
+    "No preference": "No preference",
+    "Pick any day within your zone window. Admin may adjust an individual delivery if needed.": "Pick any day within your zone window. Admin may adjust an individual delivery if needed."
 }
