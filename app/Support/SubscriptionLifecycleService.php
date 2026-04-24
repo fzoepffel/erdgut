@@ -2,8 +2,11 @@
 
 namespace App\Support;
 
+use App\Enums\OrderProductType;
+use App\Enums\OrderStatus;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
+use App\Models\Order;
 use App\Models\Subscription;
 use App\Models\SubscriptionSkipWeek;
 use Carbon\CarbonImmutable;
@@ -158,11 +161,45 @@ class SubscriptionLifecycleService
 
     public function computeNextChargeDate(Subscription $subscription): string
     {
-        $from = CarbonImmutable::today();
+        $today = CarbonImmutable::today();
+
+        $trialWeekStart = $this->openTrialDeliveryWeekStart($subscription, $today);
+        if ($trialWeekStart !== null) {
+            return $trialWeekStart->addWeek()->toDateString();
+        }
 
         return match ($subscription->plan) {
-            SubscriptionPlan::Weekly => $from->addWeek()->toDateString(),
-            SubscriptionPlan::Biweekly => $from->addWeeks(2)->toDateString(),
+            SubscriptionPlan::Weekly => $today->addWeek()->toDateString(),
+            SubscriptionPlan::Biweekly => $today->addWeeks(2)->toDateString(),
         };
+    }
+
+    private function openTrialDeliveryWeekStart(Subscription $subscription, CarbonImmutable $today): ?CarbonImmutable
+    {
+        $trial = Order::query()
+            ->where('user_id', $subscription->user_id)
+            ->where('product_type', OrderProductType::TrialBox)
+            ->whereIn('status', [OrderStatus::Paid, OrderStatus::Scheduled])
+            ->with('box:id,week_start_date')
+            ->latest()
+            ->first();
+
+        if ($trial === null) {
+            return null;
+        }
+
+        $source = $trial->box?->week_start_date
+            ?? $trial->scheduled_for_date
+            ?? null;
+
+        if ($source === null) {
+            return null;
+        }
+
+        $weekStart = CarbonImmutable::parse($source)->startOfWeek(CarbonImmutable::MONDAY)->startOfDay();
+
+        return $weekStart->greaterThanOrEqualTo($today->startOfWeek(CarbonImmutable::MONDAY))
+            ? $weekStart
+            : null;
     }
 }
