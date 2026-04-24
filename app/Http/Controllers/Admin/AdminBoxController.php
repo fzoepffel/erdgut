@@ -7,21 +7,31 @@ use App\Http\Controllers\Controller;
 use App\Models\Box;
 use App\Models\Product;
 use App\Models\Subscription;
+use App\Support\WeeklyDistributionService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class AdminBoxController extends Controller
 {
-    public function show(Box $box): View
+    public function show(Box $box, WeeklyDistributionService $distribution): View
     {
         $this->authorize('admin');
 
         $box->load([
             'user:id,email',
-            'items' => fn ($q) => $q->orderBy('id')->with('product:id'),
+            'items' => fn ($q) => $q->orderBy('id')->with('product:id,allergens,dietary_tags'),
             'items.product.translations',
         ]);
+
+        $allergies = array_values((array) ($box->allergies_snapshot ?? []));
+        $preferences = (array) ($box->preferences_snapshot ?? []);
+        $itemConflicts = $box->items
+            ->mapWithKeys(fn ($item) => [
+                $item->id => $item->product !== null
+                    && $distribution->conflictsWithSnapshot($item->product, $allergies, $preferences),
+            ])
+            ->all();
 
         $catalogQuery = Product::query();
         if ($box->week_start_date !== null) {
@@ -66,6 +76,7 @@ class AdminBoxController extends Controller
             'catalogProducts' => $catalogProducts,
             'adminCanMutateItems' => $box->allowsAdminLineEdits(),
             'budgetDetails' => $budgetDetails,
+            'itemConflicts' => $itemConflicts,
         ]);
     }
 
