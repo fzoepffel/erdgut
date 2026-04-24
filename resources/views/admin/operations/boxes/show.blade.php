@@ -119,8 +119,20 @@
             @endif
 
             @if (! $adminCanMutateItems)
-                <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
-                    {{ __('admin.box_items.read_only_notice') }}
+                <div class="flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between" role="status">
+                    <p>{{ __('admin.box_items.read_only_notice') }}</p>
+                    <form method="POST" action="{{ route('app.admin.boxes.override-edit', $box) }}" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        @csrf
+                        <input type="text" name="reason" maxlength="500" placeholder="{{ __('admin.box_items.override_reason_placeholder') }}" class="rounded-md border-amber-300 text-sm shadow-sm focus:border-amber-600 focus:ring-amber-600" />
+                        <input type="number" name="minutes" min="5" max="240" value="30" class="w-20 rounded-md border-amber-300 text-sm shadow-sm focus:border-amber-600 focus:ring-amber-600" aria-label="{{ __('admin.box_items.override_minutes_label') }}" />
+                        <button type="submit" class="inline-flex items-center justify-center rounded-md bg-amber-700 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-amber-800" onclick="return confirm('{{ __('admin.box_items.override_confirm') }}')">
+                            {{ __('admin.box_items.override_open') }}
+                        </button>
+                    </form>
+                </div>
+            @elseif ($box->hasActiveAdminEditOverride())
+                <div class="rounded-md border border-amber-300 bg-amber-100 px-4 py-3 text-sm text-amber-900" role="status">
+                    {{ __('admin.box_items.override_active', ['until' => $box->admin_edit_override_until?->translatedFormat('d.m.Y H:i')]) }}
                 </div>
             @endif
 

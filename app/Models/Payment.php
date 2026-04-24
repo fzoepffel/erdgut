@@ -67,6 +67,9 @@ class Payment extends Model
         'provider_payload',
         'paid_at',
         'failed_at',
+        'external_reference',
+        'manual_marked_at',
+        'manual_marked_by_user_id',
     ];
 
     /**
@@ -83,6 +86,7 @@ class Payment extends Model
             'provider_payload' => 'encrypted:array',
             'paid_at' => 'datetime',
             'failed_at' => 'datetime',
+            'manual_marked_at' => 'datetime',
         ];
     }
 
@@ -144,6 +148,22 @@ class Payment extends Model
             'failed_at' => now(),
             'failure_reason' => $reason,
             'paid_at' => null,
+        ]);
+    }
+
+    /**
+     * Mark this payment attempt as paid from an external source (bank transfer, cash, etc.).
+     */
+    public function markPaidExternally(string $reference, int $actorUserId): void
+    {
+        $this->update([
+            'status' => self::STATUS_PAID,
+            'paid_at' => now(),
+            'failed_at' => null,
+            'failure_reason' => null,
+            'external_reference' => $reference,
+            'manual_marked_at' => now(),
+            'manual_marked_by_user_id' => $actorUserId,
         ]);
     }
 }

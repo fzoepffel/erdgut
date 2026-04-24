@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\DeliveryStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminDeliveriesBulkDelayRequest;
 use App\Http\Requests\Admin\AdminDeliveriesIndexRequest;
 use App\Http\Requests\Admin\AdminDeliveriesSyncFromBoxesRequest;
 use App\Http\Requests\Admin\AdminDeliveryStoreRequest;
@@ -12,6 +13,7 @@ use App\Models\Address;
 use App\Models\Delivery;
 use App\Models\User;
 use App\Services\DeliveriesFromBoxesSync;
+use App\Support\AuditLogger;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -139,11 +141,97 @@ class AdminDeliveryController extends Controller
     {
         $this->authorize('admin');
 
-        $delivery->update($request->deliveryAttributes());
+        $attributes = $request->deliveryAttributes();
+        $before = [
+            'scheduled_for_date' => $delivery->scheduled_for_date?->toDateString(),
+            'timeslot' => $delivery->timeslot,
+            'address_id' => $delivery->address_id,
+            'status' => $delivery->status?->value,
+        ];
+
+        $delivery->update($attributes);
+
+        $after = [
+            'scheduled_for_date' => $delivery->scheduled_for_date?->toDateString(),
+            'timeslot' => $delivery->timeslot,
+            'address_id' => $delivery->address_id,
+            'status' => $delivery->status?->value,
+        ];
+
+        $rescheduled = $before['scheduled_for_date'] !== $after['scheduled_for_date']
+            || $before['timeslot'] !== $after['timeslot'];
+
+        if ($rescheduled) {
+            AuditLogger::log(
+                entityType: 'delivery',
+                entityId: $delivery->id,
+                action: 'admin_reschedule',
+                reason: $request->input('reason'),
+                metadata: [
+                    'before' => $before,
+                    'after' => $after,
+                    'cascades' => false,
+                ],
+            );
+        } elseif ($before !== $after) {
+            AuditLogger::log(
+                entityType: 'delivery',
+                entityId: $delivery->id,
+                action: 'admin_update',
+                fromState: $before['status'],
+                toState: $after['status'],
+                reason: $request->input('reason'),
+                metadata: [
+                    'before' => $before,
+                    'after' => $after,
+                ],
+            );
+        }
 
         return redirect()
             ->route('app.admin.deliveries.index')
             ->with('status', 'admin-delivery-updated');
+    }
+
+    public function bulkDelay(AdminDeliveriesBulkDelayRequest $request): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        $data = $request->validated();
+        $date = Carbon::parse($data['date'])->startOfDay();
+        $delta = (int) $data['delta_days'];
+        $reason = $data['reason'] ?? null;
+
+        $deliveries = Delivery::query()
+            ->whereDate('scheduled_for_date', $date->toDateString())
+            ->whereIn('status', [DeliveryStatus::Scheduled, DeliveryStatus::InTransit])
+            ->get();
+
+        foreach ($deliveries as $delivery) {
+            $before = $delivery->scheduled_for_date?->toDateString();
+            $after = Carbon::parse($before)->addDays($delta)->toDateString();
+
+            $delivery->update(['scheduled_for_date' => $after]);
+
+            AuditLogger::log(
+                entityType: 'delivery',
+                entityId: $delivery->id,
+                action: 'admin_bulk_delay',
+                reason: $reason,
+                metadata: [
+                    'before' => ['scheduled_for_date' => $before],
+                    'after' => ['scheduled_for_date' => $after],
+                    'delta_days' => $delta,
+                    'bulk_source_date' => $date->toDateString(),
+                ],
+                actorUserId: $request->user()?->id,
+            );
+        }
+
+        return redirect()
+            ->route('app.admin.deliveries.index', ['date_from' => $date->toDateString(), 'date_to' => $date->copy()->addDays($delta + 7)->toDateString()])
+            ->with('status', 'admin-deliveries-bulk-delayed')
+            ->with('admin_deliveries_bulk_count', $deliveries->count());
     }
 
     public function updateStatus(Request $request, Delivery $delivery): RedirectResponse
@@ -152,11 +240,26 @@ class AdminDeliveryController extends Controller
 
         $validated = $request->validate([
             'status' => ['required', 'string', Rule::in(array_map(fn (DeliveryStatus $s) => $s->value, DeliveryStatus::cases()))],
+            'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
+        $previousStatus = $delivery->status?->value;
+        $nextStatus = DeliveryStatus::from($validated['status']);
+
         $delivery->update([
-            'status' => DeliveryStatus::from($validated['status']),
+            'status' => $nextStatus,
         ]);
+
+        if ($previousStatus !== $nextStatus->value) {
+            AuditLogger::log(
+                entityType: 'delivery',
+                entityId: $delivery->id,
+                action: 'admin_status_change',
+                fromState: $previousStatus,
+                toState: $nextStatus->value,
+                reason: $validated['reason'] ?? null,
+            );
+        }
 
         return redirect()
             ->back()

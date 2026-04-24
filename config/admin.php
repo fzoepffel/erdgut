@@ -28,10 +28,12 @@ return [
     | Admin box planner horizon (weeks)
     |--------------------------------------------------------------------------
     |
-    | Forward weeks shown in the admin weekly box planner (ERD-190+). Capped at 8.
+    | Forward weeks shown in the admin weekly box planner (ERD-190+, bumped
+    | to 12 in ERD-335 to give operations a quarter of forward visibility).
+    | Capped at 12 to keep the compact grid readable.
     |
     */
-    'box_planner_weeks_ahead' => min(max((int) env('ADMIN_BOX_PLANNER_WEEKS_AHEAD', 4), 1), 8),
+    'box_planner_weeks_ahead' => min(max((int) env('ADMIN_BOX_PLANNER_WEEKS_AHEAD', 8), 1), 12),
 
     /*
     |--------------------------------------------------------------------------

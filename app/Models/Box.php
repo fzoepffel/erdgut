@@ -30,6 +30,7 @@ class Box extends Model
         'week_start_date',
         'status',
         'modification_deadline_at',
+        'admin_edit_override_until',
         'next_update_expected_at',
         'estimated_value',
         'preferences_snapshot',
@@ -50,6 +51,7 @@ class Box extends Model
             'status' => BoxStatus::class,
             'week_start_date' => 'date',
             'modification_deadline_at' => 'datetime',
+            'admin_edit_override_until' => 'datetime',
             'next_update_expected_at' => 'datetime',
             'estimated_value' => 'decimal:2',
             'preferences_snapshot' => 'array',
@@ -138,8 +140,20 @@ class Box extends Model
             return true;
         }
 
+        if ($this->admin_edit_override_until?->isFuture()) {
+            return true;
+        }
+
         return $this->status === BoxStatus::Editable
             && $this->modification_deadline_at?->isFuture();
+    }
+
+    /**
+     * Whether the admin edit override window is currently open.
+     */
+    public function hasActiveAdminEditOverride(): bool
+    {
+        return (bool) $this->admin_edit_override_until?->isFuture();
     }
 
     /**

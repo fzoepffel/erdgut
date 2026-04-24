@@ -51,7 +51,7 @@ final class WeeklyBoxPlannerService
             return 4;
         }
 
-        return min(max((int) $v, 1), 8);
+        return min(max((int) $v, 1), 12);
     }
 
     /**

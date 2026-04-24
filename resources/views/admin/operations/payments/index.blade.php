@@ -113,7 +113,8 @@
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.failure_reason') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.created_at') }}</th>
                                         <th scope="col" class="py-2 pe-4">paid_at</th>
-                                        <th scope="col" class="py-2 pe-0">failed_at</th>
+                                        <th scope="col" class="py-2 pe-4">failed_at</th>
+                                        <th scope="col" class="py-2 pe-0 text-right">{{ __('admin.operations.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
@@ -141,7 +142,24 @@
                                             <td class="py-3 pe-4 text-gray-600">{{ $payment->failure_reason ?? '—' }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $payment->created_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $payment->paid_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>
-                                            <td class="py-3 pe-0 text-gray-600">{{ $payment->failed_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>
+                                            <td class="py-3 pe-4 text-gray-600">{{ $payment->failed_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>
+                                            <td class="py-3 pe-0 text-right">
+                                                @if ($payment->status !== \App\Models\Payment::STATUS_PAID)
+                                                    <form method="POST" action="{{ route('app.admin.payments.mark-paid-externally', $payment) }}" class="inline-flex items-center gap-2" onsubmit="return confirm('{{ __('admin.operations.payments.mark_paid_externally_confirm') }}');">
+                                                        @csrf
+                                                        <input type="text" name="external_reference" required maxlength="160" placeholder="{{ __('admin.operations.payments.external_reference_placeholder') }}" class="w-40 rounded-md border-gray-300 text-xs shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                                                        <button type="submit" class="inline-flex items-center rounded-md bg-emerald-700 px-2 py-1 text-xs font-semibold text-white shadow-sm hover:bg-emerald-600">
+                                                            {{ __('admin.operations.payments.mark_paid_externally') }}
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    @if ($payment->external_reference)
+                                                        <span class="text-xs text-gray-500" title="{{ $payment->external_reference }}">{{ __('admin.operations.payments.external_marked') }}</span>
+                                                    @else
+                                                        <span class="text-xs text-gray-400">—</span>
+                                                    @endif
+                                                @endif
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
