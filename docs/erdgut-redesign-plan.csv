@@ -168,11 +168,11 @@ ERD-335,"Bump box_planner_weeks_ahead to 12 + multi-week compact grid",Admin ove
 ERD-336,Trial -> subscription defer next_charge_date,Payment correctness,Phase 6 - Payment correctness,P1,Done,4,,"Today a user who subscribes during an active trial gets next_charge_date = today + 1 week regardless of trial end. Fix: next_charge_date = Monday after trial delivery week.","- SubscriptionLifecycleService detects open trial on create.
 - Charge date defers to Monday after trial delivery.
 - Feature test covers the exact scenario.",payments;trial;bug
-ERD-337,Admin refund action,Payment correctness,Phase 6 - Payment correctness,P2,Backlog,5,ERD-312,"Admin can void a payment in the books and optionally call SumUp refund API.","- Admin payment detail has refund button (admin only).
+ERD-337,Admin refund action,Payment correctness,Phase 6 - Payment correctness,P2,Done,5,ERD-312,"Admin can void a payment in the books and optionally call SumUp refund API.","- Admin payment detail has refund button (admin only).
 - Refund row written; payment status -> Refunded.
 - Audit event emitted.
 - Optional provider API call is feature-flagged.",admin;payments;refund
-ERD-338,AuditEvent on force-charge / manual-paid actions,Payment correctness,Phase 6 - Payment correctness,P2,Backlog,3,ERD-312 ERD-330,"Every admin-initiated payment mutation writes an audit event with actor + reason.","- Hooks into existing actions.
+ERD-338,AuditEvent on force-charge / manual-paid actions,Payment correctness,Phase 6 - Payment correctness,P2,Done,3,ERD-312 ERD-330,"Every admin-initiated payment mutation writes an audit event with actor + reason.","- Hooks into existing actions.
 - Admin UI shows audit line-items in payment detail.",audit;payments
 ERD-339,Missing transactional email templates,Email,Phase 7 - Email,P2,Backlog,12,,"Templates to build: subscription-activated, box-composed, in-delivery, delivered, skip-confirmation, cancellation-confirmation, pause-exhausted. All three locales (de/en/fr).","- Seven Blade mail templates + class.
 - Plain-text alternatives.

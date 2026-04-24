@@ -65,6 +65,7 @@
                                 <option value="pending" @selected(request('status') === 'pending')>pending</option>
                                 <option value="paid" @selected(request('status') === 'paid')>paid</option>
                                 <option value="failed" @selected(request('status') === 'failed')>failed</option>
+                                <option value="refunded" @selected(request('status') === 'refunded')>refunded</option>
                             </select>
                         </div>
                         <div class="w-full sm:w-auto">
@@ -144,21 +145,22 @@
                                             <td class="py-3 pe-4 text-gray-600">{{ $payment->paid_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $payment->failed_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>
                                             <td class="py-3 pe-0 text-right">
-                                                @if ($payment->status !== \App\Models\Payment::STATUS_PAID)
-                                                    <form method="POST" action="{{ route('app.admin.payments.mark-paid-externally', $payment) }}" class="inline-flex items-center gap-2" onsubmit="return confirm('{{ __('admin.operations.payments.mark_paid_externally_confirm') }}');">
-                                                        @csrf
-                                                        <input type="text" name="external_reference" required maxlength="160" placeholder="{{ __('admin.operations.payments.external_reference_placeholder') }}" class="w-40 rounded-md border-gray-300 text-xs shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
-                                                        <button type="submit" class="inline-flex items-center rounded-md bg-emerald-700 px-2 py-1 text-xs font-semibold text-white shadow-sm hover:bg-emerald-600">
-                                                            {{ __('admin.operations.payments.mark_paid_externally') }}
-                                                        </button>
-                                                    </form>
-                                                @else
-                                                    @if ($payment->external_reference)
+                                                <div class="flex flex-wrap items-center justify-end gap-2">
+                                                    @if ($payment->status !== \App\Models\Payment::STATUS_PAID && $payment->status !== \App\Models\Payment::STATUS_REFUNDED)
+                                                        <form method="POST" action="{{ route('app.admin.payments.mark-paid-externally', $payment) }}" class="inline-flex items-center gap-2" onsubmit="return confirm('{{ __('admin.operations.payments.mark_paid_externally_confirm') }}');">
+                                                            @csrf
+                                                            <input type="text" name="external_reference" required maxlength="160" placeholder="{{ __('admin.operations.payments.external_reference_placeholder') }}" class="w-40 rounded-md border-gray-300 text-xs shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                                                            <button type="submit" class="inline-flex items-center rounded-md bg-emerald-700 px-2 py-1 text-xs font-semibold text-white shadow-sm hover:bg-emerald-600">
+                                                                {{ __('admin.operations.payments.mark_paid_externally') }}
+                                                            </button>
+                                                        </form>
+                                                    @elseif ($payment->status === \App\Models\Payment::STATUS_PAID && $payment->external_reference)
                                                         <span class="text-xs text-gray-500" title="{{ $payment->external_reference }}">{{ __('admin.operations.payments.external_marked') }}</span>
-                                                    @else
-                                                        <span class="text-xs text-gray-400">—</span>
                                                     @endif
-                                                @endif
+                                                    <a href="{{ route('app.admin.payments.show', $payment) }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50" data-testid="admin-payment-view-{{ $payment->id }}">
+                                                        {{ __('admin.operations.payments.view') }}
+                                                    </a>
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach
