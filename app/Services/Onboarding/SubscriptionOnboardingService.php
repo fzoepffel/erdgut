@@ -49,6 +49,9 @@ class SubscriptionOnboardingService
             $fulfillmentMode = FulfillmentMode::Delivery;
         }
 
+        $weekday = $payload['delivery_weekday'] ?? null;
+        $weekday = is_numeric($weekday) ? (int) $weekday : null;
+
         return Subscription::create([
             'user_id' => $user->id,
             'plan' => $plan,
@@ -57,6 +60,7 @@ class SubscriptionOnboardingService
             'allergies' => $payload['allergies'] ?? [],
             'status' => SubscriptionStatus::Active,
             'fulfillment_mode' => $fulfillmentMode,
+            'delivery_weekday' => $weekday,
             'preferred_timeslot' => $payload['preferred_timeslot'] ?? null,
         ]);
     }

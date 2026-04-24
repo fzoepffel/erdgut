@@ -66,6 +66,8 @@ class SubscriptionOnboardController extends Controller
             'box_size' => $validated['box_size'],
             'preferences' => $validated['preferences'],
             'allergies' => $validated['allergies'] ?? [],
+            'delivery_weekday' => $validated['delivery_weekday'] ?? null,
+            'preferred_timeslot' => $validated['preferred_timeslot'] ?? null,
             'status' => SubscriptionStatus::Active,
         ]);
 

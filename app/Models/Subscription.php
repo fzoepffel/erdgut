@@ -7,6 +7,7 @@ use App\Enums\BillingMode;
 use App\Enums\FulfillmentMode;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
+use App\Enums\Timeslot;
 use App\Services\Billing\BoxPricing;
 use Database\Factories\SubscriptionFactory;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -78,6 +79,7 @@ class Subscription extends Model
             'billing_mode' => BillingMode::class,
             'fulfillment_mode' => FulfillmentMode::class,
             'delivery_weekday' => 'integer',
+            'preferred_timeslot' => Timeslot::class,
             'preferences' => 'array',
             'allergies' => 'array',
             'next_charge_date' => 'date',
