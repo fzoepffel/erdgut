@@ -34,14 +34,18 @@ final class ScheduledChargeEligibility
             return false;
         }
 
+        $weekStart = BillingFulfillmentWeek::weekStartForScheduledCharge($subscription, $today);
+
+        if ($subscription->skipWeeks()->whereDate('week_start_date', $weekStart->toDateString())->exists()) {
+            return false;
+        }
+
         $latestPayment = $subscription->payments()->orderByDesc('attempt_number')->first();
         if ($latestPayment !== null) {
             if ($latestPayment->status === Payment::STATUS_PENDING || $latestPayment->status === Payment::STATUS_FAILED) {
                 return false;
             }
         }
-
-        $weekStart = BillingFulfillmentWeek::weekStartForScheduledCharge($subscription, $today);
 
         return ! Payment::hasPaidForFulfillmentWeek($subscription->id, $weekStart);
     }

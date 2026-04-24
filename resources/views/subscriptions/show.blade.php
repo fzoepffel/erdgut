@@ -196,6 +196,50 @@
                                 {{ __('subscriptions.no_skip_window_text') }}
                             @endif
                         </p>
+
+                        @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled && ! empty($skipPickerWeeks))
+                            <div class="mt-6 border-t border-brand-ink/10 pt-6">
+                                <p class="font-display text-lg text-brand-ink">{{ __('Pick weeks to skip') }}</p>
+                                <p class="mt-2 text-sm text-brand-ink/70">{{ __('Tick any weeks in the next twelve you want to skip. Uncheck to bring a week back.') }}</p>
+                                <form method="POST" action="{{ route('app.subscriptions.skip.weeks') }}" class="mt-4">
+                                    @csrf
+                                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                        @foreach ($skipPickerWeeks as $weekMonday)
+                                            @php
+                                                $iso = $weekMonday->toDateString();
+                                                $isUserSkipped = in_array($iso, $userSkippedWeeks, true);
+                                                $isLocked = in_array($iso, $pauseLockedWeeks, true);
+                                            @endphp
+                                            <label class="flex cursor-pointer items-start gap-2 border border-brand-ink/20 p-3 text-sm transition hover:border-brand-ink/40 has-[:checked]:border-chapter-bread has-[:checked]:bg-chapter-bread/10 @if($isLocked) cursor-not-allowed opacity-60 @endif">
+                                                <input
+                                                    type="checkbox"
+                                                    name="weeks[]"
+                                                    value="{{ $iso }}"
+                                                    @checked($isUserSkipped || $isLocked)
+                                                    @disabled($isLocked)
+                                                    class="mt-0.5 border-brand-ink/30 text-chapter-bread focus:ring-chapter-bread"
+                                                />
+                                                <span>
+                                                    <span class="block font-medium text-brand-ink">{{ $weekMonday->isoFormat('D. MMM') }}</span>
+                                                    <span class="block text-xs text-brand-ink/60">
+                                                        @if ($isLocked)
+                                                            {{ __('Locked by pause') }}
+                                                        @else
+                                                            {{ __('Week of :date', ['date' => $weekMonday->format('d.m.Y')]) }}
+                                                        @endif
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <x-input-error class="mt-2" :messages="$errors->get('weeks')" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('weeks.*')" />
+                                    <div class="mt-4">
+                                        <x-primary-button>{{ __('Save skipped weeks') }}</x-primary-button>
+                                    </div>
+                                </form>
+                            </div>
+                        @endif
                     </section>
 
                     <section id="sub-billing" class="scroll-mt-24 border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-billing">

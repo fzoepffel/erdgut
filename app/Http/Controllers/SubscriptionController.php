@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\SubscriptionCancelRequest;
 use App\Http\Requests\SubscriptionPauseRequest;
 use App\Http\Requests\SubscriptionResumeRequest;
+use App\Http\Requests\SubscriptionSkipWeeksRequest;
 use App\Http\Requests\SubscriptionStoreRequest;
 use App\Http\Requests\SubscriptionUpdateRequest;
 use App\Models\Subscription;
+use App\Models\SubscriptionSkipWeek;
 use App\Support\SubscriptionLifecycleService;
+use App\Support\SubscriptionSkipService;
 use App\Support\SubscriptionUpdateService;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -25,9 +28,39 @@ class SubscriptionController extends Controller
         $nextChargeDate = $subscription?->next_charge_date?->format('d.m.Y');
         $billingDateDisplay = $nextChargeDate ?? __('Set after first charge');
 
+        $skipPickerWeeks = [];
+        $userSkippedWeeks = [];
+        $pauseLockedWeeks = [];
+
+        if ($subscription !== null) {
+            $start = CarbonImmutable::today()->next(CarbonImmutable::MONDAY);
+            for ($i = 0; $i < 12; $i++) {
+                $skipPickerWeeks[] = $start->copy()->addWeeks($i);
+            }
+
+            $existing = $subscription->skipWeeks()
+                ->whereBetween('week_start_date', [$skipPickerWeeks[0]->toDateString(), $skipPickerWeeks[11]->toDateString()])
+                ->get();
+
+            $userSkippedWeeks = $existing
+                ->where('source', SubscriptionSkipWeek::SOURCE_USER)
+                ->pluck('week_start_date')
+                ->map(fn ($d) => $d->toDateString())
+                ->all();
+
+            $pauseLockedWeeks = $existing
+                ->whereIn('source', [SubscriptionSkipWeek::SOURCE_PAUSE_WINDOW, SubscriptionSkipWeek::SOURCE_ADMIN])
+                ->pluck('week_start_date')
+                ->map(fn ($d) => $d->toDateString())
+                ->all();
+        }
+
         return view('subscriptions.show', [
             'subscription' => $subscription,
             'billingDateDisplay' => $billingDateDisplay,
+            'skipPickerWeeks' => $skipPickerWeeks,
+            'userSkippedWeeks' => $userSkippedWeeks,
+            'pauseLockedWeeks' => $pauseLockedWeeks,
         ]);
     }
 
@@ -144,6 +177,29 @@ class SubscriptionController extends Controller
         return redirect()
             ->route('app.subscriptions.show')
             ->with('status', 'subscription-pause-scheduled');
+    }
+
+    public function updateSkipWeeks(
+        SubscriptionSkipWeeksRequest $request,
+        SubscriptionSkipService $subscriptionSkipService
+    ): RedirectResponse {
+        $subscription = $this->resolveSubscription($request);
+
+        if ($subscription === null) {
+            return redirect()
+                ->route('app.subscriptions.show')
+                ->with('status', 'subscription-missing');
+        }
+
+        $subscriptionSkipService->syncUserSkipWeeks(
+            $subscription,
+            $request->validated()['weeks'] ?? [],
+            $request->user()->id
+        );
+
+        return redirect()
+            ->route('app.subscriptions.show')
+            ->with('status', 'subscription-skip-weeks-updated');
     }
 
     public function resume(
