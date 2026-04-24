@@ -17,6 +17,8 @@ class Payment extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    public const STATUS_REFUNDED = 'refunded';
+
     /** @use HasFactory<PaymentFactory> */
     use HasFactory;
 
@@ -70,6 +72,11 @@ class Payment extends Model
         'external_reference',
         'manual_marked_at',
         'manual_marked_by_user_id',
+        'refunded_at',
+        'refund_amount',
+        'refund_reason',
+        'refund_reference',
+        'refunded_by_user_id',
     ];
 
     /**
@@ -87,6 +94,8 @@ class Payment extends Model
             'paid_at' => 'datetime',
             'failed_at' => 'datetime',
             'manual_marked_at' => 'datetime',
+            'refunded_at' => 'datetime',
+            'refund_amount' => 'decimal:2',
         ];
     }
 
@@ -164,6 +173,29 @@ class Payment extends Model
             'external_reference' => $reference,
             'manual_marked_at' => now(),
             'manual_marked_by_user_id' => $actorUserId,
+        ]);
+    }
+
+    /**
+     * Record a refund against this payment.
+     *
+     * Book-keeping only: the payment moves to STATUS_REFUNDED and refund metadata
+     * is persisted. Any provider-side refund call is handled separately so that
+     * ledger state is never blocked on external availability.
+     */
+    public function recordRefund(
+        float $amount,
+        int $actorUserId,
+        ?string $reason = null,
+        ?string $reference = null,
+    ): void {
+        $this->update([
+            'status' => self::STATUS_REFUNDED,
+            'refunded_at' => now(),
+            'refund_amount' => $amount,
+            'refund_reason' => $reason,
+            'refund_reference' => $reference,
+            'refunded_by_user_id' => $actorUserId,
         ]);
     }
 }
