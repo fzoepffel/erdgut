@@ -4,16 +4,19 @@ namespace App\Support;
 
 use App\Models\Box;
 use App\Models\BoxItem;
-use App\Models\Product;
 
 class BoxCompositionService
 {
     public function __construct(
-        private readonly BoxValueRecalculationService $recalculationService
+        private readonly BoxValueRecalculationService $recalculationService,
+        private readonly WeeklyDistributionService $distribution = new WeeklyDistributionService
     ) {}
 
     /**
      * Fill a box with default products based on its size's composition rules.
+     *
+     * Allergen and dietary filtering flows from the box's snapshots so a box's
+     * contents reflect the subscriber's preferences at the time the box was opened.
      *
      * @return int Number of items added.
      */
@@ -25,15 +28,18 @@ class BoxCompositionService
             return 0;
         }
 
+        $allergies = array_values((array) ($box->allergies_snapshot ?? []));
+        $preferences = (array) ($box->preferences_snapshot ?? []);
+
         $added = 0;
 
         foreach ($rules as $category => $count) {
-            $products = Product::query()
-                ->where('category', $category)
-                ->visibleInCatalog()
-                ->inRandomOrder()
-                ->limit((int) $count)
-                ->get();
+            $products = $this->distribution->pickProducts(
+                (string) $category,
+                (int) $count,
+                $allergies,
+                $preferences,
+            );
 
             foreach ($products as $product) {
                 BoxItem::create([

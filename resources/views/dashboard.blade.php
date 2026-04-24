@@ -187,60 +187,19 @@
                         </div>
                     </div>
                     <div class="p-6">
-                        @if ($deliveryCards->isEmpty())
-                            <x-empty-state
-                                :title="__('No deliveries on the calendar')"
-                                :description="__('When your subscription is active, your delivery days will show up here.')"
-                                variant="inset"
-                            >
-                                <x-slot name="action">
-                                    @if ($primarySubscription)
-                                        <a href="{{ route('app.deliveries.preferences.edit') }}" class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
-                                            {{ __('Review delivery preferences') }}
-                                        </a>
-                                    @else
-                                        <a href="{{ route('app.subscriptions.create') }}" class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
-                                            {{ __('Start a subscription') }}
-                                        </a>
-                                    @endif
-                                </x-slot>
-                            </x-empty-state>
-                        @else
-                            <ul class="space-y-4">
-                                @foreach ($deliveryCards as $card)
-                                    @php($delivery = $card['delivery'])
-                                    @php($box = $card['box'])
-                                    <li class="border border-brand-ink/15 p-5">
-                                        <div class="flex items-center justify-between gap-2">
-                                            <p class="font-display text-lg text-brand-ink">{{ $delivery->scheduled_for_date->format('D, d M Y') }}</p>
-                                            <x-status-badge :value="$delivery->status" type="delivery" />
-                                        </div>
-                                        <p class="mt-1 text-sm text-brand-ink/70">{{ $delivery->timeslot }}</p>
-                                        <p class="text-sm text-brand-ink/70">
-                                            {{ $delivery->address?->city ? __('To :city', ['city' => $delivery->address->city]) : __('Address not set') }}
-                                        </p>
-                                        @if ($card['deadline'])
-                                            <p class="mt-2 text-xs text-brand-ink/55">
-                                                {{ __('Modify by:') }} {{ $card['deadline']->format('D, d M Y H:i') }}
-                                            </p>
-                                        @else
-                                            <p class="mt-2 text-xs text-brand-ink/55">{{ __('Modify by: not available yet') }}</p>
-                                        @endif
-
-                                        <div class="mt-4 flex flex-wrap gap-2">
-                                            @if ($box)
-                                                <a href="{{ route('app.boxes.show', ['box' => $box]) }}" class="btn-ghost text-xs">
-                                                    {{ __('View box') }}
-                                                </a>
-                                            @endif
-                                            <a href="{{ route('app.deliveries.gift', $delivery) }}" class="btn-ghost text-xs">
-                                                {{ __('Gift box') }}
-                                            </a>
-                                        </div>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @endif
+                        <x-order-timeline :cards="$deliveryCards">
+                            <x-slot name="emptyAction">
+                                @if ($primarySubscription)
+                                    <a href="{{ route('app.deliveries.preferences.edit') }}" class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                                        {{ __('Review delivery preferences') }}
+                                    </a>
+                                @else
+                                    <a href="{{ route('app.subscriptions.create') }}" class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                                        {{ __('Start a subscription') }}
+                                    </a>
+                                @endif
+                            </x-slot>
+                        </x-order-timeline>
                     </div>
                 </section>
 
