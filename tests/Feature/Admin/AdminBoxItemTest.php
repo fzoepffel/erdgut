@@ -274,4 +274,51 @@ class AdminBoxItemTest extends TestCase
         $this->assertStringNotContainsString('admin_box_item_secret_tok', $html);
         $this->assertStringNotContainsString('sumup_token', $html);
     }
+
+    public function test_show_renders_conflict_chip_for_items_conflicting_with_snapshot(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+
+        $monday = Carbon::today()->next(Carbon::MONDAY)->toDateString();
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday,
+            'allergies_snapshot' => ['nuts'],
+            'preferences_snapshot' => ['veg_only' => true, 'eggs_dairy_add_on' => false],
+        ]);
+
+        $nutty = Product::factory()->create([
+            'allergens' => ['nuts'],
+            'dietary_tags' => ['vegetarian'],
+        ]);
+        $nutty->translations()->where('locale', 'en')->update(['name' => 'Walnut Bread']);
+        $nuttyItem = BoxItem::factory()->create(['box_id' => $box->id, 'product_id' => $nutty->id]);
+
+        $safe = Product::factory()->create([
+            'allergens' => [],
+            'dietary_tags' => ['vegan'],
+        ]);
+        $safe->translations()->where('locale', 'en')->update(['name' => 'Plain Carrot']);
+        BoxItem::factory()->create(['box_id' => $box->id, 'product_id' => $safe->id]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.boxes.show', $box))
+            ->assertOk()
+            ->assertSee('Walnut Bread')
+            ->assertSee('Plain Carrot')
+            ->assertSee('admin-box-item-conflict-chip', false)
+            ->assertSee('admin-box-force-include-hint', false)
+            ->getContent();
+
+        $chipTd = strpos($html, 'Walnut Bread');
+        $chipEnd = strpos($html, 'Plain Carrot');
+        $chipIndex = strpos($html, 'admin-box-item-conflict-chip');
+        $this->assertNotFalse($chipIndex);
+        $this->assertGreaterThan($chipTd, $chipIndex);
+        $this->assertLessThan($chipEnd, $chipIndex, 'Chip should render in the conflicting row, not the safe row.');
+
+        $chipCount = substr_count($html, 'admin-box-item-conflict-chip');
+        $this->assertSame(1, $chipCount, 'Only the conflicting item should show a chip.');
+    }
 }

@@ -64,6 +64,22 @@ class WeeklyDistributionService
     }
 
     /**
+     * Convenience for admin views: takes a raw preferences block (veg_only,
+     * eggs_dairy_add_on, …) instead of already-derived excluded tags.
+     *
+     * @param  array<int, string>  $allergies
+     * @param  array<string, mixed>  $preferences
+     */
+    public function conflictsWithSnapshot(Product $product, array $allergies, array $preferences): bool
+    {
+        return $this->conflicts(
+            $product,
+            array_values(array_filter(array_map('strval', $allergies))),
+            $this->excludedDietaryTags($preferences),
+        );
+    }
+
+    /**
      * @param  list<string>  $allergens
      * @param  list<string>  $excludedDietaryTags
      */
