@@ -1,0 +1,209 @@
+Ticket ID,Title,Epic,Phase,Priority,Status,Estimate Hours,Depends On,Description,Acceptance Criteria,Tags
+ERD-REDESIGN-00,Project context and locked decisions (reference row),Meta,Phase 0 - Reference,P0,Reference,0,,"Erdgut rewires three overlapping box-lifecycle models (Subscription->Box->Delivery, Order->Box->Delivery, Delivery+weekly-override gifting) into a single lineage. The audit found data drift on three axes: preferences live in 3 homes with no snapshot on boxes; address is chosen 3 different ways; status truth is split across 4 enums (OrderStatus, DeliveryStatus, BoxStatus, SubscriptionStatus). WeeklyBoxSetupService and TrialWeeklyBoxSetupService duplicate ~350 lines of distribution math.
+
+LOCKED DECISIONS (do not revisit without explicit owner approval):
+1. Trial Order stays as a thin shell, treated interchangeably downstream (NOT merged into Subscription).
+2. PaymentMandate lives on User (survives cancel -> resubscribe).
+3. Both pause window AND skip-set coexist; pause UI writes skip rows via SubscriptionSkipService (done in Phase 4).
+4. Delivery weekday is zone-derived WITHIN one day; user picks preferred day and timeslot but admin can reschedule individual deliveries without cascading downstream weeks.
+5. Cancellation notice is soft-disclaimed in copy (already done in P4.7). Admin handles exceptions manually.
+6. First-class billing_mode enum: sumup_recurring | manual_invoice | manual_cash.
+7. Preferences, allergies, and unit prices are SNAPSHOTTED on Box/BoxItem at compose time (simpler than versioning on Subscription).
+
+MODEL CHANGES (Phase 1 backbone):
+- NEW: payment_mandates (one per user, survives cancel)
+- boxes gains: subscription_id FK, preferences_snapshot JSON, allergies_snapshot JSON
+- box_items gains: unit_price_snapshot (historical receipts frozen)
+- deliveries gains: box_id FK (kills fragile user+week join)
+- subscriptions gains: address_id, delivery_weekday, preferred_timeslot, fulfillment_mode, billing_mode
+- NEW: audit_events (replaces scattered Log::info; admin-visible history)
+- NEW: subscription_skip_weeks (DONE in P4.4 — enables non-contiguous skips; pause window materializes into rows here)
+
+PRODUCT CATALOG EXPANSION (from notes):
+- products.allergens enum array (gluten, lactose, nuts, eggs, soy, fish, shellfish, celery, mustard, sesame, sulfites)
+- products.dietary_tags enum array (vegan, vegetarian, contains_meat, contains_fish, contains_dairy)
+- products.buying_price_cents (margin accessor)
+- products.taste_profile enum array (sweet, earthy, fresh, peppery, umami, bitter, crisp, ...)
+- products.pairings self-referential M2M (""goes well with"")
+- NEW: product_images (1..N per product, ordered)
+
+COMPOSITION ENGINE:
+WeeklyDistributionService (Phase 2) filters by user allergies + dietary prefs BEFORE distributing. Admin always has ""force include anyway"" override per item; warning chips in admin UI when forced item conflicts.
+
+PLANNING HORIZON:
+Config box_planner_weeks_ahead bumped to 12 (3 months). Admin weekly planner needs a compact multi-week grid view so 12 weeks doesn't overwhelm. Customer dashboard copy is already in place (""Orders and changes require a month's notice"" — P4.7 done).
+
+KNOWN BUGS TO FIX (folded into phase tickets):
+- Trial pricing: Order::amount is computed once at checkout and pastes 35 EUR regardless of size/add-ons. Fix: BoxPricing::compute(size, addOns) shared service used by trial checkout AND subscription expected-charge.
+- SumUp waiting state feels jarring in onboarding — redesign with reusable <x-payment.sumup-widget>.
+- Emails often go to spam — SPF/DKIM/DMARC + transactional provider migration.
+- Allergies stored as free text — move to enum-driven selector.
+
+STRESS-TEST FLOWS (target: all 12 must pass at end of Phase 8):
+1. Trial: signup -> pay -> delivered (works today)
+2. Subscription recurring (no alignment today between charge date and composed week)
+3. Subscribe during trial -> defer start (broken today — Phase 6)
+4. Skip next week (works)
+5. Skip non-contiguous weeks (DONE — P4.4)
+6. Cancel with notice (soft disclaim only — DONE P4.7)
+7. Change size mid-sub (works, copy done — P4.5)
+8. Change allergies (works, copy done)
+9. Switch to pickup (DONE — P4.1)
+10. Egg add-on toggle (works; history line-item still TBD)
+11. Change delivery weekday (broken — Phase 4.2)
+12. Payment fails -> retry/pause (works, ""mark paid externally"" TBD — Phase 5-6)
+13. Address changes apply to upcoming deliveries (DONE — P4.6)
+14. Admin creates trial on behalf (Phase 5)
+15. Admin creates subscription without SumUp cash/invoice (Phase 5)
+
+RECOMMENDED SHIPPING ORDER:
+Ship two small wins first — ERD-316 (SumUp widget) + ERD-336 (trial->sub defer) — before starting Phase 1 migrations. Each subsequent phase is independently deployable.","Reference only — not an implementation ticket. Do not close or mark Done.",reference;context
+ERD-300,Migration: payment_mandates table,Data backbone,Phase 1 - Data backbone,P1,Backlog,6,,"Extract payment mandate fields out of subscriptions into a new payment_mandates table keyed by user_id (one active per user, survives cancel -> resubscribe). Current subscription fields to migrate: sumup_token, sumup_customer_id, sumup_checkout_id, provider_payload. Keep columns on subscriptions temporarily for backfill; drop in a later migration after all reads switched.","- Migration creates payment_mandates with user_id FK, provider enum (sumup), status enum, token fields, timestamps.
+- Backfill script copies current active subscription mandate fields into payment_mandates rows.
+- Model PaymentMandate with $hidden on all token fields (do not leak to frontend/logs).
+- Feature test: a user who cancels and resubscribes reuses the same mandate row.",data;migration;payments
+ERD-301,Migration: boxes.subscription_id + preferences_snapshot + allergies_snapshot,Data backbone,Phase 1 - Data backbone,P1,Backlog,5,,"Make box lineage explicit and freeze preferences at compose time. Add subscription_id FK (nullable for trial boxes), preferences_snapshot JSON, allergies_snapshot JSON. Box should be immutable against later preference edits on the subscription.","- Migration adds three columns to boxes.
+- Backfill subscription_id from existing Delivery->user->active subscription linkage.
+- BoxComposer writes snapshot JSON at compose time.
+- Feature test: editing subscription preferences does not retroactively change a previously composed box.",data;migration;boxes
+ERD-302,Migration: box_items.unit_price_snapshot,Data backbone,Phase 1 - Data backbone,P1,Backlog,3,,"Freeze historical receipts so changing product.price in catalog does not mutate past box totals. Add unit_price_snapshot column, populate at item-add time, use for display in receipts and payment history.","- Migration adds unit_price_snapshot to box_items.
+- Backfill existing box_items from products.price at time of backfill (document this caveat in migration).
+- All receipt/history views read from snapshot.
+- Feature test: updating product price does not change totals on a historical box.",data;migration;billing
+ERD-303,Migration: deliveries.box_id FK,Data backbone,Phase 1 - Data backbone,P1,Backlog,4,,"Replace the fragile ""join deliveries by user_id + week_start_date"" with a direct box_id FK. Box becomes the canonical parent of a delivery.","- Migration adds box_id FK to deliveries.
+- Backfill via user_id + week_start match.
+- DeliveryProjector (ERD-314) writes box_id going forward.
+- All consumers switch to delivery->box relation instead of the join.",data;migration;deliveries
+ERD-304,Migration: subscriptions extended fields,Data backbone,Phase 1 - Data backbone,P1,Backlog,5,ERD-300,"Add the four missing subscription fields: address_id FK (explicit, not implicit primary), delivery_weekday (0-6), preferred_timeslot (morning/afternoon/evening), billing_mode enum (sumup_recurring|manual_invoice|manual_cash). fulfillment_mode was already added in P4.1.","- Migration adds address_id, delivery_weekday, preferred_timeslot, billing_mode to subscriptions.
+- Default billing_mode = sumup_recurring for existing rows.
+- Backfill address_id from user->primary_address.
+- SubscriptionUpdateRequest accepts all four new fields.",data;migration;subscription
+ERD-305,Migration: audit_events table,Data backbone,Phase 1 - Data backbone,P1,Backlog,4,,"New audit_events table replaces scattered Log::info calls across lifecycle services. Columns: id, user_id (actor), subject_type+subject_id (polymorphic), event_type, payload JSON, created_at. Admin-visible history is essential for improvised-admin workflows.","- Migration creates audit_events with polymorphic subject + indexed event_type.
+- Model AuditEvent with fluent scopes.
+- No writes yet — consumer code arrives in ERD-312.",data;migration;audit
+ERD-307,Migration: product_images table,Data backbone,Phase 1 - Data backbone,P2,Backlog,3,,"Support 1..N images per product with explicit ordering. Columns: id, product_id, path, alt_text, position, created_at.","- Migration creates product_images.
+- Model ProductImage with ordered relation on Product.
+- Product::image_url accessor prefers first product_image, falls back to legacy single image field.",data;migration;catalog
+ERD-308,"Migration: products catalog expansion (allergens, dietary_tags, buying_price_cents, taste_profile)",Data backbone,Phase 1 - Data backbone,P2,Backlog,4,,"Add the new enum-array columns and buying price to products. Triggers both composition filtering (ERD-313) and margin accessor.","- Migration adds allergens JSON, dietary_tags JSON, buying_price_cents integer, taste_profile JSON.
+- Product model casts enums correctly.
+- Product::margin_cents = price_cents - buying_price_cents accessor.
+- Admin form (ERD-317) exposes all new fields.",data;migration;catalog
+ERD-309,Migration: product_pairings pivot,Data backbone,Phase 1 - Data backbone,P3,Backlog,2,,"Self-referential M2M so ""goes well with"" can be rendered on product detail pages.","- Migration creates product_pairings pivot with product_id + paired_product_id + optional note.
+- Product::pairings relation (belongsToMany self).
+- Admin form picks pairings (ERD-317).",data;migration;catalog
+ERD-310,"Enums: Allergen, DietaryTag, TasteProfile, BillingMode; extend DeliveryStatus",Data backbone,Phase 1 - Data backbone,P1,Backlog,3,ERD-308 ERD-304,"Add the new PHP enums. FulfillmentMode was already added in P4.1. Extend DeliveryStatus with InTransit and Failed so delivery lifecycle can be tracked end-to-end.","- New enums live under app/Enums.
+- DeliveryStatus gains InTransit and Failed (migration updates any Delivery enum constraint).
+- Tests: enum casts roundtrip through DB.",enums;data
+ERD-311,BoxPricing shared service (fixes trial 35 EUR bug),Pricing,Phase 1 - Data backbone,P1,Backlog,6,ERD-302,"Today Order::amount is computed once at checkout and stays at 35 EUR regardless of chosen size or add-ons. Introduce BoxPricing::compute(BoxSize size, array addOns, BillingMode mode): PriceBreakdown and replace inline math in trial checkout and subscription recurring charge.","- BoxPricing service with one compute() method, covered by unit tests for every size + add-on combo.
+- Trial checkout pipes through BoxPricing.
+- Recurring charge pipes through BoxPricing.
+- Feature test: switching trial size from standard to family updates the displayed and charged amount.
+- Feature test: enabling eggs add-on adds the correct cents.",pricing;services;billing
+ERD-312,AuditLogger service + backfill call sites,Audit,Phase 1 - Data backbone,P2,Backlog,8,ERD-305,"AuditLogger::log(actor, subject, event_type, payload=[]) writes audit_events rows. Replace Log::info calls in lifecycle services (SubscriptionLifecycleService, SubscriptionUpdateService, SubscriptionSkipService, TrialOrderService, PaymentService) with audit calls.","- AuditLogger service with one log() method.
+- All lifecycle services emit audit events for: create, cancel, pause, resume, skip, plan_change, address_change, manual_paid, force_charge, refund.
+- Feature test: cancelling a subscription writes a single audit_events row with correct payload.",audit;services
+ERD-313,Extract WeeklyDistributionService (kills ~350 duplicated lines) with allergy/diet filtering,Unify,Phase 2 - Unify code paths,P1,Backlog,12,ERD-308,"Single distribution engine used by both trial and subscription compose paths. Pre-filters the product pool by user's allergies_snapshot and dietary tags BEFORE distributing. Admin UI exposes a ""force include anyway"" override per item with a warning chip when the forced item conflicts.","- WeeklyDistributionService with distribute(user, week, size, preferences): Collection<ProductAllocation>.
+- TrialWeeklyBoxSetupService and WeeklyBoxSetupService both delegate to it (no copy-pasted math).
+- Unit tests: allergen exclusion, dietary exclusion, force-include override, capacity cap.
+- Admin UI shows warning chip when forced item conflicts with snapshot.",services;composition;refactor
+ERD-314,Extract DeliveryProjector (single delivery-creation path),Unify,Phase 2 - Unify code paths,P1,Backlog,6,ERD-303,"All code that currently creates Delivery rows (trial flow, subscription recurring, admin reschedule) funnels through DeliveryProjector::project(box): Delivery. Sets box_id FK from ERD-303.","- DeliveryProjector service, used by all three call sites.
+- Deliveries always have non-null box_id going forward.
+- Feature test: trial checkout produces exactly one delivery per composed box.",services;deliveries;refactor
+ERD-315,Unify dashboard timeline (drop trial-branch),Unify,Phase 2 - Unify code paths,P2,Backlog,6,,"Today the dashboard has a separate trial branch. After ERD-303 it can render a single timeline of user->deliveries->box->items with zero branching.","- Single Blade partial renders the timeline for trial + subscription users.
+- Feature test: a user who is mid-trial and mid-subscription sees both deliveries in one chronological list.",ui;dashboard;refactor
+ERD-316,Reusable x-order-timeline and x-payment.sumup-widget (fixes SumUp waiting UX),Unify,Phase 2 - Unify code paths,P2,Backlog,6,,"The SumUp widget during onboarding currently shows an awkward waiting state. Extract into a reusable component with proper loading skeleton, timeout copy, and retry affordance. Also extract order timeline into a reusable Blade component for dashboard + order detail + admin views.","- <x-payment.sumup-widget> component with skeleton loader, timeout after 30s, retry button.
+- <x-order-timeline> component reused in 3+ views.
+- Manual smoke test in a browser during onboarding shows no visual gap.",ui;components;payments
+ERD-317,"Admin product form: allergens, dietary, buying price, taste, pairings, image gallery",Catalog,Phase 3 - Product catalog UX,P2,Backlog,10,ERD-307 ERD-308 ERD-309,"Single admin form covers all new product fields. Multi-select chips for allergens, dietary_tags, taste_profile. Pairings pick via typeahead. Image gallery with drag-to-reorder.","- Blade form with all new fields + image uploader.
+- Validation rules cover enum values and max image count.
+- Feature test: admin saves all fields; DB reflects them.",admin;catalog;forms
+ERD-318,"Customer product catalog: category logos, multi-image, taste chips, pairings",Catalog,Phase 3 - Product catalog UX,P2,Backlog,8,ERD-307 ERD-308 ERD-309,"Public product list and detail pages get category logos, image gallery carousel, taste profile chips, and a ""goes well with"" section.","- Public catalog renders new assets.
+- Product detail shows pairings with thumbnails.
+- Lighthouse performance not regressed (lazy-load images).",ui;catalog;public
+ERD-319,"Box detail view: product images, allergen badges, pairings",Catalog,Phase 3 - Product catalog UX,P3,Backlog,5,ERD-318,"The customer box detail page uses product_images, shows allergen badges per item, and renders a ""because you liked X"" pairings strip.","- Box detail template updated.
+- Feature test: allergen badges render for items with allergens.",ui;boxes;public
+ERD-320,P4.1 Pickup toggle (fulfillment_mode) — onboarding + edit,Customer flexibility,Phase 4 - Customer flexibility,P1,Done,0,,"Onboarding schedule step and subscription edit expose a pickup-vs-delivery radio. fulfillment_mode stored on subscriptions. Display on subscription detail page.","- DONE: see feature/phase-4-customer-flexibility commit 59c0a1c.",customer;flexibility;done
+ERD-321,P4.2 Preferred weekday + timeslot (zone-bounded),Customer flexibility,Phase 4 - Customer flexibility,P2,Backlog,10,ERD-304,"User picks preferred delivery day + timeslot within their zone's window. Admin can override per individual delivery without cascading to future weeks.","- Onboarding + subscription edit accept weekday (0-6) + timeslot enum.
+- Validation rejects weekdays outside zone window.
+- Admin delivery detail has a ""reschedule this delivery only"" action that writes a one-off override (does not change subscription default).
+- Feature tests cover both flows.",customer;flexibility
+ERD-322,P4.3 Eggs/dairy toggle (already wired) + history line-item,Customer flexibility,Phase 4 - Customer flexibility,P3,Done,0,,"The toggle itself was already wired in an earlier ticket. Follow-up: ensure the toggle write produces an audit_events line item (ERD-312) so customer and admin can see when it flipped.","- DONE: toggle wired.
+- FOLLOW-UP (part of ERD-312): audit line-item when flipped.",customer;flexibility;done
+ERD-323,P4.4 Skip-set UI (single + range + non-contiguous),Customer flexibility,Phase 4 - Customer flexibility,P1,Done,0,,"12-week Monday picker on subscription detail. Pause window materializes into same skip_weeks table (source=pause_window). Users can tick/untick non-contiguous weeks. next_charge_date advances past consecutive skip weeks.","- DONE: see feature/phase-4-customer-flexibility commit 05f99c6 / 59c0a1c.
+- subscription_skip_weeks table created.
+- SubscriptionSkipService + SubscriptionSkipWeeksRequest + controller + 5 passing feature tests.",customer;flexibility;done
+ERD-324,P4.5 ""Takes effect from week of X"" copy on edit confirmations,Customer flexibility,Phase 4 - Customer flexibility,P2,Done,0,,Subscription update confirmations show the week the change takes effect.,"- DONE: translation keys added in de/en/fr.
+- Edit confirmation renders the week Monday.",customer;flexibility;copy;done
+ERD-325,P4.6 ""Apply address change to upcoming deliveries"" on profile,Customer flexibility,Phase 4 - Customer flexibility,P2,Done,0,,Profile address edit shows count of upcoming deliveries that will inherit the new address.,"- DONE: DeliveryPreferencesController passes upcoming count.
+- preferences.blade.php renders trans_choice copy.",customer;flexibility;done
+ERD-326,P4.7 One-month notice copy + soft disclaimer everywhere,Customer flexibility,Phase 4 - Customer flexibility,P2,Done,0,,Customer-facing copy explains month's lead time and that admin handles exceptions.,"- DONE: lead-time disclaimer copy added to subscription edit + cancellation flows.",customer;copy;done
+ERD-327,P4.8 Better empty-box guidance + admin next-update-expected,Customer flexibility,Phase 4 - Customer flexibility,P2,Done,0,,"Empty box page shows ""Next update expected by :date"" when admin has set it. Admin can set/clear the timestamp from admin box detail.","- DONE: boxes.next_update_expected_at migration + Admin form + customer copy + 3 passing tests.",customer;flexibility;done
+ERD-328,Admin creates trial order on user behalf,Admin overrides,Phase 5 - Admin overrides,P2,Backlog,8,,"Fred phones in a trial — admin should be able to create the trial order from the admin UI, bypassing self-service. TrialOrderService already exists; needs a controller + form route.","- Admin route app.admin.orders.create.
+- Form picks user (typeahead), box size, delivery week, address.
+- Uses TrialOrderService under the hood.
+- Feature test covers the flow.",admin;trials
+ERD-329,Admin creates subscription with billing_mode=manual_invoice (no SumUp),Admin overrides,Phase 5 - Admin overrides,P2,Backlog,8,ERD-304,"First-class billing_mode means admin can spin up a subscription with manual_invoice or manual_cash. Recurring charge scheduler skips SumUp for these.","- Admin route app.admin.subscriptions.create.
+- billing_mode select in form.
+- ScheduledChargeCommand skips SumUp call for manual_invoice|manual_cash.
+- Feature test: manual_invoice subscription composes boxes but does not call SumUp.",admin;billing
+ERD-330,Admin ""mark payment paid externally"" action,Admin overrides,Phase 5 - Admin overrides,P2,Backlog,4,ERD-312,"Admin can mark a Payment row as paid from an external source (bank transfer, cash). Writes audit_events row.","- Admin payment detail has button.
+- Status transitions to Paid; external_reference captured.
+- Audit event emitted.
+- Feature test covers flow.",admin;payments
+ERD-331,Admin ""reschedule delivery"" without cascading,Admin overrides,Phase 5 - Admin overrides,P2,Backlog,5,ERD-321,"Admin can push a single delivery's date without moving future weeks.","- Admin delivery detail form.
+- Only this delivery row changes; subscription default untouched.
+- Audit event emitted.",admin;deliveries
+ERD-332,Admin ""resend transactional email"" on user/order/delivery,Admin overrides,Phase 5 - Admin overrides,P3,Backlog,4,ERD-339,"One button per user/order/delivery detail page to re-dispatch the most recent transactional email.","- Re-dispatch queued job.
+- Audit event emitted.",admin;email
+ERD-333,Admin ""edit box after deadline / delivery"" with audit trail,Admin overrides,Phase 5 - Admin overrides,P3,Backlog,5,ERD-312,"Current admin-box edits are blocked past the lock window. Add an ""override window"" action that unlocks with audit event.","- Unlock action available to admin only.
+- Audit event explicitly labels override.
+- Feature test: admin can edit, customer cannot.",admin;boxes
+ERD-334,Admin bulk ""delay all deliveries on day X by N days"",Admin overrides,Phase 5 - Admin overrides,P3,Backlog,6,,"When logistics fails on a particular day, admin runs one bulk action to shift all that day's deliveries by N days.","- Admin action selects date + delta.
+- All matching deliveries shift.
+- Each delivery gets an audit event.
+- Customer notification queued.",admin;deliveries;bulk
+ERD-335,"Bump box_planner_weeks_ahead to 12 + multi-week compact grid",Admin overrides,Phase 5 - Admin overrides,P2,Backlog,8,,"Config value goes from 4 to 12. Admin weekly planner gets a compact grid so 12 weeks is readable. Customer dashboard already has the lead-time copy (ERD-326).","- Config bumped.
+- New admin partial renders 12-week compact grid.
+- Performance acceptable on real data (see ERD-344).",admin;planner;horizon
+ERD-336,Trial -> subscription defer next_charge_date,Payment correctness,Phase 6 - Payment correctness,P1,Backlog,4,,"Today a user who subscribes during an active trial gets next_charge_date = today + 1 week regardless of trial end. Fix: next_charge_date = Monday after trial delivery week.","- SubscriptionLifecycleService detects open trial on create.
+- Charge date defers to Monday after trial delivery.
+- Feature test covers the exact scenario.",payments;trial;bug
+ERD-337,Admin refund action,Payment correctness,Phase 6 - Payment correctness,P2,Backlog,5,ERD-312,"Admin can void a payment in the books and optionally call SumUp refund API.","- Admin payment detail has refund button (admin only).
+- Refund row written; payment status -> Refunded.
+- Audit event emitted.
+- Optional provider API call is feature-flagged.",admin;payments;refund
+ERD-338,AuditEvent on force-charge / manual-paid actions,Payment correctness,Phase 6 - Payment correctness,P2,Backlog,3,ERD-312 ERD-330,"Every admin-initiated payment mutation writes an audit event with actor + reason.","- Hooks into existing actions.
+- Admin UI shows audit line-items in payment detail.",audit;payments
+ERD-339,Missing transactional email templates,Email,Phase 7 - Email,P2,Backlog,12,,"Templates to build: subscription-activated, box-composed, in-delivery, delivered, skip-confirmation, cancellation-confirmation, pause-exhausted. All three locales (de/en/fr).","- Seven Blade mail templates + class.
+- Plain-text alternatives.
+- Queued dispatch from lifecycle services.
+- Feature tests dispatch each.",email;templates
+ERD-340,Email deliverability (SPF + DKIM + DMARC + provider migration),Email,Phase 7 - Email,P1,Backlog,12,,"Emails often go to spam. Set SPF + DKIM + DMARC on erd-gut.de, configure proper From: kontakt@erd-gut.de + Reply-To + List-Unsubscribe, send multipart HTML+plain, and migrate SMTP -> transactional provider (Postmark or Resend). Postmark preferred for small-volume reputation.","- DNS records for SPF/DKIM/DMARC set and verified (mail-tester.com >= 9/10).
+- Laravel mail driver switched to Postmark (or Resend).
+- All transactional mails ship multipart.
+- List-Unsubscribe header on every send.
+- DNS record list committed to README.
+- MANUAL STEP documented for user.",email;deliverability;infra
+ERD-341,docs/transactional-emails.md matrix,Email,Phase 7 - Email,P3,Backlog,3,ERD-339,Complete matrix: trigger x recipient x template x test coverage.,"- docs/transactional-emails.md written.
+- Every row in matrix has passing feature test.",docs;email
+ERD-342,E2E feature tests for all stress-test flows + admin overrides,Polish,Phase 8 - Polish + tests,P2,Backlog,16,,"All 12 flows from the audit plus admin-override flows have feature tests that assert outcome (not just 200).","- Each flow has a dedicated test file.
+- CI green.",tests;qa
+ERD-343,Accessibility baseline (references ERD-119),Polish,Phase 8 - Polish + tests,P3,Backlog,8,,"Re-audit against WCAG AA. Focus order, contrast, form labels, skip-nav, aria-live for async states.","- Pa11y/axe clean on key pages.
+- Manual keyboard walkthrough.",a11y
+ERD-344,Performance audit on weekly planner with 12-week horizon,Polish,Phase 8 - Polish + tests,P3,Backlog,5,ERD-335,"With box_planner_weeks_ahead=12 the admin planner may thrash. Measure + fix N+1 and slow queries.","- Query count on planner index route documented before/after.
+- Any N+1s eliminated via eager loads.",performance;admin
+ERD-345,Redesign onboarding flow (reduce SumUp waiting friction),UX,Phase 2 - Unify code paths,P2,Backlog,10,ERD-316,"Beyond the widget fix (ERD-316), re-think the onboarding step order so the SumUp call happens with visible progress + clear expectations.","- Wireframe reviewed with owner.
+- Implementation ships behind the new x-payment.sumup-widget.
+- Dropoff metric improves in manual smoke test.",ux;onboarding
+ERD-346,Allergies as enum-driven selector (replaces free text),Customer flexibility,Phase 4 - Customer flexibility,P2,Backlog,6,ERD-310,"Today allergies are free text on the user row. Move to multi-select driven by Allergen enum; existing free text migrated with a best-effort mapping + a ""manual note"" fallback field.","- Migration adds allergies_enum JSON + keeps allergies_note for free text fallback.
+- Onboarding + profile + subscription forms use chips.
+- Composition filter (ERD-313) reads from enum column.
+- Feature test: user with gluten allergen does not receive wheat product.",customer;allergens
+ERD-347,Auto-filter box composition by user allergies + dietary tags,Composition,Phase 2 - Unify code paths,P1,Backlog,6,ERD-313 ERD-346,"WeeklyDistributionService pre-filters the pool before distributing. Belongs to ERD-313 but carved out as its own ticket because it requires both the service refactor and the allergen enum migration.","- Composition excludes products whose allergens intersect user's allergies_enum.
+- Composition excludes products whose dietary_tags conflict with user's dietary_pref.
+- Admin can force-include with warning.",composition;customer
+ERD-348,Trial pricing bug — use BoxPricing for correct size + add-ons,Pricing,Phase 1 - Data backbone,P1,Backlog,3,ERD-311,"Direct symptom: selecting family size during trial still posts 35 EUR. Also: enabling eggs add-on does not add cents. Fix by routing trial checkout through BoxPricing.","- Trial checkout amount matches BoxPricing output for selected size + add-ons.
+- Feature test covers standard/family x with/without eggs matrix.",pricing;trial;bug
+ERD-349,Taste profile per product + ""goes well with"" pairings UI,Catalog,Phase 3 - Product catalog UX,P3,Backlog,5,ERD-308 ERD-309 ERD-318,"Customer product detail renders taste profile chips and a pairings strip with thumbnails. Depends on catalog data work.","- Product detail shows taste chips.
+- Pairings strip links to each pair's detail.
+- Empty state renders gracefully when no pairings.",ui;catalog
