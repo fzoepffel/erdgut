@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Onboarding\Subscription;
 
+use App\Enums\FulfillmentMode;
 use App\Enums\SubscriptionPlan;
 use App\Http\Controllers\Onboarding\OnboardingController;
 use App\Http\Requests\Onboarding\SubscriptionScheduleStepRequest;
@@ -27,6 +28,7 @@ class ScheduleStepController extends OnboardingController
             'draft' => $draft,
             'data' => $data,
             'plans' => [SubscriptionPlan::Weekly, SubscriptionPlan::Biweekly],
+            'fulfillmentModes' => FulfillmentMode::cases(),
             'timeslots' => Delivery::allowedTimeslots(),
         ]);
     }
@@ -43,7 +45,8 @@ class ScheduleStepController extends OnboardingController
 
         $this->drafts->update($draft, [
             'plan' => $validated['plan'],
-            'preferred_timeslot' => $validated['preferred_timeslot'],
+            'fulfillment_mode' => $validated['fulfillment_mode'],
+            'preferred_timeslot' => $validated['preferred_timeslot'] ?? null,
             'delivery_instructions' => $validated['delivery_instructions'] ?? null,
             'subscription_schedule_completed' => true,
         ], OnboardingDraftManager::STEP_SUBSCRIPTION_PAYMENT);
@@ -52,7 +55,7 @@ class ScheduleStepController extends OnboardingController
         $user->deliveryPreference()->updateOrCreate(
             ['user_id' => $user->id],
             [
-                'preferred_timeslot' => $validated['preferred_timeslot'],
+                'preferred_timeslot' => $validated['preferred_timeslot'] ?? null,
                 'phone' => $user->phone,
                 'instructions' => $validated['delivery_instructions'] ?? null,
             ]

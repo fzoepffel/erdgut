@@ -2,6 +2,7 @@
 
 namespace App\Services\Onboarding;
 
+use App\Enums\FulfillmentMode;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
@@ -41,6 +42,13 @@ class SubscriptionOnboardingService
             ? $payload['plan']
             : SubscriptionPlan::from((string) ($payload['plan'] ?? SubscriptionPlan::Weekly->value));
 
+        $fulfillmentMode = $payload['fulfillment_mode'] ?? null;
+        if (is_string($fulfillmentMode) && $fulfillmentMode !== '') {
+            $fulfillmentMode = FulfillmentMode::tryFrom($fulfillmentMode) ?? FulfillmentMode::Delivery;
+        } elseif (! $fulfillmentMode instanceof FulfillmentMode) {
+            $fulfillmentMode = FulfillmentMode::Delivery;
+        }
+
         return Subscription::create([
             'user_id' => $user->id,
             'plan' => $plan,
@@ -48,6 +56,8 @@ class SubscriptionOnboardingService
             'preferences' => $payload['preferences'] ?? [],
             'allergies' => $payload['allergies'] ?? [],
             'status' => SubscriptionStatus::Active,
+            'fulfillment_mode' => $fulfillmentMode,
+            'preferred_timeslot' => $payload['preferred_timeslot'] ?? null,
         ]);
     }
 

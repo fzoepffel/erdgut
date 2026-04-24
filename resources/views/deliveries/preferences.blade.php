@@ -16,6 +16,15 @@
                 </p>
             @endif
 
+            @if ($upcomingDeliveryCount > 0)
+                <div class="mb-6 border-l-2 border-chapter-produce/70 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink/80">
+                    <p class="font-medium text-brand-ink">{{ __('Upcoming deliveries will use the saved address') }}</p>
+                    <p class="mt-1 font-editorial italic">
+                        {{ trans_choice(':count upcoming delivery will be updated|:count upcoming deliveries will be updated', $upcomingDeliveryCount, ['count' => $upcomingDeliveryCount]) }}
+                    </p>
+                </div>
+            @endif
+
             <div class="border border-brand-ink/15 bg-brand-cream/40 p-6 sm:p-10">
                 <form method="post" action="{{ route('app.deliveries.preferences.update') }}" class="space-y-8">
                     @csrf

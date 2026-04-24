@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\DeliveryStatus;
 use App\Http\Requests\DeliveryPreferencesUpdateRequest;
 use App\Models\Address;
+use App\Models\Delivery;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,9 +20,16 @@ class DeliveryPreferencesController extends Controller
         $address = $user->primaryAddress()->first();
         $deliveryPreference = $user->deliveryPreference()->first();
 
+        $upcomingDeliveryCount = Delivery::query()
+            ->where('user_id', $user->id)
+            ->where('status', DeliveryStatus::Scheduled)
+            ->whereDate('scheduled_for_date', '>=', now()->toDateString())
+            ->count();
+
         return view('deliveries.preferences', [
             'address' => $address,
             'deliveryPreference' => $deliveryPreference,
+            'upcomingDeliveryCount' => $upcomingDeliveryCount,
         ]);
     }
 
