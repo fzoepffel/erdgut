@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\AdminBoxItemController;
 use App\Http\Controllers\Admin\AdminBoxSetupController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
+use App\Http\Controllers\Admin\AdminEmailResendController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
@@ -194,9 +195,16 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:20,1')
                 ->name('subscriptions.store');
             Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
+            Route::get('payments/{payment}', [AdminPaymentController::class, 'show'])->name('payments.show');
             Route::post('payments/{payment}/mark-paid-externally', [AdminPaymentController::class, 'markPaidExternally'])
                 ->middleware('throttle:30,1')
                 ->name('payments.mark-paid-externally');
+            Route::post('payments/{payment}/refund', [AdminPaymentController::class, 'refund'])
+                ->middleware('throttle:20,1')
+                ->name('payments.refund');
+            Route::post('emails/resend', [AdminEmailResendController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('emails.resend');
             Route::get('billing/upcoming', [AdminUpcomingChargeController::class, 'index'])->name('billing.upcoming');
             Route::get('billing/coverage', [AdminBillingCoverageController::class, 'index'])->name('billing.coverage');
             Route::post('billing/charge', [AdminBillingCoverageController::class, 'charge'])

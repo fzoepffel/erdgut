@@ -4,12 +4,17 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminPaymentMarkPaidExternallyRequest;
+use App\Http\Requests\Admin\AdminPaymentRefundRequest;
 use App\Http\Requests\Admin\AdminPaymentsIndexRequest;
+use App\Models\AuditEvent;
 use App\Models\Payment;
 use App\Support\AuditLogger;
+use App\Support\SumUpService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class AdminPaymentController extends Controller
 {
@@ -84,6 +89,105 @@ class AdminPaymentController extends Controller
             'dateField' => $dateField,
             'kind' => $kind,
         ]);
+    }
+
+    /**
+     * ERD-338: admin payment detail page with the audit trail for this payment.
+     * Also the host page for the refund action (ERD-337).
+     */
+    public function show(Payment $payment): View
+    {
+        $this->authorize('admin');
+
+        $payment->load([
+            'subscription:id,user_id,plan,status',
+            'subscription.user:id,email',
+            'order:id,user_id',
+            'order.user:id,email',
+        ]);
+
+        $auditEvents = AuditEvent::query()
+            ->where('entity_type', 'payment')
+            ->where('entity_id', $payment->id)
+            ->with('actor:id,email')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+
+        return view('admin.operations.payments.show', [
+            'payment' => $payment,
+            'auditEvents' => $auditEvents,
+            'refundApiEnabled' => (bool) config('payments.refund_api_enabled'),
+        ]);
+    }
+
+    /**
+     * ERD-337: admin refund action.
+     *
+     * Updates local ledger unconditionally; optionally calls the SumUp refund API
+     * when `config('payments.refund_api_enabled')` is on. Provider failure is
+     * logged and surfaced as a non-blocking status message — local refund is
+     * already recorded so the books don't drift.
+     */
+    public function refund(AdminPaymentRefundRequest $request, Payment $payment, SumUpService $sumUpService): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        if ($payment->status !== Payment::STATUS_PAID) {
+            return redirect()
+                ->back()
+                ->with('status', 'admin-payment-refund-not-allowed');
+        }
+
+        $previousStatus = $payment->status;
+        $amount = $request->validated('refund_amount') !== null
+            ? (float) $request->validated('refund_amount')
+            : (float) $payment->amount;
+        $reason = $request->validated('refund_reason');
+        $reference = $request->validated('refund_reference');
+        $actorId = (int) $request->user()->id;
+
+        $payment->recordRefund($amount, $actorId, $reason, $reference);
+
+        $providerStatus = null;
+        $transactionId = (string) ($payment->sumup_payment_id ?? '');
+        if ((bool) config('payments.refund_api_enabled') && $transactionId !== '') {
+            try {
+                $sumUpService->refund($transactionId, $amount);
+                $providerStatus = 'ok';
+            } catch (Throwable $e) {
+                $providerStatus = 'failed';
+                Log::warning('payment.refund.provider_failed', [
+                    'payment_id' => $payment->id,
+                    'exception_class' => $e::class,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        AuditLogger::log(
+            entityType: 'payment',
+            entityId: $payment->id,
+            action: 'refund',
+            fromState: $previousStatus,
+            toState: Payment::STATUS_REFUNDED,
+            reason: $reason,
+            metadata: array_filter([
+                'amount' => (string) $amount,
+                'currency' => $payment->currency,
+                'refund_reference' => $reference,
+                'provider_call' => $providerStatus,
+            ], static fn ($v) => $v !== null),
+            actorUserId: $actorId,
+        );
+
+        $statusKey = $providerStatus === 'failed'
+            ? 'admin-payment-refund-recorded-provider-failed'
+            : 'admin-payment-refunded';
+
+        return redirect()
+            ->route('app.admin.payments.show', $payment)
+            ->with('status', $statusKey);
     }
 
     public function markPaidExternally(AdminPaymentMarkPaidExternallyRequest $request, Payment $payment): RedirectResponse

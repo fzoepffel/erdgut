@@ -2,8 +2,10 @@
 
 namespace App\Support;
 
+use App\Mail\BoxComposedMail;
 use App\Models\Box;
 use App\Models\BoxItem;
+use Illuminate\Support\Facades\Mail;
 
 class BoxCompositionService
 {
@@ -56,6 +58,11 @@ class BoxCompositionService
 
         if ($added > 0) {
             $this->recalculationService->recalculate($box);
+
+            $recipient = $box->user?->email;
+            if ($recipient !== null && $recipient !== '') {
+                Mail::to($recipient)->queue(new BoxComposedMail($box->fresh() ?? $box));
+            }
         }
 
         return $added;

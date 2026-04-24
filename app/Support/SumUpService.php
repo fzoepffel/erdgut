@@ -232,4 +232,48 @@ class SumUpService
     {
         return $this->client->customers()->listPaymentInstruments($customerId);
     }
+
+    /**
+     * Issue a refund on an existing transaction via SumUp's API.
+     *
+     * Feature-flagged behind config('payments.refund_api_enabled'); callers are
+     * expected to check the flag before reaching here. The local refund ledger
+     * row is written separately so admins can record refunds even when the
+     * provider is offline — this only covers the external API call.
+     *
+     * Returns true on success, throws on failure.
+     */
+    public function refund(string $transactionId, ?float $amount = null): bool
+    {
+        $payload = $amount !== null ? ['amount' => $amount] : [];
+
+        try {
+            $this->client->transactions()->refund($transactionId, $payload);
+        } catch (\Throwable $e) {
+            $responseBody = null;
+            $statusCode = null;
+            if ($e instanceof SDKException) {
+                $statusCode = $e->getStatusCode();
+                $raw = $e->getResponseBody();
+                $responseBody = is_string($raw) ? mb_substr($raw, 0, 500) : $raw;
+            }
+
+            SumUpCheckoutLogger::warning('SumUp transactions.refund failed.', [
+                'transaction_id' => $transactionId,
+                'exception_class' => $e::class,
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
+                'sumup_status_code' => $statusCode,
+                'sumup_response_body' => $responseBody,
+            ]);
+
+            throw $e;
+        }
+
+        SumUpCheckoutLogger::info('SumUp transactions.refund succeeded.', [
+            'transaction_id' => $transactionId,
+            'amount' => $amount,
+        ]);
+
+        return true;
+    }
 }

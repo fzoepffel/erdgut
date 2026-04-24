@@ -24,6 +24,7 @@ class AdminPaymentsIndexRequest extends FormRequest
                 Payment::STATUS_PENDING,
                 Payment::STATUS_PAID,
                 Payment::STATUS_FAILED,
+                Payment::STATUS_REFUNDED,
             ])],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
