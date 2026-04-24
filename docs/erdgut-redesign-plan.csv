@@ -153,7 +153,7 @@ ERD-330,Admin ""mark payment paid externally"" action,Admin overrides,Phase 5 - 
 ERD-331,Admin ""reschedule delivery"" without cascading,Admin overrides,Phase 5 - Admin overrides,P2,Done,5,ERD-321,"Admin can push a single delivery's date without moving future weeks.","- Admin delivery detail form.
 - Only this delivery row changes; subscription default untouched.
 - Audit event emitted.",admin;deliveries
-ERD-332,Admin ""resend transactional email"" on user/order/delivery,Admin overrides,Phase 5 - Admin overrides,P3,Backlog,4,ERD-339,"One button per user/order/delivery detail page to re-dispatch the most recent transactional email.","- Re-dispatch queued job.
+ERD-332,Admin ""resend transactional email"" on user/order/delivery,Admin overrides,Phase 5 - Admin overrides,P3,Done,4,ERD-339,"One button per user/order/delivery detail page to re-dispatch the most recent transactional email.","- Re-dispatch queued job.
 - Audit event emitted.",admin;email
 ERD-333,Admin ""edit box after deadline / delivery"" with audit trail,Admin overrides,Phase 5 - Admin overrides,P3,Done,5,ERD-312,"Current admin-box edits are blocked past the lock window. Add an ""override window"" action that unlocks with audit event.","- Unlock action available to admin only.
 - Audit event explicitly labels override.
@@ -174,7 +174,7 @@ ERD-337,Admin refund action,Payment correctness,Phase 6 - Payment correctness,P2
 - Optional provider API call is feature-flagged.",admin;payments;refund
 ERD-338,AuditEvent on force-charge / manual-paid actions,Payment correctness,Phase 6 - Payment correctness,P2,Done,3,ERD-312 ERD-330,"Every admin-initiated payment mutation writes an audit event with actor + reason.","- Hooks into existing actions.
 - Admin UI shows audit line-items in payment detail.",audit;payments
-ERD-339,Missing transactional email templates,Email,Phase 7 - Email,P2,Backlog,12,,"Templates to build: subscription-activated, box-composed, in-delivery, delivered, skip-confirmation, cancellation-confirmation, pause-exhausted. All three locales (de/en/fr).","- Seven Blade mail templates + class.
+ERD-339,Missing transactional email templates,Email,Phase 7 - Email,P2,Done,12,,"Templates to build: subscription-activated, box-composed, in-delivery, delivered, skip-confirmation, cancellation-confirmation, pause-exhausted. All three locales (de/en/fr).","- Seven Blade mail templates + class.
 - Plain-text alternatives.
 - Queued dispatch from lifecycle services.
 - Feature tests dispatch each.",email;templates
@@ -184,7 +184,7 @@ ERD-340,Email deliverability (SPF + DKIM + DMARC + provider migration),Email,Pha
 - List-Unsubscribe header on every send.
 - DNS record list committed to README.
 - MANUAL STEP documented for user.",email;deliverability;infra
-ERD-341,docs/transactional-emails.md matrix,Email,Phase 7 - Email,P3,Backlog,3,ERD-339,Complete matrix: trigger x recipient x template x test coverage.,"- docs/transactional-emails.md written.
+ERD-341,docs/transactional-emails.md matrix,Email,Phase 7 - Email,P3,Done,3,ERD-339,Complete matrix: trigger x recipient x template x test coverage.,"- docs/transactional-emails.md written.
 - Every row in matrix has passing feature test.",docs;email
 ERD-342,E2E feature tests for all stress-test flows + admin overrides,Polish,Phase 8 - Polish + tests,P2,Backlog,16,,"All 12 flows from the audit plus admin-override flows have feature tests that assert outcome (not just 200).","- Each flow has a dedicated test file.
 - CI green.",tests;qa

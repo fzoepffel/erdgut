@@ -5,12 +5,14 @@ namespace App\Services\Onboarding;
 use App\Enums\FulfillmentMode;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
+use App\Mail\SubscriptionActivatedMail;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Billing\SumUpMandateManager;
 use App\Support\SubscriptionLifecycleService;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /**
@@ -165,6 +167,11 @@ class SubscriptionOnboardingService
         ]);
 
         $subscription->activate();
+
+        $fresh = $subscription->fresh();
+        if ($fresh !== null && ($fresh->user?->email ?? '') !== '') {
+            Mail::to($fresh->user->email)->queue(new SubscriptionActivatedMail($fresh));
+        }
 
         return true;
     }

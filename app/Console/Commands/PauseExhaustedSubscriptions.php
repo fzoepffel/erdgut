@@ -3,12 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Enums\SubscriptionStatus;
+use App\Mail\SubscriptionPauseExhaustedMail;
 use App\Models\Payment;
 use App\Models\PaymentMandate;
 use App\Models\Subscription;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class PauseExhaustedSubscriptions extends Command
 {
@@ -45,11 +47,17 @@ class PauseExhaustedSubscriptions extends Command
 
         $paused = 0;
         foreach ($exhausted as $row) {
-            $row['subscription']->pause();
+            $subscription = $row['subscription'];
+            $subscription->pause();
             $paused++;
             Log::info('PauseExhaustedSubscriptions: paused subscription after max retries.', [
-                'subscription_id' => $row['subscription']->id,
+                'subscription_id' => $subscription->id,
             ]);
+
+            $recipient = $subscription->user?->email;
+            if ($recipient !== null && $recipient !== '') {
+                Mail::to($recipient)->queue(new SubscriptionPauseExhaustedMail($subscription->fresh() ?? $subscription));
+            }
         }
 
         $this->info("Paused {$paused} subscription(s).");

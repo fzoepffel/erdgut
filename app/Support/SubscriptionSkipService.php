@@ -4,10 +4,12 @@ namespace App\Support;
 
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
+use App\Mail\SubscriptionSkipConfirmationMail;
 use App\Models\Subscription;
 use App\Models\SubscriptionSkipWeek;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class SubscriptionSkipService
 {
@@ -58,7 +60,13 @@ class SubscriptionSkipService
                 actorUserId: $actorUserId,
             );
 
-            return $subscription->fresh();
+            $fresh = $subscription->fresh();
+            $recipient = $fresh?->user?->email;
+            if ($fresh !== null && $recipient !== null && $recipient !== '') {
+                Mail::to($recipient)->queue(new SubscriptionSkipConfirmationMail($fresh, $normalized));
+            }
+
+            return $fresh;
         });
     }
 

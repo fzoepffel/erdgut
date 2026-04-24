@@ -9,6 +9,8 @@ use App\Http\Requests\Admin\AdminDeliveriesIndexRequest;
 use App\Http\Requests\Admin\AdminDeliveriesSyncFromBoxesRequest;
 use App\Http\Requests\Admin\AdminDeliveryStoreRequest;
 use App\Http\Requests\Admin\AdminDeliveryUpdateRequest;
+use App\Mail\DeliveredMail;
+use App\Mail\DeliveryInTransitMail;
 use App\Models\Address;
 use App\Models\Delivery;
 use App\Models\User;
@@ -18,6 +20,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 class AdminDeliveryController extends Controller
@@ -161,6 +164,20 @@ class AdminDeliveryController extends Controller
         $rescheduled = $before['scheduled_for_date'] !== $after['scheduled_for_date']
             || $before['timeslot'] !== $after['timeslot'];
 
+        // ERD-339: email the customer when an admin transitions the delivery into
+        // an in-transit or delivered state (either is a notable event for them).
+        if ($before['status'] !== $after['status']) {
+            $recipient = $delivery->user?->email;
+            if ($recipient !== null && $recipient !== '') {
+                $fresh = $delivery->fresh() ?? $delivery;
+                if ($after['status'] === DeliveryStatus::InTransit->value) {
+                    Mail::to($recipient)->queue(new DeliveryInTransitMail($fresh));
+                } elseif ($after['status'] === DeliveryStatus::Delivered->value) {
+                    Mail::to($recipient)->queue(new DeliveredMail($fresh));
+                }
+            }
+        }
+
         if ($rescheduled) {
             AuditLogger::log(
                 entityType: 'delivery',
@@ -259,6 +276,18 @@ class AdminDeliveryController extends Controller
                 toState: $nextStatus->value,
                 reason: $validated['reason'] ?? null,
             );
+
+            // ERD-339: mirror the `update()` hook so quick status flips also
+            // notify the customer when they're the kind of transition we email about.
+            $recipient = $delivery->user?->email;
+            if ($recipient !== null && $recipient !== '') {
+                $fresh = $delivery->fresh() ?? $delivery;
+                if ($nextStatus === DeliveryStatus::InTransit) {
+                    Mail::to($recipient)->queue(new DeliveryInTransitMail($fresh));
+                } elseif ($nextStatus === DeliveryStatus::Delivered) {
+                    Mail::to($recipient)->queue(new DeliveredMail($fresh));
+                }
+            }
         }
 
         return redirect()
