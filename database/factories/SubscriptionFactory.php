@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\Allergen;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
@@ -31,7 +32,7 @@ class SubscriptionFactory extends Factory
                 'meat_add_on' => fake()->boolean(),
                 'eggs_dairy_add_on' => false,
             ],
-            'allergies' => fake()->randomElements(['nuts', 'gluten', 'lactose'], fake()->numberBetween(0, 2)),
+            'allergies' => fake()->randomElements(Allergen::values(), fake()->numberBetween(0, 2)),
             'status' => SubscriptionStatus::Active,
             'sumup_token' => fake()->optional()->sha1(),
             'sumup_customer_id' => fake()->optional()->uuid(),

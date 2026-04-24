@@ -54,6 +54,7 @@ class Subscription extends Model
         'box_size',
         'preferences',
         'allergies',
+        'allergies_note',
         'status',
         'next_charge_date',
         'pause_from',

@@ -121,21 +121,10 @@
 
                     @php
                         $oldAllergies = old('allergies');
-                        $allergiesValue = is_array($oldAllergies) ? implode(', ', $oldAllergies) : ($allergiesInput ?? '');
+                        $selectedAllergens = is_array($oldAllergies) ? $oldAllergies : ($selectedAllergens ?? []);
+                        $allergiesNoteValue = old('allergies_note', $allergiesNoteValue ?? '');
                     @endphp
-                    <div>
-                        <x-input-label for="allergies" :value="__('Allergies (comma separated)')" />
-                        <x-text-input
-                            id="allergies"
-                            name="allergies"
-                            type="text"
-                            class="mt-2 block w-full"
-                            :value="$allergiesValue"
-                            placeholder="{{ __('e.g. nuts, gluten') }}"
-                        />
-                        <x-input-error class="mt-2" :messages="$errors->get('allergies')" />
-                        <x-input-error class="mt-2" :messages="$errors->get('allergies.*')" />
-                    </div>
+                    @include('subscriptions._allergies_field')
 
                     <div class="flex flex-wrap items-center gap-4 pt-2">
                         <x-primary-button>{{ __('Create subscription') }}</x-primary-button>

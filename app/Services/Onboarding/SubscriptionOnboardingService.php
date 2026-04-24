@@ -58,6 +58,7 @@ class SubscriptionOnboardingService
             'box_size' => $payload['box_size'] ?? 'medium',
             'preferences' => $payload['preferences'] ?? [],
             'allergies' => $payload['allergies'] ?? [],
+            'allergies_note' => $payload['allergies_note'] ?? null,
             'status' => SubscriptionStatus::Active,
             'fulfillment_mode' => $fulfillmentMode,
             'delivery_weekday' => $weekday,

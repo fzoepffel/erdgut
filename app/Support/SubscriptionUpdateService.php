@@ -20,13 +20,15 @@ class SubscriptionUpdateService
      */
     public function update(Subscription $subscription, array $attributes, int $actorUserId): Subscription
     {
-        $payload = Arr::only($attributes, ['box_size', 'preferences', 'allergies', 'plan', 'fulfillment_mode', 'delivery_weekday', 'preferred_timeslot']);
+        $payload = Arr::only($attributes, ['box_size', 'preferences', 'allergies', 'allergies_note', 'plan', 'fulfillment_mode', 'delivery_weekday', 'preferred_timeslot']);
         $payload['allergies'] = $payload['allergies'] ?? [];
+        $payload['allergies_note'] = array_key_exists('allergies_note', $attributes) ? $attributes['allergies_note'] : $subscription->allergies_note;
 
         $before = [
             'box_size' => $subscription->box_size,
             'preferences' => $subscription->preferences ?? [],
             'allergies' => $subscription->allergies ?? [],
+            'allergies_note' => $subscription->allergies_note,
             'plan' => $subscription->plan,
             'fulfillment_mode' => $subscription->fulfillment_mode,
             'delivery_weekday' => $subscription->delivery_weekday,
@@ -51,6 +53,7 @@ class SubscriptionUpdateService
                 'box_size' => $subscription->box_size,
                 'preferences' => $subscription->preferences ?? [],
                 'allergies' => $subscription->allergies ?? [],
+                'allergies_note' => $subscription->allergies_note,
                 'plan' => $subscription->plan,
                 'fulfillment_mode' => $subscription->fulfillment_mode,
                 'delivery_weekday' => $subscription->delivery_weekday,
