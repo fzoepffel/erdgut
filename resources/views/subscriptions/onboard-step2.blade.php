@@ -1,14 +1,3 @@
-@php
-    $sumupLocale = match (config('app.locale')) {
-        'de' => 'de-DE',
-        default => 'en-GB',
-    };
-    $widgetErrorMap = [
-        'DECLINED' => __('Payment was declined. Please check your card details and try again.'),
-        'INVALID_CARD' => __('Payment was declined. Please check your card details and try again.'),
-        'FRAUD' => __('Payment was declined. Please check your card details and try again.'),
-    ];
-@endphp
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2">
@@ -47,96 +36,13 @@
                     </p>
                 </div>
                 <div class="p-4 sm:p-6">
-                    <script
-                        type="text/javascript"
-                        src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"
-                    ></script>
-
-                    <div
-                        x-data="{ widgetError: '' }"
-                        x-init="
-                            const widgetErrorMap = {{ json_encode($widgetErrorMap) }};
-                            const genericFail = {{ json_encode(__('Payment setup failed. Please try again.')) }};
-                            const genericDecline = {{ json_encode(__('Payment was declined. Please check your card details and try again.')) }};
-                            const mandateInvalid = {{ json_encode(__('The card authorization could not be completed. Refresh the page and try again, or use another card.')) }};
-                            if (!window.SumUpCard) {
-                                widgetError = {{ json_encode(__('Unable to load payment widget. Please refresh and try again.')) }};
-                            } else {
-                                try {
-                                    SumUpCard.mount({
-                                        id: 'sumup-card',
-                                        checkoutId: {{ json_encode($checkoutId) }},
-                                        email: {{ json_encode($subscription->user->email) }},
-                                        locale: {{ json_encode($sumupLocale) }},
-                                        showSaveCardOption: false,
-                                        onLoad: function() {
-                                            const poll = setInterval(function() {
-                                                const cb = document.querySelector('input[type=checkbox]');
-                                                if (cb && !cb.checked) {
-                                                    cb.click();
-                                                    clearInterval(poll);
-                                                } else if (cb && cb.checked) {
-                                                    clearInterval(poll);
-                                                }
-                                            }, 100);
-                                            setTimeout(function() { clearInterval(poll); }, 5000);
-                                        },
-                                        onResponse: function(type, body) {
-                                            if (type === 'success') {
-                                                const checkoutId = body?.id ?? {{ json_encode($checkoutId) }};
-                                                const target = new URL('{{ route('app.subscriptions.onboard.complete') }}', window.location.origin);
-                                                target.searchParams.set('checkout', checkoutId);
-                                                window.location.href = target.toString();
-                                                return;
-                                            }
-
-                                            if (type === 'error' || type === 'fail') {
-                                                const sumupMsg = body?.message || body?.detail || '';
-                                                if (typeof sumupMsg === 'string' && sumupMsg.includes('form.mandate.errors')) {
-                                                    widgetError = mandateInvalid;
-                                                    return;
-                                                }
-                                                const code = body?.error_code || body?.errorCode || body?.code;
-                                                const mapped = code && widgetErrorMap[code] ? widgetErrorMap[code] : null;
-                                                if (mapped) {
-                                                    widgetError = mapped;
-                                                    return;
-                                                }
-                                                const raw = body?.message;
-                                                if (typeof raw === 'string' && raw.length > 0 && raw.length < 120 && /^[\\w\\s.,'\\-]+$/.test(raw)) {
-                                                    widgetError = raw;
-                                                } else {
-                                                    widgetError = genericFail;
-                                                }
-                                            }
-                                        }
-                                    });
-                                } catch (e) {
-                                    widgetError = e.message || {{ json_encode(__('Payment setup failed. Please try again.')) }};
-                                }
-                            }
-                        "
-                    >
-                        <div
-                            id="sumup-card"
-                            class="min-h-[12rem] border border-dashed border-brand-ink/25 p-6"
-                            role="region"
-                            aria-labelledby="payment-widget-heading"
-                        >
-                            <p class="text-sm text-brand-ink/60">
-                                {{ __('Loading payment widget...') }}
-                            </p>
-                        </div>
-
-                        <p
-                            x-show="widgetError"
-                            x-cloak
-                            x-text="widgetError"
-                            class="mt-3 text-sm text-chapter-meat"
-                            role="alert"
-                            aria-live="polite"
-                        ></p>
-                    </div>
+                    <x-payment.sumup-widget
+                        :checkout-id="$checkoutId"
+                        :return-url="route('app.subscriptions.onboard.complete')"
+                        :email="$subscription->user->email"
+                        intent="setup_recurring"
+                        :append-checkout-param="true"
+                    />
 
                     <p class="mt-4 text-xs text-brand-ink/60">
                         {{ __('Payments are processed by SumUp, a licensed payment provider. Erdgut never sees your full card number.') }}
