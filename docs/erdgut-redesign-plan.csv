@@ -192,7 +192,7 @@ ERD-343,Accessibility baseline (references ERD-119),Polish,Phase 8 - Polish + te
 - Manual keyboard walkthrough.",a11y
 ERD-344,Performance audit on weekly planner with 12-week horizon,Polish,Phase 8 - Polish + tests,P3,Backlog,5,ERD-335,"With box_planner_weeks_ahead=12 the admin planner may thrash. Measure + fix N+1 and slow queries.","- Query count on planner index route documented before/after.
 - Any N+1s eliminated via eager loads.",performance;admin
-ERD-345,Redesign onboarding flow (reduce SumUp waiting friction),UX,Phase 2 - Unify code paths,P2,Backlog,10,ERD-316,"Beyond the widget fix (ERD-316), re-think the onboarding step order so the SumUp call happens with visible progress + clear expectations.","- Wireframe reviewed with owner.
+ERD-345,Redesign onboarding flow (reduce SumUp waiting friction),UX,Phase 2 - Unify code paths,P2,Done,10,ERD-316,"Beyond the widget fix (ERD-316), re-think the onboarding step order so the SumUp call happens with visible progress + clear expectations.","- Wireframe reviewed with owner.
 - Implementation ships behind the new x-payment.sumup-widget.
 - Dropoff metric improves in manual smoke test.",ux;onboarding
 ERD-346,Allergies as enum-driven selector (replaces free text),Customer flexibility,Phase 4 - Customer flexibility,P2,Done,6,ERD-310,"Today allergies are free text on the user row. Move to multi-select driven by Allergen enum; existing free text migrated with a best-effort mapping + a ""manual note"" fallback field.","- Migration adds allergies_enum JSON + keeps allergies_note for free text fallback.
