@@ -42,7 +42,7 @@ class Delivery extends Model
     {
         return [
             'status' => DeliveryStatus::class,
-            'scheduled_for_date' => 'date',
+            'scheduled_for_date' => 'date:Y-m-d',
             'is_weekly_override' => 'boolean',
             'is_test' => 'boolean',
         ];

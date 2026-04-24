@@ -14,6 +14,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Services\Admin\WeeklyBoxPlannerService;
 use App\Support\BoxCompositionService;
+use App\Support\DeliveryProjector;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -143,7 +144,7 @@ class AdminOrderController extends Controller
         ]);
     }
 
-    public function schedule(Request $request, Order $order): RedirectResponse
+    public function schedule(Request $request, Order $order, DeliveryProjector $projector): RedirectResponse
     {
         $this->authorize('admin');
 
@@ -166,29 +167,9 @@ class AdminOrderController extends Controller
 
         $date = Carbon::parse($validated['scheduled_for_date']);
 
-        DB::transaction(function () use ($order, $date, $validated) {
+        DB::transaction(function () use ($order, $date, $validated, $projector) {
             $order->markScheduled($date, $validated['timeslot']);
-
-            $existingDelivery = $order->deliveries()->first();
-            if ($existingDelivery) {
-                $existingDelivery->update([
-                    'scheduled_for_date' => $date->toDateString(),
-                    'timeslot' => $validated['timeslot'],
-                    'address_id' => $order->address_id,
-                ]);
-            } else {
-                Delivery::create([
-                    'user_id' => $order->user_id,
-                    'address_id' => $order->address_id,
-                    'order_id' => $order->id,
-                    'scheduled_for_date' => $date->toDateString(),
-                    'timeslot' => $validated['timeslot'],
-                    'status' => DeliveryStatus::Scheduled,
-                    'special_instructions' => $order->special_instructions,
-                    'is_weekly_override' => false,
-                    'is_test' => (bool) $order->is_test,
-                ]);
-            }
+            $projector->projectForTrialOrder($order->fresh(), $date, $validated['timeslot']);
         });
 
         if ($order->user) {

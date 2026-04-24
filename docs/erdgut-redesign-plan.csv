@@ -106,7 +106,7 @@ ERD-313,Extract WeeklyDistributionService (kills ~350 duplicated lines) with all
 - TrialWeeklyBoxSetupService and WeeklyBoxSetupService both delegate to it (no copy-pasted math).
 - Unit tests: allergen exclusion, dietary exclusion, force-include override, capacity cap.
 - Admin UI shows warning chip when forced item conflicts with snapshot.",services;composition;refactor
-ERD-314,Extract DeliveryProjector (single delivery-creation path),Unify,Phase 2 - Unify code paths,P1,Backlog,6,ERD-303,"All code that currently creates Delivery rows (trial flow, subscription recurring, admin reschedule) funnels through DeliveryProjector::project(box): Delivery. Sets box_id FK from ERD-303.","- DeliveryProjector service, used by all three call sites.
+ERD-314,Extract DeliveryProjector (single delivery-creation path),Unify,Phase 2 - Unify code paths,P1,Done,6,ERD-303,"All code that currently creates Delivery rows (trial flow, subscription recurring, admin reschedule) funnels through DeliveryProjector::project(box): Delivery. Sets box_id FK from ERD-303.","- DeliveryProjector service, used by all three call sites.
 - Deliveries always have non-null box_id going forward.
 - Feature test: trial checkout produces exactly one delivery per composed box.",services;deliveries;refactor
 ERD-315,Unify dashboard timeline (drop trial-branch),Unify,Phase 2 - Unify code paths,P2,Backlog,6,,"Today the dashboard has a separate trial branch. After ERD-303 it can render a single timeline of user->deliveries->box->items with zero branching.","- Single Blade partial renders the timeline for trial + subscription users.
