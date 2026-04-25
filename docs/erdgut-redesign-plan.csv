@@ -186,7 +186,7 @@ ERD-340,Email deliverability (SPF + DKIM + DMARC + provider migration),Email,Pha
 - MANUAL STEP documented for user.",email;deliverability;infra
 ERD-341,docs/transactional-emails.md matrix,Email,Phase 7 - Email,P3,Done,3,ERD-339,Complete matrix: trigger x recipient x template x test coverage.,"- docs/transactional-emails.md written.
 - Every row in matrix has passing feature test.",docs;email
-ERD-342,E2E feature tests for all stress-test flows + admin overrides,Polish,Phase 8 - Polish + tests,P2,Backlog,16,,"All 12 flows from the audit plus admin-override flows have feature tests that assert outcome (not just 200).","- Each flow has a dedicated test file.
+ERD-342,E2E feature tests for all stress-test flows + admin overrides,Polish,Phase 8 - Polish + tests,P2,Done,16,,"All 12 flows from the audit plus admin-override flows have feature tests that assert outcome (not just 200).","- Each flow has a dedicated test file.
 - CI green.",tests;qa
 ERD-343,Accessibility baseline (references ERD-119),Polish,Phase 8 - Polish + tests,P3,Backlog,8,,"Re-audit against WCAG AA. Focus order, contrast, form labels, skip-nav, aria-live for async states.","- Pa11y/axe clean on key pages.
 - Manual keyboard walkthrough.",a11y
