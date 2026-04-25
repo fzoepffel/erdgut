@@ -1,7 +1,7 @@
 @extends('layouts.onboarding', ['step' => 'subscription_payment', 'intent' => 'subscription', 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-meat">{{ __('Your card') }}</p>
+    <p class="eyebrow text-chapter-meat">{{ __('Last step — your card') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Add your card') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('SumUp securely stores a token so we can charge each weekly delivery. We never store the full card number.') }}
@@ -22,11 +22,16 @@
         </div>
     </dl>
 
-    <div class="mt-6">
+    <div class="mt-8">
+        <x-onboarding.payment-expectations intent="subscription" />
+
+        <h2 id="payment-widget-heading" class="sr-only">{{ __('Card payment form') }}</h2>
         <x-payment.sumup-widget
             :checkout-id="$checkoutId"
             :return-url="route('app.payments.setup.complete')"
             intent="setup_recurring"
         />
+
+        <x-payment.security-badge />
     </div>
 @endsection

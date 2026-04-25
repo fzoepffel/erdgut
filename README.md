@@ -75,7 +75,21 @@ php artisan config:clear
 
 ### C) If signup emails do not arrive
 
-In server `.env`, set SMTP values (`MAIL_MAILER=smtp`, etc.), then run:
+**Production / staging** use Resend. Full setup (SPF/DKIM/DMARC records, provider config, DMARC ramp-up plan): see [docs/email-deliverability.md](docs/email-deliverability.md).
+
+Quick summary — three DNS records on `erd-gut.de`:
+- `TXT @` → `v=spf1 include:amazonses.com ~all`
+- `CNAME resend._domainkey` (plus `resend2`, `resend3`) → values from the Resend dashboard
+- `TXT _dmarc` → `v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@erd-gut.de; adkim=s; aspf=s; pct=100`
+
+Required `.env` for production:
+```
+MAIL_MAILER=resend
+RESEND_KEY=re_xxx
+MAIL_UNSUBSCRIBE_MAILBOX=unsubscribe@erd-gut.de
+```
+
+Every outgoing message carries a `List-Unsubscribe: <mailto:...>` header (Gmail/Yahoo bulk-sender compliance). After editing `.env`:
 
 ```bash
 # Run in: Server SSH Terminal

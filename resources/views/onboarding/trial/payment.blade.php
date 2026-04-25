@@ -1,7 +1,7 @@
 @extends('layouts.onboarding', ['step' => 'trial_payment', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-meat">{{ __('Your payment') }}</p>
+    <p class="eyebrow text-chapter-meat">{{ __('Last step — your payment') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Secure your trial box') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('One-time charge of EUR :amount. No subscription, no stored card.', ['amount' => number_format((float) $order->amount, 2)]) }}
@@ -23,12 +23,17 @@
     </dl>
 
     @if ($checkoutId)
-        <div class="mt-6">
+        <div class="mt-8">
+            <x-onboarding.payment-expectations intent="trial" />
+
+            <h2 id="payment-widget-heading" class="sr-only">{{ __('Card payment form') }}</h2>
             <x-payment.sumup-widget
                 :checkout-id="$checkoutId"
                 :return-url="$returnUrl"
                 intent="one_time"
             />
+
+            <x-payment.security-badge />
         </div>
     @else
         <div class="mt-6 border border-chapter-meat/40 bg-chapter-meat/5 p-5 text-sm text-brand-ink" role="alert">

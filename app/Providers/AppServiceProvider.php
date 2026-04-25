@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Listeners\AddListUnsubscribeHeader;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\User;
@@ -13,6 +14,8 @@ use App\Support\RequiredSecretValidator;
 use App\Support\SubscriberAccess;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
@@ -41,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
 
         Product::observe(CatalogAuditObserver::class);
         Producer::observe(CatalogAuditObserver::class);
+
+        Event::listen(MessageSending::class, AddListUnsubscribeHeader::class);
 
         Gate::define('admin', static fn (User $user): bool => $user->isAdmin());
 
