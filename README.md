@@ -75,17 +75,16 @@ php artisan config:clear
 
 ### C) If signup emails do not arrive
 
-**Production / staging** use Resend. Full setup (SPF/DKIM/DMARC records, provider config, DMARC ramp-up plan): see [docs/email-deliverability.md](docs/email-deliverability.md).
+**Production / staging** send through IONOS SMTP. Full setup (SPF/DKIM/DMARC records, IONOS DKIM activation, DMARC ramp-up plan): see [docs/email-deliverability.md](docs/email-deliverability.md).
 
-Quick summary — three DNS records on `erd-gut.de`:
-- `TXT @` → `v=spf1 include:amazonses.com ~all`
-- `CNAME resend._domainkey` (plus `resend2`, `resend3`) → values from the Resend dashboard
+Quick summary — three DNS pieces on `erd-gut.de`:
+- `TXT @` → `v=spf1 include:_spf.perfora.net include:_spf.kundenserver.de ~all`
+- DKIM: enable in **IONOS Email control panel** (publishes the `default._domainkey` TXT record itself — do not write it manually)
 - `TXT _dmarc` → `v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@erd-gut.de; adkim=s; aspf=s; pct=100`
 
-Required `.env` for production:
+Required `.env` for production (alongside the existing `MAIL_HOST` / `MAIL_USERNAME` / `MAIL_PASSWORD`):
 ```
-MAIL_MAILER=resend
-RESEND_KEY=re_xxx
+MAIL_MAILER=smtp
 MAIL_UNSUBSCRIBE_MAILBOX=unsubscribe@erd-gut.de
 ```
 
