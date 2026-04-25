@@ -42,8 +42,8 @@
 
             if (!window.SumUpCard) {
                 clearTimeout(this.timeoutId);
-                this.state = 'error';
-                this.widgetError = loadFailed;
+                self.state = 'error';
+                self.widgetError = loadFailed;
                 return;
             }
 
@@ -65,10 +65,22 @@
                         }, 100);
                         setTimeout(function() { clearInterval(poll); }, 5000);
                         @endif
+                        // Intercept the widget's submit button so we can flip to the
+                        // 'processing' overlay before the 3-D Secure round-trip.
+                        const host = document.getElementById('sumup-card');
+                        if (host) {
+                            host.addEventListener('click', function(ev) {
+                                const btn = ev.target.closest('button[type=submit], button[data-name=\'pay_button\']');
+                                if (btn) {
+                                    self.state = 'processing';
+                                }
+                            }, true);
+                        }
                     },
                     onResponse: function(type, body) {
                         try { console.log('[SumUp widget]', type, body); } catch (_) {}
                         if (type === 'success') {
+                            self.state = 'processing';
                             @if ($appendCheckoutParam)
                             const checkoutId = body?.id ?? {{ json_encode($checkoutId) }};
                             const target = new URL({{ json_encode($returnUrl) }}, window.location.origin);
@@ -83,6 +95,7 @@
                             return;
                         }
                         if (type === 'error' || type === 'fail') {
+                            self.state = 'ready';
                             const sumupMsg = body?.message || body?.detail || '';
                             if (typeof sumupMsg === 'string' && sumupMsg.includes('form.mandate.errors')) {
                                 self.widgetError = mandateInvalid;
@@ -102,8 +115,8 @@
                 });
             } catch (e) {
                 clearTimeout(this.timeoutId);
-                this.state = 'error';
-                this.widgetError = e.message || loadFailed;
+                self.state = 'error';
+                self.widgetError = e.message || loadFailed;
             }
         },
         retry() {
@@ -123,12 +136,42 @@
             aria-busy="true"
             x-bind:aria-busy="state === 'loading' ? 'true' : 'false'"
         >
-            <div x-show="state === 'loading'" class="space-y-3" aria-live="polite">
-                <p class="text-sm text-brand-ink/60">{{ __('Loading payment widget...') }}</p>
-                <div class="h-4 w-3/4 animate-pulse bg-brand-ink/10"></div>
-                <div class="h-4 w-1/2 animate-pulse bg-brand-ink/10"></div>
-                <div class="h-10 w-full animate-pulse bg-brand-ink/10"></div>
+            <div x-show="state === 'loading'" class="space-y-4" aria-live="polite">
+                <p class="text-sm text-brand-ink/70">{{ __('Preparing the secure card form…') }}</p>
+                <div class="space-y-2">
+                    <div class="h-3 w-32 animate-pulse bg-brand-ink/10"></div>
+                    <div class="h-10 w-full animate-pulse bg-brand-ink/10"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-2">
+                        <div class="h-3 w-20 animate-pulse bg-brand-ink/10"></div>
+                        <div class="h-10 animate-pulse bg-brand-ink/10"></div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="h-3 w-16 animate-pulse bg-brand-ink/10"></div>
+                        <div class="h-10 animate-pulse bg-brand-ink/10"></div>
+                    </div>
+                </div>
+                <div class="h-11 w-full animate-pulse bg-brand-ink/15"></div>
+                <p class="text-xs text-brand-ink/45">{{ __('This usually takes under 5 seconds.') }}</p>
             </div>
+        </div>
+
+        <div
+            x-show="state === 'processing'"
+            x-cloak
+            class="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white/95 p-6 text-center"
+            role="status"
+            aria-live="assertive"
+            data-testid="sumup-processing-overlay"
+        >
+            <div class="flex h-10 w-10 items-center justify-center">
+                <span class="inline-block h-8 w-8 animate-spin rounded-full border-2 border-brand-ink/20 border-t-chapter-produce" aria-hidden="true"></span>
+            </div>
+            <p class="font-display text-lg font-semibold text-brand-ink">{{ __('Processing your payment') }}</p>
+            <p class="max-w-md text-sm leading-relaxed text-brand-ink/65">
+                {{ __('Please do not close this window. Your bank may ask for a quick confirmation (SMS, app, or popup).') }}
+            </p>
         </div>
 
         <div

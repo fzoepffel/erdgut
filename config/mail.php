@@ -124,4 +124,17 @@ return [
     */
     'contact_to' => env('CONTACT_FORM_TO'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Unsubscribe Mailbox (RFC 2369 List-Unsubscribe)
+    |--------------------------------------------------------------------------
+    |
+    | Every outgoing mail receives a List-Unsubscribe header pointing to this
+    | inbox. Required by Gmail/Yahoo bulk-sender guidelines and improves
+    | deliverability even for low-volume transactional senders. If empty, the
+    | header is omitted.
+    |
+    */
+    'unsubscribe_mailbox' => env('MAIL_UNSUBSCRIBE_MAILBOX'),
+
 ];

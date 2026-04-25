@@ -34,6 +34,7 @@
         @stack('head')
     </head>
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
+        <x-skip-link />
         <div class="flex min-h-screen flex-col">
             {{-- Olive-green masthead styled to match the coming-soon page:
                  soft chapter-produce background (#709452) with the onion mark
@@ -121,7 +122,7 @@
                 </div>
             </header>
 
-            <main class="flex-1">
+            <main id="main" class="flex-1" tabindex="-1">
                 @yield('content')
             </main>
 

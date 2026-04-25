@@ -12,9 +12,12 @@
         <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('images/logo/erdgut-favicon-512.png') }}">
         <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo/erdgut-favicon-180.png') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
+        <link rel="preconnect" href="https://gateway.sumup.com" crossorigin>
+        <link rel="dns-prefetch" href="https://api.sumup.com">
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
+        <x-skip-link />
         <div class="min-h-screen flex flex-col" data-testid="onboarding-layout">
             <header class="border-b border-brand-ink/10 bg-brand-paper">
                 <div class="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
@@ -38,7 +41,7 @@
                 </div>
             </header>
 
-            <main class="flex-1">
+            <main id="main" class="flex-1" tabindex="-1">
                 <div class="max-w-5xl mx-auto px-4 sm:px-6 py-10 grid gap-8 lg:grid-cols-[1fr_320px]">
                     <div>
                         @isset($step)
