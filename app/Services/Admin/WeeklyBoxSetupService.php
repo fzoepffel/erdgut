@@ -3,6 +3,7 @@
 namespace App\Services\Admin;
 
 use App\Enums\BoxStatus;
+use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Product;
@@ -48,15 +49,42 @@ final class WeeklyBoxSetupService
         $firstMonday = WeeklyBoxPlannerService::defaultUpcomingWeekMonday();
         $weeks = $this->weeklyBoxPlanner->horizonWeekStarts($firstMonday, $weekCount);
 
+        if ($weeks === []) {
+            return [];
+        }
+
+        // ERD-344: hoist per-week queries out of the loop. With 12 weeks this
+        // collapses 24+ queries (subs+boxes per week) into 2 queries total.
+        $activeSubs = Subscription::query()
+            ->where('status', SubscriptionStatus::Active)
+            ->with('user')
+            ->get();
+
+        $firstWeek = $weeks[0]->toDateString();
+        $lastWeek = end($weeks)->toDateString();
+
+        $boxesByWeek = Box::query()
+            ->whereBetween('week_start_date', [$firstWeek, $lastWeek])
+            ->get(['id', 'user_id', 'order_id', 'estimated_value', 'week_start_date'])
+            ->groupBy(fn (Box $b) => $b->week_start_date instanceof Carbon
+                ? $b->week_start_date->toDateString()
+                : (string) $b->week_start_date
+            );
+
+        $sizeKeys = array_keys(config('box.included_value_by_size', []));
+
         $rows = [];
         foreach ($weeks as $week) {
-            $eligible = $this->weeklyBoxPlanner->eligibleSubscriptionsForWeek($week);
+            $weekKey = $week->toDateString();
+
+            $eligible = $activeSubs
+                ->filter(fn (Subscription $s) => ! $s->isWithinPauseWindow($week))
+                ->filter(fn (Subscription $s) => $this->weeklyBoxPlanner->matchesPlanCadence($s, $week))
+                ->values();
+
             $eligibleBySize = $eligible->groupBy(fn (Subscription $s): string => (string) $s->box_size);
 
-            $boxes = Box::query()
-                ->forWeek($week->toDateString())
-                ->get(['id', 'user_id', 'order_id', 'estimated_value']);
-
+            $boxes = $boxesByWeek->get($weekKey, collect());
             $boxesUsers = $boxes->pluck('user_id')->all();
 
             $subscriptionBoxesCount = (int) $boxes->whereNull('order_id')->count();
@@ -67,7 +95,7 @@ final class WeeklyBoxSetupService
                 ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
 
             $perSize = [];
-            foreach (array_keys(config('box.included_value_by_size', [])) as $size) {
+            foreach ($sizeKeys as $size) {
                 $perSize[$size] = [
                     'eligible' => $eligibleBySize->get($size)?->count() ?? 0,
                     'boxes' => $boxesBySize->get($size)?->count() ?? 0,
@@ -78,7 +106,7 @@ final class WeeklyBoxSetupService
             $status = $this->resolveStatus($eligibleCount, $subscriptionBoxesCount);
 
             $rows[] = [
-                'week_start_date' => $week->toDateString(),
+                'week_start_date' => $weekKey,
                 'week' => $week,
                 'status' => $status,
                 'eligible_count' => $eligibleCount,

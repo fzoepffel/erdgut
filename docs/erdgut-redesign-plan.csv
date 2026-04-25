@@ -188,9 +188,9 @@ ERD-341,docs/transactional-emails.md matrix,Email,Phase 7 - Email,P3,Done,3,ERD-
 - Every row in matrix has passing feature test.",docs;email
 ERD-342,E2E feature tests for all stress-test flows + admin overrides,Polish,Phase 8 - Polish + tests,P2,Done,16,,"All 12 flows from the audit plus admin-override flows have feature tests that assert outcome (not just 200).","- Each flow has a dedicated test file.
 - CI green.",tests;qa
-ERD-343,Accessibility baseline (references ERD-119),Polish,Phase 8 - Polish + tests,P3,Backlog,8,,"Re-audit against WCAG AA. Focus order, contrast, form labels, skip-nav, aria-live for async states.","- Pa11y/axe clean on key pages.
+ERD-343,Accessibility baseline (references ERD-119),Polish,Phase 8 - Polish + tests,P3,Done,8,,"Re-audit against WCAG AA. Focus order, contrast, form labels, skip-nav, aria-live for async states.","- Pa11y/axe clean on key pages.
 - Manual keyboard walkthrough.",a11y
-ERD-344,Performance audit on weekly planner with 12-week horizon,Polish,Phase 8 - Polish + tests,P3,Backlog,5,ERD-335,"With box_planner_weeks_ahead=12 the admin planner may thrash. Measure + fix N+1 and slow queries.","- Query count on planner index route documented before/after.
+ERD-344,Performance audit on weekly planner with 12-week horizon,Polish,Phase 8 - Polish + tests,P3,Done,5,ERD-335,"With box_planner_weeks_ahead=12 the admin planner may thrash. Measure + fix N+1 and slow queries.","- Query count on planner index route documented before/after.
 - Any N+1s eliminated via eager loads.",performance;admin
 ERD-345,Redesign onboarding flow (reduce SumUp waiting friction),UX,Phase 2 - Unify code paths,P2,Done,10,ERD-316,"Beyond the widget fix (ERD-316), re-think the onboarding step order so the SumUp call happens with visible progress + clear expectations.","- Wireframe reviewed with owner.
 - Implementation ships behind the new x-payment.sumup-widget.

@@ -17,6 +17,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
+        <x-skip-link />
         <div class="min-h-screen flex flex-col" data-testid="onboarding-layout">
             <header class="border-b border-brand-ink/10 bg-brand-paper">
                 <div class="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
@@ -40,7 +41,7 @@
                 </div>
             </header>
 
-            <main class="flex-1">
+            <main id="main" class="flex-1" tabindex="-1">
                 <div class="max-w-5xl mx-auto px-4 sm:px-6 py-10 grid gap-8 lg:grid-cols-[1fr_320px]">
                     <div>
                         @isset($step)

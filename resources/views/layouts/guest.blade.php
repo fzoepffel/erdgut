@@ -19,11 +19,12 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
+        <x-skip-link />
         <div class="flex min-h-screen flex-col" data-testid="guest-layout">
             <div class="absolute right-4 top-4 sm:right-6 sm:top-6">
                 <x-language-selector />
             </div>
-            <main class="flex flex-1 flex-col items-center justify-center px-4 py-14 sm:px-6 sm:py-20">
+            <main id="main" tabindex="-1" class="flex flex-1 flex-col items-center justify-center px-4 py-14 sm:px-6 sm:py-20">
                 <div class="mb-10 text-center">
                     <a
                         href="{{ route('public.home') }}"

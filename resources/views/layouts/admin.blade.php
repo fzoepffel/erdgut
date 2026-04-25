@@ -17,6 +17,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
+        <x-skip-link />
         <div
             class="min-h-screen border-t-4 border-amber-500 bg-gray-100"
             x-data="{ adminSidebarOpen: false }"
@@ -50,7 +51,7 @@
                         </header>
                     @endisset
 
-                    <main class="flex-1">
+                    <main id="main" class="flex-1" tabindex="-1">
                         {{ $slot }}
                     </main>
                 </div>
