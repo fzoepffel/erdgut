@@ -1,8 +1,7 @@
 @extends('layouts.onboarding', ['step' => 'subscription_schedule', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-fish">{{ __('Your schedule') }}</p>
-    <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Pick your delivery rhythm') }}</h1>
+    <h1 class="font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Pick your delivery rhythm') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('You can pause, skip, or cancel from your dashboard at any time.') }}
     </p>
@@ -18,10 +17,9 @@
             <legend class="eyebrow text-brand-ink/80">{{ __('Cadence') }}</legend>
             <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @foreach($plans as $plan)
-                    <label class="flex cursor-pointer flex-col gap-2 border border-brand-ink/20 p-5 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
+                    <label class="flex cursor-pointer items-center justify-center border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
                         <input type="radio" name="plan" value="{{ $plan->value }}" {{ ($data['plan'] ?? 'weekly') === $plan->value ? 'checked' : '' }} class="sr-only">
-                        <span class="font-display text-lg font-semibold text-brand-ink">{{ ucfirst($plan->value) }}</span>
-                        <span class="text-xs leading-relaxed text-brand-ink/70">
+                        <span class="font-display text-base font-semibold text-brand-ink">
                             {{ $plan->value === 'weekly' ? __('Every week') : __('Every two weeks') }}
                         </span>
                     </label>
@@ -65,32 +63,36 @@
             ];
         @endphp
 
-        <fieldset x-show="fulfillment === '{{ \App\Enums\FulfillmentMode::Delivery->value }}'" x-cloak>
-            <legend class="eyebrow text-brand-ink/80">{{ __('Preferred weekday') }}</legend>
-            <p class="mt-2 text-sm text-brand-ink/70">{{ __('Pick any day within your zone window. Admin may adjust an individual delivery if needed.') }}</p>
-            <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                @foreach($allowedWeekdays as $dayValue)
-                    <label class="flex cursor-pointer items-center justify-center border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
-                        <input type="radio" name="delivery_weekday" value="{{ $dayValue }}" {{ (string) ($data['delivery_weekday'] ?? '') === (string) $dayValue ? 'checked' : '' }} class="sr-only">
-                        <span class="text-sm font-medium text-brand-ink">{{ $weekdayLabels[$dayValue] ?? $dayValue }}</span>
-                    </label>
-                @endforeach
+        <div class="grid gap-6 sm:grid-cols-2" x-show="fulfillment === '{{ \App\Enums\FulfillmentMode::Delivery->value }}'" x-cloak>
+            <div>
+                <x-input-label for="delivery_weekday" :value="__('Preferred weekday')" />
+                <select id="delivery_weekday" name="delivery_weekday"
+                        class="mt-2 block w-full border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0">
+                    <option value="">{{ __('No preference') }}</option>
+                    @foreach($allowedWeekdays as $dayValue)
+                        <option value="{{ $dayValue }}" {{ (string) ($data['delivery_weekday'] ?? '') === (string) $dayValue ? 'selected' : '' }}>
+                            {{ $weekdayLabels[$dayValue] ?? $dayValue }}
+                        </option>
+                    @endforeach
+                </select>
+                <x-input-error :messages="$errors->get('delivery_weekday')" class="mt-2" />
+                <p class="mt-2 text-xs text-brand-ink/55">{{ __('Pick any day within your zone window. Admin may adjust an individual delivery if needed.') }}</p>
             </div>
-            <x-input-error :messages="$errors->get('delivery_weekday')" class="mt-3" />
-        </fieldset>
 
-        <fieldset x-show="fulfillment === '{{ \App\Enums\FulfillmentMode::Delivery->value }}'" x-cloak>
-            <legend class="eyebrow text-brand-ink/80">{{ __('Preferred timeslot') }}</legend>
-            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                @foreach($timeslots as $slot)
-                    <label class="flex cursor-pointer items-center justify-center border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
-                        <input type="radio" name="preferred_timeslot" value="{{ $slot }}" {{ ($data['preferred_timeslot'] ?? '') === $slot ? 'checked' : '' }} class="sr-only">
-                        <span class="text-sm font-medium text-brand-ink">{{ $slot }}</span>
-                    </label>
-                @endforeach
+            <div>
+                <x-input-label for="preferred_timeslot" :value="__('Preferred timeslot')" />
+                <select id="preferred_timeslot" name="preferred_timeslot"
+                        class="mt-2 block w-full border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0">
+                    <option value="">{{ __('No preference') }}</option>
+                    @foreach($timeslots as $slot)
+                        <option value="{{ $slot }}" {{ ($data['preferred_timeslot'] ?? '') === $slot ? 'selected' : '' }}>
+                            {{ $slot }}
+                        </option>
+                    @endforeach
+                </select>
+                <x-input-error :messages="$errors->get('preferred_timeslot')" class="mt-2" />
             </div>
-            <x-input-error :messages="$errors->get('preferred_timeslot')" class="mt-3" />
-        </fieldset>
+        </div>
 
         <div>
             <x-input-label for="delivery_instructions" :value="__('Delivery instructions')" />
@@ -98,8 +100,11 @@
                       class="mt-2 w-full rounded-none border-0 border-b border-brand-ink/30 bg-transparent px-0 py-2 text-brand-ink placeholder:text-brand-ink/40 focus:border-brand-ink focus:ring-0">{{ old('delivery_instructions', $data['delivery_instructions'] ?? '') }}</textarea>
         </div>
 
-        <div class="flex justify-end pt-4">
-            <x-primary-button>{{ __('Continue to payment') }}</x-primary-button>
+        <div class="flex flex-wrap items-center justify-between gap-4 pt-4">
+            <a href="{{ route('app.onboarding.step.commitment') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
+                ← {{ __('Back to :step', ['step' => __('Commitment')]) }}
+            </a>
+            <x-primary-button>{{ __('Continue to :step', ['step' => __('Payment')]) }}</x-primary-button>
         </div>
     </form>
 @endsection

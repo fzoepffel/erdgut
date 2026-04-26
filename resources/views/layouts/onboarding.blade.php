@@ -59,14 +59,18 @@
                             <dl class="mt-3 text-sm space-y-2 text-brand-ink/80">
                                 @isset($draft)
                                     @php($data = $draft->data ?? [])
-                                    <div class="flex justify-between">
-                                        <dt>{{ __('Size') }}</dt>
-                                        <dd class="font-medium">{{ isset($data['box_size']) ? __(ucfirst($data['box_size'])) : '—' }}</dd>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <dt>{{ __('Intent') }}</dt>
-                                        <dd class="font-medium">{{ ucfirst($draft->intent) }}</dd>
-                                    </div>
+                                    @if(isset($data['box_size']))
+                                        <div class="flex justify-between">
+                                            <dt>{{ __('Size') }}</dt>
+                                            <dd class="font-medium">{{ __(ucfirst($data['box_size'])) }}</dd>
+                                        </div>
+                                    @endif
+                                    @if(in_array($draft->intent, ['trial', 'subscription'], true))
+                                        <div class="flex justify-between">
+                                            <dt>{{ __('Intent') }}</dt>
+                                            <dd class="font-medium">{{ __(ucfirst($draft->intent)) }}</dd>
+                                        </div>
+                                    @endif
                                     @if(!empty($data['preferences']))
                                         <div>
                                             <dt class="mb-1">{{ __('Preferences') }}</dt>
