@@ -38,22 +38,32 @@ Verify after publishing:
 dig +short txt erd-gut.de
 ```
 
-### 2. DKIM (configured in the IONOS Email control panel, NOT manually)
+### 2. DKIM (auto-configured by IONOS when domain uses IONOS nameservers)
 
-DKIM on IONOS is enabled per-mailbox or per-domain in their **Email** control panel — not by adding records yourself.
+Per [IONOS' DKIM help page](https://www.ionos.de/hilfe/domains/mailserver-und-verwandte-records-konfigurieren/e-mail-authentifizierung-mit-dkim/): if `erd-gut.de` uses IONOS nameservers (the default for IONOS-hosted domains), DKIM is already published automatically — no UI toggle needed, and no `default._domainkey` record. IONOS uses CNAME records on three custom selectors instead:
 
-1. Log in to IONOS → **Email** → click on the `erd-gut.de` mail domain.
-2. Look for **"DKIM"** or **"DomainKeys Identified Mail"** in the settings (sometimes under "Security" or "Spam protection"). The exact menu label depends on which IONOS product the mailbox runs under.
-3. Click **"Activate DKIM"** or **"Enable DKIM signing"**. IONOS generates the keypair and publishes the DNS record automatically (you may see a new TXT record on `default._domainkey.erd-gut.de` appear in the DNS panel — that's IONOS managing it).
-4. Wait 5–10 minutes for activation. Re-check the DKIM status in the panel — it should read "Active".
+| Type  | Host | Value | TTL |
+| ----- | ---- | ----- | --- |
+| CNAME | `s1-ionos._domainkey`           | `s1.dkim.ionos.com` | 3600 |
+| CNAME | `s2-ionos._domainkey`           | `s2.dkim.ionos.com` | 3600 |
+| CNAME | `s{customer-id}._domainkey`     | `s{customer-id}.dkim.ionos.com` | 3600 |
 
-If your IONOS plan doesn't expose DKIM activation in the UI, contact IONOS support and ask them to enable DKIM signing for outgoing mail on `erd-gut.de`. They can do it server-side. Reference: this is required for Gmail/Yahoo bulk-sender compliance.
+The third selector is account-specific — IONOS' example was `s42582890._domainkey`, but the actual value differs per customer. Log into IONOS → **Domains & SSL → erd-gut.de → DNS** and scroll the record list to find it.
 
-Verify after activation:
+**Verify the auto-published records resolve:**
 ```bash
-dig +short txt default._domainkey.erd-gut.de
-# expect: a long "v=DKIM1; k=rsa; p=MIGfM..." string
+dig +short cname s1-ionos._domainkey.erd-gut.de
+# expect: s1.dkim.ionos.com.
+
+dig +short cname s2-ionos._domainkey.erd-gut.de
+# expect: s2.dkim.ionos.com.
 ```
+
+If both return the expected values, DKIM is active — no action needed. Skip to DMARC.
+
+**If nothing resolves**, the records were deleted at some point. Re-add `s1-ionos._domainkey` + `s2-ionos._domainkey` as CNAMEs in the IONOS DNS panel using the values above. For the customer-specific third selector, contact IONOS support (or check the DNS panel for any other `_domainkey` CNAME — it's the one with a numeric prefix like `s42582890`).
+
+**No control-panel toggle exists** for DKIM on Mail Basic or any IONOS tier — DKIM is automatic via DNS when IONOS nameservers are in use. Don't waste time looking for one.
 
 ### 3. DMARC
 
@@ -115,7 +125,7 @@ All seven lifecycle Mailables ship a `-text` Blade counterpart (added in Batch D
 ## Manual steps on server (deploy checklist)
 
 1. **DNS:** publish SPF + DMARC TXT records (records #1 and #3 above) in IONOS Domains → DNS.
-2. **DKIM:** enable DKIM signing in IONOS Email control panel for `erd-gut.de` (record #2). If the option is missing, open a ticket with IONOS support.
+2. **DKIM:** verify the three IONOS-managed CNAMEs already resolve (the `dig` commands in record #2). If yes, no action. If empty, re-add `s1-ionos._domainkey` and `s2-ionos._domainkey` as CNAMEs and contact IONOS support for the customer-specific third selector.
 3. **Verify DNS** with the three `dig` commands above. SPF + DMARC should appear within minutes; DKIM may take 10–30 min after activation.
 4. **Mailbox:** create or forward `unsubscribe@erd-gut.de` and `dmarc-reports@erd-gut.de` to a real inbox.
 5. **`.env`:** add `MAIL_UNSUBSCRIBE_MAILBOX=unsubscribe@erd-gut.de`. Run `php artisan config:clear && php artisan config:cache`.
