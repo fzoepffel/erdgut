@@ -79,7 +79,7 @@ php artisan config:clear
 
 Quick summary — three DNS pieces on `erd-gut.de`:
 - `TXT @` → `v=spf1 include:_spf.perfora.net include:_spf.kundenserver.de ~all`
-- DKIM: enable in **IONOS Email control panel** (publishes the `default._domainkey` TXT record itself — do not write it manually)
+- DKIM: **already auto-configured** by IONOS (CNAMEs on `s1-ionos._domainkey` etc.) when IONOS nameservers are in use — verify with `dig`, no UI toggle exists
 - `TXT _dmarc` → `v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@erd-gut.de; adkim=s; aspf=s; pct=100`
 
 Required `.env` for production (alongside the existing `MAIL_HOST` / `MAIL_USERNAME` / `MAIL_PASSWORD`):
