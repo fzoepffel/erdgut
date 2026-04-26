@@ -25,9 +25,9 @@ All three records go in **IONOS Domains & SSL → erd-gut.de → DNS**. TTL: lea
 
 | Type | Host | Value |
 | ---- | ---- | ----- |
-| TXT  | `@`  | `v=spf1 include:_spf.perfora.net include:_spf.kundenserver.de ~all` |
+| TXT  | `@`  | `v=spf1 include:_spf-eu.ionos.com ~all` |
 
-This is the standard SPF for IONOS-hosted mail. The two `include:` clauses cover both of IONOS' outgoing relay pools (`perfora.net` for hosting customers, `kundenserver.de` for IONOS Mail / business customers — IONOS uses one or the other depending on the product, so listing both is safe and the canonical recommendation).
+This is the standard SPF for IONOS-hosted mail in the EU region. The single `include:_spf-eu.ionos.com` covers IONOS' current outgoing relay pool (replaces the older legacy includes `_spf.perfora.net` / `_spf.kundenserver.de`).
 
 The `~all` ("softfail") tells receivers: if the message arrives from anywhere not on this list, treat it as suspicious but don't reject. After 2 weeks of clean DMARC reports, you can tighten to `-all` (hardfail).
 

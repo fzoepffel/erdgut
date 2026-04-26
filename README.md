@@ -78,7 +78,7 @@ php artisan config:clear
 **Production / staging** send through IONOS SMTP. Full setup (SPF/DKIM/DMARC records, IONOS DKIM activation, DMARC ramp-up plan): see [docs/email-deliverability.md](docs/email-deliverability.md).
 
 Quick summary — three DNS pieces on `erd-gut.de`:
-- `TXT @` → `v=spf1 include:_spf.perfora.net include:_spf.kundenserver.de ~all`
+- `TXT @` → `v=spf1 include:_spf-eu.ionos.com ~all`
 - DKIM: **already auto-configured** by IONOS (CNAMEs on `s1-ionos._domainkey` etc.) when IONOS nameservers are in use — verify with `dig`, no UI toggle exists
 - `TXT _dmarc` → `v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@erd-gut.de; adkim=s; aspf=s; pct=100`
 
