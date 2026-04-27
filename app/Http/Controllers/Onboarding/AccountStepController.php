@@ -39,6 +39,10 @@ class AccountStepController extends OnboardingController
             'name' => $validated['name'],
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
+            // Persist the active session locale so emails (which render
+            // outside the request lifecycle on the queue worker) go out
+            // in the language the user actually signed up in.
+            'locale' => app()->getLocale(),
             'password' => Hash::make($validated['password']),
         ]);
 

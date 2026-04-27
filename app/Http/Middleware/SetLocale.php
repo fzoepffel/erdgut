@@ -26,9 +26,21 @@ class SetLocale
      */
     private function resolveLocale(Request $request, array $supported, string $fallback): string
     {
+        // Session takes priority — explicit user choice via the language
+        // switcher should win over their account preference for the
+        // duration of the session.
         $fromSession = $request->hasSession() ? (string) $request->session()->get('locale', '') : '';
         if ($fromSession !== '' && in_array($fromSession, $supported, true)) {
             return $fromSession;
+        }
+
+        // Authenticated users get their persisted preference (set on signup
+        // or via the language switcher). Without this, a German user
+        // returning on a fresh browser would land on the Accept-Language
+        // value instead of their actual stored preference.
+        $userLocale = (string) ($request->user()?->locale ?? '');
+        if ($userLocale !== '' && in_array($userLocale, $supported, true)) {
+            return $userLocale;
         }
 
         $fromHeader = $this->matchAcceptLanguage($request->headers->get('Accept-Language', ''), $supported);

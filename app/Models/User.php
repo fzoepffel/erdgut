@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
@@ -25,10 +26,28 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'phone',
+        'locale',
         'profile_preferences',
         'is_test',
         'password',
     ];
+
+    /**
+     * Locale that queued mailables should render in for this user.
+     *
+     * Implemented from {@see HasLocalePreference} so that
+     * `Mail::to($user)->queue(new Foo)` automatically sets the locale
+     * during job execution — without this, queue workers always render
+     * in `config('app.locale')`, leaking English subject lines to
+     * German subscribers.
+     *
+     * Falls back to the configured app locale when the user hasn't
+     * picked one yet (legacy users from before this migration).
+     */
+    public function preferredLocale(): string
+    {
+        return $this->locale ?? (string) config('app.locale', 'de');
+    }
 
     /**
      * The attributes that should be hidden for serialization.
