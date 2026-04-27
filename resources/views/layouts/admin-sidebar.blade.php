@@ -134,6 +134,13 @@
         >
             {{ __('admin.operations.nav_billing_coverage') }}
         </a>
+        <a
+            href="{{ route('app.admin.audit-events.index') }}"
+            @click="adminSidebarOpen = false"
+            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.audit-events.*') ? $navActive : $navInactive }}"
+        >
+            {{ __('admin.audit.nav_label') }}
+        </a>
     </nav>
 
     <div class="border-t border-amber-100 p-3">

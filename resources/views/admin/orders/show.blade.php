@@ -277,6 +277,8 @@
                     <x-admin.email-resend context="order" :entity-id="$order->id" />
                 </div>
             </section>
+
+            <x-admin.audit-timeline entity-type="order" :entity-id="$order->id" />
         </div>
     </div>
 </x-admin-layout>
