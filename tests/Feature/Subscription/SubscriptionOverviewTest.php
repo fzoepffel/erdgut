@@ -35,11 +35,10 @@ class SubscriptionOverviewTest extends TestCase
             ->get(route('app.subscriptions.show'))
             ->assertOk()
             ->assertSee('Subscription overview')
-            ->assertSee('Weekly delivery')
+            ->assertSee('Every week')
             ->assertSee('Medium')
             ->assertSee('Active')
-            ->assertSee('Veg option only')
-            ->assertSee('Yes')
+            ->assertSee('Eggs add-on')
             ->assertSee('nuts')
             ->assertSee('Set after first charge');
     }

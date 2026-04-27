@@ -152,6 +152,26 @@ class AdminDeliveryController extends Controller
             'status' => $delivery->status?->value,
         ];
 
+        // Mirror the same stamp-once-only timestamp logic as updateStatus().
+        // The `status` attribute may already be a DeliveryStatus enum (passed
+        // by the request layer) or a raw string — normalize either way.
+        $rawStatus = $attributes['status'] ?? null;
+        $nextStatus = match (true) {
+            $rawStatus instanceof DeliveryStatus => $rawStatus,
+            is_string($rawStatus) => DeliveryStatus::from($rawStatus),
+            default => null,
+        };
+        if ($nextStatus === DeliveryStatus::InTransit && $delivery->in_transit_at === null) {
+            $attributes['in_transit_at'] = now();
+        } elseif ($nextStatus === DeliveryStatus::Delivered) {
+            if ($delivery->delivered_at === null) {
+                $attributes['delivered_at'] = now();
+            }
+            if ($delivery->in_transit_at === null) {
+                $attributes['in_transit_at'] = now();
+            }
+        }
+
         $delivery->update($attributes);
 
         $after = [
@@ -263,9 +283,24 @@ class AdminDeliveryController extends Controller
         $previousStatus = $delivery->status?->value;
         $nextStatus = DeliveryStatus::from($validated['status']);
 
-        $delivery->update([
-            'status' => $nextStatus,
-        ]);
+        // Stamp operational timestamps on terminal transitions (in_transit_at /
+        // delivered_at). Both are nullable + stamp-once-only so flipping back
+        // and forth doesn't overwrite the canonical record.
+        $updates = ['status' => $nextStatus];
+        if ($nextStatus === DeliveryStatus::InTransit && $delivery->in_transit_at === null) {
+            $updates['in_transit_at'] = now();
+        } elseif ($nextStatus === DeliveryStatus::Delivered) {
+            if ($delivery->delivered_at === null) {
+                $updates['delivered_at'] = now();
+            }
+            // Backfill in_transit_at if the admin skipped that step (rare but
+            // legitimate — e.g., self-pickup customers).
+            if ($delivery->in_transit_at === null) {
+                $updates['in_transit_at'] = now();
+            }
+        }
+
+        $delivery->update($updates);
 
         if ($previousStatus !== $nextStatus->value) {
             AuditLogger::log(

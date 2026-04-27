@@ -53,28 +53,21 @@
                     </fieldset>
 
                     <fieldset>
-                        <legend class="eyebrow text-brand-ink">{{ __('Delivery rhythm') }}</legend>
+                        <legend class="eyebrow text-brand-ink">{{ __('Cadence') }}</legend>
                         <p class="mt-2 text-sm text-brand-ink/70">{{ __('Changing the rhythm while your subscription is active updates your next charge date from today forward.') }}</p>
-                        <div class="mt-4 space-y-3">
+                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                             @foreach (\App\Enums\SubscriptionPlan::cases() as $planOption)
-                                <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
+                                <label class="flex cursor-pointer items-center justify-center border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
                                     <input
                                         type="radio"
                                         name="plan"
                                         value="{{ $planOption->value }}"
-                                        class="mt-1 border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
+                                        class="sr-only"
                                         @checked(old('plan', $subscription->plan->value) === $planOption->value)
                                         required
                                     />
-                                    <span>
-                                        <span class="block font-display text-base text-brand-ink">
-                                            {{ $planOption === \App\Enums\SubscriptionPlan::Weekly ? __('Weekly delivery') : __('Biweekly delivery') }}
-                                        </span>
-                                        <span class="mt-1 block text-sm text-brand-ink/70">
-                                            {{ $planOption === \App\Enums\SubscriptionPlan::Weekly
-                                                ? __('Charged and delivered every week.')
-                                                : __('Charged and delivered every two weeks.') }}
-                                        </span>
+                                    <span class="font-display text-base font-semibold text-brand-ink">
+                                        {{ $planOption === \App\Enums\SubscriptionPlan::Weekly ? __('Every week') : __('Every two weeks') }}
                                     </span>
                                 </label>
                             @endforeach
@@ -100,48 +93,31 @@
                     </div>
 
                     <fieldset class="space-y-3">
-                        <legend class="eyebrow text-brand-ink">{{ __('Preferences') }}</legend>
+                        <legend class="eyebrow text-brand-ink">{{ __('Extras') }}</legend>
 
-                        <label class="flex items-center gap-3">
-                            <input
-                                type="checkbox"
-                                name="preferences[veg_only]"
-                                value="1"
-                                @checked((bool) old('preferences.veg_only', data_get($subscription->preferences, 'veg_only', false)))
-                                class="border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
-                            />
-                            <span class="text-sm text-brand-ink">{{ __('Veg option only') }}</span>
-                        </label>
-
-                        <label class="flex items-center gap-3">
-                            <input
-                                type="checkbox"
-                                name="preferences[meat_add_on]"
-                                value="1"
-                                @checked((bool) old('preferences.meat_add_on', data_get($subscription->preferences, 'meat_add_on', false)))
-                                class="border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
-                            />
-                            <span class="text-sm text-brand-ink">{{ __('Meat add-on') }}</span>
-                        </label>
+                        {{-- veg_only and meat_add_on are forced product policy for now
+                             (all boxes are vegetable + fruit only). Hidden inputs keep
+                             the existing flags + composition logic intact. --}}
+                        <input type="hidden" name="preferences[veg_only]" value="1">
+                        <input type="hidden" name="preferences[meat_add_on]" value="0">
 
                         <label class="flex items-start gap-3">
+                            <input type="hidden" name="preferences[eggs_dairy_add_on]" value="0">
                             <input
                                 type="checkbox"
                                 name="preferences[eggs_dairy_add_on]"
                                 value="1"
                                 @checked((bool) old('preferences.eggs_dairy_add_on', data_get($subscription->preferences, 'eggs_dairy_add_on', false)))
-                                class="mt-1 border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
+                                class="mt-1 border-brand-ink/30 text-chapter-eggdairy focus:ring-chapter-eggdairy"
                             />
                             <span>
-                                <span class="block text-sm text-brand-ink">{{ __('Eggs or dairy add-on') }}</span>
+                                <span class="block text-sm text-brand-ink">{{ __('Add eggs to every box') }}</span>
                                 <span class="mt-1 block text-xs text-brand-ink/60">
-                                    {{ __('Eggs or dairy add-on hint', ['amount' => number_format((float) config('box.eggs_dairy_add_on_eur'), 2, ',', '.')]) }}
+                                    {{ __('Six fresh free-range eggs from regional farms. + EUR :amount per delivery.', ['amount' => number_format((float) config('box.eggs_dairy_add_on_eur'), 2, ',', '.')]) }}
                                 </span>
                             </span>
                         </label>
 
-                        <x-input-error class="mt-2" :messages="$errors->get('preferences.veg_only')" />
-                        <x-input-error class="mt-2" :messages="$errors->get('preferences.meat_add_on')" />
                         <x-input-error class="mt-2" :messages="$errors->get('preferences.eggs_dairy_add_on')" />
                     </fieldset>
 

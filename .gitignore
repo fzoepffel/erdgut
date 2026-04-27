@@ -27,6 +27,7 @@ erdgut-mvp-tickets.csv
 # Raw brand asset dump — cherry-picked files live under public/images/
 /public/new_visuals_and_catalogue
 
-# Claude Code local state (worktrees, caches); keep rules/* committed
+# Claude Code local state (worktrees, caches, per-dev launch configs); keep rules/* committed
 /.claude/worktrees
 /.claude/settings.local.json
+/.claude/launch.json

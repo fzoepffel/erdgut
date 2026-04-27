@@ -59,21 +59,25 @@
                             <dl class="mt-3 text-sm space-y-2 text-brand-ink/80">
                                 @isset($draft)
                                     @php($data = $draft->data ?? [])
-                                    <div class="flex justify-between">
-                                        <dt>{{ __('Size') }}</dt>
-                                        <dd class="font-medium">{{ isset($data['box_size']) ? __(ucfirst($data['box_size'])) : '—' }}</dd>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <dt>{{ __('Intent') }}</dt>
-                                        <dd class="font-medium">{{ ucfirst($draft->intent) }}</dd>
-                                    </div>
-                                    @if(!empty($data['preferences']))
+                                    @if(isset($data['box_size']))
+                                        <div class="flex justify-between">
+                                            <dt>{{ __('Size') }}</dt>
+                                            <dd class="font-medium">{{ __(ucfirst($data['box_size'])) }}</dd>
+                                        </div>
+                                    @endif
+                                    @if(in_array($draft->intent, ['trial', 'subscription'], true))
+                                        <div class="flex justify-between">
+                                            <dt>{{ __('Intent') }}</dt>
+                                            <dd class="font-medium">{{ __(ucfirst($draft->intent)) }}</dd>
+                                        </div>
+                                    @endif
+                                    {{-- Only customer-facing flags belong here.
+                                         veg_only / meat_add_on are forced product policy. --}}
+                                    @if(!empty($data['preferences']['eggs_dairy_add_on']))
                                         <div>
-                                            <dt class="mb-1">{{ __('Preferences') }}</dt>
+                                            <dt class="mb-1">{{ __('Extras') }}</dt>
                                             <dd class="text-xs text-brand-ink/70">
-                                                @foreach($data['preferences'] as $k => $v)
-                                                    @if($v)<span class="inline-block px-2 py-0.5 mr-1 mb-1 bg-chapter-produce/10 text-chapter-produce">{{ str_replace('_',' ',$k) }}</span>@endif
-                                                @endforeach
+                                                <span class="inline-block px-2 py-0.5 mr-1 mb-1 bg-chapter-eggdairy/10 text-chapter-eggdairy">{{ __('Eggs add-on') }}</span>
                                             </dd>
                                         </div>
                                     @endif

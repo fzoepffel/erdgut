@@ -39,7 +39,7 @@
                             <span class="text-gray-500">{{ $row['week']->translatedFormat('Y') }}</span>
                         </th>
                         <td class="px-3 py-2">
-                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
+                            <span class="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
                         </td>
                         <td class="px-3 py-2 text-right tabular-nums text-gray-900">{{ $row['eligible_count'] }}</td>
                         <td class="px-3 py-2 text-right tabular-nums text-gray-900">{{ $row['boxes_count'] }}</td>

@@ -54,9 +54,12 @@
                 </a>
             </div>
 
-            <div class="rounded-lg border border-rose-200 bg-rose-50 p-4 shadow-sm">
-                <h3 class="text-sm font-semibold text-rose-900">{{ __('admin.deliveries.bulk_delay_title') }}</h3>
-                <p class="mt-1 text-xs text-rose-800">{{ __('admin.deliveries.bulk_delay_intro') }}</p>
+            <details class="rounded-lg border border-rose-200 bg-rose-50 p-4 shadow-sm">
+                <summary class="cursor-pointer text-sm font-semibold text-rose-900 hover:text-rose-700">
+                    {{ __('admin.deliveries.bulk_delay_title') }}
+                    <span class="ml-2 text-xs font-normal text-rose-700">({{ __('admin.deliveries.bulk_delay_open_hint') }})</span>
+                </summary>
+                <p class="mt-3 text-xs text-rose-800">{{ __('admin.deliveries.bulk_delay_intro') }}</p>
                 <form method="POST" action="{{ route('app.admin.deliveries.bulk-delay') }}" class="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                     @csrf
                     <div>
@@ -78,7 +81,7 @@
                         {{ __('admin.deliveries.bulk_delay_submit') }}
                     </button>
                 </form>
-            </div>
+            </details>
 
             <div class="rounded-lg border border-gray-100 bg-white shadow-sm sm:rounded-lg">
                 <div class="space-y-4 p-4 text-gray-900 sm:p-6">
@@ -144,7 +147,7 @@
                                                 @endif
                                             </td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $delivery->scheduled_for_date?->toDateString() ?? '—' }}</td>
-                                            <td class="py-3 pe-4 text-gray-600">{{ $delivery->status->value }}</td>
+                                            <td class="py-3 pe-4"><x-status-badge :value="$delivery->status" type="delivery" /></td>
                                             <td class="py-3 pe-4">
                                                 <form method="POST" action="{{ route('app.admin.deliveries.status.update', $delivery) }}" class="flex items-center gap-2">
                                                     @csrf

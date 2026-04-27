@@ -71,9 +71,9 @@
                         <div class="w-full sm:w-auto">
                             <label for="admin-pay-date-field" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.payments_date_field') }}</label>
                             <select id="admin-pay-date-field" name="date_field" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-44">
-                                <option value="created_at" @selected($dateField === 'created_at')>created_at</option>
-                                <option value="paid_at" @selected($dateField === 'paid_at')>paid_at</option>
-                                <option value="failed_at" @selected($dateField === 'failed_at')>failed_at</option>
+                                <option value="created_at" @selected($dateField === 'created_at')>{{ __('admin.operations.payments_date_field_created') }}</option>
+                                <option value="paid_at" @selected($dateField === 'paid_at')>{{ __('admin.operations.payments_date_field_paid') }}</option>
+                                <option value="failed_at" @selected($dateField === 'failed_at')>{{ __('admin.operations.payments_date_field_failed') }}</option>
                             </select>
                         </div>
                         <div class="w-full sm:w-auto">

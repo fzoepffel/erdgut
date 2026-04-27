@@ -17,6 +17,11 @@
     } elseif ($intent === 'subscription') {
         $sharedSteps[] = ['id' => 'subscription_schedule', 'label' => __('Schedule'), 'chapter' => 'fish'];
         $sharedSteps[] = ['id' => 'subscription_payment', 'label' => __('Payment'), 'chapter' => 'meat'];
+    } else {
+        // Intent not yet chosen — show generic last two steps so the user
+        // knows the journey has 6 steps total, not 4.
+        $sharedSteps[] = ['id' => '__delivery', 'label' => __('Delivery'), 'chapter' => 'fish'];
+        $sharedSteps[] = ['id' => '__payment', 'label' => __('Payment'), 'chapter' => 'meat'];
     }
 
     $currentIndex = array_search($step, array_column($sharedSteps, 'id'), true);

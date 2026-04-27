@@ -3,10 +3,13 @@
 namespace Tests\Feature\Admin;
 
 use App\Enums\BoxStatus;
+use App\Enums\DeliveryStatus;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
+use App\Models\Address;
 use App\Models\Box;
 use App\Models\BoxItem;
+use App\Models\Delivery;
 use App\Models\Product;
 use App\Models\ProductWeekStock;
 use App\Models\Subscription;
@@ -196,6 +199,69 @@ class AdminBoxSetupTest extends TestCase
         $item = $box->items()->first();
         $this->assertSame($product->id, $item->product_id);
         $this->assertEqualsWithDelta(3.0, (float) $item->quantity, 0.001);
+    }
+
+    public function test_apply_auto_projects_delivery_for_each_box(): void
+    {
+        // Regression: prior to the WeeklyBoxSetupService projector hookup,
+        // saving boxes left a same-day gap where customers saw the upcoming
+        // box on their dashboard but no scheduled delivery in their
+        // Lieferzeitplan. Admins had to remember to manually run the
+        // "Lieferungen aus Boxen synchronisieren" sync.
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $customer = User::factory()->create();
+        Address::factory()->create(['user_id' => $customer->id, 'is_primary' => true]);
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'box_size' => 'small',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+        ]);
+
+        $product = Product::factory()->create([
+            'unit_price' => 2.00,
+            'is_available' => true,
+            'is_published' => true,
+            'metadata' => ['unit' => 'piece'],
+        ]);
+        ProductWeekStock::create([
+            'product_id' => $product->id,
+            'week_start_date' => $monday->toDateString(),
+            'planned_quantity' => 10,
+            'unit' => 'piece',
+        ]);
+
+        $this->assertSame(0, Delivery::query()->where('user_id', $customer->id)->count());
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.setup.apply', ['week' => $monday->toDateString()]), [
+                'week_start_date' => $monday->toDateString(),
+                'sizes' => [
+                    'small' => [
+                        ['product_id' => $product->id, 'quantity' => 3],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('app.admin.boxes.index'));
+
+        $delivery = Delivery::query()
+            ->where('user_id', $customer->id)
+            ->where('is_weekly_override', false)
+            ->first();
+
+        $this->assertNotNull($delivery, 'Saving boxes must auto-project a delivery row.');
+        $this->assertSame(DeliveryStatus::Scheduled, $delivery->status);
+
+        $expectedScheduledDate = $monday->copy()->addDays(2)->toDateString();
+        $this->assertSame($expectedScheduledDate, $delivery->scheduled_for_date->toDateString());
+
+        $box = Box::query()->where('user_id', $customer->id)->first();
+        $this->assertSame($box->id, $delivery->box_id);
     }
 
     public function test_apply_replaces_non_extra_items_but_keeps_extras(): void

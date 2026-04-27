@@ -168,7 +168,7 @@
         <x-input-label for="category" :value="__('Category')" />
         <select id="category" name="category" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
             @foreach ($categories as $cat)
-                <option value="{{ $cat }}" @selected(old('category', $product?->category) === $cat)>{{ $cat }}</option>
+                <option value="{{ $cat }}" @selected(old('category', $product?->category) === $cat)>{{ __('admin.category.'.$cat) }}</option>
             @endforeach
         </select>
         <x-input-error class="mt-2" :messages="$errors->get('category')" />

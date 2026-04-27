@@ -20,7 +20,7 @@ return [
     'zones' => [
         'berlin_core' => [
             'label' => 'Berlin core zone',
-            'allowed_weekdays' => [2, 3, 4, 5], // Tue-Fri
+            'allowed_weekdays' => [1, 2, 3, 4, 5], // Mon-Fri
             'allowed_timeslots' => [
                 Timeslot::Morning->value,
                 Timeslot::Afternoon->value,

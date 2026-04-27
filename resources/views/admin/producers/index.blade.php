@@ -20,8 +20,13 @@
     <div class="py-8 sm:py-12" x-data="{ deleteAction: '', deleteLabel: '' }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
             @if (session('status'))
-                <div class="rounded-md bg-emerald-50 p-4 text-sm text-emerald-800" role="status">
-                    {{ session('status') }}
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-md bg-emerald-50 p-4 text-sm text-emerald-800" role="status">
+                    <span>{{ session('status') }}</span>
+                    @if (session('flash_edit_url'))
+                        <a href="{{ session('flash_edit_url') }}" class="font-semibold underline underline-offset-2 hover:no-underline">
+                            {{ __('Edit') }} →
+                        </a>
+                    @endif
                 </div>
             @endif
             @if (session('error'))
