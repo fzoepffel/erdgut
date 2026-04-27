@@ -15,6 +15,7 @@ use App\Support\SubscriberAccess;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -46,6 +47,11 @@ class AppServiceProvider extends ServiceProvider
         Producer::observe(CatalogAuditObserver::class);
 
         Event::listen(MessageSending::class, AddListUnsubscribeHeader::class);
+
+        // Currency Blade directives — keep template rendering one-liner.
+        // {@see \App\Support\Money} is the canonical German-format helper.
+        Blade::directive('eur', fn (string $expression) => "<?php echo \\App\\Support\\Money::formatEur({$expression}); ?>");
+        Blade::directive('eurCents', fn (string $expression) => "<?php echo \\App\\Support\\Money::formatCents({$expression}); ?>");
 
         Gate::define('admin', static fn (User $user): bool => $user->isAdmin());
 

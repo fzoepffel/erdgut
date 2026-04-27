@@ -32,7 +32,7 @@
                                             <td class="py-3 pe-4 text-gray-900">{{ $subscription->user?->email ?? '—' }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ __('plan.'.$subscription->plan->value) }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $subscription->next_charge_date?->toDateString() ?? '—' }}</td>
-                                            <td class="py-3 pe-0 tabular-nums text-gray-600">{{ number_format($subscription->expectedChargeAmount(), 2, ',', '.') }} €</td>
+                                            <td class="py-3 pe-0 tabular-nums text-gray-600">@eur($subscription->expectedChargeAmount())</td>
                                         </tr>
                                     @endforeach
                                 </tbody>

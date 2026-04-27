@@ -57,7 +57,7 @@
                 </div>
                 <div>
                     <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.operations.status') }}</dt>
-                    <dd class="mt-1 text-gray-900">{{ $box->status->value }}</dd>
+                    <dd class="mt-1"><x-status-badge :value="$box->status" type="box" /></dd>
                 </div>
                 <div>
                     <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.modification_deadline') }}</dt>
@@ -95,20 +95,20 @@
                     <dl class="mt-3 grid gap-2 sm:grid-cols-2">
                         <div>
                             <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.included_budget_label') }}</dt>
-                            <dd class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['included_budget'], 2, ',', '.') }} €</dd>
+                            <dd class="mt-1 tabular-nums text-gray-900">@eur($budgetDetails['included_budget'])</dd>
                         </div>
                         <div>
                             <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.estimated_retail_label') }}</dt>
-                            <dd class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['estimated_value'], 2, ',', '.') }} €</dd>
+                            <dd class="mt-1 tabular-nums text-gray-900">@eur($budgetDetails['estimated_value'])</dd>
                         </div>
                         <div>
                             <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.remainder_label') }}</dt>
-                            <dd class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['remainder'], 2, ',', '.') }} €</dd>
+                            <dd class="mt-1 tabular-nums text-gray-900">@eur($budgetDetails['remainder'])</dd>
                         </div>
                         @if ($budgetDetails['planning_hint'] !== null)
                             <div>
                                 <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.planning_hint_label') }}</dt>
-                                <dd class="mt-1 tabular-nums text-gray-700">{{ number_format($budgetDetails['planning_hint'], 2, ',', '.') }} €</dd>
+                                <dd class="mt-1 tabular-nums text-gray-700">@eur($budgetDetails['planning_hint'])</dd>
                             </div>
                         @endif
                     </dl>
