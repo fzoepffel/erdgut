@@ -12,14 +12,14 @@ class AdminOperationalAlertsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dashboard_shows_all_clear_when_no_operational_issues(): void
+    public function test_dashboard_hides_alerts_section_when_no_operational_issues(): void
     {
         $admin = User::factory()->admin()->create();
 
         $this->actingAs($admin)
             ->get(route('app.admin.dashboard'))
             ->assertOk()
-            ->assertSee('data-testid="admin-operational-alerts-clear"', false);
+            ->assertDontSee('data-testid="admin-operational-alerts"', false);
     }
 
     public function test_dashboard_shows_draft_product_alert_with_deep_link_to_filtered_products(): void
