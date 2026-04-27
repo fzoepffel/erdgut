@@ -155,12 +155,16 @@
                                             <p class="text-sm font-semibold tabular-nums" :class="retailClass(size)">
                                                 <span x-text="formatEur(retailSum(size))"></span>
                                             </p>
-                                            <p class="text-[11px] text-gray-500">
+                                            <p
+                                                class="text-[11px] text-gray-500"
+                                                :title="{{ json_encode(__('admin.box_setup.target_max_explanation')) }}"
+                                            >
                                                 {{ __('admin.box_setup.target_short') }}:
                                                 <span x-text="formatEur(size.meta.target)"></span>
                                                 /
                                                 {{ __('admin.box_setup.max_short') }}:
                                                 <span x-text="formatEur(size.meta.max)"></span>
+                                                <span class="ml-1 cursor-help text-gray-400" aria-hidden="true">ⓘ</span>
                                             </p>
                                         </div>
                                     </div>
