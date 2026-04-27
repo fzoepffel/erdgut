@@ -89,35 +89,40 @@
 
                 <x-chapter-tabs :items="$subscriptionTabs" sticky :label="__('Subscription sections')" class="-mx-4 sm:-mx-6 lg:-mx-8" />
 
-                <div class="flex flex-wrap gap-2">
-                    <a href="{{ route('app.subscriptions.edit') }}" class="btn-solid text-xs">
-                        {{ __('Edit subscription') }}
-                    </a>
+                {{-- Action row: edit + temporary-escape grouped on the left,
+                     terminal "cancel" pushed to the right with a visual gap so
+                     it reads as a last-resort, not a peer of "skip next week". --}}
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex flex-wrap gap-2">
+                        <a href="{{ route('app.subscriptions.edit') }}" class="btn-solid text-xs">
+                            {{ __('Edit subscription') }}
+                        </a>
 
-                    @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled)
-                        <form method="POST" action="{{ route('app.subscriptions.skip.next') }}" class="inline">
-                            @csrf
-                            <x-secondary-button type="submit">
-                                {{ __('subscriptions.skip_next_week_cta') }}
+                        @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled)
+                            <form method="POST" action="{{ route('app.subscriptions.skip.next') }}" class="inline">
+                                @csrf
+                                <x-secondary-button type="submit">
+                                    {{ __('subscriptions.skip_next_week_cta') }}
+                                </x-secondary-button>
+                            </form>
+
+                            <x-secondary-button
+                                x-data=""
+                                x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-pause')"
+                            >
+                                {{ __('subscriptions.skip_range_cta') }}
                             </x-secondary-button>
-                        </form>
+                        @endif
 
-                        <x-secondary-button
-                            x-data=""
-                            x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-pause')"
-                        >
-                            {{ __('subscriptions.skip_range_cta') }}
-                        </x-secondary-button>
-                    @endif
-
-                    @if ($subscription->status === \App\Enums\SubscriptionStatus::Paused || $subscription->hasPauseWindow())
-                        <x-secondary-button
-                            x-data=""
-                            x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-resume')"
-                        >
-                            {{ __('subscriptions.end_skip_cta') }}
-                        </x-secondary-button>
-                    @endif
+                        @if ($subscription->status === \App\Enums\SubscriptionStatus::Paused || $subscription->hasPauseWindow())
+                            <x-secondary-button
+                                x-data=""
+                                x-on:click.prevent="$dispatch('open-modal', 'confirm-subscription-resume')"
+                            >
+                                {{ __('subscriptions.end_skip_cta') }}
+                            </x-secondary-button>
+                        @endif
+                    </div>
 
                     @if ($subscription->status !== \App\Enums\SubscriptionStatus::Cancelled)
                         <x-danger-button
@@ -135,9 +140,9 @@
                         <h3 id="sub-section-plan" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Subscription and box') }}</h3>
                         <dl class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                             <div>
-                                <dt class="eyebrow text-brand-ink/60">{{ __('Delivery rhythm') }}</dt>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Cadence') }}</dt>
                                 <dd class="mt-2 font-display text-lg text-brand-ink">
-                                    {{ $subscription->plan === \App\Enums\SubscriptionPlan::Weekly ? __('Weekly delivery') : __('Biweekly delivery') }}
+                                    {{ $subscription->plan === \App\Enums\SubscriptionPlan::Weekly ? __('Every week') : __('Every two weeks') }}
                                 </dd>
                             </div>
                             <div>
@@ -163,16 +168,11 @@
                         <p class="eyebrow text-chapter-eggdairy">{{ __('Preferences') }}</p>
                         <h3 id="sub-section-diet" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Diet and allergies') }}</h3>
                         <dl class="mt-6 grid gap-5 sm:grid-cols-2">
+                            {{-- veg_only / meat_add_on are forced product policy (boxes are
+                                 vegetable+fruit only). Showing them here as Yes/No would
+                                 imply the customer can change them — which they can't. --}}
                             <div>
-                                <dt class="eyebrow text-brand-ink/60">{{ __('Veg option only') }}</dt>
-                                <dd class="mt-2 text-base text-brand-ink">{{ $vegOnly ? __('Yes') : __('No') }}</dd>
-                            </div>
-                            <div>
-                                <dt class="eyebrow text-brand-ink/60">{{ __('Meat add-on') }}</dt>
-                                <dd class="mt-2 text-base text-brand-ink">{{ $meatAddOn ? __('Yes') : __('No') }}</dd>
-                            </div>
-                            <div>
-                                <dt class="eyebrow text-brand-ink/60">{{ __('Eggs or dairy add-on') }}</dt>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Eggs add-on') }}</dt>
                                 <dd class="mt-2 text-base text-brand-ink">{{ $eggsDairyAddOn ? __('Yes') : __('No') }}</dd>
                             </div>
                             <div>
@@ -239,7 +239,7 @@
                                                 <span>
                                                     <span class="block font-medium text-brand-ink">{{ $weekMonday->isoFormat('D. MMM') }}</span>
                                                     <span class="block text-xs text-brand-ink/60">
-                                                        @if ($isLocked){{ __('Locked by pause') }}@else{{ __('Week of :date', ['date' => $weekMonday->format('d.m.Y')]) }}@endif
+                                                        @if ($isLocked){{ __('Locked by pause') }}@else{{ __('KW :week', ['week' => $weekMonday->isoWeek()]) }}@endif
                                                     </span>
                                                 </span>
                                             </label>
@@ -368,13 +368,12 @@
                     <form method="post" action="{{ route('app.subscriptions.cancel') }}" class="bg-brand-cream p-6">
                         @csrf
 
-                        <p class="eyebrow text-chapter-meat">{{ __('Cancel') }}</p>
-                        <h2 class="mt-2 font-display text-2xl text-brand-ink">
+                        <h2 class="font-display text-2xl text-brand-ink">
                             {{ __('Cancel subscription') }}
                         </h2>
 
                         <p class="mt-3 text-sm leading-relaxed text-brand-ink/75">
-                            {{ __('This ends your subscription. Outstanding deliveries may still apply depending on your billing cycle; you will not be charged for future cycles after cancellation.') }}
+                            {{ __('This ends your subscription at the end of the current billing cycle — pending deliveries within that cycle still ship; we will not charge you for future cycles.') }}
                         </p>
 
                         <ul class="mt-3 list-inside list-disc text-sm text-brand-ink/75">
@@ -383,7 +382,7 @@
                         </ul>
 
                         <div class="mt-5">
-                            <x-input-label for="cancellation_reason" :value="__('Reason (optional)')" />
+                            <x-input-label for="cancellation_reason" :value="__('Reason')" optional />
                             <textarea
                                 id="cancellation_reason"
                                 name="cancellation_reason"
