@@ -71,13 +71,13 @@
                                             <dd class="font-medium">{{ __(ucfirst($draft->intent)) }}</dd>
                                         </div>
                                     @endif
-                                    @if(!empty($data['preferences']))
+                                    {{-- Only customer-facing flags belong here.
+                                         veg_only / meat_add_on are forced product policy. --}}
+                                    @if(!empty($data['preferences']['eggs_dairy_add_on']))
                                         <div>
-                                            <dt class="mb-1">{{ __('Preferences') }}</dt>
+                                            <dt class="mb-1">{{ __('Extras') }}</dt>
                                             <dd class="text-xs text-brand-ink/70">
-                                                @foreach($data['preferences'] as $k => $v)
-                                                    @if($v)<span class="inline-block px-2 py-0.5 mr-1 mb-1 bg-chapter-produce/10 text-chapter-produce">{{ str_replace('_',' ',$k) }}</span>@endif
-                                                @endforeach
+                                                <span class="inline-block px-2 py-0.5 mr-1 mb-1 bg-chapter-eggdairy/10 text-chapter-eggdairy">{{ __('Eggs add-on') }}</span>
                                             </dd>
                                         </div>
                                     @endif

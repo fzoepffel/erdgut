@@ -34,6 +34,12 @@
             />
 
             <x-payment.security-badge />
+
+            <div class="mt-6">
+                <a href="{{ route('app.onboarding.step.trial_delivery') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
+                    ← {{ __('Back to :step', ['step' => __('Delivery')]) }}
+                </a>
+            </div>
         </div>
     @else
         <div class="mt-6 border border-chapter-meat/40 bg-chapter-meat/5 p-5 text-sm text-brand-ink" role="alert">
