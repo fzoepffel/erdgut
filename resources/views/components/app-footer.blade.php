@@ -2,8 +2,8 @@
     <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
         <x-triple-star class="opacity-70" />
         <div class="mt-10 grid gap-8 md:grid-cols-3 md:items-start">
-            <div class="flex flex-col gap-3">
-                <x-application-logo variant="filled" :withWordmark="false" class="h-16 w-auto" />
+            <div class="flex flex-col items-start gap-3">
+                <x-application-logo variant="filled" :withWordmark="false" class="h-16 w-16" />
                 <p class="font-editorial text-sm italic leading-relaxed text-brand-ink/70">
                     {{ __('footer.tagline') }}
                 </p>

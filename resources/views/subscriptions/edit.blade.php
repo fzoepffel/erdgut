@@ -53,28 +53,21 @@
                     </fieldset>
 
                     <fieldset>
-                        <legend class="eyebrow text-brand-ink">{{ __('Delivery rhythm') }}</legend>
+                        <legend class="eyebrow text-brand-ink">{{ __('Cadence') }}</legend>
                         <p class="mt-2 text-sm text-brand-ink/70">{{ __('Changing the rhythm while your subscription is active updates your next charge date from today forward.') }}</p>
-                        <div class="mt-4 space-y-3">
+                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                             @foreach (\App\Enums\SubscriptionPlan::cases() as $planOption)
-                                <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
+                                <label class="flex cursor-pointer items-center justify-center border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
                                     <input
                                         type="radio"
                                         name="plan"
                                         value="{{ $planOption->value }}"
-                                        class="mt-1 border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
+                                        class="sr-only"
                                         @checked(old('plan', $subscription->plan->value) === $planOption->value)
                                         required
                                     />
-                                    <span>
-                                        <span class="block font-display text-base text-brand-ink">
-                                            {{ $planOption === \App\Enums\SubscriptionPlan::Weekly ? __('Weekly delivery') : __('Biweekly delivery') }}
-                                        </span>
-                                        <span class="mt-1 block text-sm text-brand-ink/70">
-                                            {{ $planOption === \App\Enums\SubscriptionPlan::Weekly
-                                                ? __('Charged and delivered every week.')
-                                                : __('Charged and delivered every two weeks.') }}
-                                        </span>
+                                    <span class="font-display text-base font-semibold text-brand-ink">
+                                        {{ $planOption === \App\Enums\SubscriptionPlan::Weekly ? __('Every week') : __('Every two weeks') }}
                                     </span>
                                 </label>
                             @endforeach

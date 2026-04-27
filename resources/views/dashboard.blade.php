@@ -105,7 +105,9 @@
                                 {{ __('Manage deliveries') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @elseif ($primarySubscription)
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('No upcoming deliveries scheduled yet.') }}</p>
+                            @php($nextMonday = \Carbon\CarbonImmutable::parse($primarySubscription->next_charge_date ?? now())->startOfWeek())
+                            <p class="mt-3 font-display text-2xl text-brand-ink">{{ $nextMonday->locale(app()->getLocale())->isoFormat('dd, D. MMM') }}</p>
+                            <p class="mt-1 text-sm text-brand-ink/70">{{ __('First delivery — we will confirm day and timeslot once your box is composed.') }}</p>
                             <a href="{{ route('app.deliveries.preferences.edit') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
                                 {{ __('Set delivery preferences') }} <span aria-hidden="true">&rarr;</span>
                             </a>
@@ -126,10 +128,7 @@
                                 {{ __('View current box') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @elseif ($primarySubscription)
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('No box for this week yet.') }}</p>
-                            <a href="{{ route('app.subscriptions.show') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
-                                {{ __('View subscription') }} <span aria-hidden="true">&rarr;</span>
-                            </a>
+                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('Box composition runs each Thursday for the following Monday delivery — your first box will appear here once it is composed.') }}</p>
                         @else
                             <p class="mt-3 text-sm text-brand-ink/70">{{ __('Start a subscription to receive a weekly box.') }}</p>
                         @endif
@@ -161,16 +160,15 @@
                     </div>
                 </div>
 
-                {{-- Quick actions --}}
+                {{-- Quick actions: only items NOT covered by the top nav (Dashboard /
+                     Abo / Lieferungen / Produkte). Otherwise this section just duplicates
+                     navigation. --}}
                 <div class="border-t border-brand-ink/15 bg-brand-ink/[0.02] px-6 py-5">
                     <p class="eyebrow text-brand-ink/60">{{ __('Quick actions') }}</p>
                     <div class="mt-3 flex flex-wrap gap-2">
-                        <a href="{{ route('app.boxes.current') }}" class="btn-ghost text-xs">{{ __('Current box') }}</a>
-                        <a href="{{ route('app.deliveries.index') }}" class="btn-ghost text-xs">{{ __('All deliveries') }}</a>
-                        <a href="{{ route('app.subscriptions.show') }}" class="btn-ghost text-xs">{{ __('Subscription') }}</a>
-                        <a href="{{ route('app.products.index') }}" class="btn-ghost text-xs">{{ __('products.index_title') }}</a>
-                        <a href="{{ route('public.producers') }}" class="btn-ghost text-xs">{{ __('Producers') }}</a>
+                        <a href="{{ route('app.deliveries.preferences.edit') }}" class="btn-ghost text-xs">{{ __('Address & timeslot') }}</a>
                         <a href="{{ route('app.payments.history') }}" class="btn-ghost text-xs">{{ __('Payments') }}</a>
+                        <a href="{{ route('public.producers') }}" class="btn-ghost text-xs">{{ __('Producers') }}</a>
                     </div>
                 </div>
             </section>
@@ -194,7 +192,12 @@
                         </div>
                     </div>
                     <div class="p-6">
-                        <x-order-timeline :cards="$deliveryCards">
+                        <x-order-timeline
+                            :cards="$deliveryCards"
+                            :empty-description="$primarySubscription
+                                ? __('Your delivery days will show up here once we compose your first box.')
+                                : __('When your subscription is active, your delivery days will show up here.')"
+                        >
                             <x-slot name="emptyAction">
                                 @if ($primarySubscription)
                                     <a href="{{ route('app.deliveries.preferences.edit') }}" class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
