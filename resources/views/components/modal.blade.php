@@ -34,7 +34,11 @@ $maxWidth = [
     x-init="$watch('show', value => {
         if (value) {
             document.body.classList.add('overflow-y-hidden');
-            {{ $attributes->has('focusable') ? 'setTimeout(() => firstFocusable().focus(), 100)' : '' }}
+            {{-- A child element marked [data-default-focus] gets focus first when --}}
+            {{-- present (lets destructive-action modals default-focus the SAFE button --}}
+            {{-- so an accidental Enter doesn't fire the destructive action). Falls --}}
+            {{-- back to the first focusable in DOM order otherwise. --}}
+            {{ $attributes->has('focusable') ? 'setTimeout(() => ($el.querySelector(\'[data-default-focus]\') || firstFocusable()).focus(), 100)' : '' }}
         } else {
             document.body.classList.remove('overflow-y-hidden');
         }
