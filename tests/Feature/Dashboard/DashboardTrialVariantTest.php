@@ -89,8 +89,11 @@ class DashboardTrialVariantTest extends TestCase
         $response->assertOk();
 
         $content = $response->getContent();
-        $trialDate = now()->addDays(3)->format('D, d M Y');
-        $subDate = now()->addDays(10)->format('D, d M Y');
+        // Dashboard now renders dates via Carbon::isoFormat('dd, D. MMM YYYY')
+        // for proper locale support. Match that format here so the test isn't
+        // tied to PHP's English-only DateTime format characters.
+        $trialDate = now()->addDays(3)->locale(app()->getLocale())->isoFormat('dd, D. MMM YYYY');
+        $subDate = now()->addDays(10)->locale(app()->getLocale())->isoFormat('dd, D. MMM YYYY');
         $trialPos = strpos($content, $trialDate);
         $subPos = strpos($content, $subDate);
 

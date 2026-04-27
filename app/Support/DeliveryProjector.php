@@ -36,11 +36,23 @@ class DeliveryProjector
     {
         $user = $box->user;
         if ($user === null) {
+            \Log::warning('DeliveryProjector: skipped box without user.', [
+                'box_id' => $box->id,
+                'week_start_date' => $box->week_start_date?->toDateString(),
+            ]);
+
             return null;
         }
 
         $address = $user->primaryAddress()->first();
         if ($address === null) {
+            \Log::warning('DeliveryProjector: skipped box because user has no primary address.', [
+                'box_id' => $box->id,
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'week_start_date' => $box->week_start_date?->toDateString(),
+            ]);
+
             return null;
         }
 

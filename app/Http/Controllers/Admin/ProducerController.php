@@ -99,9 +99,13 @@ class ProducerController extends Controller
             }
         });
 
+        // Redirect to the index so the admin gets explicit "X created" feedback
+        // plus a list view confirming the row exists (instead of landing back on
+        // an edit page that looks identical to a fresh create form).
         return redirect()
-            ->route('app.admin.producers.edit', $producer)
-            ->with('status', __('Producer created.'));
+            ->route('app.admin.producers.index')
+            ->with('status', __('Producer “:name” created.', ['name' => $producer->fresh()->translationFor('de')?->name ?? '']))
+            ->with('flash_edit_url', route('app.admin.producers.edit', $producer));
     }
 
     public function edit(Producer $producer): View

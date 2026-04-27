@@ -591,6 +591,8 @@
     "Prioritising producers near Berlin and certified organic where it matters.": "Priorité aux producteurs proches de Berlin et au bio certifié là où cela compte.",
     "Producer": "Producteur",
     "Producer created.": "Producteur créé.",
+    "Producer “:name” created.": "Producteur « :name » créé.",
+    "Product “:name” created.": "Produit « :name » créé.",
     "Producer deleted.": "Producteur supprimé.",
     "Producer directory": "Annuaire des producteurs",
     "Producer name or keywords…": "Nom du producteur ou mots-clés…",

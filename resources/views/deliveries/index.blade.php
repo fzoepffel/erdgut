@@ -99,7 +99,7 @@
                                     <div>
                                         <p class="eyebrow text-chapter-produce">{{ $relativeWeekLabel ?? __('Upcoming') }}</p>
                                         <h3 id="delivery-heading-{{ $baseDelivery->id }}" class="mt-2 font-display text-2xl text-brand-ink">
-                                            {{ $baseDelivery->scheduled_for_date->format('l, d M Y') }}
+                                            {{ $baseDelivery->scheduled_for_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY') }}
                                         </h3>
                                         <p class="mt-1 text-xs uppercase tracking-eyebrow text-brand-ink/55">{{ __('Delivery date') }}</p>
                                     </div>

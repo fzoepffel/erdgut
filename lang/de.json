@@ -591,6 +591,8 @@
     "Prioritising producers near Berlin and certified organic where it matters.": "Wir bevorzugen Erzeuger nahe Berlin und Bio-Zertifizierung, wo es zählt.",
     "Producer": "Erzeuger",
     "Producer created.": "Erzeuger angelegt.",
+    "Producer “:name” created.": "Erzeuger „:name“ wurde angelegt.",
+    "Product “:name” created.": "Produkt „:name“ wurde angelegt.",
     "Producer deleted.": "Erzeuger gelöscht.",
     "Producer directory": "Erzeugerverzeichnis",
     "Producer name or keywords…": "Erzeugername oder Stichworte …",

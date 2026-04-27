@@ -138,9 +138,13 @@ class ProductController extends Controller
             }
         });
 
+        // Redirect to the index for clearer "X created" feedback (matching the
+        // producer-create flow); the inline edit link in the flash gets the
+        // admin straight back to the form if they want to keep editing.
         return redirect()
-            ->route('app.admin.products.edit', $product)
-            ->with('status', __('Product created.'));
+            ->route('app.admin.products.index')
+            ->with('status', __('Product “:name” created.', ['name' => $product->fresh()->name ?? '']))
+            ->with('flash_edit_url', route('app.admin.products.edit', $product));
     }
 
     public function edit(Product $product): View

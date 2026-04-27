@@ -96,7 +96,7 @@
                         <p class="eyebrow text-chapter-produce">{{ __('Next delivery') }}</p>
                         @if ($firstDeliveryCard)
                             @php($delivery = $firstDeliveryCard['delivery'])
-                            <p class="mt-3 font-display text-2xl text-brand-ink">{{ $delivery->scheduled_for_date->format('D, d M Y') }}</p>
+                            <p class="mt-3 font-display text-2xl text-brand-ink">{{ $delivery->scheduled_for_date->locale(app()->getLocale())->isoFormat('dd, D. MMM YYYY') }}</p>
                             <p class="mt-1 text-sm text-brand-ink/70">{{ $delivery->timeslot }}</p>
                             <p class="text-sm text-brand-ink/70">
                                 {{ $delivery->address?->city ? __('To :city', ['city' => $delivery->address->city]) : __('Address not set') }}
@@ -122,7 +122,7 @@
                         <p class="eyebrow text-chapter-fish">{{ __('Your box') }}</p>
                         @if ($currentBox)
                             <p class="mt-3 font-display text-2xl text-brand-ink">
-                                {{ __('Week of :date', ['date' => $currentBox->week_start_date->format('d M Y')]) }}
+                                {{ __('Week of :date', ['date' => $currentBox->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}
                             </p>
                             <a href="{{ route('app.boxes.current') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
                                 {{ __('View current box') }} <span aria-hidden="true">&rarr;</span>
@@ -221,7 +221,7 @@
                     <div class="p-6">
                         @if ($currentBox)
                             <p class="text-sm text-brand-ink/70">
-                                {{ __('Week of :date', ['date' => $currentBox->week_start_date->format('d M Y')]) }}
+                                {{ __('Week of :date', ['date' => $currentBox->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}
                             </p>
                             <p class="mt-2">
                                 <a href="{{ route('app.boxes.current') }}" class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
@@ -281,7 +281,7 @@
                             <ul class="space-y-3">
                                 @foreach ($upcomingBoxes as $box)
                                     <li class="border border-brand-ink/15 p-4">
-                                        <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->format('d M Y')]) }}</p>
+                                        <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
                                         <p class="mt-1 text-sm text-brand-ink/70">
                                             {{ __('Status:') }}
                                             <x-status-badge :value="$box->status" type="box" />

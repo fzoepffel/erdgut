@@ -32,7 +32,7 @@
                 <div class="flex items-center justify-between gap-2">
                     <p class="font-display text-lg text-brand-ink">
                         @if ($delivery?->scheduled_for_date)
-                            {{ $delivery->scheduled_for_date->format('D, d M Y') }}
+                            {{ $delivery->scheduled_for_date->locale(app()->getLocale())->isoFormat('dd, D. MMM YYYY') }}
                         @else
                             <span class="text-brand-ink/50">{{ __('Date pending') }}</span>
                         @endif
