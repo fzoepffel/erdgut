@@ -394,7 +394,11 @@
                         </div>
 
                         <div class="mt-6 flex justify-end gap-2">
-                            <x-secondary-button type="button" x-on:click="$dispatch('close')">
+                            {{-- Default-focus on the SAFE button: an accidental Enter
+                                 (e.g., after typing the optional reason) should NOT
+                                 fire the destructive cancel-confirm. The user must
+                                 explicitly Tab + Enter on the destructive button. --}}
+                            <x-secondary-button type="button" data-default-focus x-on:click="$dispatch('close')">
                                 {{ __('Keep subscription') }}
                             </x-secondary-button>
 
