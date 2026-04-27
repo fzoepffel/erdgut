@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductWeekStock;
 use App\Models\Subscription;
 use App\Support\BoxValueRecalculationService;
+use App\Support\DeliveryProjector;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -27,6 +28,7 @@ final class WeeklyBoxSetupService
     public function __construct(
         private readonly WeeklyBoxPlannerService $weeklyBoxPlanner,
         private readonly BoxValueRecalculationService $valueRecalculationService,
+        private readonly DeliveryProjector $deliveryProjector,
     ) {}
 
     /**
@@ -451,6 +453,16 @@ final class WeeklyBoxSetupService
                 }
 
                 $this->valueRecalculationService->recalculate($box->fresh());
+
+                // Auto-project the delivery row for this box. Previously delivery
+                // rows were only created by the separate `deliveries:sync-from-boxes`
+                // command (run nightly via cron, or manually via the admin button),
+                // so saving boxes left a same-day gap where the customer dashboard
+                // showed the upcoming box but no scheduled delivery.
+                // The projector is idempotent (updateOrCreate on user_id +
+                // scheduled_for_date) so re-runs of "Boxen speichern" stay safe.
+                $this->deliveryProjector->projectForBox($box->fresh());
+
                 $updated++;
             }
         });

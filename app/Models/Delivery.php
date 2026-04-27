@@ -27,6 +27,8 @@ class Delivery extends Model
         'scheduled_for_date',
         'timeslot',
         'status',
+        'in_transit_at',
+        'delivered_at',
         'special_instructions',
         'is_weekly_override',
         'overrides_delivery_id',
@@ -43,6 +45,8 @@ class Delivery extends Model
         return [
             'status' => DeliveryStatus::class,
             'scheduled_for_date' => 'date:Y-m-d',
+            'in_transit_at' => 'datetime',
+            'delivered_at' => 'datetime',
             'is_weekly_override' => 'boolean',
             'is_test' => 'boolean',
         ];

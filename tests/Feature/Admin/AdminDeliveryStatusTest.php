@@ -47,6 +47,64 @@ class AdminDeliveryStatusTest extends TestCase
         $this->assertSame(DeliveryStatus::Delivered, $delivery->status);
     }
 
+    public function test_marking_delivery_in_transit_stamps_in_transit_at(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $delivery = Delivery::factory()->create(['status' => DeliveryStatus::Scheduled]);
+        $this->assertNull($delivery->in_transit_at);
+
+        $this->actingAs($admin)
+            ->from(route('app.admin.deliveries.index'))
+            ->patch(route('app.admin.deliveries.status.update', $delivery), ['status' => 'in_transit']);
+
+        $delivery->refresh();
+        $this->assertNotNull($delivery->in_transit_at, 'in_transit_at must be stamped on the in_transit transition');
+        $this->assertNull($delivery->delivered_at, 'delivered_at should not be stamped yet');
+    }
+
+    public function test_marking_delivery_delivered_stamps_both_timestamps_when_skipping_in_transit(): void
+    {
+        // Self-pickup customers might go straight from scheduled → delivered
+        // without ever being marked in_transit. Backfill both for a clean record.
+        $admin = User::factory()->admin()->create();
+        $delivery = Delivery::factory()->create(['status' => DeliveryStatus::Scheduled]);
+
+        $this->actingAs($admin)
+            ->from(route('app.admin.deliveries.index'))
+            ->patch(route('app.admin.deliveries.status.update', $delivery), ['status' => 'delivered']);
+
+        $delivery->refresh();
+        $this->assertNotNull($delivery->in_transit_at, 'in_transit_at backfilled even when skipped directly to delivered');
+        $this->assertNotNull($delivery->delivered_at);
+    }
+
+    public function test_status_timestamps_are_stamp_once_only(): void
+    {
+        // Flipping status away from delivered and back must not overwrite the
+        // canonical delivered_at — the original timestamp is what support cares about.
+        $admin = User::factory()->admin()->create();
+        $delivery = Delivery::factory()->create(['status' => DeliveryStatus::Scheduled]);
+
+        // First: in_transit → records timestamp.
+        $this->actingAs($admin)
+            ->from(route('app.admin.deliveries.index'))
+            ->patch(route('app.admin.deliveries.status.update', $delivery), ['status' => 'in_transit']);
+        $first = $delivery->fresh()->in_transit_at;
+        $this->assertNotNull($first);
+
+        // Re-flip back to scheduled, then forward to in_transit again.
+        $this->actingAs($admin)
+            ->from(route('app.admin.deliveries.index'))
+            ->patch(route('app.admin.deliveries.status.update', $delivery), ['status' => 'scheduled']);
+        sleep(1); // make sure now() would differ
+        $this->actingAs($admin)
+            ->from(route('app.admin.deliveries.index'))
+            ->patch(route('app.admin.deliveries.status.update', $delivery), ['status' => 'in_transit']);
+
+        $this->assertEquals($first->toDateTimeString(), $delivery->fresh()->in_transit_at->toDateTimeString(),
+            'in_transit_at must not be reset on re-transition');
+    }
+
     public function test_admin_can_mark_delivery_skipped(): void
     {
         $admin = User::factory()->admin()->create();
