@@ -79,10 +79,13 @@ class DashboardPageTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('Berlin Mitte')
-            ->assertSee('EUR 39.99')
+            // Dashboard now renders currency with German conventions
+            // (comma decimal, period thousand-separator) for the Almanach
+            // box-row "Estimated value" line.
+            ->assertSee('EUR 39,99')
             ->assertSee('Scheduled')
             ->assertDontSee('Hamburg Nord')
-            ->assertDontSee('EUR 88.88');
+            ->assertDontSee('EUR 88,88');
     }
 
     public function test_dashboard_orders_and_limits_upcoming_deliveries(): void

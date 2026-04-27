@@ -66,7 +66,11 @@ class AdminDeliveryController extends Controller
             $query->whereDate('scheduled_for_date', '<=', $validated['date_to']);
         }
 
-        $deliveries = $query->orderByDesc('scheduled_for_date')->orderByDesc('id')->paginate($perPage)->withQueryString();
+        // Order by upcoming-first so admins see what's about to ship at the
+        // top of the table. Past deliveries fall to the bottom (or get
+        // filtered out via the date range fields). Within the same date,
+        // tie-break by id ascending so the order stays stable.
+        $deliveries = $query->orderBy('scheduled_for_date')->orderBy('id')->paginate($perPage)->withQueryString();
 
         return view('admin.operations.deliveries.index', [
             'deliveries' => $deliveries,

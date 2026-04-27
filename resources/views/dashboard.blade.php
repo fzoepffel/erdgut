@@ -280,15 +280,22 @@
                         @else
                             <ul class="space-y-3">
                                 @foreach ($upcomingBoxes as $box)
-                                    <li class="border border-brand-ink/15 p-4">
-                                        <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
-                                        <p class="mt-1 text-sm text-brand-ink/70">
-                                            {{ __('Status:') }}
-                                            <x-status-badge :value="$box->status" type="box" />
-                                        </p>
-                                        <p class="text-sm text-brand-ink/70">
-                                            {{ __('Estimated value: EUR :amount', ['amount' => number_format((float) $box->estimated_value, 2)]) }}
-                                        </p>
+                                    <li>
+                                        <a href="{{ route('app.boxes.show', $box) }}"
+                                           class="block border border-brand-ink/15 p-4 transition hover:border-brand-ink/40 hover:bg-brand-ink/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce">
+                                            <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
+                                            {{-- Map admin-internal box statuses to customer-friendly phrasing. --}}
+                                            @if ($box->status->value === 'editable')
+                                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('In Vorbereitung') }}</p>
+                                            @elseif ($box->status->value === 'locked')
+                                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('Wird zugestellt') }}</p>
+                                            @elseif ($box->status->value === 'delivered')
+                                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('Geliefert') }}</p>
+                                            @endif
+                                            <p class="text-sm text-brand-ink/70">
+                                                {{ __('Estimated value: EUR :amount', ['amount' => number_format((float) $box->estimated_value, 2, ',', '.')]) }}
+                                            </p>
+                                        </a>
                                     </li>
                                 @endforeach
                             </ul>
