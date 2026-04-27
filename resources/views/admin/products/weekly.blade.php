@@ -113,8 +113,8 @@
                                     <th class="px-3 py-2">{{ __('admin.weekly_catalog.col_product') }}</th>
                                     <th class="px-3 py-2">{{ __('admin.weekly_catalog.col_quantity') }}</th>
                                     <th class="px-3 py-2">{{ __('admin.weekly_catalog.col_unit') }}</th>
-                                    <th class="px-3 py-2">{{ __('admin.weekly_catalog.col_remaining') }}</th>
-                                    <th class="px-3 py-2">{{ __('admin.weekly_catalog.col_delete') }}</th>
+                                    <th class="whitespace-nowrap px-3 py-2">{{ __('admin.weekly_catalog.col_remaining') }}</th>
+                                    <th class="whitespace-nowrap px-3 py-2">{{ __('admin.weekly_catalog.col_delete') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">

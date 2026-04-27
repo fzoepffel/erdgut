@@ -1443,7 +1443,7 @@
     "admin.weekly_catalog.col_mode": "Typ",
     "admin.weekly_catalog.col_product": "Produkt",
     "admin.weekly_catalog.col_quantity": "Menge",
-    "admin.weekly_catalog.col_remaining": "Rest",
+    "admin.weekly_catalog.col_remaining": "Verbleibend",
     "admin.weekly_catalog.col_unit": "Einheit",
     "admin.weekly_catalog.default_week": "Nächster Montag",
     "admin.weekly_catalog.delete_line": "Zeile löschen",

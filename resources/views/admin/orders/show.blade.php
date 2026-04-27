@@ -35,7 +35,7 @@
                     <dl class="space-y-2 text-sm">
                         <div><dt class="text-gray-500">{{ __('Status') }}</dt><dd class="font-medium">{{ $order->status->label() }}</dd></div>
                         <div><dt class="text-gray-500">{{ __('Box size') }}</dt><dd>{{ ucfirst((string) $order->box_size) }}</dd></div>
-                        <div><dt class="text-gray-500">{{ __('Amount') }}</dt><dd>EUR {{ number_format((float) $order->amount, 2) }}</dd></div>
+                        <div><dt class="text-gray-500">{{ __('Amount') }}</dt><dd>@eur($order->amount)</dd></div>
                         <div><dt class="text-gray-500">{{ __('Paid at') }}</dt><dd>{{ $order->paid_at?->format('d M Y H:i') ?? '—' }}</dd></div>
                         <div><dt class="text-gray-500">{{ __('Scheduled for') }}</dt><dd>{{ $order->scheduled_for_date?->format('D d M Y') ?? '—' }} {{ $order->preferred_timeslot }}</dd></div>
                         <div><dt class="text-gray-500">{{ __('Delivered at') }}</dt><dd>{{ $order->delivered_at?->format('d M Y H:i') ?? '—' }}</dd></div>
@@ -74,11 +74,11 @@
                             <div class="flex items-start justify-between gap-4">
                                 <div>
                                     <p class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.included_budget_label') }}</p>
-                                    <p class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['included_budget'], 2, ',', '.') }} €</p>
+                                    <p class="mt-1 tabular-nums text-gray-900">@eur($budgetDetails['included_budget'])</p>
                                 </div>
                                 <div class="text-right">
                                     <p class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.estimated_retail_label') }}</p>
-                                    <p class="mt-1 tabular-nums text-gray-900">{{ number_format($budgetDetails['estimated_value'], 2, ',', '.') }} €</p>
+                                    <p class="mt-1 tabular-nums text-gray-900">@eur($budgetDetails['estimated_value'])</p>
                                 </div>
                             </div>
                             @php
@@ -94,8 +94,8 @@
                                 <div class="absolute -top-0.5 h-3 w-0.5 bg-gray-500" style="left: {{ $targetPct }}%"></div>
                             </div>
                             <p class="mt-2 text-xs text-gray-500">
-                                {{ __('admin.box_setup.target_short') }}: {{ number_format($target, 2, ',', '.') }} € /
-                                {{ __('admin.box_setup.max_short') }}: {{ number_format($max, 2, ',', '.') }} €
+                                {{ __('admin.box_setup.target_short') }}: @eur($target) /
+                                {{ __('admin.box_setup.max_short') }}: @eur($max)
                             </p>
                         </div>
                     @endif

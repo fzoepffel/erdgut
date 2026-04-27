@@ -64,7 +64,7 @@
                                                 <span class="text-gray-400">—</span>
                                             @endif
                                         </td>
-                                        <td class="px-4 py-3 text-gray-700">{{ $box->status->value }}</td>
+                                        <td class="px-4 py-3"><x-status-badge :value="$box->status" type="box" /></td>
                                         <td class="px-4 py-3 text-right tabular-nums text-gray-700">
                                             {{ $row['non_extra_count'] }}
                                             @if ($row['extra_count'] > 0)
@@ -74,7 +74,7 @@
                                             @endif
                                         </td>
                                         <td class="px-4 py-3 text-right tabular-nums text-gray-900">
-                                            {{ number_format((float) $box->estimated_value, 2, ',', '.') }} €
+                                            @eur($box->estimated_value)
                                         </td>
                                         <td class="px-4 py-3 text-gray-700">
                                             {{ $box->modification_deadline_at?->translatedFormat('d.m.Y H:i') ?? '—' }}

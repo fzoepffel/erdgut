@@ -70,7 +70,7 @@
                             <div class="col-span-2">
                                 <dt class="text-xs text-gray-500">{{ __('admin.box_setup.total_value') }}</dt>
                                 <dd class="mt-0.5 tabular-nums text-gray-900">
-                                    {{ number_format($row['total_estimated_value'], 2, ',', '.') }} €
+                                    @eur($row['total_estimated_value'])
                                 </dd>
                             </div>
                         </dl>

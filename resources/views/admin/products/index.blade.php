@@ -171,7 +171,7 @@
                                                 @php $catEnum = \App\Enums\ProductCategory::tryFrom($product->category); @endphp
                                                 {{ $catEnum ? __('admin.category.'.$catEnum->value) : $product->category }}
                                             </td>
-                                            <td class="py-3 pe-4 text-gray-600">{{ number_format((float) $product->unit_price, 2) }}</td>
+                                            <td class="py-3 pe-4 text-gray-600">@eur($product->unit_price)</td>
                                             <td class="py-3 pe-4">
                                                 @if ($product->is_available)
                                                     <span class="text-emerald-700">{{ __('Available') }}</span>
