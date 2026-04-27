@@ -288,6 +288,8 @@
                     @endif
                 </div>
             </div>
+
+            <x-admin.audit-timeline entity-type="box" :entity-id="$box->id" />
         </div>
     </div>
 </x-admin-layout>

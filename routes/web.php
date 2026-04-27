@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\UserAccessProbeController;
+use App\Http\Controllers\Admin\AdminAuditEventController;
 use App\Http\Controllers\Admin\AdminBillingCoverageController;
 use App\Http\Controllers\Admin\AdminBoxController;
 use App\Http\Controllers\Admin\AdminBoxItemController;
@@ -163,6 +164,7 @@ Route::middleware(['auth', 'verified'])
 
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+            Route::get('audit-events', [AdminAuditEventController::class, 'index'])->name('audit-events.index');
             Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
             Route::post('users', [AdminUserController::class, 'storeAdmin'])
                 ->middleware('throttle:12,1')

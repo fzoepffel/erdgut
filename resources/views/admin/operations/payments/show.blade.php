@@ -217,6 +217,8 @@
                     @endif
                 </div>
             </div>
+
+            <x-admin.audit-timeline entity-type="payment" :entity-id="$payment->id" />
         </div>
     </div>
 </x-admin-layout>
