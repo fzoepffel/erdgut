@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Localization;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -86,5 +87,43 @@ class LocaleSwitchTest extends TestCase
         $response->assertSee('data-locale="fr"', false);
         $response->assertSee('data-locale="de"', false);
         $response->assertSee('data-locale="en"', false);
+    }
+
+    public function test_switch_persists_locale_on_authenticated_user(): void
+    {
+        $user = User::factory()->create(['locale' => 'de']);
+
+        $this->actingAs($user)
+            ->get(route('public.locale.switch', 'fr'))
+            ->assertRedirect();
+
+        $this->assertSame('fr', $user->fresh()->locale,
+            'Switching language as an authenticated user must update the persisted locale on the user record.');
+    }
+
+    public function test_authenticated_user_locale_takes_precedence_over_accept_language(): void
+    {
+        $user = User::factory()->create(['locale' => 'fr']);
+
+        $response = $this->actingAs($user)
+            ->withHeaders(['Accept-Language' => 'de-DE,de;q=0.9'])
+            ->get(route('public.home'));
+
+        $response->assertOk();
+        $response->assertSee('Des légumes frais arrivent bientôt.', false);
+    }
+
+    public function test_session_locale_still_wins_over_authenticated_user_locale(): void
+    {
+        // Explicit session choice (e.g., the language switcher in the
+        // current session) overrides the persisted preference for that
+        // session — useful for "I want this page in English temporarily".
+        $user = User::factory()->create(['locale' => 'fr']);
+        session(['locale' => 'en']);
+
+        $response = $this->actingAs($user)->get(route('public.home'));
+
+        $response->assertOk();
+        $response->assertSee('Fresh produce is on its way.', false);
     }
 }

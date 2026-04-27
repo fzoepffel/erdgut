@@ -13,6 +13,14 @@ class LocaleController extends Controller
 
         if (in_array($locale, $supported, true)) {
             $request->session()->put('locale', $locale);
+
+            // Persist the choice on the user so queued mailables (which run
+            // outside the request lifecycle) and future sessions render in
+            // the right language. Guests stay on session-only.
+            $user = $request->user();
+            if ($user !== null && $user->locale !== $locale) {
+                $user->forceFill(['locale' => $locale])->save();
+            }
         }
 
         $fallback = route('public.home');
