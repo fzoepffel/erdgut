@@ -56,10 +56,16 @@
                         <td class="px-3 py-2 text-right tabular-nums text-gray-700">{{ ($perSize['medium']['boxes'] ?? 0) }}/{{ ($perSize['medium']['eligible'] ?? 0) }}</td>
                         <td class="px-3 py-2 text-right tabular-nums text-gray-700">{{ ($perSize['large']['boxes'] ?? 0) }}/{{ ($perSize['large']['eligible'] ?? 0) }}</td>
                         <td class="px-3 py-2 text-right tabular-nums text-gray-900">@eur($row['total_estimated_value'])</td>
-                        <td class="px-3 py-2 text-right">
+                        <td class="whitespace-nowrap px-3 py-2 text-right">
                             <a href="{{ route('app.admin.boxes.setup.show', ['week' => $row['week_start_date']]) }}" class="font-medium text-emerald-700 hover:underline">
                                 {{ ($row['total_boxes_count'] ?? $row['boxes_count']) > 0 ? __('admin.box_setup.compact_grid_cta_review') : __('admin.box_setup.compact_grid_cta_setup') }}
                             </a>
+                            @if (($row['total_boxes_count'] ?? $row['boxes_count']) > 0)
+                                <span class="mx-1 text-gray-300">·</span>
+                                <a href="{{ route('app.admin.boxes.week.show', ['week' => $row['week_start_date']]) }}" class="font-medium text-gray-700 hover:underline">
+                                    {{ __('admin.box_setup.cta_view_boxes') }}
+                                </a>
+                            @endif
                         </td>
                     </tr>
                 @endforeach

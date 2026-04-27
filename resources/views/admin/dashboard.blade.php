@@ -27,56 +27,73 @@
                     </a>
                 </div>
 
+                {{-- Zero-count cards dim down so admins see at a glance which
+                     stages have items needing attention. The number is the
+                     signal; we keep it but mute the visual weight when 0. --}}
+                @php
+                    $pipelineCardClass = fn (int $count): string => $count > 0
+                        ? 'rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition hover:border-gray-200'
+                        : 'rounded-lg border border-gray-100 bg-gray-50/60 p-4 shadow-sm transition hover:border-gray-200';
+                    $pipelineNumberClass = fn (int $count): string => $count > 0
+                        ? 'mt-2 text-2xl font-semibold tabular-nums text-gray-900'
+                        : 'mt-2 text-2xl font-semibold tabular-nums text-gray-400';
+                @endphp
                 <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <a
                         href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box', 'status' => 'pending_payment']) }}"
-                        class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition hover:border-gray-200"
+                        class="{{ $pipelineCardClass($metrics->trialOrdersPendingPayment) }}"
                         data-testid="admin-trial-pipeline-pending-payment"
                     >
                         <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_pending_payment') }}</p>
-                        <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersPendingPayment) }}</p>
+                        <p class="{{ $pipelineNumberClass($metrics->trialOrdersPendingPayment) }}">{{ number_format($metrics->trialOrdersPendingPayment) }}</p>
                     </a>
 
                     <a
                         href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box', 'status' => 'paid', 'needs_schedule' => '1']) }}"
-                        class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition hover:border-gray-200"
+                        class="{{ $pipelineCardClass($metrics->trialOrdersPaidNeedsScheduling) }}"
                         data-testid="admin-trial-pipeline-needs-scheduling"
                     >
                         <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_paid_needs_scheduling') }}</p>
-                        <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersPaidNeedsScheduling) }}</p>
+                        <p class="{{ $pipelineNumberClass($metrics->trialOrdersPaidNeedsScheduling) }}">{{ number_format($metrics->trialOrdersPaidNeedsScheduling) }}</p>
                         <p class="mt-1 text-xs text-gray-500">{{ __('admin.trials.pipeline_paid_needs_scheduling_hint') }}</p>
                     </a>
 
                     <a
                         href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box', 'status' => 'scheduled', 'needs_box' => '1']) }}"
-                        class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition hover:border-gray-200"
+                        class="{{ $pipelineCardClass($metrics->trialOrdersScheduledNeedsBox) }}"
                         data-testid="admin-trial-pipeline-needs-box"
                     >
                         <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_scheduled_needs_box') }}</p>
-                        <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersScheduledNeedsBox) }}</p>
+                        <p class="{{ $pipelineNumberClass($metrics->trialOrdersScheduledNeedsBox) }}">{{ number_format($metrics->trialOrdersScheduledNeedsBox) }}</p>
                     </a>
 
                     <a
                         href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box', 'status' => 'scheduled', 'ready_to_deliver' => '1']) }}"
-                        class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition hover:border-gray-200"
+                        class="{{ $pipelineCardClass($metrics->trialOrdersReadyToDeliver) }}"
                         data-testid="admin-trial-pipeline-ready"
                     >
                         <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_ready_to_deliver') }}</p>
-                        <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->trialOrdersReadyToDeliver) }}</p>
+                        <p class="{{ $pipelineNumberClass($metrics->trialOrdersReadyToDeliver) }}">{{ number_format($metrics->trialOrdersReadyToDeliver) }}</p>
                     </a>
                 </div>
             </div>
 
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {{-- Merged user count: shows total + how many are unverified
+                     so we still surface the verification gap (the original
+                     reason for two separate cards), without burning a whole
+                     card on a number that's usually equal to "total". --}}
                 <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-users-total">
                     <p class="text-sm font-medium text-gray-600">{{ __('admin.metrics.users_total_label') }}</p>
                     <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->usersTotal) }}</p>
-                    <p class="mt-1 text-xs text-gray-500">{{ __('admin.metrics.users_total_hint') }}</p>
-                </div>
-                <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-users-verified">
-                    <p class="text-sm font-medium text-gray-600">{{ __('admin.metrics.users_verified_label') }}</p>
-                    <p class="mt-2 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($metrics->usersVerified) }}</p>
-                    <p class="mt-1 text-xs text-gray-500">{{ __('admin.metrics.users_verified_hint') }}</p>
+                    @php($unverified = max(0, $metrics->usersTotal - $metrics->usersVerified))
+                    <p class="mt-1 text-xs {{ $unverified > 0 ? 'text-amber-700' : 'text-gray-500' }}">
+                        @if ($unverified > 0)
+                            {{ trans_choice('admin.metrics.users_unverified_summary', $unverified, ['count' => $unverified]) }}
+                        @else
+                            {{ __('admin.metrics.users_all_verified') }}
+                        @endif
+                    </p>
                 </div>
                 <div class="rounded-lg border border-amber-100 bg-white p-5 shadow-sm" data-testid="admin-metric-users-signups-7d">
                     <p class="text-sm font-medium text-gray-600">{{ __('admin.metrics.users_signups_7d_label') }}</p>

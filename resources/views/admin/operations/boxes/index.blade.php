@@ -22,94 +22,13 @@
                 {{ __('admin.box_setup.intro') }}
             </p>
 
+            {{-- Single source of truth for the weekly planner: the compact grid
+                 table. Until now we also rendered an 8-card grid below it
+                 with the same data at lower density — caused vertical bloat
+                 and split admin attention. The table has clickable rows + a
+                 secondary "view boxes" path on the per-week detail page,
+                 which covers everything the card grid offered. --}}
             @include('admin.operations.boxes._planner_compact_grid', ['weeks' => $weeks])
-
-            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                @foreach ($weeks as $row)
-                    @php
-                        $status = $row['status'];
-                        $statusLabel = __('admin.box_setup.status_'.$status);
-                        $statusClass = match ($status) {
-                            'set_up' => 'bg-emerald-100 text-emerald-900 border-emerald-200',
-                            'partial' => 'bg-amber-100 text-amber-900 border-amber-200',
-                            default => 'bg-gray-100 text-gray-700 border-gray-200',
-                        };
-                    @endphp
-                    <div class="flex flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-amber-800/80">
-                                    {{ __('admin.box_setup.week_label') }}
-                                </p>
-                                <p class="text-base font-semibold text-gray-900">
-                                    {{ $row['week']->translatedFormat('d.m.Y') }}
-                                </p>
-                                <p class="text-xs text-gray-500">
-                                    {{ $row['week']->translatedFormat('l') }}
-                                </p>
-                            </div>
-                            <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold {{ $statusClass }}">
-                                {{ $statusLabel }}
-                            </span>
-                        </div>
-
-                        <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                                <dt class="text-xs text-gray-500">{{ __('admin.box_setup.eligible_subs') }}</dt>
-                                <dd class="mt-0.5 tabular-nums text-gray-900">{{ $row['eligible_count'] }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-gray-500">{{ __('admin.box_setup.boxes_set_up') }}</dt>
-                                <dd class="mt-0.5 tabular-nums text-gray-900">{{ $row['boxes_count'] }}</dd>
-                                @if (($row['trial_boxes_count'] ?? 0) > 0)
-                                    <dd class="mt-0.5 text-xs text-gray-500">
-                                        {{ __('Trial boxes') }}: <span class="tabular-nums">{{ $row['trial_boxes_count'] }}</span>
-                                    </dd>
-                                @endif
-                            </div>
-                            <div class="col-span-2">
-                                <dt class="text-xs text-gray-500">{{ __('admin.box_setup.total_value') }}</dt>
-                                <dd class="mt-0.5 tabular-nums text-gray-900">
-                                    @eur($row['total_estimated_value'])
-                                </dd>
-                            </div>
-                        </dl>
-
-                        <div class="mt-3 border-t border-gray-100 pt-3">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                {{ __('admin.box_setup.by_size') }}
-                            </p>
-                            <ul class="mt-1 space-y-0.5 text-xs text-gray-700">
-                                @foreach ($row['per_size'] as $size => $counts)
-                                    <li class="flex items-center justify-between">
-                                        <span>{{ __('admin.box_setup.size_'.$size) }}</span>
-                                        <span class="tabular-nums text-gray-900">
-                                            {{ $counts['boxes'] }} / {{ $counts['eligible'] }}
-                                        </span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        </div>
-
-                        <div class="mt-4 space-y-2">
-                            <a
-                                href="{{ route('app.admin.boxes.setup.show', ['week' => $row['week_start_date']]) }}"
-                                class="inline-flex w-full items-center justify-center rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
-                            >
-                                {{ ($row['total_boxes_count'] ?? $row['boxes_count']) > 0 ? __('admin.box_setup.cta_review') : __('admin.box_setup.cta_setup') }}
-                            </a>
-                            @if (($row['total_boxes_count'] ?? $row['boxes_count']) > 0)
-                                <a
-                                    href="{{ route('app.admin.boxes.week.show', ['week' => $row['week_start_date']]) }}"
-                                    class="inline-flex w-full items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
-                                >
-                                    {{ __('admin.box_setup.cta_view_boxes') }}
-                                </a>
-                            @endif
-                        </div>
-                    </div>
-                @endforeach
-            </div>
         </div>
     </div>
 </x-admin-layout>

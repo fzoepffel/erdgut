@@ -19,7 +19,11 @@
         <div class="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
             <div class="rounded-lg border border-gray-100 bg-white shadow-sm sm:rounded-lg">
                 <div class="space-y-4 p-4 text-gray-900 sm:p-6">
-                    <form method="get" action="{{ route('app.admin.payments.index') }}" class="flex flex-col flex-wrap gap-3 lg:flex-row lg:items-end">
+                    {{-- Filters: stack on mobile, switch to a horizontal flex
+                         row at md: (768px+) so most desktops get the compact
+                         layout. Was lg: which left ~1024px viewports stuck
+                         with the vertical stack. --}}
+                    <form method="get" action="{{ route('app.admin.payments.index') }}" class="flex flex-col flex-wrap gap-3 md:flex-row md:items-end">
                         <input type="hidden" name="sort" value="{{ request('sort', 'created_at') }}" />
                         <input type="hidden" name="direction" value="{{ request('direction', 'desc') }}" />
                         <div class="w-full sm:w-auto">

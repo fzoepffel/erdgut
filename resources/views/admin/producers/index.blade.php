@@ -79,9 +79,20 @@
                     <p class="text-xs text-gray-500">{{ __('admin.catalog.producers_search_hint') }}</p>
 
                     @if ($producers->isEmpty())
-                        <p class="text-sm text-gray-600">
-                            {{ $hasFilters ? __('admin.catalog.no_producers_match') : __('No producers yet.') }}
-                        </p>
+                        @if ($hasFilters)
+                            <p class="text-sm text-gray-600">{{ __('admin.catalog.no_producers_match') }}</p>
+                        @else
+                            <div class="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center">
+                                <p class="text-sm font-medium text-gray-900">{{ __('No producers yet.') }}</p>
+                                <p class="mt-1 text-sm text-gray-500">{{ __('admin.catalog.producers_empty_hint') }}</p>
+                                <a
+                                    href="{{ route('app.admin.producers.create') }}"
+                                    class="mt-4 inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                                >
+                                    {{ __('Add producer') }}
+                                </a>
+                            </div>
+                        @endif
                     @else
                         <div class="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
                             <table class="min-w-full divide-y divide-gray-200 text-sm">
