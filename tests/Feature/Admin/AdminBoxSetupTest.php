@@ -17,6 +17,7 @@ use App\Models\Product;
 use App\Models\ProductWeekStock;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\Admin\WeeklyBoxSetupService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -88,21 +89,21 @@ class AdminBoxSetupTest extends TestCase
 
         // 1 active medium subscription with eggs add-on flag.
         $subUser = User::factory()->create();
-        \App\Models\Subscription::factory()->create([
+        Subscription::factory()->create([
             'user_id' => $subUser->id,
             'box_size' => 'medium',
-            'plan' => \App\Enums\SubscriptionPlan::Weekly,
-            'status' => \App\Enums\SubscriptionStatus::Active,
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
             'trial_completed_at' => now(),
             'preferences' => ['eggs_dairy_add_on' => true],
         ]);
 
         // 1 paid trial order scheduled for that week, size small, no eggs.
         $trialUser = User::factory()->create();
-        \App\Models\Order::create([
+        Order::create([
             'user_id' => $trialUser->id,
-            'product_type' => \App\Enums\OrderProductType::TrialBox->value,
-            'status' => \App\Enums\OrderStatus::Paid->value,
+            'product_type' => OrderProductType::TrialBox->value,
+            'status' => OrderStatus::Paid->value,
             'box_size' => 'small',
             'amount' => 20,
             'currency' => 'EUR',
@@ -111,7 +112,7 @@ class AdminBoxSetupTest extends TestCase
             'is_test' => true,
         ]);
 
-        $service = app(\App\Services\Admin\WeeklyBoxSetupService::class);
+        $service = app(WeeklyBoxSetupService::class);
         $rows = $service->calendarOverview();
 
         $weekRow = collect($rows)->firstWhere('week_start_date', $monday->toDateString());

@@ -110,21 +110,37 @@
                 const pct = (size.meta.target / size.meta.max) * 100;
                 return Math.max(0, Math.min(100, pct));
             },
+            // Live "Verteilt" calculation: sum every per-customer line
+            // (regular + eggs) across the whole list. This reflects exactly
+            // what the admin sees in the Pro Kund:in panel — auto-distributed
+            // baseline + any per-customer adjustments + eggs slots — so when
+            // the admin adds, removes, or retunes a single customer's box,
+            // the Wochen-Bestand updates immediately.
+            //
+            // We deliberately do NOT add `baseline_used` from the server here.
+            // Items in boxes that map to a current customer would otherwise
+            // be double-counted (those items are already represented in
+            // `customer.lines` / `customer.eggsLines`). Orphan boxes (saved
+            // boxes that don't map to any current eligible sub/trial) are
+            // out of scope of this view; the "Alles zurücksetzen" button
+            // wipes them.
             get stockRows() {
                 const used = {};
-                for (const size of this.sizes) {
-                    const n = size.meta.n;
-                    for (const line of size.lines) {
+                for (const customer of this.customers) {
+                    for (const line of customer.lines) {
                         const pid = Number(line.product_id);
-                        const qty = Math.max(0, line.quantity || 0);
-                        used[pid] = (used[pid] || 0) + qty * n;
+                        const qty = Math.max(0, Number(line.quantity) || 0);
+                        used[pid] = (used[pid] || 0) + qty;
+                    }
+                    for (const line of customer.eggsLines) {
+                        const pid = Number(line.product_id);
+                        const qty = Math.max(0, Number(line.quantity) || 0);
+                        used[pid] = (used[pid] || 0) + qty;
                     }
                 }
                 return Object.values(this.stockById).map(row => {
                     const planned = Number(row.planned ?? 0);
-                    const baseline = Number(row.baseline_used ?? 0);
-                    const proposed = used[row.product_id] || 0;
-                    const total = baseline + proposed;
+                    const total = used[row.product_id] || 0;
                     return {
                         ...row,
                         planned,
