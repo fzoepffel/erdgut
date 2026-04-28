@@ -251,6 +251,9 @@ Route::middleware(['auth', 'verified'])
                 ->scopeBindings()
                 ->name('boxes.items.destroy');
             Route::get('boxes/{box}', [AdminBoxController::class, 'show'])->name('boxes.show');
+            Route::patch('boxes/{box}', [AdminBoxController::class, 'update'])
+                ->middleware('throttle:24,1')
+                ->name('boxes.update');
             Route::patch('boxes/{box}/meta', [AdminBoxController::class, 'updateMeta'])->name('boxes.meta.update');
             Route::post('boxes/{box}/override-edit', [AdminBoxController::class, 'overrideEdit'])
                 ->middleware('throttle:30,1')
