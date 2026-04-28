@@ -109,7 +109,7 @@
                                                 @endif
                                             </td>
                                             <td class="py-3 pe-4">
-                                                <div class="font-medium text-gray-900">{{ $user->email }}</div>
+                                                <a href="{{ route('app.admin.users.show', $user) }}" class="font-medium text-emerald-700 hover:underline">{{ $user->email }}</a>
                                                 <div class="text-xs text-gray-500">{{ $user->name }}</div>
                                             </td>
                                             <td class="py-3 pe-4 text-gray-600">

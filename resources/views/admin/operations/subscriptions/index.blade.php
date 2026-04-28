@@ -65,7 +65,13 @@
                                     @foreach ($subscriptions as $subscription)
                                         <tr>
                                             <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $subscription->id }}</td>
-                                            <td class="py-3 pe-4 text-gray-900">{{ $subscription->user?->email ?? '—' }}</td>
+                                            <td class="py-3 pe-4">
+                                                @if ($subscription->user)
+                                                    <a href="{{ route('app.admin.users.show', $subscription->user) }}" class="text-emerald-700 hover:underline">{{ $subscription->user->email }}</a>
+                                                @else
+                                                    <span class="text-gray-500">—</span>
+                                                @endif
+                                            </td>
                                             <td class="py-3 pe-4 text-gray-600">{{ __('plan.'.$subscription->plan->value) }}</td>
                                             <td class="py-3 pe-4"><x-status-badge :value="$subscription->status" type="subscription" /></td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $subscription->next_charge_date?->toDateString() ?? '—' }}</td>

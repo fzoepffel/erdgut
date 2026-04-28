@@ -5,6 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminUsersIndexRequest;
 use App\Http\Requests\Admin\AdminUsersStoreAdminRequest;
+use App\Models\AuditEvent;
+use App\Models\Box;
+use App\Models\Delivery;
+use App\Models\Order;
+use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -34,6 +39,101 @@ class AdminUserController extends Controller
         return view('admin.operations.users.index', [
             'users' => $users,
             'adminCount' => (int) User::query()->where('is_admin', true)->count(),
+        ]);
+    }
+
+    /**
+     * Customer detail page — pulls subscription, addresses, trial orders,
+     * boxes, deliveries, payments, and the audit timeline tied to this user
+     * onto a single screen. Replaces the "filter and hop" workflow that
+     * required walking Abos → Lieferungen → Zahlungen → Box-Setup to triage
+     * one customer.
+     *
+     * Linked from three entry points: Nutzer index, Abos index, and the
+     * Bestellungen index (when filtered to trial_box).
+     */
+    public function show(User $user): View
+    {
+        $this->authorize('admin');
+
+        $user->load([
+            'addresses' => fn ($q) => $q->orderByDesc('is_primary')->orderBy('id'),
+            'deliveryPreference',
+            'subscriptions' => fn ($q) => $q->orderByDesc('id'),
+        ]);
+
+        $primarySubscription = $user->subscriptions->first();
+
+        $orders = Order::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
+        $boxes = Box::query()
+            ->where('user_id', $user->id)
+            ->with('items.product')
+            ->orderByDesc('week_start_date')
+            ->limit(8)
+            ->get();
+
+        $deliveries = Delivery::query()
+            ->where('user_id', $user->id)
+            ->with('address')
+            ->orderByDesc('scheduled_for_date')
+            ->limit(10)
+            ->get();
+
+        $payments = Payment::query()
+            ->whereHas('subscription', fn ($q) => $q->where('user_id', $user->id))
+            ->orWhere(fn ($q) => $q->whereHas('order', fn ($q2) => $q2->where('user_id', $user->id)))
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        // Audit timeline: events where this user is the *actor* OR where
+        // the event targets one of this user's subscriptions / orders /
+        // deliveries / boxes / payments. Cap at 30 for performance.
+        $subscriptionIds = $user->subscriptions->pluck('id')->all();
+        $orderIds = $orders->pluck('id')->all();
+        $deliveryIds = $deliveries->pluck('id')->all();
+        $boxIds = $boxes->pluck('id')->all();
+        $paymentIds = $payments->pluck('id')->all();
+
+        $auditEvents = AuditEvent::query()
+            ->with('actor:id,email')
+            ->where(function ($q) use ($user, $subscriptionIds, $orderIds, $deliveryIds, $boxIds, $paymentIds): void {
+                $q->where('actor_user_id', $user->id);
+
+                if (! empty($subscriptionIds)) {
+                    $q->orWhere(fn ($qq) => $qq->where('entity_type', 'subscription')->whereIn('entity_id', $subscriptionIds));
+                }
+                if (! empty($orderIds)) {
+                    $q->orWhere(fn ($qq) => $qq->where('entity_type', 'order')->whereIn('entity_id', $orderIds));
+                }
+                if (! empty($deliveryIds)) {
+                    $q->orWhere(fn ($qq) => $qq->where('entity_type', 'delivery')->whereIn('entity_id', $deliveryIds));
+                }
+                if (! empty($boxIds)) {
+                    $q->orWhere(fn ($qq) => $qq->where('entity_type', 'box')->whereIn('entity_id', $boxIds));
+                }
+                if (! empty($paymentIds)) {
+                    $q->orWhere(fn ($qq) => $qq->where('entity_type', 'payment')->whereIn('entity_id', $paymentIds));
+                }
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get();
+
+        return view('admin.operations.users.show', [
+            'user' => $user,
+            'primarySubscription' => $primarySubscription,
+            'orders' => $orders,
+            'boxes' => $boxes,
+            'deliveries' => $deliveries,
+            'payments' => $payments,
+            'auditEvents' => $auditEvents,
         ]);
     }
 
