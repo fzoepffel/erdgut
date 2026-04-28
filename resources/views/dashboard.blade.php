@@ -239,7 +239,7 @@
                                 @endforelse
                             </ul>
                             <p class="mt-5 border-t border-brand-ink/10 pt-4 text-sm font-semibold text-brand-ink">
-                                {{ __('Estimated value: EUR :amount', ['amount' => number_format((float) $currentBox->estimated_value, 2)]) }}
+                                {{ __('Estimated value: EUR :amount', ['amount' => number_format((float) $currentBox->estimated_value, 2, ',', '.')]) }}
                             </p>
                         @else
                             <x-empty-state

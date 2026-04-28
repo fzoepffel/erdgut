@@ -42,7 +42,7 @@ class BoxControllerTest extends TestCase
             ->assertSee('Test Tomatoes')
             ->assertSee('1.50 kg')
             ->assertSee('Estimated value')
-            ->assertSee('45.80')
+            ->assertSee('45,80')
             ->assertSee('Extra add-on');
     }
 
@@ -81,9 +81,9 @@ class BoxControllerTest extends TestCase
             ->get(route('app.boxes.show', $box))
             ->assertOk()
             ->assertSee('Included in subscription')
-            ->assertSee('35.00')
+            ->assertSee('35,00')
             ->assertSee('Remaining budget')
-            ->assertSee('25.00');
+            ->assertSee('25,00');
     }
 
     public function test_non_owner_cannot_open_box_placeholder_page(): void
