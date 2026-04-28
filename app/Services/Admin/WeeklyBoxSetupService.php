@@ -414,6 +414,37 @@ final class WeeklyBoxSetupService
     }
 
     /**
+     * Wipe every editable, subscription-side (order_id IS NULL) box for the
+     * given week so the next setup pass rebuilds from a clean slate. Locked
+     * and delivered boxes are intentionally untouched — admins reset only
+     * what the planner still owns.
+     *
+     * Returns the number of boxes deleted.
+     */
+    public function resetWeek(Carbon $week): int
+    {
+        $week = $week->copy()->startOfDay();
+
+        return DB::transaction(function () use ($week): int {
+            $boxes = Box::query()
+                ->forWeek($week->toDateString())
+                ->where('status', BoxStatus::Editable)
+                ->whereNull('order_id')
+                ->with('items')
+                ->get();
+
+            $count = 0;
+            foreach ($boxes as $box) {
+                $box->items()->delete();
+                $box->delete();
+                $count++;
+            }
+
+            return $count;
+        });
+    }
+
+    /**
      * Apply the submitted distribution: create/update one Box + BoxItems per eligible subscription.
      *
      * @param  array<string, list<array{product_id: int, quantity: float}>>  $sizes

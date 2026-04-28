@@ -404,6 +404,65 @@ class AdminBoxSetupTest extends TestCase
         ]);
     }
 
+    public function test_reset_wipes_editable_subscription_boxes_for_the_week(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $customer = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'box_size' => 'small',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+        ]);
+
+        $editableBox = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Editable,
+            'order_id' => null,
+            'composition_admin_ok_at' => now(),
+            'composition_admin_ok_by' => $admin->id,
+        ]);
+        BoxItem::factory()->create(['box_id' => $editableBox->id, 'is_extra' => false]);
+
+        // Locked box must NOT be touched.
+        $lockedBox = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Locked,
+            'order_id' => null,
+        ]);
+        $lockedItem = BoxItem::factory()->create(['box_id' => $lockedBox->id, 'is_extra' => false]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.setup.reset', ['week' => $monday->toDateString()]))
+            ->assertRedirect(route('app.admin.boxes.setup.show', ['week' => $monday->toDateString()]));
+
+        $this->assertDatabaseMissing('boxes', ['id' => $editableBox->id]);
+        $this->assertDatabaseHas('boxes', ['id' => $lockedBox->id]);
+        $this->assertDatabaseHas('box_items', ['id' => $lockedItem->id]);
+    }
+
+    public function test_reset_requires_admin(): void
+    {
+        $monday = '2026-05-04';
+
+        // Guest must be redirected to login before the action runs.
+        $this->post(route('app.admin.boxes.setup.reset', ['week' => $monday]))
+            ->assertRedirect('/auth/login');
+
+        $user = User::factory()->create(['is_admin' => false]);
+
+        $this->actingAs($user)
+            ->post(route('app.admin.boxes.setup.reset', ['week' => $monday]))
+            ->assertForbidden();
+    }
+
     public function test_week_boxes_page_lists_boxes_with_links_to_single_box_editor(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-04-27'));

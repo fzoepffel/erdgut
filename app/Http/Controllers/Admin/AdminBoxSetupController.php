@@ -112,10 +112,29 @@ class AdminBoxSetupController extends Controller
 
         $eggsProductIds = collect($eggCandidates)->pluck('product_id')->map(fn ($i) => (int) $i)->all();
 
+        // Leftover pool for pad-to-target: stock that the size-template's
+        // baseline allocation hasn't yet claimed. `remaining` is
+        // planned − (existing-boxes-distributed + proposed-template × n) so
+        // it represents stock still available beyond every customer's
+        // baseline composition. As we pad new customers we decrement this so
+        // we don't double-spend the same unit twice.
+        $runningAvailable = [];
+        foreach ($stockById as $pid => $row) {
+            $runningAvailable[(int) $pid] = (float) ($row['remaining'] ?? $row['planned'] ?? 0);
+        }
+
         $out = [];
         foreach ($subsBySize as $size => $subs) {
             $block = $sizeBlocks->get($size);
             $templateLines = $block['lines'] ?? [];
+            $sizeMax = (float) ($block['max'] ?? 0);
+            $sizeTarget = (float) ($block['target'] ?? 0);
+
+            // Reference fingerprint of the size template (canonical product_id+qty)
+            // — used to decide whether a new customer's composition matches
+            // what an existing same-size box already got. If it matches, the
+            // admin doesn't need to OK that customer's box.
+            $templateRef = $this->fingerprintLines($templateLines);
 
             foreach ($subs as $sub) {
                 $allergies = array_values((array) ($sub->allergies ?? []));
@@ -125,12 +144,14 @@ class AdminBoxSetupController extends Controller
 
                 $existingBox = $existingBoxes->get($sub->user_id);
                 $existingItems = $existingBox?->items ?? collect();
+                $hasExistingBox = $existingItems->isNotEmpty();
 
                 $regularLines = [];
                 $eggsLines = [];
                 $removedAllergenItems = [];
+                $paddedFromLeftover = [];
 
-                if ($existingItems->isNotEmpty()) {
+                if ($hasExistingBox) {
                     // Re-derive from the customer's actual saved box (preserves
                     // any admin per-customer overrides from a previous save).
                     foreach ($existingItems as $item) {
@@ -164,6 +185,27 @@ class AdminBoxSetupController extends Controller
                             'product_id' => $pid,
                             'quantity' => (float) ($line['quantity'] ?? 0),
                         ];
+                        // No decrement here — `remaining` already subtracted
+                        // the template baseline × n for every customer.
+                    }
+
+                    // Pad-to-target with leftover stock. When a customer's
+                    // template was reduced (allergies) we top up with cheap
+                    // canonical leftover products so the box value rises back
+                    // toward the size target. Caps at sizeMax to avoid going
+                    // over the customer's paid amount.
+                    if ($removedAllergenItems !== [] && $sizeTarget > 0) {
+                        $padAdded = $this->padCustomerLinesFromLeftover(
+                            $regularLines,
+                            $allergies,
+                            $allergenLookup,
+                            $stockById,
+                            $eggsProductIds,
+                            $runningAvailable,
+                            $sizeTarget,
+                            $sizeMax,
+                        );
+                        $paddedFromLeftover = $padAdded;
                     }
                 }
 
@@ -193,6 +235,22 @@ class AdminBoxSetupController extends Controller
 
                 $previouslyOk = $existingBox?->composition_admin_ok_at !== null;
 
+                // Composition status: drives UI sorting, color, and OK rules.
+                //   'existing'        — box already saved this week (no further work)
+                //   'new_match'       — new box, composition matches the size template (auto-OK)
+                //   'new_diff'        — new box, composition differs (admin must OK)
+                if ($hasExistingBox) {
+                    $compositionStatus = 'existing';
+                } else {
+                    $derivedRef = $this->fingerprintLines($regularLines);
+                    $matchesTemplate = $templateRef === $derivedRef
+                        && $removedAllergenItems === []
+                        && $paddedFromLeftover === []
+                        && ! $eggsMissing
+                        && $note === '';
+                    $compositionStatus = $matchesTemplate ? 'new_match' : 'new_diff';
+                }
+
                 $out[] = [
                     'user_id' => (int) $sub->user_id,
                     'subscription_id' => (int) $sub->id,
@@ -206,15 +264,175 @@ class AdminBoxSetupController extends Controller
                     'regular_lines' => $regularLines,
                     'eggs_lines' => $eggsLines,
                     'removed_allergen_items' => $removedAllergenItems,
+                    'padded_from_leftover' => $paddedFromLeftover,
                     'eggs_added' => $eggsAdded,
                     'eggs_missing' => $eggsMissing,
                     'flags' => $flags,
                     'ok' => $previouslyOk,
+                    'composition_status' => $compositionStatus,
                 ];
             }
         }
 
         return $out;
+    }
+
+    /**
+     * Canonical fingerprint of a list of lines (product_id+quantity), order-independent.
+     * Used to decide whether two compositions are "the same" for OK-prompt purposes.
+     *
+     * @param  list<array{product_id?: int|string, quantity?: int|float|string}>  $lines
+     */
+    private function fingerprintLines(array $lines): string
+    {
+        $rows = [];
+        foreach ($lines as $line) {
+            $pid = (int) ($line['product_id'] ?? 0);
+            $qty = (float) ($line['quantity'] ?? 0);
+            if ($pid < 1 || $qty <= 0) {
+                continue;
+            }
+            $rows[] = $pid.':'.number_format($qty, 4, '.', '');
+        }
+        sort($rows);
+
+        return implode(',', $rows);
+    }
+
+    /**
+     * Pad a new customer's regular lines from leftover stock until the size
+     * target is reached, capped at sizeMax. Picks cheapest products first to
+     * avoid blowing past the max with one expensive item. Decrements
+     * `$runningAvailable` so each pad unit is taken from real leftover.
+     *
+     * Returns the lines that were added (so the UI can highlight them).
+     *
+     * @param  list<array{product_id: int, quantity: float}>  &$regularLines
+     * @param  list<string>  $allergies
+     * @param  array<int, list<string>>  $allergenLookup
+     * @param  Collection<int, array<string, mixed>>  $stockById
+     * @param  list<int>  $eggsProductIds  excluded so eggs stay in the eggs panel
+     * @param  array<int, float>  &$runningAvailable
+     * @return list<array{product_id: int, quantity: float, product_name: string}>
+     */
+    private function padCustomerLinesFromLeftover(
+        array &$regularLines,
+        array $allergies,
+        array $allergenLookup,
+        Collection $stockById,
+        array $eggsProductIds,
+        array &$runningAvailable,
+        float $target,
+        float $max,
+    ): array {
+        $existingPids = [];
+        $retail = 0.0;
+        foreach ($regularLines as $line) {
+            $pid = (int) $line['product_id'];
+            $price = (float) ($stockById->get($pid)['unit_price'] ?? 0);
+            $retail += $price * (float) $line['quantity'];
+            $existingPids[$pid] = true;
+        }
+
+        // Build a candidate pool sorted by unit_price ASC so we top up with cheap
+        // staples instead of an expensive one-shot product that blows past max.
+        $candidates = [];
+        foreach ($stockById as $row) {
+            $pid = (int) ($row['product_id'] ?? 0);
+            if ($pid < 1) {
+                continue;
+            }
+            if (! empty($row['missing_stock'])) {
+                continue;
+            }
+            if (($runningAvailable[$pid] ?? 0) < 1) {
+                continue;
+            }
+            // Eggs add-ons live in the eggs panel — never in regular lines.
+            if (in_array($pid, $eggsProductIds, true)) {
+                continue;
+            }
+            $productAllergens = $allergenLookup[$pid] ?? [];
+            if (array_intersect($allergies, $productAllergens) !== []) {
+                continue;
+            }
+            if (isset($existingPids[$pid])) {
+                // Already in lines — allow boosting quantity, but only if
+                // there's still leftover (= we didn't already reserve all of it).
+            }
+            $candidates[] = [
+                'product_id' => $pid,
+                'name' => (string) ($row['name'] ?? '—'),
+                'unit_price' => (float) ($row['unit_price'] ?? 0),
+            ];
+        }
+        usort($candidates, function (array $a, array $b): int {
+            $cmp = $a['unit_price'] <=> $b['unit_price'];
+
+            return $cmp !== 0 ? $cmp : ($a['product_id'] <=> $b['product_id']);
+        });
+
+        $added = [];
+        $progressed = true;
+        // Cap iterations to a sane upper bound to avoid pathological loops.
+        for ($pass = 0; $pass < 50 && $progressed; $pass++) {
+            $progressed = false;
+            foreach ($candidates as $cand) {
+                $pid = $cand['product_id'];
+                $price = $cand['unit_price'];
+                if ($price <= 0) {
+                    continue;
+                }
+                if (($runningAvailable[$pid] ?? 0) < 1) {
+                    continue;
+                }
+                if ($retail + $price > $max + 0.005) {
+                    continue;
+                }
+                if ($retail >= $target - 0.005) {
+                    break 2;
+                }
+
+                // Add 1 unit (boost existing or push a new line).
+                $foundIdx = null;
+                foreach ($regularLines as $idx => $line) {
+                    if ((int) $line['product_id'] === $pid) {
+                        $foundIdx = $idx;
+                        break;
+                    }
+                }
+                if ($foundIdx !== null) {
+                    $regularLines[$foundIdx]['quantity'] = (float) $regularLines[$foundIdx]['quantity'] + 1.0;
+                } else {
+                    $regularLines[] = ['product_id' => $pid, 'quantity' => 1.0];
+                }
+
+                $runningAvailable[$pid] = max(0.0, ($runningAvailable[$pid] ?? 0) - 1);
+                $retail += $price;
+
+                // Track in `added` (sum quantities if same pid added in multiple passes).
+                $foundAddedIdx = null;
+                foreach ($added as $idx => $a) {
+                    if ($a['product_id'] === $pid) {
+                        $foundAddedIdx = $idx;
+                        break;
+                    }
+                }
+                if ($foundAddedIdx !== null) {
+                    $added[$foundAddedIdx]['quantity'] += 1.0;
+                } else {
+                    $added[] = [
+                        'product_id' => $pid,
+                        'quantity' => 1.0,
+                        'product_name' => $cand['name'],
+                    ];
+                }
+
+                $progressed = true;
+            }
+        }
+
+        return $added;
     }
 
     public function apply(AdminBoxSetupApplyRequest $request): RedirectResponse
@@ -243,6 +461,24 @@ class AdminBoxSetupController extends Controller
         return redirect()
             ->route('app.admin.boxes.week.show', ['week' => $monday->toDateString()])
             ->with('status', __('admin.box_setup.flash_applied', ['count' => $updated]));
+    }
+
+    /**
+     * Wipe every editable subscription box for the given week so the next
+     * setup run rebuilds from scratch. Existing OK marks are gone with the
+     * boxes; the admin must re-OK any flagged compositions afterwards.
+     * Locked / delivered boxes are never touched.
+     */
+    public function reset(string $week): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        $monday = $this->resolveMonday($week);
+        $reset = $this->setupService->resetWeek($monday);
+
+        return redirect()
+            ->route('app.admin.boxes.setup.show', ['week' => $monday->toDateString()])
+            ->with('status', __('admin.box_setup.flash_reset', ['count' => $reset]));
     }
 
     public function weekBoxes(string $week): View

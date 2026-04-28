@@ -48,10 +48,15 @@
                     ? c.eggs_lines.map(l => ({ product_id: Number(l.product_id), quantity: Number(l.quantity) }))
                     : [],
                 removed_allergen_items: Array.isArray(c.removed_allergen_items) ? c.removed_allergen_items : [],
+                padded_from_leftover: Array.isArray(c.padded_from_leftover) ? c.padded_from_leftover : [],
                 eggs_added: !!c.eggs_added,
                 eggs_missing: !!c.eggs_missing,
                 flags: Array.isArray(c.flags) ? c.flags.map(String) : [],
                 ok: !!c.ok, // pre-loaded from server when box previously OK'd
+                // 'existing' (saved already) | 'new_match' (no review needed)
+                // | 'new_diff' (admin review required). Drives sectioning,
+                // colors, and the OK toggle visibility.
+                composition_status: String(c.composition_status ?? 'new_diff'),
                 expanded: false,
                 addProductId: '',
                 addEggsProductId: '',
@@ -218,11 +223,49 @@
             customerFlagged(c) {
                 return this.customerLiveFlags(c).length > 0;
             },
+            // OK toggle visibility:
+            //   - existing boxes don't need OK (already saved)
+            //   - new_match boxes don't need OK (composition matches existing
+            //     same-size boxes, no flags)
+            //   - new_diff boxes need OK whenever they're flagged
+            customerNeedsOk(c) {
+                if (c.composition_status === 'existing') return false;
+                if (c.composition_status === 'new_match' && !this.customerFlagged(c)) return false;
+                return this.customerFlagged(c);
+            },
             customerNeedsAttention(c) {
-                return this.customerFlagged(c) && !c.ok;
+                return this.customerNeedsOk(c) && !c.ok;
             },
             anyCustomerBlocking() {
                 return this.customers.some(c => this.customerNeedsAttention(c));
+            },
+            // ---- Sectioning helpers ----
+            isExistingCustomer(c) {
+                return c.composition_status === 'existing';
+            },
+            isNewCustomer(c) {
+                return c.composition_status === 'new_match' || c.composition_status === 'new_diff';
+            },
+            newCustomers() {
+                return this.customers.filter(c => this.isNewCustomer(c));
+            },
+            existingCustomers() {
+                return this.customers.filter(c => this.isExistingCustomer(c));
+            },
+            // Sorted: new (review needed first) → new_match → existing.
+            // The blade renders the existing-section header right before the
+            // first 'existing' card.
+            sortedCustomers() {
+                const rank = (c) => {
+                    if (c.composition_status === 'existing') return 2;
+                    if (c.composition_status === 'new_match') return 1;
+                    return 0; // new_diff
+                };
+                return [...this.customers].sort((a, b) => rank(a) - rank(b));
+            },
+            firstExistingIndex() {
+                const sorted = this.sortedCustomers();
+                return sorted.findIndex(c => this.isExistingCustomer(c));
             },
             customerSum(c) {
                 const sumLines = (rows) => rows.reduce((acc, l) => acc + (this.productPriceAny(l.product_id) * Math.max(0, l.quantity || 0)), 0);
@@ -317,9 +360,23 @@
                 c.eggsLines[idx].quantity = next < 1 ? 1 : next;
             },
             customerCardClass(c) {
-                if (!this.customerFlagged(c)) return 'border-gray-200';
-                if (c.ok) return 'border-emerald-300 bg-emerald-50/40';
-                return 'border-rose-300 bg-rose-50/40';
+                // Existing (already saved) boxes get a quiet gray border —
+                // they're informational and don't need attention. The
+                // "Bereits eingerichtet" section header already conveys
+                // what they are.
+                if (c.composition_status === 'existing') return 'border-gray-200 bg-white';
+
+                // New boxes get a blue border to mark them as items that
+                // are about to be created on save. If the composition is
+                // flagged AND not yet OK'd, it stays rose so the admin
+                // can spot it at a glance.
+                if (this.customerFlagged(c)) {
+                    if (c.ok) return 'border-emerald-300 bg-emerald-50/40';
+                    return 'border-rose-300 bg-rose-50/40';
+                }
+                if (c.composition_status === 'new_match') return 'border-sky-300 bg-sky-50/40';
+                if (c.composition_status === 'new_diff') return 'border-sky-300 bg-sky-50/40';
+                return 'border-sky-300 bg-sky-50/40';
             },
             sizeLabelByKey(key) {
                 return this.sizeLabel(key);
