@@ -46,24 +46,78 @@
                 </div>
             @endif
 
-            <dl class="grid gap-4 rounded-lg border border-gray-100 bg-white p-4 text-sm shadow-sm sm:grid-cols-2">
-                <div>
-                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.operations.user') }}</dt>
-                    <dd class="mt-1 text-gray-900">{{ $box->user?->email ?? '—' }}</dd>
+            @php
+                $allergiesSnapshot = (array) ($box->allergies_snapshot ?? []);
+                $preferencesSnapshot = (array) ($box->preferences_snapshot ?? []);
+                $eggsAddOn = (bool) ($preferencesSnapshot['eggs_dairy_add_on'] ?? false);
+                $vegOnly = (bool) ($preferencesSnapshot['veg_only'] ?? false);
+                $allergiesNote = (string) ($subscription?->allergies_note ?? '');
+            @endphp
+
+            <section class="rounded-lg border border-gray-100 bg-white p-4 text-sm shadow-sm">
+                <div class="flex flex-col gap-2 border-b border-gray-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                        @if ($box->user)
+                            <a href="{{ route('app.admin.users.show', $box->user) }}" class="font-semibold text-gray-900 hover:text-emerald-700 hover:underline">
+                                {{ $box->user->name ?: $box->user->email }}
+                            </a>
+                            @if ($box->user->name)
+                                <span class="ms-1 text-xs text-gray-500">· {{ $box->user->email }}</span>
+                            @endif
+                        @else
+                            <span class="font-semibold text-gray-500">—</span>
+                        @endif
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <x-status-badge :value="$box->status" type="box" />
+                        <span class="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gray-700">{{ __(ucfirst((string) $box->box_size)) }}</span>
+                    </div>
                 </div>
-                <div>
-                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.week_start') }}</dt>
-                    <dd class="mt-1 text-gray-900">{{ $box->week_start_date?->translatedFormat('d.m.Y') ?? '—' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.operations.status') }}</dt>
-                    <dd class="mt-1"><x-status-badge :value="$box->status" type="box" /></dd>
-                </div>
-                <div>
-                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.modification_deadline') }}</dt>
-                    <dd class="mt-1 text-gray-900">{{ $box->modification_deadline_at?->translatedFormat('d.m.Y H:i') ?? '—' }}</dd>
-                </div>
-            </dl>
+
+                <dl class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.week_start') }}</dt>
+                        <dd class="mt-1 text-gray-900">{{ $box->week_start_date?->translatedFormat('d.m.Y') ?? '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.modification_deadline') }}</dt>
+                        <dd class="mt-1 text-gray-900">{{ $box->modification_deadline_at?->translatedFormat('d.m.Y H:i') ?? '—' }}</dd>
+                    </div>
+                    @if ($subscription)
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.user_detail.field_recurring_amount') }}</dt>
+                            <dd class="mt-1 tabular-nums text-gray-900">@eur($subscription->expectedChargeAmount())</dd>
+                        </div>
+                    @endif
+                </dl>
+
+                {{-- Customer preference badges, surfaced prominently. This is the
+                     part of the page that tells the admin "this customer ordered
+                     eggs / has these allergies" — without this, admins have
+                     historically composed boxes blind. --}}
+                @if ($eggsAddOn || $vegOnly || $allergiesSnapshot !== [])
+                    <div class="mt-4 flex flex-wrap items-start gap-2">
+                        @if ($vegOnly)
+                            <span class="inline-flex items-center rounded-full bg-chapter-produce/10 px-3 py-1 text-xs font-semibold text-chapter-produce">{{ __('admin.user_detail.badge_veg_only') }}</span>
+                        @endif
+                        @if ($eggsAddOn)
+                            <span class="inline-flex items-center rounded-full bg-chapter-eggdairy/10 px-3 py-1 text-xs font-semibold text-chapter-eggdairy">{{ __('admin.user_detail.badge_eggs_addon') }}</span>
+                        @endif
+                        @foreach ($allergiesSnapshot as $allergen)
+                            <span class="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800">
+                                {{ __('admin.user_detail.allergy_prefix') }}: {{ __('allergens.'.$allergen) }}
+                            </span>
+                        @endforeach
+                    </div>
+                @endif
+
+                @if ($allergiesNote !== '')
+                    <div class="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-amber-900">{{ __('admin.user_detail.field_allergies_note') }}</p>
+                        <p class="mt-1">{{ $allergiesNote }}</p>
+                    </div>
+                @endif
+            </section>
 
             <section class="rounded-lg border border-gray-100 bg-white p-4 text-sm shadow-sm">
                 <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.box_setup.next_update_heading') }}</h3>

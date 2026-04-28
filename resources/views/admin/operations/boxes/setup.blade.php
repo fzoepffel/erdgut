@@ -258,6 +258,79 @@
                         </div>
                     </div>
 
+                    {{-- Per-customer panel: surfaces each subscriber for this
+                         week with their preferences as badges. Replaces the
+                         "size template replicates blindly" assumption with
+                         visible per-customer differences before save.
+                         (W2-31 visibility piece — auto-projection lands in a
+                         follow-up PR.) --}}
+                    @if (! empty($subsBySize) && $subsBySize->isNotEmpty())
+                        <div class="mt-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.box_setup.per_customer_heading') }}</h3>
+                            <p class="mt-1 text-xs text-gray-500">{{ __('admin.box_setup.per_customer_hint') }}</p>
+
+                            <div class="mt-4 space-y-5">
+                                @foreach ($data['size_blocks'] as $block)
+                                    @php
+                                        $size = $block['box_size'];
+                                        $subsForSize = $subsBySize->get($size, collect());
+                                    @endphp
+                                    @if ($subsForSize->isEmpty())
+                                        @continue
+                                    @endif
+                                    <div>
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                                            {{ __(ucfirst($size)) }} <span class="ms-1 text-gray-400">· {{ trans_choice('admin.box_setup.per_customer_subscriber_count', $subsForSize->count(), ['count' => $subsForSize->count()]) }}</span>
+                                        </p>
+                                        <ul class="mt-2 divide-y divide-gray-100 rounded border border-gray-100">
+                                            @foreach ($subsForSize as $sub)
+                                                @php
+                                                    $eggs = (bool) data_get($sub->preferences, 'eggs_dairy_add_on', false);
+                                                    $vegOnly = (bool) data_get($sub->preferences, 'veg_only', false);
+                                                    $allergies = (array) ($sub->allergies ?? []);
+                                                    $allergiesNote = (string) ($sub->allergies_note ?? '');
+                                                @endphp
+                                                <li class="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                                                    <div class="min-w-0">
+                                                        @if ($sub->user)
+                                                            <a href="{{ route('app.admin.users.show', $sub->user) }}" class="text-sm font-medium text-gray-900 hover:text-emerald-700 hover:underline">
+                                                                {{ $sub->user->name ?: $sub->user->email }}
+                                                            </a>
+                                                            @if ($sub->user->name)
+                                                                <span class="ms-1 text-xs text-gray-500 break-all">· {{ $sub->user->email }}</span>
+                                                            @endif
+                                                        @else
+                                                            <span class="text-sm text-gray-500">—</span>
+                                                        @endif
+                                                        @if ($allergiesNote !== '')
+                                                            <p class="mt-1 text-xs text-amber-800"><span class="font-semibold">{{ __('admin.user_detail.field_allergies_note') }}:</span> {{ $allergiesNote }}</p>
+                                                        @endif
+                                                    </div>
+                                                    <div class="flex flex-wrap items-center gap-1.5">
+                                                        @if (! $eggs && ! $vegOnly && empty($allergies))
+                                                            <span class="text-[11px] text-gray-400">{{ __('admin.box_setup.per_customer_standard') }}</span>
+                                                        @endif
+                                                        @if ($vegOnly)
+                                                            <span class="inline-flex items-center rounded-full bg-chapter-produce/10 px-2 py-0.5 text-[11px] font-semibold text-chapter-produce">{{ __('admin.user_detail.badge_veg_only') }}</span>
+                                                        @endif
+                                                        @if ($eggs)
+                                                            <span class="inline-flex items-center rounded-full bg-chapter-eggdairy/10 px-2 py-0.5 text-[11px] font-semibold text-chapter-eggdairy">{{ __('admin.user_detail.badge_eggs_addon') }}</span>
+                                                        @endif
+                                                        @foreach ($allergies as $allergen)
+                                                            <span class="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
+                                                                {{ __('allergens.'.$allergen) }}
+                                                            </span>
+                                                        @endforeach
+                                                    </div>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
                     <div class="mt-6 flex items-center justify-between">
                         <p class="text-xs text-gray-500">
                             {{ __('admin.box_setup.save_hint') }}

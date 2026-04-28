@@ -21,7 +21,7 @@ class AdminBoxController extends Controller
         $this->authorize('admin');
 
         $box->load([
-            'user:id,email',
+            'user:id,name,email,phone',
             'items' => fn ($q) => $q->orderBy('id')->with('product:id,allergens,dietary_tags'),
             'items.product.translations',
         ]);
@@ -75,6 +75,7 @@ class AdminBoxController extends Controller
 
         return view('admin.operations.boxes.show', [
             'box' => $box,
+            'subscription' => $subscription,
             'catalogProducts' => $catalogProducts,
             'adminCanMutateItems' => $box->allowsAdminLineEdits(),
             'budgetDetails' => $budgetDetails,
