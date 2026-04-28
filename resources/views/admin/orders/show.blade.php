@@ -33,8 +33,8 @@
                 <section class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
                     <h3 class="mb-3 font-semibold text-gray-800">{{ __('Order') }}</h3>
                     <dl class="space-y-2 text-sm">
-                        <div><dt class="text-gray-500">{{ __('Status') }}</dt><dd class="font-medium">{{ $order->status->label() }}</dd></div>
-                        <div><dt class="text-gray-500">{{ __('Box size') }}</dt><dd>{{ ucfirst((string) $order->box_size) }}</dd></div>
+                        <div><dt class="text-gray-500">{{ __('Status') }}</dt><dd class="font-medium"><x-status-badge :value="$order->status" type="order" /></dd></div>
+                        <div><dt class="text-gray-500">{{ __('Box size') }}</dt><dd>{{ __(ucfirst((string) $order->box_size)) }}</dd></div>
                         <div><dt class="text-gray-500">{{ __('Amount') }}</dt><dd>@eur($order->amount)</dd></div>
                         <div><dt class="text-gray-500">{{ __('Paid at') }}</dt><dd>{{ $order->paid_at?->format('d M Y H:i') ?? '—' }}</dd></div>
                         <div><dt class="text-gray-500">{{ __('Scheduled for') }}</dt><dd>{{ $order->scheduled_for_date?->format('D d M Y') ?? '—' }} {{ $order->preferred_timeslot }}</dd></div>
@@ -246,7 +246,7 @@
                                     <tr>
                                         <td class="px-3 py-2 font-mono text-gray-700">#{{ $payment->id }}</td>
                                         <td class="px-3 py-2 tabular-nums text-gray-700">{{ $payment->amount }} {{ $payment->currency }}</td>
-                                        <td class="px-3 py-2 text-gray-700">{{ $payment->status }}</td>
+                                        <td class="px-3 py-2 text-gray-700"><x-status-badge :value="$payment->status" type="payment" /></td>
                                         <td class="px-3 py-2 text-gray-600">{{ $payment->created_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') }}</td>
                                         <td class="px-3 py-2 text-gray-600">{{ $payment->paid_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>
                                         <td class="px-3 py-2 text-gray-600">{{ $payment->failed_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') ?? '—' }}</td>

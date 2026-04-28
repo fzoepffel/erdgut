@@ -142,7 +142,7 @@
                                                 @endif
                                             </td>
                                             <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $payment->amount }} {{ $payment->currency }}</td>
-                                            <td class="py-3 pe-4 text-gray-600">{{ $payment->status }}</td>
+                                            <td class="py-3 pe-4 text-gray-600"><x-status-badge :value="$payment->status" type="payment" /></td>
                                             <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $payment->attempt_number }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $payment->failure_reason ?? '—' }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $payment->created_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') }}</td>
