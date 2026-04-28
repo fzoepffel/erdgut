@@ -22,10 +22,19 @@ class AdminBoxSetupApplyRequest extends FormRequest
     {
         return [
             'week_start_date' => ['required', 'date'],
-            'sizes' => ['required', 'array'],
+
+            // Per-customer payload (preferred). Each key is a user_id.
+            'customers' => ['nullable', 'array'],
+            'customers.*' => ['array'],
+            'customers.*.*.product_id' => ['required_with:customers', 'integer'],
+            'customers.*.*.quantity' => ['required_with:customers', 'integer', 'min:1', 'max:500'],
+
+            // Legacy per-size payload — kept for backwards compatibility.
+            // One of `customers` or `sizes` must be present.
+            'sizes' => ['nullable', 'array'],
             'sizes.*' => ['array'],
-            'sizes.*.*.product_id' => ['required', 'integer'],
-            'sizes.*.*.quantity' => ['required', 'integer', 'min:1', 'max:500'],
+            'sizes.*.*.product_id' => ['required_with:sizes', 'integer'],
+            'sizes.*.*.quantity' => ['required_with:sizes', 'integer', 'min:1', 'max:500'],
         ];
     }
 
@@ -50,70 +59,95 @@ class AdminBoxSetupApplyRequest extends FormRequest
             }
             $week = Carbon::parse($this->input('week_start_date'))->startOfDay();
             $validSizes = array_keys(config('box.included_value_by_size', []));
-            $sizes = $this->input('sizes', []);
+            $sizes = (array) $this->input('sizes', []);
+            $customers = (array) $this->input('customers', []);
 
+            // Empty payloads are a no-op (e.g. the week has no eligible subs);
+            // no validation error needed — the controller just won't update
+            // anything.
             foreach ($sizes as $size => $lines) {
                 if (! in_array($size, $validSizes, true)) {
                     $validator->errors()->add("sizes.{$size}", __('admin.box_setup.validation_invalid_size'));
 
                     continue;
                 }
-                if (! is_array($lines)) {
-                    continue;
-                }
-                foreach ($lines as $i => $line) {
-                    $pid = (int) ($line['product_id'] ?? 0);
-                    if ($pid < 1) {
-                        continue;
-                    }
-                    $inCatalog = Product::query()
-                        ->whereKey($pid)
-                        ->visibleInCatalog()
-                        ->exists();
-                    if (! $inCatalog) {
-                        $validator->errors()->add(
-                            "sizes.{$size}.{$i}.product_id",
-                            __('admin.box_setup.validation_product_not_in_catalog')
-                        );
+                $this->validateLines($validator, "sizes.{$size}", (array) $lines, $week);
+            }
 
-                        continue;
-                    }
-                    $hasStock = ProductWeekStock::query()
-                        ->where('product_id', $pid)
-                        ->whereDate('week_start_date', $week->toDateString())
-                        ->where('planned_quantity', '>', 0)
-                        ->exists();
-                    if (! $hasStock) {
-                        $validator->errors()->add(
-                            "sizes.{$size}.{$i}.product_id",
-                            __('admin.box_setup.validation_product_not_available_this_week')
-                        );
-                    }
-                }
+            foreach ($customers as $userId => $lines) {
+                $this->validateLines($validator, "customers.{$userId}", (array) $lines, $week);
             }
         });
     }
 
+    private function validateLines(Validator $validator, string $prefix, array $lines, Carbon $week): void
+    {
+        foreach ($lines as $i => $line) {
+            $pid = (int) ($line['product_id'] ?? 0);
+            if ($pid < 1) {
+                continue;
+            }
+            $inCatalog = Product::query()
+                ->whereKey($pid)
+                ->visibleInCatalog()
+                ->exists();
+            if (! $inCatalog) {
+                $validator->errors()->add(
+                    "{$prefix}.{$i}.product_id",
+                    __('admin.box_setup.validation_product_not_in_catalog')
+                );
+
+                continue;
+            }
+            $hasStock = ProductWeekStock::query()
+                ->where('product_id', $pid)
+                ->whereDate('week_start_date', $week->toDateString())
+                ->where('planned_quantity', '>', 0)
+                ->exists();
+            if (! $hasStock) {
+                $validator->errors()->add(
+                    "{$prefix}.{$i}.product_id",
+                    __('admin.box_setup.validation_product_not_available_this_week')
+                );
+            }
+        }
+    }
+
     protected function prepareForValidation(): void
     {
-        $sizes = $this->input('sizes', []);
-        if (! is_array($sizes)) {
-            $this->merge(['sizes' => []]);
+        $this->merge([
+            'sizes' => $this->normaliseLineMap($this->input('sizes', []), keyType: 'string'),
+            'customers' => $this->normaliseLineMap($this->input('customers', []), keyType: 'int'),
+        ]);
+    }
 
-            return;
+    /**
+     * Strip empty rows + `_delete` rows, coerce numerics, drop invalid keys.
+     *
+     * @param  mixed  $raw
+     * @return array<int|string, list<array{product_id: int, quantity: int}>>
+     */
+    private function normaliseLineMap($raw, string $keyType): array
+    {
+        if (! is_array($raw)) {
+            return [];
         }
 
         $clean = [];
-        foreach ($sizes as $size => $lines) {
-            if (! is_string($size) || ! is_array($lines)) {
+        foreach ($raw as $key => $lines) {
+            if ($keyType === 'string' && ! is_string($key)) {
                 continue;
             }
+            if ($keyType === 'int' && (! is_numeric($key) || (int) $key < 1)) {
+                continue;
+            }
+            if (! is_array($lines)) {
+                continue;
+            }
+
             $filtered = [];
             foreach ($lines as $line) {
-                if (! is_array($line)) {
-                    continue;
-                }
-                if (! empty($line['_delete'])) {
+                if (! is_array($line) || ! empty($line['_delete'])) {
                     continue;
                 }
                 $pid = $line['product_id'] ?? null;
@@ -129,9 +163,10 @@ class AdminBoxSetupApplyRequest extends FormRequest
                     'quantity' => (int) $qty,
                 ];
             }
-            $clean[$size] = $filtered;
+
+            $clean[$keyType === 'int' ? (int) $key : (string) $key] = $filtered;
         }
 
-        $this->merge(['sizes' => $clean]);
+        return $clean;
     }
 }
