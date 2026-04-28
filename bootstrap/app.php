@@ -1,5 +1,18 @@
 <?php
 
+// Local dev only: PHP 8.5 raises deprecation notices for renamed PDO
+// constants used inside vendor/laravel/framework/config/database.php
+// (e.g. PDO::MYSQL_ATTR_SSL_CA → Pdo\Mysql\ATTR_SSL_CA). Until the
+// framework lands the rename, these notices leak into rendered HTML
+// when php artisan serve is used (it spawns php -S which ignores
+// .user.ini and inherited -d flags). Suppress at the earliest hook
+// so customer-facing screenshots aren't polluted in dev.
+if (($_SERVER['APP_ENV'] ?? null) === 'local' || (getenv('APP_ENV') ?: null) === 'local') {
+    // E_STRICT itself was removed in PHP 8.4 — don't reference it here.
+    error_reporting(E_ALL & ~E_DEPRECATED);
+    ini_set('display_errors', '0');
+}
+
 use App\Http\Middleware\EnsureOnboardingDraft;
 use App\Http\Middleware\EnsureSubscriberHasPayment;
 use App\Http\Middleware\EnsureUserIsAdmin;

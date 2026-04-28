@@ -31,3 +31,5 @@ erdgut-mvp-tickets.csv
 /.claude/worktrees
 /.claude/settings.local.json
 /.claude/launch.json
+# Local PHP 8.5 deprecation noise suppression
+public/.user.ini
