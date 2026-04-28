@@ -2,6 +2,11 @@
     document.addEventListener('alpine:init', () => {
         Alpine.data('boxSetup', (initial) => ({
             marginRate: initial.margin_rate,
+            // Eggs add-on price (config('box.eggs_dairy_add_on_eur')). Customers
+            // with the eggs flag pay this on top of their size base TTC, so it
+            // must inflate their per-customer max (and shift the target by the
+            // planning margin) accordingly.
+            eggsAddOnEur: Number(initial.eggs_add_on_eur ?? 0),
             stockById: Object.fromEntries(initial.stock.map(r => [r.product_id, { ...r, missing_stock: !!r.missing_stock }])),
             stockOutOfWeekLabel: @js(__('admin.box_setup.stock_out_of_week')),
             sizes: Object.entries(initial.sizes).map(([key, lines]) => ({
@@ -223,13 +228,21 @@
                 const sumLines = (rows) => rows.reduce((acc, l) => acc + (this.productPriceAny(l.product_id) * Math.max(0, l.quantity || 0)), 0);
                 return sumLines(c.lines) + sumLines(c.eggsLines);
             },
-            customerTarget(c) {
-                const meta = this.sizes.find(s => s.key === c.box_size)?.meta;
-                return Number(meta?.target ?? 0);
-            },
+            // Per-customer max = size sales-price TTC + eggs add-on (if the
+            // customer pays for eggs), since the customer was charged that
+            // total and the box value should be measured against it.
             customerMax(c) {
                 const meta = this.sizes.find(s => s.key === c.box_size)?.meta;
-                return Number(meta?.max ?? 0);
+                let max = Number(meta?.max ?? 0);
+                if (c.eggs) max += Number(this.eggsAddOnEur ?? 0);
+                return max;
+            },
+            // Target shifts proportionally with the planning margin so the
+            // green/amber/rose thresholds stay consistent: target = max · (1 − marginRate).
+            customerTarget(c) {
+                const max = this.customerMax(c);
+                const rate = Number(this.marginRate ?? 0);
+                return max * (1 - rate);
             },
             // Same green/yellow/red logic as retailClass(): green if at-or-below
             // target (under planning margin), amber if above target but at-or-

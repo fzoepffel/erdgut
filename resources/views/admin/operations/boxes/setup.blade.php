@@ -5,6 +5,7 @@
         'sizes' => [],
         'customers' => $customers ?? [],
         'egg_candidates' => $eggCandidates ?? [],
+        'eggs_add_on_eur' => (float) config('box.eggs_dairy_add_on_eur', 4.5),
     ];
     $sizeMeta = [];
     foreach ($data['size_blocks'] as $block) {
