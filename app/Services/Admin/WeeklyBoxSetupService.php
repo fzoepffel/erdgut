@@ -692,12 +692,6 @@ final class WeeklyBoxSetupService
             if (! (bool) $product->is_available || ! (bool) $product->is_published) {
                 continue;
             }
-            // Eggs add-on products are filtered out of the standard size template
-            // pool. They surface only in the per-customer eggs slot — handled by
-            // availableEggAddOnProducts() and the per-customer view.
-            if ((bool) $product->is_egg_addon) {
-                continue;
-            }
             $planned = (float) $row->planned_quantity;
             $used = (float) ($distributed[(int) $product->id] ?? 0.0);
             $out[(int) $product->id] = [
@@ -781,6 +775,14 @@ final class WeeklyBoxSetupService
      */
     private function allocateProducts(array $sizeConfigs, array $stockRows): array
     {
+        // Eggs add-on products live in the per-customer eggs panel, not the
+        // size template auto-distribution. The stock overview still shows
+        // them — only this allocator skips them.
+        $stockRows = array_filter(
+            $stockRows,
+            fn (array $row) => ! (bool) ($row['product']->is_egg_addon ?? false)
+        );
+
         $sizeOrder = array_keys($sizeConfigs);
         usort($sizeOrder, fn (string $a, string $b) => $sizeConfigs[$b]['ttc'] <=> $sizeConfigs[$a]['ttc']);
 
