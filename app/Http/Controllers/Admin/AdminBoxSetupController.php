@@ -35,9 +35,18 @@ class AdminBoxSetupController extends Controller
         $monday = $this->resolveMonday($week);
         $data = $this->setupService->buildInitialDistribution($monday);
 
+        // Per-size customer roster for the "Pro Kunde" panel — surfaces each
+        // subscriber with their preferences (eggs / allergies / note) so the
+        // admin can see at a glance whose box differs from the standard size
+        // template before saving.
+        $subsBySize = $this->plannerService
+            ->eligibleSubscriptionsForWeek($monday)
+            ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
+
         return view('admin.operations.boxes.setup', [
             'week' => $monday,
             'data' => $data,
+            'subsBySize' => $subsBySize,
         ]);
     }
 
