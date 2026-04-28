@@ -137,16 +137,7 @@
                         <p class="eyebrow text-chapter-meat">{{ __('Subscription') }}</p>
                         @if ($primarySubscription)
                             <p class="mt-3 font-display text-2xl text-brand-ink">
-                                @switch($primarySubscription->status)
-                                    @case(\App\Enums\SubscriptionStatus::Active)
-                                        {{ __('Active') }}
-                                        @break
-                                    @case(\App\Enums\SubscriptionStatus::Paused)
-                                        {{ __('Paused') }}
-                                        @break
-                                    @default
-                                        {{ ucfirst($primarySubscription->status->value) }}
-                                @endswitch
+                                {{ __('status.'.$primarySubscription->status->value) }}
                             </p>
                             <a href="{{ route('app.subscriptions.show') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
                                 {{ __('Manage subscription') }} <span aria-hidden="true">&rarr;</span>
