@@ -173,6 +173,10 @@ Route::middleware(['auth', 'verified'])
                 ->whereNumber('user')
                 ->middleware('throttle:12,1')
                 ->name('users.destroy');
+            Route::patch('users/{user}/role', [AdminUserController::class, 'setRole'])
+                ->whereNumber('user')
+                ->middleware('throttle:12,1')
+                ->name('users.set-role');
             Route::get('subscriptions', [AdminSubscriptionController::class, 'index'])->name('subscriptions.index');
             Route::post('deliveries/sync-from-boxes', [AdminDeliveryController::class, 'syncFromBoxes'])
                 ->middleware('throttle:12,1')

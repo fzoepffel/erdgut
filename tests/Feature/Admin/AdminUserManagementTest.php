@@ -61,6 +61,66 @@ class AdminUserManagementTest extends TestCase
         $this->assertDatabaseMissing('subscriptions', ['id' => $sub->id]);
     }
 
+    public function test_admin_can_promote_user_to_admin(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $user = User::factory()->create(['is_admin' => false]);
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.users.set-role', $user), ['role' => 'admin'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'is_admin' => 1]);
+    }
+
+    public function test_admin_can_demote_other_admin_when_more_than_one_exists(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $other = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.users.set-role', $other), ['role' => 'user'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('users', ['id' => $other->id, 'is_admin' => 0]);
+    }
+
+    public function test_admin_cannot_demote_last_admin(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.users.set-role', $admin), ['role' => 'user'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('users', ['id' => $admin->id, 'is_admin' => 1]);
+    }
+
+    public function test_admin_cannot_change_own_role(): void
+    {
+        // Make sure the "last admin" guard isn't what's protecting self.
+        $admin = User::factory()->admin()->create();
+        User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.users.set-role', $admin), ['role' => 'user'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('users', ['id' => $admin->id, 'is_admin' => 1]);
+    }
+
+    public function test_non_admin_cannot_change_roles(): void
+    {
+        $user = User::factory()->create(['is_admin' => false]);
+        $other = User::factory()->create(['is_admin' => false]);
+
+        $this->actingAs($user)
+            ->patch(route('app.admin.users.set-role', $other), ['role' => 'admin'])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('users', ['id' => $other->id, 'is_admin' => 0]);
+    }
+
     public function test_admin_subscriptions_index_excludes_admin_users(): void
     {
         $admin = User::factory()->admin()->create();

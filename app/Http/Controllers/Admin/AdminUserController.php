@@ -8,7 +8,9 @@ use App\Http\Requests\Admin\AdminUsersStoreAdminRequest;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class AdminUserController extends Controller
 {
@@ -80,5 +82,33 @@ class AdminUserController extends Controller
         return redirect()
             ->route('app.admin.users.index')
             ->with('status', __('admin.users.flash_deleted'));
+    }
+
+    public function setRole(Request $request, User $user): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        $data = $request->validate([
+            'role' => ['required', Rule::in(['admin', 'user'])],
+        ]);
+        $promote = $data['role'] === 'admin';
+
+        $current = $request->user();
+        if ($current && (int) $current->id === (int) $user->id) {
+            return back()->with('status', __('admin.users.flash_cannot_change_self_role'));
+        }
+
+        if (! $promote && (bool) $user->is_admin) {
+            $adminCount = (int) User::query()->where('is_admin', true)->count();
+            if ($adminCount <= 1) {
+                return back()->with('status', __('admin.users.flash_cannot_demote_last_admin'));
+            }
+        }
+
+        $user->forceFill(['is_admin' => $promote])->save();
+
+        $flashKey = $promote ? 'admin.users.flash_promoted' : 'admin.users.flash_demoted';
+
+        return back()->with('status', __($flashKey, ['email' => $user->email]));
     }
 }
