@@ -45,14 +45,14 @@
                         <label for="sync-from" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.deliveries.sync_from_label') }}</label>
                         <input id="sync-from" type="date" name="from" value="{{ old('from') }}" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-auto" />
                     </div>
-                    {{-- Match the dark "Neue Lieferung" button next to it instead of
-                         the previous amber — same row, same actor, same priority,
-                         no reason for two colors. --}}
-                    <button type="submit" class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+                    {{-- Adopted from customer button components for design-language
+                         consistency. "Neue Lieferung" next to it gets the same brand-ink
+                         treatment via .btn-solid-sm so the row reads as one. --}}
+                    <x-primary-button size="sm">
                         {{ __('admin.deliveries.sync_button') }}
-                    </button>
+                    </x-primary-button>
                 </form>
-                <a href="{{ route('app.admin.deliveries.create') }}" class="inline-flex items-center justify-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+                <a href="{{ route('app.admin.deliveries.create') }}" class="btn-solid-sm">
                     {{ __('admin.deliveries.new_delivery') }}
                 </a>
             </div>
@@ -80,9 +80,9 @@
                         <input id="bulk-delay-reason" type="text" name="reason" maxlength="500" value="{{ old('reason') }}" placeholder="{{ __('admin.deliveries.bulk_delay_reason_placeholder') }}" class="block w-full rounded-md border-rose-300 text-sm shadow-sm focus:border-rose-600 focus:ring-rose-600" />
                         @error('reason')<p class="mt-1 text-xs text-rose-700">{{ $message }}</p>@enderror
                     </div>
-                    <button type="submit" onclick="return confirm('{{ __('admin.deliveries.bulk_delay_confirm') }}')" class="inline-flex items-center rounded-md bg-rose-700 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-800">
+                    <x-danger-button size="sm" onclick="return confirm('{{ __('admin.deliveries.bulk_delay_confirm') }}')">
                         {{ __('admin.deliveries.bulk_delay_submit') }}
-                    </button>
+                    </x-danger-button>
                 </form>
             </details>
 
@@ -111,11 +111,11 @@
                             <input id="admin-del-to" type="date" name="date_to" value="{{ request('date_to') }}" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
                         </div>
                         <div class="flex gap-2">
-                            <button type="submit" class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+                            <x-primary-button size="sm">
                                 {{ __('admin.catalog.apply_filters') }}
-                            </button>
+                            </x-primary-button>
                             @if ($hasFilters)
-                                <a href="{{ route('app.admin.deliveries.index') }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
+                                <a href="{{ route('app.admin.deliveries.index') }}" class="btn-ghost-sm">
                                     {{ __('admin.catalog.reset_filters') }}
                                 </a>
                             @endif

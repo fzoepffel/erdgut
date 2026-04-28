@@ -20,7 +20,7 @@
                 </a>
                 <a
                     href="{{ route('app.admin.products.create') }}"
-                    class="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                    class="btn-solid-sm"
                 >
                     {{ __('Add product') }}
                 </a>
@@ -110,16 +110,13 @@
                             </select>
                         </div>
                         <div class="flex gap-2">
-                            <button
-                                type="submit"
-                                class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
-                            >
+                            <x-primary-button size="sm">
                                 {{ __('admin.catalog.apply_filters') }}
-                            </button>
+                            </x-primary-button>
                             @if ($hasFilters)
                                 <a
                                     href="{{ route('app.admin.products.index') }}"
-                                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                                    class="btn-ghost-sm"
                                 >
                                     {{ __('admin.catalog.reset_filters') }}
                                 </a>
@@ -136,7 +133,7 @@
                                 <p class="mt-1 text-sm text-gray-500">{{ __('admin.catalog.products_empty_hint') }}</p>
                                 <a
                                     href="{{ route('app.admin.products.create') }}"
-                                    class="mt-4 inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                                    class="mt-4 btn-solid-sm"
                                 >
                                     {{ __('Add product') }}
                                 </a>

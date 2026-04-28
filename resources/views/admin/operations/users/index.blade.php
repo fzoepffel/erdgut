@@ -36,9 +36,9 @@
                             @error('password') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                         </div>
                         <div class="sm:col-span-1">
-                            <button type="submit" class="inline-flex w-full items-center justify-center rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800">
+                            <x-primary-button size="sm" class="w-full">
                                 {{ __('admin.users.create_admin_cta') }}
-                            </button>
+                            </x-primary-button>
                         </div>
                     </form>
                     <p class="text-xs text-gray-500">{{ __('admin.users.create_admin_hint') }}</p>
@@ -60,11 +60,11 @@
                             />
                         </div>
                         <div class="flex gap-2">
-                            <button type="submit" class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+                            <x-primary-button size="sm">
                                 {{ __('admin.catalog.apply_filters') }}
-                            </button>
+                            </x-primary-button>
                             @if ($hasFilters)
-                                <a href="{{ route('app.admin.users.index') }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
+                                <a href="{{ route('app.admin.users.index') }}" class="btn-ghost-sm">
                                     {{ __('admin.catalog.reset_filters') }}
                                 </a>
                             @endif
@@ -129,12 +129,9 @@
                                                             @csrf
                                                             @method('PATCH')
                                                             <input type="hidden" name="role" value="{{ $user->is_admin ? 'user' : 'admin' }}" />
-                                                            <button
-                                                                type="submit"
-                                                                class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
-                                                            >
+                                                            <x-secondary-button type="submit" size="sm">
                                                                 {{ $user->is_admin ? __('admin.users.demote_cta') : __('admin.users.promote_cta') }}
-                                                            </button>
+                                                            </x-secondary-button>
                                                         </form>
                                                     @endif
                                                     <button
@@ -166,15 +163,15 @@
                                         <p class="mt-1 text-sm font-medium text-gray-900" x-text="deleteEmail"></p>
                                     </div>
                                     <div class="flex items-center justify-end gap-2 p-4">
-                                        <button type="button" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" @click="deleteOpen=false">
+                                        <x-secondary-button size="sm" @click="deleteOpen=false">
                                             {{ __('Cancel') }}
-                                        </button>
+                                        </x-secondary-button>
                                         <form method="post" :action="'{{ url('/app/admin/users') }}/'+deleteUserId">
                                             @csrf
                                             @method('DELETE')
-                                            <button class="rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700">
+                                            <x-danger-button size="sm">
                                                 {{ __('admin.users.delete_confirm_cta') }}
-                                            </button>
+                                            </x-danger-button>
                                         </form>
                                     </div>
                                 </div>
