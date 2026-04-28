@@ -2,6 +2,18 @@
     /** @var \App\Models\Producer|null $producer */
     $isEdit = $producer !== null;
     $locales = ['de' => 'DE', 'en' => 'EN', 'fr' => 'FR'];
+
+    // Open the tab whose locale already has a validation error so the
+    // admin doesn't have to hunt for the field that failed.
+    $initialTab = 'de';
+    foreach (array_keys($locales) as $loc) {
+        if ($errors->has("translations.$loc.name")
+            || $errors->has("translations.$loc.region")
+            || $errors->has("translations.$loc.description")) {
+            $initialTab = $loc;
+            break;
+        }
+    }
 @endphp
 
 <form method="post" action="{{ $action }}" class="space-y-6" enctype="multipart/form-data">
@@ -10,10 +22,35 @@
         @method($method)
     @endif
 
-    <div class="space-y-6">
+    <div class="space-y-4" x-data="{ tab: '{{ $initialTab }}' }">
         <div class="flex items-center justify-between">
             <h2 class="text-sm font-semibold text-gray-900">{{ __('Translations') }}</h2>
             <p class="text-xs text-gray-600">{{ __('All three languages are required.') }}</p>
+        </div>
+
+        <div class="flex gap-1 border-b border-gray-200" role="tablist">
+            @foreach ($locales as $locale => $label)
+                @php
+                    $hasError = $errors->has("translations.$locale.name")
+                        || $errors->has("translations.$locale.region")
+                        || $errors->has("translations.$locale.description");
+                @endphp
+                <button
+                    type="button"
+                    role="tab"
+                    :aria-selected="tab === '{{ $locale }}'"
+                    @click="tab = '{{ $locale }}'"
+                    :class="tab === '{{ $locale }}'
+                        ? 'border-emerald-600 text-emerald-700'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'"
+                    class="relative -mb-px border-b-2 px-3 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                >
+                    {{ $label }}
+                    @if ($hasError)
+                        <span class="ml-1 inline-block h-2 w-2 rounded-full bg-rose-600" aria-hidden="true" title="{{ __('admin.form.tab_has_errors') }}"></span>
+                    @endif
+                </button>
+            @endforeach
         </div>
 
         @foreach ($locales as $locale => $label)
@@ -21,14 +58,10 @@
                 $t = $producer?->translations?->firstWhere('locale', $locale);
             @endphp
 
-            <div class="rounded border border-gray-200 bg-white p-4">
-                <div class="flex items-center justify-between">
-                    <p class="text-sm font-semibold text-gray-900">{{ $label }}</p>
-                </div>
-
-                <div class="mt-4 grid grid-cols-1 gap-6">
+            <div x-show="tab === '{{ $locale }}'" role="tabpanel" class="rounded border border-gray-200 bg-white p-4">
+                <div class="grid grid-cols-1 gap-6">
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" />
+                        <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" required />
                         <x-text-input
                             :id="'translations_'.$locale.'_name'"
                             :name="'translations['.$locale.'][name]'"
@@ -41,7 +74,7 @@
                     </div>
 
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_region'" :value="__('Region')" />
+                        <x-input-label :for="'translations_'.$locale.'_region'" :value="__('Region')" required />
                         <x-text-input
                             :id="'translations_'.$locale.'_region'"
                             :name="'translations['.$locale.'][region]'"
@@ -54,7 +87,7 @@
                     </div>
 
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_description'" :value="__('Description')" />
+                        <x-input-label :for="'translations_'.$locale.'_description'" :value="__('Description')" required />
                         <textarea
                             id="{{ 'translations_'.$locale.'_description' }}"
                             name="{{ 'translations['.$locale.'][description]' }}"

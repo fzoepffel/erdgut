@@ -1241,6 +1241,7 @@
     "admin.deliveries.validation.override_already_exists": "Für diese Basis-Lieferung gibt es schon ein Override. Bitte zuerst bearbeiten oder entfernen.",
     "admin.deliveries.validation.override_requires_base": "Wochen-Overrides brauchen eine Basis-Lieferung-ID.",
     "admin.form.new_image_preview": "Vorschau (neu gewählte Datei)",
+    "admin.form.tab_has_errors": "Dieser Tab enthält Fehler",
     "admin.metrics.expected_amount": "Erwarteter Umsatz: :amount €",
     "admin.metrics.payments_failed_7d_hint": "Nach status und failed_at",
     "admin.metrics.payments_failed_7d_label": "Fehlgeschlagene Zahlungen (7 Tage)",

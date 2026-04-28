@@ -1242,6 +1242,7 @@
     "admin.deliveries.validation.override_already_exists": "This base delivery already has a weekly override. Edit or remove it first.",
     "admin.deliveries.validation.override_requires_base": "Weekly overrides must reference a base delivery ID.",
     "admin.form.new_image_preview": "New image preview",
+    "admin.form.tab_has_errors": "This tab has validation errors",
     "admin.metrics.expected_amount": "Expected volume: :amount €",
     "admin.metrics.payments_failed_7d_hint": "By status and failed_at",
     "admin.metrics.payments_failed_7d_label": "Failed payments (7 days)",

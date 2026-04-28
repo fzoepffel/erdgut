@@ -58,6 +58,19 @@
     if ($buyingPriceValue === null && $product?->buying_price_cents !== null) {
         $buyingPriceValue = number_format(((int) $product->buying_price_cents) / 100, 2, '.', '');
     }
+
+    // Open the tab whose locale already has a validation error so the
+    // admin doesn't have to hunt for the field that failed.
+    $translationFields = ['name', 'unit', 'origin', 'variety', 'taste_profile'];
+    $initialTab = 'de';
+    foreach (array_keys($locales) as $loc) {
+        foreach ($translationFields as $f) {
+            if ($errors->has("translations.$loc.$f")) {
+                $initialTab = $loc;
+                break 2;
+            }
+        }
+    }
 @endphp
 
 <form method="post" action="{{ $action }}" class="space-y-6" enctype="multipart/form-data">
@@ -67,7 +80,7 @@
     @endif
 
     <div>
-        <x-input-label for="producer_id" :value="__('Producer')" />
+        <x-input-label for="producer_id" :value="__('Producer')" required />
         <select id="producer_id" name="producer_id" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
             <option value="">{{ __('Select producer') }}</option>
             @foreach ($producers as $producer)
@@ -79,10 +92,36 @@
         <x-input-error class="mt-2" :messages="$errors->get('producer_id')" />
     </div>
 
-    <div class="space-y-6">
+    <div class="space-y-4" x-data="{ tab: '{{ $initialTab }}' }">
         <div class="flex items-center justify-between">
             <h2 class="text-sm font-semibold text-gray-900">{{ __('Translations') }}</h2>
             <p class="text-xs text-gray-600">{{ __('All three languages are required.') }}</p>
+        </div>
+
+        <div class="flex gap-1 border-b border-gray-200" role="tablist">
+            @foreach ($locales as $locale => $label)
+                @php
+                    $hasError = false;
+                    foreach ($translationFields as $f) {
+                        if ($errors->has("translations.$locale.$f")) { $hasError = true; break; }
+                    }
+                @endphp
+                <button
+                    type="button"
+                    role="tab"
+                    :aria-selected="tab === '{{ $locale }}'"
+                    @click="tab = '{{ $locale }}'"
+                    :class="tab === '{{ $locale }}'
+                        ? 'border-emerald-600 text-emerald-700'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'"
+                    class="relative -mb-px border-b-2 px-3 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                >
+                    {{ $label }}
+                    @if ($hasError)
+                        <span class="ml-1 inline-block h-2 w-2 rounded-full bg-rose-600" aria-hidden="true" title="{{ __('admin.form.tab_has_errors') }}"></span>
+                    @endif
+                </button>
+            @endforeach
         </div>
 
         @foreach ($locales as $locale => $label)
@@ -90,12 +129,10 @@
                 $t = $product?->translations?->firstWhere('locale', $locale);
             @endphp
 
-            <div class="rounded border border-gray-200 bg-white p-4">
-                <p class="text-sm font-semibold text-gray-900">{{ $label }}</p>
-
-                <div class="mt-4 grid grid-cols-1 gap-6">
+            <div x-show="tab === '{{ $locale }}'" role="tabpanel" class="rounded border border-gray-200 bg-white p-4">
+                <div class="grid grid-cols-1 gap-6">
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" />
+                        <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" required />
                         <x-text-input
                             :id="'translations_'.$locale.'_name'"
                             :name="'translations['.$locale.'][name]'"
@@ -109,7 +146,7 @@
 
                     <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
                         <div>
-                            <x-input-label :for="'translations_'.$locale.'_unit'" :value="__('Unit')" />
+                            <x-input-label :for="'translations_'.$locale.'_unit'" :value="__('Unit')" required />
                             <x-text-input
                                 :id="'translations_'.$locale.'_unit'"
                                 :name="'translations['.$locale.'][unit]'"
@@ -122,7 +159,7 @@
                         </div>
 
                         <div>
-                            <x-input-label :for="'translations_'.$locale.'_origin'" :value="__('Origin')" />
+                            <x-input-label :for="'translations_'.$locale.'_origin'" :value="__('Origin')" required />
                             <x-text-input
                                 :id="'translations_'.$locale.'_origin'"
                                 :name="'translations['.$locale.'][origin]'"
@@ -135,7 +172,7 @@
                         </div>
 
                         <div>
-                            <x-input-label :for="'translations_'.$locale.'_variety'" :value="__('Variety')" />
+                            <x-input-label :for="'translations_'.$locale.'_variety'" :value="__('Variety')" required />
                             <x-text-input
                                 :id="'translations_'.$locale.'_variety'"
                                 :name="'translations['.$locale.'][variety]'"
@@ -149,7 +186,7 @@
                     </div>
 
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('Taste profile')" />
+                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('Taste profile')" required />
                         <textarea
                             id="{{ 'translations_'.$locale.'_taste_profile' }}"
                             name="{{ 'translations['.$locale.'][taste_profile]' }}"
@@ -165,7 +202,7 @@
     </div>
 
     <div>
-        <x-input-label for="category" :value="__('Category')" />
+        <x-input-label for="category" :value="__('Category')" required />
         <select id="category" name="category" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
             @foreach ($categories as $cat)
                 <option value="{{ $cat }}" @selected(old('category', $product?->category) === $cat)>{{ __('admin.category.'.$cat) }}</option>
@@ -176,7 +213,7 @@
 
     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
-            <x-input-label for="unit_price" :value="__('Unit price')" />
+            <x-input-label for="unit_price" :value="__('Unit price')" required />
             <x-text-input id="unit_price" name="unit_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('unit_price', $product?->unit_price)" required />
             <p class="mt-1 text-xs text-gray-500">{{ __('Customer-facing selling price.') }}</p>
             <x-input-error class="mt-2" :messages="$errors->get('unit_price')" />
