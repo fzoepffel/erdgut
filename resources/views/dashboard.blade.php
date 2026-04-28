@@ -60,7 +60,9 @@
                         @if (! $primarySubscription)
                             <a href="{{ route('app.onboarding.start', ['intent' => 'subscription', 'from_order' => $openTrialOrder->id]) }}"
                                class="inline-flex items-center border border-chapter-produce bg-chapter-produce text-white px-4 py-2 text-xs font-semibold uppercase tracking-eyebrow hover:bg-chapter-produce/90"
-                               data-testid="dashboard-trial-convert-cta">
+                               data-testid="dashboard-trial-convert-cta"
+                               data-track-section="header_alert.trial_conversion"
+                               data-track-destination="app.onboarding.start">
                                 {{ __('Turn your trial into a weekly box') }}
                             </a>
                         @endif
@@ -74,7 +76,9 @@
                         <span class="font-semibold">{{ __('Add a payment method') }}</span>
                         — {{ __('Complete setup so we can charge your subscription on schedule.') }}
                     </p>
-                    <x-solid-link :href="route('app.subscriptions.onboard.payment')">
+                    <x-solid-link :href="route('app.subscriptions.onboard.payment')"
+                                  data-track-section="header_alert.payment_setup"
+                                  data-track-destination="app.subscriptions.onboard.payment">
                         {{ __('Set up payments') }}
                     </x-solid-link>
                 </div>
@@ -101,19 +105,28 @@
                             <p class="text-sm text-brand-ink/70">
                                 {{ $delivery->address?->city ? __('To :city', ['city' => $delivery->address->city]) : __('Address not set') }}
                             </p>
-                            <a href="{{ route('app.deliveries.index') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                            <a href="{{ route('app.deliveries.index') }}"
+                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                               data-track-section="glance.next_delivery"
+                               data-track-destination="app.deliveries.index">
                                 {{ __('Manage deliveries') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @elseif ($primarySubscription)
                             @php($nextMonday = \Carbon\CarbonImmutable::parse($primarySubscription->next_charge_date ?? now())->startOfWeek())
                             <p class="mt-3 font-display text-2xl text-brand-ink">{{ $nextMonday->locale(app()->getLocale())->isoFormat('dd, D. MMM') }}</p>
                             <p class="mt-1 text-sm text-brand-ink/70">{{ __('First delivery — we will confirm day and timeslot once your box is composed.') }}</p>
-                            <a href="{{ route('app.deliveries.preferences.edit') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                            <a href="{{ route('app.deliveries.preferences.edit') }}"
+                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                               data-track-section="glance.next_delivery"
+                               data-track-destination="app.deliveries.preferences.edit">
                                 {{ __('Set delivery preferences') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @else
                             <p class="mt-3 text-sm text-brand-ink/70">{{ __('No subscription yet — we will plan deliveries once you subscribe.') }}</p>
-                            <a href="{{ route('app.subscriptions.create') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                            <a href="{{ route('app.subscriptions.create') }}"
+                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                               data-track-section="glance.next_delivery"
+                               data-track-destination="app.subscriptions.create">
                                 {{ __('Start a subscription') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @endif
@@ -124,7 +137,10 @@
                             <p class="mt-3 font-display text-2xl text-brand-ink">
                                 {{ __('Week of :date', ['date' => $currentBox->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}
                             </p>
-                            <a href="{{ route('app.boxes.current') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                            <a href="{{ route('app.boxes.current') }}"
+                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                               data-track-section="glance.current_box"
+                               data-track-destination="app.boxes.current">
                                 {{ __('View current box') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @elseif ($primarySubscription)
@@ -139,12 +155,18 @@
                             <p class="mt-3 font-display text-2xl text-brand-ink">
                                 {{ __('status.'.$primarySubscription->status->value) }}
                             </p>
-                            <a href="{{ route('app.subscriptions.show') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                            <a href="{{ route('app.subscriptions.show') }}"
+                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                               data-track-section="glance.subscription"
+                               data-track-destination="app.subscriptions.show">
                                 {{ __('Manage subscription') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @else
                             <p class="mt-3 text-sm text-brand-ink/70">{{ __('No subscription yet') }}</p>
-                            <a href="{{ route('app.subscriptions.create') }}" class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                            <a href="{{ route('app.subscriptions.create') }}"
+                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                               data-track-section="glance.subscription"
+                               data-track-destination="app.subscriptions.create">
                                 {{ __('Start a subscription') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @endif
@@ -157,9 +179,15 @@
                 <div class="border-t border-brand-ink/15 bg-brand-ink/[0.02] px-6 py-5">
                     <p class="eyebrow text-brand-ink/60">{{ __('Quick actions') }}</p>
                     <div class="mt-3 flex flex-wrap gap-2">
-                        <a href="{{ route('app.deliveries.preferences.edit') }}" class="btn-ghost text-xs">{{ __('Address & timeslot') }}</a>
-                        <a href="{{ route('app.payments.history') }}" class="btn-ghost text-xs">{{ __('Payments') }}</a>
-                        <a href="{{ route('public.producers') }}" class="btn-ghost text-xs">{{ __('Producers') }}</a>
+                        <a href="{{ route('app.deliveries.preferences.edit') }}" class="btn-ghost text-xs"
+                           data-track-section="glance.quick_actions"
+                           data-track-destination="app.deliveries.preferences.edit">{{ __('Address & timeslot') }}</a>
+                        <a href="{{ route('app.payments.history') }}" class="btn-ghost text-xs"
+                           data-track-section="glance.quick_actions"
+                           data-track-destination="app.payments.history">{{ __('Payments') }}</a>
+                        <a href="{{ route('public.producers') }}" class="btn-ghost text-xs"
+                           data-track-section="glance.quick_actions"
+                           data-track-destination="public.producers">{{ __('Producers') }}</a>
                     </div>
                 </div>
             </section>
@@ -177,7 +205,10 @@
                                 <p class="eyebrow text-chapter-produce">{{ __('Deliveries') }}</p>
                                 <h3 class="font-display text-xl text-brand-ink">{{ __('Next deliveries') }}</h3>
                             </div>
-                            <a href="{{ route('app.deliveries.index') }}" class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                            <a href="{{ route('app.deliveries.index') }}"
+                               class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                               data-track-section="feed.deliveries"
+                               data-track-destination="app.deliveries.index">
                                 {{ __('Manage all') }}
                             </a>
                         </div>
@@ -191,11 +222,17 @@
                         >
                             <x-slot name="emptyAction">
                                 @if ($primarySubscription)
-                                    <a href="{{ route('app.deliveries.preferences.edit') }}" class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                                    <a href="{{ route('app.deliveries.preferences.edit') }}"
+                                       class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                                       data-track-section="feed.deliveries.empty"
+                                       data-track-destination="app.deliveries.preferences.edit">
                                         {{ __('Review delivery preferences') }}
                                     </a>
                                 @else
-                                    <a href="{{ route('app.subscriptions.create') }}" class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                                    <a href="{{ route('app.subscriptions.create') }}"
+                                       class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                                       data-track-section="feed.deliveries.empty"
+                                       data-track-destination="app.subscriptions.create">
                                         {{ __('Start a subscription') }}
                                     </a>
                                 @endif
@@ -215,7 +252,10 @@
                                 {{ __('Week of :date', ['date' => $currentBox->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}
                             </p>
                             <p class="mt-2">
-                                <a href="{{ route('app.boxes.current') }}" class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                                <a href="{{ route('app.boxes.current') }}"
+                                   class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                                   data-track-section="feed.current_box"
+                                   data-track-destination="app.boxes.current">
                                     {{ __('View current box') }}
                                 </a>
                             </p>
@@ -239,7 +279,10 @@
                                 variant="inset"
                             >
                                 <x-slot name="action">
-                                    <a href="{{ route('app.subscriptions.show') }}" class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                                    <a href="{{ route('app.subscriptions.show') }}"
+                                       class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                                       data-track-section="feed.current_box.empty"
+                                       data-track-destination="app.subscriptions.show">
                                         {{ __('Check subscription') }}
                                     </a>
                                 </x-slot>
@@ -262,7 +305,10 @@
                             >
                                 @if (! $primarySubscription)
                                     <x-slot name="action">
-                                        <a href="{{ route('app.subscriptions.create') }}" class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline">
+                                        <a href="{{ route('app.subscriptions.create') }}"
+                                           class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                                           data-track-section="feed.almanach.empty"
+                                           data-track-destination="app.subscriptions.create">
                                             {{ __('Start a subscription') }}
                                         </a>
                                     </x-slot>
@@ -273,7 +319,9 @@
                                 @foreach ($upcomingBoxes as $box)
                                     <li>
                                         <a href="{{ route('app.boxes.show', $box) }}"
-                                           class="block border border-brand-ink/15 p-4 transition hover:border-brand-ink/40 hover:bg-brand-ink/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce">
+                                           class="block border border-brand-ink/15 p-4 transition hover:border-brand-ink/40 hover:bg-brand-ink/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
+                                           data-track-section="feed.almanach.box_row"
+                                           data-track-destination="app.boxes.show">
                                             <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
                                             {{-- Map admin-internal box statuses to customer-friendly phrasing. --}}
                                             @if ($box->status->value === 'editable')
@@ -296,4 +344,49 @@
             </div>
         </div>
     </div>
+
+    {{-- Click-destination instrumentation. We collect anonymous click counts
+         per dashboard region so the redesign decision (single feed vs.
+         two-column vs. status-conditional, see customer-ux-walkthrough-followups)
+         can be informed by what users actually use. Beacon-style send so we
+         don't block navigation; on failure we just lose the row. --}}
+    @push('scripts')
+    <script>
+        (function () {
+            const url = @js(route('app.dashboard.click'));
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+
+            function track(section, destination) {
+                const payload = JSON.stringify({ section, destination });
+                try {
+                    if (navigator.sendBeacon) {
+                        const blob = new Blob([payload], { type: 'application/json' });
+                        // sendBeacon can't set custom headers, so we proxy through fetch+keepalive
+                        // when CSRF protection requires the X-CSRF-TOKEN header.
+                    }
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrf,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json',
+                        },
+                        credentials: 'same-origin',
+                        keepalive: true,
+                        body: payload,
+                    }).catch(() => { /* no-op: instrumentation must never break the click */ });
+                } catch (_e) {
+                    /* no-op */
+                }
+            }
+
+            document.addEventListener('click', function (e) {
+                const el = e.target.closest('[data-track-section][data-track-destination]');
+                if (!el) return;
+                track(el.dataset.trackSection, el.dataset.trackDestination);
+            }, { capture: true });
+        })();
+    </script>
+    @endpush
 </x-app-layout>

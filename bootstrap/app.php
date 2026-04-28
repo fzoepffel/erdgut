@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('notifications:box-deadlines')->dailyAt('10:00')->withoutOverlapping();
         $schedule->command('trials:send-conversion-reminders')->dailyAt('11:00')->withoutOverlapping();
         $schedule->command('onboarding:prune-drafts')->dailyAt('03:30')->withoutOverlapping();
+        $schedule->command('dashboard:purge-click-events')->dailyAt('03:45')->withoutOverlapping();
     })
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
