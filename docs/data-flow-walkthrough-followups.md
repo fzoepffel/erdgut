@@ -47,12 +47,6 @@ Add timestamping logic in `AdminDeliveryController::updateStatus` and `update` (
 
 ## Medium-priority bugs
 
-### Bioland Sonnenfeld has no valid product category
-
-**Symptom:** Categories dropdown is hardcoded to `vegetables / fruit / dairy / bakery / fish / meat`. An apiary producer (honey) has no valid mapping. Same problem for condiments, oils, eggs (we have an eggs add-on but no eggs category).
-
-**Fix:** Either expand the `ProductCategory` enum to add `honey`, `eggs`, `condiments`, `oils`, OR drop categories entirely and use the `dietary_tags` / freeform tags pattern. The current set is a partial mismatch.
-
 ### Customer-facing "Status: BEARBEITBAR" leaks an admin term
 
 **Symptom:** In the dashboard's Almanach section, an upcoming box shows `Status: BEARBEITBAR`. "Bearbeitbar" / "editable" is a meaningful internal state (the box can still be modified before the lock date) but doesn't translate to anything the customer needs to know.

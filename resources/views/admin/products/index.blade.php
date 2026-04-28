@@ -201,7 +201,7 @@
                                                 <a href="{{ route('app.admin.products.edit', $product) }}" class="text-emerald-700 hover:text-emerald-900 font-medium">{{ __('Edit') }}</a>
                                                 <button
                                                     type="button"
-                                                    class="text-red-600 hover:text-red-800 font-medium"
+                                                    class="inline-flex items-center rounded bg-rose-600 px-2 py-1 text-xs font-semibold text-white hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600 focus:ring-offset-2"
                                                     x-on:click.prevent="deleteAction = @js(route('app.admin.products.destroy', $product)); deleteLabel = @js($product->name); $dispatch('open-modal', 'confirm-admin-product-delete')"
                                                 >
                                                     {{ __('Delete') }}

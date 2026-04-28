@@ -233,11 +233,18 @@
                                                 $iso = $weekMonday->toDateString();
                                                 $isUserSkipped = in_array($iso, $userSkippedWeeks, true);
                                                 $isLocked = in_array($iso, $pauseLockedWeeks, true);
+                                                $weekSunday = $weekMonday->copy()->addDays(6);
+                                                $startMonday = $weekMonday->locale(app()->getLocale());
+                                                $endSunday = $weekSunday->locale(app()->getLocale());
+                                                $sameMonth = $weekMonday->month === $weekSunday->month;
+                                                $weekRangeLabel = $sameMonth
+                                                    ? $startMonday->isoFormat('D.').'–'.$endSunday->isoFormat('D. MMM')
+                                                    : $startMonday->isoFormat('D. MMM').'–'.$endSunday->isoFormat('D. MMM');
                                             @endphp
                                             <label class="flex cursor-pointer items-start gap-2 border border-brand-ink/20 p-3 text-sm transition hover:border-brand-ink/40 has-[:checked]:border-chapter-bread has-[:checked]:bg-chapter-bread/10 @if($isLocked) cursor-not-allowed opacity-60 @endif">
                                                 <input type="checkbox" name="weeks[]" value="{{ $iso }}" @checked($isUserSkipped || $isLocked) @disabled($isLocked) class="mt-0.5 border-brand-ink/30 text-chapter-bread focus:ring-chapter-bread" />
                                                 <span>
-                                                    <span class="block font-medium text-brand-ink">{{ $weekMonday->isoFormat('D. MMM') }}</span>
+                                                    <span class="block font-medium text-brand-ink">{{ $weekRangeLabel }}</span>
                                                     <span class="block text-xs text-brand-ink/60">
                                                         @if ($isLocked){{ __('Locked by pause') }}@else{{ __('KW :week', ['week' => $weekMonday->isoWeek()]) }}@endif
                                                     </span>

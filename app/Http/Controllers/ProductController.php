@@ -31,7 +31,7 @@ class ProductController extends Controller
         return view('products.index', [
             'products' => $products,
             'activeCategory' => $activeCategory,
-            'categories' => ProductCategory::cases(),
+            'categories' => ProductCategory::casesSortedByLabel(),
         ]);
     }
 
