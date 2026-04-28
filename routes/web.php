@@ -116,6 +116,9 @@ Route::middleware(['auth', 'verified'])
     ->name('app.')
     ->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::post('/dashboard/click', [\App\Http\Controllers\DashboardClickEventController::class, 'store'])
+            ->middleware('throttle:60,1')
+            ->name('dashboard.click');
 
         Route::prefix('subscriptions')->name('subscriptions.')->group(function () {
             // Legacy onboard routes kept as permanent redirects into the wizard.
