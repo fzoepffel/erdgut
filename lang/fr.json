@@ -1080,6 +1080,7 @@
     "admin.box_items.conflict_with_label": "Conflit avec",
     "admin.box_items.remove_confirm": "Vraiment supprimer cette ligne ?",
     "admin.box_items.remove_eggs_confirm": "Vraiment supprimer l'entrée œufs ? Si aucun œuf n'est défini, le supplément est remboursé et le/la client·e notifié·e.",
+    "admin.box_items.weekly_stock_hint": "Autres boxes + celle-ci, en direct.",
     "admin.box_planner.validation_week_monday": "La date doit être un lundi.",
     "admin.box_setup.add": "Ajouter",
     "admin.box_setup.add_line": "Ajouter",

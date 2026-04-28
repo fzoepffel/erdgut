@@ -125,6 +125,14 @@ class AdminBoxController extends Controller
             ])
             : null;
 
+        // Weekly stock for the in-page "Wochen-Bestand" panel. Each row's
+        // baseline is the sum of qty in **other** boxes for the same week —
+        // i.e. all box_items minus this box's items. The Alpine layer adds
+        // the live composition on top, so admins see total committed stock
+        // update as they edit and a clear over-allocation warning when
+        // their changes push the row past planned.
+        $weeklyStock = $this->buildWeeklyStockForBox($box);
+
         return view('admin.operations.boxes.show', [
             'box' => $box,
             'subscription' => $subscription,
@@ -151,6 +159,7 @@ class AdminBoxController extends Controller
                 'regular_lines' => $regularLines,
                 'eggs_lines' => $eggsLines,
                 'ok' => $okState['flag'],
+                'weekly_stock' => $weeklyStock,
             ],
             'okState' => $okState,
         ]);
@@ -349,6 +358,68 @@ class AdminBoxController extends Controller
                 'missing_stock' => ! isset($weeklyPlannedByPid[$pid]),
             ];
         }
+
+        return $out;
+    }
+
+    /**
+     * Weekly stock rows for the box's week, with the baseline excluding the
+     * current box's items. Format mirrors the Box-Setup stock summary so the
+     * Alpine table can be rendered with the same logic.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function buildWeeklyStockForBox(Box $box): array
+    {
+        if ($box->week_start_date === null) {
+            return [];
+        }
+
+        $week = $box->week_start_date instanceof Carbon
+            ? $box->week_start_date
+            : Carbon::parse((string) $box->week_start_date);
+
+        $stockRows = ProductWeekStock::query()
+            ->whereDate('week_start_date', $week->toDateString())
+            ->where('planned_quantity', '>', 0)
+            ->with('product')
+            ->get();
+
+        // Sum-of-quantities across every box for this week, minus this box's
+        // own items — that's the baseline the Alpine layer adds the live
+        // composition to. Excluding self avoids double-counting when the
+        // admin loads the page with items already saved.
+        $distributed = DB::table('box_items')
+            ->join('boxes', 'boxes.id', '=', 'box_items.box_id')
+            ->whereDate('boxes.week_start_date', $week->toDateString())
+            ->where('boxes.id', '!=', $box->id)
+            ->selectRaw('box_items.product_id as product_id, SUM(box_items.quantity) as q')
+            ->groupBy('box_items.product_id')
+            ->pluck('q', 'product_id')
+            ->all();
+
+        $out = [];
+        foreach ($stockRows as $row) {
+            /** @var Product|null $product */
+            $product = $row->product;
+            if ($product === null) {
+                continue;
+            }
+            if (! (bool) $product->is_available || ! (bool) $product->is_published) {
+                continue;
+            }
+            $pid = (int) $product->id;
+            $out[] = [
+                'product_id' => $pid,
+                'name' => (string) $product->name,
+                'unit' => (string) ($row->unit ?? $product->metadata['unit'] ?? 'piece'),
+                'unit_price' => round((float) $product->unit_price, 2),
+                'planned' => round((float) $row->planned_quantity, 2),
+                'baseline_used' => round((float) ($distributed[$pid] ?? 0), 2),
+            ];
+        }
+
+        usort($out, fn (array $a, array $b) => strcmp($a['name'], $b['name']));
 
         return $out;
     }

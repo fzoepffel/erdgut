@@ -1081,6 +1081,7 @@
     "admin.box_items.conflict_with_label": "Conflict with",
     "admin.box_items.remove_confirm": "Really remove this line?",
     "admin.box_items.remove_eggs_confirm": "Really remove the eggs entry? If no eggs are set, the surcharge is refunded and the customer notified.",
+    "admin.box_items.weekly_stock_hint": "Other boxes + this box, live.",
     "admin.box_planner.validation_week_monday": "The date must be a Monday.",
     "admin.box_setup.add": "Add",
     "admin.box_setup.add_line": "Add",

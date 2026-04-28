@@ -1080,6 +1080,7 @@
     "admin.box_items.conflict_with_label": "Konflikt mit",
     "admin.box_items.remove_confirm": "Diese Zeile wirklich entfernen?",
     "admin.box_items.remove_eggs_confirm": "Eier-Eintrag wirklich entfernen? Wenn keine Eier gesetzt sind, wird der Aufpreis erstattet und der Kund:in informiert.",
+    "admin.box_items.weekly_stock_hint": "Andere Boxen + diese Box, live.",
     "admin.box_planner.validation_week_monday": "Das Datum muss ein Montag sein.",
     "admin.box_setup.add": "Hinzufügen",
     "admin.box_setup.add_line": "Hinzufügen",

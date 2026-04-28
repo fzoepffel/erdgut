@@ -131,14 +131,66 @@
                 </div>
             @endif
 
-            {{-- Composition card. Single Alpine x-data drives the table, the
-                 add dropdowns, the eggs panel, the live total / progress bar,
-                 the OK toggle, and the single Speichern button. --}}
-            <section
-                class="rounded-lg border border-gray-100 bg-white shadow-sm"
-                x-data="boxEditor(@js($initialState))"
-                x-cloak
-            >
+            {{-- Composition + Wochen-Bestand share the same Alpine x-data so
+                 the stock panel updates instantly as the admin retunes lines.
+                 The single x-data also drives the table, the add dropdowns,
+                 the eggs panel, the live total / progress bar, the OK
+                 toggle, and the single Speichern button. --}}
+            <div x-data="boxEditor(@js($initialState))" x-cloak class="space-y-4">
+
+                {{-- Wochen-Bestand panel. Each row's Verteilt is the sum of
+                     qty across all OTHER boxes for the week, plus the live
+                     contribution of THIS box (regular + eggs). Rest goes
+                     negative the moment the admin's edits push past planned. --}}
+                @if ($box->week_start_date !== null)
+                    <section class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.box_setup.stock_heading') }}</h3>
+                            <p class="text-xs font-semibold" :class="anyOver ? 'text-rose-700' : 'text-gray-500'">
+                                <template x-if="anyOver">
+                                    <span>{{ __('admin.box_setup.over_planned_warning') }}</span>
+                                </template>
+                                <template x-if="!anyOver">
+                                    <span class="text-gray-500">{{ __('admin.box_items.weekly_stock_hint') }}</span>
+                                </template>
+                            </p>
+                        </div>
+                        <div class="mt-3 max-h-80 overflow-auto">
+                            <table class="min-w-full text-xs">
+                                <thead class="sticky top-0 bg-white">
+                                    <tr class="border-b border-gray-200 text-left text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                                        <th class="py-1.5">{{ __('admin.box_setup.col_product') }}</th>
+                                        <th class="py-1.5 text-right">{{ __('admin.box_setup.col_planned') }}</th>
+                                        <th class="py-1.5 text-right">{{ __('admin.box_setup.col_used') }}</th>
+                                        <th class="py-1.5 text-right">{{ __('admin.box_setup.col_remaining') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <template x-for="row in stockRows" :key="row.product_id">
+                                        <tr :class="row.remaining < 0 ? 'bg-rose-50' : ''">
+                                            <td class="py-1 pr-2">
+                                                <span class="truncate font-medium text-gray-900" x-text="row.name"></span>
+                                                <div class="text-[10px] text-gray-500">
+                                                    <span x-text="row.unit"></span>
+                                                    ·
+                                                    <span x-text="formatEur(row.unit_price)"></span>
+                                                </div>
+                                            </td>
+                                            <td class="py-1 text-right tabular-nums text-gray-700" x-text="formatNumber(row.planned)"></td>
+                                            <td class="py-1 text-right tabular-nums" :class="row.remaining < 0 ? 'font-semibold text-rose-700' : 'text-gray-700'" x-text="formatNumber(row.used_total)"></td>
+                                            <td class="py-1 text-right tabular-nums font-semibold" :class="row.remaining < 0 ? 'text-rose-700' : 'text-emerald-700'" x-text="formatNumber(row.remaining)"></td>
+                                        </tr>
+                                    </template>
+                                    <template x-if="stockRows.length === 0">
+                                        <tr><td colspan="4" class="py-3 text-center text-gray-500">{{ __('admin.box_setup.stock_empty') }}</td></tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                @endif
+
+            <section class="rounded-lg border border-gray-100 bg-white shadow-sm">
                 <form method="POST" action="{{ route('app.admin.boxes.update', $box) }}">
                     @csrf
                     @method('PATCH')
@@ -364,6 +416,7 @@
                     @endif
                 </form>
             </section>
+            </div>{{-- /x-data wrapper --}}
 
             {{-- Secondary admin tools, kept compact below the main editor. --}}
             <details class="rounded-lg border border-gray-100 bg-white p-3 text-sm shadow-sm">
@@ -440,6 +493,18 @@
                 ok: !!initial.ok,
                 addProductId: '',
                 addEggsProductId: '',
+                // Weekly stock for the in-page Wochen-Bestand panel. Each row
+                // carries `planned` and `baseline_used` (= sum of qty in
+                // OTHER boxes for the week, excluding this one). The
+                // `stockRows` getter adds the live composition on top.
+                weeklyStock: (initial.weekly_stock || []).map(r => ({
+                    product_id: Number(r.product_id),
+                    name: String(r.name),
+                    unit: String(r.unit ?? ''),
+                    unit_price: Number(r.unit_price ?? 0),
+                    planned: Number(r.planned ?? 0),
+                    baseline_used: Number(r.baseline_used ?? 0),
+                })),
 
                 // Lookup helpers (catalog is keyed by product_id; eggs candidates supplement
                 // for products that may have been removed from the visible catalog).
@@ -487,6 +552,36 @@
                 },
                 formatEur(value) {
                     return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(value) || 0);
+                },
+                formatNumber(value) {
+                    const n = Number(value) || 0;
+                    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+                },
+
+                // Live "Verteilt" calculation per product:
+                //   baseline (= other boxes for the week) + this box's regular + eggs.
+                // Same shape as Box-Setup's stockRows so admins recognise the panel.
+                get stockRows() {
+                    const used = {};
+                    for (const line of this.regularLines) {
+                        const pid = Number(line.product_id);
+                        used[pid] = (used[pid] || 0) + Math.max(0, Number(line.quantity) || 0);
+                    }
+                    for (const line of this.eggsLines) {
+                        const pid = Number(line.product_id);
+                        used[pid] = (used[pid] || 0) + Math.max(0, Number(line.quantity) || 0);
+                    }
+                    return this.weeklyStock.map(row => {
+                        const total = row.baseline_used + (used[row.product_id] || 0);
+                        return {
+                            ...row,
+                            used_total: Math.round(total * 100) / 100,
+                            remaining: Math.round((row.planned - total) * 100) / 100,
+                        };
+                    });
+                },
+                get anyOver() {
+                    return this.stockRows.some(r => r.remaining < 0);
                 },
 
                 // Add / remove / qty helpers.
