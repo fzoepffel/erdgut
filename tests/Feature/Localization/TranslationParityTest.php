@@ -24,6 +24,7 @@ class TranslationParityTest extends TestCase
         'allergens.',
         'plan.',
         'admin.audit.entity_type.',
+        'status.',
     ];
 
     public function test_every_translation_key_used_in_source_exists_in_every_locale(): void

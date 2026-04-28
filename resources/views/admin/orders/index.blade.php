@@ -77,8 +77,8 @@
                                     <div class="font-medium">{{ $order->user?->name ?? '—' }}</div>
                                     <div class="text-xs text-gray-500">{{ $order->user?->email }}</div>
                                 </td>
-                                <td class="px-3 py-2">{{ $order->status->label() }}</td>
-                                <td class="px-3 py-2">{{ ucfirst((string) $order->box_size) }}</td>
+                                <td class="px-3 py-2"><x-status-badge :value="$order->status" type="order" /></td>
+                                <td class="px-3 py-2">{{ __(ucfirst((string) $order->box_size)) }}</td>
                                 <td class="px-3 py-2">{{ $order->scheduled_for_date?->format('D d M') ?? '—' }}</td>
                                 <td class="px-3 py-2">{{ $order->address?->city }}</td>
                                 <td class="px-3 py-2 text-gray-500">{{ $order->created_at?->format('d M H:i') }}</td>

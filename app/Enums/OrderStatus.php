@@ -13,14 +13,7 @@ enum OrderStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::PendingPayment => 'Pending payment',
-            self::Paid => 'Paid',
-            self::Scheduled => 'Scheduled',
-            self::Delivered => 'Delivered',
-            self::Refunded => 'Refunded',
-            self::Cancelled => 'Cancelled',
-        };
+        return __('status.'.$this->value);
     }
 
     /**

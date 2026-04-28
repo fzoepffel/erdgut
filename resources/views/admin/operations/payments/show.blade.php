@@ -41,7 +41,7 @@
                         </div>
                         <div>
                             <dt class="font-medium text-gray-500">{{ __('admin.operations.status') }}</dt>
-                            <dd class="mt-1 text-gray-900">{{ $payment->status }}</dd>
+                            <dd class="mt-1 text-gray-900"><x-status-badge :value="$payment->status" type="payment" /></dd>
                         </div>
                         <div>
                             <dt class="font-medium text-gray-500">{{ __('admin.operations.amount') }}</dt>
