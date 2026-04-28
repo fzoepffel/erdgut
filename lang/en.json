@@ -1342,6 +1342,7 @@
     "admin.operations.payments_date_field_paid": "Paid",
     "admin.operations.payments_date_field_failed": "Failed",
     "admin.operations.payments_empty": "No payments found.",
+    "admin.operations.payments_export_csv": "Export CSV",
     "admin.operations.payments.audit_actor": "Actor",
     "admin.operations.payments.audit_actor_system": "System",
     "admin.operations.payments.audit_empty": "No audit events recorded for this payment yet.",

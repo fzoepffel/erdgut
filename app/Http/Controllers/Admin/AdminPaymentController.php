@@ -11,9 +11,11 @@ use App\Models\Payment;
 use App\Support\AuditLogger;
 use App\Support\SumUpService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class AdminPaymentController extends Controller
@@ -27,6 +29,93 @@ class AdminPaymentController extends Controller
         $dateField = $validated['date_field'] ?? 'created_at';
         $sort = $validated['sort'] ?? 'created_at';
         $direction = $validated['direction'] ?? 'desc';
+        $kind = $validated['kind'] ?? null;
+
+        $query = $this->buildFilteredQuery($validated, $dateField, $sort, $direction);
+
+        $payments = $query->paginate($perPage)->withQueryString();
+
+        return view('admin.operations.payments.index', [
+            'payments' => $payments,
+            'dateField' => $dateField,
+            'kind' => $kind,
+        ]);
+    }
+
+    /**
+     * Stream the filtered payments list as a CSV. Reuses the index filter
+     * inputs so admins can export exactly what they're looking at.
+     */
+    public function export(AdminPaymentsIndexRequest $request): StreamedResponse
+    {
+        $this->authorize('admin');
+
+        $validated = $request->validated();
+        $dateField = $validated['date_field'] ?? 'created_at';
+        $sort = $validated['sort'] ?? 'created_at';
+        $direction = $validated['direction'] ?? 'desc';
+
+        $query = $this->buildFilteredQuery($validated, $dateField, $sort, $direction);
+
+        $filename = 'payments-'.Carbon::now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($query): void {
+            $out = fopen('php://output', 'w');
+            // BOM so Excel opens UTF-8 cleanly.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, [
+                'id',
+                'type',
+                'subscription_id',
+                'order_id',
+                'customer_email',
+                'amount',
+                'currency',
+                'status',
+                'attempt_number',
+                'failure_reason',
+                'created_at',
+                'paid_at',
+                'failed_at',
+            ]);
+
+            $query->chunkById(500, function ($rows) use ($out): void {
+                foreach ($rows as $payment) {
+                    $type = $payment->subscription_id ? 'subscription' : ($payment->order_id ? 'order' : '');
+                    $email = $payment->subscription?->user?->email
+                        ?? $payment->order?->user?->email
+                        ?? '';
+                    fputcsv($out, [
+                        $payment->id,
+                        $type,
+                        $payment->subscription_id,
+                        $payment->order_id,
+                        $email,
+                        $payment->amount,
+                        $payment->currency,
+                        $payment->status,
+                        $payment->attempt_number,
+                        $payment->failure_reason ?? '',
+                        $payment->created_at?->toIso8601String() ?? '',
+                        $payment->paid_at?->toIso8601String() ?? '',
+                        $payment->failed_at?->toIso8601String() ?? '',
+                    ]);
+                }
+            });
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * Build a Payment query with the index/export filters applied.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function buildFilteredQuery(array $validated, string $dateField, string $sort, string $direction): Builder
+    {
         $kind = $validated['kind'] ?? null;
 
         $query = Payment::query()
@@ -80,15 +169,7 @@ class AdminPaymentController extends Controller
             $query->whereDate($dateField, '<=', $validated['date_to']);
         }
 
-        $query->orderBy($sort, $direction)->orderBy('id', $direction);
-
-        $payments = $query->paginate($perPage)->withQueryString();
-
-        return view('admin.operations.payments.index', [
-            'payments' => $payments,
-            'dateField' => $dateField,
-            'kind' => $kind,
-        ]);
+        return $query->orderBy($sort, $direction)->orderBy('id', $direction);
     }
 
     /**

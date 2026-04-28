@@ -201,6 +201,7 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:20,1')
                 ->name('subscriptions.store');
             Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
+            Route::get('payments/export', [AdminPaymentController::class, 'export'])->name('payments.export');
             Route::get('payments/{payment}', [AdminPaymentController::class, 'show'])->name('payments.show');
             Route::post('payments/{payment}/mark-paid-externally', [AdminPaymentController::class, 'markPaidExternally'])
                 ->middleware('throttle:30,1')
