@@ -52,6 +52,7 @@ class UpdateProductRequest extends FormRequest
             'is_seasonal' => ['boolean'],
             'is_available' => ['boolean'],
             'is_published' => ['boolean'],
+            'is_egg_addon' => ['boolean'],
             'is_test' => ['boolean'],
             'image' => ['nullable', 'image', 'max:5120'],
             'remove_image' => ['boolean'],
@@ -78,6 +79,7 @@ class UpdateProductRequest extends FormRequest
             'is_seasonal' => $this->boolean('is_seasonal'),
             'is_available' => $this->boolean('is_available'),
             'is_published' => $this->boolean('is_published'),
+            'is_egg_addon' => $this->boolean('is_egg_addon'),
             'is_test' => $this->boolean('is_test'),
             'remove_image' => $this->boolean('remove_image'),
         ]);

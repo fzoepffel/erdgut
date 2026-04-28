@@ -315,14 +315,20 @@
             <span class="text-sm text-gray-700">{{ __('Published') }}</span>
         </label>
         <label class="inline-flex items-center gap-2">
+            <input type="checkbox" name="is_egg_addon" value="1" class="rounded border-gray-300 text-amber-600 shadow-sm focus:ring-amber-600" @checked(old('is_egg_addon', $product?->is_egg_addon))>
+            <span class="text-sm text-gray-700">{{ __('admin.products.is_egg_addon_label') }}</span>
+        </label>
+        <label class="inline-flex items-center gap-2">
             <input type="checkbox" name="is_test" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_test', $product?->is_test))>
             <span class="text-sm text-gray-700">{{ __('Test data') }}</span>
         </label>
     </div>
     <x-input-error class="mt-2" :messages="$errors->get('is_seasonal')" />
     <p class="text-xs text-gray-500 -mt-1 sm:col-span-full">{{ __('Published: visible in shop and default box composition. Available: shown in shop when published.') }}</p>
+    <p class="text-xs text-amber-700 -mt-1 sm:col-span-full">{{ __('admin.products.is_egg_addon_hint') }}</p>
     <x-input-error class="mt-2" :messages="$errors->get('is_available')" />
     <x-input-error class="mt-2" :messages="$errors->get('is_published')" />
+    <x-input-error class="mt-2" :messages="$errors->get('is_egg_addon')" />
     <x-input-error class="mt-2" :messages="$errors->get('is_test')" />
 
     <div

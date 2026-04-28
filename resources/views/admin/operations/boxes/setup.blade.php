@@ -4,6 +4,7 @@
         'stock' => $data['stock'],
         'sizes' => [],
         'customers' => $customers ?? [],
+        'egg_candidates' => $eggCandidates ?? [],
     ];
     $sizeMeta = [];
     foreach ($data['size_blocks'] as $block) {
@@ -281,6 +282,10 @@
                             <div class="mt-4 space-y-2">
                                 <template x-for="customer in customers" :key="customer.user_id">
                                     <div :class="['rounded border', customerCardClass(customer)]">
+                                        {{-- OK flag is submitted as customer_ok[user_id]=1 when checked. --}}
+                                        <template x-if="customer.ok">
+                                            <input type="hidden" :name="'customer_ok['+customer.user_id+']'" value="1" />
+                                        </template>
                                         {{-- Row header with flags + OK toggle. --}}
                                         <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-start sm:justify-between">
                                             <div class="min-w-0 flex-1">
@@ -308,7 +313,7 @@
                                                     <template x-for="allergen in customer.allergies" :key="allergen">
                                                         <span class="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-800" x-text="allergen"></span>
                                                     </template>
-                                                    <template x-for="flag in customer.flags" :key="flag">
+                                                    <template x-for="flag in customerLiveFlags(customer)" :key="flag">
                                                         <span class="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white" x-text="flagLabel(flag)"></span>
                                                     </template>
                                                 </div>
@@ -358,21 +363,47 @@
                                             <table class="min-w-full text-xs">
                                                 <thead>
                                                     <tr class="text-left text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                                                        <th class="py-1 pe-2 w-6"></th>
                                                         <th class="py-1 pe-2">{{ __('admin.box_setup.col_product') }}</th>
+                                                        <th class="py-1 pe-2">{{ __('admin.box_setup.col_allergens') }}</th>
                                                         <th class="py-1 pe-2">{{ __('admin.box_setup.col_unit_price') }}</th>
                                                         <th class="py-1 pe-2">{{ __('admin.box_setup.col_quantity') }}</th>
                                                         <th class="py-1 ps-2 text-right">{{ __('admin.box_setup.col_actions') }}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody class="divide-y divide-gray-100">
-                                                    <template x-for="(line, idx) in customer.lines" :key="customer.user_id + '-' + idx + '-' + line.product_id">
-                                                        <tr>
+                                                    <template x-for="(line, idx) in customer.lines" :key="customer.user_id + '-reg-' + idx + '-' + line.product_id">
+                                                        <tr :class="!productIsSafe(customer, line.product_id) ? 'bg-rose-50' : ''">
+                                                            <td class="py-1 pe-2 align-top">
+                                                                <template x-if="productIsSafe(customer, line.product_id)">
+                                                                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-700" :title="@js(__('admin.box_setup.allergen_safe_aria'))" aria-label="{{ __('admin.box_setup.allergen_safe_aria') }}">
+                                                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                                                    </span>
+                                                                </template>
+                                                                <template x-if="!productIsSafe(customer, line.product_id)">
+                                                                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-rose-700" :title="@js(__('admin.box_setup.allergen_unsafe_aria'))" aria-label="{{ __('admin.box_setup.allergen_unsafe_aria') }}">
+                                                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 6l12 12M6 18L18 6"/></svg>
+                                                                    </span>
+                                                                </template>
+                                                            </td>
                                                             <td class="py-1 pe-2">
                                                                 <input type="hidden" :name="'customers['+customer.user_id+']['+idx+'][product_id]'" :value="line.product_id" />
-                                                                <span x-text="productName(line.product_id)" class="font-medium text-gray-900"></span>
+                                                                <span x-text="productNameAny(line.product_id)" :class="productIsSafe(customer, line.product_id) ? 'font-medium text-gray-900' : 'font-semibold text-rose-900'"></span>
                                                                 <span x-text="productUnit(line.product_id)" class="ms-1 text-[11px] text-gray-500"></span>
                                                             </td>
-                                                            <td class="py-1 pe-2 tabular-nums text-gray-700" x-text="formatEur(productPrice(line.product_id))"></td>
+                                                            <td class="py-1 pe-2 text-[11px]">
+                                                                <template x-if="allergensFor(line.product_id).length > 0">
+                                                                    <div class="flex flex-wrap gap-1">
+                                                                        <template x-for="a in allergensFor(line.product_id)" :key="line.product_id + '-' + a">
+                                                                            <span :class="customer.allergies.includes(String(a)) ? 'bg-rose-200 text-rose-900' : 'bg-gray-100 text-gray-600'" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider" x-text="a"></span>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+                                                                <template x-if="allergensFor(line.product_id).length === 0">
+                                                                    <span class="text-gray-400">—</span>
+                                                                </template>
+                                                            </td>
+                                                            <td class="py-1 pe-2 tabular-nums text-gray-700" x-text="formatEur(productPriceAny(line.product_id))"></td>
                                                             <td class="py-1 pe-2">
                                                                 <div class="flex items-center gap-1">
                                                                     <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerDecQty(customer, idx)">−</button>
@@ -386,12 +417,12 @@
                                                         </tr>
                                                     </template>
                                                     <template x-if="customer.lines.length === 0">
-                                                        <tr><td colspan="4" class="py-2 text-center text-gray-500">{{ __('admin.box_setup.per_customer_no_lines') }}</td></tr>
+                                                        <tr><td colspan="6" class="py-2 text-center text-gray-500">{{ __('admin.box_setup.per_customer_no_lines') }}</td></tr>
                                                     </template>
                                                 </tbody>
                                                 <tfoot>
                                                     <tr class="text-xs">
-                                                        <td colspan="2" class="py-2 text-gray-600 font-semibold">{{ __('admin.box_setup.per_customer_summe_label') }}</td>
+                                                        <td colspan="4" class="py-2 text-gray-600 font-semibold">{{ __('admin.box_setup.per_customer_summe_label') }}</td>
                                                         <td class="py-2 tabular-nums text-gray-900 font-semibold" x-text="formatEur(customerSum(customer))"></td>
                                                         <td></td>
                                                     </tr>
@@ -402,11 +433,70 @@
                                                 <select class="min-w-0 flex-1 rounded border-gray-300 text-xs shadow-sm" x-model="customer.addProductId">
                                                     <option value="">— {{ __('admin.box_setup.add_product_placeholder') }} —</option>
                                                     <template x-for="opt in customerAddableOptions(customer)" :key="opt.product_id">
-                                                        <option :value="opt.product_id" x-text="opt.name"></option>
+                                                        <option :value="opt.product_id" x-text="(productIsSafe(customer, opt.product_id) ? '✓ ' : '✗ ') + opt.name"></option>
                                                     </template>
                                                 </select>
                                                 <button type="button" class="rounded bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800" @click="customerAddLine(customer)">{{ __('admin.box_setup.add_button') }}</button>
                                             </div>
+
+                                            {{-- Eggs panel: separate slot for is_egg_addon products. --}}
+                                            <template x-if="customer.eggs">
+                                                <div class="mt-5 border-t-2 border-dashed border-amber-300 pt-4">
+                                                    <h4 class="text-xs font-semibold uppercase tracking-wide text-chapter-eggdairy">{{ __('admin.box_setup.eggs_panel_heading') }}</h4>
+                                                    <p class="mt-1 text-[11px] text-gray-500" x-text="@js(__('admin.box_setup.eggs_panel_hint'))"></p>
+
+                                                    <template x-if="eggCandidates.length === 0">
+                                                        <p class="mt-3 rounded border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] text-rose-900">{{ __('admin.box_setup.eggs_panel_no_candidates') }}</p>
+                                                    </template>
+
+                                                    <template x-if="customer.eggsLines.length > 0">
+                                                        <table class="mt-3 min-w-full text-xs">
+                                                            <tbody class="divide-y divide-gray-100">
+                                                                <template x-for="(line, idx) in customer.eggsLines" :key="customer.user_id + '-eggs-' + idx + '-' + line.product_id">
+                                                                    <tr :class="!productIsSafe(customer, line.product_id) ? 'bg-rose-50' : ''">
+                                                                        <td class="py-1 pe-2 align-top w-6">
+                                                                            <template x-if="productIsSafe(customer, line.product_id)">
+                                                                                <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></span>
+                                                                            </template>
+                                                                            <template x-if="!productIsSafe(customer, line.product_id)">
+                                                                                <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-rose-700"><svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 6l12 12M6 18L18 6"/></svg></span>
+                                                                            </template>
+                                                                        </td>
+                                                                        <td class="py-1 pe-2">
+                                                                            <input type="hidden" :name="'customers['+customer.user_id+'][eggs_'+idx+'][product_id]'" :value="line.product_id" />
+                                                                            <span x-text="productNameAny(line.product_id)" class="font-medium text-gray-900"></span>
+                                                                            <template x-if="(eggCandidates.find(e => e.product_id === line.product_id) || {}).producer_name">
+                                                                                <span class="ms-1 text-[11px] italic text-gray-500" x-text="'· ' + (eggCandidates.find(e => e.product_id === line.product_id) || {}).producer_name"></span>
+                                                                            </template>
+                                                                        </td>
+                                                                        <td class="py-1 pe-2 tabular-nums text-gray-700" x-text="formatEur(productPriceAny(line.product_id))"></td>
+                                                                        <td class="py-1 pe-2">
+                                                                            <div class="flex items-center gap-1">
+                                                                                <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerDecEggsQty(customer, idx)">−</button>
+                                                                                <input type="number" min="1" step="1" class="w-12 rounded border-gray-300 text-center text-xs tabular-nums shadow-sm" :name="'customers['+customer.user_id+'][eggs_'+idx+'][quantity]'" x-model.number="line.quantity" />
+                                                                                <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerIncEggsQty(customer, idx)">+</button>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td class="py-1 ps-2 text-right">
+                                                                            <button type="button" class="text-rose-600 hover:text-rose-800" @click="customerRemoveEggsLine(customer, idx)">×</button>
+                                                                        </td>
+                                                                    </tr>
+                                                                </template>
+                                                            </tbody>
+                                                        </table>
+                                                    </template>
+
+                                                    <div class="mt-3 flex items-center gap-2">
+                                                        <select class="min-w-0 flex-1 rounded border-amber-300 bg-amber-50 text-xs shadow-sm" x-model="customer.addEggsProductId" :disabled="eggsAddableOptions(customer).length === 0">
+                                                            <option value="">— {{ __('admin.box_setup.eggs_panel_select_placeholder') }} —</option>
+                                                            <template x-for="opt in eggsAddableOptions(customer)" :key="'add-egg-' + opt.product_id">
+                                                                <option :value="opt.product_id" x-text="(productIsSafe(customer, opt.product_id) ? '✓ ' : '✗ ') + opt.name + (opt.producer_name ? ' (' + opt.producer_name + ')' : '')"></option>
+                                                            </template>
+                                                        </select>
+                                                        <button type="button" class="rounded bg-chapter-eggdairy px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:bg-gray-300" :disabled="!customer.addEggsProductId" @click="customerAddEggs(customer)">{{ __('admin.box_setup.add_button') }}</button>
+                                                    </div>
+                                                </div>
+                                            </template>
                                         </div>
                                     </div>
                                 </template>

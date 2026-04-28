@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\DietaryTag;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminBoxSetupApplyRequest;
 use App\Models\Box;
+use App\Models\Product;
 use App\Models\Subscription;
 use App\Services\Admin\WeeklyBoxPlannerService;
 use App\Services\Admin\WeeklyBoxSetupService;
@@ -37,47 +37,80 @@ class AdminBoxSetupController extends Controller
         $monday = $this->resolveMonday($week);
         $data = $this->setupService->buildInitialDistribution($monday);
 
-        // Per-size customer roster for the "Pro Kunde" panel — surfaces each
-        // subscriber with their preferences (eggs / allergies / note) so the
-        // admin can see at a glance whose box differs from the standard size
-        // template before saving.
         $subsBySize = $this->plannerService
             ->eligibleSubscriptionsForWeek($monday)
             ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
 
-        // Build the per-customer initial composition: size-template lines, with
-        // allergen-conflicting items removed (and tracked) and the eggs add-on
-        // appended for customers who flagged it. Frontend then lets the admin
-        // adjust per-customer before saving; flags must be OK'd or resolved
-        // before the form unlocks.
-        $customers = $this->buildInitialCustomerState($data, $subsBySize, $monday);
+        // Eggs candidates for the per-customer eggs slot. The first entry is
+        // the default selection; admin can pick a different producer.
+        $eggCandidates = $this->setupService->availableEggAddOnProducts($monday)
+            ->map(fn (Product $p): array => [
+                'product_id' => (int) $p->id,
+                'name' => (string) $p->name,
+                'producer_name' => (string) ($p->producer?->name ?? ''),
+                'unit_price' => (float) $p->unit_price,
+                'allergens' => array_map('strval', (array) $p->allergens),
+            ])
+            ->values()
+            ->all();
+
+        $customers = $this->buildInitialCustomerState($data, $subsBySize, $monday, $eggCandidates);
 
         return view('admin.operations.boxes.setup', [
             'week' => $monday,
             'data' => $data,
             'subsBySize' => $subsBySize,
             'customers' => $customers,
+            'eggCandidates' => $eggCandidates,
         ]);
     }
 
     /**
      * Derive each customer's initial box composition from the size template
-     * + auto rules. Returns a list of customer payloads consumable by Alpine.
+     * + auto rules.
+     *
+     * Returns a list of customer payloads consumable by Alpine. Each payload
+     * separates regular lines (size-template products) from eggs lines
+     * (`is_egg_addon=true` products). Allergens per line are surfaced so the
+     * UI can render ✓/✗ next to each product.
+     *
+     * Existing Box state is loaded if available — if the admin previously
+     * saved this week's boxes, we re-derive from the box's actual items
+     * (preserving per-customer overrides) and pre-fill the OK marker.
      *
      * @param  array<string, mixed>  $data  Output of buildInitialDistribution
      * @param  Collection<string, \Illuminate\Database\Eloquent\Collection<int, Subscription>>  $subsBySize
+     * @param  list<array<string, mixed>>  $eggCandidates
      * @return list<array<string, mixed>>
      */
-    private function buildInitialCustomerState(array $data, $subsBySize, Carbon $week): array
+    private function buildInitialCustomerState(array $data, $subsBySize, Carbon $week, array $eggCandidates): array
     {
         $sizeBlocks = collect($data['size_blocks'] ?? [])->keyBy('box_size');
-        $eggsProduct = $this->setupService->resolveEggsAddOnProduct($week);
+        $defaultEggsProduct = $this->setupService->resolveEggsAddOnProduct($week);
         $stockById = collect($data['stock'] ?? [])->keyBy('product_id');
 
+        // Load eggs-candidate metadata (allergens etc.) so we can render lines that point at an
+        // eggs product even if it's not in the standard `stock` list (eggs are filtered from there).
+        $eggsById = collect($eggCandidates)->keyBy('product_id');
         $allergenLookup = [];
         foreach ($stockById as $row) {
             $allergenLookup[(int) $row['product_id']] = array_map('strval', (array) ($row['allergens'] ?? []));
         }
+        foreach ($eggsById as $row) {
+            $allergenLookup[(int) $row['product_id']] = array_map('strval', (array) ($row['allergens'] ?? []));
+        }
+
+        // Load existing boxes for the week so we can preserve admin overrides + OK state.
+        $userIds = collect($subsBySize)->flatten()->pluck('user_id')->all();
+        $existingBoxes = Box::query()
+            ->forWeek($week->toDateString())
+            ->whereIn('user_id', $userIds)
+            ->whereNull('order_id')
+            ->with(['items' => fn ($q) => $q->where('is_extra', false)->with('product:id,is_egg_addon')])
+            ->get()
+            ->keyBy('user_id');
+
+        $eggsProductIds = collect($eggCandidates)->pluck('product_id')->map(fn ($i) => (int) $i)->all();
 
         $out = [];
         foreach ($subsBySize as $size => $subs) {
@@ -90,56 +123,62 @@ class AdminBoxSetupController extends Controller
                 $vegOnly = (bool) data_get($sub->preferences, 'veg_only', false);
                 $note = trim((string) ($sub->allergies_note ?? ''));
 
-                $lines = [];
+                $existingBox = $existingBoxes->get($sub->user_id);
+                $existingItems = $existingBox?->items ?? collect();
+
+                $regularLines = [];
+                $eggsLines = [];
                 $removedAllergenItems = [];
 
-                foreach ($templateLines as $line) {
-                    $pid = (int) ($line['product_id'] ?? 0);
-                    $productAllergens = $allergenLookup[$pid] ?? [];
-                    $conflictingAllergens = array_values(array_intersect($allergies, $productAllergens));
-
-                    if ($conflictingAllergens !== []) {
-                        // Auto-remove conflicting items but track them so the UI
-                        // can flag the customer and ask the admin to substitute.
-                        $removedAllergenItems[] = [
-                            'product_id' => $pid,
-                            'product_name' => (string) ($stockById->get($pid)['name'] ?? '—'),
-                            'conflicts' => $conflictingAllergens,
-                        ];
-
-                        continue;
+                if ($existingItems->isNotEmpty()) {
+                    // Re-derive from the customer's actual saved box (preserves
+                    // any admin per-customer overrides from a previous save).
+                    foreach ($existingItems as $item) {
+                        $pid = (int) $item->product_id;
+                        $isEgg = (bool) ($item->product?->is_egg_addon ?? in_array($pid, $eggsProductIds, true));
+                        $line = ['product_id' => $pid, 'quantity' => (float) $item->quantity];
+                        if ($isEgg) {
+                            $eggsLines[] = $line;
+                        } else {
+                            $regularLines[] = $line;
+                        }
                     }
+                } else {
+                    // Fresh derive from size template — strip allergen conflicts.
+                    foreach ($templateLines as $line) {
+                        $pid = (int) ($line['product_id'] ?? 0);
+                        $productAllergens = $allergenLookup[$pid] ?? [];
+                        $conflictingAllergens = array_values(array_intersect($allergies, $productAllergens));
 
-                    $lines[] = [
-                        'product_id' => $pid,
-                        'quantity' => (float) ($line['quantity'] ?? 0),
+                        if ($conflictingAllergens !== []) {
+                            $removedAllergenItems[] = [
+                                'product_id' => $pid,
+                                'product_name' => (string) ($stockById->get($pid)['name'] ?? '—'),
+                                'conflicts' => $conflictingAllergens,
+                            ];
+
+                            continue;
+                        }
+
+                        $regularLines[] = [
+                            'product_id' => $pid,
+                            'quantity' => (float) ($line['quantity'] ?? 0),
+                        ];
+                    }
+                }
+
+                // Auto-suggest eggs if customer has the add-on flag but no eggs
+                // product is yet on the lines (works for both fresh derive and
+                // re-opening an existing box that pre-dates eggs being stocked).
+                if ($eggsFlag && $eggsLines === [] && $defaultEggsProduct !== null) {
+                    $eggsLines[] = [
+                        'product_id' => (int) $defaultEggsProduct->id,
+                        'quantity' => 1.0,
                     ];
                 }
 
-                $eggsAdded = false;
-                $eggsMissing = false;
-                if ($eggsFlag) {
-                    $alreadyHasEggs = false;
-                    foreach ($lines as $l) {
-                        $tags = $stockById->get((int) $l['product_id'])['dietary_tags'] ?? [];
-                        if (in_array(DietaryTag::ContainsEggs->value, array_map('strval', (array) $tags), true)) {
-                            $alreadyHasEggs = true;
-                            break;
-                        }
-                    }
-
-                    if (! $alreadyHasEggs) {
-                        if ($eggsProduct !== null) {
-                            $lines[] = [
-                                'product_id' => (int) $eggsProduct->id,
-                                'quantity' => 1.0,
-                            ];
-                            $eggsAdded = true;
-                        } else {
-                            $eggsMissing = true;
-                        }
-                    }
-                }
+                $eggsAdded = $eggsFlag && $eggsLines !== [];
+                $eggsMissing = $eggsFlag && $eggsLines === [];
 
                 $flags = [];
                 if ($note !== '') {
@@ -152,6 +191,8 @@ class AdminBoxSetupController extends Controller
                     $flags[] = 'eggs_missing';
                 }
 
+                $previouslyOk = $existingBox?->composition_admin_ok_at !== null;
+
                 $out[] = [
                     'user_id' => (int) $sub->user_id,
                     'subscription_id' => (int) $sub->id,
@@ -162,11 +203,13 @@ class AdminBoxSetupController extends Controller
                     'veg_only' => $vegOnly,
                     'allergies' => $allergies,
                     'note' => $note,
-                    'lines' => $lines,
+                    'regular_lines' => $regularLines,
+                    'eggs_lines' => $eggsLines,
                     'removed_allergen_items' => $removedAllergenItems,
                     'eggs_added' => $eggsAdded,
                     'eggs_missing' => $eggsMissing,
                     'flags' => $flags,
+                    'ok' => $previouslyOk,
                 ];
             }
         }
@@ -181,16 +224,22 @@ class AdminBoxSetupController extends Controller
         $monday = Carbon::parse($request->validated('week_start_date'))->startOfDay();
 
         $customers = $request->validated('customers');
+        $customerOk = (array) $request->input('customer_ok', []);
+        $actorId = (int) $request->user()->id;
+
         if (is_array($customers) && $customers !== []) {
-            $updated = $this->setupService->applyPerCustomerDistribution($monday, $customers);
+            $updated = $this->setupService->applyPerCustomerDistribution(
+                $monday,
+                $customers,
+                $customerOk,
+                $actorId,
+            );
         } else {
             // Backwards-compat: pre-per-customer payload (size templates only).
             $sizes = (array) $request->validated('sizes');
             $updated = $this->setupService->applyDistribution($monday, $sizes);
         }
 
-        // Per W2-31 follow-up: jump straight to the boxes overview for the
-        // week so the admin sees the result of the save in context.
         return redirect()
             ->route('app.admin.boxes.week.show', ['week' => $monday->toDateString()])
             ->with('status', __('admin.box_setup.flash_applied', ['count' => $updated]));
