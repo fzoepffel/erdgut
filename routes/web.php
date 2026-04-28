@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\AdminDeliveryController;
 use App\Http\Controllers\Admin\AdminEmailResendController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
+use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminTrialBoxSetupController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
@@ -165,6 +166,9 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
             Route::get('audit-events', [AdminAuditEventController::class, 'index'])->name('audit-events.index');
+            Route::get('search', AdminSearchController::class)
+                ->middleware('throttle:60,1')
+                ->name('search');
             Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
             Route::post('users', [AdminUserController::class, 'storeAdmin'])
                 ->middleware('throttle:12,1')
