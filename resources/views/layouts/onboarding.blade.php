@@ -24,7 +24,13 @@
                     <a href="{{ route('public.home') }}" class="flex items-center gap-3">
                         <x-application-logo variant="filled" :withWordmark="false" class="h-14 w-auto" />
                         <span class="flex flex-col leading-tight">
-                            <span class="eyebrow text-chapter-produce">{{ __('A seat at the table') }}</span>
+                            {{-- Show the editorial eyebrow only on the first onboarding
+                                 step. On subsequent steps the progress bar already tells
+                                 the user where they are; the wordmark + logo are enough
+                                 to carry the brand. --}}
+                            @if (($step ?? null) === 'commitment')
+                                <span class="eyebrow text-chapter-produce">{{ __('A seat at the table') }}</span>
+                            @endif
                             <span class="font-display text-base font-semibold text-brand-ink">{{ config('app.name', 'Erdgut') }}</span>
                         </span>
                     </a>
