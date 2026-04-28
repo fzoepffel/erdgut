@@ -173,6 +173,9 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:60,1')
                 ->name('search');
             Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
+            Route::get('users/{user}', [AdminUserController::class, 'show'])
+                ->whereNumber('user')
+                ->name('users.show');
             Route::post('users', [AdminUserController::class, 'storeAdmin'])
                 ->middleware('throttle:12,1')
                 ->name('users.store-admin');

@@ -74,8 +74,12 @@
                             <tr>
                                 <td class="px-3 py-2 font-mono">#{{ $order->id }}</td>
                                 <td class="px-3 py-2">
-                                    <div class="font-medium">{{ $order->user?->name ?? '—' }}</div>
-                                    <div class="text-xs text-gray-500">{{ $order->user?->email }}</div>
+                                    @if ($order->user)
+                                        <a href="{{ route('app.admin.users.show', $order->user) }}" class="font-medium text-emerald-700 hover:underline">{{ $order->user->name ?: $order->user->email }}</a>
+                                        <div class="text-xs text-gray-500">{{ $order->user->email }}</div>
+                                    @else
+                                        <div class="text-gray-500">—</div>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-2"><x-status-badge :value="$order->status" type="order" /></td>
                                 <td class="px-3 py-2">{{ __(ucfirst((string) $order->box_size)) }}</td>
