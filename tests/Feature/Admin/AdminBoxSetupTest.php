@@ -184,7 +184,7 @@ class AdminBoxSetupTest extends TestCase
                     ],
                 ],
             ])
-            ->assertRedirect(route('app.admin.boxes.index'))
+            ->assertRedirect(route('app.admin.boxes.week.show', ['week' => $monday->toDateString()]))
             ->assertSessionHas('status');
 
         $box = Box::query()
@@ -247,7 +247,7 @@ class AdminBoxSetupTest extends TestCase
                     ],
                 ],
             ])
-            ->assertRedirect(route('app.admin.boxes.index'));
+            ->assertRedirect(route('app.admin.boxes.week.show', ['week' => $monday->toDateString()]));
 
         $delivery = Delivery::query()
             ->where('user_id', $customer->id)
@@ -329,7 +329,7 @@ class AdminBoxSetupTest extends TestCase
                     ],
                 ],
             ])
-            ->assertRedirect(route('app.admin.boxes.index'));
+            ->assertRedirect(route('app.admin.boxes.week.show', ['week' => $monday->toDateString()]));
 
         $this->assertDatabaseMissing('box_items', [
             'box_id' => $existingBox->id,
@@ -395,7 +395,7 @@ class AdminBoxSetupTest extends TestCase
                     ],
                 ],
             ])
-            ->assertRedirect(route('app.admin.boxes.index'));
+            ->assertRedirect(route('app.admin.boxes.week.show', ['week' => $monday->toDateString()]));
 
         $this->assertDatabaseHas('box_items', ['id' => $existingItem->id]);
         $this->assertDatabaseMissing('box_items', [

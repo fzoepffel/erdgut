@@ -3,6 +3,7 @@
 namespace App\Services\Admin;
 
 use App\Enums\BoxStatus;
+use App\Enums\DietaryTag;
 use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
@@ -408,6 +409,107 @@ final class WeeklyBoxSetupService
      *
      * @param  array<string, list<array{product_id: int, quantity: float}>>  $sizes
      */
+    /**
+     * Resolve the eggs-add-on product for the week.
+     *
+     * Looks at config('box.eggs_dairy_add_on_product_id') first; falls back
+     * to a single dairy-categorized product whose dietary tags include
+     * ContainsEggs (and which has weekly stock for $week if any week filter
+     * applies). Returns null if no candidate exists — caller is expected to
+     * surface this as a per-customer flag.
+     */
+    public function resolveEggsAddOnProduct(Carbon $week): ?Product
+    {
+        $configuredId = config('box.eggs_dairy_add_on_product_id');
+        if ($configuredId !== null) {
+            $product = Product::query()->visibleInCatalog()->find((int) $configuredId);
+            if ($product !== null) {
+                return $product;
+            }
+            // Misconfigured: id set but product missing/hidden. Fall through to heuristic.
+        }
+
+        // Heuristic: any visible product whose dietary_tags includes contains_eggs.
+        // Prefer one in the week's stock, else any catalog match.
+        return Product::query()
+            ->visibleInCatalog()
+            ->get()
+            ->first(function (Product $p): bool {
+                $tags = (array) ($p->dietary_tags ?? []);
+
+                return in_array(DietaryTag::ContainsEggs->value, array_map('strval', $tags), true);
+            });
+    }
+
+    /**
+     * Per-customer distribution apply.
+     *
+     * Each entry in $customers is `[user_id => list<['product_id' => int, 'quantity' => float]>]`.
+     * The lines payload is treated as the FINAL composition for that customer's box
+     * (size template + admin overrides already merged client-side). This service
+     * just persists them, recalculates value, and projects the delivery row.
+     *
+     * @param  array<int, list<array{product_id: int, quantity: float}>>  $customers
+     */
+    public function applyPerCustomerDistribution(Carbon $week, array $customers): int
+    {
+        $week = $week->copy()->startOfDay();
+        $updated = 0;
+
+        DB::transaction(function () use ($week, $customers, &$updated): void {
+            $eligibleByUserId = $this->weeklyBoxPlanner
+                ->eligibleSubscriptionsForWeek($week)
+                ->keyBy(fn (Subscription $s): int => (int) $s->user_id);
+
+            foreach ($customers as $userId => $linesPayload) {
+                $userId = (int) $userId;
+                $subscription = $eligibleByUserId->get($userId);
+                if ($subscription === null) {
+                    continue;
+                }
+
+                $box = Box::query()
+                    ->forUser($subscription->user_id)
+                    ->forWeek($week->toDateString())
+                    ->whereNull('order_id')
+                    ->first();
+
+                $skippedNotEditable = $box !== null && $box->status !== BoxStatus::Editable;
+                if ($skippedNotEditable) {
+                    continue;
+                }
+
+                $box = $this->weeklyBoxPlanner->ensureEmptyBox($subscription, $week);
+                if ($box->status !== BoxStatus::Editable) {
+                    continue;
+                }
+
+                $resolved = $this->resolveLines((array) $linesPayload);
+
+                $box->items()->where('is_extra', false)->delete();
+
+                foreach ($resolved as $line) {
+                    /** @var Product $product */
+                    $product = $line['product'];
+                    BoxItem::create([
+                        'box_id' => $box->id,
+                        'product_id' => $product->id,
+                        'quantity' => (float) $line['quantity'],
+                        'unit' => (string) $line['unit'],
+                        'is_extra' => false,
+                    ]);
+                }
+
+                $this->valueRecalculationService->recalculate($box->fresh());
+                $this->deliveryProjector->projectForBox($box->fresh());
+
+                $updated++;
+            }
+        });
+
+        return $updated;
+    }
+
     public function applyDistribution(Carbon $week, array $sizes): int
     {
         $week = $week->copy()->startOfDay();

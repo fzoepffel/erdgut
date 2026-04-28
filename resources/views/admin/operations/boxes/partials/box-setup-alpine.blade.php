@@ -10,6 +10,31 @@
                 addProductId: '',
                 lines: lines.map(l => ({ product_id: Number(l.product_id), quantity: Number(l.quantity) })),
             })),
+            // Per-customer composition: each entry holds the resolved lines
+            // (size template − allergen-conflicting items + auto-added eggs),
+            // the precomputed flags, the admin's OK acknowledgement, and
+                // any UI scratchpad state (expansion, line additions).
+            customers: (initial.customers ?? []).map(c => ({
+                user_id: Number(c.user_id),
+                subscription_id: Number(c.subscription_id),
+                box_size: String(c.box_size),
+                name: String(c.name ?? ''),
+                email: String(c.email ?? ''),
+                eggs: !!c.eggs,
+                veg_only: !!c.veg_only,
+                allergies: Array.isArray(c.allergies) ? c.allergies.map(String) : [],
+                note: String(c.note ?? ''),
+                lines: Array.isArray(c.lines)
+                    ? c.lines.map(l => ({ product_id: Number(l.product_id), quantity: Number(l.quantity) }))
+                    : [],
+                removed_allergen_items: Array.isArray(c.removed_allergen_items) ? c.removed_allergen_items : [],
+                eggs_added: !!c.eggs_added,
+                eggs_missing: !!c.eggs_missing,
+                flags: Array.isArray(c.flags) ? c.flags.map(String) : [],
+                ok: false,
+                expanded: false,
+                addProductId: '',
+            })),
             sizeLabel(key) {
                 const labels = @js([
                     'small' => __('admin.box_setup.size_small'),
@@ -112,6 +137,64 @@
             formatEur(v) {
                 const n = Number(v) || 0;
                 return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' €';
+            },
+
+            // ---- Per-customer helpers ----
+            customerFlagged(c) {
+                return Array.isArray(c.flags) && c.flags.length > 0;
+            },
+            customerNeedsAttention(c) {
+                return this.customerFlagged(c) && !c.ok;
+            },
+            anyCustomerBlocking() {
+                return this.customers.some(c => this.customerNeedsAttention(c));
+            },
+            customerSum(c) {
+                return c.lines.reduce((acc, l) => acc + (this.productPrice(l.product_id) * Math.max(0, l.quantity || 0)), 0);
+            },
+            customerCardClass(c) {
+                if (!this.customerFlagged(c)) return 'border-gray-200';
+                if (c.ok) return 'border-emerald-300 bg-emerald-50/40';
+                return 'border-rose-300 bg-rose-50/40';
+            },
+            sizeLabelByKey(key) {
+                return this.sizeLabel(key);
+            },
+            customerAddLine(c) {
+                if (!c.addProductId) return;
+                const pid = Number(c.addProductId);
+                if (!pid) return;
+                const existingIdx = c.lines.findIndex(l => Number(l.product_id) === pid);
+                if (existingIdx >= 0) {
+                    c.lines[existingIdx].quantity = Number(c.lines[existingIdx].quantity || 0) + 1;
+                } else {
+                    c.lines.push({ product_id: pid, quantity: 1 });
+                }
+                c.addProductId = '';
+            },
+            customerRemoveLine(c, idx) {
+                c.lines.splice(idx, 1);
+            },
+            customerIncQty(c, idx) {
+                c.lines[idx].quantity = Number(c.lines[idx].quantity || 0) + 1;
+            },
+            customerDecQty(c, idx) {
+                const next = Number(c.lines[idx].quantity || 0) - 1;
+                c.lines[idx].quantity = next < 1 ? 1 : next;
+            },
+            customerAddableOptions(c) {
+                const used = new Set(c.lines.map(l => Number(l.product_id)));
+                return Object.values(this.stockById)
+                    .filter(r => !used.has(Number(r.product_id)))
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            },
+            flagLabel(flag) {
+                const labels = @js([
+                    'note' => __('admin.box_setup.flag_note'),
+                    'allergy_conflict' => __('admin.box_setup.flag_allergy_conflict'),
+                    'eggs_missing' => __('admin.box_setup.flag_eggs_missing'),
+                ]);
+                return labels[flag] ?? flag;
             },
         }));
     });

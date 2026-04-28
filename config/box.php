@@ -61,6 +61,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Eggs add-on product ID (auto-projection)
+    |--------------------------------------------------------------------------
+    |
+    | When set, the box-setup flow automatically appends one of this product
+    | as a position to every customer who has preferences.eggs_dairy_add_on
+    | enabled. If null (or the configured product can't be resolved), the
+    | customer is flagged for admin attention and the admin must add a
+    | substitute manually.
+    |
+    */
+    'eggs_dairy_add_on_product_id' => env('BOX_EGGS_DAIRY_ADD_ON_PRODUCT_ID') !== null
+        ? (int) env('BOX_EGGS_DAIRY_ADD_ON_PRODUCT_ID')
+        : null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Default box composition by size
     |--------------------------------------------------------------------------
     |
