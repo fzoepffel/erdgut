@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex items-center justify-between gap-3">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Trial orders') }}</h2>
-            <a href="{{ route('app.admin.orders.create') }}" class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+            <a href="{{ route('app.admin.orders.create') }}" class="btn-solid-sm">
                 {{ __('admin.orders.create_title') }}
             </a>
         </div>
@@ -38,7 +38,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <button class="inline-flex rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white">{{ __('Filter') }}</button>
+                    <x-primary-button size="sm">{{ __('Filter') }}</x-primary-button>
                     @if ($status)
                         <a href="{{ route('app.admin.orders.index', array_filter(['product_type' => $productType])) }}" class="text-sm text-gray-600 underline">{{ __('Reset') }}</a>
                     @endif
@@ -47,7 +47,7 @@
                     @if ($productType === 'trial_box')
                         <a
                             href="{{ route('app.admin.trial-boxes.setup.select') }}"
-                            class="inline-flex items-center justify-center rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"
+                            class="btn-solid-sm"
                         >
                             {{ __('admin.trial_box_setup.bulk_entrypoint') }}
                         </a>

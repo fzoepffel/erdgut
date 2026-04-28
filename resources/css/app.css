@@ -96,6 +96,22 @@
         @apply inline-flex items-center justify-center border border-chapter-meat bg-chapter-meat px-6 py-3 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream transition duration-200 hover:bg-chapter-meat/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-meat focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cream;
     }
 
+    /* Compact (-sm) variants for admin density. Same brand colors as the
+       full-size buttons but with toolbar-friendly padding/typography:
+       drops the editorial uppercase + eyebrow tracking so admin tables
+       don't feel shouty. Use via <x-primary-button size="sm" /> etc. */
+    .btn-ghost-sm {
+        @apply inline-flex items-center justify-center rounded-md border border-brand-ink bg-transparent px-3 py-2 text-sm font-semibold text-brand-ink transition duration-200 hover:bg-brand-ink hover:text-brand-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2;
+    }
+
+    .btn-solid-sm {
+        @apply inline-flex items-center justify-center rounded-md bg-brand-ink px-3 py-2 text-sm font-semibold text-brand-cream transition duration-200 hover:bg-brand-ink/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2;
+    }
+
+    .btn-danger-sm {
+        @apply inline-flex items-center justify-center rounded-md border border-chapter-meat bg-chapter-meat px-3 py-2 text-sm font-semibold text-brand-cream transition duration-200 hover:bg-chapter-meat/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-meat focus-visible:ring-offset-2;
+    }
+
     /* Text input restyled for cream background */
     .input-field {
         @apply block w-full border-0 border-b border-brand-ink/30 bg-transparent px-0 py-2 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-brand-ink focus:ring-0;

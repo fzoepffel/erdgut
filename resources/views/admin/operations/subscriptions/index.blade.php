@@ -8,7 +8,7 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('admin.operations.subscriptions_title') }}
             </h2>
-            <a href="{{ route('app.admin.subscriptions.create') }}" class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+            <a href="{{ route('app.admin.subscriptions.create') }}" class="btn-solid-sm">
                 {{ __('admin.subscriptions.new_action') }}
             </a>
         </div>
@@ -34,11 +34,11 @@
                             </select>
                         </div>
                         <div class="flex gap-2">
-                            <button type="submit" class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+                            <x-primary-button size="sm">
                                 {{ __('admin.catalog.apply_filters') }}
-                            </button>
+                            </x-primary-button>
                             @if ($hasFilters)
-                                <a href="{{ route('app.admin.subscriptions.index') }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
+                                <a href="{{ route('app.admin.subscriptions.index') }}" class="btn-ghost-sm">
                                     {{ __('admin.catalog.reset_filters') }}
                                 </a>
                             @endif
