@@ -88,7 +88,7 @@
                             <label for="admin-pay-to" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.date_to') }}</label>
                             <input id="admin-pay-to" type="date" name="date_to" value="{{ request('date_to') }}" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex flex-wrap gap-2">
                             <button type="submit" class="inline-flex items-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
                                 {{ __('admin.catalog.apply_filters') }}
                             </button>
@@ -97,6 +97,9 @@
                                     {{ __('admin.catalog.reset_filters') }}
                                 </a>
                             @endif
+                            <a href="{{ route('app.admin.payments.export', request()->query()) }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
+                                {{ __('admin.operations.payments_export_csv') }}
+                            </a>
                         </div>
                     </form>
 

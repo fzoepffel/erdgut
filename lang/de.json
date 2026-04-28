@@ -1341,6 +1341,7 @@
     "admin.operations.payments_date_field_paid": "Bezahlt am",
     "admin.operations.payments_date_field_failed": "Fehlgeschlagen am",
     "admin.operations.payments_empty": "Keine Zahlungen gefunden.",
+    "admin.operations.payments_export_csv": "CSV exportieren",
     "admin.operations.payments.audit_actor": "Akteur",
     "admin.operations.payments.audit_actor_system": "System",
     "admin.operations.payments.audit_empty": "Für diese Zahlung wurden noch keine Audit-Ereignisse erfasst.",
