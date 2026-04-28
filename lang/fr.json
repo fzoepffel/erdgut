@@ -1241,6 +1241,7 @@
     "admin.deliveries.validation.override_already_exists": "Un override existe déjà pour cette livraison de base. Merci de la modifier ou de la supprimer.",
     "admin.deliveries.validation.override_requires_base": "Les overrides hebdomadaires nécessitent un ID de livraison de base.",
     "admin.form.new_image_preview": "Aperçu (nouveau fichier choisi)",
+    "admin.form.tab_has_errors": "Cet onglet contient des erreurs",
     "admin.metrics.expected_amount": "Chiffre attendu : :amount €",
     "admin.metrics.payments_failed_7d_hint": "Par statut et failed_at",
     "admin.metrics.payments_failed_7d_label": "Paiements échoués (7 jours)",
