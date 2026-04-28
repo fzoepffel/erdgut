@@ -206,6 +206,12 @@ Route::middleware(['auth', 'verified'])
             Route::post('deliveries/bulk-delay', [AdminDeliveryController::class, 'bulkDelay'])
                 ->middleware('throttle:10,1')
                 ->name('deliveries.bulk-delay');
+            Route::post('deliveries/cleanup-orphans', [AdminDeliveryController::class, 'cleanupOrphans'])
+                ->middleware('throttle:6,1')
+                ->name('deliveries.cleanup-orphans');
+            Route::delete('deliveries/{delivery}', [AdminDeliveryController::class, 'destroy'])
+                ->middleware('throttle:30,1')
+                ->name('deliveries.destroy');
             Route::get('subscriptions/create', [AdminSubscriptionController::class, 'create'])->name('subscriptions.create');
             Route::post('subscriptions', [AdminSubscriptionController::class, 'store'])
                 ->middleware('throttle:20,1')

@@ -67,6 +67,13 @@ class AdminDeliveryCrudTest extends TestCase
 
         $date = '2029-06-13';
 
+        // ERD: canonical deliveries must have a Box (or trial Order) behind them.
+        // 2029-06-13 is a Wednesday — the ISO week begins Monday 2029-06-11.
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => '2029-06-11',
+        ]);
+
         $this->actingAs($admin)
             ->post(route('app.admin.deliveries.store'), [
                 'user_id' => $customer->id,
@@ -83,11 +90,33 @@ class AdminDeliveryCrudTest extends TestCase
         $this->assertTrue(Delivery::query()
             ->where('user_id', $customer->id)
             ->where('address_id', $address->id)
+            ->where('box_id', $box->id) // auto-linked by the form request
             ->whereDate('scheduled_for_date', $date)
             ->where('timeslot', '08:00-12:00')
             ->where('status', DeliveryStatus::Scheduled)
             ->where('is_weekly_override', false)
             ->exists());
+    }
+
+    public function test_admin_cannot_create_orphan_delivery(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $customer->id, 'is_primary' => true]);
+
+        // No Box, no trial order — the validator should refuse.
+        $this->actingAs($admin)
+            ->post(route('app.admin.deliveries.store'), [
+                'user_id' => $customer->id,
+                'address_id' => $address->id,
+                'scheduled_for_date' => '2029-06-13',
+                'timeslot' => '08:00-12:00',
+                'status' => DeliveryStatus::Scheduled->value,
+                'is_weekly_override' => false,
+            ])
+            ->assertSessionHasErrors('user_id');
+
+        $this->assertSame(0, Delivery::query()->where('user_id', $customer->id)->count());
     }
 
     public function test_admin_cannot_create_second_weekly_override_for_same_base(): void
@@ -299,5 +328,65 @@ class AdminDeliveryCrudTest extends TestCase
             ->where('entity_id', $delivery->id)
             ->where('action', 'admin_reschedule')
             ->exists(), 'reschedule audit event must not fire when date/timeslot unchanged.');
+    }
+
+    public function test_admin_can_delete_a_single_delivery(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $customer->id, 'is_primary' => true]);
+
+        $delivery = Delivery::factory()->create([
+            'user_id' => $customer->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => '2030-02-13',
+        ]);
+
+        $this->actingAs($admin)
+            ->delete(route('app.admin.deliveries.destroy', $delivery))
+            ->assertRedirect(route('app.admin.deliveries.index'))
+            ->assertSessionHas('status', 'admin-delivery-deleted');
+
+        $this->assertDatabaseMissing('deliveries', ['id' => $delivery->id]);
+    }
+
+    public function test_admin_cleanup_orphans_removes_orphan_canonical_deliveries(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $address = Address::factory()->create(['user_id' => $customer->id, 'is_primary' => true]);
+
+        // Orphan: scheduled, no box, no order, not an override.
+        $orphan = Delivery::factory()->create([
+            'user_id' => $customer->id,
+            'address_id' => $address->id,
+            'scheduled_for_date' => '2030-03-04',
+            'box_id' => null,
+            'order_id' => null,
+            'is_weekly_override' => false,
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+
+        // Legit: linked to a Box.
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => '2030-03-04',
+        ]);
+        $linked = Delivery::factory()->create([
+            'user_id' => $customer->id,
+            'address_id' => $address->id,
+            'box_id' => $box->id,
+            'scheduled_for_date' => '2030-03-06',
+            'is_weekly_override' => false,
+            'status' => DeliveryStatus::Scheduled,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.deliveries.cleanup-orphans'))
+            ->assertRedirect(route('app.admin.deliveries.index'))
+            ->assertSessionHas('status', 'admin-deliveries-orphans-cleaned');
+
+        $this->assertDatabaseMissing('deliveries', ['id' => $orphan->id]);
+        $this->assertDatabaseHas('deliveries', ['id' => $linked->id]);
     }
 }
