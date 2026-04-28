@@ -4,9 +4,12 @@ namespace App\Services\Admin;
 
 use App\Console\Commands\PrepareWeeklyBoxes;
 use App\Enums\BoxStatus;
+use App\Enums\OrderProductType;
+use App\Enums\OrderStatus;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Box;
+use App\Models\Order;
 use App\Models\Subscription;
 use App\Services\SubscriberWeeklyDeliverySync;
 use App\Support\BoxCompositionService;
@@ -83,6 +86,32 @@ final class WeeklyBoxPlannerService
             ->filter(fn (Subscription $s) => ! $s->isWithinPauseWindow($weekStart))
             ->filter(fn (Subscription $s) => $this->matchesPlanCadence($s, $weekStart))
             ->values();
+    }
+
+    /**
+     * Trial orders that should ship in the given delivery week. Match anything
+     * that's been paid or scheduled (i.e. ready to ship) AND has a
+     * scheduled_for_date that falls inside the Mon-Sun window — that's how
+     * trials get pinned to a delivery week in the wizard. Skip orders that
+     * already have a non-editable Box (delivered/locked) — they're frozen.
+     *
+     * @return Collection<int, Order>
+     */
+    public function eligibleTrialOrdersForWeek(Carbon $weekStart): Collection
+    {
+        $monday = $weekStart->copy()->startOfDay();
+        $sunday = $monday->copy()->endOfWeek(Carbon::SUNDAY);
+
+        return Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
+            ->whereIn('status', [
+                OrderStatus::Paid->value,
+                OrderStatus::Scheduled->value,
+            ])
+            ->whereBetween('scheduled_for_date', [$monday->toDateString(), $sunday->toDateString()])
+            ->with(['user'])
+            ->orderBy('id')
+            ->get();
     }
 
     public function matchesPlanCadence(Subscription $subscription, Carbon $weekStart): bool

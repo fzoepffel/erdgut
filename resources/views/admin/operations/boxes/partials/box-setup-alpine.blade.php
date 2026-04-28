@@ -32,8 +32,15 @@
                 }))
                 : [],
             customers: (initial.customers ?? []).map(c => ({
+                // Form key — `s_<user_id>` for subscriptions, `t_<order_id>`
+                // for trial orders. Used as the array key in customers[<key>]
+                // and customer_ok[<key>] so the apply controller knows how to
+                // route each row.
+                form_key: String(c.form_key ?? ('s_' + (c.user_id ?? 0))),
+                kind: String(c.kind ?? 'subscription'),
                 user_id: Number(c.user_id),
-                subscription_id: Number(c.subscription_id),
+                subscription_id: c.subscription_id != null ? Number(c.subscription_id) : null,
+                order_id: c.order_id != null ? Number(c.order_id) : null,
                 box_size: String(c.box_size),
                 name: String(c.name ?? ''),
                 email: String(c.email ?? ''),
@@ -366,16 +373,15 @@
                 // what they are.
                 if (c.composition_status === 'existing') return 'border-gray-200 bg-white';
 
-                // New boxes get a blue border to mark them as items that
-                // are about to be created on save. If the composition is
-                // flagged AND not yet OK'd, it stays rose so the admin
-                // can spot it at a glance.
+                // Flagged + not yet OK'd → rose, regardless of kind.
                 if (this.customerFlagged(c)) {
                     if (c.ok) return 'border-emerald-300 bg-emerald-50/40';
                     return 'border-rose-300 bg-rose-50/40';
                 }
-                if (c.composition_status === 'new_match') return 'border-sky-300 bg-sky-50/40';
-                if (c.composition_status === 'new_diff') return 'border-sky-300 bg-sky-50/40';
+
+                // Trial customers get a violet tint to mirror the "Probebox"
+                // badge. Subscription new boxes stay sky.
+                if (c.kind === 'trial') return 'border-violet-300 bg-violet-50/40';
                 return 'border-sky-300 bg-sky-50/40';
             },
             sizeLabelByKey(key) {

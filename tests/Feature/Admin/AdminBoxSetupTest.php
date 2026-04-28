@@ -4,12 +4,15 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\BoxStatus;
 use App\Enums\DeliveryStatus;
+use App\Enums\OrderProductType;
+use App\Enums\OrderStatus;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Address;
 use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Delivery;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductWeekStock;
 use App\Models\Subscription;
@@ -461,6 +464,99 @@ class AdminBoxSetupTest extends TestCase
         $this->actingAs($user)
             ->post(route('app.admin.boxes.setup.reset', ['week' => $monday]))
             ->assertForbidden();
+    }
+
+    public function test_setup_view_includes_trial_orders_for_the_week(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        // Trial customer with delivery scheduled for that week.
+        $trialUser = User::factory()->create([
+            'name' => 'Trial Tina',
+            'email' => 'trial.tina@example.test',
+        ]);
+        Order::factory()->create([
+            'user_id' => $trialUser->id,
+            'product_type' => OrderProductType::TrialBox,
+            'status' => OrderStatus::Paid,
+            'box_size' => 'small',
+            'scheduled_for_date' => $monday->copy()->addDays(2)->toDateString(),
+        ]);
+
+        // Subscription customer for comparison.
+        $subUser = User::factory()->create(['email' => 'sub@example.test']);
+        Subscription::factory()->create([
+            'user_id' => $subUser->id,
+            'box_size' => 'small',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.boxes.setup.show', ['week' => $monday->toDateString()]))
+            ->assertOk()
+            ->assertSee('trial.tina@example.test')
+            ->assertSee('sub@example.test')
+            ->assertSee(__('admin.box_setup.kind_trial_badge'));
+    }
+
+    public function test_apply_creates_trial_box_via_t_prefixed_key(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $trialUser = User::factory()->create();
+        $order = Order::factory()->create([
+            'user_id' => $trialUser->id,
+            'product_type' => OrderProductType::TrialBox,
+            'status' => OrderStatus::Paid,
+            'box_size' => 'small',
+            'scheduled_for_date' => $monday->copy()->addDays(2)->toDateString(),
+        ]);
+
+        $product = Product::factory()->create([
+            'unit_price' => 3.00,
+            'is_available' => true,
+            'is_published' => true,
+            'metadata' => ['unit' => 'piece'],
+        ]);
+        ProductWeekStock::create([
+            'product_id' => $product->id,
+            'week_start_date' => $monday->toDateString(),
+            'planned_quantity' => 5,
+            'unit' => 'piece',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.setup.apply', ['week' => $monday->toDateString()]), [
+                'week_start_date' => $monday->toDateString(),
+                'customers' => [
+                    "t_{$order->id}" => [
+                        ['product_id' => $product->id, 'quantity' => 2],
+                    ],
+                ],
+                'customer_ok' => ["t_{$order->id}" => '1'],
+            ])
+            ->assertRedirect(route('app.admin.boxes.week.show', ['week' => $monday->toDateString()]));
+
+        $this->assertDatabaseHas('boxes', [
+            'order_id' => $order->id,
+            'status' => BoxStatus::Editable->value,
+        ]);
+        $box = Box::query()->where('order_id', $order->id)->first();
+        $this->assertNotNull($box);
+        $this->assertSame($monday->toDateString(), Carbon::parse($box->week_start_date)->toDateString());
+        $this->assertDatabaseHas('box_items', [
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+        ]);
     }
 
     public function test_week_boxes_page_lists_boxes_with_links_to_single_box_editor(): void

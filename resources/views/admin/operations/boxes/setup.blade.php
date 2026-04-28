@@ -341,7 +341,7 @@
                             </template>
 
                             <div class="mt-2 space-y-2">
-                                <template x-for="(customer, idx) in sortedCustomers()" :key="customer.user_id">
+                                <template x-for="(customer, idx) in sortedCustomers()" :key="customer.form_key">
                                     <div>
                                         {{-- "Bereits eingerichtet" section heading appears right before the first existing-status card. --}}
                                         <template x-if="idx === firstExistingIndex() && firstExistingIndex() >= 0">
@@ -351,9 +351,10 @@
                                             </div>
                                         </template>
                                     <div :class="['rounded border', customerCardClass(customer)]">
-                                        {{-- OK flag is submitted as customer_ok[user_id]=1 when checked. --}}
+                                        {{-- OK flag is submitted as customer_ok[<form_key>]=1 when checked.
+                                             form_key encodes the kind (`s_<user_id>` or `t_<order_id>`). --}}
                                         <template x-if="customer.ok">
-                                            <input type="hidden" :name="'customer_ok['+customer.user_id+']'" value="1" />
+                                            <input type="hidden" :name="'customer_ok['+customer.form_key+']'" value="1" />
                                         </template>
                                         {{-- Row header with flags + OK toggle. --}}
                                         <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-start sm:justify-between">
@@ -369,6 +370,11 @@
                                                     </button>
                                                     <span class="text-xs text-gray-500 break-all" x-text="customer.email"></span>
                                                     <span class="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gray-700" x-text="sizeLabelByKey(customer.box_size)"></span>
+                                                    {{-- Trial badge: clearly distinguishes one-off trial
+                                                         orders from recurring subscription customers. --}}
+                                                    <template x-if="customer.kind === 'trial'">
+                                                        <span class="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-800">{{ __('admin.box_setup.kind_trial_badge') }}</span>
+                                                    </template>
                                                     {{-- Composition-status badge: tells the admin whether
                                                          this is a fresh new box (review may be needed) or a
                                                          saved one. --}}
@@ -476,7 +482,7 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody class="divide-y divide-gray-100">
-                                                    <template x-for="(line, idx) in customer.lines" :key="customer.user_id + '-reg-' + idx + '-' + line.product_id">
+                                                    <template x-for="(line, idx) in customer.lines" :key="customer.form_key + '-reg-' + idx + '-' + line.product_id">
                                                         <tr :class="!productIsSafe(customer, line.product_id) ? 'bg-rose-50' : ''">
                                                             <td class="py-1 pe-2 align-top">
                                                                 <template x-if="productIsSafe(customer, line.product_id)">
@@ -491,7 +497,7 @@
                                                                 </template>
                                                             </td>
                                                             <td class="py-1 pe-2">
-                                                                <input type="hidden" :name="'customers['+customer.user_id+']['+idx+'][product_id]'" :value="line.product_id" />
+                                                                <input type="hidden" :name="'customers['+customer.form_key+']['+idx+'][product_id]'" :value="line.product_id" />
                                                                 <span x-text="productNameAny(line.product_id)" :class="productIsSafe(customer, line.product_id) ? 'font-medium text-gray-900' : 'font-semibold text-rose-900'"></span>
                                                                 <span x-text="productUnit(line.product_id)" class="ms-1 text-[11px] text-gray-500"></span>
                                                             </td>
@@ -511,7 +517,7 @@
                                                             <td class="py-1 pe-2">
                                                                 <div class="flex items-center gap-1">
                                                                     <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerDecQty(customer, idx)">−</button>
-                                                                    <input type="number" min="1" step="1" class="w-12 rounded border-gray-300 text-center text-xs tabular-nums shadow-sm" :name="'customers['+customer.user_id+']['+idx+'][quantity]'" x-model.number="line.quantity" />
+                                                                    <input type="number" min="1" step="1" class="w-12 rounded border-gray-300 text-center text-xs tabular-nums shadow-sm" :name="'customers['+customer.form_key+']['+idx+'][quantity]'" x-model.number="line.quantity" />
                                                                     <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerIncQty(customer, idx)">+</button>
                                                                 </div>
                                                             </td>
@@ -556,7 +562,7 @@
                                                     <template x-if="customer.eggsLines.length > 0">
                                                         <table class="mt-3 min-w-full text-xs">
                                                             <tbody class="divide-y divide-gray-100">
-                                                                <template x-for="(line, idx) in customer.eggsLines" :key="customer.user_id + '-eggs-' + idx + '-' + line.product_id">
+                                                                <template x-for="(line, idx) in customer.eggsLines" :key="customer.form_key + '-eggs-' + idx + '-' + line.product_id">
                                                                     <tr :class="!productIsSafe(customer, line.product_id) ? 'bg-rose-50' : ''">
                                                                         <td class="py-1 pe-2 align-top w-6">
                                                                             <template x-if="productIsSafe(customer, line.product_id)">
@@ -567,7 +573,7 @@
                                                                             </template>
                                                                         </td>
                                                                         <td class="py-1 pe-2">
-                                                                            <input type="hidden" :name="'customers['+customer.user_id+'][eggs_'+idx+'][product_id]'" :value="line.product_id" />
+                                                                            <input type="hidden" :name="'customers['+customer.form_key+'][eggs_'+idx+'][product_id]'" :value="line.product_id" />
                                                                             <span x-text="productNameAny(line.product_id)" class="font-medium text-gray-900"></span>
                                                                             <template x-if="(eggCandidates.find(e => e.product_id === line.product_id) || {}).producer_name">
                                                                                 <span class="ms-1 text-[11px] italic text-gray-500" x-text="'· ' + (eggCandidates.find(e => e.product_id === line.product_id) || {}).producer_name"></span>
@@ -577,7 +583,7 @@
                                                                         <td class="py-1 pe-2">
                                                                             <div class="flex items-center gap-1">
                                                                                 <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerDecEggsQty(customer, idx)">−</button>
-                                                                                <input type="number" min="1" step="1" class="w-12 rounded border-gray-300 text-center text-xs tabular-nums shadow-sm" :name="'customers['+customer.user_id+'][eggs_'+idx+'][quantity]'" x-model.number="line.quantity" />
+                                                                                <input type="number" min="1" step="1" class="w-12 rounded border-gray-300 text-center text-xs tabular-nums shadow-sm" :name="'customers['+customer.form_key+'][eggs_'+idx+'][quantity]'" x-model.number="line.quantity" />
                                                                                 <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerIncEggsQty(customer, idx)">+</button>
                                                                             </div>
                                                                         </td>

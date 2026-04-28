@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminBoxSetupApplyRequest;
 use App\Models\Box;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\Subscription;
 use App\Services\Admin\WeeklyBoxPlannerService;
@@ -41,6 +42,14 @@ class AdminBoxSetupController extends Controller
             ->eligibleSubscriptionsForWeek($monday)
             ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
 
+        // Trial orders that ship in the same week share inventory with the
+        // subscription boxes, so they appear in the same Pro Kund:in list
+        // (clearly labeled). They route through a separate apply path
+        // server-side because they're keyed by order_id, not user_id.
+        $trialsBySize = $this->plannerService
+            ->eligibleTrialOrdersForWeek($monday)
+            ->groupBy(fn (Order $o): string => (string) $o->box_size);
+
         // Eggs candidates for the per-customer eggs slot. The first entry is
         // the default selection; admin can pick a different producer.
         $eggCandidates = $this->setupService->availableEggAddOnProducts($monday)
@@ -54,7 +63,7 @@ class AdminBoxSetupController extends Controller
             ->values()
             ->all();
 
-        $customers = $this->buildInitialCustomerState($data, $subsBySize, $monday, $eggCandidates);
+        $customers = $this->buildInitialCustomerState($data, $subsBySize, $monday, $eggCandidates, $trialsBySize);
 
         return view('admin.operations.boxes.setup', [
             'week' => $monday,
@@ -81,9 +90,10 @@ class AdminBoxSetupController extends Controller
      * @param  array<string, mixed>  $data  Output of buildInitialDistribution
      * @param  Collection<string, \Illuminate\Database\Eloquent\Collection<int, Subscription>>  $subsBySize
      * @param  list<array<string, mixed>>  $eggCandidates
+     * @param  Collection<string, \Illuminate\Database\Eloquent\Collection<int, Order>>|null  $trialsBySize
      * @return list<array<string, mixed>>
      */
-    private function buildInitialCustomerState(array $data, $subsBySize, Carbon $week, array $eggCandidates): array
+    private function buildInitialCustomerState(array $data, $subsBySize, Carbon $week, array $eggCandidates, $trialsBySize = null): array
     {
         $sizeBlocks = collect($data['size_blocks'] ?? [])->keyBy('box_size');
         $defaultEggsProduct = $this->setupService->resolveEggsAddOnProduct($week);
@@ -109,6 +119,19 @@ class AdminBoxSetupController extends Controller
             ->with(['items' => fn ($q) => $q->where('is_extra', false)->with('product:id,is_egg_addon')])
             ->get()
             ->keyBy('user_id');
+
+        // Existing trial boxes are keyed by order_id (one box per trial order).
+        $trialOrderIds = $trialsBySize !== null
+            ? collect($trialsBySize)->flatten()->pluck('id')->all()
+            : [];
+        $existingTrialBoxes = $trialOrderIds === []
+            ? collect()
+            : Box::query()
+                ->forWeek($week->toDateString())
+                ->whereIn('order_id', $trialOrderIds)
+                ->with(['items' => fn ($q) => $q->where('is_extra', false)->with('product:id,is_egg_addon')])
+                ->get()
+                ->keyBy('order_id');
 
         $eggsProductIds = collect($eggCandidates)->pluck('product_id')->map(fn ($i) => (int) $i)->all();
 
@@ -252,8 +275,11 @@ class AdminBoxSetupController extends Controller
                 }
 
                 $out[] = [
+                    'kind' => 'subscription',
+                    'form_key' => 's_'.(int) $sub->user_id,
                     'user_id' => (int) $sub->user_id,
                     'subscription_id' => (int) $sub->id,
+                    'order_id' => null,
                     'box_size' => (string) $size,
                     'name' => (string) ($sub->user?->name ?: $sub->user?->email ?: '—'),
                     'email' => (string) ($sub->user?->email ?? ''),
@@ -271,6 +297,140 @@ class AdminBoxSetupController extends Controller
                     'ok' => $previouslyOk,
                     'composition_status' => $compositionStatus,
                 ];
+            }
+        }
+
+        // ---- Trial orders ----
+        // Trial orders for the same week appear in the same Pro Kund:in list.
+        // They use a different form key prefix (`t_<order_id>`) and are
+        // labeled "Probebox" in the UI. They share the size template with
+        // subscriptions, so we re-derive lines the same way.
+        if ($trialsBySize !== null) {
+            foreach ($trialsBySize as $size => $orders) {
+                $block = $sizeBlocks->get($size);
+                $templateLines = $block['lines'] ?? [];
+                $sizeMax = (float) ($block['max'] ?? 0);
+                $sizeTarget = (float) ($block['target'] ?? 0);
+                $templateRef = $this->fingerprintLines($templateLines);
+
+                foreach ($orders as $order) {
+                    $allergies = array_values((array) ($order->allergies ?? []));
+                    $eggsFlag = (bool) data_get($order->preferences, 'eggs_dairy_add_on', false);
+                    $vegOnly = (bool) data_get($order->preferences, 'veg_only', false);
+                    $note = trim((string) ($order->allergies_note ?? ''));
+
+                    $existingBox = $existingTrialBoxes->get($order->id);
+                    $existingItems = $existingBox?->items ?? collect();
+                    $hasExistingBox = $existingItems->isNotEmpty();
+
+                    $regularLines = [];
+                    $eggsLines = [];
+                    $removedAllergenItems = [];
+                    $paddedFromLeftover = [];
+
+                    if ($hasExistingBox) {
+                        foreach ($existingItems as $item) {
+                            $pid = (int) $item->product_id;
+                            $isEgg = (bool) ($item->product?->is_egg_addon ?? in_array($pid, $eggsProductIds, true));
+                            $line = ['product_id' => $pid, 'quantity' => (float) $item->quantity];
+                            if ($isEgg) {
+                                $eggsLines[] = $line;
+                            } else {
+                                $regularLines[] = $line;
+                            }
+                        }
+                    } else {
+                        foreach ($templateLines as $line) {
+                            $pid = (int) ($line['product_id'] ?? 0);
+                            $productAllergens = $allergenLookup[$pid] ?? [];
+                            $conflictingAllergens = array_values(array_intersect($allergies, $productAllergens));
+                            if ($conflictingAllergens !== []) {
+                                $removedAllergenItems[] = [
+                                    'product_id' => $pid,
+                                    'product_name' => (string) ($stockById->get($pid)['name'] ?? '—'),
+                                    'conflicts' => $conflictingAllergens,
+                                ];
+
+                                continue;
+                            }
+                            $regularLines[] = [
+                                'product_id' => $pid,
+                                'quantity' => (float) ($line['quantity'] ?? 0),
+                            ];
+                        }
+                        if ($removedAllergenItems !== [] && $sizeTarget > 0) {
+                            $paddedFromLeftover = $this->padCustomerLinesFromLeftover(
+                                $regularLines,
+                                $allergies,
+                                $allergenLookup,
+                                $stockById,
+                                $eggsProductIds,
+                                $runningAvailable,
+                                $sizeTarget,
+                                $sizeMax,
+                            );
+                        }
+                    }
+
+                    if ($eggsFlag && $eggsLines === [] && $defaultEggsProduct !== null) {
+                        $eggsLines[] = [
+                            'product_id' => (int) $defaultEggsProduct->id,
+                            'quantity' => 1.0,
+                        ];
+                    }
+
+                    $eggsAdded = $eggsFlag && $eggsLines !== [];
+                    $eggsMissing = $eggsFlag && $eggsLines === [];
+
+                    $flags = [];
+                    if ($note !== '') {
+                        $flags[] = 'note';
+                    }
+                    if ($removedAllergenItems !== []) {
+                        $flags[] = 'allergy_conflict';
+                    }
+                    if ($eggsMissing) {
+                        $flags[] = 'eggs_missing';
+                    }
+
+                    $previouslyOk = $existingBox?->composition_admin_ok_at !== null;
+
+                    if ($hasExistingBox) {
+                        $compositionStatus = 'existing';
+                    } else {
+                        $derivedRef = $this->fingerprintLines($regularLines);
+                        $matchesTemplate = $templateRef === $derivedRef
+                            && $removedAllergenItems === []
+                            && $paddedFromLeftover === []
+                            && ! $eggsMissing
+                            && $note === '';
+                        $compositionStatus = $matchesTemplate ? 'new_match' : 'new_diff';
+                    }
+
+                    $out[] = [
+                        'kind' => 'trial',
+                        'form_key' => 't_'.(int) $order->id,
+                        'user_id' => (int) $order->user_id,
+                        'subscription_id' => null,
+                        'order_id' => (int) $order->id,
+                        'box_size' => (string) $size,
+                        'name' => (string) ($order->user?->name ?: $order->user?->email ?: '—'),
+                        'email' => (string) ($order->user?->email ?? ''),
+                        'eggs' => $eggsFlag,
+                        'veg_only' => $vegOnly,
+                        'allergies' => $allergies,
+                        'note' => $note,
+                        'regular_lines' => $regularLines,
+                        'eggs_lines' => $eggsLines,
+                        'removed_allergen_items' => $removedAllergenItems,
+                        'padded_from_leftover' => $paddedFromLeftover,
+                        'eggs_added' => $eggsAdded,
+                        'eggs_missing' => $eggsMissing,
+                        'flags' => $flags,
+                        'ok' => $previouslyOk,
+                        'composition_status' => $compositionStatus,
+                    ];
+                }
             }
         }
 
