@@ -39,6 +39,16 @@
                         </button>
                         <span class="text-sm font-semibold text-amber-900">{{ __('Administration') }}</span>
                         <div class="ml-auto flex items-center gap-3">
+                            <button
+                                type="button"
+                                x-on:click="$dispatch('open-admin-search-palette')"
+                                class="hidden items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 sm:inline-flex"
+                                aria-label="{{ __('admin.search.trigger_aria') }}"
+                            >
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
+                                <span>{{ __('admin.search.trigger_label') }}</span>
+                                <span class="ml-1 rounded border border-gray-300 bg-gray-50 px-1 font-mono text-[10px] text-gray-500">⌘K</span>
+                            </button>
                             <x-language-selector align="right" />
                             @auth
                                 <div class="relative" x-data="{ open: false }" @click.outside="open = false">
@@ -72,6 +82,8 @@
                     </main>
                 </div>
             </div>
+
+            <x-admin.search-palette />
         </div>
     </body>
 </html>
