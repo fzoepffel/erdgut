@@ -13,10 +13,12 @@
                     <th scope="col" class="px-3 py-2">{{ __('admin.box_setup.week_label') }}</th>
                     <th scope="col" class="px-3 py-2">{{ __('admin.operations.status') }}</th>
                     <th scope="col" class="px-3 py-2 text-right">{{ __('admin.box_setup.eligible_subs') }}</th>
+                    <th scope="col" class="px-3 py-2 text-right">{{ __('admin.box_setup.col_trial_boxes') }}</th>
                     <th scope="col" class="px-3 py-2 text-right">{{ __('admin.box_setup.boxes_set_up') }}</th>
                     <th scope="col" class="px-3 py-2 text-right">S</th>
                     <th scope="col" class="px-3 py-2 text-right">M</th>
                     <th scope="col" class="px-3 py-2 text-right">L</th>
+                    <th scope="col" class="px-3 py-2 text-right">{{ __('admin.box_setup.col_eggs_addon') }}</th>
                     <th scope="col" class="px-3 py-2 text-right">{{ __('admin.box_setup.total_value') }}</th>
                     <th scope="col" class="px-3 py-2"></th>
                 </tr>
@@ -51,10 +53,16 @@
                             <span class="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
                         </td>
                         <td class="px-3 py-2 text-right tabular-nums text-gray-900">{{ $row['eligible_count'] }}</td>
-                        <td class="px-3 py-2 text-right tabular-nums text-gray-900">{{ $row['boxes_count'] }}</td>
+                        <td class="px-3 py-2 text-right tabular-nums {{ ($row['trial_eligible_count'] ?? 0) > 0 ? 'text-violet-700 font-medium' : 'text-gray-400' }}">
+                            {{ ($row['trial_boxes_count'] ?? 0) }}/{{ ($row['trial_eligible_count'] ?? 0) }}
+                        </td>
+                        <td class="px-3 py-2 text-right tabular-nums text-gray-900">{{ ($row['total_boxes_count'] ?? 0) }}/{{ ($row['total_eligible_count'] ?? 0) }}</td>
                         <td class="px-3 py-2 text-right tabular-nums text-gray-700">{{ ($perSize['small']['boxes'] ?? 0) }}/{{ ($perSize['small']['eligible'] ?? 0) }}</td>
                         <td class="px-3 py-2 text-right tabular-nums text-gray-700">{{ ($perSize['medium']['boxes'] ?? 0) }}/{{ ($perSize['medium']['eligible'] ?? 0) }}</td>
                         <td class="px-3 py-2 text-right tabular-nums text-gray-700">{{ ($perSize['large']['boxes'] ?? 0) }}/{{ ($perSize['large']['eligible'] ?? 0) }}</td>
+                        <td class="px-3 py-2 text-right tabular-nums {{ ($row['eggs_addon_count'] ?? 0) > 0 ? 'text-amber-700 font-medium' : 'text-gray-400' }}">
+                            {{ ($row['eggs_addon_count'] ?? 0) }}
+                        </td>
                         <td class="px-3 py-2 text-right tabular-nums text-gray-900">@eur($row['total_estimated_value'])</td>
                         <td class="whitespace-nowrap px-3 py-2 text-right">
                             <a href="{{ route('app.admin.boxes.setup.show', ['week' => $row['week_start_date']]) }}" class="font-medium text-emerald-700 hover:underline">

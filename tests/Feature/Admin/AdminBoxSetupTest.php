@@ -79,6 +79,60 @@ class AdminBoxSetupTest extends TestCase
             ->assertSee(__('admin.box_setup.title'));
     }
 
+    public function test_calendar_overview_includes_trials_and_eggs_in_revenue(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        // 1 active medium subscription with eggs add-on flag.
+        $subUser = User::factory()->create();
+        \App\Models\Subscription::factory()->create([
+            'user_id' => $subUser->id,
+            'box_size' => 'medium',
+            'plan' => \App\Enums\SubscriptionPlan::Weekly,
+            'status' => \App\Enums\SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+            'preferences' => ['eggs_dairy_add_on' => true],
+        ]);
+
+        // 1 paid trial order scheduled for that week, size small, no eggs.
+        $trialUser = User::factory()->create();
+        \App\Models\Order::create([
+            'user_id' => $trialUser->id,
+            'product_type' => \App\Enums\OrderProductType::TrialBox->value,
+            'status' => \App\Enums\OrderStatus::Paid->value,
+            'box_size' => 'small',
+            'amount' => 20,
+            'currency' => 'EUR',
+            'scheduled_for_date' => $monday->copy()->addDays(2)->toDateString(),
+            'preferences' => [],
+            'is_test' => true,
+        ]);
+
+        $service = app(\App\Services\Admin\WeeklyBoxSetupService::class);
+        $rows = $service->calendarOverview();
+
+        $weekRow = collect($rows)->firstWhere('week_start_date', $monday->toDateString());
+
+        $this->assertNotNull($weekRow);
+        $this->assertSame(1, $weekRow['eligible_count']);
+        $this->assertSame(1, $weekRow['trial_eligible_count']);
+        $this->assertSame(2, $weekRow['total_eligible_count']);
+        $this->assertSame(1, $weekRow['eggs_addon_count']);
+
+        // Revenue: 1 medium (35) + 1 small (20) + 1 eggs add-on (4.50) = 59.50
+        $expectedRevenue = (float) config('box.included_value_by_size.medium')
+            + (float) config('box.included_value_by_size.small')
+            + (float) config('box.eggs_dairy_add_on_eur');
+        $this->assertSame(round($expectedRevenue, 2), $weekRow['total_estimated_value']);
+
+        // Per-size includes the trial in 'small' eligible.
+        $this->assertSame(1, $weekRow['per_size']['small']['eligible']);
+        $this->assertSame(1, $weekRow['per_size']['medium']['eligible']);
+    }
+
     public function test_admin_can_open_setup_dialog_with_initial_distribution(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-04-27'));
