@@ -46,6 +46,9 @@
                     >
                         <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_pending_payment') }}</p>
                         <p class="{{ $pipelineNumberClass($metrics->trialOrdersPendingPayment) }}">{{ number_format($metrics->trialOrdersPendingPayment) }}</p>
+                        @if ($metrics->trialOrdersPendingPayment === 0)
+                            <p class="mt-1 text-xs text-gray-500">{{ __('admin.trials.pipeline_pending_payment_empty') }}</p>
+                        @endif
                     </a>
 
                     <a
@@ -55,7 +58,13 @@
                     >
                         <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_paid_needs_scheduling') }}</p>
                         <p class="{{ $pipelineNumberClass($metrics->trialOrdersPaidNeedsScheduling) }}">{{ number_format($metrics->trialOrdersPaidNeedsScheduling) }}</p>
-                        <p class="mt-1 text-xs text-gray-500">{{ __('admin.trials.pipeline_paid_needs_scheduling_hint') }}</p>
+                        <p class="mt-1 text-xs text-gray-500">
+                            @if ($metrics->trialOrdersPaidNeedsScheduling === 0)
+                                {{ __('admin.trials.pipeline_paid_needs_scheduling_empty') }}
+                            @else
+                                {{ __('admin.trials.pipeline_paid_needs_scheduling_hint') }}
+                            @endif
+                        </p>
                     </a>
 
                     <a
@@ -65,6 +74,9 @@
                     >
                         <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_scheduled_needs_box') }}</p>
                         <p class="{{ $pipelineNumberClass($metrics->trialOrdersScheduledNeedsBox) }}">{{ number_format($metrics->trialOrdersScheduledNeedsBox) }}</p>
+                        @if ($metrics->trialOrdersScheduledNeedsBox === 0)
+                            <p class="mt-1 text-xs text-gray-500">{{ __('admin.trials.pipeline_scheduled_needs_box_empty') }}</p>
+                        @endif
                     </a>
 
                     <a
@@ -74,6 +86,9 @@
                     >
                         <p class="text-sm font-medium text-gray-600">{{ __('admin.trials.pipeline_ready_to_deliver') }}</p>
                         <p class="{{ $pipelineNumberClass($metrics->trialOrdersReadyToDeliver) }}">{{ number_format($metrics->trialOrdersReadyToDeliver) }}</p>
+                        @if ($metrics->trialOrdersReadyToDeliver === 0)
+                            <p class="mt-1 text-xs text-gray-500">{{ __('admin.trials.pipeline_ready_to_deliver_empty') }}</p>
+                        @endif
                     </a>
                 </div>
             </div>
