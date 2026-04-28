@@ -50,6 +50,7 @@ class StoreProductRequest extends FormRequest
             'is_seasonal' => ['boolean'],
             'is_available' => ['boolean'],
             'is_published' => ['boolean'],
+            'is_egg_addon' => ['boolean'],
             'is_test' => ['boolean'],
             'image' => ['nullable', 'image', 'max:5120'],
             'allergens' => ['nullable', 'array'],
@@ -73,6 +74,7 @@ class StoreProductRequest extends FormRequest
             'is_seasonal' => $this->boolean('is_seasonal'),
             'is_available' => $this->boolean('is_available'),
             'is_published' => $this->boolean('is_published', true),
+            'is_egg_addon' => $this->boolean('is_egg_addon'),
             'is_test' => $this->boolean('is_test'),
         ]);
     }

@@ -3,7 +3,6 @@
 namespace App\Services\Admin;
 
 use App\Enums\BoxStatus;
-use App\Enums\DietaryTag;
 use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
@@ -261,12 +260,22 @@ final class WeeklyBoxSetupService
             ->with([
                 'items' => fn ($q) => $q->where('is_extra', false)
                     ->with([
-                        'product:id,category,unit_price,metadata,is_available,is_published',
+                        'product:id,category,unit_price,metadata,is_available,is_published,is_egg_addon',
                         'product.translations',
                     ]),
             ])
             ->orderBy('id')
             ->get();
+
+        // Eggs add-on items live in the per-customer eggs panel, not the
+        // size template. Strip them out when re-deriving the template from
+        // an existing box.
+        foreach ($boxes as $box) {
+            $box->setRelation(
+                'items',
+                $box->items->reject(fn ($item) => (bool) ($item->product?->is_egg_addon ?? false))->values()
+            );
+        }
 
         if ($boxes->isEmpty()) {
             return [];
@@ -410,35 +419,14 @@ final class WeeklyBoxSetupService
      * @param  array<string, list<array{product_id: int, quantity: float}>>  $sizes
      */
     /**
-     * Resolve the eggs-add-on product for the week.
-     *
-     * Looks at config('box.eggs_dairy_add_on_product_id') first; falls back
-     * to a single dairy-categorized product whose dietary tags include
-     * ContainsEggs (and which has weekly stock for $week if any week filter
-     * applies). Returns null if no candidate exists — caller is expected to
-     * surface this as a per-customer flag.
+     * Pick a default eggs-add-on product for a customer's box. Returns the
+     * first `is_egg_addon=true` product that has stock for the week. The
+     * per-customer panel exposes a dropdown of all such products so the
+     * admin can pick a different producer when multiple are stocked.
      */
     public function resolveEggsAddOnProduct(Carbon $week): ?Product
     {
-        $configuredId = config('box.eggs_dairy_add_on_product_id');
-        if ($configuredId !== null) {
-            $product = Product::query()->visibleInCatalog()->find((int) $configuredId);
-            if ($product !== null) {
-                return $product;
-            }
-            // Misconfigured: id set but product missing/hidden. Fall through to heuristic.
-        }
-
-        // Heuristic: any visible product whose dietary_tags includes contains_eggs.
-        // Prefer one in the week's stock, else any catalog match.
-        return Product::query()
-            ->visibleInCatalog()
-            ->get()
-            ->first(function (Product $p): bool {
-                $tags = (array) ($p->dietary_tags ?? []);
-
-                return in_array(DietaryTag::ContainsEggs->value, array_map('strval', $tags), true);
-            });
+        return $this->availableEggAddOnProducts($week)->first();
     }
 
     /**
@@ -446,17 +434,26 @@ final class WeeklyBoxSetupService
      *
      * Each entry in $customers is `[user_id => list<['product_id' => int, 'quantity' => float]>]`.
      * The lines payload is treated as the FINAL composition for that customer's box
-     * (size template + admin overrides already merged client-side). This service
-     * just persists them, recalculates value, and projects the delivery row.
+     * (size template + admin overrides + eggs slot already merged client-side).
+     *
+     * Side effects:
+     *  - Persists `composition_admin_ok_at` + `composition_admin_ok_by` when the
+     *    matching $customerOk entry is truthy.
+     *  - When the customer has the eggs add-on flag but no `is_egg_addon=true`
+     *    product is in the saved lines, marks `eggs_addon_unfulfilled_at`,
+     *    issues a partial refund of `box.eggs_dairy_add_on_eur` against the
+     *    most recent paid Payment, and sends a notification email.
      *
      * @param  array<int, list<array{product_id: int, quantity: float}>>  $customers
+     * @param  array<int, mixed>  $customerOk  user_id => truthy when admin acknowledged
      */
-    public function applyPerCustomerDistribution(Carbon $week, array $customers): int
+    public function applyPerCustomerDistribution(Carbon $week, array $customers, array $customerOk = [], ?int $actorId = null): int
     {
         $week = $week->copy()->startOfDay();
         $updated = 0;
+        $unfulfilledEggsBoxes = [];
 
-        DB::transaction(function () use ($week, $customers, &$updated): void {
+        DB::transaction(function () use ($week, $customers, $customerOk, $actorId, &$updated, &$unfulfilledEggsBoxes): void {
             $eligibleByUserId = $this->weeklyBoxPlanner
                 ->eligibleSubscriptionsForWeek($week)
                 ->keyBy(fn (Subscription $s): int => (int) $s->user_id);
@@ -488,9 +485,13 @@ final class WeeklyBoxSetupService
 
                 $box->items()->where('is_extra', false)->delete();
 
+                $hasEggsProductInLines = false;
                 foreach ($resolved as $line) {
                     /** @var Product $product */
                     $product = $line['product'];
+                    if ((bool) $product->is_egg_addon) {
+                        $hasEggsProductInLines = true;
+                    }
                     BoxItem::create([
                         'box_id' => $box->id,
                         'product_id' => $product->id,
@@ -503,9 +504,33 @@ final class WeeklyBoxSetupService
                 $this->valueRecalculationService->recalculate($box->fresh());
                 $this->deliveryProjector->projectForBox($box->fresh());
 
+                // Persist admin OK state (or clear it if not OK'd this round).
+                $okFlag = ! empty($customerOk[$userId]);
+                $box->forceFill([
+                    'composition_admin_ok_at' => $okFlag ? now() : null,
+                    'composition_admin_ok_by' => $okFlag ? $actorId : null,
+                ])->save();
+
+                // Detect missing eggs and queue refund + notification.
+                $eggsExpected = (bool) data_get($subscription->preferences, 'eggs_dairy_add_on', false);
+                if ($eggsExpected && ! $hasEggsProductInLines) {
+                    if ($box->eggs_addon_unfulfilled_at === null) {
+                        $box->forceFill(['eggs_addon_unfulfilled_at' => now()])->save();
+                        $unfulfilledEggsBoxes[] = $box->fresh();
+                    }
+                } elseif ($box->eggs_addon_unfulfilled_at !== null) {
+                    // Admin added eggs after a previous unfulfilled save — clear the flag.
+                    $box->forceFill(['eggs_addon_unfulfilled_at' => null])->save();
+                }
+
                 $updated++;
             }
         });
+
+        // Process refund + notify outside the DB transaction (network I/O).
+        if ($unfulfilledEggsBoxes !== []) {
+            app(EggsUnfulfilledHandler::class)->handle($unfulfilledEggsBoxes, $actorId);
+        }
 
         return $updated;
     }
@@ -667,6 +692,12 @@ final class WeeklyBoxSetupService
             if (! (bool) $product->is_available || ! (bool) $product->is_published) {
                 continue;
             }
+            // Eggs add-on products are filtered out of the standard size template
+            // pool. They surface only in the per-customer eggs slot — handled by
+            // availableEggAddOnProducts() and the per-customer view.
+            if ((bool) $product->is_egg_addon) {
+                continue;
+            }
             $planned = (float) $row->planned_quantity;
             $used = (float) ($distributed[(int) $product->id] ?? 0.0);
             $out[(int) $product->id] = [
@@ -679,6 +710,34 @@ final class WeeklyBoxSetupService
         }
 
         return $out;
+    }
+
+    /**
+     * All `is_egg_addon=true` products with weekly stock for the given week.
+     * Used by the per-customer eggs panel (separate from the size template).
+     *
+     * @return Collection<int, Product>
+     */
+    public function availableEggAddOnProducts(Carbon $week): Collection
+    {
+        $week = $week->copy()->startOfDay();
+
+        $stockedIds = ProductWeekStock::query()
+            ->whereDate('week_start_date', $week->toDateString())
+            ->where('planned_quantity', '>', 0)
+            ->pluck('product_id')
+            ->all();
+
+        if ($stockedIds === []) {
+            return collect();
+        }
+
+        return Product::query()
+            ->visibleInCatalog()
+            ->eggAddOns()
+            ->whereIn('id', $stockedIds)
+            ->with('producer')
+            ->get();
     }
 
     /**

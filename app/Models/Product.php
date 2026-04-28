@@ -33,6 +33,7 @@ class Product extends Model
         'is_seasonal',
         'is_available',
         'is_published',
+        'is_egg_addon',
         'metadata',
         'allergens',
         'dietary_tags',
@@ -54,6 +55,7 @@ class Product extends Model
             'is_seasonal' => 'boolean',
             'is_available' => 'boolean',
             'is_published' => 'boolean',
+            'is_egg_addon' => 'boolean',
             'metadata' => 'array',
             'allergens' => 'array',
             'dietary_tags' => 'array',
@@ -206,6 +208,15 @@ class Product extends Model
     public function scopeVisibleInCatalog(Builder $query): void
     {
         $query->where('is_available', true)->where('is_published', true);
+    }
+
+    /**
+     * Eggs add-on products. These are filtered OUT of the standard size template
+     * auto-distribution and surface only in the per-customer eggs add-on slot.
+     */
+    public function scopeEggAddOns(Builder $query): void
+    {
+        $query->where('is_egg_addon', true);
     }
 
     /**
