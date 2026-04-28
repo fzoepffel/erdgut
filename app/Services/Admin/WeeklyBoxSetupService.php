@@ -127,21 +127,27 @@ final class WeeklyBoxSetupService
             $trialsBySize = $trials->groupBy(fn (Order $o): string => (string) $o->box_size);
 
             $boxes = $boxesByWeek->get($weekKey, collect());
-            $boxesUsers = $boxes->pluck('user_id')->all();
-            $boxesOrderIds = $boxes->pluck('order_id')->filter()->all();
 
-            $subscriptionBoxesCount = (int) $boxes->whereNull('order_id')->count();
-            $trialBoxesCount = (int) $boxes->whereNotNull('order_id')->count();
+            // Match saved boxes to *eligible* subs / trials only — orphan
+            // boxes (e.g. from a sub that became inactive after the box was
+            // saved, or stale test data) don't count toward the workload
+            // shown to the admin. Subscription boxes are matched by user_id
+            // (only the rows with `order_id IS NULL`); trial boxes by
+            // order_id. This guarantees `total_boxes_count` equals the sum
+            // of `per_size.<s>.boxes`, so the numbers in the overview row
+            // are internally consistent.
+            $subBoxUserIds = $boxes->whereNull('order_id')->pluck('user_id')->all();
+            $trialBoxOrderIds = $boxes->whereNotNull('order_id')->pluck('order_id')->all();
 
-            // Per-size counts include trials in both numerator and
-            // denominator (admin sees the full per-size workload, not just
-            // subscriptions).
             $subBoxesBySize = $eligible
-                ->filter(fn (Subscription $s) => in_array($s->user_id, $boxesUsers, true))
+                ->filter(fn (Subscription $s) => in_array($s->user_id, $subBoxUserIds, true))
                 ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
             $trialBoxesBySize = $trials
-                ->filter(fn (Order $o) => in_array($o->id, $boxesOrderIds, true))
+                ->filter(fn (Order $o) => in_array($o->id, $trialBoxOrderIds, true))
                 ->groupBy(fn (Order $o): string => (string) $o->box_size);
+
+            $subscriptionBoxesCount = (int) $subBoxesBySize->sum(fn ($g) => $g->count());
+            $trialBoxesCount = (int) $trialBoxesBySize->sum(fn ($g) => $g->count());
 
             $perSize = [];
             foreach ($sizeKeys as $size) {
