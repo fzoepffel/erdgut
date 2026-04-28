@@ -22,11 +22,11 @@
         </div>
         <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
             <dt class="eyebrow text-brand-ink/60">{{ __('First box') }}</dt>
-            <dd class="font-display text-lg text-brand-ink">EUR {{ number_format((float) config('box.trial_price_ttc', 35), 2) }}</dd>
+            <dd class="font-display text-lg text-brand-ink">EUR {{ number_format((float) config('box.trial_price_ttc', 35), 2, ',', '.') }}</dd>
         </div>
         <div class="flex items-center justify-between gap-4 py-2">
             <dt class="eyebrow text-brand-ink/60">{{ __('Following deliveries') }}</dt>
-            <dd class="text-brand-ink">{{ __('from EUR :amount each', ['amount' => number_format($recurringForSize, 2)]) }}</dd>
+            <dd class="text-brand-ink">{{ __('from EUR :amount each', ['amount' => number_format($recurringForSize, 2, ',', '.')]) }}</dd>
         </div>
     </dl>
 

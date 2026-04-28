@@ -263,7 +263,7 @@ class DashboardPageTest extends TestCase
             ->assertSee('Current week box')
             ->assertSee('Test Carrots')
             ->assertSee('2.50 kg')
-            ->assertSee('Estimated value: EUR 44.20');
+            ->assertSee('Estimated value: EUR 44,20');
     }
 
     public function test_dashboard_shows_empty_states_when_no_data_exists(): void
