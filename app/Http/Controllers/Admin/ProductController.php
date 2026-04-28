@@ -87,7 +87,7 @@ class ProductController extends Controller
 
         return view('admin.products.index', [
             'products' => $products,
-            'categories' => ProductCategory::cases(),
+            'categories' => ProductCategory::casesSortedByLabel(),
         ]);
     }
 
@@ -256,7 +256,7 @@ class ProductController extends Controller
                 })
                 ->orderBy('pt.name')
                 ->get(),
-            'categories' => ProductCategory::values(),
+            'categories' => ProductCategory::valuesSortedByLabel(),
             'allergenCases' => Allergen::cases(),
             'dietaryCases' => DietaryTag::cases(),
             'tasteCases' => TasteProfile::cases(),

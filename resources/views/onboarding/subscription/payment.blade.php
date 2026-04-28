@@ -8,7 +8,9 @@
     </p>
 
     @php
+        $firstBoxPrice = (float) config('box.trial_price_ttc', 35);
         $recurringForSize = (float) config('box.included_value_by_size.'.$subscription->box_size, 20);
+        $samePrice = abs($firstBoxPrice - $recurringForSize) < 0.005;
     @endphp
 
     <dl class="mt-6 border border-brand-ink/15 bg-brand-ink/[0.02] p-5 text-sm text-brand-ink/80">
@@ -20,14 +22,21 @@
             <dt class="eyebrow text-brand-ink/60">{{ __('Box size') }}</dt>
             <dd class="text-brand-ink">{{ __(ucfirst($subscription->box_size)) }}</dd>
         </div>
-        <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
-            <dt class="eyebrow text-brand-ink/60">{{ __('First box') }}</dt>
-            <dd class="font-display text-lg text-brand-ink">EUR {{ number_format((float) config('box.trial_price_ttc', 35), 2, ',', '.') }}</dd>
-        </div>
-        <div class="flex items-center justify-between gap-4 py-2">
-            <dt class="eyebrow text-brand-ink/60">{{ __('Following deliveries') }}</dt>
-            <dd class="text-brand-ink">{{ __('from EUR :amount each', ['amount' => number_format($recurringForSize, 2, ',', '.')]) }}</dd>
-        </div>
+        @if ($samePrice)
+            <div class="flex items-center justify-between gap-4 py-2">
+                <dt class="eyebrow text-brand-ink/60">{{ __('Per delivery') }}</dt>
+                <dd class="font-display text-lg text-brand-ink">{{ __('from EUR :amount', ['amount' => number_format($firstBoxPrice, 2, ',', '.')]) }}</dd>
+            </div>
+        @else
+            <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
+                <dt class="eyebrow text-brand-ink/60">{{ __('First box') }}</dt>
+                <dd class="font-display text-lg text-brand-ink">EUR {{ number_format($firstBoxPrice, 2, ',', '.') }}</dd>
+            </div>
+            <div class="flex items-center justify-between gap-4 py-2">
+                <dt class="eyebrow text-brand-ink/60">{{ __('Following deliveries') }}</dt>
+                <dd class="text-brand-ink">{{ __('from EUR :amount each', ['amount' => number_format($recurringForSize, 2, ',', '.')]) }}</dd>
+            </div>
+        @endif
     </dl>
 
     <div class="mt-8">

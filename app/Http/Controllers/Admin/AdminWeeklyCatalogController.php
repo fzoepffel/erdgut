@@ -56,7 +56,7 @@ class AdminWeeklyCatalogController extends Controller
             'rows' => $rows,
             'catalogProducts' => $catalogProducts,
             'producers' => $producers,
-            'categories' => ProductCategory::cases(),
+            'categories' => ProductCategory::casesSortedByLabel(),
             'overCount' => $overCount,
         ]);
     }
