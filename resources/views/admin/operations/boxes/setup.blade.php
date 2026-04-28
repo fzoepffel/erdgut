@@ -279,6 +279,36 @@
                                 </template>
                             </div>
 
+                            {{-- Aggregate total: sum of all customer boxes vs. recommended (target)
+                                 vs. max (sales-price). Same green/amber/rose semantics as the
+                                 size-template progress bars. --}}
+                            <div class="mt-4 rounded-md border border-gray-100 bg-gray-50 p-3">
+                                <div class="flex flex-wrap items-baseline justify-between gap-3">
+                                    <div>
+                                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{{ __('admin.box_setup.totals_heading') }}</p>
+                                        <p class="mt-1 text-lg font-semibold tabular-nums" :class="customersTotalClass()">
+                                            <span x-text="formatEur(customersTotal())"></span>
+                                        </p>
+                                    </div>
+                                    <div class="text-right text-[11px] text-gray-600">
+                                        <div>{{ __('admin.box_setup.totals_target_label') }}: <span class="tabular-nums" x-text="formatEur(customersTotalTarget())"></span></div>
+                                        <div>{{ __('admin.box_setup.totals_max_label') }}: <span class="tabular-nums" x-text="formatEur(customersTotalMax())"></span></div>
+                                    </div>
+                                </div>
+                                <div class="relative mt-3 h-1.5 w-full rounded-full bg-gray-200">
+                                    <div
+                                        class="h-1.5 rounded-full"
+                                        :class="customersTotalProgressClass()"
+                                        :style="'width:' + Math.max(0, Math.min(100, customersTotalMax() > 0 ? (customersTotal() / customersTotalMax()) * 100 : 0)) + '%'"
+                                    ></div>
+                                    <div
+                                        class="absolute -top-0.5 h-2.5 w-0.5 bg-gray-500"
+                                        :style="'left:' + Math.max(0, Math.min(100, customersTotalMax() > 0 ? (customersTotalTarget() / customersTotalMax()) * 100 : 0)) + '%'"
+                                        aria-hidden="true"
+                                    ></div>
+                                </div>
+                            </div>
+
                             <div class="mt-4 space-y-2">
                                 <template x-for="customer in customers" :key="customer.user_id">
                                     <div :class="['rounded border', customerCardClass(customer)]">
@@ -300,6 +330,11 @@
                                                     </button>
                                                     <span class="text-xs text-gray-500 break-all" x-text="customer.email"></span>
                                                     <span class="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gray-700" x-text="sizeLabelByKey(customer.box_size)"></span>
+                                                    <span class="inline-flex items-center gap-1.5 text-xs tabular-nums" :class="customerValueClass(customer)">
+                                                        <span class="inline-block h-2 w-2 rounded-full" :class="customerValueDotClass(customer)" aria-hidden="true"></span>
+                                                        <span x-text="formatEur(customerSum(customer))" class="font-semibold"></span>
+                                                        <span class="text-[10px] text-gray-500" x-text="'/ ' + formatEur(customerMax(customer))"></span>
+                                                    </span>
                                                 </div>
 
                                                 {{-- Preference + flag badges. --}}
@@ -423,7 +458,7 @@
                                                 <tfoot>
                                                     <tr class="text-xs">
                                                         <td colspan="4" class="py-2 text-gray-600 font-semibold">{{ __('admin.box_setup.per_customer_summe_label') }}</td>
-                                                        <td class="py-2 tabular-nums text-gray-900 font-semibold" x-text="formatEur(customerSum(customer))"></td>
+                                                        <td class="py-2 tabular-nums font-semibold" :class="customerValueClass(customer)" x-text="formatEur(customerSum(customer)) + ' / ' + formatEur(customerMax(customer))"></td>
                                                         <td></td>
                                                     </tr>
                                                 </tfoot>

@@ -778,10 +778,24 @@ final class WeeklyBoxSetupService
         // Eggs add-on products live in the per-customer eggs panel, not the
         // size template auto-distribution. The stock overview still shows
         // them — only this allocator skips them.
-        $stockRows = array_filter(
-            $stockRows,
-            fn (array $row) => ! (bool) ($row['product']->is_egg_addon ?? false)
-        );
+        //
+        // Also strip products that don't actually have weekly stock for this
+        // week. loadExistingSizeBlocks() back-fills the stock array with
+        // products it found in saved boxes (with missing_stock=true and
+        // planned=0); the auto-distributor must only spend stock that exists.
+        $stockRows = array_filter($stockRows, function (array $row): bool {
+            if ((bool) ($row['product']->is_egg_addon ?? false)) {
+                return false;
+            }
+            if (! empty($row['missing_stock'])) {
+                return false;
+            }
+            if ((float) ($row['planned'] ?? 0) <= 0) {
+                return false;
+            }
+
+            return true;
+        });
 
         $sizeOrder = array_keys($sizeConfigs);
         usort($sizeOrder, fn (string $a, string $b) => $sizeConfigs[$b]['ttc'] <=> $sizeConfigs[$a]['ttc']);

@@ -223,6 +223,59 @@
                 const sumLines = (rows) => rows.reduce((acc, l) => acc + (this.productPriceAny(l.product_id) * Math.max(0, l.quantity || 0)), 0);
                 return sumLines(c.lines) + sumLines(c.eggsLines);
             },
+            customerTarget(c) {
+                const meta = this.sizes.find(s => s.key === c.box_size)?.meta;
+                return Number(meta?.target ?? 0);
+            },
+            customerMax(c) {
+                const meta = this.sizes.find(s => s.key === c.box_size)?.meta;
+                return Number(meta?.max ?? 0);
+            },
+            // Same green/yellow/red logic as retailClass(): green if at-or-below
+            // target (under planning margin), amber if above target but at-or-
+            // below max, rose if above sales-price max.
+            customerValueClass(c) {
+                const sum = this.customerSum(c);
+                const max = this.customerMax(c);
+                const target = this.customerTarget(c);
+                if (max > 0 && sum > max + 0.005) return 'text-rose-700';
+                if (target > 0 && sum > target + 0.005) return 'text-amber-700';
+                return 'text-emerald-700';
+            },
+            customerValueDotClass(c) {
+                const sum = this.customerSum(c);
+                const max = this.customerMax(c);
+                const target = this.customerTarget(c);
+                if (max > 0 && sum > max + 0.005) return 'bg-rose-500';
+                if (target > 0 && sum > target + 0.005) return 'bg-amber-400';
+                return 'bg-emerald-500';
+            },
+            // ---- Aggregate totals across all customers ----
+            customersTotal() {
+                return this.customers.reduce((acc, c) => acc + this.customerSum(c), 0);
+            },
+            customersTotalTarget() {
+                return this.customers.reduce((acc, c) => acc + this.customerTarget(c), 0);
+            },
+            customersTotalMax() {
+                return this.customers.reduce((acc, c) => acc + this.customerMax(c), 0);
+            },
+            customersTotalClass() {
+                const sum = this.customersTotal();
+                const max = this.customersTotalMax();
+                const target = this.customersTotalTarget();
+                if (max > 0 && sum > max + 0.005) return 'text-rose-700';
+                if (target > 0 && sum > target + 0.005) return 'text-amber-700';
+                return 'text-emerald-700';
+            },
+            customersTotalProgressClass() {
+                const sum = this.customersTotal();
+                const max = this.customersTotalMax();
+                const target = this.customersTotalTarget();
+                if (max > 0 && sum > max + 0.005) return 'bg-rose-500';
+                if (target > 0 && sum > target + 0.005) return 'bg-amber-400';
+                return 'bg-emerald-500';
+            },
             // ---- Eggs panel ----
             eggsAddableOptions(customer) {
                 const used = new Set(customer.eggsLines.map(l => Number(l.product_id)));
