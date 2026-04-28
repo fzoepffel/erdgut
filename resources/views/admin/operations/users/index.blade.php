@@ -121,15 +121,31 @@
                                                     $isSelf = auth()->id() === $user->id;
                                                     $isLastAdmin = $user->is_admin && (($adminCount ?? 0) <= 1);
                                                     $canDelete = ! $isSelf && ! $isLastAdmin;
+                                                    $canChangeRole = ! $isSelf && ! $isLastAdmin;
                                                 @endphp
-                                                <button
-                                                    type="button"
-                                                    class="inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm {{ $canDelete ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-gray-100 text-gray-400' }}"
-                                                    @if (! $canDelete) disabled @endif
-                                                    @click="deleteUserId={{ $user->id }}; deleteEmail='{{ e($user->email) }}'; deleteOpen=true"
-                                                >
-                                                    {{ __('admin.users.delete_cta') }}
-                                                </button>
+                                                <div class="inline-flex items-center justify-end gap-2">
+                                                    @if ($canChangeRole)
+                                                        <form method="post" action="{{ route('app.admin.users.set-role', $user) }}" class="inline">
+                                                            @csrf
+                                                            @method('PATCH')
+                                                            <input type="hidden" name="role" value="{{ $user->is_admin ? 'user' : 'admin' }}" />
+                                                            <button
+                                                                type="submit"
+                                                                class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                                                            >
+                                                                {{ $user->is_admin ? __('admin.users.demote_cta') : __('admin.users.promote_cta') }}
+                                                            </button>
+                                                        </form>
+                                                    @endif
+                                                    <button
+                                                        type="button"
+                                                        class="inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm {{ $canDelete ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-gray-100 text-gray-400' }}"
+                                                        @if (! $canDelete) disabled @endif
+                                                        @click="deleteUserId={{ $user->id }}; deleteEmail='{{ e($user->email) }}'; deleteOpen=true"
+                                                    >
+                                                        {{ __('admin.users.delete_cta') }}
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach
