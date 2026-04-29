@@ -56,9 +56,9 @@ Driven by what users actually need on this page each week. Worth instrumenting f
 
 ## Smaller nice-to-haves
 
-### Cancel-modal default focus (~5 min)
+### ~~Cancel-modal default focus~~ ✓ shipped
 
-`<x-secondary-button>` "Abo behalten" should be the default-focused element when the modal opens, so a user pressing Enter doesn't accidentally cancel. Currently the destructive `<x-danger-button>` is reachable via a single Tab — defensible — but moving the safe action to default-focus is the safer pattern.
+`<x-secondary-button>` "Abo behalten" carries `data-default-focus`, and `components/modal.blade.php` now prioritises any `[data-default-focus]` child over the first focusable on open. Verified in PR #51 batch.
 
 ### Schedule-step "PLANEN" label (~5 min)
 
@@ -68,9 +68,9 @@ The progress bar shows step 5 as `PLANEN` (German for "Schedule" via the existin
 
 The onboarding pages render `<x-application-logo>` + the wordmark text "Erdgut" + the eyebrow "EIN PLATZ AM TISCH". Three brand elements stacked. Consider dropping the eyebrow on subsequent steps (only show on step 1) or dropping the wordmark text and letting the logo carry the brand.
 
-### Recurring-price heuristic for medium subscribers (~5 min)
+### ~~Recurring-price heuristic for medium subscribers~~ ✓ obsolete
 
-On `/onboard/subscription/payment`, the "Following deliveries: from EUR 35.00 each" reads identical to "First box: EUR 35.00" for medium-box subscribers (both are 35). The "from" hedge is correct (eggs add-on can push it higher) but visually redundant. Could detect "first == recurring floor" and collapse to a single row. Low priority.
+W2-16 collapsed first-vs-recurring entirely: every charge is now `BoxPriceCalculator::subscriptionPerDelivery($size, $eggsAddOn)`, so the payment-step price summary shows a single "Total per delivery" row plus an optional eggs-add-on adjustment. The "first box" / "following deliveries" split is gone.
 
 ### Skip-card week range (~10 min, optional)
 

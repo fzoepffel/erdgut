@@ -536,26 +536,48 @@ Still to walk:
 
 Ordered by combined impact + correctness urgency. Each row maps to one PR-ish unit; numbers in brackets are the W2-XX findings it covers.
 
-| # | Title | Findings covered | Why this slot |
+| # | Title | Findings covered | Status |
 |---|---|---|---|
-| 1 | **Pricing reset + central calculator** | W2-16, W2-29, W2-15, W2-23 | Customer quoted EUR 35 / EUR 20 but charged EUR 39,50 / EUR 24,50. Biggest correctness/trust issue. |
-| 2 | **Per-customer-aware box composition: eggs + allergies + allergies-note** | W2-31, W2-31a | Customer pays for eggs and may not get them; allergies are silently ignored. Composition view becomes per-customer-aware (size template stays as starting point, then a panel-per-subscriber for those whose preferences differ). At save time, eggs auto-project as positions; allergy-conflicts get warned before save. Per-box detail surfaces full preferences at top. **Increased scope from prior version (allergies added).** |
-| 3 | **New subscriptions auto-project into existing weekly box-setups + deliveries** | W2-36, W2-37, W2-22, W2-30 | New customers go a week without a box if admin doesn't re-save. Once this lands, the customer-side dashboard's "next delivery" knows the right date for free. |
-| 4 | **Per-customer admin detail page (`/app/admin/users/{user}`)** | W2-33, W2-34, W2-31a | One canonical detail page surfacing customer header, address(es), subscription (with eggs + allergies + note), trial order if any, boxes (last N + upcoming), deliveries, payments, audit timeline. Linked from Nutzer panel + Abos panel + Trial-Bestellungen panel. Becomes the support-ticket landing page; replaces the four-page hunt. **Promoted from #14 to #4 per user decision.** |
-| 5 | **Unified customer-facing header (single brand chrome)** | W2-01, W2-02, W2-10, W2-21, W2-26, W2-18 | Five different layouts → one. Adopt the marketing olive-green masthead everywhere customer-facing. The single biggest design ask. |
-| 6 | **Wizard sidebar: progressive summary of everything gathered** | W2-17, W2-06, W2-13 | Replace empty `DEINE BOX · Ziel · Abo` with a running shopping-cart that shows account, address, box, schedule, price (from #1). Reusable as post-signup confirmation block. |
-| 7 | **MODELL flow correction** | W2-04 | Drop MODELL in subscription path; render as non-progress upsell interstitial in trial path. |
-| 8 | **Wizard step trim + step indicator polish** *(no reorder)* | W2-03, W2-08 | Trim to four visible steps to match the homepage promise. **Per user decision the step *order* stays — Konto/Adresse/Vorlieben/Modell/Zeitplan/Zahlung remains.** Just the visible step indicator collapses. |
-| 9 | **Box-size cards: clearer "Pro Lieferung" + brand visual treatment** | W2-11, W2-12 | "Wert EUR 20" → "EUR 20 / Lieferung". Add stylized box silhouette per size. |
-| 10 | **Brand-new-subscriber dashboard hero + verify-email continuity** | W2-24, W2-25, W2-20 | Replace the six mostly-empty cards with a single "Du bist dabei. Erste Lieferung Mittwoch 6. Mai." hero (uses #1 + #6). Verify-email page reuses the same hero. |
-| 11 | **Schedule "Keine Präferenz" trap** | W2-14 | Drop the placeholder, default-select first valid weekday + timeslot. |
-| 12 | **Auth-state-aware wizard header** | W2-07 | "Anmelden" → "Mein Konto / Abmelden" once the customer is authenticated. Falls out of #5 if implemented carefully. |
-| 13 | **Orphan-user cleanup** | W2-27 | Daily command sweeping unverified users with no subscription/order older than N days. |
-| 14 | **Final review / payment-page summary placement** | W2-28 | Make the W2-17 sidebar prominent on the payment page so it doubles as a review step. |
-| 15 | **Admin terminology + label polish** | W2-32, W2-35 | "Standard" → "Mittel". Tooltip on "S 0/1" notation. Date format cleanup. |
-| 16 | **Dev-env: real CSP fix for Vite + retire `npm run build` workaround** | W2-DEV-02 | Move CSP from meta tags into `SecurityHeaders` middleware, allow Vite origin in `local`. |
+| 1 | **Pricing reset + central calculator** | W2-16, W2-29, W2-15, W2-23 | ✓ shipped (PRs #43-#45 → BoxPriceCalculator) |
+| 2 | **Per-customer-aware box composition: eggs + allergies + allergies-note** | W2-31, W2-31a | ✓ shipped (PRs #30-#33) |
+| 3 | **New subscriptions auto-project into existing weekly box-setups + deliveries** | W2-36, W2-37, W2-22, W2-30 | ✓ shipped (PR #46 → ensureFirstBoxForActivation + Subscription::firstExpectedDeliveryDate) |
+| 4 | **Per-customer admin detail page (`/app/admin/users/{user}`)** | W2-33, W2-34, W2-31a | ✓ shipped (PR #29) |
+| 5 | **Unified customer-facing header (single brand chrome)** | W2-01, W2-02, W2-10, W2-21, W2-26, W2-18 | ✓ shipped (PR #48 → `<x-customer-header>` 3 variants) |
+| 6 | **Wizard sidebar: progressive summary of everything gathered** | W2-17, W2-06, W2-13 | ✓ shipped (PR #47 → `<x-onboarding.summary>`) |
+| 7 | **MODELL flow correction** | W2-04 | open |
+| 8 | **Wizard step trim + step indicator polish** *(no reorder)* | W2-03, W2-08 | open |
+| 9 | **Box-size cards: clearer "Pro Lieferung" + brand visual treatment** | W2-11, W2-12 | open — copy now reads "EUR :amount / Lieferung" via `box_size.price_per_delivery` (preferences step), brand silhouette still pending |
+| 10 | **Brand-new-subscriber dashboard hero + verify-email continuity** | W2-24, W2-25, W2-20 | partial — hero shipped (PR #46+#49), verify-email continuity still pending |
+| 11 | **Schedule "Keine Präferenz" trap** | W2-14 | open |
+| 12 | **Auth-state-aware wizard header** | W2-07 | open (may fall out of #5 — verify next walkthrough) |
+| 13 | **Orphan-user cleanup** | W2-27 | open |
+| 14 | **Final review / payment-page summary placement** | W2-28 | ✓ shipped (PR #49 → payment-step uses `<x-onboarding.summary>` as a review card) |
+| 15 | **Admin terminology + label polish** | W2-32, W2-35 | open |
+| 16 | **Dev-env: real CSP fix for Vite + retire `npm run build` workaround** | W2-DEV-02 | open |
+
+**Bonus shipped, not on the original list:**
+- W2-DEV-01 (PHP 8.5 deprecation notices in HTML) — addressed via dev-only suppression (PR #28)
+- W2-37 / orphan-deliveries (validation + cleanup command + UI surfacing) — PR #40
+- W2-31 companion (live single-box editor as Alpine surface) — PR #39
+- Vorausplanung-Übersicht trials + eggs + revenue total (PR #38)
+- Slim Testbestellungen page after Box-Setup unification (PR #37)
+- Currency formatting helper sweep (PR #51 → `App\Support\Money::format` + `@money` directive across all currency render sites)
+- Cancel-modal default focus (verified — `<x-secondary-button>` already carries `data-default-focus`)
 
 PRs 1–3 are the correctness/operational batch (pricing + add-on integrity + composition pipeline). 4–5 are the design + flow rebuild. 6–9 are wizard/onboarding cleanup. 10+ tail-end + dev-env.
+
+**Next batch candidates (post-W2-stack-merge, 2026-04-29):**
+- **#8** Wizard step trim + step indicator polish — collapse 6 segments to 4 to match the homepage promise. ~1h.
+- **#11** Schedule "Keine Präferenz" trap — drop the placeholder, default-select first valid weekday + slot. ~30min.
+- **#15** Admin terminology polish — "Standard" (admin) vs "Mittel" (customer) for the medium box. ~15min sweep.
+- **#7** Drop MODELL step from subscription flow. ~1h (route + Blade adjustments + step counter).
+- **#10** Verify-email continuity — reuse the brand-new-subscriber hero on the verify-email page. ~30min.
+
+Smaller polish from the followup docs (independent of W2 priorities):
+- Schedule-step "PLANEN" → "ZEITPLAN" / "PLAN" label tweak. ~5min.
+- Skip-card week range "4. Mai" → "4.–10. Mai". ~10min.
+- Übersicht trial-pipeline empty-state copy ("0" → "Keine offenen Bestellungen"). ~10min.
+- Wochen-Katalog empty-state confusion (3 empty rows + "noch keine Produkte" message). ~15min.
 
 **Open questions resolved (2026-04-28):**
 - ~~Step 7 — reordering wizard~~ → **decision: keep the current step order**. Konto/Adresse/Vorlieben/Modell/Zeitplan/Zahlung stays as-is. The "trim to four steps" part of W2-03 still stands; the *order* doesn't change.

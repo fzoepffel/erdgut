@@ -32,19 +32,16 @@ Each hit is either:
 - A plan label → swap for `__('plan.'.$model->plan->value)`
 - A box size label → swap for `__(ucfirst($model->box_size))`
 
-### Currency formatting helper (~30 min)
+### ~~Currency formatting helper~~ ✓ shipped (PR #51)
 
-Multiple admin pages render currency manually with `number_format()`. Inconsistent: some use comma decimal, some use period. Centralize:
+`App\Support\Money` now exposes three entry points:
+- `formatEur($amount)` → `"12,50 €"` (canonical German display)
+- `formatCents($cents)` → same, from integer cents
+- `format($amount, $decimals = 2)` → bare `"12,50"` for use as the `:amount` placeholder in translation strings that bake `EUR` / `€` into the template
 
-```php
-// app/Support/Money.php
-public static function formatEur(float $amount): string
-{
-    return number_format($amount, 2, ',', '.') . ' €';
-}
-```
+Three Blade directives (`@eur`, `@eurCents`, `@money`) wrap them.
 
-Then `{{ \App\Support\Money::formatEur($payment->amount) }}` everywhere. Or a Blade directive `@eur($amount)`.
+PR #51 swept every currency render site (customer onboarding, dashboard, payments history, marketing home, both transactional emails, admin dashboard, box budget panel, subscriptions edit/create) onto the helper. Quantity calls (kg / pcs in dashboard, weekly catalog, box detail) intentionally left as raw `number_format` — they're not currency.
 
 ### Top-bar search & quick-jump (~3h)
 
@@ -71,8 +68,8 @@ The redesign added `audit_events` table (Batch H equivalent on subscription side
 ### Wochen-Katalog (`/app/admin/products/weekly`)
 
 - **Empty state confusion**: shows "Noch keine Produkte für diese Woche hinterlegt." then immediately renders 3 empty input rows. Either-or, not both.
-- **`REST` column header** is short and ambiguous — should be "BESTAND" or "VERBLEIBEND" (remaining stock).
-- **`LÖSCHE...` truncated** in the column header — column too narrow for "LÖSCHEN".
+- ~~`REST` column header~~ ✓ already says `Verbleibend` in lang/de.json (`admin.weekly_catalog.col_remaining`); doc was outdated.
+- ~~`LÖSCHE...` truncated~~ ✓ already says `Löschen` in full (`admin.weekly_catalog.col_delete`); the truncation was a CSS width artifact in an older walkthrough screenshot.
 - **`Bestehend` dropdown values** — first column of input rows. Categorizes the row (existing product vs new product?) but the label doesn't make that obvious. Worth a short hint or tooltip.
 
 ### Lieferungen
