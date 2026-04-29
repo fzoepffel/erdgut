@@ -19,11 +19,37 @@
         <fieldset>
             <legend class="eyebrow text-brand-ink/80">{{ __('Box size') }} <span class="text-chapter-meat" aria-hidden="true">*</span><span class="sr-only"> {{ __('required') }}</span></legend>
             <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {{-- Chapter palette varies by size for a quiet accent on the
+                     selected/hover ring and the eyebrow next to the size
+                     name: small=produce (greens), medium=bread (earth),
+                     large=almanach (harvest plum). The illustration itself
+                     stays full-colour — chapter accents stay on the chrome. --}}
+                @php
+                    $cardChapter = [
+                        'small' => 'produce',
+                        'medium' => 'bread',
+                        'large' => 'almanach',
+                    ];
+                @endphp
                 @foreach(['small', 'medium', 'large'] as $size)
-                    <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-5 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
-                        <input type="radio" name="box_size" value="{{ $size }}" {{ ($data['box_size'] ?? null) === $size ? 'checked' : '' }} class="mt-1 sr-only" required>
-                        <span class="flex flex-col gap-1">
-                            <span class="font-display text-lg font-semibold text-brand-ink">{{ __(ucfirst($size)) }}</span>
+                    @php $chapter = $cardChapter[$size]; @endphp
+                    <label
+                        @class([
+                            'flex cursor-pointer flex-col items-center gap-3 border border-brand-ink/20 p-5 text-center transition',
+                            'hover:border-chapter-produce/60 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce' => $chapter === 'produce',
+                            'hover:border-chapter-bread/60 has-[:checked]:border-chapter-bread has-[:checked]:bg-chapter-bread/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-bread' => $chapter === 'bread',
+                            'hover:border-chapter-almanach/60 has-[:checked]:border-chapter-almanach has-[:checked]:bg-chapter-almanach/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-almanach' => $chapter === 'almanach',
+                        ])
+                    >
+                        <input type="radio" name="box_size" value="{{ $size }}" {{ ($data['box_size'] ?? null) === $size ? 'checked' : '' }} class="sr-only" required>
+                        <x-box-size-illustration :size="$size" variant="card" />
+                        <span class="flex flex-col items-center gap-1">
+                            <span @class([
+                                'eyebrow',
+                                'text-chapter-produce' => $chapter === 'produce',
+                                'text-chapter-bread' => $chapter === 'bread',
+                                'text-chapter-almanach' => $chapter === 'almanach',
+                            ])>{{ __(ucfirst($size)) }}</span>
                             <span class="text-xs leading-relaxed text-brand-ink/70">{{ __('box_size.description.' . $size) }}</span>
                             <span class="mt-1 font-display text-sm text-brand-ink">
                                 {{ __('box_size.price_per_delivery', ['amount' => \App\Support\Money::format($sizePrices[$size] ?? 0)]) }}
