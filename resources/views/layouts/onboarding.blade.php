@@ -19,33 +19,7 @@
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
         <x-skip-link />
         <div class="min-h-screen flex flex-col" data-testid="onboarding-layout">
-            <header class="border-b border-brand-ink/10 bg-brand-paper">
-                <div class="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
-                    <a href="{{ route('public.home') }}" class="flex items-center gap-3">
-                        <x-application-logo variant="filled" :withWordmark="false" class="h-14 w-auto" />
-                        <span class="flex flex-col leading-tight">
-                            {{-- Show the editorial eyebrow only on the first onboarding
-                                 step. On subsequent steps the progress bar already tells
-                                 the user where they are; the wordmark + logo are enough
-                                 to carry the brand. --}}
-                            @if (($step ?? null) === 'commitment')
-                                <span class="eyebrow text-chapter-produce">{{ __('A seat at the table') }}</span>
-                            @endif
-                            <span class="font-display text-base font-semibold text-brand-ink">{{ config('app.name', 'Erdgut') }}</span>
-                        </span>
-                    </a>
-                    <div class="flex items-center gap-4">
-                        <x-language-selector />
-                        @auth
-                            <form method="POST" action="{{ route('auth.logout') }}">@csrf
-                                <button type="submit" class="text-sm text-brand-ink/60 hover:text-brand-ink underline-offset-4 hover:underline">{{ __('Log out') }}</button>
-                            </form>
-                        @else
-                            <a href="{{ route('auth.login') }}" class="text-sm text-brand-ink/60 hover:text-brand-ink underline-offset-4 hover:underline">{{ __('Log in') }}</a>
-                        @endauth
-                    </div>
-                </div>
-            </header>
+            <x-customer-header variant="wizard" />
 
             <main id="main" class="flex-1" tabindex="-1">
                 <div class="max-w-5xl mx-auto px-4 sm:px-6 py-10 grid gap-8 lg:grid-cols-[1fr_320px]">
