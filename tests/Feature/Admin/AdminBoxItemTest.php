@@ -286,6 +286,8 @@ class AdminBoxItemTest extends TestCase
             'week_start_date' => $monday,
             'allergies_snapshot' => ['nuts'],
             'preferences_snapshot' => ['veg_only' => true, 'eggs_dairy_add_on' => false],
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => now()->addDays(7),
         ]);
 
         $nutty = Product::factory()->create([
