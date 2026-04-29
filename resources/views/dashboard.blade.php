@@ -370,13 +370,15 @@
                                            data-track-section="feed.almanach.box_row"
                                            data-track-destination="app.boxes.show">
                                             <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
-                                            {{-- Map admin-internal box statuses to customer-friendly phrasing. --}}
-                                            @if ($box->status->value === 'editable')
-                                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('In Vorbereitung') }}</p>
-                                            @elseif ($box->status->value === 'locked')
-                                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('Wird zugestellt') }}</p>
-                                            @elseif ($box->status->value === 'delivered')
-                                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('Geliefert') }}</p>
+                                            {{-- Customer-friendly box status labels (E in followups). The
+                                                 admin-facing `status.editable` → "Bearbeitbar" etc. would leak
+                                                 internal lifecycle terms; `box_status_customer.*` is the
+                                                 customer-side mapping ("In Vorbereitung", "Wird zugestellt",
+                                                 "Geliefert"), available in de/en/fr. --}}
+                                            @php($customerStatusKey = 'box_status_customer.'.$box->status->value)
+                                            @php($customerStatusLabel = __($customerStatusKey))
+                                            @if ($customerStatusLabel !== $customerStatusKey)
+                                                <p class="mt-1 text-sm text-brand-ink/70">{{ $customerStatusLabel }}</p>
                                             @endif
                                             <p class="text-sm text-brand-ink/70">
                                                 {{ __('Estimated value: EUR :amount', ['amount' => number_format((float) $box->estimated_value, 2, ',', '.')]) }}

@@ -50,6 +50,20 @@
 
         <x-payment.security-badge />
 
+        {{-- W2-22 follow-up: a final review card at the bottom of the
+             payment step using the same summary component the right rail
+             shows. Lets the customer scan everything one last time before
+             handing over their card without scrolling back through the
+             wizard. Inline mode (not sticky) so it sits in document flow
+             below the SumUp widget. --}}
+        <section class="mt-10 border-t border-brand-ink/10 pt-8" data-testid="payment-final-review">
+            <h2 class="font-display text-xl text-brand-ink">{{ __('Review before you pay') }}</h2>
+            <p class="mt-2 text-sm text-brand-ink/70">{{ __('Everything you have told us so far. Tap any block to change it before adding your card.') }}</p>
+            <div class="mt-4 max-w-md">
+                <x-onboarding.summary :draft="$draft" :user="auth()->user()" />
+            </div>
+        </section>
+
         <div class="mt-6">
             <a href="{{ route('app.onboarding.step.subscription_schedule') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
                 ← {{ __('Back to :step', ['step' => __('Schedule')]) }}
