@@ -83,6 +83,7 @@ Most of this phase is **done** on [`feature/phase-4-customer-flexibility`](https
 - ERD-339 — Missing transactional templates
 - ERD-340 — Email deliverability (SPF/DKIM/DMARC + provider migration)
 - ERD-341 — `docs/transactional-emails.md` matrix
+- ERD-350 — Per-user email history view in admin (audit every Mailable, surface on user detail page)
 
 ## Phase 8 — Polish + tests
 

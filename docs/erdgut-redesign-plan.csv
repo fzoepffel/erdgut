@@ -207,3 +207,16 @@ ERD-348,Trial pricing bug — use BoxPricing for correct size + add-ons,Pricing,
 ERD-349,Taste profile per product + ""goes well with"" pairings UI,Catalog,Phase 3 - Product catalog UX,P3,Done,5,ERD-308 ERD-309 ERD-318,"Customer product detail renders taste profile chips and a pairings strip with thumbnails. Depends on catalog data work.","- Product detail shows taste chips.
 - Pairings strip links to each pair's detail.
 - Empty state renders gracefully when no pairings.",ui;catalog
+ERD-350,Per-user email history view in admin,Admin observability,Phase 7 - Email,P1,Backlog,8,ERD-339,"Admins currently can't see which transactional emails have already been sent to a customer — only the resend action is audited. Add a chronological email-history section to the per-user admin page (/app/admin/users/{user}) so support can answer ""did the customer get the trial confirmation?"" / ""why did they get two delivery reminders?"" without grepping logs.
+
+Capture every outbound email by listening to Illuminate\Mail\Events\MessageSent (or wrapping through a small EmailLogger service) and persisting one row per send. Reuse the existing `audit_events` table with `action='email_sent'`, or add a dedicated `email_log` table if `audit_events` becomes too noisy — decide once we measure volume.
+
+Each row should carry: timestamp, mailable class (e.g. TrialOrderConfirmationMail), template/locale, recipient email at send time, related entity (order_id / box_id / subscription_id when known via Mailable metadata), delivery state (queued|sent|failed), and the actor when an admin triggered a resend (already wired via AdminEmailResendController). Bounce/complaint tracking can come later when we migrate provider (ERD-340).
+
+UI: collapsible section on the user detail page with a paginated table — same density as the existing audit-timeline component. Filter by mailable class and date range. Optionally a per-row 'Erneut senden' button that points at the existing AdminEmailResendController flow.","- Every Mailable queued or sent for a user is recorded with timestamp, class, recipient, related entity, and delivery state.
+- /app/admin/users/{user} shows an Email-Verlauf section listing the most recent N rows with pagination.
+- Filter controls for mailable class and date range; default sort newest-first.
+- Existing AdminEmailResendController resends still audit and now appear in the same history with actor.
+- Feature test: triggering Mail::to(...)->queue(new TrialOrderConfirmationMail($order)) writes a row tied to the recipient user_id.
+- Feature test: the admin user-detail page renders the Email-Verlauf section and lists the queued mailable.
+- No PII leakage: only admin-authorised users may see the list (authorize('admin')).",admin;mail;observability
