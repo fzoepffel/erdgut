@@ -108,7 +108,7 @@
                                     <dl class="mt-3 space-y-1.5 text-sm">
                                         <div class="flex justify-between gap-2">
                                             <dt class="text-brand-ink/60">{{ __('Amount') }}</dt>
-                                            <dd class="tabular-nums font-medium text-brand-ink">{{ number_format((float) $payment->amount, 2, ',', '.') }} {{ $payment->currency }}</dd>
+                                            <dd class="tabular-nums font-medium text-brand-ink">@money($payment->amount) {{ $payment->currency }}</dd>
                                         </div>
                                         <div class="flex justify-between gap-2">
                                             <dt class="text-brand-ink/60">{{ __('Attempt') }}</dt>
@@ -166,7 +166,7 @@
                                                 {{ $desc }}
                                             </td>
                                             <td class="whitespace-nowrap px-4 py-3 text-sm tabular-nums text-brand-ink">
-                                                {{ number_format((float) $payment->amount, 2, ',', '.') }} {{ $payment->currency }}
+                                                @money($payment->amount) {{ $payment->currency }}
                                             </td>
                                             <td class="whitespace-nowrap px-4 py-3 text-sm">
                                                 <x-status-badge :value="$payment->status" />
