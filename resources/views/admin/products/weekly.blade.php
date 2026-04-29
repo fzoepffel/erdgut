@@ -104,6 +104,16 @@
                 @csrf
                 <input type="hidden" name="week_start_date" value="{{ $week->toDateString() }}" />
 
+                @if ($rows->isEmpty())
+                    {{-- Empty-state hint sits ABOVE the table. The table still
+                         renders $extraRowCount empty input rows below, so a
+                         "no rows" message inside the tbody used to read as a
+                         contradiction ("no rows" + visible empty rows). --}}
+                    <div class="rounded-md border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700" data-testid="weekly-catalog-empty-hint">
+                        {{ __('admin.weekly_catalog.no_rows') }}
+                    </div>
+                @endif
+
                 <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -118,14 +128,6 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
-                                @if ($rows->isEmpty())
-                                    <tr>
-                                        <td colspan="6" class="px-3 py-6 text-center text-sm text-gray-500">
-                                            {{ __('admin.weekly_catalog.no_rows') }}
-                                        </td>
-                                    </tr>
-                                @endif
-
                                 @foreach ($rows as $row)
                                     @php
                                         /** @var \App\Models\ProductWeekStock $stock */

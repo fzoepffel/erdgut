@@ -56,6 +56,33 @@ class AdminWeeklyCatalogTest extends TestCase
             ->assertSee(__('admin.weekly_catalog.title'));
     }
 
+    public function test_empty_state_hint_renders_above_the_table_not_inside_it(): void
+    {
+        // When the inventory is empty, the page used to render a "no rows"
+        // message in the tbody alongside the empty input rows below — which
+        // read as a contradiction. The hint now sits above the table.
+        Carbon::setTestNow(Carbon::parse('2026-03-24'));
+
+        $admin = User::factory()->admin()->create();
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.products.weekly.show'))
+            ->assertOk()
+            ->assertSee(__('admin.weekly_catalog.no_rows'))
+            ->assertSee('weekly-catalog-empty-hint', false)
+            ->getContent();
+
+        $hintAt = strpos($html, 'weekly-catalog-empty-hint');
+        $tableAt = strpos($html, '<table');
+        $this->assertNotFalse($hintAt);
+        $this->assertNotFalse($tableAt);
+        $this->assertLessThan(
+            $tableAt,
+            $hintAt,
+            'empty-state hint must render before the <table> opening tag, not inside the tbody.'
+        );
+    }
+
     public function test_week_navigator_snaps_non_monday_to_previous_monday(): void
     {
         $admin = User::factory()->admin()->create();
