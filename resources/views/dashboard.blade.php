@@ -270,7 +270,7 @@
                                 @endforelse
                             </ul>
                             <p class="mt-5 border-t border-brand-ink/10 pt-4 text-sm font-semibold text-brand-ink">
-                                {{ __('Estimated value: EUR :amount', ['amount' => number_format((float) $currentBox->estimated_value, 2, ',', '.')]) }}
+                                {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($currentBox->estimated_value)]) }}
                             </p>
                         @else
                             <x-empty-state
@@ -332,7 +332,7 @@
                                                 <p class="mt-1 text-sm text-brand-ink/70">{{ __('Geliefert') }}</p>
                                             @endif
                                             <p class="text-sm text-brand-ink/70">
-                                                {{ __('Estimated value: EUR :amount', ['amount' => number_format((float) $box->estimated_value, 2, ',', '.')]) }}
+                                                {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($box->estimated_value)]) }}
                                             </p>
                                         </a>
                                     </li>

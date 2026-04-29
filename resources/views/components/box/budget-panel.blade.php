@@ -27,7 +27,7 @@
                 @if ($bindEstimate)
                     <span x-text="'EUR ' + estimatedValue.toFixed(2).replace('.', ',')"></span>
                 @else
-                    EUR {{ number_format((float) $box->estimated_value, 2, ',', '.') }}
+                    EUR @money((float) $box->estimated_value)
                 @endif
             </dd>
         </div>
@@ -35,7 +35,7 @@
             <div class="flex justify-between gap-3">
                 <dt class="text-brand-ink/70">{{ __('Included in subscription') }}</dt>
                 <dd class="font-medium text-brand-ink">
-                    EUR {{ number_format($budgetDetails['included_value'], 2, ',', '.') }}
+                    EUR @money($budgetDetails['included_value'])
                 </dd>
             </div>
             <div class="flex justify-between gap-3">
@@ -55,9 +55,9 @@
                         ])
                     >
                         @if ($budgetDetails['remainder'] >= 0)
-                            EUR {{ number_format($budgetDetails['remainder'], 2, ',', '.') }}
+                            EUR @money($budgetDetails['remainder'])
                         @else
-                            {{ number_format(abs($budgetDetails['remainder']), 2, ',', '.') }} {{ __('over') }}
+                            @money(abs($budgetDetails['remainder'])) {{ __('over') }}
                         @endif
                     </dd>
                 @endif
