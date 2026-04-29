@@ -13,7 +13,6 @@ use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
-use App\Http\Controllers\Admin\AdminTrialBoxSetupController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminWeeklyCatalogController;
@@ -207,6 +206,12 @@ Route::middleware(['auth', 'verified'])
             Route::post('deliveries/bulk-delay', [AdminDeliveryController::class, 'bulkDelay'])
                 ->middleware('throttle:10,1')
                 ->name('deliveries.bulk-delay');
+            Route::post('deliveries/cleanup-orphans', [AdminDeliveryController::class, 'cleanupOrphans'])
+                ->middleware('throttle:6,1')
+                ->name('deliveries.cleanup-orphans');
+            Route::delete('deliveries/{delivery}', [AdminDeliveryController::class, 'destroy'])
+                ->middleware('throttle:30,1')
+                ->name('deliveries.destroy');
             Route::get('subscriptions/create', [AdminSubscriptionController::class, 'create'])->name('subscriptions.create');
             Route::post('subscriptions', [AdminSubscriptionController::class, 'store'])
                 ->middleware('throttle:20,1')
@@ -236,18 +241,14 @@ Route::middleware(['auth', 'verified'])
                 ->where('week', '\d{4}-\d{2}-\d{2}')
                 ->middleware('throttle:12,1')
                 ->name('boxes.setup.apply');
+            Route::post('boxes/setup/{week}/reset', [AdminBoxSetupController::class, 'reset'])
+                ->where('week', '\d{4}-\d{2}-\d{2}')
+                ->middleware('throttle:6,1')
+                ->name('boxes.setup.reset');
             Route::get('boxes/week/{week}', [AdminBoxSetupController::class, 'weekBoxes'])
                 ->where('week', '\d{4}-\d{2}-\d{2}')
                 ->name('boxes.week.show');
 
-            Route::get('trial-boxes/setup', [AdminTrialBoxSetupController::class, 'select'])->name('trial-boxes.setup.select');
-            Route::get('trial-boxes/setup/{week}', [AdminTrialBoxSetupController::class, 'show'])
-                ->where('week', '\d{4}-\d{2}-\d{2}')
-                ->name('trial-boxes.setup.show');
-            Route::post('trial-boxes/setup/{week}', [AdminTrialBoxSetupController::class, 'apply'])
-                ->where('week', '\d{4}-\d{2}-\d{2}')
-                ->middleware('throttle:12,1')
-                ->name('trial-boxes.setup.apply');
             Route::post('boxes/{box}/items', [AdminBoxItemController::class, 'store'])->name('boxes.items.store');
             Route::patch('boxes/{box}/items/{item}', [AdminBoxItemController::class, 'update'])
                 ->scopeBindings()
@@ -256,6 +257,9 @@ Route::middleware(['auth', 'verified'])
                 ->scopeBindings()
                 ->name('boxes.items.destroy');
             Route::get('boxes/{box}', [AdminBoxController::class, 'show'])->name('boxes.show');
+            Route::patch('boxes/{box}', [AdminBoxController::class, 'update'])
+                ->middleware('throttle:24,1')
+                ->name('boxes.update');
             Route::patch('boxes/{box}/meta', [AdminBoxController::class, 'updateMeta'])->name('boxes.meta.update');
             Route::post('boxes/{box}/override-edit', [AdminBoxController::class, 'overrideEdit'])
                 ->middleware('throttle:30,1')

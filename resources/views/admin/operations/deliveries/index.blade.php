@@ -1,6 +1,10 @@
 @php
     $hasFilters = filled(request('status')) || filled(request('date_from')) || filled(request('date_to')) || request('trial_only') === '1';
     $trialOnly = request('trial_only') === '1';
+    // When the controller applied the default "current week onwards" filter,
+    // we still want the visible input to show that date so admins can edit
+    // it. `request('date_from')` is empty in that case, so fall back.
+    $effectiveDateFrom = request('date_from', ($appliedDefaultDateFrom ?? false) ? ($defaultDateFrom ?? '') : '');
 @endphp
 
 <x-admin-layout>
@@ -36,6 +40,35 @@
                 <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                     {{ __('admin.deliveries.bulk_delayed_notice', ['count' => session('admin_deliveries_bulk_count', 0)]) }}
                 </p>
+            @endif
+            @if (session('status') === 'admin-delivery-deleted')
+                <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    {{ __('admin.deliveries.deleted_notice') }}
+                </p>
+            @endif
+            @if (session('status') === 'admin-deliveries-orphans-cleaned')
+                <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    {{ __('admin.deliveries.orphans_cleaned_notice', ['count' => session('admin_deliveries_orphans_count', 0)]) }}
+                </p>
+            @endif
+
+            {{-- Orphan-deliveries banner. Only renders when there's something
+                 to clean up; clicking the button POSTs to the cleanup
+                 endpoint, which deletes every scheduled delivery that has no
+                 box and no order. --}}
+            @if (($orphanCount ?? 0) > 0)
+                <div class="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p class="font-semibold">{{ __('admin.deliveries.orphans_banner_title', ['count' => $orphanCount]) }}</p>
+                        <p class="mt-1 text-xs">{{ __('admin.deliveries.orphans_banner_hint') }}</p>
+                    </div>
+                    <form method="POST" action="{{ route('app.admin.deliveries.cleanup-orphans') }}" onsubmit="return confirm('{{ __('admin.deliveries.orphans_confirm') }}')">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center rounded-md bg-amber-700 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-amber-800">
+                            {{ __('admin.deliveries.orphans_cleanup_button') }}
+                        </button>
+                    </form>
+                </div>
             @endif
 
             <div class="flex flex-col gap-3 rounded-lg border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
@@ -104,7 +137,10 @@
                         </div>
                         <div class="w-full sm:w-auto">
                             <label for="admin-del-from" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.date_from') }}</label>
-                            <input id="admin-del-from" type="date" name="date_from" value="{{ request('date_from') }}" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                            <input id="admin-del-from" type="date" name="date_from" value="{{ $effectiveDateFrom }}" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                            @if ($appliedDefaultDateFrom ?? false)
+                                <p class="mt-1 text-[11px] text-gray-500">{{ __('admin.deliveries.default_date_from_hint') }}</p>
+                            @endif
                         </div>
                         <div class="w-full sm:w-auto">
                             <label for="admin-del-to" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.date_to') }}</label>
@@ -133,6 +169,8 @@
                                         <th scope="col" class="py-2 pe-4">ID</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.user') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.scheduled_for') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.deliveries.col_timeslot') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.deliveries.col_source') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.status') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.deliveries.status.column') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.operations.address_summary') }}</th>
@@ -141,15 +179,44 @@
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     @foreach ($deliveries as $delivery)
-                                        <tr>
+                                        @php
+                                            $isOrphan = $delivery->box_id === null
+                                                && $delivery->order_id === null
+                                                && ! $delivery->is_weekly_override;
+                                        @endphp
+                                        <tr class="{{ $isOrphan ? 'bg-amber-50/40' : '' }}">
                                             <td class="py-3 pe-4 tabular-nums text-gray-600">{{ $delivery->id }}</td>
                                             <td class="py-3 pe-4 text-gray-900">
-                                                {{ $delivery->user?->email ?? '—' }}
-                                                @if ($delivery->order_id)
-                                                    <span class="ml-1 inline-flex items-center rounded bg-chapter-produce/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-chapter-produce" data-testid="admin-delivery-trial-badge">{{ __('Trial') }}</span>
-                                                @endif
+                                                <div class="flex flex-wrap items-center gap-1">
+                                                    <span>{{ $delivery->user?->email ?? '—' }}</span>
+                                                    @if ($delivery->is_test)
+                                                        <span class="inline-flex items-center rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-700">{{ __('admin.deliveries.test_badge') }}</span>
+                                                    @endif
+                                                </div>
                                             </td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $delivery->scheduled_for_date?->toDateString() ?? '—' }}</td>
+                                            <td class="py-3 pe-4 text-gray-600">{{ $delivery->timeslot ?: '—' }}</td>
+                                            <td class="py-3 pe-4">
+                                                {{-- Source: Box link for sub deliveries, Order link for trial deliveries,
+                                                     Override pill for weekly overrides, "Verwaist" pill otherwise. --}}
+                                                @if ($delivery->box_id && $delivery->box)
+                                                    <a href="{{ route('app.admin.boxes.show', $delivery->box) }}" class="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800 hover:bg-emerald-100">
+                                                        {{ __('admin.deliveries.source_box', ['id' => $delivery->box_id]) }}
+                                                    </a>
+                                                @elseif ($delivery->order_id && $delivery->order)
+                                                    <a href="{{ route('app.admin.orders.show', $delivery->order) }}" class="inline-flex items-center gap-1 rounded bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800 hover:bg-violet-200" data-testid="admin-delivery-trial-badge">
+                                                        {{ __('admin.deliveries.source_trial', ['id' => $delivery->order_id]) }}
+                                                    </a>
+                                                @elseif ($delivery->is_weekly_override)
+                                                    <span class="inline-flex items-center rounded bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800">
+                                                        {{ __('admin.deliveries.source_override') }}
+                                                    </span>
+                                                @else
+                                                    <span class="inline-flex items-center rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-900" :title="@js(__('admin.deliveries.source_orphan_hint'))" data-testid="admin-delivery-orphan-pill">
+                                                        {{ __('admin.deliveries.source_orphan') }}
+                                                    </span>
+                                                @endif
+                                            </td>
                                             <td class="py-3 pe-4"><x-status-badge :value="$delivery->status" type="delivery" /></td>
                                             <td class="py-3 pe-4">
                                                 <form method="POST" action="{{ route('app.admin.deliveries.status.update', $delivery) }}" class="flex items-center gap-2">
@@ -182,9 +249,18 @@
                                                 @endif
                                             </td>
                                             <td class="py-3 pe-0">
-                                                <a href="{{ route('app.admin.deliveries.edit', $delivery) }}" class="text-sm font-semibold text-emerald-700 hover:text-emerald-900">
-                                                    {{ __('admin.deliveries.edit_link') }}
-                                                </a>
+                                                <div class="flex items-center gap-3">
+                                                    <a href="{{ route('app.admin.deliveries.edit', $delivery) }}" class="text-sm font-semibold text-emerald-700 hover:text-emerald-900">
+                                                        {{ __('admin.deliveries.edit_link') }}
+                                                    </a>
+                                                    <form method="POST" action="{{ route('app.admin.deliveries.destroy', $delivery) }}" onsubmit="return confirm('{{ __('admin.deliveries.delete_confirm') }}')">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="text-sm font-medium text-rose-700 hover:text-rose-900" :title="@js(__('admin.deliveries.delete_link'))">
+                                                            {{ __('admin.deliveries.delete_link') }}
+                                                        </button>
+                                                    </form>
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach

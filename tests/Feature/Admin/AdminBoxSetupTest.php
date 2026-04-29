@@ -4,16 +4,20 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\BoxStatus;
 use App\Enums\DeliveryStatus;
+use App\Enums\OrderProductType;
+use App\Enums\OrderStatus;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Address;
 use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Delivery;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductWeekStock;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\Admin\WeeklyBoxSetupService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -74,6 +78,60 @@ class AdminBoxSetupTest extends TestCase
             ->get(route('app.admin.boxes.index'))
             ->assertOk()
             ->assertSee(__('admin.box_setup.title'));
+    }
+
+    public function test_calendar_overview_includes_trials_and_eggs_in_revenue(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        // 1 active medium subscription with eggs add-on flag.
+        $subUser = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $subUser->id,
+            'box_size' => 'medium',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+            'preferences' => ['eggs_dairy_add_on' => true],
+        ]);
+
+        // 1 paid trial order scheduled for that week, size small, no eggs.
+        $trialUser = User::factory()->create();
+        Order::create([
+            'user_id' => $trialUser->id,
+            'product_type' => OrderProductType::TrialBox->value,
+            'status' => OrderStatus::Paid->value,
+            'box_size' => 'small',
+            'amount' => 20,
+            'currency' => 'EUR',
+            'scheduled_for_date' => $monday->copy()->addDays(2)->toDateString(),
+            'preferences' => [],
+            'is_test' => true,
+        ]);
+
+        $service = app(WeeklyBoxSetupService::class);
+        $rows = $service->calendarOverview();
+
+        $weekRow = collect($rows)->firstWhere('week_start_date', $monday->toDateString());
+
+        $this->assertNotNull($weekRow);
+        $this->assertSame(1, $weekRow['eligible_count']);
+        $this->assertSame(1, $weekRow['trial_eligible_count']);
+        $this->assertSame(2, $weekRow['total_eligible_count']);
+        $this->assertSame(1, $weekRow['eggs_addon_count']);
+
+        // Revenue: 1 medium (35) + 1 small (20) + 1 eggs add-on (4.50) = 59.50
+        $expectedRevenue = (float) config('box.included_value_by_size.medium')
+            + (float) config('box.included_value_by_size.small')
+            + (float) config('box.eggs_dairy_add_on_eur');
+        $this->assertSame(round($expectedRevenue, 2), $weekRow['total_estimated_value']);
+
+        // Per-size includes the trial in 'small' eligible.
+        $this->assertSame(1, $weekRow['per_size']['small']['eligible']);
+        $this->assertSame(1, $weekRow['per_size']['medium']['eligible']);
     }
 
     public function test_admin_can_open_setup_dialog_with_initial_distribution(): void
@@ -401,6 +459,158 @@ class AdminBoxSetupTest extends TestCase
         $this->assertDatabaseMissing('box_items', [
             'box_id' => $lockedBox->id,
             'product_id' => $product->id,
+        ]);
+    }
+
+    public function test_reset_wipes_editable_subscription_boxes_for_the_week(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $customer = User::factory()->create();
+        Subscription::factory()->create([
+            'user_id' => $customer->id,
+            'box_size' => 'small',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+        ]);
+
+        $editableBox = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Editable,
+            'order_id' => null,
+            'composition_admin_ok_at' => now(),
+            'composition_admin_ok_by' => $admin->id,
+        ]);
+        BoxItem::factory()->create(['box_id' => $editableBox->id, 'is_extra' => false]);
+
+        // Locked box must NOT be touched.
+        $lockedBox = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Locked,
+            'order_id' => null,
+        ]);
+        $lockedItem = BoxItem::factory()->create(['box_id' => $lockedBox->id, 'is_extra' => false]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.setup.reset', ['week' => $monday->toDateString()]))
+            ->assertRedirect(route('app.admin.boxes.setup.show', ['week' => $monday->toDateString()]));
+
+        $this->assertDatabaseMissing('boxes', ['id' => $editableBox->id]);
+        $this->assertDatabaseHas('boxes', ['id' => $lockedBox->id]);
+        $this->assertDatabaseHas('box_items', ['id' => $lockedItem->id]);
+    }
+
+    public function test_reset_requires_admin(): void
+    {
+        $monday = '2026-05-04';
+
+        // Guest must be redirected to login before the action runs.
+        $this->post(route('app.admin.boxes.setup.reset', ['week' => $monday]))
+            ->assertRedirect('/auth/login');
+
+        $user = User::factory()->create(['is_admin' => false]);
+
+        $this->actingAs($user)
+            ->post(route('app.admin.boxes.setup.reset', ['week' => $monday]))
+            ->assertForbidden();
+    }
+
+    public function test_setup_view_includes_trial_orders_for_the_week(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        // Trial customer with delivery scheduled for that week.
+        $trialUser = User::factory()->create([
+            'name' => 'Trial Tina',
+            'email' => 'trial.tina@example.test',
+        ]);
+        Order::factory()->create([
+            'user_id' => $trialUser->id,
+            'product_type' => OrderProductType::TrialBox,
+            'status' => OrderStatus::Paid,
+            'box_size' => 'small',
+            'scheduled_for_date' => $monday->copy()->addDays(2)->toDateString(),
+        ]);
+
+        // Subscription customer for comparison.
+        $subUser = User::factory()->create(['email' => 'sub@example.test']);
+        Subscription::factory()->create([
+            'user_id' => $subUser->id,
+            'box_size' => 'small',
+            'plan' => SubscriptionPlan::Weekly,
+            'status' => SubscriptionStatus::Active,
+            'trial_completed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.boxes.setup.show', ['week' => $monday->toDateString()]))
+            ->assertOk()
+            ->assertSee('trial.tina@example.test')
+            ->assertSee('sub@example.test')
+            ->assertSee(__('admin.box_setup.kind_trial_badge'));
+    }
+
+    public function test_apply_creates_trial_box_via_t_prefixed_key(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-27'));
+
+        $admin = User::factory()->admin()->create();
+        $monday = Carbon::parse('2026-05-04');
+
+        $trialUser = User::factory()->create();
+        $order = Order::factory()->create([
+            'user_id' => $trialUser->id,
+            'product_type' => OrderProductType::TrialBox,
+            'status' => OrderStatus::Paid,
+            'box_size' => 'small',
+            'scheduled_for_date' => $monday->copy()->addDays(2)->toDateString(),
+        ]);
+
+        $product = Product::factory()->create([
+            'unit_price' => 3.00,
+            'is_available' => true,
+            'is_published' => true,
+            'metadata' => ['unit' => 'piece'],
+        ]);
+        ProductWeekStock::create([
+            'product_id' => $product->id,
+            'week_start_date' => $monday->toDateString(),
+            'planned_quantity' => 5,
+            'unit' => 'piece',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.boxes.setup.apply', ['week' => $monday->toDateString()]), [
+                'week_start_date' => $monday->toDateString(),
+                'customers' => [
+                    "t_{$order->id}" => [
+                        ['product_id' => $product->id, 'quantity' => 2],
+                    ],
+                ],
+                'customer_ok' => ["t_{$order->id}" => '1'],
+            ])
+            ->assertRedirect(route('app.admin.boxes.week.show', ['week' => $monday->toDateString()]));
+
+        $this->assertDatabaseHas('boxes', [
+            'order_id' => $order->id,
+            'status' => BoxStatus::Editable->value,
+        ]);
+        $box = Box::query()->where('order_id', $order->id)->first();
+        $this->assertNotNull($box);
+        $this->assertSame($monday->toDateString(), Carbon::parse($box->week_start_date)->toDateString());
+        $this->assertDatabaseHas('box_items', [
+            'box_id' => $box->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
         ]);
     }
 

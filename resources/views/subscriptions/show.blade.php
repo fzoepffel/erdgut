@@ -161,6 +161,12 @@
                                     <x-status-badge :value="$subscription->status" type="subscription" />
                                 </dd>
                             </div>
+                            <div class="sm:col-span-2 lg:col-span-4 border-t border-brand-ink/10 pt-4">
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Total per delivery') }}</dt>
+                                <dd class="mt-2 font-display text-lg text-brand-ink tabular-nums">
+                                    EUR {{ number_format($subscription->expectedChargeAmount(), 2, ',', '.') }}
+                                </dd>
+                            </div>
                         </dl>
                     </section>
 

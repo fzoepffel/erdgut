@@ -3,9 +3,12 @@
 namespace App\Services\Admin;
 
 use App\Enums\BoxStatus;
+use App\Enums\OrderProductType;
+use App\Enums\OrderStatus;
 use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductWeekStock;
 use App\Models\Subscription;
@@ -34,14 +37,24 @@ final class WeeklyBoxSetupService
     /**
      * Overview of the next N Mondays for the calendar.
      *
+     * `total_estimated_value` is **projected weekly revenue**: every eligible
+     * subscription + every paid/scheduled trial contributes its size's TTC
+     * (config `box.included_value_by_size`), plus `box.eggs_dairy_add_on_eur`
+     * per customer who pays for the eggs add-on. It's intentionally
+     * independent of whether the box has been composed yet — the customer
+     * is paying that amount either way.
+     *
      * @return list<array{
      *     week_start_date: string,
      *     week: Carbon,
      *     status: string,
      *     eligible_count: int,
+     *     trial_eligible_count: int,
      *     boxes_count: int,
      *     trial_boxes_count: int,
      *     total_boxes_count: int,
+     *     total_eligible_count: int,
+     *     eggs_addon_count: int,
      *     total_estimated_value: float,
      *     per_size: array<string, array{eligible: int, boxes: int}>,
      * }>
@@ -56,7 +69,7 @@ final class WeeklyBoxSetupService
         }
 
         // ERD-344: hoist per-week queries out of the loop. With 12 weeks this
-        // collapses 24+ queries (subs+boxes per week) into 2 queries total.
+        // collapses many per-week queries (subs+boxes+trials) into 3 total.
         $activeSubs = Subscription::query()
             ->where('status', SubscriptionStatus::Active)
             ->with('user')
@@ -64,6 +77,9 @@ final class WeeklyBoxSetupService
 
         $firstWeek = $weeks[0]->toDateString();
         $lastWeek = end($weeks)->toDateString();
+        $lastSunday = end($weeks)->copy()->endOfWeek(Carbon::SUNDAY)->toDateString();
+        // reset() resets the internal pointer that end() left dangling.
+        reset($weeks);
 
         $boxesByWeek = Box::query()
             ->whereBetween('week_start_date', [$firstWeek, $lastWeek])
@@ -73,7 +89,28 @@ final class WeeklyBoxSetupService
                 : (string) $b->week_start_date
             );
 
+        // Trial orders that ship in any of the displayed weeks. Bucketed by
+        // the Monday of `scheduled_for_date` so each row gets its trials.
+        $trialOrders = Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
+            ->whereIn('status', [OrderStatus::Paid->value, OrderStatus::Scheduled->value])
+            ->whereBetween('scheduled_for_date', [$firstWeek, $lastSunday])
+            ->get(['id', 'user_id', 'box_size', 'preferences', 'scheduled_for_date']);
+
+        $trialsByWeek = $trialOrders->groupBy(function (Order $o): string {
+            $d = $o->scheduled_for_date instanceof Carbon
+                ? $o->scheduled_for_date
+                : Carbon::parse((string) $o->scheduled_for_date);
+
+            return $d->copy()->startOfWeek(Carbon::MONDAY)->toDateString();
+        });
+
         $sizeKeys = array_keys(config('box.included_value_by_size', []));
+        $sizeTtc = [];
+        foreach ($sizeKeys as $size) {
+            $sizeTtc[$size] = (float) config('box.included_value_by_size.'.$size, 0);
+        }
+        $eggsAddOnEur = (float) config('box.eggs_dairy_add_on_eur', 0);
 
         $rows = [];
         foreach ($weeks as $week) {
@@ -86,36 +123,73 @@ final class WeeklyBoxSetupService
 
             $eligibleBySize = $eligible->groupBy(fn (Subscription $s): string => (string) $s->box_size);
 
+            $trials = $trialsByWeek->get($weekKey, collect());
+            $trialsBySize = $trials->groupBy(fn (Order $o): string => (string) $o->box_size);
+
             $boxes = $boxesByWeek->get($weekKey, collect());
-            $boxesUsers = $boxes->pluck('user_id')->all();
 
-            $subscriptionBoxesCount = (int) $boxes->whereNull('order_id')->count();
-            $trialBoxesCount = (int) $boxes->whereNotNull('order_id')->count();
+            // Match saved boxes to *eligible* subs / trials only — orphan
+            // boxes (e.g. from a sub that became inactive after the box was
+            // saved, or stale test data) don't count toward the workload
+            // shown to the admin. Subscription boxes are matched by user_id
+            // (only the rows with `order_id IS NULL`); trial boxes by
+            // order_id. This guarantees `total_boxes_count` equals the sum
+            // of `per_size.<s>.boxes`, so the numbers in the overview row
+            // are internally consistent.
+            $subBoxUserIds = $boxes->whereNull('order_id')->pluck('user_id')->all();
+            $trialBoxOrderIds = $boxes->whereNotNull('order_id')->pluck('order_id')->all();
 
-            $boxesBySize = $eligible
-                ->filter(fn (Subscription $s) => in_array($s->user_id, $boxesUsers, true))
+            $subBoxesBySize = $eligible
+                ->filter(fn (Subscription $s) => in_array($s->user_id, $subBoxUserIds, true))
                 ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
+            $trialBoxesBySize = $trials
+                ->filter(fn (Order $o) => in_array($o->id, $trialBoxOrderIds, true))
+                ->groupBy(fn (Order $o): string => (string) $o->box_size);
+
+            $subscriptionBoxesCount = (int) $subBoxesBySize->sum(fn ($g) => $g->count());
+            $trialBoxesCount = (int) $trialBoxesBySize->sum(fn ($g) => $g->count());
 
             $perSize = [];
             foreach ($sizeKeys as $size) {
                 $perSize[$size] = [
-                    'eligible' => $eligibleBySize->get($size)?->count() ?? 0,
-                    'boxes' => $boxesBySize->get($size)?->count() ?? 0,
+                    'eligible' => ($eligibleBySize->get($size)?->count() ?? 0)
+                        + ($trialsBySize->get($size)?->count() ?? 0),
+                    'boxes' => ($subBoxesBySize->get($size)?->count() ?? 0)
+                        + ($trialBoxesBySize->get($size)?->count() ?? 0),
                 ];
             }
 
+            // Eggs add-on: count of subs + trials whose preferences carry
+            // the flag. Used both for the column and for the revenue total.
+            $eggsAddOnCount = $eligible->filter(fn (Subscription $s) => (bool) data_get($s->preferences, 'eggs_dairy_add_on', false))->count()
+                + $trials->filter(fn (Order $o) => (bool) data_get($o->preferences, 'eggs_dairy_add_on', false))->count();
+
+            // Projected weekly revenue: each eligible box contributes its
+            // size's TTC, plus eggs add-on EUR per opted-in customer.
+            $totalRevenue = 0.0;
+            foreach ($sizeKeys as $size) {
+                $totalRevenue += ($eligibleBySize->get($size)?->count() ?? 0) * ($sizeTtc[$size] ?? 0);
+                $totalRevenue += ($trialsBySize->get($size)?->count() ?? 0) * ($sizeTtc[$size] ?? 0);
+            }
+            $totalRevenue += $eggsAddOnCount * $eggsAddOnEur;
+
             $eligibleCount = $eligible->count();
-            $status = $this->resolveStatus($eligibleCount, $subscriptionBoxesCount);
+            $trialEligibleCount = $trials->count();
+            $totalEligibleCount = $eligibleCount + $trialEligibleCount;
+            $totalBoxesCount = $subscriptionBoxesCount + $trialBoxesCount;
 
             $rows[] = [
                 'week_start_date' => $weekKey,
                 'week' => $week,
-                'status' => $status,
+                'status' => $this->resolveStatus($totalEligibleCount, $totalBoxesCount),
                 'eligible_count' => $eligibleCount,
+                'trial_eligible_count' => $trialEligibleCount,
+                'total_eligible_count' => $totalEligibleCount,
                 'boxes_count' => $subscriptionBoxesCount,
                 'trial_boxes_count' => $trialBoxesCount,
-                'total_boxes_count' => $boxes->count(),
-                'total_estimated_value' => round((float) $boxes->sum(fn (Box $b) => (float) $b->estimated_value), 2),
+                'total_boxes_count' => $totalBoxesCount,
+                'eggs_addon_count' => $eggsAddOnCount,
+                'total_estimated_value' => round($totalRevenue, 2),
                 'per_size' => $perSize,
             ];
         }
@@ -181,10 +255,18 @@ final class WeeklyBoxSetupService
             ->eligibleSubscriptionsForWeek($week)
             ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
 
-        $stockRows = $this->loadStockRows($week);
-        $sizeConfigs = $this->sizeConfigsFromSubs($subsBySize, $marginRate);
+        // ERD-NEW: Trial orders shipping in the same week count toward the
+        // unified per-size box totals. They share weekly stock with
+        // subscriptions, so the auto-distributor must size n correctly to
+        // avoid double-counting / starving downstream allocations.
+        $trialsBySize = $this->weeklyBoxPlanner
+            ->eligibleTrialOrdersForWeek($week)
+            ->groupBy(fn (Order $o): string => (string) $o->box_size);
 
-        $existingBlocks = $this->loadExistingSizeBlocks($week, $subsBySize, $sizeConfigs, $stockRows);
+        $stockRows = $this->loadStockRows($week);
+        $sizeConfigs = $this->sizeConfigsFromSubs($subsBySize, $marginRate, $trialsBySize);
+
+        $existingBlocks = $this->loadExistingSizeBlocks($week, $subsBySize, $sizeConfigs, $stockRows, $trialsBySize);
         $sizesWithExisting = [];
         foreach ($existingBlocks as $block) {
             $sizesWithExisting[$block['box_size']] = true;
@@ -242,21 +324,42 @@ final class WeeklyBoxSetupService
         Collection $subsBySize,
         array $sizeConfigs,
         array &$stockRows,
+        ?Collection $trialsBySize = null,
     ): array {
-        $eligibleUserIds = [];
+        // Map every eligible "owner" (subscription user OR trial order) to a box size
+        // so we can pick a representative box per size from either source.
+        $subUserIdsBySize = [];
         foreach ($subsBySize as $size => $subs) {
             foreach ($subs as $sub) {
-                $eligibleUserIds[(int) $sub->user_id] = (string) $size;
+                $subUserIdsBySize[(int) $sub->user_id] = (string) $size;
             }
         }
-        if ($eligibleUserIds === []) {
+        $trialOrderIdsBySize = [];
+        if ($trialsBySize !== null) {
+            foreach ($trialsBySize as $size => $orders) {
+                foreach ($orders as $order) {
+                    $trialOrderIdsBySize[(int) $order->id] = (string) $size;
+                }
+            }
+        }
+        if ($subUserIdsBySize === [] && $trialOrderIdsBySize === []) {
             return [];
         }
 
-        $boxes = Box::query()
+        $boxesQuery = Box::query()
             ->forWeek($week->toDateString())
             ->where('status', BoxStatus::Editable)
-            ->whereIn('user_id', array_keys($eligibleUserIds))
+            ->where(function ($q) use ($subUserIdsBySize, $trialOrderIdsBySize) {
+                if ($subUserIdsBySize !== []) {
+                    $q->orWhere(function ($qq) use ($subUserIdsBySize) {
+                        $qq->whereIn('user_id', array_keys($subUserIdsBySize))
+                            ->whereNull('order_id');
+                    });
+                }
+                if ($trialOrderIdsBySize !== []) {
+                    $q->orWhereIn('order_id', array_keys($trialOrderIdsBySize));
+                }
+            })
             ->with([
                 'items' => fn ($q) => $q->where('is_extra', false)
                     ->with([
@@ -264,8 +367,9 @@ final class WeeklyBoxSetupService
                         'product.translations',
                     ]),
             ])
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
+
+        $boxes = $boxesQuery->get();
 
         // Eggs add-on items live in the per-customer eggs panel, not the
         // size template. Strip them out when re-deriving the template from
@@ -283,7 +387,10 @@ final class WeeklyBoxSetupService
 
         $representativeBySize = [];
         foreach ($boxes as $box) {
-            $size = $eligibleUserIds[(int) $box->user_id] ?? null;
+            // Trial box → resolve via order_id; subscription box → resolve via user_id.
+            $size = $box->order_id !== null
+                ? ($trialOrderIdsBySize[(int) $box->order_id] ?? null)
+                : ($subUserIdsBySize[(int) $box->user_id] ?? null);
             if ($size === null) {
                 continue;
             }
@@ -367,8 +474,12 @@ final class WeeklyBoxSetupService
             ->eligibleSubscriptionsForWeek($week)
             ->groupBy(fn (Subscription $s): string => (string) $s->box_size);
 
+        $trialsBySize = $this->weeklyBoxPlanner
+            ->eligibleTrialOrdersForWeek($week)
+            ->groupBy(fn (Order $o): string => (string) $o->box_size);
+
         $stockRows = $this->loadStockRows($week);
-        $sizeConfigs = $this->sizeConfigsFromSubs($subsBySize, $marginRate);
+        $sizeConfigs = $this->sizeConfigsFromSubs($subsBySize, $marginRate, $trialsBySize);
 
         $sizeBlocks = [];
         foreach ($sizeConfigs as $size => $cfg) {
@@ -414,6 +525,49 @@ final class WeeklyBoxSetupService
     }
 
     /**
+     * Wipe every editable box for the given week — both subscription boxes
+     * (order_id IS NULL) and trial boxes (order_id linked to an eligible
+     * trial order) — so the next setup pass rebuilds from a clean slate.
+     * Locked and delivered boxes are intentionally untouched — admins reset
+     * only what the planner still owns.
+     *
+     * Returns the number of boxes deleted.
+     */
+    public function resetWeek(Carbon $week): int
+    {
+        $week = $week->copy()->startOfDay();
+
+        return DB::transaction(function () use ($week): int {
+            // Trial orders for the week — only their boxes can be wiped on reset.
+            $trialOrderIds = $this->weeklyBoxPlanner
+                ->eligibleTrialOrdersForWeek($week)
+                ->pluck('id')
+                ->all();
+
+            $boxes = Box::query()
+                ->forWeek($week->toDateString())
+                ->where('status', BoxStatus::Editable)
+                ->where(function ($q) use ($trialOrderIds) {
+                    $q->whereNull('order_id');
+                    if ($trialOrderIds !== []) {
+                        $q->orWhereIn('order_id', $trialOrderIds);
+                    }
+                })
+                ->with('items')
+                ->get();
+
+            $count = 0;
+            foreach ($boxes as $box) {
+                $box->items()->delete();
+                $box->delete();
+                $count++;
+            }
+
+            return $count;
+        });
+    }
+
+    /**
      * Apply the submitted distribution: create/update one Box + BoxItems per eligible subscription.
      *
      * @param  array<string, list<array{product_id: int, quantity: float}>>  $sizes
@@ -430,13 +584,17 @@ final class WeeklyBoxSetupService
     }
 
     /**
-     * Per-customer distribution apply.
+     * Per-customer distribution apply (subscriptions + trial orders).
      *
-     * Each entry in $customers is `[user_id => list<['product_id' => int, 'quantity' => float]>]`.
-     * The lines payload is treated as the FINAL composition for that customer's box
-     * (size template + admin overrides + eggs slot already merged client-side).
+     * Customers are keyed by a stable form key:
+     *   - subscriptions: `s_<user_id>` (or just `<user_id>` for backwards compat)
+     *   - trial orders:  `t_<order_id>`
      *
-     * Side effects:
+     * The lines payload is treated as the FINAL composition for that
+     * customer's box (size template + admin overrides + eggs slot already
+     * merged client-side).
+     *
+     * Side effects (subscriptions only — trials don't carry eggs add-on yet):
      *  - Persists `composition_admin_ok_at` + `composition_admin_ok_by` when the
      *    matching $customerOk entry is truthy.
      *  - When the customer has the eggs add-on flag but no `is_egg_addon=true`
@@ -444,8 +602,8 @@ final class WeeklyBoxSetupService
      *    issues a partial refund of `box.eggs_dairy_add_on_eur` against the
      *    most recent paid Payment, and sends a notification email.
      *
-     * @param  array<int, list<array{product_id: int, quantity: float}>>  $customers
-     * @param  array<int, mixed>  $customerOk  user_id => truthy when admin acknowledged
+     * @param  array<int|string, list<array{product_id: int, quantity: float}>>  $customers
+     * @param  array<int|string, mixed>  $customerOk  matching key => truthy when admin acknowledged
      */
     public function applyPerCustomerDistribution(Carbon $week, array $customers, array $customerOk = [], ?int $actorId = null): int
     {
@@ -458,12 +616,34 @@ final class WeeklyBoxSetupService
                 ->eligibleSubscriptionsForWeek($week)
                 ->keyBy(fn (Subscription $s): int => (int) $s->user_id);
 
-            foreach ($customers as $userId => $linesPayload) {
-                $userId = (int) $userId;
+            $eligibleTrialsByOrderId = $this->weeklyBoxPlanner
+                ->eligibleTrialOrdersForWeek($week)
+                ->keyBy(fn (Order $o): int => (int) $o->id);
+
+            foreach ($customers as $key => $linesPayload) {
+                $key = (string) $key;
+                // Trial customer? form key is `t_<order_id>`.
+                if (str_starts_with($key, 't_')) {
+                    $orderId = (int) substr($key, 2);
+                    $trialOrder = $eligibleTrialsByOrderId->get($orderId);
+                    if ($trialOrder === null) {
+                        continue;
+                    }
+                    if ($this->applyTrialOrderLines($trialOrder, $week, (array) $linesPayload, ! empty($customerOk[$key]), $actorId)) {
+                        $updated++;
+                    }
+
+                    continue;
+                }
+
+                // Subscription customer: `s_<user_id>` or legacy bare `<user_id>`.
+                $userId = (int) (str_starts_with($key, 's_') ? substr($key, 2) : $key);
                 $subscription = $eligibleByUserId->get($userId);
                 if ($subscription === null) {
                     continue;
                 }
+                $okKey = "s_$userId";
+                $okFlagPayload = ! empty($customerOk[$okKey]) || ! empty($customerOk[$userId]);
 
                 $box = Box::query()
                     ->forUser($subscription->user_id)
@@ -505,7 +685,7 @@ final class WeeklyBoxSetupService
                 $this->deliveryProjector->projectForBox($box->fresh());
 
                 // Persist admin OK state (or clear it if not OK'd this round).
-                $okFlag = ! empty($customerOk[$userId]);
+                $okFlag = $okFlagPayload;
                 $box->forceFill([
                     'composition_admin_ok_at' => $okFlag ? now() : null,
                     'composition_admin_ok_by' => $okFlag ? $actorId : null,
@@ -533,6 +713,65 @@ final class WeeklyBoxSetupService
         }
 
         return $updated;
+    }
+
+    /**
+     * Persist the lines for a single trial Order. Returns true when the box
+     * was created/updated; false when skipped (locked/delivered or empty
+     * resolved lines).
+     *
+     * @param  list<array{product_id: int|string, quantity: int|float|string}>  $linesPayload
+     */
+    private function applyTrialOrderLines(Order $order, Carbon $week, array $linesPayload, bool $okFlag, ?int $actorId): bool
+    {
+        $box = Box::query()
+            ->where('order_id', $order->id)
+            ->whereDate('week_start_date', $week->toDateString())
+            ->first();
+
+        if ($box !== null && $box->status !== BoxStatus::Editable) {
+            return false;
+        }
+
+        if ($box === null) {
+            $box = Box::create([
+                'user_id' => $order->user_id,
+                'order_id' => $order->id,
+                'week_start_date' => $week->toDateString(),
+                'status' => BoxStatus::Editable,
+                'modification_deadline_at' => $week->copy()->subDays(2),
+                'estimated_value' => 0,
+                'is_test' => (bool) $order->is_test,
+            ]);
+            $order->forceFill(['box_id' => $box->id])->save();
+        }
+
+        $resolved = $this->resolveLines($linesPayload);
+
+        $box->items()->where('is_extra', false)->delete();
+
+        foreach ($resolved as $line) {
+            /** @var Product $product */
+            $product = $line['product'];
+            BoxItem::create([
+                'box_id' => $box->id,
+                'product_id' => $product->id,
+                'quantity' => (float) $line['quantity'],
+                'unit' => (string) $line['unit'],
+                'is_extra' => false,
+                'is_test' => (bool) $order->is_test,
+            ]);
+        }
+
+        $this->valueRecalculationService->recalculate($box->fresh());
+        $this->deliveryProjector->projectForBox($box->fresh());
+
+        $box->forceFill([
+            'composition_admin_ok_at' => $okFlag ? now() : null,
+            'composition_admin_ok_by' => $okFlag ? $actorId : null,
+        ])->save();
+
+        return true;
     }
 
     public function applyDistribution(Carbon $week, array $sizes): int
@@ -639,14 +878,17 @@ final class WeeklyBoxSetupService
 
     /**
      * @param  Collection<string, EloquentCollection<int, Subscription>>  $subsBySize
-     * @return array<string, array{n: int, ttc: float, target: float, max: float}>
+     * @param  Collection<string, EloquentCollection<int, Order>>|null  $trialsBySize  optional trial orders for the week
+     * @return array<string, array{n: int, ttc: float, target: float, max: float, n_subs: int, n_trials: int}>
      */
-    private function sizeConfigsFromSubs(Collection $subsBySize, float $marginRate): array
+    private function sizeConfigsFromSubs(Collection $subsBySize, float $marginRate, ?Collection $trialsBySize = null): array
     {
         $configured = array_keys(config('box.included_value_by_size', []));
         $configs = [];
         foreach ($configured as $size) {
-            $n = $subsBySize->get($size)?->count() ?? 0;
+            $nSubs = $subsBySize->get($size)?->count() ?? 0;
+            $nTrials = $trialsBySize?->get($size)?->count() ?? 0;
+            $n = $nSubs + $nTrials;
             if ($n === 0) {
                 continue;
             }
@@ -654,6 +896,8 @@ final class WeeklyBoxSetupService
             $target = round($ttc * (1 - $marginRate), 2);
             $configs[$size] = [
                 'n' => $n,
+                'n_subs' => $nSubs,
+                'n_trials' => $nTrials,
                 'ttc' => $ttc,
                 'target' => $target,
                 'max' => $ttc,

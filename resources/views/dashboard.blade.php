@@ -84,6 +84,38 @@
                 </div>
             @endif
 
+            {{-- W2-24: brand-new-subscriber hero. When a subscriber has a
+                 confirmed first delivery date but no composed box yet, the
+                 dashboard used to be six near-empty cards. Now it leads with
+                 a warm welcome + the concrete first-delivery date so the
+                 customer's first impression isn't blanks. --}}
+            @php
+                $isNewSubscriber = $primarySubscription
+                    && $primarySubscription->status === \App\Enums\SubscriptionStatus::Active
+                    && $currentBox === null
+                    && ! $firstDeliveryCard;
+                $heroFirstDelivery = $isNewSubscriber
+                    ? $primarySubscription->firstExpectedDeliveryDate()
+                    : null;
+            @endphp
+            @if ($isNewSubscriber && $heroFirstDelivery)
+                <section
+                    class="border border-chapter-produce/30 bg-chapter-produce/5"
+                    aria-labelledby="dashboard-new-subscriber-hero-heading"
+                    data-testid="dashboard-new-subscriber-hero"
+                >
+                    <div class="px-6 py-6">
+                        <p class="eyebrow text-chapter-produce">{{ __('Welcome to Erdgut') }}</p>
+                        <h2 id="dashboard-new-subscriber-hero-heading" class="mt-2 font-display text-3xl text-brand-ink sm:text-4xl">
+                            {{ __('Your first box arrives :date', ['date' => $heroFirstDelivery->locale(app()->getLocale())->isoFormat('dd, D. MMM')]) }}
+                        </h2>
+                        <p class="mt-3 max-w-2xl text-sm leading-relaxed text-brand-ink/70">
+                            {{ __('We compose your box from the season — exactly what is harvested that week. You will see the products listed here as soon as your box is composed (Thursdays, the day before delivery).') }}
+                        </p>
+                    </div>
+                </section>
+            @endif
+
             {{-- This week at a glance --}}
             <section class="border border-brand-ink/15" aria-labelledby="dashboard-this-week-heading">
                 <div class="border-b border-brand-ink/15 px-6 py-6">
@@ -112,9 +144,18 @@
                                 {{ __('Manage deliveries') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @elseif ($primarySubscription)
-                            @php($nextMonday = \Carbon\CarbonImmutable::parse($primarySubscription->next_charge_date ?? now())->startOfWeek())
-                            <p class="mt-3 font-display text-2xl text-brand-ink">{{ $nextMonday->locale(app()->getLocale())->isoFormat('dd, D. MMM') }}</p>
-                            <p class="mt-1 text-sm text-brand-ink/70">{{ __('First delivery — we will confirm day and timeslot once your box is composed.') }}</p>
+                            {{-- W2-22: was reading next_charge_date as the next delivery date,
+                                 which could be in the past for new subs (next_charge_date is a
+                                 BILLING date, not a ship date). The subscription model now
+                                 returns the first cadence-matching, non-paused Wednesday from
+                                 today onward. --}}
+                            @php($firstDelivery = $primarySubscription->firstExpectedDeliveryDate())
+                            @if ($firstDelivery)
+                                <p class="mt-3 font-display text-2xl text-brand-ink">{{ $firstDelivery->locale(app()->getLocale())->isoFormat('dd, D. MMM') }}</p>
+                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('First delivery — we will confirm day and timeslot once your box is composed.') }}</p>
+                            @else
+                                <p class="mt-3 text-sm text-brand-ink/70">{{ __('Your subscription is currently paused — deliveries resume after the pause window.') }}</p>
+                            @endif
                             <a href="{{ route('app.deliveries.preferences.edit') }}"
                                class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
                                data-track-section="glance.next_delivery"
@@ -154,6 +195,12 @@
                         @if ($primarySubscription)
                             <p class="mt-3 font-display text-2xl text-brand-ink">
                                 {{ __('status.'.$primarySubscription->status->value) }}
+                            </p>
+                            {{-- W2-16 item 3: surface the recurring price so the customer
+                                 can spot-check it against the wizard's payment step + the
+                                 actual SumUp charge they'll see on the card statement. --}}
+                            <p class="mt-1 text-sm text-brand-ink/70">
+                                {{ __('EUR :amount / delivery', ['amount' => number_format($primarySubscription->expectedChargeAmount(), 2, ',', '.')]) }}
                             </p>
                             <a href="{{ route('app.subscriptions.show') }}"
                                class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
@@ -323,13 +370,15 @@
                                            data-track-section="feed.almanach.box_row"
                                            data-track-destination="app.boxes.show">
                                             <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
-                                            {{-- Map admin-internal box statuses to customer-friendly phrasing. --}}
-                                            @if ($box->status->value === 'editable')
-                                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('In Vorbereitung') }}</p>
-                                            @elseif ($box->status->value === 'locked')
-                                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('Wird zugestellt') }}</p>
-                                            @elseif ($box->status->value === 'delivered')
-                                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('Geliefert') }}</p>
+                                            {{-- Customer-friendly box status labels (E in followups). The
+                                                 admin-facing `status.editable` → "Bearbeitbar" etc. would leak
+                                                 internal lifecycle terms; `box_status_customer.*` is the
+                                                 customer-side mapping ("In Vorbereitung", "Wird zugestellt",
+                                                 "Geliefert"), available in de/en/fr. --}}
+                                            @php($customerStatusKey = 'box_status_customer.'.$box->status->value)
+                                            @php($customerStatusLabel = __($customerStatusKey))
+                                            @if ($customerStatusLabel !== $customerStatusKey)
+                                                <p class="mt-1 text-sm text-brand-ink/70">{{ $customerStatusLabel }}</p>
                                             @endif
                                             <p class="text-sm text-brand-ink/70">
                                                 {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($box->estimated_value)]) }}

@@ -304,6 +304,12 @@ class AdminBoxItemTest extends TestCase
         $safe->translations()->where('locale', 'en')->update(['name' => 'Plain Carrot']);
         BoxItem::factory()->create(['box_id' => $box->id, 'product_id' => $safe->id]);
 
+        // Page is now Alpine-rendered: rows are produced client-side from the
+        // `initialState` JSON, so we can't position-test against rendered
+        // <td> offsets. Instead assert the conflict primitive is wired up:
+        //   - both products and the customer's allergens are in the payload,
+        //   - the conflict chip's data-testid is in the page (once — inside
+        //     the Alpine `<template>`, the runtime instantiates it per row).
         $html = $this->actingAs($admin)
             ->get(route('app.admin.boxes.show', $box))
             ->assertOk()
@@ -313,14 +319,96 @@ class AdminBoxItemTest extends TestCase
             ->assertSee('admin-box-force-include-hint', false)
             ->getContent();
 
-        $chipTd = strpos($html, 'Walnut Bread');
-        $chipEnd = strpos($html, 'Plain Carrot');
-        $chipIndex = strpos($html, 'admin-box-item-conflict-chip');
-        $this->assertNotFalse($chipIndex);
-        $this->assertGreaterThan($chipTd, $chipIndex);
-        $this->assertLessThan($chipEnd, $chipIndex, 'Chip should render in the conflicting row, not the safe row.');
+        // The customer's allergies are encoded into the Alpine initial state.
+        // The @js() directive uses JSON_HEX_QUOT, so quotes become " in
+        // the embedded JS literal — checking for the bare token is the
+        // simplest portable assertion.
+        $this->assertStringContainsString('nuts', $html);
 
-        $chipCount = substr_count($html, 'admin-box-item-conflict-chip');
-        $this->assertSame(1, $chipCount, 'Only the conflicting item should show a chip.');
+        // The conflict primitive renders once in the source (the `<template>`
+        // body); Alpine clones it per matching row at runtime.
+        $this->assertSame(1, substr_count($html, 'admin-box-item-conflict-chip'));
+    }
+
+    public function test_bulk_update_replaces_lines_and_persists_ok_marker(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $monday = Carbon::today()->next(Carbon::MONDAY);
+
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => $monday->copy()->addDays(5),
+        ]);
+
+        $oldProduct = Product::factory()->create(['unit_price' => 1.00, 'is_available' => true, 'is_published' => true]);
+        $oldItem = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $oldProduct->id,
+            'is_extra' => false,
+            'quantity' => 2,
+        ]);
+        // An extra is preserved across the bulk replace (only is_extra=false rows are wiped).
+        $extra = BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'is_extra' => true,
+            'quantity' => 1,
+        ]);
+
+        $newProduct = Product::factory()->create(['unit_price' => 3.00, 'is_available' => true, 'is_published' => true]);
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.boxes.update', $box), [
+                'lines' => [
+                    ['product_id' => $newProduct->id, 'quantity' => 4, 'is_extra' => false],
+                ],
+                'ok' => '1',
+            ])
+            ->assertRedirect(route('app.admin.boxes.show', $box));
+
+        $box->refresh();
+        $this->assertDatabaseMissing('box_items', ['id' => $oldItem->id]);
+        $this->assertDatabaseHas('box_items', ['id' => $extra->id]);
+        $this->assertDatabaseHas('box_items', [
+            'box_id' => $box->id,
+            'product_id' => $newProduct->id,
+            'quantity' => 4,
+            'is_extra' => false,
+        ]);
+        $this->assertNotNull($box->composition_admin_ok_at);
+        $this->assertSame((int) $admin->id, (int) $box->composition_admin_ok_by);
+    }
+
+    public function test_bulk_update_clears_ok_marker_when_unchecked(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $monday = Carbon::today()->next(Carbon::MONDAY);
+
+        $box = Box::factory()->create([
+            'user_id' => $customer->id,
+            'week_start_date' => $monday->toDateString(),
+            'status' => BoxStatus::Editable,
+            'modification_deadline_at' => $monday->copy()->addDays(5),
+            'composition_admin_ok_at' => now(),
+            'composition_admin_ok_by' => $admin->id,
+        ]);
+
+        $product = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+
+        $this->actingAs($admin)
+            ->patch(route('app.admin.boxes.update', $box), [
+                'lines' => [
+                    ['product_id' => $product->id, 'quantity' => 1],
+                ],
+                // ok flag absent → cleared
+            ])
+            ->assertRedirect();
+
+        $box->refresh();
+        $this->assertNull($box->composition_admin_ok_at);
+        $this->assertNull($box->composition_admin_ok_by);
     }
 }

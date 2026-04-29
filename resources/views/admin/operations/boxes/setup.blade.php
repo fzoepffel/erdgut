@@ -5,6 +5,7 @@
         'sizes' => [],
         'customers' => $customers ?? [],
         'egg_candidates' => $eggCandidates ?? [],
+        'eggs_add_on_eur' => (float) config('box.eggs_dairy_add_on_eur', 4.5),
     ];
     $sizeMeta = [];
     foreach ($data['size_blocks'] as $block) {
@@ -262,9 +263,10 @@
 
                     {{-- Per-customer panel: each row is the customer's resolved
                          box composition (size template − allergen-conflicting
-                         items + auto-added eggs). Flagged customers (allergy
-                         conflict, eggs missing, freeform note) must be OK'd or
-                         adjusted before save unlocks. --}}
+                         items + auto-added eggs + leftover-stock padding for
+                         new customers). Sorted as: new+review-needed → new+match
+                         → already-saved (sectioned at the bottom). Flagged new
+                         customers must be OK'd before save unlocks. --}}
                     <template x-if="customers.length > 0">
                         <div class="mt-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                             <div class="flex items-start justify-between gap-3">
@@ -272,11 +274,32 @@
                                     <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.box_setup.per_customer_heading') }}</h3>
                                     <p class="mt-1 text-xs text-gray-500">{{ __('admin.box_setup.per_customer_hint') }}</p>
                                 </div>
-                                <template x-if="anyCustomerBlocking()">
-                                    <span class="inline-flex shrink-0 items-center rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-900">
-                                        {{ __('admin.box_setup.per_customer_blocking_pill') }}
-                                    </span>
-                                </template>
+                                <div class="flex items-center gap-2">
+                                    <template x-if="anyCustomerBlocking()">
+                                        <span class="inline-flex shrink-0 items-center rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-900">
+                                            {{ __('admin.box_setup.per_customer_blocking_pill') }}
+                                        </span>
+                                    </template>
+                                    {{-- Reset button: posts to a separate endpoint that wipes
+                                         every editable subscription box for this week. JS
+                                         confirm guards against accidental clicks. --}}
+                                    <form
+                                        method="post"
+                                        action="{{ route('app.admin.boxes.setup.reset', ['week' => $week->toDateString()]) }}"
+                                        @submit="if (!confirm(@js(__('admin.box_setup.reset_confirm')))) { $event.preventDefault(); }"
+                                        class="inline"
+                                    >
+                                        @csrf
+                                        <button
+                                            type="submit"
+                                            class="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-sm hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                            :title="@js(__('admin.box_setup.reset_hint'))"
+                                        >
+                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582M20 20v-5h-.581M5.582 9a8.001 8.001 0 0114.836-1M18.418 15a8.001 8.001 0 01-14.836 1"/></svg>
+                                            {{ __('admin.box_setup.reset_button') }}
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
 
                             {{-- Aggregate total: sum of all customer boxes vs. recommended (target)
@@ -309,12 +332,29 @@
                                 </div>
                             </div>
 
-                            <div class="mt-4 space-y-2">
-                                <template x-for="customer in customers" :key="customer.user_id">
+                            {{-- "Neu zu verteilen" section heading: only renders when at least one new customer is in the list. --}}
+                            <template x-if="newCustomers().length > 0">
+                                <div class="mt-4 mb-2 flex items-baseline gap-2 border-b border-sky-200 pb-1">
+                                    <h4 class="text-xs font-semibold uppercase tracking-wider text-sky-800">{{ __('admin.box_setup.new_section_heading') }}</h4>
+                                    <p class="text-[11px] text-gray-500">{{ __('admin.box_setup.new_section_hint') }}</p>
+                                </div>
+                            </template>
+
+                            <div class="mt-2 space-y-2">
+                                <template x-for="(customer, idx) in sortedCustomers()" :key="customer.form_key">
+                                    <div>
+                                        {{-- "Bereits eingerichtet" section heading appears right before the first existing-status card. --}}
+                                        <template x-if="idx === firstExistingIndex() && firstExistingIndex() >= 0">
+                                            <div class="mt-6 mb-2 flex items-baseline gap-2 border-b border-gray-200 pb-1">
+                                                <h4 class="text-xs font-semibold uppercase tracking-wider text-gray-700">{{ __('admin.box_setup.existing_section_heading') }}</h4>
+                                                <p class="text-[11px] text-gray-500">{{ __('admin.box_setup.existing_section_hint') }}</p>
+                                            </div>
+                                        </template>
                                     <div :class="['rounded border', customerCardClass(customer)]">
-                                        {{-- OK flag is submitted as customer_ok[user_id]=1 when checked. --}}
+                                        {{-- OK flag is submitted as customer_ok[<form_key>]=1 when checked.
+                                             form_key encodes the kind (`s_<user_id>` or `t_<order_id>`). --}}
                                         <template x-if="customer.ok">
-                                            <input type="hidden" :name="'customer_ok['+customer.user_id+']'" value="1" />
+                                            <input type="hidden" :name="'customer_ok['+customer.form_key+']'" value="1" />
                                         </template>
                                         {{-- Row header with flags + OK toggle. --}}
                                         <div class="flex flex-col gap-2 p-3 sm:flex-row sm:items-start sm:justify-between">
@@ -330,6 +370,23 @@
                                                     </button>
                                                     <span class="text-xs text-gray-500 break-all" x-text="customer.email"></span>
                                                     <span class="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-gray-700" x-text="sizeLabelByKey(customer.box_size)"></span>
+                                                    {{-- Trial badge: clearly distinguishes one-off trial
+                                                         orders from recurring subscription customers. --}}
+                                                    <template x-if="customer.kind === 'trial'">
+                                                        <span class="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-800">{{ __('admin.box_setup.kind_trial_badge') }}</span>
+                                                    </template>
+                                                    {{-- Composition-status badge: tells the admin whether
+                                                         this is a fresh new box (review may be needed) or a
+                                                         saved one. --}}
+                                                    <template x-if="customer.composition_status === 'existing'">
+                                                        <span class="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-700">{{ __('admin.box_setup.composition_status_existing') }}</span>
+                                                    </template>
+                                                    <template x-if="customer.composition_status === 'new_match'">
+                                                        <span class="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-800">{{ __('admin.box_setup.composition_status_new_match') }}</span>
+                                                    </template>
+                                                    <template x-if="customer.composition_status === 'new_diff'">
+                                                        <span class="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-800">{{ __('admin.box_setup.composition_status_new_diff') }}</span>
+                                                    </template>
                                                     <span class="inline-flex items-center gap-1.5 text-xs tabular-nums" :class="customerValueClass(customer)">
                                                         <span class="inline-block h-2 w-2 rounded-full" :class="customerValueDotClass(customer)" aria-hidden="true"></span>
                                                         <span x-text="formatEur(customerSum(customer))" class="font-semibold"></span>
@@ -362,8 +419,10 @@
                                                 </template>
                                             </div>
 
-                                            {{-- OK toggle (only renders when flagged). --}}
-                                            <template x-if="customerFlagged(customer)">
+                                            {{-- OK toggle: only renders when this customer actually needs admin
+                                                 sign-off (flagged + not already saved + not auto-OK because it
+                                                 matches the size template). Existing-saved boxes never show it. --}}
+                                            <template x-if="customerNeedsOk(customer)">
                                                 <label class="inline-flex shrink-0 items-center gap-2 rounded border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-800 cursor-pointer hover:bg-emerald-50">
                                                     <input type="checkbox" x-model="customer.ok" class="rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500" />
                                                     <span x-text="customer.ok ? @js(__('admin.box_setup.per_customer_ok_done')) : @js(__('admin.box_setup.per_customer_ok_label'))"></span>
@@ -394,6 +453,22 @@
                                                     {{ __('admin.box_setup.per_customer_eggs_auto_added') }}
                                                 </div>
                                             </template>
+                                            {{-- Pad-to-target leftover hint: shown when the controller
+                                                 added cheap leftover stock to bring the box value back
+                                                 toward the size target after allergens stripped items. --}}
+                                            <template x-if="customer.padded_from_leftover && customer.padded_from_leftover.length > 0">
+                                                <div class="mb-3 rounded border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                                                    <p class="font-semibold">{{ __('admin.box_setup.padded_from_leftover_hint') }}</p>
+                                                    <ul class="mt-1 list-inside list-disc">
+                                                        <template x-for="p in customer.padded_from_leftover" :key="'pad-' + p.product_id">
+                                                            <li>
+                                                                <span x-text="p.product_name"></span>
+                                                                <span class="ms-1 text-[11px] text-sky-700" x-text="'+' + p.quantity"></span>
+                                                            </li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </template>
 
                                             <table class="min-w-full text-xs">
                                                 <thead>
@@ -407,7 +482,7 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody class="divide-y divide-gray-100">
-                                                    <template x-for="(line, idx) in customer.lines" :key="customer.user_id + '-reg-' + idx + '-' + line.product_id">
+                                                    <template x-for="(line, idx) in customer.lines" :key="customer.form_key + '-reg-' + idx + '-' + line.product_id">
                                                         <tr :class="!productIsSafe(customer, line.product_id) ? 'bg-rose-50' : ''">
                                                             <td class="py-1 pe-2 align-top">
                                                                 <template x-if="productIsSafe(customer, line.product_id)">
@@ -422,7 +497,7 @@
                                                                 </template>
                                                             </td>
                                                             <td class="py-1 pe-2">
-                                                                <input type="hidden" :name="'customers['+customer.user_id+']['+idx+'][product_id]'" :value="line.product_id" />
+                                                                <input type="hidden" :name="'customers['+customer.form_key+']['+idx+'][product_id]'" :value="line.product_id" />
                                                                 <span x-text="productNameAny(line.product_id)" :class="productIsSafe(customer, line.product_id) ? 'font-medium text-gray-900' : 'font-semibold text-rose-900'"></span>
                                                                 <span x-text="productUnit(line.product_id)" class="ms-1 text-[11px] text-gray-500"></span>
                                                             </td>
@@ -442,7 +517,7 @@
                                                             <td class="py-1 pe-2">
                                                                 <div class="flex items-center gap-1">
                                                                     <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerDecQty(customer, idx)">−</button>
-                                                                    <input type="number" min="1" step="1" class="w-12 rounded border-gray-300 text-center text-xs tabular-nums shadow-sm" :name="'customers['+customer.user_id+']['+idx+'][quantity]'" x-model.number="line.quantity" />
+                                                                    <input type="number" min="1" step="1" class="w-12 rounded border-gray-300 text-center text-xs tabular-nums shadow-sm" :name="'customers['+customer.form_key+']['+idx+'][quantity]'" x-model.number="line.quantity" />
                                                                     <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerIncQty(customer, idx)">+</button>
                                                                 </div>
                                                             </td>
@@ -487,7 +562,7 @@
                                                     <template x-if="customer.eggsLines.length > 0">
                                                         <table class="mt-3 min-w-full text-xs">
                                                             <tbody class="divide-y divide-gray-100">
-                                                                <template x-for="(line, idx) in customer.eggsLines" :key="customer.user_id + '-eggs-' + idx + '-' + line.product_id">
+                                                                <template x-for="(line, idx) in customer.eggsLines" :key="customer.form_key + '-eggs-' + idx + '-' + line.product_id">
                                                                     <tr :class="!productIsSafe(customer, line.product_id) ? 'bg-rose-50' : ''">
                                                                         <td class="py-1 pe-2 align-top w-6">
                                                                             <template x-if="productIsSafe(customer, line.product_id)">
@@ -498,7 +573,7 @@
                                                                             </template>
                                                                         </td>
                                                                         <td class="py-1 pe-2">
-                                                                            <input type="hidden" :name="'customers['+customer.user_id+'][eggs_'+idx+'][product_id]'" :value="line.product_id" />
+                                                                            <input type="hidden" :name="'customers['+customer.form_key+'][eggs_'+idx+'][product_id]'" :value="line.product_id" />
                                                                             <span x-text="productNameAny(line.product_id)" class="font-medium text-gray-900"></span>
                                                                             <template x-if="(eggCandidates.find(e => e.product_id === line.product_id) || {}).producer_name">
                                                                                 <span class="ms-1 text-[11px] italic text-gray-500" x-text="'· ' + (eggCandidates.find(e => e.product_id === line.product_id) || {}).producer_name"></span>
@@ -508,7 +583,7 @@
                                                                         <td class="py-1 pe-2">
                                                                             <div class="flex items-center gap-1">
                                                                                 <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerDecEggsQty(customer, idx)">−</button>
-                                                                                <input type="number" min="1" step="1" class="w-12 rounded border-gray-300 text-center text-xs tabular-nums shadow-sm" :name="'customers['+customer.user_id+'][eggs_'+idx+'][quantity]'" x-model.number="line.quantity" />
+                                                                                <input type="number" min="1" step="1" class="w-12 rounded border-gray-300 text-center text-xs tabular-nums shadow-sm" :name="'customers['+customer.form_key+'][eggs_'+idx+'][quantity]'" x-model.number="line.quantity" />
                                                                                 <button type="button" class="rounded border border-gray-200 px-1 text-gray-600 hover:bg-gray-50" @click="customerIncEggsQty(customer, idx)">+</button>
                                                                             </div>
                                                                         </td>
@@ -534,8 +609,14 @@
                                             </template>
                                         </div>
                                     </div>
+                                    </div>
                                 </template>
                             </div>
+
+                            {{-- Empty-state line for the existing section if no customers have saved boxes yet. --}}
+                            <template x-if="newCustomers().length === 0 && existingCustomers().length === 0">
+                                <p class="mt-4 text-xs text-gray-500">{{ __('admin.box_setup.existing_section_empty') }}</p>
+                            </template>
                         </div>
                     </template>
 

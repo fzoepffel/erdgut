@@ -117,12 +117,17 @@ class AdminBoxSetupApplyRequest extends FormRequest
     {
         $this->merge([
             'sizes' => $this->normaliseLineMap($this->input('sizes', []), keyType: 'string'),
-            'customers' => $this->normaliseLineMap($this->input('customers', []), keyType: 'int'),
+            'customers' => $this->normaliseLineMap($this->input('customers', []), keyType: 'customer_key'),
         ]);
     }
 
     /**
      * Strip empty rows + `_delete` rows, coerce numerics, drop invalid keys.
+     *
+     * Customer keys accept three shapes for backwards compatibility:
+     *   - `s_<user_id>`  — subscription customer
+     *   - `t_<order_id>` — trial customer
+     *   - `<user_id>`    — legacy bare integer (treated as subscription)
      *
      * @param  mixed  $raw
      * @return array<int|string, list<array{product_id: int, quantity: int}>>
@@ -140,6 +145,14 @@ class AdminBoxSetupApplyRequest extends FormRequest
             }
             if ($keyType === 'int' && (! is_numeric($key) || (int) $key < 1)) {
                 continue;
+            }
+            if ($keyType === 'customer_key') {
+                $stringKey = (string) $key;
+                $isPrefixed = preg_match('/^[st]_\d+$/', $stringKey) === 1;
+                $isLegacyInt = is_numeric($key) && (int) $key > 0;
+                if (! $isPrefixed && ! $isLegacyInt) {
+                    continue;
+                }
             }
             if (! is_array($lines)) {
                 continue;
@@ -164,7 +177,15 @@ class AdminBoxSetupApplyRequest extends FormRequest
                 ];
             }
 
-            $clean[$keyType === 'int' ? (int) $key : (string) $key] = $filtered;
+            // Preserve original key shape: int when keyType=int, otherwise the
+            // stringified key (which keeps `s_<id>` / `t_<id>` intact AND
+            // accepts legacy bare integers — the apply controller will
+            // dispatch on the prefix).
+            if ($keyType === 'int') {
+                $clean[(int) $key] = $filtered;
+            } else {
+                $clean[(string) $key] = $filtered;
+            }
         }
 
         return $clean;

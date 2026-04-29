@@ -135,8 +135,12 @@ class ChargeSubscriptionsTest extends TestCase
         $this->assertSame($weekStart->toDateString(), $payment->fulfillment_week_start?->toDateString());
     }
 
-    public function test_charge_uses_trial_price_for_small_box_when_trial_billing_pending(): void
+    public function test_charge_uses_size_price_even_during_first_billing_period(): void
     {
+        // W2-16 item 2: the trial-flat-first-charge override is gone. A
+        // small box with the trial billing still pending used to charge
+        // 35 EUR (the flat trial price); now it charges 20 EUR (the
+        // size-based price), same as every other charge for this size.
         $user = User::factory()->create();
         $subscription = Subscription::factory()->withPendingTrialBilling()->create([
             'user_id' => $user->id,
@@ -151,7 +155,7 @@ class ChargeSubscriptionsTest extends TestCase
         $sumUpService->shouldReceive('createRecurringCheckout')
             ->once()
             ->withArgs(function ($amount, $customerId, $ref, $desc) {
-                return $amount === 35.0
+                return $amount === 20.0
                     && $customerId === 'cust_trial_small';
             })
             ->andReturn((object) ['id' => 'checkout_trial_small']);
@@ -167,7 +171,7 @@ class ChargeSubscriptionsTest extends TestCase
 
         $this->assertDatabaseHas('payments', [
             'subscription_id' => $subscription->id,
-            'amount' => 35,
+            'amount' => 20,
             'status' => Payment::STATUS_PENDING,
             'sumup_checkout_id' => 'checkout_trial_small',
         ]);

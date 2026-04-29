@@ -9,6 +9,7 @@ use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Enums\Timeslot;
 use App\Services\Billing\BoxPricing;
+use App\Support\DeliveryProjector;
 use Database\Factories\SubscriptionFactory;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -248,11 +249,72 @@ class Subscription extends Model
     }
 
     /**
-     * Whether the one-time trial price still applies before the first paid recurring charge.
+     * Wednesday of the first ISO week this subscription is expected to receive
+     * a delivery — the canonical Wed ship day used by
+     * {@see DeliveryProjector::scheduledDateForBoxWeek()}.
      *
-     * Trial uses {@see config('box.trial_price_ttc')} (TTC) for the charge and box budget,
-     * regardless of box_size, until {@see $trial_completed_at} is set when a recurring
-     * payment is marked paid (webhook).
+     * Used by the customer dashboard ("Your first delivery: Mi, 13. Mai")
+     * and by the activation hook that auto-projects the first Box +
+     * Delivery (W2-22 + W2-24 + W2 #3 + data-flow doc).
+     *
+     * Walks forward up to 26 weeks looking for the first week that matches
+     * the plan cadence and isn't inside a configured pause window. Returns
+     * null when the subscription isn't Active or every projected week falls
+     * inside the pause horizon.
+     */
+    public function firstExpectedDeliveryDate(?Carbon $now = null): ?Carbon
+    {
+        if ($this->status !== SubscriptionStatus::Active) {
+            return null;
+        }
+
+        $today = ($now ?? Carbon::today())->copy()->startOfDay();
+
+        // Start from today's Monday; if today is on/after this week's
+        // Wednesday, the canonical Wed has already passed → skip forward.
+        $weekStart = $today->copy()->startOfWeek(Carbon::MONDAY);
+        if ($weekStart->copy()->addDays(2)->lte($today)) {
+            $weekStart->addWeek();
+        }
+
+        // Honor next_charge_date when it sits later than today's window —
+        // e.g. a customer who set a future start date during onboarding,
+        // or whose trial week is still being delivered (in which case
+        // computeNextChargeDate already pushed next_charge_date out by a
+        // week). When next_charge_date is in the past, ignore it.
+        if ($this->next_charge_date !== null) {
+            $ncdMonday = Carbon::parse($this->next_charge_date)->copy()->startOfWeek(Carbon::MONDAY);
+            if ($ncdMonday->gt($weekStart)) {
+                $weekStart = $ncdMonday;
+            }
+        }
+
+        for ($i = 0; $i < 26; $i++) {
+            $matchesCadence = match ($this->plan) {
+                SubscriptionPlan::Weekly => true,
+                SubscriptionPlan::Biweekly => ((int) $weekStart->weekOfYear) % 2 === 0,
+            };
+
+            if ($matchesCadence && ! $this->isWithinPauseWindow($weekStart)) {
+                return $weekStart->copy()->addDays(2); // canonical Wednesday ship day
+            }
+
+            $weekStart->addWeek();
+        }
+
+        return null;
+    }
+
+    /**
+     * @deprecated W2-16 item 2: this used to flip pricing to a flat trial
+     *     amount before the first recurring payment had cleared. The
+     *     subscription model has been simplified — every charge is
+     *     `size-base + eggs-addon`, regardless of whether the customer is
+     *     still in their first billing period. The method is kept callable
+     *     so older analytics scripts still resolve, but pricing paths no
+     *     longer consult it; {@see $trial_completed_at} is informational
+     *     only (set by the webhook for the first successful recurring
+     *     payment).
      */
     public function isTrialBillingPending(): bool
     {
@@ -283,13 +345,15 @@ class Subscription extends Model
     }
 
     /**
-     * Base TTC for the subscription before add-ons: trial price or size-based included value.
+     * Base TTC for the subscription before add-ons: always size-based.
+     *
+     * W2-16 item 2 removed the trial-flat override; the method is kept so
+     * callers that want only the size base (no eggs add-on) have a clean
+     * accessor.
      */
     public function baseBillingAmountTtc(): float
     {
-        return $this->isTrialBillingPending()
-            ? BoxPricing::subscriptionTrialFlatTtc()
-            : BoxPricing::sizeBaseTtc((string) $this->box_size);
+        return BoxPricing::sizeBaseTtc((string) $this->box_size);
     }
 
     /**

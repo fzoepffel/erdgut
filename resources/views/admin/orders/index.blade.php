@@ -43,15 +43,6 @@
                         <a href="{{ route('app.admin.orders.index', array_filter(['product_type' => $productType])) }}" class="text-sm text-gray-600 underline">{{ __('Reset') }}</a>
                     @endif
                     </form>
-
-                    @if ($productType === 'trial_box')
-                        <a
-                            href="{{ route('app.admin.trial-boxes.setup.select') }}"
-                            class="btn-solid-sm"
-                        >
-                            {{ __('admin.trial_box_setup.bulk_entrypoint') }}
-                        </a>
-                    @endif
                 </div>
             </div>
 
