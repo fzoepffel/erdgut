@@ -155,6 +155,39 @@ final class WeeklyBoxPlannerService
     }
 
     /**
+     * Auto-project the first Box + Delivery for a subscription that just
+     * activated (token + Active status). Idempotent: if a Box already
+     * exists for the user's first eligible week, it's reused. Used by the
+     * onboarding wizard's `finalizeSetup` and by admin manual activation
+     * paths so the new sub appears in Box-Setup + Lieferungen
+     * immediately, without anyone having to re-open the planner.
+     *
+     * Returns the Box (existing or newly created), or null when the
+     * subscription has no expected delivery date (paused indefinitely,
+     * cancelled, etc.).
+     */
+    public function ensureFirstBoxForActivation(Subscription $subscription): ?Box
+    {
+        if ($subscription->status !== SubscriptionStatus::Active) {
+            return null;
+        }
+        if (empty($subscription->sumup_token)) {
+            // Without a payment mandate the SumUp charge will fail anyway —
+            // don't pollute the planner with a box we can't bill.
+            return null;
+        }
+
+        $deliveryDate = $subscription->firstExpectedDeliveryDate();
+        if ($deliveryDate === null) {
+            return null;
+        }
+
+        $weekStart = $deliveryDate->copy()->startOfWeek(Carbon::MONDAY);
+
+        return $this->ensureEmptyBox($subscription, $weekStart);
+    }
+
+    /**
      * Find existing box or create an empty editable box (no line items). Idempotent.
      */
     public function ensureEmptyBox(Subscription $subscription, Carbon $weekStart): Box
