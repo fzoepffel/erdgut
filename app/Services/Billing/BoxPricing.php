@@ -5,8 +5,15 @@ namespace App\Services\Billing;
 use App\Models\Subscription;
 
 /**
- * Single source of truth for box pricing across trial checkout, recurring
- * charges, and admin preview screens.
+ * Backwards-compatibility facade over {@see BoxPriceCalculator}.
+ *
+ * Pricing logic now lives in {@see BoxPriceCalculator} (single source of
+ * truth, database-free, `(size, eggsAddOn)` in / EUR out). This class is
+ * kept as a thin wrapper so existing call sites keep working while item 3
+ * of W2-16 swaps each surface to call the calculator directly.
+ *
+ * The trial-flat-first-charge override has been removed (W2-16 item 2):
+ * every subscription charge is `size-base + eggs-addon`, period.
  *
  * All amounts are TTC (tax-included, EUR). Methods return rounded floats
  * to 2 decimal places.
@@ -29,8 +36,11 @@ class BoxPricing
     }
 
     /**
-     * Flat one-off trial-marketing price used for the first recurring charge
-     * of a new subscription while trial_completed_at is null.
+     * @deprecated W2-16: the trial-flat-first-charge override is dead. The
+     *     `box.trial_price_ttc` config still exists but is no longer read
+     *     by subscription pricing paths. Standalone trial orders use
+     *     `trialOrderTotal()` (size-based). Kept callable for back-compat
+     *     in case external scripts referenced it.
      */
     public static function subscriptionTrialFlatTtc(): float
     {
@@ -54,36 +64,27 @@ class BoxPricing
      */
     public static function trialOrderTotal(string $boxSize, bool $eggsAddOn = false): float
     {
-        $total = self::sizeBaseTtc($boxSize);
-
-        if ($eggsAddOn) {
-            $total += self::eggsDairyAddOnTtc();
-        }
-
-        return round($total, 2);
+        return app(BoxPriceCalculator::class)->trialOneOff($boxSize, $eggsAddOn);
     }
 
     /**
      * Expected recurring charge amount (TTC) for a subscription.
      *
-     * While the trial window is pending (first recurring payment not yet
-     * settled), returns the flat marketing price. Otherwise returns the
-     * size-based price plus optional eggs/dairy add-on.
+     * Always size-based + optional eggs/dairy add-on, regardless of whether
+     * the subscription has had its first recurring charge yet (W2-16 item 2
+     * removed the trial-flat override that used to apply here).
      */
     public static function subscriptionRecurringTotal(Subscription $subscription): float
     {
-        $base = $subscription->isTrialBillingPending()
-            ? self::subscriptionTrialFlatTtc()
-            : self::sizeBaseTtc((string) $subscription->box_size);
-
-        $addOn = $subscription->hasEggsDairyAddOn() ? self::eggsDairyAddOnTtc() : 0.0;
-
-        return round($base + $addOn, 2);
+        return app(BoxPriceCalculator::class)->subscriptionPerDelivery(
+            (string) $subscription->box_size,
+            $subscription->hasEggsDairyAddOn(),
+        );
     }
 
     /**
      * Included value used for box budget / remainder calculations. Matches
-     * the recurring charge amount (trial flat or size-based plus add-ons).
+     * the recurring charge amount (size-based plus add-ons).
      */
     public static function subscriptionIncludedValueForBudget(Subscription $subscription): float
     {

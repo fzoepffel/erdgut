@@ -51,46 +51,31 @@ class BoxPricingTest extends TestCase
         $this->assertSame(46.5, BoxPricing::trialOrderTotal('large', true));
     }
 
-    public function test_subscription_recurring_total_uses_flat_trial_price_while_pending(): void
+    public function test_subscription_recurring_total_is_size_based_regardless_of_trial_state(): void
     {
+        // W2-16 item 2: trial-flat-first-charge override is dead. The same
+        // size returns the same price whether or not the customer has had
+        // their first recurring charge.
         $user = User::factory()->create();
-        $subscription = Subscription::factory()->for($user)->create([
+        $pending = Subscription::factory()->for($user)->create([
             'box_size' => 'large',
             'status' => SubscriptionStatus::Active,
             'trial_completed_at' => null,
             'preferences' => ['eggs_dairy_add_on' => false],
         ]);
 
-        $this->assertSame(35.0, BoxPricing::subscriptionRecurringTotal($subscription));
-    }
-
-    public function test_subscription_recurring_total_adds_eggs_while_trial_pending(): void
-    {
-        $user = User::factory()->create();
-        $subscription = Subscription::factory()->for($user)->create([
-            'box_size' => 'small',
-            'status' => SubscriptionStatus::Active,
-            'trial_completed_at' => null,
-            'preferences' => ['eggs_dairy_add_on' => true],
-        ]);
-
-        $this->assertSame(39.5, BoxPricing::subscriptionRecurringTotal($subscription));
-    }
-
-    public function test_subscription_recurring_total_uses_size_price_after_trial(): void
-    {
-        $user = User::factory()->create();
-        $subscription = Subscription::factory()->for($user)->create([
+        $completed = Subscription::factory()->for(User::factory()->create())->create([
             'box_size' => 'large',
             'status' => SubscriptionStatus::Active,
             'trial_completed_at' => now(),
             'preferences' => ['eggs_dairy_add_on' => false],
         ]);
 
-        $this->assertSame(42.0, BoxPricing::subscriptionRecurringTotal($subscription));
+        $this->assertSame(42.0, BoxPricing::subscriptionRecurringTotal($pending));
+        $this->assertSame(42.0, BoxPricing::subscriptionRecurringTotal($completed));
     }
 
-    public function test_subscription_recurring_total_adds_eggs_after_trial(): void
+    public function test_subscription_recurring_total_adds_eggs_addon(): void
     {
         $user = User::factory()->create();
         $subscription = Subscription::factory()->for($user)->create([

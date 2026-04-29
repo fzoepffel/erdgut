@@ -248,11 +248,15 @@ class Subscription extends Model
     }
 
     /**
-     * Whether the one-time trial price still applies before the first paid recurring charge.
-     *
-     * Trial uses {@see config('box.trial_price_ttc')} (TTC) for the charge and box budget,
-     * regardless of box_size, until {@see $trial_completed_at} is set when a recurring
-     * payment is marked paid (webhook).
+     * @deprecated W2-16 item 2: this used to flip pricing to a flat trial
+     *     amount before the first recurring payment had cleared. The
+     *     subscription model has been simplified — every charge is
+     *     `size-base + eggs-addon`, regardless of whether the customer is
+     *     still in their first billing period. The method is kept callable
+     *     so older analytics scripts still resolve, but pricing paths no
+     *     longer consult it; {@see $trial_completed_at} is informational
+     *     only (set by the webhook for the first successful recurring
+     *     payment).
      */
     public function isTrialBillingPending(): bool
     {
@@ -283,13 +287,15 @@ class Subscription extends Model
     }
 
     /**
-     * Base TTC for the subscription before add-ons: trial price or size-based included value.
+     * Base TTC for the subscription before add-ons: always size-based.
+     *
+     * W2-16 item 2 removed the trial-flat override; the method is kept so
+     * callers that want only the size base (no eggs add-on) have a clean
+     * accessor.
      */
     public function baseBillingAmountTtc(): float
     {
-        return $this->isTrialBillingPending()
-            ? BoxPricing::subscriptionTrialFlatTtc()
-            : BoxPricing::sizeBaseTtc((string) $this->box_size);
+        return BoxPricing::sizeBaseTtc((string) $this->box_size);
     }
 
     /**
