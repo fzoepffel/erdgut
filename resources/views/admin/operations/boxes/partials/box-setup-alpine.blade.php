@@ -2,6 +2,11 @@
     document.addEventListener('alpine:init', () => {
         Alpine.data('boxSetup', (initial) => ({
             marginRate: initial.margin_rate,
+            // Eggs add-on price (config('box.eggs_dairy_add_on_eur')). Customers
+            // with the eggs flag pay this on top of their size base TTC, so it
+            // must inflate their per-customer max (and shift the target by the
+            // planning margin) accordingly.
+            eggsAddOnEur: Number(initial.eggs_add_on_eur ?? 0),
             stockById: Object.fromEntries(initial.stock.map(r => [r.product_id, { ...r, missing_stock: !!r.missing_stock }])),
             stockOutOfWeekLabel: @js(__('admin.box_setup.stock_out_of_week')),
             sizes: Object.entries(initial.sizes).map(([key, lines]) => ({
@@ -27,8 +32,15 @@
                 }))
                 : [],
             customers: (initial.customers ?? []).map(c => ({
+                // Form key — `s_<user_id>` for subscriptions, `t_<order_id>`
+                // for trial orders. Used as the array key in customers[<key>]
+                // and customer_ok[<key>] so the apply controller knows how to
+                // route each row.
+                form_key: String(c.form_key ?? ('s_' + (c.user_id ?? 0))),
+                kind: String(c.kind ?? 'subscription'),
                 user_id: Number(c.user_id),
-                subscription_id: Number(c.subscription_id),
+                subscription_id: c.subscription_id != null ? Number(c.subscription_id) : null,
+                order_id: c.order_id != null ? Number(c.order_id) : null,
                 box_size: String(c.box_size),
                 name: String(c.name ?? ''),
                 email: String(c.email ?? ''),
@@ -43,10 +55,15 @@
                     ? c.eggs_lines.map(l => ({ product_id: Number(l.product_id), quantity: Number(l.quantity) }))
                     : [],
                 removed_allergen_items: Array.isArray(c.removed_allergen_items) ? c.removed_allergen_items : [],
+                padded_from_leftover: Array.isArray(c.padded_from_leftover) ? c.padded_from_leftover : [],
                 eggs_added: !!c.eggs_added,
                 eggs_missing: !!c.eggs_missing,
                 flags: Array.isArray(c.flags) ? c.flags.map(String) : [],
                 ok: !!c.ok, // pre-loaded from server when box previously OK'd
+                // 'existing' (saved already) | 'new_match' (no review needed)
+                // | 'new_diff' (admin review required). Drives sectioning,
+                // colors, and the OK toggle visibility.
+                composition_status: String(c.composition_status ?? 'new_diff'),
                 expanded: false,
                 addProductId: '',
                 addEggsProductId: '',
@@ -93,21 +110,37 @@
                 const pct = (size.meta.target / size.meta.max) * 100;
                 return Math.max(0, Math.min(100, pct));
             },
+            // Live "Verteilt" calculation: sum every per-customer line
+            // (regular + eggs) across the whole list. This reflects exactly
+            // what the admin sees in the Pro Kund:in panel — auto-distributed
+            // baseline + any per-customer adjustments + eggs slots — so when
+            // the admin adds, removes, or retunes a single customer's box,
+            // the Wochen-Bestand updates immediately.
+            //
+            // We deliberately do NOT add `baseline_used` from the server here.
+            // Items in boxes that map to a current customer would otherwise
+            // be double-counted (those items are already represented in
+            // `customer.lines` / `customer.eggsLines`). Orphan boxes (saved
+            // boxes that don't map to any current eligible sub/trial) are
+            // out of scope of this view; the "Alles zurücksetzen" button
+            // wipes them.
             get stockRows() {
                 const used = {};
-                for (const size of this.sizes) {
-                    const n = size.meta.n;
-                    for (const line of size.lines) {
+                for (const customer of this.customers) {
+                    for (const line of customer.lines) {
                         const pid = Number(line.product_id);
-                        const qty = Math.max(0, line.quantity || 0);
-                        used[pid] = (used[pid] || 0) + qty * n;
+                        const qty = Math.max(0, Number(line.quantity) || 0);
+                        used[pid] = (used[pid] || 0) + qty;
+                    }
+                    for (const line of customer.eggsLines) {
+                        const pid = Number(line.product_id);
+                        const qty = Math.max(0, Number(line.quantity) || 0);
+                        used[pid] = (used[pid] || 0) + qty;
                     }
                 }
                 return Object.values(this.stockById).map(row => {
                     const planned = Number(row.planned ?? 0);
-                    const baseline = Number(row.baseline_used ?? 0);
-                    const proposed = used[row.product_id] || 0;
-                    const total = baseline + proposed;
+                    const total = used[row.product_id] || 0;
                     return {
                         ...row,
                         planned,
@@ -213,23 +246,69 @@
             customerFlagged(c) {
                 return this.customerLiveFlags(c).length > 0;
             },
+            // OK toggle visibility:
+            //   - existing boxes don't need OK (already saved)
+            //   - new_match boxes don't need OK (composition matches existing
+            //     same-size boxes, no flags)
+            //   - new_diff boxes need OK whenever they're flagged
+            customerNeedsOk(c) {
+                if (c.composition_status === 'existing') return false;
+                if (c.composition_status === 'new_match' && !this.customerFlagged(c)) return false;
+                return this.customerFlagged(c);
+            },
             customerNeedsAttention(c) {
-                return this.customerFlagged(c) && !c.ok;
+                return this.customerNeedsOk(c) && !c.ok;
             },
             anyCustomerBlocking() {
                 return this.customers.some(c => this.customerNeedsAttention(c));
+            },
+            // ---- Sectioning helpers ----
+            isExistingCustomer(c) {
+                return c.composition_status === 'existing';
+            },
+            isNewCustomer(c) {
+                return c.composition_status === 'new_match' || c.composition_status === 'new_diff';
+            },
+            newCustomers() {
+                return this.customers.filter(c => this.isNewCustomer(c));
+            },
+            existingCustomers() {
+                return this.customers.filter(c => this.isExistingCustomer(c));
+            },
+            // Sorted: new (review needed first) → new_match → existing.
+            // The blade renders the existing-section header right before the
+            // first 'existing' card.
+            sortedCustomers() {
+                const rank = (c) => {
+                    if (c.composition_status === 'existing') return 2;
+                    if (c.composition_status === 'new_match') return 1;
+                    return 0; // new_diff
+                };
+                return [...this.customers].sort((a, b) => rank(a) - rank(b));
+            },
+            firstExistingIndex() {
+                const sorted = this.sortedCustomers();
+                return sorted.findIndex(c => this.isExistingCustomer(c));
             },
             customerSum(c) {
                 const sumLines = (rows) => rows.reduce((acc, l) => acc + (this.productPriceAny(l.product_id) * Math.max(0, l.quantity || 0)), 0);
                 return sumLines(c.lines) + sumLines(c.eggsLines);
             },
-            customerTarget(c) {
-                const meta = this.sizes.find(s => s.key === c.box_size)?.meta;
-                return Number(meta?.target ?? 0);
-            },
+            // Per-customer max = size sales-price TTC + eggs add-on (if the
+            // customer pays for eggs), since the customer was charged that
+            // total and the box value should be measured against it.
             customerMax(c) {
                 const meta = this.sizes.find(s => s.key === c.box_size)?.meta;
-                return Number(meta?.max ?? 0);
+                let max = Number(meta?.max ?? 0);
+                if (c.eggs) max += Number(this.eggsAddOnEur ?? 0);
+                return max;
+            },
+            // Target shifts proportionally with the planning margin so the
+            // green/amber/rose thresholds stay consistent: target = max · (1 − marginRate).
+            customerTarget(c) {
+                const max = this.customerMax(c);
+                const rate = Number(this.marginRate ?? 0);
+                return max * (1 - rate);
             },
             // Same green/yellow/red logic as retailClass(): green if at-or-below
             // target (under planning margin), amber if above target but at-or-
@@ -304,9 +383,22 @@
                 c.eggsLines[idx].quantity = next < 1 ? 1 : next;
             },
             customerCardClass(c) {
-                if (!this.customerFlagged(c)) return 'border-gray-200';
-                if (c.ok) return 'border-emerald-300 bg-emerald-50/40';
-                return 'border-rose-300 bg-rose-50/40';
+                // Existing (already saved) boxes get a quiet gray border —
+                // they're informational and don't need attention. The
+                // "Bereits eingerichtet" section header already conveys
+                // what they are.
+                if (c.composition_status === 'existing') return 'border-gray-200 bg-white';
+
+                // Flagged + not yet OK'd → rose, regardless of kind.
+                if (this.customerFlagged(c)) {
+                    if (c.ok) return 'border-emerald-300 bg-emerald-50/40';
+                    return 'border-rose-300 bg-rose-50/40';
+                }
+
+                // Trial customers get a violet tint to mirror the "Probebox"
+                // badge. Subscription new boxes stay sky.
+                if (c.kind === 'trial') return 'border-violet-300 bg-violet-50/40';
+                return 'border-sky-300 bg-sky-50/40';
             },
             sizeLabelByKey(key) {
                 return this.sizeLabel(key);

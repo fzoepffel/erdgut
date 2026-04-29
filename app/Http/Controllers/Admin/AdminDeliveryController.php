@@ -32,22 +32,41 @@ class AdminDeliveryController extends Controller
         $validated = $request->validated();
         $perPage = (int) ($validated['per_page'] ?? 25);
 
+        // Default the date_from to start-of-current-week if no date filter is
+        // supplied — past deliveries are usually noise, and admins almost
+        // always care about what's coming up. The "Reset filters" link
+        // lands them back here, and they can still override either bound.
+        $appliedDefaultDateFrom = false;
+        if (
+            empty($validated['date_from'])
+            && empty($validated['date_to'])
+            && empty($validated['status'])
+            && ($validated['trial_only'] ?? null) !== '1'
+        ) {
+            $validated['date_from'] = Carbon::now()->startOfWeek()->toDateString();
+            $appliedDefaultDateFrom = true;
+        }
+
         $query = Delivery::query()
             ->select([
                 'id',
                 'user_id',
                 'address_id',
+                'box_id',
+                'order_id',
                 'scheduled_for_date',
                 'status',
                 'timeslot',
                 'is_weekly_override',
                 'overrides_delivery_id',
-                'order_id',
+                'is_test',
                 'created_at',
             ])
             ->with([
                 'user:id,email',
                 'address:id,street_line_1,postal_code,city',
+                'box:id,week_start_date,user_id',
+                'order:id,product_type,box_size,scheduled_for_date',
             ]);
 
         if (! empty($validated['status'])) {
@@ -72,9 +91,21 @@ class AdminDeliveryController extends Controller
         // tie-break by id ascending so the order stays stable.
         $deliveries = $query->orderBy('scheduled_for_date')->orderBy('id')->paginate($perPage)->withQueryString();
 
+        // Count remaining orphans for the "Verwaiste löschen" prompt — only
+        // show the maintenance button when there's something to clean up.
+        $orphanCount = (int) Delivery::query()
+            ->where('status', DeliveryStatus::Scheduled)
+            ->whereNull('box_id')
+            ->whereNull('order_id')
+            ->where('is_weekly_override', false)
+            ->count();
+
         return view('admin.operations.deliveries.index', [
             'deliveries' => $deliveries,
             'deliveryStatuses' => DeliveryStatus::cases(),
+            'appliedDefaultDateFrom' => $appliedDefaultDateFrom,
+            'defaultDateFrom' => $validated['date_from'] ?? null,
+            'orphanCount' => $orphanCount,
         ]);
     }
 
@@ -94,6 +125,75 @@ class AdminDeliveryController extends Controller
             ->with('status', 'admin-deliveries-synced')
             ->with('admin_deliveries_sync_count', $count)
             ->with('admin_deliveries_sync_from', $from->toDateString());
+    }
+
+    /**
+     * Hard-delete a single delivery from the index. Audit log captures who
+     * removed what.
+     */
+    public function destroy(Request $request, Delivery $delivery): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        AuditLogger::log(
+            entityType: 'delivery',
+            entityId: $delivery->id,
+            action: 'admin_delete',
+            fromState: $delivery->status->value,
+            toState: null,
+            metadata: [
+                'user_id' => $delivery->user_id,
+                'scheduled_for_date' => $delivery->scheduled_for_date?->toDateString(),
+                'box_id' => $delivery->box_id,
+                'order_id' => $delivery->order_id,
+                'is_weekly_override' => $delivery->is_weekly_override,
+            ],
+            actorUserId: $request->user()?->id,
+        );
+
+        $delivery->delete();
+
+        return redirect()
+            ->route('app.admin.deliveries.index')
+            ->with('status', 'admin-delivery-deleted');
+    }
+
+    /**
+     * Delete every scheduled canonical delivery that has no Box and no
+     * Order behind it. Mirrors `php artisan deliveries:cleanup-orphans`.
+     */
+    public function cleanupOrphans(Request $request): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        $orphans = Delivery::query()
+            ->where('status', DeliveryStatus::Scheduled)
+            ->whereNull('box_id')
+            ->whereNull('order_id')
+            ->where('is_weekly_override', false)
+            ->get(['id', 'user_id', 'scheduled_for_date']);
+
+        foreach ($orphans as $orphan) {
+            AuditLogger::log(
+                entityType: 'delivery',
+                entityId: $orphan->id,
+                action: 'admin_cleanup_orphan',
+                fromState: 'scheduled',
+                toState: null,
+                metadata: [
+                    'user_id' => $orphan->user_id,
+                    'scheduled_for_date' => $orphan->scheduled_for_date?->toDateString(),
+                ],
+                actorUserId: $request->user()?->id,
+            );
+        }
+
+        $count = Delivery::query()->whereIn('id', $orphans->pluck('id'))->delete();
+
+        return redirect()
+            ->route('app.admin.deliveries.index')
+            ->with('status', 'admin-deliveries-orphans-cleaned')
+            ->with('admin_deliveries_orphans_count', $count);
     }
 
     public function create(Request $request): View

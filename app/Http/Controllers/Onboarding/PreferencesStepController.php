@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Onboarding;
 
 use App\Http\Requests\Onboarding\PreferencesStepRequest;
+use App\Services\Billing\BoxPriceCalculator;
 use App\Services\Onboarding\OnboardingDraftManager;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -10,7 +11,7 @@ use Illuminate\Http\Request;
 
 class PreferencesStepController extends OnboardingController
 {
-    public function show(Request $request): RedirectResponse|View
+    public function show(Request $request, BoxPriceCalculator $prices): RedirectResponse|View
     {
         if ($request->user() === null) {
             return redirect()->route('app.onboarding.step.'.OnboardingDraftManager::STEP_ACCOUNT);
@@ -18,9 +19,19 @@ class PreferencesStepController extends OnboardingController
 
         $draft = $this->drafts->currentOrCreate($request);
 
+        // W2-16 item 3: feed every size card the same calculator everyone
+        // else uses, so EUR 20 / 35 / 42 stays in lockstep with the
+        // recurring charge the customer eventually sees on /payment.
+        $sizePrices = [];
+        foreach (['small', 'medium', 'large'] as $size) {
+            $sizePrices[$size] = $prices->subscriptionPerDelivery($size);
+        }
+
         return view('onboarding.preferences', [
             'draft' => $draft,
             'data' => $draft->data ?? [],
+            'sizePrices' => $sizePrices,
+            'eggsAddOnEur' => (float) config('box.eggs_dairy_add_on_eur', 4.5),
         ]);
     }
 

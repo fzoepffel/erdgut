@@ -21,19 +21,10 @@
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
         <x-skip-link />
         <div class="flex min-h-screen flex-col" data-testid="guest-layout">
-            <div class="absolute right-4 top-4 sm:right-6 sm:top-6">
-                <x-language-selector />
-            </div>
+            <x-customer-header variant="auth" />
             <main id="main" tabindex="-1" class="flex flex-1 flex-col items-center justify-center px-4 py-14 sm:px-6 sm:py-20">
                 <div class="mb-10 text-center">
-                    <a
-                        href="{{ route('public.home') }}"
-                        class="inline-flex flex-col items-center gap-3 focus-visible:outline-none"
-                        data-testid="guest-layout-home"
-                    >
-                        <x-application-logo variant="outline" class="h-24 w-auto sm:h-28" />
-                    </a>
-                    <p class="mt-6 max-w-sm text-sm leading-relaxed text-brand-ink/70">{{ __('Sign in or create an account to manage your box.') }}</p>
+                    <p class="max-w-sm text-sm leading-relaxed text-brand-ink/70" data-testid="guest-layout-tagline">{{ __('Sign in or create an account to manage your box.') }}</p>
                 </div>
 
                 <div class="w-full max-w-md border border-brand-ink/15 bg-brand-cream/60 px-8 py-10 sm:px-10">

@@ -112,10 +112,13 @@ class DashboardPageTest extends TestCase
             'status' => DeliveryStatus::Scheduled,
         ]);
 
+        // Use a distinct date so we don't violate the new
+        // unique(user_id, scheduled_for_date, is_weekly_override) index
+        // (day+1 already has a Scheduled delivery from the loop above).
         Delivery::factory()->create([
             'user_id' => $user->id,
             'address_id' => $address->id,
-            'scheduled_for_date' => now()->addDays(1)->toDateString(),
+            'scheduled_for_date' => now()->addDays(10)->toDateString(),
             'timeslot' => 'skipped-slot',
             'status' => DeliveryStatus::Skipped,
         ]);

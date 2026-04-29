@@ -109,8 +109,11 @@ class AdminOrderControllerTest extends TestCase
         Mail::assertQueued(TrialDeliveryScheduledMail::class);
     }
 
-    public function test_schedule_is_blocked_for_trial_orders_without_box_items(): void
+    public function test_schedule_succeeds_for_trial_orders_without_box_items(): void
     {
+        // ERD: trial-box composition lives in Box-Setup, so scheduling now
+        // happens BEFORE the box is composed. The old "needs box first" gate
+        // would have blocked this — we now expect Paid → Scheduled.
         $user = User::factory()->create();
         $address = Address::factory()->create(['user_id' => $user->id]);
         $order = Order::create([
@@ -131,7 +134,7 @@ class AdminOrderControllerTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame(OrderStatus::Paid, $order->fresh()->status);
+        $this->assertSame(OrderStatus::Scheduled, $order->fresh()->status);
     }
 
     public function test_mark_delivered_updates_order_and_deliveries(): void

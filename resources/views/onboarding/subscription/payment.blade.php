@@ -8,9 +8,13 @@
     </p>
 
     @php
-        $firstBoxPrice = (float) config('box.trial_price_ttc', 35);
-        $recurringForSize = (float) config('box.included_value_by_size.'.$subscription->box_size, 20);
-        $samePrice = abs($firstBoxPrice - $recurringForSize) < 0.005;
+        // W2-16 item 3: every charge is the same number — size-base + eggs.
+        // No more "first box" vs "following deliveries" split. The
+        // calculator owns these numbers; if they change here they change
+        // everywhere (preferences cards, dashboard panel, SumUp checkout).
+        $eggsAddOn = (bool) data_get($subscription->preferences, 'eggs_dairy_add_on', false);
+        $eggsAddOnEur = (float) config('box.eggs_dairy_add_on_eur', 4.5);
+        $perDelivery = $subscription->expectedChargeAmount();
     @endphp
 
     <dl class="mt-6 border border-brand-ink/15 bg-brand-ink/[0.02] p-5 text-sm text-brand-ink/80">
@@ -22,21 +26,16 @@
             <dt class="eyebrow text-brand-ink/60">{{ __('Box size') }}</dt>
             <dd class="text-brand-ink">{{ __(ucfirst($subscription->box_size)) }}</dd>
         </div>
-        @if ($samePrice)
-            <div class="flex items-center justify-between gap-4 py-2">
-                <dt class="eyebrow text-brand-ink/60">{{ __('Per delivery') }}</dt>
-                <dd class="font-display text-lg text-brand-ink">{{ __('from EUR :amount', ['amount' => \App\Support\Money::format($firstBoxPrice)]) }}</dd>
-            </div>
-        @else
+        @if ($eggsAddOn)
             <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
-                <dt class="eyebrow text-brand-ink/60">{{ __('First box') }}</dt>
-                <dd class="font-display text-lg text-brand-ink">EUR @money($firstBoxPrice)</dd>
-            </div>
-            <div class="flex items-center justify-between gap-4 py-2">
-                <dt class="eyebrow text-brand-ink/60">{{ __('Following deliveries') }}</dt>
-                <dd class="text-brand-ink">{{ __('from EUR :amount each', ['amount' => \App\Support\Money::format($recurringForSize)]) }}</dd>
+                <dt class="eyebrow text-brand-ink/60">{{ __('Eggs add-on') }}</dt>
+                <dd class="text-brand-ink">+ {{ __('EUR :amount / delivery', ['amount' => \App\Support\Money::format($eggsAddOnEur)]) }}</dd>
             </div>
         @endif
+        <div class="flex items-center justify-between gap-4 py-2">
+            <dt class="eyebrow text-brand-ink/60">{{ __('Total per delivery') }}</dt>
+            <dd class="font-display text-lg text-brand-ink">EUR @money($perDelivery)</dd>
+        </div>
     </dl>
 
     <div class="mt-8">
@@ -50,6 +49,20 @@
         />
 
         <x-payment.security-badge />
+
+        {{-- W2-22 follow-up: a final review card at the bottom of the
+             payment step using the same summary component the right rail
+             shows. Lets the customer scan everything one last time before
+             handing over their card without scrolling back through the
+             wizard. Inline mode (not sticky) so it sits in document flow
+             below the SumUp widget. --}}
+        <section class="mt-10 border-t border-brand-ink/10 pt-8" data-testid="payment-final-review">
+            <h2 class="font-display text-xl text-brand-ink">{{ __('Review before you pay') }}</h2>
+            <p class="mt-2 text-sm text-brand-ink/70">{{ __('Everything you have told us so far. Tap any block to change it before adding your card.') }}</p>
+            <div class="mt-4 max-w-md">
+                <x-onboarding.summary :draft="$draft" :user="auth()->user()" />
+            </div>
+        </section>
 
         <div class="mt-6">
             <a href="{{ route('app.onboarding.step.subscription_schedule') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">

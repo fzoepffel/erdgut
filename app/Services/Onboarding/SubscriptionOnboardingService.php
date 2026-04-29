@@ -8,6 +8,7 @@ use App\Enums\SubscriptionStatus;
 use App\Mail\SubscriptionActivatedMail;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\Admin\WeeklyBoxPlannerService;
 use App\Services\Billing\SumUpMandateManager;
 use App\Support\SubscriptionLifecycleService;
 use App\Support\SumUpCheckoutLogger;
@@ -25,6 +26,7 @@ class SubscriptionOnboardingService
         private readonly SumUpService $sumUpService,
         private readonly SubscriptionLifecycleService $lifecycle,
         private readonly SumUpMandateManager $mandateManager,
+        private readonly WeeklyBoxPlannerService $planner,
     ) {}
 
     /**
@@ -169,6 +171,15 @@ class SubscriptionOnboardingService
         $subscription->activate();
 
         $fresh = $subscription->fresh();
+
+        // Auto-project the first Box + canonical Delivery so the new
+        // subscriber appears in Box-Setup and /admin/deliveries
+        // immediately. Idempotent — re-running finalizeSetup never
+        // duplicates the box. (W2 #3 + W2-22 + data-flow doc.)
+        if ($fresh !== null) {
+            $this->planner->ensureFirstBoxForActivation($fresh);
+        }
+
         if ($fresh !== null && ($fresh->user?->email ?? '') !== '') {
             Mail::to($fresh->user->email)->queue(new SubscriptionActivatedMail($fresh));
         }

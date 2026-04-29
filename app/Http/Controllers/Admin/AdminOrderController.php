@@ -14,9 +14,7 @@ use App\Models\Address;
 use App\Models\Box;
 use App\Models\Delivery;
 use App\Models\Order;
-use App\Models\Product;
 use App\Models\User;
-use App\Services\Admin\WeeklyBoxPlannerService;
 use App\Services\Onboarding\TrialOrderService;
 use App\Support\AuditLogger;
 use App\Support\BoxCompositionService;
@@ -154,75 +152,26 @@ class AdminOrderController extends Controller
         $order->load([
             'user',
             'address',
-            'box.items.product',
-            'box.items.product.translations',
             'deliveries.address',
             'payments' => fn ($q) => $q->latest(),
         ]);
 
-        $trialSetupWeek = null;
-        $bulkSetupUrl = null;
-        $catalogProducts = collect();
-        $budgetDetails = null;
-        $adminCanMutateItems = false;
-
-        $isTrial = $order->product_type === OrderProductType::TrialBox;
-        $isEligible = $isTrial && in_array($order->status, [OrderStatus::Paid, OrderStatus::Scheduled], true);
-        $hasBoxWithItems = $order->box !== null && $order->box->items->where('is_extra', false)->isNotEmpty();
-
-        if ($isEligible && ! $hasBoxWithItems) {
-            $trialSetupWeek = $this->resolveMondayForTrialSetup($order, request()->string('week')->toString());
-            $bulkSetupUrl = route('app.admin.trial-boxes.setup.show', [
-                'week' => $trialSetupWeek->toDateString(),
-                'order_ids' => [$order->id],
+        // Trial-box composition is owned by the unified Box-Setup view, so
+        // this page only deep-links there. The order has to be scheduled
+        // first (i.e. carry a `scheduled_for_date`) so we know which week's
+        // Box-Setup to open.
+        $boxSetupUrl = null;
+        if ($order->product_type === OrderProductType::TrialBox && $order->scheduled_for_date !== null) {
+            $monday = $order->scheduled_for_date->copy()->startOfWeek(Carbon::MONDAY);
+            $boxSetupUrl = route('app.admin.boxes.setup.show', [
+                'week' => $monday->toDateString(),
             ]);
-        }
-
-        if ($isEligible && $order->box !== null) {
-            $box = $order->box;
-            $adminCanMutateItems = $box->allowsAdminLineEdits();
-
-            $catalogQuery = Product::query();
-            if ($box->week_start_date !== null) {
-                $catalogQuery->availableForWeek($box->week_start_date);
-            } else {
-                $catalogQuery->visibleInCatalog();
-            }
-
-            $locale = app()->getLocale();
-            $catalogProducts = $catalogQuery
-                ->select('products.*')
-                ->join('product_translations as pt', function ($join) use ($locale): void {
-                    $join->on('pt.product_id', '=', 'products.id')->where('pt.locale', '=', $locale);
-                })
-                ->with('translations')
-                ->orderBy('pt.name')
-                ->get(['products.id']);
-
-            $included = round((float) config('box.included_value_by_size.'.(string) $order->box_size, 0), 2);
-            $estimated = round((float) ($box->estimated_value ?? 0), 2);
-            $marginRate = (float) config('box.admin_planning_margin_rate', 0);
-            $planningHint = $marginRate > 0 && $marginRate < 1
-                ? round($included * (1 - $marginRate), 2)
-                : null;
-
-            $budgetDetails = [
-                'included_budget' => $included,
-                'estimated_value' => $estimated,
-                'remainder' => round($included - $estimated, 2),
-                'over_budget' => $estimated > $included + 0.005,
-                'planning_hint' => $planningHint,
-            ];
         }
 
         return view('admin.orders.show', [
             'order' => $order,
             'timeslots' => Delivery::allowedTimeslots(),
-            'trialSetupWeek' => $trialSetupWeek,
-            'bulkSetupUrl' => $bulkSetupUrl,
-            'catalogProducts' => $catalogProducts,
-            'adminCanMutateItems' => $adminCanMutateItems,
-            'budgetDetails' => $budgetDetails,
+            'boxSetupUrl' => $boxSetupUrl,
         ]);
     }
 
@@ -230,13 +179,9 @@ class AdminOrderController extends Controller
     {
         $this->authorize('admin');
 
-        if ($order->product_type === OrderProductType::TrialBox) {
-            $order->loadMissing(['box.items' => fn ($q) => $q->where('is_extra', false)]);
-            $hasBoxWithItems = $order->box !== null && $order->box->items->isNotEmpty();
-            if (! $hasBoxWithItems) {
-                return back()->with('status', __('admin.trial_order_schedule.validation_needs_box'));
-            }
-        }
+        // Trial-box composition lives in Box-Setup, so scheduling now happens
+        // BEFORE the box is composed (it's the gateway that pins the trial
+        // order to a delivery week). No "needs box first" gate.
 
         $validated = $request->validate([
             'scheduled_for_date' => ['required', 'date', 'after_or_equal:today'],
@@ -312,25 +257,5 @@ class AdminOrderController extends Controller
         return redirect()
             ->route('app.admin.orders.show', $order)
             ->with('status', 'order-delivered');
-    }
-
-    private function resolveMondayForTrialSetup(Order $order, string $weekQuery): Carbon
-    {
-        if ($weekQuery !== '') {
-            $candidate = Carbon::parse($weekQuery)->startOfDay();
-            if ($candidate->isMonday()) {
-                return $candidate;
-            }
-        }
-
-        $boxWeek = $order->box?->week_start_date;
-        if ($boxWeek !== null) {
-            $d = Carbon::parse($boxWeek)->startOfDay();
-            if ($d->isMonday()) {
-                return $d;
-            }
-        }
-
-        return WeeklyBoxPlannerService::defaultUpcomingWeekMonday();
     }
 }

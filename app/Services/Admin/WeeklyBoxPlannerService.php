@@ -4,9 +4,12 @@ namespace App\Services\Admin;
 
 use App\Console\Commands\PrepareWeeklyBoxes;
 use App\Enums\BoxStatus;
+use App\Enums\OrderProductType;
+use App\Enums\OrderStatus;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Models\Box;
+use App\Models\Order;
 use App\Models\Subscription;
 use App\Services\SubscriberWeeklyDeliverySync;
 use App\Support\BoxCompositionService;
@@ -85,6 +88,32 @@ final class WeeklyBoxPlannerService
             ->values();
     }
 
+    /**
+     * Trial orders that should ship in the given delivery week. Match anything
+     * that's been paid or scheduled (i.e. ready to ship) AND has a
+     * scheduled_for_date that falls inside the Mon-Sun window — that's how
+     * trials get pinned to a delivery week in the wizard. Skip orders that
+     * already have a non-editable Box (delivered/locked) — they're frozen.
+     *
+     * @return Collection<int, Order>
+     */
+    public function eligibleTrialOrdersForWeek(Carbon $weekStart): Collection
+    {
+        $monday = $weekStart->copy()->startOfDay();
+        $sunday = $monday->copy()->endOfWeek(Carbon::SUNDAY);
+
+        return Order::query()
+            ->where('product_type', OrderProductType::TrialBox->value)
+            ->whereIn('status', [
+                OrderStatus::Paid->value,
+                OrderStatus::Scheduled->value,
+            ])
+            ->whereBetween('scheduled_for_date', [$monday->toDateString(), $sunday->toDateString()])
+            ->with(['user'])
+            ->orderBy('id')
+            ->get();
+    }
+
     public function matchesPlanCadence(Subscription $subscription, Carbon $weekStart): bool
     {
         if ($subscription->plan === SubscriptionPlan::Weekly) {
@@ -123,6 +152,39 @@ final class WeeklyBoxPlannerService
             ->forWeek($weekStart->toDateString())
             ->whereNull('order_id')
             ->exists();
+    }
+
+    /**
+     * Auto-project the first Box + Delivery for a subscription that just
+     * activated (token + Active status). Idempotent: if a Box already
+     * exists for the user's first eligible week, it's reused. Used by the
+     * onboarding wizard's `finalizeSetup` and by admin manual activation
+     * paths so the new sub appears in Box-Setup + Lieferungen
+     * immediately, without anyone having to re-open the planner.
+     *
+     * Returns the Box (existing or newly created), or null when the
+     * subscription has no expected delivery date (paused indefinitely,
+     * cancelled, etc.).
+     */
+    public function ensureFirstBoxForActivation(Subscription $subscription): ?Box
+    {
+        if ($subscription->status !== SubscriptionStatus::Active) {
+            return null;
+        }
+        if (empty($subscription->sumup_token)) {
+            // Without a payment mandate the SumUp charge will fail anyway —
+            // don't pollute the planner with a box we can't bill.
+            return null;
+        }
+
+        $deliveryDate = $subscription->firstExpectedDeliveryDate();
+        if ($deliveryDate === null) {
+            return null;
+        }
+
+        $weekStart = $deliveryDate->copy()->startOfWeek(Carbon::MONDAY);
+
+        return $this->ensureEmptyBox($subscription, $weekStart);
     }
 
     /**

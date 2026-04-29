@@ -19,33 +19,7 @@
     <body class="bg-brand-cream font-sans text-brand-ink antialiased">
         <x-skip-link />
         <div class="min-h-screen flex flex-col" data-testid="onboarding-layout">
-            <header class="border-b border-brand-ink/10 bg-brand-paper">
-                <div class="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
-                    <a href="{{ route('public.home') }}" class="flex items-center gap-3">
-                        <x-application-logo variant="filled" :withWordmark="false" class="h-14 w-auto" />
-                        <span class="flex flex-col leading-tight">
-                            {{-- Show the editorial eyebrow only on the first onboarding
-                                 step. On subsequent steps the progress bar already tells
-                                 the user where they are; the wordmark + logo are enough
-                                 to carry the brand. --}}
-                            @if (($step ?? null) === 'commitment')
-                                <span class="eyebrow text-chapter-produce">{{ __('A seat at the table') }}</span>
-                            @endif
-                            <span class="font-display text-base font-semibold text-brand-ink">{{ config('app.name', 'Erdgut') }}</span>
-                        </span>
-                    </a>
-                    <div class="flex items-center gap-4">
-                        <x-language-selector />
-                        @auth
-                            <form method="POST" action="{{ route('auth.logout') }}">@csrf
-                                <button type="submit" class="text-sm text-brand-ink/60 hover:text-brand-ink underline-offset-4 hover:underline">{{ __('Log out') }}</button>
-                            </form>
-                        @else
-                            <a href="{{ route('auth.login') }}" class="text-sm text-brand-ink/60 hover:text-brand-ink underline-offset-4 hover:underline">{{ __('Log in') }}</a>
-                        @endauth
-                    </div>
-                </div>
-            </header>
+            <x-customer-header variant="wizard" />
 
             <main id="main" class="flex-1" tabindex="-1">
                 <div class="max-w-5xl mx-auto px-4 sm:px-6 py-10 grid gap-8 lg:grid-cols-[1fr_320px]">
@@ -60,42 +34,9 @@
                     </div>
 
                     <aside class="lg:pl-4">
-                        <div class="border-t-2 border-chapter-produce bg-white/70 p-5 sticky top-6">
-                            <p class="eyebrow text-chapter-produce">{{ __('Your box') }}</p>
-                            <dl class="mt-3 text-sm space-y-2 text-brand-ink/80">
-                                @isset($draft)
-                                    @php($data = $draft->data ?? [])
-                                    @if(isset($data['box_size']))
-                                        <div class="flex justify-between">
-                                            <dt>{{ __('Size') }}</dt>
-                                            <dd class="font-medium">{{ __(ucfirst($data['box_size'])) }}</dd>
-                                        </div>
-                                    @endif
-                                    @if(in_array($draft->intent, ['trial', 'subscription'], true))
-                                        <div class="flex justify-between">
-                                            <dt>{{ __('Intent') }}</dt>
-                                            <dd class="font-medium">{{ __(ucfirst($draft->intent)) }}</dd>
-                                        </div>
-                                    @endif
-                                    {{-- Only customer-facing flags belong here.
-                                         veg_only / meat_add_on are forced product policy. --}}
-                                    @if(!empty($data['preferences']['eggs_dairy_add_on']))
-                                        <div>
-                                            <dt class="mb-1">{{ __('Extras') }}</dt>
-                                            <dd class="text-xs text-brand-ink/70">
-                                                <span class="inline-block px-2 py-0.5 mr-1 mb-1 bg-chapter-eggdairy/10 text-chapter-eggdairy">{{ __('Eggs add-on') }}</span>
-                                            </dd>
-                                        </div>
-                                    @endif
-                                    @if(!empty($data['allergies']))
-                                        <div>
-                                            <dt class="mb-1">{{ __('Allergies') }}</dt>
-                                            <dd class="text-xs text-brand-ink/70">{{ implode(', ', $data['allergies']) }}</dd>
-                                        </div>
-                                    @endif
-                                @endisset
-                            </dl>
-                        </div>
+                        @isset($draft)
+                            <x-onboarding.summary :draft="$draft" :user="auth()->user()" />
+                        @endisset
                     </aside>
                 </div>
             </main>
