@@ -447,6 +447,18 @@ If you see `UnsupportedSchemeException`, check `MAIL_SCHEME` is `smtp` or `smtps
 | `npm run build` | Build production assets |
 | `npm run dev` | Start Vite dev server |
 
+### Scheduled / cron commands
+
+The app does not use Laravel's scheduler (no Node/`schedule:run` in this hosting setup). Each maintenance command runs from a server cron entry.
+
+| Command | Suggested cron | What it does |
+|---------|----------------|--------------|
+| `php artisan onboarding:prune-drafts` | hourly | Drop expired wizard drafts. |
+| `php artisan deliveries:cleanup-orphans` | daily | Drop scheduled deliveries with no Box and no Order behind them. |
+| `php artisan users:cleanup-orphans` | daily | Drop unverified User rows older than 14 days that never picked a plan and never placed a trial order. Use `--older-than-days=N` to change the threshold; `--dry-run` to preview. |
+| `php artisan deliveries:send-reminders` | daily, 17:00 server time | Send delivery-reminder emails for deliveries scheduled tomorrow. |
+| `php artisan sumup:reconcile-pending` | every 5 min | Reconcile pending SumUp payments against the API. |
+
 ## Troubleshooting
 
 ### "No application encryption key has been specified"

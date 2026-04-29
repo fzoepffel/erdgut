@@ -20,6 +20,15 @@ class CommitmentStepController extends OnboardingController
         $draft = $this->drafts->currentOrCreate($request);
         $data = $draft->data ?? [];
 
+        // W2-04 / W2-7: if the customer already declared an intent (via the
+        // marketing 'Subscribe' / 'Try once' CTA), the commit step is
+        // redundant — skip to whatever the draft considers next. Direct
+        // visits to /onboard/commitment after intent is set get bounced
+        // forward instead of asking the question again.
+        if (in_array($draft->intent, [OnboardingDraftManager::INTENT_TRIAL, OnboardingDraftManager::INTENT_SUBSCRIPTION], true)) {
+            return $this->redirectToNextStep($draft, $request);
+        }
+
         // W2-16 item 3: subscription card subtitle is now per-size + eggs,
         // computed once from the calculator. The previous hardcoded
         // "from EUR 20" lied about every non-Klein subscription.

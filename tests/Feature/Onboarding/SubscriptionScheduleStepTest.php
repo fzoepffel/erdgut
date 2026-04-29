@@ -6,6 +6,7 @@ use App\Enums\Timeslot;
 use App\Models\OnboardingDraft;
 use App\Models\User;
 use App\Services\Onboarding\OnboardingDraftManager;
+use App\Support\DeliveryZoneResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -95,5 +96,54 @@ class SubscriptionScheduleStepTest extends TestCase
                 'preferred_timeslot' => Timeslot::Morning->value,
             ])
             ->assertSessionHasErrors('delivery_weekday');
+    }
+
+    public function test_w2_11_drops_no_preference_placeholder_and_pre_selects_first_valid_options(): void
+    {
+        // The 'No preference' placeholder option used to be the default
+        // selection; clicking 'Continue to Payment' without touching the
+        // dropdowns sent value="" and failed required_if validation. The
+        // controller now pre-selects the first valid weekday + timeslot
+        // and the placeholder is gone from the markup.
+        $user = User::factory()->create();
+        $this->draftFor($user);
+
+        $html = $this->actingAs($user)
+            ->get(route('app.onboarding.step.subscription_schedule'))
+            ->assertOk()
+            ->assertDontSee(__('No preference'))
+            ->getContent();
+
+        // No empty <option value=""> on either select — both are pre-selected.
+        $this->assertStringNotContainsString('<option value="">', $html);
+    }
+
+    public function test_w2_11_click_through_without_touching_dropdowns_passes_validation(): void
+    {
+        // Reproduce the trap: a customer who hits the page, doesn't touch
+        // the weekday/timeslot dropdowns, and submits the default values.
+        // The page now ships with valid defaults so this round-trips.
+        $user = User::factory()->create();
+        $draft = $this->draftFor($user);
+
+        // Read the defaults the controller pre-selected, then post them.
+        $this->actingAs($user)->get(route('app.onboarding.step.subscription_schedule'));
+        $draft->refresh();
+        // Note: the controller fills $data only for the view payload, not
+        // the persisted draft — so we read the zone defaults directly.
+        $zone = app(DeliveryZoneResolver::class);
+        $zoneKey = $zone->resolveZoneKey($user->id);
+        $defaultWeekday = (int) $zone->allowedWeekdays($zoneKey)[0];
+        $defaultSlot = (string) $zone->allowedTimeslots($zoneKey)[0];
+
+        $this->actingAs($user)
+            ->post(route('app.onboarding.step.subscription_schedule.store'), [
+                'plan' => 'weekly',
+                'fulfillment_mode' => 'delivery',
+                'delivery_weekday' => $defaultWeekday,
+                'preferred_timeslot' => $defaultSlot,
+            ])
+            ->assertRedirect(route('app.onboarding.step.subscription_payment'))
+            ->assertSessionDoesntHaveErrors();
     }
 }
