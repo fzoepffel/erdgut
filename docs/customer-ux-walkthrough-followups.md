@@ -60,9 +60,9 @@ Driven by what users actually need on this page each week. Worth instrumenting f
 
 `<x-secondary-button>` "Abo behalten" carries `data-default-focus`, and `components/modal.blade.php` now prioritises any `[data-default-focus]` child over the first focusable on open. Verified in PR #51 batch.
 
-### Schedule-step "PLANEN" label (~5 min)
+### ~~Schedule-step "PLANEN" label~~ ✓ already correct
 
-The progress bar shows step 5 as `PLANEN` (German for "Schedule" via the existing `lang/de.json` lookup). Reads slightly off. "ZEITPLAN" or just "PLAN" might be cleaner. Low priority.
+`lang/de.json:663` already maps `"Schedule": "Zeitplan"`. The progress-bar's `uppercase` Tailwind class renders it as `ZEITPLAN` at runtime. Earlier "PLANEN" sighting was likely from a stale build / cached translation.
 
 ### Onboarding header brand (~1h, optional)
 
@@ -72,9 +72,9 @@ The onboarding pages render `<x-application-logo>` + the wordmark text "Erdgut" 
 
 W2-16 collapsed first-vs-recurring entirely: every charge is now `BoxPriceCalculator::subscriptionPerDelivery($size, $eggsAddOn)`, so the payment-step price summary shows a single "Total per delivery" row plus an optional eggs-add-on adjustment. The "first box" / "following deliveries" split is gone.
 
-### Skip-card week range (~10 min, optional)
+### ~~Skip-card week range~~ ✓ already implemented
 
-The skip-tab cards now show `4. Mai` + `KW 19`. Could also show the closing day as a range: `4.–10. Mai` + `KW 19`. Decided against in the walkthrough since it adds visual weight, but worth re-evaluating with a real subscriber.
+`resources/views/subscriptions/show.blade.php:246-248` renders the range as `4.–10. Mai` (same-month) / `27. Apr–3. Mai` (cross-month). Doc snapshot was outdated.
 
 ### Admin button styling consistency (~30 min)
 
