@@ -35,6 +35,7 @@ class AdminSubscriptionController extends Controller
                 'plan',
                 'box_size',
                 'status',
+                'preferences', // needed for expectedChargeAmount → eggs add-on detection
                 'next_charge_date',
                 'pause_from',
                 'pause_until',

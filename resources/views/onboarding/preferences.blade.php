@@ -25,6 +25,9 @@
                         <span class="flex flex-col gap-1">
                             <span class="font-display text-lg font-semibold text-brand-ink">{{ __(ucfirst($size)) }}</span>
                             <span class="text-xs leading-relaxed text-brand-ink/70">{{ __('box_size.description.' . $size) }}</span>
+                            <span class="mt-1 font-display text-sm text-brand-ink">
+                                {{ __('box_size.price_per_delivery', ['amount' => number_format($sizePrices[$size] ?? 0, 2, ',', '.')]) }}
+                            </span>
                         </span>
                     </label>
                 @endforeach

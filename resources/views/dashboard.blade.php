@@ -155,6 +155,12 @@
                             <p class="mt-3 font-display text-2xl text-brand-ink">
                                 {{ __('status.'.$primarySubscription->status->value) }}
                             </p>
+                            {{-- W2-16 item 3: surface the recurring price so the customer
+                                 can spot-check it against the wizard's payment step + the
+                                 actual SumUp charge they'll see on the card statement. --}}
+                            <p class="mt-1 text-sm text-brand-ink/70">
+                                {{ __('EUR :amount / delivery', ['amount' => number_format($primarySubscription->expectedChargeAmount(), 2, ',', '.')]) }}
+                            </p>
                             <a href="{{ route('app.subscriptions.show') }}"
                                class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
                                data-track-section="glance.subscription"
