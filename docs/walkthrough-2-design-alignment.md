@@ -544,13 +544,13 @@ Ordered by combined impact + correctness urgency. Each row maps to one PR-ish un
 | 4 | **Per-customer admin detail page (`/app/admin/users/{user}`)** | W2-33, W2-34, W2-31a | ✓ shipped (PR #29) |
 | 5 | **Unified customer-facing header (single brand chrome)** | W2-01, W2-02, W2-10, W2-21, W2-26, W2-18 | ✓ shipped (PR #48 → `<x-customer-header>` 3 variants) |
 | 6 | **Wizard sidebar: progressive summary of everything gathered** | W2-17, W2-06, W2-13 | ✓ shipped (PR #47 → `<x-onboarding.summary>`) |
-| 7 | **MODELL flow correction** | W2-04 | open |
-| 8 | **Wizard step trim + step indicator polish** *(no reorder)* | W2-03, W2-08 | open |
+| 7 | **MODELL flow correction** | W2-04 | ✓ shipped (PR #54 → preferences-step uses `OnboardingDraftManager::nextStep()` instead of hardcoding commitment, and commitment-show bounces forward when intent is already set) |
+| 8 | **Wizard step trim + step indicator polish** *(no reorder)* | W2-03, W2-08 | ✓ shipped (PR #54 → 4 visible segments: Konto · Adresse · Box · Zahlung; the actual 5–6 internal steps still run) |
 | 9 | **Box-size cards: clearer "Pro Lieferung" + brand visual treatment** | W2-11, W2-12 | open — copy now reads "EUR :amount / Lieferung" via `box_size.price_per_delivery` (preferences step), brand silhouette still pending |
-| 10 | **Brand-new-subscriber dashboard hero + verify-email continuity** | W2-24, W2-25, W2-20 | partial — hero shipped (PR #46+#49), verify-email continuity still pending |
-| 11 | **Schedule "Keine Präferenz" trap** | W2-14 | open |
-| 12 | **Auth-state-aware wizard header** | W2-07 | open (may fall out of #5 — verify next walkthrough) |
-| 13 | **Orphan-user cleanup** | W2-27 | open |
+| 10 | **Brand-new-subscriber dashboard hero + verify-email continuity** | W2-24, W2-25, W2-20 | ✓ shipped — hero shipped (PR #46+#49); verify-email already routes through `<x-customer-header variant="auth">` (PR #48) so the "fifth standalone layout" ask is closed. |
+| 11 | **Schedule "Keine Präferenz" trap** | W2-14 | ✓ shipped (PR #54 → controller pre-selects first valid weekday + timeslot; placeholder option dropped from the markup) |
+| 12 | **Auth-state-aware wizard header** | W2-07 | ✓ shipped via PR #48 — wizard variant of `<x-customer-header>` only renders the logout link when `@auth`, never an "Anmelden" link. |
+| 13 | **Orphan-user cleanup** | W2-27 | ✓ shipped (PR #54 → `users:cleanup-orphans` Artisan command with --older-than-days + --dry-run; daily cron suggested in the README) |
 | 14 | **Final review / payment-page summary placement** | W2-28 | ✓ shipped (PR #49 → payment-step uses `<x-onboarding.summary>` as a review card) |
 | 15 | **Admin terminology + label polish** | W2-32, W2-35 | open |
 | 16 | **Dev-env: real CSP fix for Vite + retire `npm run build` workaround** | W2-DEV-02 | open |
