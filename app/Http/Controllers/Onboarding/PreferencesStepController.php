@@ -44,13 +44,20 @@ class PreferencesStepController extends OnboardingController
         $draft = $this->drafts->currentOrCreate($request);
         $validated = $request->validated();
 
+        // W2-04 / W2-7: when the customer already declared their intent
+        // (e.g. arrived via the marketing 'Subscribe' CTA — `?intent=subscription`),
+        // the commitment step's 'Try once vs Subscribe' is redundant. Defer
+        // routing to OnboardingDraftManager::nextStep() which already skips
+        // commitment when intent is set.
         $this->drafts->update($draft, [
             'box_size' => $validated['box_size'],
             'preferences' => $validated['preferences'],
             'allergies' => $validated['allergies'] ?? [],
             'preferences_completed' => true,
-        ], OnboardingDraftManager::STEP_COMMITMENT);
+        ]);
 
-        return redirect()->route('app.onboarding.step.'.OnboardingDraftManager::STEP_COMMITMENT);
+        $next = $this->drafts->nextStep($draft->fresh(), $request->user());
+
+        return redirect()->route('app.onboarding.step.'.$next);
     }
 }

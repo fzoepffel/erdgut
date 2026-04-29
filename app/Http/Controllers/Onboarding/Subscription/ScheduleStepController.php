@@ -24,14 +24,27 @@ class ScheduleStepController extends OnboardingController
         $draft = $this->drafts->currentOrCreate($request);
         $data = $draft->data ?? [];
         $zoneKey = $zone->resolveZoneKey($user->id);
+        $allowedWeekdays = $zone->allowedWeekdays($zoneKey);
+        $timeslots = $zone->allowedTimeslots($zoneKey);
+
+        // W2-11: pre-select the first valid weekday + timeslot so a
+        // straight-through customer who clicks 'Continue to Payment' without
+        // touching the dropdowns submits a valid value (the placeholder
+        // 'No preference' option used to fail validation here).
+        if (! isset($data['delivery_weekday']) && $allowedWeekdays !== []) {
+            $data['delivery_weekday'] = (int) $allowedWeekdays[0];
+        }
+        if (empty($data['preferred_timeslot']) && $timeslots !== []) {
+            $data['preferred_timeslot'] = (string) $timeslots[0];
+        }
 
         return view('onboarding.subscription.schedule', [
             'draft' => $draft,
             'data' => $data,
             'plans' => [SubscriptionPlan::Weekly, SubscriptionPlan::Biweekly],
             'fulfillmentModes' => FulfillmentMode::cases(),
-            'timeslots' => $zone->allowedTimeslots($zoneKey),
-            'allowedWeekdays' => $zone->allowedWeekdays($zoneKey),
+            'timeslots' => $timeslots,
+            'allowedWeekdays' => $allowedWeekdays,
         ]);
     }
 

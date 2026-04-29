@@ -68,7 +68,9 @@
                 <x-input-label for="delivery_weekday" :value="__('Preferred weekday')" />
                 <select id="delivery_weekday" name="delivery_weekday"
                         class="mt-2 block w-full border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0">
-                    <option value="">{{ __('No preference') }}</option>
+                    {{-- W2-11: no 'No preference' placeholder. The controller
+                         pre-selects the first valid weekday so a click-through
+                         customer submits a valid value. --}}
                     @foreach($allowedWeekdays as $dayValue)
                         <option value="{{ $dayValue }}" {{ (string) ($data['delivery_weekday'] ?? '') === (string) $dayValue ? 'selected' : '' }}>
                             {{ $weekdayLabels[$dayValue] ?? $dayValue }}
@@ -83,7 +85,6 @@
                 <x-input-label for="preferred_timeslot" :value="__('Preferred timeslot')" />
                 <select id="preferred_timeslot" name="preferred_timeslot"
                         class="mt-2 block w-full border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0">
-                    <option value="">{{ __('No preference') }}</option>
                     @foreach($timeslots as $slot)
                         <option value="{{ $slot }}" {{ ($data['preferred_timeslot'] ?? '') === $slot ? 'selected' : '' }}>
                             {{ $slot }}

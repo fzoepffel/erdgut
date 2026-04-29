@@ -1,32 +1,46 @@
 @props(['step' => 'account', 'intent' => 'undecided'])
 
 @php
-    // Each onboarding step is a chapter page — the dots cycle through the
-    // catalogue palette so the wizard feels like turning pages rather than
-    // filling a form.
-    $sharedSteps = [
-        ['id' => 'account', 'label' => __('Account'), 'chapter' => 'produce'],
-        ['id' => 'address', 'label' => __('Address'), 'chapter' => 'producers'],
-        ['id' => 'preferences', 'label' => __('Preferences'), 'chapter' => 'eggdairy'],
-        ['id' => 'commitment', 'label' => __('Commitment'), 'chapter' => 'almanach'],
+    // W2-08: the progress indicator collapses to four visible segments —
+    // Konto · Adresse · Box · Zahlung — to match the homepage's "4 steps"
+    // promise. Internally the wizard still has up to six actual steps (the
+    // 'Box' segment encompasses preferences, commitment, schedule/delivery);
+    // we just don't expose that to the customer's eye.
+    //
+    // Each visible segment lists the actual step IDs that map to it — the
+    // segment is highlighted whenever the current $step is in its match set.
+    // Order matters: the first segment whose match set contains $step is
+    // treated as the current one (everything before is 'completed', after is
+    // 'pending').
+    $visibleSegments = [
+        [
+            'label' => __('Account'),
+            'chapter' => 'produce',
+            'match' => ['account'],
+        ],
+        [
+            'label' => __('Address'),
+            'chapter' => 'producers',
+            'match' => ['address'],
+        ],
+        [
+            'label' => __('Box'),
+            'chapter' => 'eggdairy',
+            'match' => ['preferences', 'commitment', 'subscription_schedule', 'trial_delivery'],
+        ],
+        [
+            'label' => __('Payment'),
+            'chapter' => 'meat',
+            'match' => ['subscription_payment', 'trial_payment'],
+        ],
     ];
 
-    if ($intent === 'trial') {
-        $sharedSteps[] = ['id' => 'trial_delivery', 'label' => __('Delivery'), 'chapter' => 'fish'];
-        $sharedSteps[] = ['id' => 'trial_payment', 'label' => __('Payment'), 'chapter' => 'meat'];
-    } elseif ($intent === 'subscription') {
-        $sharedSteps[] = ['id' => 'subscription_schedule', 'label' => __('Schedule'), 'chapter' => 'fish'];
-        $sharedSteps[] = ['id' => 'subscription_payment', 'label' => __('Payment'), 'chapter' => 'meat'];
-    } else {
-        // Intent not yet chosen — show generic last two steps so the user
-        // knows the journey has 6 steps total, not 4.
-        $sharedSteps[] = ['id' => '__delivery', 'label' => __('Delivery'), 'chapter' => 'fish'];
-        $sharedSteps[] = ['id' => '__payment', 'label' => __('Payment'), 'chapter' => 'meat'];
-    }
-
-    $currentIndex = array_search($step, array_column($sharedSteps, 'id'), true);
-    if ($currentIndex === false) {
-        $currentIndex = 0;
+    $currentIndex = 0;
+    foreach ($visibleSegments as $i => $seg) {
+        if (in_array($step, $seg['match'], true)) {
+            $currentIndex = $i;
+            break;
+        }
     }
 
     // Per-chapter tailwind class maps — literal classes so Tailwind's JIT
@@ -41,20 +55,20 @@
     ];
 @endphp
 
-<ol class="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs uppercase tracking-eyebrow text-brand-ink/55" role="list" aria-label="{{ __('Onboarding progress') }}">
-    @foreach ($sharedSteps as $i => $s)
+<ol class="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs uppercase tracking-eyebrow text-brand-ink/55" role="list" aria-label="{{ __('Onboarding progress') }}" data-testid="onboarding-progress">
+    @foreach ($visibleSegments as $i => $seg)
         <li class="flex items-center gap-2">
             <span
                 @class([
                     'flex h-6 w-6 items-center justify-center border font-display text-[0.7rem] font-semibold leading-none',
-                    $completedClasses[$s['chapter']] ?? $completedClasses['produce'] => $i < $currentIndex,
+                    $completedClasses[$seg['chapter']] ?? $completedClasses['produce'] => $i < $currentIndex,
                     'border-brand-ink bg-brand-ink text-brand-cream' => $i === $currentIndex,
                     'border-brand-ink/25 text-brand-ink/40' => $i > $currentIndex,
                 ])
             >
                 {{ str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) }}
             </span>
-            <span class="{{ $i === $currentIndex ? 'font-semibold text-brand-ink' : '' }}">{{ $s['label'] }}</span>
+            <span class="{{ $i === $currentIndex ? 'font-semibold text-brand-ink' : '' }}">{{ $seg['label'] }}</span>
             @if (! $loop->last)<span class="text-brand-ink/25" aria-hidden="true">·</span>@endif
         </li>
     @endforeach
