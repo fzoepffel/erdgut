@@ -58,7 +58,7 @@ The redesign added `audit_events` table (Batch H equivalent on subscription side
 - **`Registrierte Nutzer 3` + `E-Mail verifiziert 3`** are still two cards even though both show the same number. Either:
   - Merge to one card "3 Nutzer (alle verifiziert)" with conditional sub-line for unverified count
   - Keep separate but show "verified" only when there's a discrepancy worth flagging
-- **Trial-pipeline panel** has 4 cards but they all show `0` for new installs. Empty state per card could be more useful — e.g., "Keine Bestellungen mit ausstehender Zahlung" instead of "0".
+- ~~Trial-pipeline panel: empty-state copy~~ ✓ already implemented — `admin.trials.pipeline_*_empty` keys (4) render below the count when zero (`admin/dashboard.blade.php:48-92`).
 
 ### Produzenten / Produkte / Nutzer (catalog tables)
 
@@ -67,7 +67,7 @@ The redesign added `audit_events` table (Batch H equivalent on subscription side
 
 ### Wochen-Katalog (`/app/admin/products/weekly`)
 
-- **Empty state confusion**: shows "Noch keine Produkte für diese Woche hinterlegt." then immediately renders 3 empty input rows. Either-or, not both.
+- ~~Empty state confusion~~ ✓ shipped (PR #53) — moved the "no rows yet" message out of the tbody into a banner above the table; locked with a feature test asserting the hint's `weekly-catalog-empty-hint` testid renders before the `<table>` opening tag.
 - ~~`REST` column header~~ ✓ already says `Verbleibend` in lang/de.json (`admin.weekly_catalog.col_remaining`); doc was outdated.
 - ~~`LÖSCHE...` truncated~~ ✓ already says `Löschen` in full (`admin.weekly_catalog.col_delete`); the truncation was a CSS width artifact in an older walkthrough screenshot.
 - **`Bestehend` dropdown values** — first column of input rows. Categorizes the row (existing product vs new product?) but the label doesn't make that obvious. Worth a short hint or tooltip.
