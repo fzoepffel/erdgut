@@ -7,7 +7,7 @@
 <p style="margin: 0 0 20px 0;">
     {!! __('emails.trial_confirmation.intro', [
         'size' => '<strong>'.e(__(ucfirst($order->box_size))).'</strong>',
-        'amount' => number_format((float) $order->amount, 2, ',', '.'),
+        'amount' => \App\Support\Money::format($order->amount),
     ]) !!}
 </p>
 <p style="margin: 0 0 20px 0;">

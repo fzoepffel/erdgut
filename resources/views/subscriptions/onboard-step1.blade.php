@@ -68,7 +68,7 @@
                                 <option value="{{ $size }}" @selected(old('box_size', $subscription->box_size) === $size)>
                                     {{ __(ucfirst($size)) }}
                                     @if ($included !== null)
-                                        — {{ __('Included value approx. EUR :amount', ['amount' => number_format((float) $included, 0, ',', '.')]) }}
+                                        — {{ __('Included value approx. EUR :amount', ['amount' => \App\Support\Money::format($included, 0)]) }}
                                     @endif
                                 </option>
                             @endforeach
@@ -112,7 +112,7 @@
                             <span>
                                 <span class="block text-sm text-brand-ink">{{ __('Eggs or dairy add-on') }}</span>
                                 <span class="mt-1 block text-xs text-brand-ink/60">
-                                    {{ __('Eggs or dairy add-on hint', ['amount' => number_format((float) config('box.eggs_dairy_add_on_eur'), 2, ',', '.')]) }}
+                                    {{ __('Eggs or dairy add-on hint', ['amount' => \App\Support\Money::format(config('box.eggs_dairy_add_on_eur'))]) }}
                                 </span>
                             </span>
                         </label>

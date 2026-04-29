@@ -134,7 +134,7 @@
                         <div class="border-y border-brand-ink/15 py-6">
                             <p class="eyebrow text-brand-ink/60">{{ __('Price') }}</p>
                             <p class="mt-2 font-display text-4xl font-semibold text-brand-ink">
-                                {{ __('EUR :amount', ['amount' => number_format((float) $product->unit_price, 2, ',', '.')]) }}
+                                {{ __('EUR :amount', ['amount' => \App\Support\Money::format($product->unit_price)]) }}
                             </p>
                         </div>
 

@@ -9,7 +9,7 @@
     </x-slot>
 
     @php($trialEnabled = (bool) config('features.trial_orders_enabled', true))
-    @php($trialPrice = number_format((float) config('box.trial_price_oneoff_ttc', 35), 0))
+    @php($trialPrice = \App\Support\Money::format(config('box.trial_price_oneoff_ttc', 35), 0))
 
     <div class="py-10 sm:py-16">
         <div class="mx-auto max-w-3xl space-y-8 px-4 sm:px-6 lg:px-8">

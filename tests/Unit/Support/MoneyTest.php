@@ -30,4 +30,20 @@ class MoneyTest extends TestCase
         $this->assertSame('12,50 €', Money::formatEur('12.5'));
         $this->assertSame('150,00 €', Money::formatCents('15000'));
     }
+
+    public function test_format_returns_bare_german_number_without_currency_symbol(): void
+    {
+        $this->assertSame('12,50', Money::format(12.5));
+        $this->assertSame('1.234,50', Money::format(1234.5));
+        $this->assertSame('0,00', Money::format(0));
+        $this->assertSame('0,00', Money::format(null));
+    }
+
+    public function test_format_respects_decimals_argument(): void
+    {
+        // For trial-card "35 EUR" style copy that omits decimals.
+        $this->assertSame('35', Money::format(35.0, 0));
+        $this->assertSame('35,000', Money::format(35.0, 3));
+        $this->assertSame('0', Money::format(null, 0));
+    }
 }

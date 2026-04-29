@@ -12,11 +12,16 @@ use App\Providers\AppServiceProvider;
  * some prefixed with "EUR ", others suffixed with "€". This helper produces
  * one canonical German-style format ("12,50 €") so we don't drift again.
  *
- * Use {@see formatEur()} for amounts already in EUR (float) and
- * {@see formatCents()} for amounts stored as integer cents.
+ * Three entry points:
+ * - {@see formatEur()} for amounts already in EUR (renders "12,50 €")
+ * - {@see formatCents()} for amounts stored as integer cents
+ * - {@see format()} for the bare German-formatted number (renders "12,50"),
+ *   used as the `:amount` placeholder in translation strings that bake the
+ *   "EUR" prefix or "€" suffix into the localised template (DE typically
+ *   suffixes "€", EN typically prefixes "EUR ").
  *
- * The {@see AppServiceProvider} also registers a Blade
- * directive `@eur(...)` that calls `formatEur()` for compactness in views.
+ * The {@see AppServiceProvider} registers Blade directives `@eur`,
+ * `@eurCents`, and `@money` for compactness in views.
  */
 final class Money
 {
@@ -29,7 +34,7 @@ final class Money
             return '0,00 €';
         }
 
-        return number_format((float) $amount, 2, ',', '.').' €';
+        return self::format($amount).' €';
     }
 
     /**
@@ -43,5 +48,15 @@ final class Money
         }
 
         return self::formatEur(((int) $cents) / 100);
+    }
+
+    /**
+     * Format a numeric amount as "12,50" (comma decimal, period thousand-sep,
+     * no currency symbol). Use as the `:amount` placeholder in translation
+     * strings that already carry the "EUR" prefix or "€" suffix.
+     */
+    public static function format(float|int|string|null $amount, int $decimals = 2): string
+    {
+        return number_format((float) ($amount ?? 0), $decimals, ',', '.');
     }
 }

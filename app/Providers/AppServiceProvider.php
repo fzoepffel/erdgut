@@ -52,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
         // {@see \App\Support\Money} is the canonical German-format helper.
         Blade::directive('eur', fn (string $expression) => "<?php echo \\App\\Support\\Money::formatEur({$expression}); ?>");
         Blade::directive('eurCents', fn (string $expression) => "<?php echo \\App\\Support\\Money::formatCents({$expression}); ?>");
+        Blade::directive('money', fn (string $expression) => "<?php echo \\App\\Support\\Money::format({$expression}); ?>");
 
         Gate::define('admin', static fn (User $user): bool => $user->isAdmin());
 

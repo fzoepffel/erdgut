@@ -43,7 +43,7 @@
                     <span class="flex flex-col gap-1">
                         <span class="font-display text-base text-brand-ink">{{ __('Add eggs to every box') }}</span>
                         <span class="text-xs text-brand-ink/65">
-                            {{ __('Six fresh free-range eggs from regional farms. + EUR :amount per delivery.', ['amount' => number_format((float) config('box.eggs_dairy_add_on_eur', 4.5), 2, ',', '.')]) }}
+                            {{ __('Six fresh free-range eggs from regional farms. + EUR :amount per delivery.', ['amount' => \App\Support\Money::format(config('box.eggs_dairy_add_on_eur', 4.5))]) }}
                         </span>
                     </span>
                 </label>

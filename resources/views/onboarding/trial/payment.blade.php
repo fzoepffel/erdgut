@@ -4,7 +4,7 @@
     <p class="eyebrow text-chapter-meat">{{ __('Last step — your payment') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Secure your trial box') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
-        {{ __('One-time charge of EUR :amount. No subscription, no stored card.', ['amount' => number_format((float) $order->amount, 2, ',', '.')]) }}
+        {{ __('One-time charge of EUR :amount. No subscription, no stored card.', ['amount' => \App\Support\Money::format($order->amount)]) }}
     </p>
 
     <dl class="mt-6 border border-brand-ink/15 bg-brand-ink/[0.02] p-5 text-sm text-brand-ink/80">
@@ -18,7 +18,7 @@
         </div>
         <div class="flex items-center justify-between gap-4 py-2">
             <dt class="eyebrow text-brand-ink/60">{{ __('Amount') }}</dt>
-            <dd class="font-display text-lg text-brand-ink">EUR {{ number_format((float) $order->amount, 2, ',', '.') }}</dd>
+            <dd class="font-display text-lg text-brand-ink">EUR @money($order->amount)</dd>
         </div>
     </dl>
 
