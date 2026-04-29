@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\AdminWeeklyCatalogController;
 use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoxController;
+use App\Http\Controllers\DashboardClickEventController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DeliveryPreferencesController;
@@ -116,7 +117,7 @@ Route::middleware(['auth', 'verified'])
     ->name('app.')
     ->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-        Route::post('/dashboard/click', [\App\Http\Controllers\DashboardClickEventController::class, 'store'])
+        Route::post('/dashboard/click', [DashboardClickEventController::class, 'store'])
             ->middleware('throttle:60,1')
             ->name('dashboard.click');
 
