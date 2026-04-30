@@ -82,6 +82,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_green_grams' => '300',
                 'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
                 'consent' => '1',
             ]);
 
@@ -161,6 +162,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_green_grams' => '375', // not a multiple of 50
                 'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('quantity_green_grams');
@@ -178,6 +180,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_green_grams' => '0',
                 'quantity_white_grams' => '5000',
                 'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('quantity_white_grams');
@@ -195,6 +198,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_green_grams' => '50',
                 'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('quantity_green_grams');
@@ -213,6 +217,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_green_grams' => '1500',
                 'quantity_white_grams' => '1600',
                 'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('quantity_green_grams');
@@ -229,6 +234,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_green_grams' => '0',
                 'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('quantity_green_grams');
@@ -302,6 +308,7 @@ class SpargelOrderFlowTest extends TestCase
             'quantity_green_grams' => '500',
             'quantity_white_grams' => '0',
             'fulfillment_mode' => 'pickup',
+            'pickup_location' => 'karl_kunger',
             'consent' => '1',
         ])->assertRedirect();
 
@@ -519,6 +526,7 @@ class SpargelOrderFlowTest extends TestCase
             'quantity_green_grams' => '500',
             'quantity_white_grams' => '0',
             'fulfillment_mode' => 'pickup',
+            'pickup_location' => 'karl_kunger',
             'payment_method' => 'in_person',
             'consent' => '1',
         ]);
@@ -672,6 +680,110 @@ class SpargelOrderFlowTest extends TestCase
         // we bounce them back — no SumUp checkout for in-person orders.
         $this->get(route('public.spargel.pay', ['spargelOrder' => $order->id]))
             ->assertRedirect(route('public.spargel.return', ['spargelOrder' => $order->id]));
+    }
+
+    public function test_pickup_order_persists_chosen_pickup_location(): void
+    {
+        $this->post(route('public.spargel.store'), [
+            'name' => 'Lina Pickup',
+            'email' => 'lina@example.com',
+            'quantity_green_grams' => '500',
+            'quantity_white_grams' => '0',
+            'fulfillment_mode' => 'pickup',
+            'pickup_location' => 'gotenstrasse',
+            'consent' => '1',
+        ]);
+
+        $order = SpargelOrder::query()->latest('id')->first();
+        $this->assertSame('gotenstrasse', $order->pickup_location);
+    }
+
+    public function test_pickup_order_without_pickup_location_is_rejected(): void
+    {
+        $this->from(route('public.spargel.show'))
+            ->post(route('public.spargel.store'), [
+                'name' => 'Lazy',
+                'email' => 'lazy@example.com',
+                'quantity_green_grams' => '500',
+                'quantity_white_grams' => '0',
+                'fulfillment_mode' => 'pickup',
+                // pickup_location intentionally omitted
+                'consent' => '1',
+            ])
+            ->assertSessionHasErrors('pickup_location');
+
+        $this->assertSame(0, SpargelOrder::query()->count());
+    }
+
+    public function test_pickup_order_with_unknown_pickup_location_is_rejected(): void
+    {
+        $this->from(route('public.spargel.show'))
+            ->post(route('public.spargel.store'), [
+                'name' => 'Spoofy',
+                'email' => 'spoofy@example.com',
+                'quantity_green_grams' => '500',
+                'quantity_white_grams' => '0',
+                'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'somewhere_else',
+                'consent' => '1',
+            ])
+            ->assertSessionHasErrors('pickup_location');
+
+        $this->assertSame(0, SpargelOrder::query()->count());
+    }
+
+    public function test_delivery_order_drops_any_pickup_location_value(): void
+    {
+        // Even if a delivery order POST includes a pickup_location, we
+        // strip it on persist — the field is meaningless for delivery
+        // and we don't want stale data on the row.
+        $this->post(route('public.spargel.store'), [
+            'name' => 'Liefer',
+            'email' => 'liefer@example.com',
+            'phone' => '+49 30 12345678',
+            'quantity_green_grams' => '0',
+            'quantity_white_grams' => '1000',
+            'fulfillment_mode' => 'delivery',
+            'pickup_location' => 'karl_kunger',
+            'delivery_street' => 'Musterstr 1',
+            'delivery_postal_code' => '10115',
+            'delivery_city' => 'Berlin',
+            'consent' => '1',
+        ]);
+
+        $order = SpargelOrder::query()->latest('id')->first();
+        $this->assertNull($order->pickup_location);
+    }
+
+    public function test_form_renders_pickup_location_chooser_with_addresses_only(): void
+    {
+        $html = $this->get(route('public.spargel.show'))
+            ->assertOk()
+            ->getContent();
+
+        // Both pickup-location radios are present.
+        $this->assertStringContainsString('value="karl_kunger"', $html);
+        $this->assertStringContainsString('value="gotenstrasse"', $html);
+        // Addresses are visible on the form.
+        $this->assertStringContainsString('Karl-Kunger-Straße 6', $html);
+        $this->assertStringContainsString('Gotenstrasse 19', $html);
+        // …but the host names are NOT shown on the order page.
+        $this->assertStringNotContainsString('Arthur Hamcha', $html);
+        $this->assertStringNotContainsString('Milan Ross', $html);
+    }
+
+    public function test_return_page_shows_pickup_host_name_and_address(): void
+    {
+        $order = SpargelOrder::factory()->paid()->create([
+            'fulfillment_mode' => 'pickup',
+            'pickup_location' => 'karl_kunger',
+        ]);
+
+        $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee('Arthur Hamcha')
+            ->assertSee('Karl-Kunger-Straße 6')
+            ->assertSee('12435 Berlin');
     }
 
     protected function tearDown(): void

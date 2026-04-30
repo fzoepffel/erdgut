@@ -37,6 +37,7 @@ class SpargelOrderController extends Controller
             'deliveryMinGrams' => SpargelOrderService::DELIVERY_MIN_GRAMS,
             'quantityStepGrams' => SpargelOrderService::QUANTITY_STEP_GRAMS,
             'quantityOptions' => SpargelOrderService::quantityOptions(),
+            'pickupLocations' => SpargelOrderService::PICKUP_LOCATIONS,
             'vatRatePercent' => SpargelOrderService::VAT_RATE_PERCENT,
             'nextDeliveryMonday' => $this->service->nextDeliveryMonday(),
         ]);

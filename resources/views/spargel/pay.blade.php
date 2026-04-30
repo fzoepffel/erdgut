@@ -33,9 +33,17 @@
                 <dd class="tabular-nums text-brand-ink">{{ number_format((float) $order->delivery_fee_eur, 2, ',', '.') }} €</dd>
             </div>
         @else
+            @php $pickup = \App\Services\SpargelOrderService::pickupLocation($order->pickup_location); @endphp
             <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
                 <dt class="eyebrow text-brand-ink/60">{{ __('spargel.summary_line_fulfillment') }}</dt>
-                <dd class="text-brand-ink">{{ __('spargel.fulfillment_pickup') }}</dd>
+                <dd class="text-right text-brand-ink">
+                    {{ __('spargel.fulfillment_pickup') }}
+                    @if ($pickup)
+                        <br>
+                        <span class="text-brand-ink/75">{{ $pickup['name'] }}</span><br>
+                        <span class="text-brand-ink/75">{{ $pickup['street'] }}, {{ $pickup['postal_code'] }} {{ $pickup['city'] }}</span>
+                    @endif
+                </dd>
             </div>
         @endif
         @if ($deliveryDateLabel)

@@ -108,6 +108,18 @@
                                             {{ $order->delivery_postal_code }} {{ $order->delivery_city }}
                                         </td>
                                     </tr>
+                                @else
+                                    @php $pickup = \App\Services\SpargelOrderService::pickupLocation($order->pickup_location); @endphp
+                                    @if ($pickup)
+                                        <tr>
+                                            <td style="padding: 6px 16px; font-size: 14px; color: rgba(44, 36, 28, 0.8); vertical-align: top;">{{ __('spargel.summary_line_pickup_at') }}</td>
+                                            <td align="right" style="padding: 6px 16px; font-size: 14px; color: #2c241c;">
+                                                {{ $pickup['name'] }}<br>
+                                                {{ $pickup['street'] }}<br>
+                                                {{ $pickup['postal_code'] }} {{ $pickup['city'] }}
+                                            </td>
+                                        </tr>
+                                    @endif
                                 @endif
                                 <tr>
                                     <td style="padding: 12px 16px 14px; border-top: 1px solid rgba(44, 36, 28, 0.1); font-family: Georgia, 'Times New Roman', serif; font-size: 16px; font-weight: 600; color: #2c241c;">
