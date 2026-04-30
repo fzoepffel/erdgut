@@ -295,13 +295,6 @@
                     </div>
                     <div class="p-6">
                         @if ($currentBox)
-                            {{-- W2-12 visual: subscriber's chosen size drives the
-                                 illustration. Falls back to medium if the
-                                 subscription is gone (cancelled mid-week edge case). --}}
-                            @php($tileSize = $primarySubscription?->box_size ?? 'medium')
-                            <div class="-mx-6 -mt-6 mb-4 flex items-center justify-center bg-brand-paper px-6 py-4">
-                                <x-box-size-illustration :size="$tileSize" variant="tile" />
-                            </div>
                             <p class="text-sm text-brand-ink/70">
                                 {{ __('Week of :date', ['date' => $currentBox->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}
                             </p>
