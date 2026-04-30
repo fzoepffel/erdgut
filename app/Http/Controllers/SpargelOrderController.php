@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Enums\SpargelOrderStatus;
 use App\Http\Requests\SpargelOrderRequest;
+use App\Mail\SpargelOrderConfirmationMail;
 use App\Models\SpargelOrder;
 use App\Services\SpargelOrderService;
 use App\Support\SumUpCheckoutLogger;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /**
@@ -34,6 +36,7 @@ class SpargelOrderController extends Controller
             'deliveryFeeEur' => SpargelOrderService::DELIVERY_FEE_EUR,
             'deliveryMinGrams' => SpargelOrderService::DELIVERY_MIN_GRAMS,
             'quantityStepGrams' => SpargelOrderService::QUANTITY_STEP_GRAMS,
+            'quantityOptions' => SpargelOrderService::quantityOptions(),
             'vatRatePercent' => SpargelOrderService::VAT_RATE_PERCENT,
             'nextDeliveryMonday' => $this->service->nextDeliveryMonday(),
         ]);
@@ -45,8 +48,13 @@ class SpargelOrderController extends Controller
 
         // Pay-in-person path skips the SumUp checkout — the order goes
         // straight to the confirmation page (status stays PendingPayment
-        // until an admin marks it paid via /spargel-admin).
+        // until an admin marks it paid via /spargel-admin). Send the
+        // customer their confirmation email now since this is the only
+        // moment they'll see "we received your order" before they show
+        // up to collect.
         if ($order->payment_method === 'in_person') {
+            $this->queueConfirmationMail($order);
+
             return redirect()->route('public.spargel.return', ['spargelOrder' => $order->id]);
         }
 
@@ -101,13 +109,36 @@ class SpargelOrderController extends Controller
     public function return(Request $request, SpargelOrder $spargelOrder): View
     {
         // Authoritative server-side verification — we don't trust the redirect.
-        if ($spargelOrder->status === SpargelOrderStatus::PendingPayment) {
-            $this->service->confirmPaidFromProvider($spargelOrder);
+        if ($spargelOrder->status === SpargelOrderStatus::PendingPayment && $spargelOrder->payment_method !== 'in_person') {
+            $wasPaid = $this->service->confirmPaidFromProvider($spargelOrder);
             $spargelOrder->refresh();
+
+            if ($wasPaid) {
+                $this->queueConfirmationMail($spargelOrder);
+            }
         }
 
         return view('spargel.return', [
             'order' => $spargelOrder,
         ]);
+    }
+
+    /**
+     * Send the trial-shop confirmation email. Idempotent against mail-
+     * driver failures — we never want a transient mail outage to break
+     * the order-creation flow itself.
+     */
+    private function queueConfirmationMail(SpargelOrder $order): void
+    {
+        try {
+            Mail::to($order->email)->queue(new SpargelOrderConfirmationMail($order));
+        } catch (Throwable $e) {
+            report($e);
+            SumUpCheckoutLogger::warning('Spargel order: failed to queue confirmation email.', [
+                'spargel_order_id' => $order->id,
+                'exception_class' => $e::class,
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
+            ]);
+        }
     }
 }

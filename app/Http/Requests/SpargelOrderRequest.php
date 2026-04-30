@@ -45,8 +45,8 @@ class SpargelOrderRequest extends FormRequest
             'quantity_grams' => [
                 'required',
                 'integer',
-                'min:100',
-                'max:20000',
+                'min:'.SpargelOrderService::QUANTITY_MIN_GRAMS,
+                'max:'.SpargelOrderService::QUANTITY_MAX_GRAMS,
                 'multiple_of:'.SpargelOrderService::QUANTITY_STEP_GRAMS,
             ],
             'fulfillment_mode' => ['required', Rule::in(['pickup', 'delivery'])],
