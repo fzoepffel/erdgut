@@ -44,6 +44,7 @@ use App\Http\Controllers\PaymentHistoryController;
 use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SpargelOrderController;
 use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -67,6 +68,16 @@ Route::name('public.')->group(function () {
     Route::get('/locale/{locale}', [LocaleController::class, 'switch'])
         ->whereAlpha('locale')
         ->name('locale.switch');
+
+    // Spargel trial-shop: standalone single-product test channel surfaced
+    // on the coming-soon page. No auth, no User row, no Order linkage —
+    // every flow visit is a one-off purchase against a SpargelOrder row.
+    Route::get('/spargel', [SpargelOrderController::class, 'show'])->name('spargel.show');
+    Route::post('/spargel', [SpargelOrderController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('spargel.store');
+    Route::get('/spargel/{spargelOrder}/pay', [SpargelOrderController::class, 'pay'])->name('spargel.pay');
+    Route::get('/spargel/{spargelOrder}/return', [SpargelOrderController::class, 'return'])->name('spargel.return');
 });
 
 // Onboarding wizard — guest-allowed entry, auth enforced after the account step.

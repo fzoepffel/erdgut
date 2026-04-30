@@ -25,6 +25,9 @@ class TranslationParityTest extends TestCase
         'plan.',
         'admin.audit.entity_type.',
         'status.',
+        // Spargel trial-shop view builds keys like 'spargel.type_'.$type
+        // (green/white). The concrete keys are still asserted to exist.
+        'spargel.type_',
     ];
 
     public function test_every_translation_key_used_in_source_exists_in_every_locale(): void
