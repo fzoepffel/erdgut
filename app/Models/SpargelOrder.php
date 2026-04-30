@@ -35,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $delivery_postal_code
  * @property string|null $delivery_city
  * @property string|null $delivery_notes
+ * @property string|null $pickup_location
  * @property SpargelOrderStatus $status
  * @property Carbon|null $paid_at
  * @property Carbon|null $marked_paid_by_admin_at
@@ -65,6 +66,7 @@ class SpargelOrder extends Model
         'delivery_postal_code',
         'delivery_city',
         'delivery_notes',
+        'pickup_location',
         'status',
         'paid_at',
         'marked_paid_by_admin_at',

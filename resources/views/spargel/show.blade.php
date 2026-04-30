@@ -39,6 +39,7 @@
             white: parseInt({{ json_encode((string) old('quantity_white_grams', '0')) }}, 10) || 0,
             mode: {{ json_encode(old('fulfillment_mode', 'pickup')) }},
             payment: {{ json_encode(old('payment_method', 'online')) }},
+            pickupLocation: {{ json_encode(old('pickup_location', '')) }},
             pricePerKg: {{ (float) $pricePerKgEur }},
             deliveryFee: {{ (float) $deliveryFeeEur }},
             deliveryMin: {{ (int) $deliveryMinGrams }},
@@ -238,6 +239,46 @@
                 </label>
             </div>
             <x-input-error :messages="$errors->get('fulfillment_mode')" class="mt-2" />
+        </fieldset>
+
+        {{-- Pickup location chooser — shown only when fulfillment mode
+             is pickup. Each card shows the address only; the host name
+             appears later (confirmation page + email) so the form
+             doesn't surface contact info before the customer commits. --}}
+        <fieldset class="space-y-3" x-show="effectiveMode === 'pickup'" x-cloak>
+            <legend class="eyebrow text-chapter-eggdairy">{{ __('spargel.pickup_location_section') }}</legend>
+            <p class="text-sm text-brand-ink/70">{{ __('spargel.pickup_location_hint') }}</p>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                @foreach ($pickupLocations as $key => $loc)
+                    <label
+                        class="flex cursor-pointer items-start gap-3 border p-5 transition"
+                        :class="pickupLocation === @js((string) $key)
+                            ? 'border-chapter-bread bg-chapter-bread text-brand-cream'
+                            : 'border-chapter-bread/30 bg-white text-brand-ink hover:border-chapter-bread/60'"
+                    >
+                        <input
+                            type="radio"
+                            name="pickup_location"
+                            value="{{ $key }}"
+                            x-model="pickupLocation"
+                            class="sr-only"
+                            @if (old('pickup_location') === $key) checked @endif
+                        >
+                        <span class="flex flex-col gap-1">
+                            <span
+                                class="eyebrow"
+                                :class="pickupLocation === @js((string) $key) ? 'text-brand-cream/80' : 'text-chapter-bread'"
+                            >{{ __('spargel.pickup_location_eyebrow', ['index' => $loop->iteration]) }}</span>
+                            <span class="font-display text-base font-semibold leading-snug">{{ $loc['street'] }}</span>
+                            <span
+                                class="text-xs leading-relaxed"
+                                :class="pickupLocation === @js((string) $key) ? 'text-brand-cream/85' : 'text-brand-ink/65'"
+                            >{{ $loc['postal_code'] }} {{ $loc['city'] }}</span>
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+            <x-input-error :messages="$errors->get('pickup_location')" class="mt-2" />
         </fieldset>
 
         {{-- Payment method — only meaningful for pickup. We auto-flip to
