@@ -92,6 +92,27 @@
                         </p>
                     </div>
 
+                    {{-- First trial-shop slot: spargel sales test. Single
+                         standalone form, no auth, no User row — fully
+                         decoupled from the main app. --}}
+                    <div class="mt-10 max-w-xl border-t pt-8 sm:mt-14" style="border-color: rgba(33, 52, 29, 0.25);">
+                        <p class="eyebrow" style="color: #21341d;">{{ __('spargel.coming_soon_eyebrow') }}</p>
+                        <p class="mt-3 text-base leading-relaxed sm:text-base" style="color: rgba(33, 52, 29, 0.9);">
+                            {{ __('spargel.coming_soon_body') }}
+                        </p>
+                        <p class="mt-5">
+                            <a
+                                href="{{ route('public.spargel.show') }}"
+                                class="inline-flex items-center gap-2 px-5 py-3 font-display text-base font-semibold transition hover:opacity-90"
+                                style="background-color: #21341d; color: #f1e7d6;"
+                                data-testid="coming-soon-spargel-cta"
+                            >
+                                {{ __('spargel.coming_soon_cta') }}
+                                <span aria-hidden="true">&rarr;</span>
+                            </a>
+                        </p>
+                    </div>
+
                     <div class="mt-10 max-w-xl border-t pt-8 sm:mt-14" style="border-color: rgba(33, 52, 29, 0.25);">
                         <p class="eyebrow" style="color: #21341d;">{{ __('Schreib uns gern') }}</p>
                         <p class="mt-4 text-base leading-relaxed sm:text-base" style="color: rgba(33, 52, 29, 0.9);">
