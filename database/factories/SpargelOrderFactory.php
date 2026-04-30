@@ -16,18 +16,23 @@ class SpargelOrderFactory extends Factory
 
     public function definition(): array
     {
-        $grams = fake()->randomElement([200, 500, 1000, 1500, 2000]);
+        // Pick at least 100 g of green asparagus by default; sometimes
+        // add a bit of white on top so factory rows exercise the
+        // mixed-variety path too.
+        $green = fake()->randomElement([100, 200, 500, 1000]);
+        $white = fake()->randomElement([0, 0, 200, 500]);
+        $totalGrams = $green + $white;
         $unitPrice = 21.50;
-        $fulfillment = $grams < 500 ? 'pickup' : fake()->randomElement(['pickup', 'delivery']);
+        $fulfillment = $totalGrams < 500 ? 'pickup' : fake()->randomElement(['pickup', 'delivery']);
         $deliveryFee = $fulfillment === 'delivery' ? 2.90 : 0.0;
-        $line = round(($grams / 1000) * $unitPrice, 2);
+        $line = round(($totalGrams / 1000) * $unitPrice, 2);
 
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'phone' => $fulfillment === 'delivery' ? fake()->phoneNumber() : fake()->optional()->phoneNumber(),
-            'asparagus_type' => fake()->randomElement(['green', 'white']),
-            'quantity_grams' => $grams,
+            'quantity_green_grams' => $green,
+            'quantity_white_grams' => $white,
             'unit_price_eur' => $unitPrice,
             'fulfillment_mode' => $fulfillment,
             'delivery_fee_eur' => $deliveryFee,

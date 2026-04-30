@@ -35,19 +35,20 @@
         class="mt-10 space-y-10"
         data-testid="spargel-form"
         x-data="{
-            quantity: parseInt({{ json_encode((string) old('quantity_grams', '500')) }}, 10) || 500,
+            green: parseInt({{ json_encode((string) old('quantity_green_grams', '500')) }}, 10) || 0,
+            white: parseInt({{ json_encode((string) old('quantity_white_grams', '0')) }}, 10) || 0,
             mode: {{ json_encode(old('fulfillment_mode', 'pickup')) }},
-            type: {{ json_encode(old('asparagus_type', 'green')) }},
             payment: {{ json_encode(old('payment_method', 'online')) }},
             pricePerKg: {{ (float) $pricePerKgEur }},
             deliveryFee: {{ (float) $deliveryFeeEur }},
             deliveryMin: {{ (int) $deliveryMinGrams }},
             confirming: false,
-            get deliveryAllowed() { return this.quantity >= this.deliveryMin; },
+            get totalGrams() { return (this.green || 0) + (this.white || 0); },
+            get deliveryAllowed() { return this.totalGrams >= this.deliveryMin; },
             get effectiveMode() { return this.deliveryAllowed ? this.mode : 'pickup'; },
             get effectiveDeliveryFee() { return this.effectiveMode === 'delivery' ? this.deliveryFee : 0; },
             get effectivePayment() { return this.effectiveMode === 'delivery' ? 'online' : this.payment; },
-            get lineTotal() { return Math.round((this.quantity / 1000) * this.pricePerKg * 100) / 100; },
+            get lineTotal() { return Math.round((this.totalGrams / 1000) * this.pricePerKg * 100) / 100; },
             get total() { return Math.round((this.lineTotal + this.effectiveDeliveryFee) * 100) / 100; },
             money(v) { return v.toFixed(2).replace('.', ',') + ' €'; },
         }"
@@ -56,7 +57,8 @@
             // When switching to delivery, force payment back to online —
             // pay-in-person only makes sense when the customer collects.
             $watch('mode', value => { if (value === 'delivery') payment = 'online'; });
-            $watch('quantity', () => { if (!deliveryAllowed) mode = 'pickup'; });
+            $watch('green', () => { if (!deliveryAllowed) mode = 'pickup'; });
+            $watch('white', () => { if (!deliveryAllowed) mode = 'pickup'; });
         "
     >
         @csrf
@@ -67,108 +69,106 @@
             $inputClass = 'mt-2 block w-full border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-chapter-produce focus:outline-none focus:ring-0';
         @endphp
 
-        {{-- Asparagus type — chapter-tiled cards à la homepage, with a
-             real photo of each variety. Selected card flips to a
-             saturated chapter colour with cream text. --}}
+        {{-- Sorte + Menge: each variety gets its own card. Customer can
+             pick green, white, or both. The card lights up to its
+             chapter colour as soon as its quantity > 0. --}}
+        @php
+            // Tailwind JIT safelist for the dynamically-built classes
+            // below. Listing them as literals here keeps them in the
+            // compiled stylesheet:
+            //
+            // safelist: border-chapter-produce bg-chapter-produce
+            //           border-chapter-produce/30 border-chapter-produce/60
+            //           text-chapter-produce
+            //           border-chapter-eggdairy bg-chapter-eggdairy
+            //           border-chapter-eggdairy/30 border-chapter-eggdairy/60
+            //           text-chapter-eggdairy
+            $varieties = [
+                ['key' => 'green', 'image' => 'spargel-green.jpg', 'chapter' => 'produce', 'index' => '01', 'state' => 'green'],
+                ['key' => 'white', 'image' => 'spargel-white.jpg', 'chapter' => 'eggdairy', 'index' => '02', 'state' => 'white'],
+            ];
+            $oldGreen = (int) old('quantity_green_grams', 500);
+            $oldWhite = (int) old('quantity_white_grams', 0);
+        @endphp
         <fieldset class="space-y-4">
             <legend class="eyebrow text-chapter-eggdairy">{{ __('spargel.section_product') }}</legend>
+            <p class="text-sm text-brand-ink/70">{{ __('spargel.section_product_hint') }}</p>
+
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                @php
-                    // Each sorte gets a chapter colour for its selected state.
-                    // Tailwind needs the literal class names somewhere in
-                    // source for JIT to pick them up — so the safelist below
-                    // names every variant explicitly even though we build
-                    // them dynamically in :class.
-                    //
-                    // safelist: border-chapter-produce bg-chapter-produce
-                    //           border-chapter-produce/30 border-chapter-produce/60
-                    //           text-chapter-produce
-                    //           border-chapter-eggdairy bg-chapter-eggdairy
-                    //           border-chapter-eggdairy/30 border-chapter-eggdairy/60
-                    //           text-chapter-eggdairy
-                    $sortePalette = [
-                        'green' => ['image' => 'spargel-green.jpg', 'chapter' => 'produce'],
-                        'white' => ['image' => 'spargel-white.jpg', 'chapter' => 'eggdairy'],
-                    ];
-                @endphp
-                @foreach (['green', 'white'] as $type)
-                    @php $p = $sortePalette[$type]; @endphp
-                    <label
-                        class="group relative flex cursor-pointer flex-col overflow-hidden border transition"
-                        :class="type === @js($type)
-                            ? @js('border-chapter-'.$p['chapter'].' bg-chapter-'.$p['chapter'].' text-brand-cream')
-                            : @js('border-chapter-'.$p['chapter'].'/30 bg-white text-brand-ink hover:border-chapter-'.$p['chapter'].'/60')"
+                @foreach ($varieties as $v)
+                    @php
+                        $stateVar = $v['state'];
+                        $field = 'quantity_'.$v['key'].'_grams';
+                        $current = $v['key'] === 'green' ? $oldGreen : $oldWhite;
+                    @endphp
+                    <div
+                        class="group flex flex-col overflow-hidden border transition"
+                        :class="{{ $stateVar }} > 0
+                            ? @js('border-chapter-'.$v['chapter'].' bg-chapter-'.$v['chapter'].' text-brand-cream')
+                            : @js('border-chapter-'.$v['chapter'].'/30 bg-white text-brand-ink')"
                     >
-                        <input
-                            type="radio"
-                            name="asparagus_type"
-                            value="{{ $type }}"
-                            x-model="type"
-                            class="sr-only"
-                            @if (old('asparagus_type', 'green') === $type) checked @endif
-                        >
                         <div class="aspect-[5/3] w-full overflow-hidden">
                             <img
-                                src="{{ asset('images/spargel/'.$p['image']) }}"
+                                src="{{ asset('images/spargel/'.$v['image']) }}"
                                 alt=""
                                 aria-hidden="true"
-                                class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                                class="h-full w-full object-cover"
                                 loading="lazy"
                             />
                         </div>
                         <div class="flex flex-col gap-2 p-5">
                             <p
                                 class="eyebrow"
-                                :class="type === @js($type) ? 'text-brand-cream/80' : @js('text-chapter-'.$p['chapter'])"
+                                :class="{{ $stateVar }} > 0 ? 'text-brand-cream/80' : @js('text-chapter-'.$v['chapter'])"
                             >
-                                {{ $type === 'green' ? '01' : '02' }} &nbsp;·&nbsp; {{ __('spargel.section_product') }}
+                                {{ $v['index'] }} &nbsp;·&nbsp; {{ __('spargel.type_'.$v['key']) }}
                             </p>
                             <p class="font-display text-2xl font-semibold leading-tight">
-                                {{ __('spargel.type_'.$type) }}
+                                {{ __('spargel.type_'.$v['key']) }}
                             </p>
                             <p
                                 class="font-editorial text-sm italic leading-relaxed"
-                                :class="type === @js($type) ? 'text-brand-cream/85' : 'text-brand-ink/70'"
+                                :class="{{ $stateVar }} > 0 ? 'text-brand-cream/85' : 'text-brand-ink/70'"
                             >
-                                {{ __('spargel.type_'.$type.'_hint') }}
+                                {{ __('spargel.type_'.$v['key'].'_hint') }}
                             </p>
+
+                            <div class="mt-4 flex items-center gap-2">
+                                <label
+                                    for="spargel-{{ $v['key'] }}-grams"
+                                    class="text-xs font-semibold uppercase tracking-eyebrow"
+                                    :class="{{ $stateVar }} > 0 ? 'text-brand-cream/80' : 'text-brand-ink/65'"
+                                >{{ __('spargel.quantity_label') }}</label>
+                                <select
+                                    id="spargel-{{ $v['key'] }}-grams"
+                                    name="{{ $field }}"
+                                    x-model.number="{{ $stateVar }}"
+                                    class="border bg-white py-2 pl-3 pr-8 text-sm text-brand-ink focus:outline-none focus:ring-0"
+                                    :class="{{ $stateVar }} > 0
+                                        ? @js('border-brand-cream/40 focus:border-brand-cream')
+                                        : @js('border-brand-ink/30 focus:border-chapter-'.$v['chapter'])"
+                                    data-testid="spargel-{{ $v['key'] }}-grams"
+                                >
+                                    @foreach ($quantityOptions as $g)
+                                        <option value="{{ $g }}" @selected($current === $g)>
+                                            {{ $g === 0 ? '0 '.__('spargel.unit_grams_short').' — '.__('spargel.quantity_none') : $g.' '.__('spargel.unit_grams_short') }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
-                    </label>
+                    </div>
                 @endforeach
             </div>
-            <x-input-error :messages="$errors->get('asparagus_type')" class="mt-2" />
-        </fieldset>
 
-        {{-- Quantity dropdown. Replaced the free-form number input so
-             customers can only pick valid 50 g multiples between
-             QUANTITY_MIN_GRAMS and QUANTITY_MAX_GRAMS — the validator
-             enforces the same range, but the dropdown removes the
-             chance to fiddle with odd values in the first place. --}}
-        <fieldset class="space-y-3">
-            <legend class="eyebrow text-chapter-eggdairy">{{ __('spargel.section_quantity') }}</legend>
-            <div class="flex items-center gap-3">
-                <select
-                    id="spargel-quantity"
-                    name="quantity_grams"
-                    x-model.number="quantity"
-                    required
-                    class="border border-brand-ink/30 bg-white py-2 pl-3 pr-8 text-sm text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
-                >
-                    @php $current = (int) old('quantity_grams', 500); @endphp
-                    @foreach ($quantityOptions as $g)
-                        <option value="{{ $g }}" @selected($current === $g)>
-                            {{ $g }} {{ __('spargel.unit_grams_short') }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
             <p class="text-xs text-brand-ink/60">
                 {{ __('spargel.quantity_hint', ['price' => number_format($pricePerKgEur, 2, ',', '.'), 'step' => $quantityStepGrams]) }}
             </p>
             <p class="text-xs text-brand-ink/60">
                 {{ __('spargel.portion_hint') }}
             </p>
-            <x-input-error :messages="$errors->get('quantity_grams')" class="mt-2" />
+            <x-input-error :messages="$errors->get('quantity_green_grams')" class="mt-2" />
+            <x-input-error :messages="$errors->get('quantity_white_grams')" class="mt-2" />
         </fieldset>
 
         {{-- Fulfillment — chapter-bread for pickup (warm earth tone, "by
@@ -407,13 +407,25 @@
             </div>
         </fieldset>
 
-        {{-- Order summary --}}
+        {{-- Order summary — one line per variety, then optional delivery fee. --}}
         <div class="border border-brand-ink/15 bg-brand-paper p-6 text-sm text-brand-ink/85">
             <p class="eyebrow text-chapter-meat">{{ __('spargel.summary_heading') }}</p>
             <dl class="mt-4 space-y-1.5">
-                <div class="flex items-center justify-between gap-3">
-                    <dt>{{ __('spargel.summary_line_subtotal') }}</dt>
-                    <dd class="tabular-nums" x-text="money(lineTotal)"></dd>
+                <div class="flex items-center justify-between gap-3" x-show="green > 0" x-cloak>
+                    <dt>
+                        <span x-text="green + ' g'"></span>
+                        <span class="text-brand-ink/60">·</span>
+                        {{ __('spargel.type_green') }}
+                    </dt>
+                    <dd class="tabular-nums" x-text="money(Math.round((green / 1000) * pricePerKg * 100) / 100)"></dd>
+                </div>
+                <div class="flex items-center justify-between gap-3" x-show="white > 0" x-cloak>
+                    <dt>
+                        <span x-text="white + ' g'"></span>
+                        <span class="text-brand-ink/60">·</span>
+                        {{ __('spargel.type_white') }}
+                    </dt>
+                    <dd class="tabular-nums" x-text="money(Math.round((white / 1000) * pricePerKg * 100) / 100)"></dd>
                 </div>
                 <div class="flex items-center justify-between gap-3" x-show="effectiveMode === 'delivery'" x-cloak>
                     <dt>{{ __('spargel.summary_line_delivery') }}</dt>
@@ -505,9 +517,21 @@
                 </p>
 
                 <dl class="mt-5 space-y-1 border border-brand-ink/15 bg-brand-paper p-4 text-sm text-brand-ink/85">
-                    <div class="flex items-center justify-between gap-3">
-                        <dt>{{ __('spargel.summary_line_subtotal') }}</dt>
-                        <dd class="tabular-nums" x-text="money(lineTotal)"></dd>
+                    <div class="flex items-center justify-between gap-3" x-show="green > 0" x-cloak>
+                        <dt>
+                            <span x-text="green + ' g'"></span>
+                            <span class="text-brand-ink/60">·</span>
+                            {{ __('spargel.type_green') }}
+                        </dt>
+                        <dd class="tabular-nums" x-text="money(Math.round((green / 1000) * pricePerKg * 100) / 100)"></dd>
+                    </div>
+                    <div class="flex items-center justify-between gap-3" x-show="white > 0" x-cloak>
+                        <dt>
+                            <span x-text="white + ' g'"></span>
+                            <span class="text-brand-ink/60">·</span>
+                            {{ __('spargel.type_white') }}
+                        </dt>
+                        <dd class="tabular-nums" x-text="money(Math.round((white / 1000) * pricePerKg * 100) / 100)"></dd>
                     </div>
                     <div class="mt-1 flex items-center justify-between gap-3 border-t border-brand-ink/10 pt-2 font-semibold text-brand-ink">
                         <dt class="font-display">{{ __('spargel.summary_line_total') }}</dt>
