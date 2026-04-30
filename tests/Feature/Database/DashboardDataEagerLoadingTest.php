@@ -148,9 +148,14 @@ class DashboardDataEagerLoadingTest extends TestCase
         }
 
         for ($i = 0; $i < $deliveriesCount; $i++) {
+            // Pin scheduled_for_date per iteration so we never collide with
+            // the unique (user_id, scheduled_for_date, is_weekly_override)
+            // index. The factory's random date picker can otherwise produce
+            // two deliveries on the same day for the same user.
             Delivery::factory()->create([
                 'user_id' => $user->id,
                 'address_id' => $primaryAddress->id,
+                'scheduled_for_date' => now()->addDays($i + 1)->toDateString(),
             ]);
         }
     }
