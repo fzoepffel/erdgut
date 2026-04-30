@@ -3,11 +3,13 @@
 namespace Tests\Feature\Spargel;
 
 use App\Enums\SpargelOrderStatus;
+use App\Mail\SpargelOrderConfirmationMail;
 use App\Models\SpargelOrder;
 use App\Services\SpargelOrderService;
 use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
 use Mockery;
 use Tests\TestCase;
 
@@ -127,14 +129,31 @@ class SpargelOrderFlowTest extends TestCase
         $this->assertSame('+49 30 99887766', $order->phone);
     }
 
-    public function test_quantity_must_be_a_multiple_of_100_grams(): void
+    public function test_quantity_must_be_a_multiple_of_50_grams(): void
     {
         $this->from(route('public.spargel.show'))
             ->post(route('public.spargel.store'), [
                 'name' => 'Quentin',
                 'email' => 'quentin@example.com',
                 'asparagus_type' => 'green',
-                'quantity_grams' => '350', // not a multiple of 100
+                'quantity_grams' => '375', // not a multiple of 50
+                'fulfillment_mode' => 'pickup',
+                'consent' => '1',
+            ])
+            ->assertSessionHasErrors('quantity_grams');
+
+        $this->assertSame(0, SpargelOrder::query()->count());
+    }
+
+    public function test_quantity_above_max_is_rejected(): void
+    {
+        // Sanity: 5 kg is over the QUANTITY_MAX_GRAMS ceiling (3 kg).
+        $this->from(route('public.spargel.show'))
+            ->post(route('public.spargel.store'), [
+                'name' => 'Wholesale',
+                'email' => 'wholesale@example.com',
+                'asparagus_type' => 'white',
+                'quantity_grams' => '5000',
                 'fulfillment_mode' => 'pickup',
                 'consent' => '1',
             ])
@@ -407,6 +426,8 @@ class SpargelOrderFlowTest extends TestCase
 
     public function test_pay_in_person_with_pickup_skips_sumup_and_lands_on_return_page(): void
     {
+        Mail::fake();
+
         $response = $this->post(route('public.spargel.store'), [
             'name' => 'Petra Persönlich',
             'email' => 'petra@example.com',
@@ -424,6 +445,98 @@ class SpargelOrderFlowTest extends TestCase
 
         // Skip the SumUp pay step entirely.
         $response->assertRedirect(route('public.spargel.return', ['spargelOrder' => $order->id]));
+
+        // Confirmation email is queued — only moment we tell the customer
+        // we got their pre-order.
+        Mail::assertQueued(SpargelOrderConfirmationMail::class, function ($mail) use ($order) {
+            return $mail->order->is($order) && $mail->hasTo('petra@example.com');
+        });
+    }
+
+    public function test_form_renders_quantity_as_dropdown_with_50g_steps(): void
+    {
+        $html = $this->get(route('public.spargel.show'))
+            ->assertOk()
+            ->getContent();
+
+        // Dropdown is a <select>, not <input type="number">.
+        $this->assertStringContainsString('<select', $html);
+        $this->assertStringContainsString('name="quantity_grams"', $html);
+        // 50 g multiples are present in the option list.
+        $this->assertStringContainsString('value="100"', $html);
+        $this->assertStringContainsString('value="150"', $html);
+        $this->assertStringContainsString('value="500"', $html);
+        $this->assertStringContainsString('value="3000"', $html);
+        // Free-form number input is gone.
+        $this->assertStringNotContainsString('name="quantity_grams" type="number"', $html);
+    }
+
+    public function test_form_renders_both_submit_buttons_so_alpine_can_pick(): void
+    {
+        // Both buttons exist in the DOM with x-show toggling visibility —
+        // online (Weiter zur Zahlung) and in-person (Bestellung bestätigen).
+        $html = $this->get(route('public.spargel.show'))
+            ->assertOk()
+            ->assertSee(__('spargel.cta_continue_to_payment'))
+            ->assertSee(__('spargel.cta_confirm_order'))
+            ->assertSee('data-testid="spargel-submit-online"', false)
+            ->assertSee('data-testid="spargel-submit-in-person"', false)
+            ->getContent();
+
+        // Confirmation modal is in the DOM (hidden behind x-cloak).
+        $this->assertStringContainsString('data-testid="spargel-confirm-modal"', $html);
+        $this->assertStringContainsString('data-testid="spargel-confirm-cancel"', $html);
+        $this->assertStringContainsString('data-testid="spargel-confirm-submit"', $html);
+    }
+
+    public function test_sumup_paid_path_queues_confirmation_email_via_return_url(): void
+    {
+        Mail::fake();
+
+        $order = SpargelOrder::factory()->create([
+            'email' => 'sumup-paid@example.com',
+            'sumup_checkout_id' => 'co_paid_xyz',
+            'payment_method' => 'online',
+            'status' => SpargelOrderStatus::PendingPayment,
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldReceive('getCheckout')
+            ->with('co_paid_xyz')
+            ->andReturn((object) [
+                'status' => 'PAID',
+                'transactions' => [(object) ['id' => 'pay_xyz']],
+            ]);
+        $this->app->instance(SumUpService::class, $sumUp);
+
+        $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
+            ->assertOk();
+
+        Mail::assertQueued(SpargelOrderConfirmationMail::class, function ($mail) use ($order) {
+            return $mail->order->is($order->fresh()) && $mail->hasTo('sumup-paid@example.com');
+        });
+    }
+
+    public function test_sumup_pending_path_does_not_queue_email(): void
+    {
+        Mail::fake();
+
+        $order = SpargelOrder::factory()->create([
+            'sumup_checkout_id' => 'co_still_pending',
+            'payment_method' => 'online',
+            'status' => SpargelOrderStatus::PendingPayment,
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldReceive('getCheckout')
+            ->with('co_still_pending')
+            ->andReturn((object) ['status' => 'PENDING']);
+        $this->app->instance(SumUpService::class, $sumUp);
+
+        $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
+            ->assertOk();
+
+        Mail::assertNothingQueued();
     }
 
     public function test_pay_in_person_with_delivery_is_rejected(): void
