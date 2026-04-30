@@ -23,9 +23,15 @@ class SpargelOrderRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email:rfc', 'max:190'],
-            'phone' => ['nullable', 'string', 'max:40'],
+            // Phone is required when delivery is chosen so we can coordinate
+            // hand-off; otherwise optional.
+            'phone' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:40'],
             'asparagus_type' => ['required', Rule::in(['green', 'white'])],
-            'quantity_kg' => ['required', 'numeric', 'min:0.25', 'max:20'],
+            // 100 g floor avoids zero / sub-portion orders. 20 kg ceiling
+            // is a sanity guard against UI quirks. Step is 50 g on the
+            // frontend (not enforced server-side — admin can always
+            // accept odd quantities).
+            'quantity_grams' => ['required', 'integer', 'min:100', 'max:20000'],
             'fulfillment_mode' => ['required', Rule::in(['pickup', 'delivery'])],
             'delivery_street' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:160'],
             'delivery_postal_code' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:16'],
@@ -38,15 +44,16 @@ class SpargelOrderRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $v): void {
-            $quantity = (float) $this->input('quantity_kg');
+            $grams = (int) $this->input('quantity_grams');
             $mode = (string) $this->input('fulfillment_mode');
 
-            // Hard rule from the brief: quantities under 1 kg are pickup
-            // only. Surface as a field error so the form can highlight it.
-            if ($mode === 'delivery' && $quantity < SpargelOrderService::DELIVERY_MIN_KG) {
+            // Hard rule from the brief: orders below 500 g are pickup only.
+            // Surface as a field error so the form can highlight the
+            // delivery card.
+            if ($mode === 'delivery' && $grams < SpargelOrderService::DELIVERY_MIN_GRAMS) {
                 $v->errors()->add(
                     'fulfillment_mode',
-                    __('spargel.errors.delivery_minimum', ['min' => SpargelOrderService::DELIVERY_MIN_KG])
+                    __('spargel.errors.delivery_minimum', ['min' => SpargelOrderService::DELIVERY_MIN_GRAMS])
                 );
             }
         });
@@ -62,7 +69,7 @@ class SpargelOrderRequest extends FormRequest
             'email' => __('Email'),
             'phone' => __('Phone'),
             'asparagus_type' => __('spargel.asparagus_type'),
-            'quantity_kg' => __('spargel.quantity_kg'),
+            'quantity_grams' => __('spargel.quantity_grams'),
             'fulfillment_mode' => __('spargel.fulfillment_mode'),
             'delivery_street' => __('spargel.delivery_street'),
             'delivery_postal_code' => __('spargel.delivery_postal_code'),

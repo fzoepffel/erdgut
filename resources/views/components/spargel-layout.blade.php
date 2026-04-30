@@ -48,9 +48,6 @@
                     style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain; mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain;"
                 ></span>
             </a>
-            <span class="text-xs uppercase tracking-eyebrow" style="color: rgba(33, 52, 29, 0.75);">
-                {{ __('spargel.eyebrow_trial_shop') }}
-            </span>
         </div>
     </header>
 
@@ -59,9 +56,10 @@
     </main>
 
     <footer class="border-t border-brand-ink/10 py-6 text-center text-xs text-brand-ink/60">
-        <p>
-            <a href="mailto:kontakt@erd-gut.de" class="underline-offset-4 hover:underline">kontakt@erd-gut.de</a>
-        </p>
+        <nav class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2" aria-label="{{ __('Site links') }}">
+            <a href="{{ route('public.privacy') }}" class="underline-offset-4 hover:text-brand-ink hover:underline">{{ __('privacy.footer_link') }}</a>
+            <a href="mailto:kontakt@erd-gut.de" class="underline-offset-4 hover:text-brand-ink hover:underline">kontakt@erd-gut.de</a>
+        </nav>
     </footer>
 </body>
 </html>

@@ -1,4 +1,10 @@
 <x-spargel-layout :title="__('spargel.pay_page_title')" :allow-sumup="true">
+    @php
+        $deliveryDateLabel = $order->expected_delivery_date
+            ? $order->expected_delivery_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM')
+            : null;
+    @endphp
+
     <p class="eyebrow text-chapter-meat">{{ __('spargel.eyebrow_pay') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
         {{ __('spargel.pay_heading') }}
@@ -15,7 +21,7 @@
         </div>
         <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
             <dt class="eyebrow text-brand-ink/60">{{ __('spargel.summary_line_subtotal') }}</dt>
-            <dd class="tabular-nums text-brand-ink">{{ number_format((float) $order->quantity_kg * (float) $order->unit_price_eur, 2, ',', '.') }} €</dd>
+            <dd class="tabular-nums text-brand-ink">{{ number_format(((int) $order->quantity_grams / 1000) * (float) $order->unit_price_eur, 2, ',', '.') }} €</dd>
         </div>
         @if ($order->fulfillment_mode === 'delivery')
             <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
@@ -28,10 +34,19 @@
                 <dd class="text-brand-ink">{{ __('spargel.fulfillment_pickup') }}</dd>
             </div>
         @endif
+        @if ($deliveryDateLabel)
+            <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
+                <dt class="eyebrow text-brand-ink/60">{{ __('spargel.summary_line_when') }}</dt>
+                <dd class="text-brand-ink">{{ $deliveryDateLabel }}</dd>
+            </div>
+        @endif
         <div class="flex items-center justify-between gap-4 py-2">
             <dt class="eyebrow text-brand-ink/60">{{ __('spargel.summary_line_total') }}</dt>
             <dd class="font-display text-lg tabular-nums text-brand-ink">{{ number_format((float) $order->total_amount_eur, 2, ',', '.') }} €</dd>
         </div>
+        <p class="mt-1 text-xs text-brand-ink/60">
+            {{ __('spargel.summary_vat_inclusive', ['rate' => $vatRatePercent]) }}
+        </p>
     </dl>
 
     @if ($checkoutId)
