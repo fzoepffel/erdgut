@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ __('spargel.admin.page_title') }}</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/logo/erdgut-favicon-32.png') }}">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="bg-brand-cream font-sans text-brand-ink antialiased">
+    {{-- Disposable trial-shop admin. Intentionally minimal: no sidebar,
+         no shared layout, no fancy data table — a single page where the
+         operator can see every Spargel-Bestellung and click "paid" /
+         "completed". Will be ripped out when the proper shop launches. --}}
+    <header
+        class="border-b"
+        style="background-color: #709452; border-color: rgba(33, 52, 29, 0.15);"
+    >
+        <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+            <a href="{{ route('public.home') }}" class="flex items-center gap-3">
+                <span
+                    aria-hidden="true"
+                    class="block h-9 w-9 shrink-0"
+                    style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-mark-tight.png') }}') no-repeat center / contain; mask: url('{{ asset('images/logo/erdgut-mark-tight.png') }}') no-repeat center / contain;"
+                ></span>
+                <span
+                    role="img"
+                    aria-label="Erdgut"
+                    class="block h-7 w-32 sm:w-36"
+                    style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain; mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain;"
+                ></span>
+            </a>
+            <span class="text-xs uppercase tracking-eyebrow" style="color: rgba(33, 52, 29, 0.85);">
+                {{ __('spargel.admin.eyebrow') }}
+            </span>
+        </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <p class="eyebrow text-chapter-meat">{{ __('spargel.admin.eyebrow') }}</p>
+                <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
+                    {{ __('spargel.admin.heading') }}
+                </h1>
+                <p class="mt-2 text-sm text-brand-ink/70">
+                    {{ __('spargel.admin.subheading', ['count' => $orders->count()]) }}
+                </p>
+            </div>
+        </div>
+
+        @if (session('status'))
+            <div class="mt-6 border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm font-medium text-brand-ink" role="status" data-testid="spargel-admin-flash">
+                {{ session('status') }}
+            </div>
+        @endif
+
+        @if ($orders->isEmpty())
+            <div class="mt-10 border border-brand-ink/15 bg-brand-paper px-6 py-12 text-center text-sm text-brand-ink/65">
+                {{ __('spargel.admin.empty') }}
+            </div>
+        @else
+            <div class="mt-8 overflow-x-auto border border-brand-ink/15 bg-white">
+                <table class="min-w-full divide-y divide-brand-ink/10 text-sm">
+                    <thead class="bg-brand-paper">
+                        <tr class="text-left text-xs font-medium uppercase tracking-eyebrow text-brand-ink/65">
+                            <th class="px-3 py-3">{{ __('spargel.admin.col_id') }}</th>
+                            <th class="px-3 py-3">{{ __('spargel.admin.col_placed') }}</th>
+                            <th class="px-3 py-3">{{ __('spargel.admin.col_customer') }}</th>
+                            <th class="px-3 py-3">{{ __('spargel.admin.col_order') }}</th>
+                            <th class="px-3 py-3">{{ __('spargel.admin.col_fulfillment') }}</th>
+                            <th class="px-3 py-3">{{ __('spargel.admin.col_payment') }}</th>
+                            <th class="px-3 py-3">{{ __('spargel.admin.col_when') }}</th>
+                            <th class="px-3 py-3 text-right">{{ __('spargel.admin.col_total') }}</th>
+                            <th class="px-3 py-3">{{ __('spargel.admin.col_status') }}</th>
+                            <th class="px-3 py-3 text-right">{{ __('spargel.admin.col_actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-brand-ink/10">
+                        @foreach ($orders as $order)
+                            @php
+                                $statusKey = match ($order->status) {
+                                    \App\Enums\SpargelOrderStatus::PendingPayment => 'pending',
+                                    \App\Enums\SpargelOrderStatus::Paid => 'paid',
+                                    \App\Enums\SpargelOrderStatus::Fulfilled => 'fulfilled',
+                                    \App\Enums\SpargelOrderStatus::Cancelled => 'cancelled',
+                                    \App\Enums\SpargelOrderStatus::Refunded => 'refunded',
+                                };
+                                $statusBadge = match ($statusKey) {
+                                    'pending' => 'bg-chapter-meat/10 text-chapter-meat border border-chapter-meat/30',
+                                    'paid' => 'bg-chapter-produce/10 text-chapter-produce border border-chapter-produce/40',
+                                    'fulfilled' => 'bg-chapter-bread/10 text-chapter-bread border border-chapter-bread/40',
+                                    'cancelled', 'refunded' => 'bg-brand-ink/10 text-brand-ink/70 border border-brand-ink/30',
+                                };
+                            @endphp
+                            <tr class="align-top" data-testid="spargel-admin-row-{{ $order->id }}">
+                                <td class="whitespace-nowrap px-3 py-3 text-brand-ink/75">#{{ $order->id }}</td>
+                                <td class="whitespace-nowrap px-3 py-3 text-brand-ink/75">
+                                    {{ $order->created_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm') }}
+                                </td>
+                                <td class="px-3 py-3">
+                                    <div class="font-medium text-brand-ink">{{ $order->name }}</div>
+                                    <div class="text-xs text-brand-ink/60">
+                                        <a href="mailto:{{ $order->email }}" class="hover:underline">{{ $order->email }}</a>
+                                        @if ($order->phone)
+                                            · {{ $order->phone }}
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-3 py-3 text-brand-ink/85">{{ $order->line_description }}</td>
+                                <td class="px-3 py-3">
+                                    @if ($order->fulfillment_mode === 'delivery')
+                                        <span class="text-brand-ink">{{ __('spargel.fulfillment_delivery') }}</span>
+                                        <div class="mt-1 text-xs text-brand-ink/60">
+                                            {{ $order->delivery_street }}<br>
+                                            {{ $order->delivery_postal_code }} {{ $order->delivery_city }}
+                                        </div>
+                                        @if ($order->delivery_notes)
+                                            <div class="mt-1 text-xs italic text-brand-ink/55">{{ $order->delivery_notes }}</div>
+                                        @endif
+                                    @else
+                                        <span class="text-brand-ink">{{ __('spargel.fulfillment_pickup') }}</span>
+                                    @endif
+                                </td>
+                                <td class="px-3 py-3 text-brand-ink/80">
+                                    {{ $order->payment_method === 'in_person' ? __('spargel.payment_in_person') : __('spargel.payment_online') }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-3 text-brand-ink/80">
+                                    @if ($order->expected_delivery_date)
+                                        {{ $order->expected_delivery_date->locale(app()->getLocale())->isoFormat('dd, D. MMM') }}
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-3 text-right tabular-nums font-medium text-brand-ink">
+                                    {{ number_format((float) $order->total_amount_eur, 2, ',', '.') }} €
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-3">
+                                    <span class="inline-flex px-2 py-0.5 text-xs font-medium {{ $statusBadge }}">
+                                        {{ __('spargel.admin.status_'.$statusKey) }}
+                                    </span>
+                                    @if ($order->paid_at)
+                                        <div class="mt-1 text-[11px] text-brand-ink/55">
+                                            {{ __('spargel.admin.paid_at', ['date' => $order->paid_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm')]) }}
+                                        </div>
+                                    @endif
+                                    @if ($order->fulfilled_at)
+                                        <div class="mt-1 text-[11px] text-brand-ink/55">
+                                            {{ __('spargel.admin.fulfilled_at', ['date' => $order->fulfilled_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm')]) }}
+                                        </div>
+                                    @endif
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-3 text-right">
+                                    <div class="flex flex-col items-end gap-1.5">
+                                        @if ($order->status === \App\Enums\SpargelOrderStatus::PendingPayment)
+                                            <form method="POST" action="{{ route('spargel.admin.mark-paid', $order) }}">
+                                                @csrf
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex items-center gap-1 border border-chapter-produce bg-chapter-produce/10 px-3 py-1.5 text-xs font-semibold text-chapter-produce transition hover:bg-chapter-produce hover:text-brand-cream"
+                                                    data-testid="spargel-admin-mark-paid-{{ $order->id }}"
+                                                >
+                                                    {{ __('spargel.admin.action_mark_paid') }}
+                                                </button>
+                                            </form>
+                                        @endif
+                                        @if ($order->status !== \App\Enums\SpargelOrderStatus::Fulfilled && $order->status !== \App\Enums\SpargelOrderStatus::Cancelled && $order->status !== \App\Enums\SpargelOrderStatus::Refunded)
+                                            <form method="POST" action="{{ route('spargel.admin.mark-completed', $order) }}">
+                                                @csrf
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex items-center gap-1 border border-brand-ink bg-brand-ink px-3 py-1.5 text-xs font-semibold text-brand-cream transition hover:bg-brand-ink/90"
+                                                    data-testid="spargel-admin-mark-completed-{{ $order->id }}"
+                                                >
+                                                    {{ __('spargel.admin.action_mark_completed') }}
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </main>
+
+    <footer class="mt-12 border-t border-brand-ink/10 py-6 text-center text-xs text-brand-ink/60">
+        <p>{{ __('spargel.admin.footer_disposable') }}</p>
+    </footer>
+</body>
+</html>

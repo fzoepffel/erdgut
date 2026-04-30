@@ -45,6 +45,7 @@ use App\Http\Controllers\PaymentHistoryController;
 use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SpargelAdminController;
 use App\Http\Controllers\SpargelOrderController;
 use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
@@ -319,6 +320,22 @@ Route::middleware('auth')
             Route::patch('/', [ProfileController::class, 'update'])->name('update');
             Route::delete('/', [ProfileController::class, 'destroy'])->name('destroy');
         });
+    });
+
+// Disposable spargel-trial admin view. Intentionally outside the
+// `app.admin.*` group + not surfaced anywhere in the sidebar. Auth
+// + admin-gated. Will be removed when the proper shop launches.
+Route::middleware(['auth', 'can:admin'])
+    ->prefix('spargel-admin')
+    ->name('spargel.admin.')
+    ->group(function () {
+        Route::get('/', [SpargelAdminController::class, 'index'])->name('index');
+        Route::post('/{spargelOrder}/mark-paid', [SpargelAdminController::class, 'markPaid'])
+            ->middleware('throttle:30,1')
+            ->name('mark-paid');
+        Route::post('/{spargelOrder}/mark-completed', [SpargelAdminController::class, 'markCompleted'])
+            ->middleware('throttle:30,1')
+            ->name('mark-completed');
     });
 
 require __DIR__.'/auth.php';

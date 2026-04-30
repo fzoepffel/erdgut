@@ -3,16 +3,34 @@
         $deliveryDateLabel = $order->expected_delivery_date
             ? $order->expected_delivery_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM')
             : null;
+        // Two "happy" surfaces share the same chrome (delivery banner +
+        // summary): online-paid and pay-in-person-pending. The latter
+        // hasn't actually been paid yet but the customer's done their
+        // part — admin will collect cash at pickup.
+        $payInPersonPending = $order->payment_method === 'in_person'
+            && $order->status === \App\Enums\SpargelOrderStatus::PendingPayment;
+        $isHappyState = $payInPersonPending
+            || $order->status === \App\Enums\SpargelOrderStatus::Paid;
     @endphp
 
-    @if ($order->status === \App\Enums\SpargelOrderStatus::Paid)
-        <p class="eyebrow text-chapter-produce">{{ __('spargel.return_paid_eyebrow') }}</p>
-        <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
-            {{ __('spargel.return_paid_heading') }}
-        </h1>
-        <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
-            {{ __('spargel.return_paid_body', ['email' => $order->email]) }}
-        </p>
+    @if ($isHappyState)
+        @if ($payInPersonPending)
+            <p class="eyebrow text-chapter-produce">{{ __('spargel.return_pay_in_person_eyebrow') }}</p>
+            <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
+                {{ __('spargel.return_pay_in_person_heading') }}
+            </h1>
+            <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
+                {{ __('spargel.return_pay_in_person_body', ['email' => $order->email, 'amount' => number_format((float) $order->total_amount_eur, 2, ',', '.')]) }}
+            </p>
+        @else
+            <p class="eyebrow text-chapter-produce">{{ __('spargel.return_paid_eyebrow') }}</p>
+            <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
+                {{ __('spargel.return_paid_heading') }}
+            </h1>
+            <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
+                {{ __('spargel.return_paid_body', ['email' => $order->email]) }}
+            </p>
+        @endif
 
         @if ($deliveryDateLabel)
             <div class="mt-6 max-w-xl border border-chapter-produce/30 bg-chapter-produce/5 p-4 text-sm leading-relaxed text-brand-ink">
@@ -49,6 +67,12 @@
                     </dd>
                 </div>
             @endif
+            <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
+                <dt class="eyebrow text-brand-ink/60">{{ __('spargel.summary_line_payment_method') }}</dt>
+                <dd class="text-brand-ink">
+                    {{ $order->payment_method === 'in_person' ? __('spargel.payment_in_person') : __('spargel.payment_online') }}
+                </dd>
+            </div>
             <div class="flex items-center justify-between gap-4 py-2">
                 <dt class="eyebrow text-brand-ink/60">{{ __('spargel.summary_line_total') }}</dt>
                 <dd class="font-display text-lg tabular-nums text-brand-ink">
