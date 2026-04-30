@@ -1,4 +1,8 @@
 <x-spargel-layout :title="__('spargel.page_title')">
+    @php
+        $deliveryDateLabel = $nextDeliveryMonday->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
+    @endphp
+
     <p class="eyebrow text-chapter-produce">{{ __('spargel.eyebrow_trial_shop') }}</p>
     <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
         {{ __('spargel.heading') }}
@@ -7,22 +11,33 @@
         {{ __('spargel.intro') }}
     </p>
 
+    {{-- Delivery date banner: tells the customer up-front when the order
+         will arrive (or be ready for pickup). Driven by the Thursday
+         cutoff in SpargelOrderService::nextDeliveryMonday(). --}}
+    <div class="mt-6 max-w-xl border border-chapter-produce/30 bg-chapter-produce/5 p-4 text-sm leading-relaxed text-brand-ink">
+        <p class="eyebrow text-chapter-produce">{{ __('spargel.delivery_window_eyebrow') }}</p>
+        <p class="mt-1 font-display text-base text-brand-ink">
+            {{ __('spargel.delivery_window_main', ['date' => $deliveryDateLabel]) }}
+        </p>
+        <p class="mt-1 text-xs text-brand-ink/65">{{ __('spargel.delivery_window_rule') }}</p>
+    </div>
+
     <form
         method="POST"
         action="{{ route('public.spargel.store') }}"
         class="mt-8 space-y-8"
         data-testid="spargel-form"
         x-data="{
-            quantity: parseFloat({{ json_encode((string) old('quantity_kg', '1.00')) }}) || 1,
+            quantity: parseInt({{ json_encode((string) old('quantity_grams', '500')) }}, 10) || 500,
             mode: {{ json_encode(old('fulfillment_mode', 'pickup')) }},
             type: {{ json_encode(old('asparagus_type', 'green')) }},
             pricePerKg: {{ (float) $pricePerKgEur }},
             deliveryFee: {{ (float) $deliveryFeeEur }},
-            deliveryMin: {{ (float) $deliveryMinKg }},
+            deliveryMin: {{ (int) $deliveryMinGrams }},
             get deliveryAllowed() { return this.quantity >= this.deliveryMin; },
             get effectiveMode() { return this.deliveryAllowed ? this.mode : 'pickup'; },
             get effectiveDeliveryFee() { return this.effectiveMode === 'delivery' ? this.deliveryFee : 0; },
-            get lineTotal() { return Math.round(this.quantity * this.pricePerKg * 100) / 100; },
+            get lineTotal() { return Math.round((this.quantity / 1000) * this.pricePerKg * 100) / 100; },
             get total() { return Math.round((this.lineTotal + this.effectiveDeliveryFee) * 100) / 100; },
             money(v) { return v.toFixed(2).replace('.', ',') + ' €'; },
         }"
@@ -30,20 +45,28 @@
     >
         @csrf
 
+        @php
+            // Boxed-input class — same look as the existing onboarding
+            // quantity input. Reused for every text input on this page so
+            // the form reads as one consistent surface (the editorial
+            // underline-only style was too quiet for a public trial-shop).
+            $inputClass = 'mt-2 block w-full border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-chapter-produce focus:outline-none focus:ring-0';
+        @endphp
+
         {{-- Personal data --}}
         <fieldset class="space-y-4">
             <legend class="eyebrow text-brand-ink/80">{{ __('spargel.section_contact') }}</legend>
 
             <div>
                 <x-input-label for="spargel-name" :value="__('Name')" />
-                <x-text-input
+                <input
                     id="spargel-name"
-                    name="name"
                     type="text"
-                    :value="old('name')"
+                    name="name"
+                    value="{{ old('name') }}"
                     required
                     autocomplete="name"
-                    class="mt-2 block w-full"
+                    class="{{ $inputClass }}"
                 />
                 <x-input-error :messages="$errors->get('name')" class="mt-2" />
             </div>
@@ -51,26 +74,36 @@
             <div class="grid gap-4 sm:grid-cols-2">
                 <div>
                     <x-input-label for="spargel-email" :value="__('Email')" />
-                    <x-text-input
+                    <input
                         id="spargel-email"
-                        name="email"
                         type="email"
-                        :value="old('email')"
+                        name="email"
+                        value="{{ old('email') }}"
                         required
                         autocomplete="email"
-                        class="mt-2 block w-full"
+                        class="{{ $inputClass }}"
                     />
                     <x-input-error :messages="$errors->get('email')" class="mt-2" />
                 </div>
                 <div>
-                    <x-input-label for="spargel-phone" :value="__('Phone')" optional />
-                    <x-text-input
+                    {{-- Phone is required when delivery is chosen so we
+                         can reach the customer at the door — surface that
+                         dynamically in the label so the customer knows
+                         why we're asking. --}}
+                    <x-input-label for="spargel-phone">
+                        {{ __('Phone') }}
+                        <span class="ms-1 text-xs font-normal text-brand-ink/55" x-cloak>
+                            <span x-show="effectiveMode === 'delivery'">{{ __('required') }}</span>
+                            <span x-show="effectiveMode !== 'delivery'">({{ __('optional') }})</span>
+                        </span>
+                    </x-input-label>
+                    <input
                         id="spargel-phone"
-                        name="phone"
                         type="tel"
-                        :value="old('phone')"
+                        name="phone"
+                        value="{{ old('phone') }}"
                         autocomplete="tel"
-                        class="mt-2 block w-full"
+                        class="{{ $inputClass }}"
                     />
                     <x-input-error :messages="$errors->get('phone')" class="mt-2" />
                 </div>
@@ -82,7 +115,7 @@
             <legend class="eyebrow text-brand-ink/80">{{ __('spargel.section_product') }}</legend>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @foreach (['green', 'white'] as $type)
-                    <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
+                    <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 bg-white p-4 transition hover:border-chapter-produce/50 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/10 has-[:checked]:ring-2 has-[:checked]:ring-chapter-produce/40">
                         <input
                             type="radio"
                             name="asparagus_type"
@@ -105,33 +138,39 @@
             <x-input-error :messages="$errors->get('asparagus_type')" class="mt-2" />
         </fieldset>
 
-        {{-- Quantity --}}
+        {{-- Quantity (in grams). The fieldset legend doubles as the input
+             label so we don't say MENGE / MENGE IN GRAMM twice. --}}
         <fieldset class="space-y-3">
             <legend class="eyebrow text-brand-ink/80">{{ __('spargel.section_quantity') }}</legend>
-            <div>
-                <x-input-label for="spargel-quantity" :value="__('spargel.quantity_kg')" />
+            <div class="flex items-center gap-3">
                 <input
                     id="spargel-quantity"
-                    name="quantity_kg"
+                    name="quantity_grams"
                     type="number"
-                    step="0.25"
-                    min="0.25"
-                    max="20"
+                    step="50"
+                    min="100"
+                    max="20000"
                     x-model.number="quantity"
-                    value="{{ old('quantity_kg', '1.00') }}"
+                    value="{{ old('quantity_grams', '500') }}"
                     required
-                    class="mt-2 block w-full max-w-xs border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
+                    class="block w-32 border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
                 />
-                <p class="mt-2 text-xs text-brand-ink/60">{{ __('spargel.quantity_hint', ['price' => number_format($pricePerKgEur, 2, ',', '.')]) }}</p>
-                <x-input-error :messages="$errors->get('quantity_kg')" class="mt-2" />
+                <span class="font-display text-base text-brand-ink/85">{{ __('spargel.unit_grams') }}</span>
             </div>
+            <p class="text-xs text-brand-ink/60">
+                {{ __('spargel.quantity_hint', ['price' => number_format($pricePerKgEur, 2, ',', '.')]) }}
+            </p>
+            <p class="text-xs text-brand-ink/60">
+                {{ __('spargel.portion_hint') }}
+            </p>
+            <x-input-error :messages="$errors->get('quantity_grams')" class="mt-2" />
         </fieldset>
 
         {{-- Fulfillment --}}
         <fieldset class="space-y-3">
             <legend class="eyebrow text-brand-ink/80">{{ __('spargel.section_fulfillment') }}</legend>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
+                <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 bg-white p-4 transition hover:border-chapter-produce/50 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/10 has-[:checked]:ring-2 has-[:checked]:ring-chapter-produce/40">
                     <input
                         type="radio"
                         name="fulfillment_mode"
@@ -146,8 +185,10 @@
                     </span>
                 </label>
                 <label
-                    class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-4 transition has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce"
-                    :class="!deliveryAllowed ? 'cursor-not-allowed opacity-50' : 'hover:border-brand-ink/40'"
+                    class="flex items-start gap-3 border bg-white p-4 transition has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/10 has-[:checked]:ring-2 has-[:checked]:ring-chapter-produce/40"
+                    :class="deliveryAllowed
+                        ? 'cursor-pointer border-brand-ink/20 hover:border-chapter-produce/50'
+                        : 'cursor-not-allowed border-brand-ink/15 bg-brand-ink/[0.03] opacity-60'"
                 >
                     <input
                         type="radio"
@@ -159,8 +200,15 @@
                         @if (old('fulfillment_mode') === 'delivery') checked @endif
                     >
                     <span class="flex flex-col gap-1">
-                        <span class="font-display text-base font-semibold text-brand-ink">{{ __('spargel.fulfillment_delivery') }}</span>
-                        <span class="text-xs leading-relaxed text-brand-ink/65" x-text="deliveryAllowed ? {{ json_encode(__('spargel.fulfillment_delivery_hint', ['fee' => number_format($deliveryFeeEur, 2, ',', '.')])) }} : {{ json_encode(__('spargel.fulfillment_delivery_blocked', ['min' => number_format($deliveryMinKg, 2, ',', '.')])) }}"></span>
+                        <span class="font-display text-base font-semibold" :class="deliveryAllowed ? 'text-brand-ink' : 'text-brand-ink/55'">
+                            {{ __('spargel.fulfillment_delivery') }}
+                        </span>
+                        <span
+                            class="text-xs leading-relaxed text-brand-ink/65"
+                            x-text="deliveryAllowed
+                                ? {{ json_encode(__('spargel.fulfillment_delivery_hint', ['fee' => number_format($deliveryFeeEur, 2, ',', '.')])) }}
+                                : {{ json_encode(__('spargel.fulfillment_delivery_blocked', ['min' => $deliveryMinGrams])) }}"
+                        ></span>
                     </span>
                 </label>
             </div>
@@ -172,38 +220,38 @@
             <legend class="eyebrow text-brand-ink/80">{{ __('spargel.section_address') }}</legend>
             <div>
                 <x-input-label for="spargel-street" :value="__('spargel.delivery_street')" />
-                <x-text-input
+                <input
                     id="spargel-street"
-                    name="delivery_street"
                     type="text"
-                    :value="old('delivery_street')"
+                    name="delivery_street"
+                    value="{{ old('delivery_street') }}"
                     autocomplete="street-address"
-                    class="mt-2 block w-full"
+                    class="{{ $inputClass }}"
                 />
                 <x-input-error :messages="$errors->get('delivery_street')" class="mt-2" />
             </div>
-            <div class="grid gap-4 sm:grid-cols-[7rem_minmax(0,1fr)]">
+            <div class="grid gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]">
                 <div>
                     <x-input-label for="spargel-postal" :value="__('spargel.delivery_postal_code')" />
-                    <x-text-input
+                    <input
                         id="spargel-postal"
-                        name="delivery_postal_code"
                         type="text"
-                        :value="old('delivery_postal_code')"
+                        name="delivery_postal_code"
+                        value="{{ old('delivery_postal_code') }}"
                         autocomplete="postal-code"
-                        class="mt-2 block w-full"
+                        class="{{ $inputClass }}"
                     />
                     <x-input-error :messages="$errors->get('delivery_postal_code')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="spargel-city" :value="__('spargel.delivery_city')" />
-                    <x-text-input
+                    <input
                         id="spargel-city"
-                        name="delivery_city"
                         type="text"
-                        :value="old('delivery_city')"
+                        name="delivery_city"
+                        value="{{ old('delivery_city') }}"
                         autocomplete="address-level2"
-                        class="mt-2 block w-full"
+                        class="{{ $inputClass }}"
                     />
                     <x-input-error :messages="$errors->get('delivery_city')" class="mt-2" />
                 </div>
@@ -214,7 +262,7 @@
                     id="spargel-notes"
                     name="delivery_notes"
                     rows="2"
-                    class="mt-2 block w-full border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
+                    class="{{ $inputClass }}"
                 >{{ old('delivery_notes') }}</textarea>
                 <x-input-error :messages="$errors->get('delivery_notes')" class="mt-2" />
             </div>
@@ -237,10 +285,13 @@
                     <dd class="font-display text-lg tabular-nums" x-text="money(total)"></dd>
                 </div>
             </dl>
+            <p class="mt-2 text-xs text-brand-ink/60">
+                {{ __('spargel.summary_vat_inclusive', ['rate' => $vatRatePercent]) }}
+            </p>
         </div>
 
         {{-- Consent --}}
-        <label class="flex cursor-pointer items-start gap-3 text-sm text-brand-ink/85">
+        <label class="flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-brand-ink/85">
             <input
                 type="checkbox"
                 name="consent"
@@ -249,7 +300,9 @@
                 required
                 class="mt-1 border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
             >
-            <span>{{ __('spargel.consent_text') }}</span>
+            <span>
+                {!! __('spargel.consent_text', ['privacy' => '<a href="'.route('public.privacy').'" class="underline-offset-4 hover:text-brand-ink hover:underline" target="_blank" rel="noopener">'.e(__('spargel.consent_privacy_link')).'</a>']) !!}
+            </span>
         </label>
         <x-input-error :messages="$errors->get('consent')" class="-mt-4" />
 

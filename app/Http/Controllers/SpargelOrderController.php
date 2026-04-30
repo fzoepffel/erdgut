@@ -32,7 +32,9 @@ class SpargelOrderController extends Controller
         return view('spargel.show', [
             'pricePerKgEur' => SpargelOrderService::PRICE_PER_KG_EUR,
             'deliveryFeeEur' => SpargelOrderService::DELIVERY_FEE_EUR,
-            'deliveryMinKg' => SpargelOrderService::DELIVERY_MIN_KG,
+            'deliveryMinGrams' => SpargelOrderService::DELIVERY_MIN_GRAMS,
+            'vatRatePercent' => SpargelOrderService::VAT_RATE_PERCENT,
+            'nextDeliveryMonday' => $this->service->nextDeliveryMonday(),
         ]);
     }
 
@@ -78,6 +80,7 @@ class SpargelOrderController extends Controller
             'checkoutId' => $checkoutId,
             'checkoutError' => $checkoutError,
             'returnUrl' => $returnUrl,
+            'vatRatePercent' => SpargelOrderService::VAT_RATE_PERCENT,
         ]);
     }
 

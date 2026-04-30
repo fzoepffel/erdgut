@@ -7,6 +7,7 @@ use App\Models\SpargelOrder;
 use App\Services\Onboarding\TrialOrderService;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -17,6 +18,17 @@ use Throwable;
  * (create row → create SumUp one-time checkout → confirm via return URL)
  * but stores everything on a single {@see SpargelOrder} row with no User
  * or Order linkage. Customer email is the canonical identifier.
+ *
+ * Pricing model: 20 €/kg flat, gross (consumer prices in DE include VAT).
+ * Asparagus is fresh produce → 7% reduced VAT rate. Quantity is captured
+ * in *grams* in the form because that's the natural unit for produce
+ * portions; pricing math stays in euros.
+ *
+ * Fulfilment cutoff: orders placed Mon–Thu deliver the coming Monday;
+ * orders placed Fri–Sun shift to the Monday after that. The cutoff
+ * date is locked at order-create time (`expected_delivery_date`) so
+ * downstream admin views don't have to recompute when the customer
+ * checks back days later.
  */
 class SpargelOrderService
 {
@@ -25,7 +37,10 @@ class SpargelOrderService
 
     public const DELIVERY_FEE_EUR = 1.99;
 
-    public const DELIVERY_MIN_KG = 1.0;
+    public const DELIVERY_MIN_GRAMS = 500;
+
+    /** Reduced VAT rate for fresh produce in Germany (already in price). */
+    public const VAT_RATE_PERCENT = 7;
 
     public function __construct(private readonly SumUpService $sumUpService) {}
 
@@ -33,15 +48,17 @@ class SpargelOrderService
      * Compute the total a customer will be charged for a hypothetical order.
      * Stays in one place so the form preview, the controller validation,
      * and the SumUp checkout can never disagree.
+     *
+     * @return array{quantity_grams:int, unit_price_eur:float, line_total_eur:float, delivery_fee_eur:float, total_amount_eur:float}
      */
-    public function quote(float $quantityKg, string $fulfillmentMode): array
+    public function quote(int $quantityGrams, string $fulfillmentMode): array
     {
-        $quantityKg = round($quantityKg, 2);
-        $line = round($quantityKg * self::PRICE_PER_KG_EUR, 2);
+        $quantityGrams = max(0, $quantityGrams);
+        $line = round(($quantityGrams / 1000) * self::PRICE_PER_KG_EUR, 2);
         $deliveryFee = $fulfillmentMode === 'delivery' ? self::DELIVERY_FEE_EUR : 0.0;
 
         return [
-            'quantity_kg' => $quantityKg,
+            'quantity_grams' => $quantityGrams,
             'unit_price_eur' => self::PRICE_PER_KG_EUR,
             'line_total_eur' => $line,
             'delivery_fee_eur' => $deliveryFee,
@@ -50,12 +67,39 @@ class SpargelOrderService
     }
 
     /**
+     * The Monday on which an order placed at $now will be delivered.
+     *
+     * Rule: Mon–Thu cutoff → coming Monday; Fri–Sun → following Monday.
+     * Always returns a Carbon at start-of-day in the app timezone so the
+     * date is formatter-friendly.
+     */
+    public function nextDeliveryMonday(?Carbon $now = null): Carbon
+    {
+        $now = $now ?? Carbon::now();
+
+        // dayOfWeekIso: 1 = Mon, …, 7 = Sun.
+        $iso = (int) $now->dayOfWeekIso;
+
+        // Carbon's next() always returns a *future* date, never today —
+        // exactly what we want (we can't deliver same-day).
+        $monday = $now->copy()->next(Carbon::MONDAY);
+
+        // Friday (5) onwards including Sunday (7) miss the Thursday cutoff
+        // and shift to the Monday after.
+        if ($iso >= 5) {
+            $monday = $monday->copy()->addWeek();
+        }
+
+        return $monday->startOfDay();
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      */
     public function createOrder(array $payload): SpargelOrder
     {
         $quote = $this->quote(
-            (float) ($payload['quantity_kg'] ?? 0),
+            (int) ($payload['quantity_grams'] ?? 0),
             (string) ($payload['fulfillment_mode'] ?? 'pickup')
         );
 
@@ -64,11 +108,12 @@ class SpargelOrderService
             'email' => $payload['email'],
             'phone' => $payload['phone'] ?? null,
             'asparagus_type' => $payload['asparagus_type'],
-            'quantity_kg' => $quote['quantity_kg'],
+            'quantity_grams' => $quote['quantity_grams'],
             'unit_price_eur' => $quote['unit_price_eur'],
             'fulfillment_mode' => $payload['fulfillment_mode'],
             'delivery_fee_eur' => $quote['delivery_fee_eur'],
             'total_amount_eur' => $quote['total_amount_eur'],
+            'expected_delivery_date' => $this->nextDeliveryMonday()->toDateString(),
             'delivery_street' => $payload['delivery_street'] ?? null,
             'delivery_postal_code' => $payload['delivery_postal_code'] ?? null,
             'delivery_city' => $payload['delivery_city'] ?? null,
