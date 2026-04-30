@@ -3,36 +3,19 @@
         $deliveryDateLabel = $nextDeliveryMonday->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
     @endphp
 
-    {{-- Hero: looping harvest video as a full-bleed background, dark
-         gradient overlay, editorial heading + intro pinned to the
-         bottom — same treatment as the marketing homepage hero so the
-         trial-shop reads as part of the same brand. --}}
-    <section class="relative -mx-4 mb-10 overflow-hidden sm:-mx-6 sm:mb-14">
-        <div class="relative h-[52vh] min-h-[420px] w-full overflow-hidden bg-brand-ink/80">
-            <video
-                class="absolute inset-0 h-full w-full object-cover opacity-90"
-                style="object-position: center 30%;"
-                autoplay
-                muted
-                loop
-                playsinline
-                preload="metadata"
-                poster="{{ asset('images/spargel/spargel-harvest-hero-poster.jpg') }}"
-            >
-                <source src="{{ asset('images/spargel/spargel-harvest-hero.mp4') }}" type="video/mp4">
-            </video>
-            <div class="absolute inset-0 bg-gradient-to-b from-brand-ink/15 via-brand-ink/45 to-brand-ink/85"></div>
-            <div class="relative mx-auto flex h-full max-w-3xl flex-col justify-end px-4 pb-10 sm:px-6 sm:pb-14">
-                <p class="eyebrow text-brand-cream/85">{{ __('spargel.eyebrow_trial_shop') }}</p>
-                <h1 class="mt-3 max-w-2xl font-display text-4xl font-semibold leading-tight text-brand-cream sm:text-5xl">
-                    {{ __('spargel.heading') }}
-                </h1>
-                <p class="mt-4 max-w-xl font-editorial text-base italic leading-relaxed text-brand-cream/90 sm:text-lg">
-                    {{ __('spargel.intro') }}
-                </p>
-            </div>
-        </div>
-    </section>
+    {{-- Hero block: editorial heading on the brand-cream page bg.
+         Hero video was removed — the source clip didn't render at the
+         quality bar we want for the brand. Re-introduce later when
+         we have a properly-shot harvest video. --}}
+    <header class="mb-10 sm:mb-14">
+        <p class="eyebrow text-chapter-produce">{{ __('spargel.eyebrow_trial_shop') }}</p>
+        <h1 class="mt-3 max-w-2xl font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
+            {{ __('spargel.heading') }}
+        </h1>
+        <p class="mt-4 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75 sm:text-lg">
+            {{ __('spargel.intro') }}
+        </p>
+    </header>
 
     {{-- Delivery date banner: tells the customer up-front when the order
          will arrive (or be ready for pickup). Uses chapter-bread soft —
@@ -169,7 +152,7 @@
                     name="quantity_grams"
                     x-model.number="quantity"
                     required
-                    class="block w-40 border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
+                    class="border border-brand-ink/30 bg-white py-2 pl-3 pr-8 text-sm text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
                 >
                     @php $current = (int) old('quantity_grams', 500); @endphp
                     @foreach ($quantityOptions as $g)
