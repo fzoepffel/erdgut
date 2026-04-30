@@ -17,9 +17,9 @@ class SpargelOrderFactory extends Factory
     public function definition(): array
     {
         $grams = fake()->randomElement([200, 500, 1000, 1500, 2000]);
-        $unitPrice = 20.0;
+        $unitPrice = 21.50;
         $fulfillment = $grams < 500 ? 'pickup' : fake()->randomElement(['pickup', 'delivery']);
-        $deliveryFee = $fulfillment === 'delivery' ? 1.99 : 0.0;
+        $deliveryFee = $fulfillment === 'delivery' ? 2.90 : 0.0;
         $line = round(($grams / 1000) * $unitPrice, 2);
 
         return [
@@ -32,6 +32,7 @@ class SpargelOrderFactory extends Factory
             'fulfillment_mode' => $fulfillment,
             'delivery_fee_eur' => $deliveryFee,
             'total_amount_eur' => round($line + $deliveryFee, 2),
+            'payment_method' => 'online',
             'expected_delivery_date' => now()->next(Carbon::MONDAY)->toDateString(),
             'delivery_street' => $fulfillment === 'delivery' ? fake()->streetAddress() : null,
             'delivery_postal_code' => $fulfillment === 'delivery' ? fake()->postcode() : null,

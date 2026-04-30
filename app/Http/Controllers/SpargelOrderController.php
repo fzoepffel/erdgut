@@ -33,6 +33,7 @@ class SpargelOrderController extends Controller
             'pricePerKgEur' => SpargelOrderService::PRICE_PER_KG_EUR,
             'deliveryFeeEur' => SpargelOrderService::DELIVERY_FEE_EUR,
             'deliveryMinGrams' => SpargelOrderService::DELIVERY_MIN_GRAMS,
+            'quantityStepGrams' => SpargelOrderService::QUANTITY_STEP_GRAMS,
             'vatRatePercent' => SpargelOrderService::VAT_RATE_PERCENT,
             'nextDeliveryMonday' => $this->service->nextDeliveryMonday(),
         ]);
@@ -42,11 +43,24 @@ class SpargelOrderController extends Controller
     {
         $order = $this->service->createOrder($request->validated());
 
+        // Pay-in-person path skips the SumUp checkout — the order goes
+        // straight to the confirmation page (status stays PendingPayment
+        // until an admin marks it paid via /spargel-admin).
+        if ($order->payment_method === 'in_person') {
+            return redirect()->route('public.spargel.return', ['spargelOrder' => $order->id]);
+        }
+
         return redirect()->route('public.spargel.pay', ['spargelOrder' => $order->id]);
     }
 
     public function pay(Request $request, SpargelOrder $spargelOrder): RedirectResponse|View
     {
+        // In-person orders never use the SumUp pay-step — bounce them to
+        // the confirmation page directly.
+        if ($spargelOrder->payment_method === 'in_person') {
+            return redirect()->route('public.spargel.return', ['spargelOrder' => $spargelOrder->id]);
+        }
+
         if ($spargelOrder->status !== SpargelOrderStatus::PendingPayment) {
             return redirect()->route('public.spargel.return', ['spargelOrder' => $spargelOrder->id]);
         }

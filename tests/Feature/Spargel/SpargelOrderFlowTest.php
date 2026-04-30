@@ -90,8 +90,8 @@ class SpargelOrderFlowTest extends TestCase
             $this->assertSame(300, $order->quantity_grams);
             $this->assertSame('pickup', $order->fulfillment_mode);
             $this->assertSame('0.00', (string) $order->delivery_fee_eur);
-            // 300 g * 20 €/kg = 6.00
-            $this->assertSame('6.00', (string) $order->total_amount_eur);
+            // 300 g * 21.50 €/kg = 6.45
+            $this->assertSame('6.45', (string) $order->total_amount_eur);
             $this->assertSame(SpargelOrderStatus::PendingPayment, $order->status);
             $this->assertSame('2026-05-04', $order->expected_delivery_date->toDateString());
 
@@ -120,11 +120,27 @@ class SpargelOrderFlowTest extends TestCase
         $this->assertNotNull($order);
         $this->assertSame('delivery', $order->fulfillment_mode);
         $this->assertSame(2000, $order->quantity_grams);
-        $this->assertSame('1.99', (string) $order->delivery_fee_eur);
-        // 2000 g * 20 + 1.99 = 41.99
-        $this->assertSame('41.99', (string) $order->total_amount_eur);
+        $this->assertSame('2.90', (string) $order->delivery_fee_eur);
+        // 2000 g * 21.50 + 2.90 = 45.90
+        $this->assertSame('45.90', (string) $order->total_amount_eur);
         $this->assertSame('Musterstraße 12', $order->delivery_street);
         $this->assertSame('+49 30 99887766', $order->phone);
+    }
+
+    public function test_quantity_must_be_a_multiple_of_100_grams(): void
+    {
+        $this->from(route('public.spargel.show'))
+            ->post(route('public.spargel.store'), [
+                'name' => 'Quentin',
+                'email' => 'quentin@example.com',
+                'asparagus_type' => 'green',
+                'quantity_grams' => '350', // not a multiple of 100
+                'fulfillment_mode' => 'pickup',
+                'consent' => '1',
+            ])
+            ->assertSessionHasErrors('quantity_grams');
+
+        $this->assertSame(0, SpargelOrder::query()->count());
     }
 
     public function test_below_500g_rejects_delivery_with_field_error(): void
@@ -231,11 +247,12 @@ class SpargelOrderFlowTest extends TestCase
 
     public function test_pay_view_initiates_checkout_with_total_amount_and_renders_widget(): void
     {
+        // 1500 g * 21.50 = 32.25; +2.90 delivery = 35.15
         $order = SpargelOrder::factory()->create([
             'quantity_grams' => 1500,
             'fulfillment_mode' => 'delivery',
-            'delivery_fee_eur' => 1.99,
-            'total_amount_eur' => 31.99,
+            'delivery_fee_eur' => 2.90,
+            'total_amount_eur' => 35.15,
             'status' => SpargelOrderStatus::PendingPayment,
         ]);
 
@@ -249,7 +266,7 @@ class SpargelOrderFlowTest extends TestCase
                 ?string $customerId,
                 array $extras
             ) use ($order) {
-                return $amount === 31.99
+                return $amount === 35.15
                     && str_contains($reference, 'spargel-'.$order->id.'-')
                     && $description === 'Erdgut Spargel-Bestellung'
                     && $customerId === null
@@ -330,15 +347,18 @@ class SpargelOrderFlowTest extends TestCase
 
         $pickup = $service->quote(300, 'pickup');
         $this->assertSame(300, $pickup['quantity_grams']);
-        $this->assertSame(20.0, $pickup['unit_price_eur']);
-        $this->assertSame(6.0, $pickup['line_total_eur']);
+        $this->assertSame(21.50, $pickup['unit_price_eur']);
+        // 300 g * 21.50 = 6.45
+        $this->assertSame(6.45, $pickup['line_total_eur']);
         $this->assertSame(0.0, $pickup['delivery_fee_eur']);
-        $this->assertSame(6.0, $pickup['total_amount_eur']);
+        $this->assertSame(6.45, $pickup['total_amount_eur']);
 
         $delivery = $service->quote(2000, 'delivery');
-        $this->assertSame(40.0, $delivery['line_total_eur']);
-        $this->assertSame(1.99, $delivery['delivery_fee_eur']);
-        $this->assertSame(41.99, $delivery['total_amount_eur']);
+        // 2000 g * 21.50 = 43.00
+        $this->assertSame(43.0, $delivery['line_total_eur']);
+        $this->assertSame(2.90, $delivery['delivery_fee_eur']);
+        // 43 + 2.90 = 45.90
+        $this->assertSame(45.90, $delivery['total_amount_eur']);
     }
 
     /**
@@ -383,6 +403,76 @@ class SpargelOrderFlowTest extends TestCase
             ->assertSee(__('privacy.heading'))
             ->assertSee(__('privacy.section_data_heading'))
             ->assertSee(__('privacy.section_rights_heading'));
+    }
+
+    public function test_pay_in_person_with_pickup_skips_sumup_and_lands_on_return_page(): void
+    {
+        $response = $this->post(route('public.spargel.store'), [
+            'name' => 'Petra Persönlich',
+            'email' => 'petra@example.com',
+            'asparagus_type' => 'green',
+            'quantity_grams' => '500',
+            'fulfillment_mode' => 'pickup',
+            'payment_method' => 'in_person',
+            'consent' => '1',
+        ]);
+
+        $order = SpargelOrder::query()->latest('id')->first();
+        $this->assertNotNull($order);
+        $this->assertSame('in_person', $order->payment_method);
+        $this->assertSame(SpargelOrderStatus::PendingPayment, $order->status);
+
+        // Skip the SumUp pay step entirely.
+        $response->assertRedirect(route('public.spargel.return', ['spargelOrder' => $order->id]));
+    }
+
+    public function test_pay_in_person_with_delivery_is_rejected(): void
+    {
+        $this->from(route('public.spargel.show'))
+            ->post(route('public.spargel.store'), [
+                'name' => 'Otto',
+                'email' => 'otto@example.com',
+                'phone' => '+49 30 12345678',
+                'asparagus_type' => 'white',
+                'quantity_grams' => '1000',
+                'fulfillment_mode' => 'delivery',
+                'payment_method' => 'in_person',
+                'delivery_street' => 'Musterstr. 1',
+                'delivery_postal_code' => '10115',
+                'delivery_city' => 'Berlin',
+                'consent' => '1',
+            ])
+            ->assertSessionHasErrors('payment_method');
+
+        $this->assertSame(0, SpargelOrder::query()->count());
+    }
+
+    public function test_pay_in_person_return_page_shows_reservation_message_not_payment_failed(): void
+    {
+        $order = SpargelOrder::factory()->create([
+            'payment_method' => 'in_person',
+            'fulfillment_mode' => 'pickup',
+            'status' => SpargelOrderStatus::PendingPayment,
+        ]);
+
+        $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee(__('spargel.return_pay_in_person_heading'))
+            ->assertDontSee(__('spargel.return_pending_heading'));
+    }
+
+    public function test_pay_view_redirects_in_person_orders_to_return(): void
+    {
+        $order = SpargelOrder::factory()->create([
+            'payment_method' => 'in_person',
+            'fulfillment_mode' => 'pickup',
+            'status' => SpargelOrderStatus::PendingPayment,
+        ]);
+
+        // Even if a customer tries to access the SumUp pay URL directly,
+        // we bounce them back — no SumUp checkout for in-person orders.
+        $this->get(route('public.spargel.pay', ['spargelOrder' => $order->id]))
+            ->assertRedirect(route('public.spargel.return', ['spargelOrder' => $order->id]));
     }
 
     protected function tearDown(): void

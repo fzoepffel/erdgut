@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property 'pickup'|'delivery' $fulfillment_mode
  * @property numeric $delivery_fee_eur
  * @property numeric $total_amount_eur
+ * @property 'online'|'in_person' $payment_method
  * @property Carbon|null $expected_delivery_date
  * @property string|null $delivery_street
  * @property string|null $delivery_postal_code
@@ -32,6 +33,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $delivery_notes
  * @property SpargelOrderStatus $status
  * @property Carbon|null $paid_at
+ * @property Carbon|null $marked_paid_by_admin_at
  * @property Carbon|null $fulfilled_at
  * @property string|null $sumup_checkout_id
  * @property string|null $sumup_payment_id
@@ -53,6 +55,7 @@ class SpargelOrder extends Model
         'fulfillment_mode',
         'delivery_fee_eur',
         'total_amount_eur',
+        'payment_method',
         'expected_delivery_date',
         'delivery_street',
         'delivery_postal_code',
@@ -60,6 +63,7 @@ class SpargelOrder extends Model
         'delivery_notes',
         'status',
         'paid_at',
+        'marked_paid_by_admin_at',
         'fulfilled_at',
         'sumup_checkout_id',
         'sumup_payment_id',
@@ -86,6 +90,7 @@ class SpargelOrder extends Model
             'total_amount_eur' => 'decimal:2',
             'expected_delivery_date' => 'date',
             'paid_at' => 'datetime',
+            'marked_paid_by_admin_at' => 'datetime',
             'fulfilled_at' => 'datetime',
             'provider_payload' => 'array',
         ];

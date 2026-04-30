@@ -15,6 +15,16 @@ class SpargelOrderRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        // Default payment_method to 'online' when missing — the form
+        // always submits one of the two radio values, but tests + raw
+        // POSTs can omit it and we want sane behaviour.
+        if (! $this->has('payment_method') || $this->input('payment_method') === null || $this->input('payment_method') === '') {
+            $this->merge(['payment_method' => 'online']);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -28,11 +38,19 @@ class SpargelOrderRequest extends FormRequest
             'phone' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:40'],
             'asparagus_type' => ['required', Rule::in(['green', 'white'])],
             // 100 g floor avoids zero / sub-portion orders. 20 kg ceiling
-            // is a sanity guard against UI quirks. Step is 50 g on the
-            // frontend (not enforced server-side — admin can always
-            // accept odd quantities).
-            'quantity_grams' => ['required', 'integer', 'min:100', 'max:20000'],
+            // is a sanity guard against UI quirks. Quantities must be
+            // multiples of 100 g — same step as the form input — so the
+            // server doesn't accept e.g. 233 g if the customer fiddles
+            // with the input directly.
+            'quantity_grams' => [
+                'required',
+                'integer',
+                'min:100',
+                'max:20000',
+                'multiple_of:'.SpargelOrderService::QUANTITY_STEP_GRAMS,
+            ],
             'fulfillment_mode' => ['required', Rule::in(['pickup', 'delivery'])],
+            'payment_method' => ['required', Rule::in(['online', 'in_person'])],
             'delivery_street' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:160'],
             'delivery_postal_code' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:16'],
             'delivery_city' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:120'],
@@ -54,6 +72,16 @@ class SpargelOrderRequest extends FormRequest
                 $v->errors()->add(
                     'fulfillment_mode',
                     __('spargel.errors.delivery_minimum', ['min' => SpargelOrderService::DELIVERY_MIN_GRAMS])
+                );
+            }
+
+            // Pay-in-person is only available with self-pickup — we can't
+            // accept cash for a delivery the customer never sees us during.
+            $payMethod = (string) $this->input('payment_method');
+            if ($payMethod === 'in_person' && $mode !== 'pickup') {
+                $v->errors()->add(
+                    'payment_method',
+                    __('spargel.errors.in_person_pickup_only')
                 );
             }
         });

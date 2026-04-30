@@ -28,6 +28,9 @@ class TranslationParityTest extends TestCase
         // Spargel trial-shop view builds keys like 'spargel.type_'.$type
         // (green/white). The concrete keys are still asserted to exist.
         'spargel.type_',
+        // /spargel-admin renders status badges via 'spargel.admin.status_'.$key
+        // — pending/paid/fulfilled/cancelled/refunded.
+        'spargel.admin.status_',
     ];
 
     public function test_every_translation_key_used_in_source_exists_in_every_locale(): void

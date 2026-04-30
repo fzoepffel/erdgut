@@ -27,6 +27,12 @@ erdgut-mvp-tickets.csv
 # Raw brand asset dump — cherry-picked files live under public/images/
 /public/new_visuals_and_catalogue
 
+# Source media originals (HEIC + MOV) — we transcode to .jpg / .mp4 for
+# the browser and commit only those. Originals are too heavy for git
+# (a single 1080p .MOV is ~50 MB) but the transcoded outputs are <6 MB.
+public/images/**/*.HEIC
+public/images/**/*.MOV
+
 # Claude Code local state (worktrees, caches, per-dev launch configs); keep rules/* committed
 /.claude/worktrees
 /.claude/settings.local.json
