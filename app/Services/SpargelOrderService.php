@@ -42,6 +42,48 @@ class SpargelOrderService
     /** Reduced VAT rate for fresh produce in Germany (already in price). */
     public const VAT_RATE_PERCENT = 7;
 
+    /**
+     * The two pickup locations a customer can choose from. Each entry's
+     * key is what we persist in `pickup_location`; the rest is the
+     * surface info (name + address) shown on the confirmation screen,
+     * the email, and the admin list.
+     *
+     * The order page (form) intentionally shows only the address — the
+     * person's name appears later (post-submit) so the form stays
+     * neutral about who the customer will physically meet.
+     *
+     * @var array<string, array{name:string, street:string, postal_code:string, city:string}>
+     */
+    public const PICKUP_LOCATIONS = [
+        'karl_kunger' => [
+            'name' => 'Arthur Hamcha',
+            'street' => 'Karl-Kunger-Straße 6',
+            'postal_code' => '12435',
+            'city' => 'Berlin',
+        ],
+        'gotenstrasse' => [
+            'name' => 'Milan Ross',
+            'street' => 'Gotenstrasse 19',
+            'postal_code' => '10829',
+            'city' => 'Berlin',
+        ],
+    ];
+
+    /**
+     * Look up a pickup location by its key. Returns null if the key
+     * isn't a known location (defensive against a stale DB row).
+     *
+     * @return array{name:string, street:string, postal_code:string, city:string}|null
+     */
+    public static function pickupLocation(?string $key): ?array
+    {
+        if ($key === null || ! isset(self::PICKUP_LOCATIONS[$key])) {
+            return null;
+        }
+
+        return self::PICKUP_LOCATIONS[$key];
+    }
+
     /** Customers buy in 50 g increments. Same constant guards the form
      *  dropdown options, the FormRequest validator, and the quote()
      *  internals so all three agree. */
@@ -164,6 +206,10 @@ class SpargelOrderService
             'delivery_postal_code' => $payload['delivery_postal_code'] ?? null,
             'delivery_city' => $payload['delivery_city'] ?? null,
             'delivery_notes' => $payload['delivery_notes'] ?? null,
+            // Only persist a pickup_location for pickup orders.
+            'pickup_location' => ($payload['fulfillment_mode'] ?? null) === 'pickup'
+                ? ($payload['pickup_location'] ?? null)
+                : null,
             'status' => SpargelOrderStatus::PendingPayment,
         ]));
     }

@@ -60,6 +60,13 @@ class SpargelOrderRequest extends FormRequest
             'delivery_postal_code' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:16'],
             'delivery_city' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:120'],
             'delivery_notes' => ['nullable', 'string', 'max:500'],
+            // Required when picking up — must be one of the configured
+            // pickup-location keys. Ignored for delivery orders.
+            'pickup_location' => [
+                'nullable',
+                'required_if:fulfillment_mode,pickup',
+                Rule::in(array_keys(SpargelOrderService::PICKUP_LOCATIONS)),
+            ],
             'consent' => ['accepted'],
         ];
     }
@@ -123,6 +130,7 @@ class SpargelOrderRequest extends FormRequest
             'delivery_street' => __('spargel.delivery_street'),
             'delivery_postal_code' => __('spargel.delivery_postal_code'),
             'delivery_city' => __('spargel.delivery_city'),
+            'pickup_location' => __('spargel.pickup_location_label'),
         ];
     }
 }

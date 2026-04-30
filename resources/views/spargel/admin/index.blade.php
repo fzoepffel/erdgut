@@ -127,7 +127,15 @@
                                             <div class="mt-1 text-xs italic text-brand-ink/55">{{ $order->delivery_notes }}</div>
                                         @endif
                                     @else
+                                        @php $pickup = \App\Services\SpargelOrderService::pickupLocation($order->pickup_location); @endphp
                                         <span class="text-brand-ink">{{ __('spargel.fulfillment_pickup') }}</span>
+                                        @if ($pickup)
+                                            <div class="mt-1 text-xs text-brand-ink/65">
+                                                <span class="font-semibold text-brand-ink/85">{{ $pickup['name'] }}</span><br>
+                                                {{ $pickup['street'] }}<br>
+                                                {{ $pickup['postal_code'] }} {{ $pickup['city'] }}
+                                            </div>
+                                        @endif
                                     @endif
                                 </td>
                                 <td class="px-3 py-3 text-brand-ink/80">

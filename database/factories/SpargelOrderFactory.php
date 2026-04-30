@@ -42,6 +42,7 @@ class SpargelOrderFactory extends Factory
             'delivery_street' => $fulfillment === 'delivery' ? fake()->streetAddress() : null,
             'delivery_postal_code' => $fulfillment === 'delivery' ? fake()->postcode() : null,
             'delivery_city' => $fulfillment === 'delivery' ? fake()->city() : null,
+            'pickup_location' => $fulfillment === 'pickup' ? fake()->randomElement(['karl_kunger', 'gotenstrasse']) : null,
             'status' => SpargelOrderStatus::PendingPayment,
         ];
     }
