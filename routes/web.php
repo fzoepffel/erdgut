@@ -28,6 +28,7 @@ use App\Http\Controllers\Marketing\AboutController;
 use App\Http\Controllers\Marketing\ComingSoonController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
+use App\Http\Controllers\Marketing\PrivacyController;
 use App\Http\Controllers\Marketing\ProducerController as MarketingProducerController;
 use App\Http\Controllers\Onboarding\AccountStepController;
 use App\Http\Controllers\Onboarding\AddressStepController;
@@ -78,6 +79,12 @@ Route::name('public.')->group(function () {
         ->name('spargel.store');
     Route::get('/spargel/{spargelOrder}/pay', [SpargelOrderController::class, 'pay'])->name('spargel.pay');
     Route::get('/spargel/{spargelOrder}/return', [SpargelOrderController::class, 'return'])->name('spargel.return');
+
+    // Minimal privacy notice — exists so the spargel-form consent text
+    // can link to a real page (Datenschutzhinweis is required for any
+    // German B2C purchase). Replace with a full notice once the rest
+    // of the marketing site is live.
+    Route::get('/datenschutz', [PrivacyController::class, 'show'])->name('privacy');
 });
 
 // Onboarding wizard — guest-allowed entry, auth enforced after the account step.

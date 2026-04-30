@@ -20,11 +20,12 @@ use Illuminate\Support\Carbon;
  * @property string $email
  * @property string|null $phone
  * @property 'green'|'white' $asparagus_type
- * @property numeric $quantity_kg
+ * @property int $quantity_grams
  * @property numeric $unit_price_eur
  * @property 'pickup'|'delivery' $fulfillment_mode
  * @property numeric $delivery_fee_eur
  * @property numeric $total_amount_eur
+ * @property Carbon|null $expected_delivery_date
  * @property string|null $delivery_street
  * @property string|null $delivery_postal_code
  * @property string|null $delivery_city
@@ -47,11 +48,12 @@ class SpargelOrder extends Model
         'email',
         'phone',
         'asparagus_type',
-        'quantity_kg',
+        'quantity_grams',
         'unit_price_eur',
         'fulfillment_mode',
         'delivery_fee_eur',
         'total_amount_eur',
+        'expected_delivery_date',
         'delivery_street',
         'delivery_postal_code',
         'delivery_city',
@@ -78,10 +80,11 @@ class SpargelOrder extends Model
     {
         return [
             'status' => SpargelOrderStatus::class,
-            'quantity_kg' => 'decimal:2',
+            'quantity_grams' => 'integer',
             'unit_price_eur' => 'decimal:2',
             'delivery_fee_eur' => 'decimal:2',
             'total_amount_eur' => 'decimal:2',
+            'expected_delivery_date' => 'date',
             'paid_at' => 'datetime',
             'fulfilled_at' => 'datetime',
             'provider_payload' => 'array',
@@ -89,13 +92,13 @@ class SpargelOrder extends Model
     }
 
     /**
-     * Convenience accessor: humanised "2.5 kg green" line for receipts.
+     * Convenience accessor: humanised "500 g grüner Spargel" line for receipts.
      */
     protected function lineDescription(): Attribute
     {
         return Attribute::get(fn (): string => sprintf(
-            '%s kg %s',
-            rtrim(rtrim(number_format((float) $this->quantity_kg, 2, '.', ''), '0'), '.'),
+            '%d g %s',
+            (int) $this->quantity_grams,
             $this->asparagus_type === 'white' ? 'weißer Spargel' : 'grüner Spargel',
         ));
     }

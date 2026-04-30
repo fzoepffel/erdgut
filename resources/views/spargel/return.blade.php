@@ -1,4 +1,10 @@
 <x-spargel-layout :title="__('spargel.return_page_title')">
+    @php
+        $deliveryDateLabel = $order->expected_delivery_date
+            ? $order->expected_delivery_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM')
+            : null;
+    @endphp
+
     @if ($order->status === \App\Enums\SpargelOrderStatus::Paid)
         <p class="eyebrow text-chapter-produce">{{ __('spargel.return_paid_eyebrow') }}</p>
         <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
@@ -7,6 +13,21 @@
         <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
             {{ __('spargel.return_paid_body', ['email' => $order->email]) }}
         </p>
+
+        @if ($deliveryDateLabel)
+            <div class="mt-6 max-w-xl border border-chapter-produce/30 bg-chapter-produce/5 p-4 text-sm leading-relaxed text-brand-ink">
+                <p class="eyebrow text-chapter-produce">
+                    @if ($order->fulfillment_mode === 'delivery')
+                        {{ __('spargel.return_paid_delivery_eyebrow') }}
+                    @else
+                        {{ __('spargel.return_paid_pickup_eyebrow') }}
+                    @endif
+                </p>
+                <p class="mt-1 font-display text-base text-brand-ink">
+                    {{ __('spargel.delivery_window_main', ['date' => $deliveryDateLabel]) }}
+                </p>
+            </div>
+        @endif
 
         <dl class="mt-6 border border-brand-ink/15 bg-brand-ink/[0.02] p-5 text-sm text-brand-ink/80">
             <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
