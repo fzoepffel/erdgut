@@ -33,14 +33,19 @@ use Throwable;
 class SpargelOrderService
 {
     /** Pricing constants — single test channel, no admin override yet. */
-    public const PRICE_PER_KG_EUR = 20.0;
+    public const PRICE_PER_KG_EUR = 21.50;
 
-    public const DELIVERY_FEE_EUR = 1.99;
+    public const DELIVERY_FEE_EUR = 2.90;
 
     public const DELIVERY_MIN_GRAMS = 500;
 
     /** Reduced VAT rate for fresh produce in Germany (already in price). */
     public const VAT_RATE_PERCENT = 7;
+
+    /** Customers buy in 100 g increments. Same constant guards the form
+     *  step="100" attribute, the FormRequest validator, and the quote()
+     *  internals so all three agree. */
+    public const QUANTITY_STEP_GRAMS = 100;
 
     public function __construct(private readonly SumUpService $sumUpService) {}
 
@@ -113,6 +118,7 @@ class SpargelOrderService
             'fulfillment_mode' => $payload['fulfillment_mode'],
             'delivery_fee_eur' => $quote['delivery_fee_eur'],
             'total_amount_eur' => $quote['total_amount_eur'],
+            'payment_method' => $payload['payment_method'] ?? 'online',
             'expected_delivery_date' => $this->nextDeliveryMonday()->toDateString(),
             'delivery_street' => $payload['delivery_street'] ?? null,
             'delivery_postal_code' => $payload['delivery_postal_code'] ?? null,
