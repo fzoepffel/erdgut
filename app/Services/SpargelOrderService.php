@@ -42,10 +42,35 @@ class SpargelOrderService
     /** Reduced VAT rate for fresh produce in Germany (already in price). */
     public const VAT_RATE_PERCENT = 7;
 
-    /** Customers buy in 100 g increments. Same constant guards the form
-     *  step="100" attribute, the FormRequest validator, and the quote()
+    /** Customers buy in 50 g increments. Same constant guards the form
+     *  dropdown options, the FormRequest validator, and the quote()
      *  internals so all three agree. */
-    public const QUANTITY_STEP_GRAMS = 100;
+    public const QUANTITY_STEP_GRAMS = 50;
+
+    /** Smallest sellable quantity. Below this is too little for a
+     *  meaningful portion. */
+    public const QUANTITY_MIN_GRAMS = 100;
+
+    /** Sanity ceiling on the dropdown. Customers ordering more than 3 kg
+     *  get in touch directly — the trial-shop isn't a wholesale channel. */
+    public const QUANTITY_MAX_GRAMS = 3000;
+
+    /**
+     * The list of quantities the dropdown offers — every {@see
+     * QUANTITY_STEP_GRAMS} between MIN and MAX, inclusive. Pre-rendered
+     * once instead of computed in Blade.
+     *
+     * @return array<int, int>
+     */
+    public static function quantityOptions(): array
+    {
+        $options = [];
+        for ($g = self::QUANTITY_MIN_GRAMS; $g <= self::QUANTITY_MAX_GRAMS; $g += self::QUANTITY_STEP_GRAMS) {
+            $options[] = $g;
+        }
+
+        return $options;
+    }
 
     public function __construct(private readonly SumUpService $sumUpService) {}
 

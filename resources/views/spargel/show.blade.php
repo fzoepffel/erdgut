@@ -46,6 +46,7 @@
     </div>
 
     <form
+        id="spargel-order-form"
         method="POST"
         action="{{ route('public.spargel.store') }}"
         class="mt-10 space-y-10"
@@ -58,6 +59,7 @@
             pricePerKg: {{ (float) $pricePerKgEur }},
             deliveryFee: {{ (float) $deliveryFeeEur }},
             deliveryMin: {{ (int) $deliveryMinGrams }},
+            confirming: false,
             get deliveryAllowed() { return this.quantity >= this.deliveryMin; },
             get effectiveMode() { return this.deliveryAllowed ? this.mode : 'pickup'; },
             get effectiveDeliveryFee() { return this.effectiveMode === 'delivery' ? this.deliveryFee : 0; },
@@ -154,24 +156,28 @@
             <x-input-error :messages="$errors->get('asparagus_type')" class="mt-2" />
         </fieldset>
 
-        {{-- Quantity (in grams). The fieldset legend doubles as the input
-             label so we don't say MENGE / MENGE IN GRAMM twice. --}}
+        {{-- Quantity dropdown. Replaced the free-form number input so
+             customers can only pick valid 50 g multiples between
+             QUANTITY_MIN_GRAMS and QUANTITY_MAX_GRAMS — the validator
+             enforces the same range, but the dropdown removes the
+             chance to fiddle with odd values in the first place. --}}
         <fieldset class="space-y-3">
             <legend class="eyebrow text-chapter-eggdairy">{{ __('spargel.section_quantity') }}</legend>
             <div class="flex items-center gap-3">
-                <input
+                <select
                     id="spargel-quantity"
                     name="quantity_grams"
-                    type="number"
-                    step="{{ (int) $quantityStepGrams }}"
-                    min="100"
-                    max="20000"
                     x-model.number="quantity"
-                    value="{{ old('quantity_grams', '500') }}"
                     required
-                    class="block w-32 border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
-                />
-                <span class="font-display text-base text-brand-ink/85">{{ __('spargel.unit_grams') }}</span>
+                    class="block w-40 border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
+                >
+                    @php $current = (int) old('quantity_grams', 500); @endphp
+                    @foreach ($quantityOptions as $g)
+                        <option value="{{ $g }}" @selected($current === $g)>
+                            {{ $g }} {{ __('spargel.unit_grams_short') }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
             <p class="text-xs text-brand-ink/60">
                 {{ __('spargel.quantity_hint', ['price' => number_format($pricePerKgEur, 2, ',', '.'), 'step' => $quantityStepGrams]) }}
@@ -456,10 +462,94 @@
         </label>
         <x-input-error :messages="$errors->get('consent')" class="-mt-4" />
 
+        {{-- Submit button. Online orders go through SumUp on submit; in-person
+             orders bypass payment entirely and only need a single user-side
+             confirmation step (the modal below) before we record the order. --}}
         <div class="pt-2">
-            <x-primary-button class="w-full justify-center sm:w-auto">
+            <button
+                type="submit"
+                x-show="effectivePayment !== 'in_person'"
+                x-cloak
+                class="btn-solid w-full justify-center disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                data-testid="spargel-submit-online"
+            >
                 {{ __('spargel.cta_continue_to_payment') }}
-            </x-primary-button>
+            </button>
+            <button
+                type="button"
+                x-show="effectivePayment === 'in_person'"
+                x-cloak
+                @click="confirming = true"
+                class="btn-solid w-full justify-center disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                data-testid="spargel-submit-in-person"
+            >
+                {{ __('spargel.cta_confirm_order') }}
+            </button>
+        </div>
+
+        {{-- In-person confirmation modal — kept inside the <form> so the
+             modal's "Submit" button can stay a plain type="submit" and
+             share the form's Alpine x-data scope (confirming, total,
+             money). A deliberate second click to make "you'll pay X €
+             at pickup" explicit before we commit the order. --}}
+        <div
+            x-show="confirming"
+            x-cloak
+            x-on:keydown.escape.window="confirming = false"
+            class="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="spargel-confirm-heading"
+            data-testid="spargel-confirm-modal"
+        >
+            <div
+                class="fixed inset-0 bg-brand-ink/55"
+                @click="confirming = false"
+            ></div>
+            <div
+                x-show="confirming"
+                x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 translate-y-4"
+                x-transition:enter-end="opacity-100 translate-y-0"
+                class="relative mx-4 mb-4 w-full max-w-lg border border-brand-ink/20 bg-brand-cream p-6 shadow-xl sm:mb-0 sm:p-8"
+            >
+                <p class="eyebrow text-chapter-meat">{{ __('spargel.confirm_modal_eyebrow') }}</p>
+                <h2 id="spargel-confirm-heading" class="mt-2 font-display text-2xl font-semibold text-brand-ink sm:text-3xl">
+                    {{ __('spargel.confirm_modal_heading') }}
+                </h2>
+                <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/75">
+                    {{ __('spargel.confirm_modal_intro') }}
+                </p>
+
+                <dl class="mt-5 space-y-1 border border-brand-ink/15 bg-brand-paper p-4 text-sm text-brand-ink/85">
+                    <div class="flex items-center justify-between gap-3">
+                        <dt>{{ __('spargel.summary_line_subtotal') }}</dt>
+                        <dd class="tabular-nums" x-text="money(lineTotal)"></dd>
+                    </div>
+                    <div class="mt-1 flex items-center justify-between gap-3 border-t border-brand-ink/10 pt-2 font-semibold text-brand-ink">
+                        <dt class="font-display">{{ __('spargel.summary_line_total') }}</dt>
+                        <dd class="font-display text-lg tabular-nums text-chapter-meat" x-text="money(total)"></dd>
+                    </div>
+                </dl>
+
+                <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        @click="confirming = false"
+                        class="btn-ghost w-full justify-center sm:w-auto"
+                        data-testid="spargel-confirm-cancel"
+                    >
+                        {{ __('spargel.confirm_modal_cancel') }}
+                    </button>
+                    <button
+                        type="submit"
+                        class="btn-solid w-full justify-center sm:w-auto"
+                        data-testid="spargel-confirm-submit"
+                    >
+                        {{ __('spargel.confirm_modal_submit') }}
+                    </button>
+                </div>
+            </div>
         </div>
     </form>
 
