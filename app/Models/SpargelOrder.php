@@ -15,12 +15,16 @@ use Illuminate\Support\Carbon;
  * data is captured at the row (name + email + phone) so anonymous visitors
  * can place a single purchase without registering an account.
  *
+ * One order can mix green AND white asparagus — both quantities live on
+ * the row. Either may be 0 but the combined total is enforced in the
+ * FormRequest (>= 100 g).
+ *
  * @property int $id
  * @property string $name
  * @property string $email
  * @property string|null $phone
- * @property 'green'|'white' $asparagus_type
- * @property int $quantity_grams
+ * @property int $quantity_green_grams
+ * @property int $quantity_white_grams
  * @property numeric $unit_price_eur
  * @property 'pickup'|'delivery' $fulfillment_mode
  * @property numeric $delivery_fee_eur
@@ -49,8 +53,8 @@ class SpargelOrder extends Model
         'name',
         'email',
         'phone',
-        'asparagus_type',
-        'quantity_grams',
+        'quantity_green_grams',
+        'quantity_white_grams',
         'unit_price_eur',
         'fulfillment_mode',
         'delivery_fee_eur',
@@ -84,7 +88,8 @@ class SpargelOrder extends Model
     {
         return [
             'status' => SpargelOrderStatus::class,
-            'quantity_grams' => 'integer',
+            'quantity_green_grams' => 'integer',
+            'quantity_white_grams' => 'integer',
             'unit_price_eur' => 'decimal:2',
             'delivery_fee_eur' => 'decimal:2',
             'total_amount_eur' => 'decimal:2',
@@ -97,14 +102,33 @@ class SpargelOrder extends Model
     }
 
     /**
-     * Convenience accessor: humanised "500 g grüner Spargel" line for receipts.
+     * Combined total grams across both varieties.
+     */
+    protected function totalGrams(): Attribute
+    {
+        return Attribute::get(
+            fn (): int => (int) $this->quantity_green_grams + (int) $this->quantity_white_grams
+        );
+    }
+
+    /**
+     * Humanised line description for receipts and admin lists. Renders
+     * "500 g grüner Spargel + 200 g weißer Spargel" when both varieties
+     * are present, or just the present one. Always returns at least one
+     * line — defensive against a row where both columns are 0.
      */
     protected function lineDescription(): Attribute
     {
-        return Attribute::get(fn (): string => sprintf(
-            '%d g %s',
-            (int) $this->quantity_grams,
-            $this->asparagus_type === 'white' ? 'weißer Spargel' : 'grüner Spargel',
-        ));
+        return Attribute::get(function (): string {
+            $parts = [];
+            if ($this->quantity_green_grams > 0) {
+                $parts[] = sprintf('%d g grüner Spargel', $this->quantity_green_grams);
+            }
+            if ($this->quantity_white_grams > 0) {
+                $parts[] = sprintf('%d g weißer Spargel', $this->quantity_white_grams);
+            }
+
+            return $parts === [] ? '0 g' : implode(' + ', $parts);
+        });
     }
 }

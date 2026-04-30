@@ -39,8 +39,8 @@ class SpargelAdminTest extends TestCase
         $order = SpargelOrder::factory()->create([
             'name' => 'Anna Mustermann',
             'email' => 'anna@example.com',
-            'quantity_grams' => 500,
-            'asparagus_type' => 'green',
+            'quantity_green_grams' => 500,
+            'quantity_white_grams' => 200,
             'fulfillment_mode' => 'pickup',
             'payment_method' => 'online',
             'status' => SpargelOrderStatus::Paid,
@@ -52,7 +52,8 @@ class SpargelAdminTest extends TestCase
             ->assertOk()
             ->assertSee('Anna Mustermann')
             ->assertSee('anna@example.com')
-            ->assertSee('500 g grüner Spargel')
+            ->assertSee('500 g')
+            ->assertSee('200 g')
             ->assertSee('data-testid="spargel-admin-row-'.$order->id.'"', false);
     }
 

@@ -34,7 +34,7 @@ class SpargelOrderFlowTest extends TestCase
             ->assertOk()
             ->assertSee(__('spargel.heading'))
             ->assertSee(__('spargel.section_contact'))
-            ->assertSee(__('spargel.section_quantity'))
+            ->assertSee(__('spargel.section_product'))
             ->assertSee('data-testid="spargel-form"', false);
     }
 
@@ -70,7 +70,7 @@ class SpargelOrderFlowTest extends TestCase
             ->assertSee(route('public.spargel.show'));
     }
 
-    public function test_submitting_valid_pickup_creates_pending_order_in_grams(): void
+    public function test_submitting_valid_green_only_pickup_creates_order(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-04-28 10:00:00')); // Tue
 
@@ -79,8 +79,8 @@ class SpargelOrderFlowTest extends TestCase
                 'name' => 'Anna Mustermann',
                 'email' => 'anna@example.com',
                 'phone' => '+49 30 12345678',
-                'asparagus_type' => 'green',
-                'quantity_grams' => '300',
+                'quantity_green_grams' => '300',
+                'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
                 'consent' => '1',
             ]);
@@ -88,8 +88,8 @@ class SpargelOrderFlowTest extends TestCase
             $order = SpargelOrder::query()->latest('id')->first();
             $this->assertNotNull($order);
             $this->assertSame('Anna Mustermann', $order->name);
-            $this->assertSame('green', $order->asparagus_type);
-            $this->assertSame(300, $order->quantity_grams);
+            $this->assertSame(300, $order->quantity_green_grams);
+            $this->assertSame(0, $order->quantity_white_grams);
             $this->assertSame('pickup', $order->fulfillment_mode);
             $this->assertSame('0.00', (string) $order->delivery_fee_eur);
             // 300 g * 21.50 €/kg = 6.45
@@ -103,14 +103,38 @@ class SpargelOrderFlowTest extends TestCase
         }
     }
 
-    public function test_submitting_delivery_attaches_address_phone_and_fee(): void
+    public function test_submitting_mixed_green_and_white_creates_order_with_both_quantities(): void
+    {
+        $this->post(route('public.spargel.store'), [
+            'name' => 'Mira Mixed',
+            'email' => 'mira@example.com',
+            'phone' => '+49 30 99887766',
+            'quantity_green_grams' => '500',
+            'quantity_white_grams' => '500',
+            'fulfillment_mode' => 'delivery',
+            'delivery_street' => 'Musterstraße 12',
+            'delivery_postal_code' => '10115',
+            'delivery_city' => 'Berlin',
+            'consent' => '1',
+        ]);
+
+        $order = SpargelOrder::query()->latest('id')->first();
+        $this->assertNotNull($order);
+        $this->assertSame(500, $order->quantity_green_grams);
+        $this->assertSame(500, $order->quantity_white_grams);
+        // 1000 g * 21.50 = 21.50; +2.90 delivery = 24.40
+        $this->assertSame('24.40', (string) $order->total_amount_eur);
+        $this->assertSame('Musterstraße 12', $order->delivery_street);
+    }
+
+    public function test_submitting_white_only_delivery_creates_order(): void
     {
         $this->post(route('public.spargel.store'), [
             'name' => 'Bernd Liefert',
             'email' => 'bernd@example.com',
             'phone' => '+49 30 99887766',
-            'asparagus_type' => 'white',
-            'quantity_grams' => '2000',
+            'quantity_green_grams' => '0',
+            'quantity_white_grams' => '2000',
             'fulfillment_mode' => 'delivery',
             'delivery_street' => 'Musterstraße 12',
             'delivery_postal_code' => '10115',
@@ -121,12 +145,11 @@ class SpargelOrderFlowTest extends TestCase
         $order = SpargelOrder::query()->latest('id')->first();
         $this->assertNotNull($order);
         $this->assertSame('delivery', $order->fulfillment_mode);
-        $this->assertSame(2000, $order->quantity_grams);
+        $this->assertSame(0, $order->quantity_green_grams);
+        $this->assertSame(2000, $order->quantity_white_grams);
         $this->assertSame('2.90', (string) $order->delivery_fee_eur);
         // 2000 g * 21.50 + 2.90 = 45.90
         $this->assertSame('45.90', (string) $order->total_amount_eur);
-        $this->assertSame('Musterstraße 12', $order->delivery_street);
-        $this->assertSame('+49 30 99887766', $order->phone);
     }
 
     public function test_quantity_must_be_a_multiple_of_50_grams(): void
@@ -135,29 +158,80 @@ class SpargelOrderFlowTest extends TestCase
             ->post(route('public.spargel.store'), [
                 'name' => 'Quentin',
                 'email' => 'quentin@example.com',
-                'asparagus_type' => 'green',
-                'quantity_grams' => '375', // not a multiple of 50
+                'quantity_green_grams' => '375', // not a multiple of 50
+                'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
                 'consent' => '1',
             ])
-            ->assertSessionHasErrors('quantity_grams');
+            ->assertSessionHasErrors('quantity_green_grams');
 
         $this->assertSame(0, SpargelOrder::query()->count());
     }
 
     public function test_quantity_above_max_is_rejected(): void
     {
-        // Sanity: 5 kg is over the QUANTITY_MAX_GRAMS ceiling (3 kg).
+        // 5 kg of one variety is over the per-variety ceiling (3 kg).
         $this->from(route('public.spargel.show'))
             ->post(route('public.spargel.store'), [
                 'name' => 'Wholesale',
                 'email' => 'wholesale@example.com',
-                'asparagus_type' => 'white',
-                'quantity_grams' => '5000',
+                'quantity_green_grams' => '0',
+                'quantity_white_grams' => '5000',
                 'fulfillment_mode' => 'pickup',
                 'consent' => '1',
             ])
-            ->assertSessionHasErrors('quantity_grams');
+            ->assertSessionHasErrors('quantity_white_grams');
+
+        $this->assertSame(0, SpargelOrder::query()->count());
+    }
+
+    public function test_combined_total_below_minimum_is_rejected(): void
+    {
+        // 50 + 0 = 50 g — below QUANTITY_COMBINED_MIN_GRAMS (100 g).
+        $this->from(route('public.spargel.show'))
+            ->post(route('public.spargel.store'), [
+                'name' => 'Tiny',
+                'email' => 'tiny@example.com',
+                'quantity_green_grams' => '50',
+                'quantity_white_grams' => '0',
+                'fulfillment_mode' => 'pickup',
+                'consent' => '1',
+            ])
+            ->assertSessionHasErrors('quantity_green_grams');
+
+        $this->assertSame(0, SpargelOrder::query()->count());
+    }
+
+    public function test_combined_total_above_max_is_rejected(): void
+    {
+        // 1500 + 1600 = 3100 g — over combined max (3000 g) even
+        // though each per-variety value is fine on its own.
+        $this->from(route('public.spargel.show'))
+            ->post(route('public.spargel.store'), [
+                'name' => 'TooMuch',
+                'email' => 'toomuch@example.com',
+                'quantity_green_grams' => '1500',
+                'quantity_white_grams' => '1600',
+                'fulfillment_mode' => 'pickup',
+                'consent' => '1',
+            ])
+            ->assertSessionHasErrors('quantity_green_grams');
+
+        $this->assertSame(0, SpargelOrder::query()->count());
+    }
+
+    public function test_zero_in_both_varieties_is_rejected(): void
+    {
+        $this->from(route('public.spargel.show'))
+            ->post(route('public.spargel.store'), [
+                'name' => 'Empty',
+                'email' => 'empty@example.com',
+                'quantity_green_grams' => '0',
+                'quantity_white_grams' => '0',
+                'fulfillment_mode' => 'pickup',
+                'consent' => '1',
+            ])
+            ->assertSessionHasErrors('quantity_green_grams');
 
         $this->assertSame(0, SpargelOrder::query()->count());
     }
@@ -169,8 +243,8 @@ class SpargelOrderFlowTest extends TestCase
                 'name' => 'Petra Klein',
                 'email' => 'petra@example.com',
                 'phone' => '+49 30 11111111',
-                'asparagus_type' => 'green',
-                'quantity_grams' => '300',
+                'quantity_green_grams' => '300',
+                'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'delivery',
                 'delivery_street' => 'Kleine Str. 1',
                 'delivery_postal_code' => '10115',
@@ -189,8 +263,8 @@ class SpargelOrderFlowTest extends TestCase
             'name' => 'Carla Halbkilo',
             'email' => 'carla@example.com',
             'phone' => '+49 30 22222222',
-            'asparagus_type' => 'white',
-            'quantity_grams' => '500',
+            'quantity_green_grams' => '0',
+            'quantity_white_grams' => '500',
             'fulfillment_mode' => 'delivery',
             'delivery_street' => 'Hauptstr. 1',
             'delivery_postal_code' => '10115',
@@ -208,8 +282,8 @@ class SpargelOrderFlowTest extends TestCase
                 'name' => 'Dora',
                 'email' => 'dora@example.com',
                 // phone intentionally omitted
-                'asparagus_type' => 'green',
-                'quantity_grams' => '1000',
+                'quantity_green_grams' => '1000',
+                'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'delivery',
                 'delivery_street' => 'Strasse 1',
                 'delivery_postal_code' => '10115',
@@ -225,8 +299,8 @@ class SpargelOrderFlowTest extends TestCase
             'name' => 'Erik',
             'email' => 'erik@example.com',
             // no phone
-            'asparagus_type' => 'green',
-            'quantity_grams' => '500',
+            'quantity_green_grams' => '500',
+            'quantity_white_grams' => '0',
             'fulfillment_mode' => 'pickup',
             'consent' => '1',
         ])->assertRedirect();
@@ -241,8 +315,8 @@ class SpargelOrderFlowTest extends TestCase
                 'name' => 'Frieda',
                 'email' => 'frieda@example.com',
                 'phone' => '+49 30 33333333',
-                'asparagus_type' => 'white',
-                'quantity_grams' => '1500',
+                'quantity_green_grams' => '0',
+                'quantity_white_grams' => '1500',
                 'fulfillment_mode' => 'delivery',
                 // address fields intentionally omitted
                 'consent' => '1',
@@ -256,8 +330,8 @@ class SpargelOrderFlowTest extends TestCase
             ->post(route('public.spargel.store'), [
                 'name' => 'Greta',
                 'email' => 'greta@example.com',
-                'asparagus_type' => 'green',
-                'quantity_grams' => '500',
+                'quantity_green_grams' => '500',
+                'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
                 // consent missing
             ])
@@ -266,9 +340,10 @@ class SpargelOrderFlowTest extends TestCase
 
     public function test_pay_view_initiates_checkout_with_total_amount_and_renders_widget(): void
     {
-        // 1500 g * 21.50 = 32.25; +2.90 delivery = 35.15
+        // 1500 g green * 21.50 = 32.25; +2.90 delivery = 35.15
         $order = SpargelOrder::factory()->create([
-            'quantity_grams' => 1500,
+            'quantity_green_grams' => 1500,
+            'quantity_white_grams' => 0,
             'fulfillment_mode' => 'delivery',
             'delivery_fee_eur' => 2.90,
             'total_amount_eur' => 35.15,
@@ -360,24 +435,34 @@ class SpargelOrderFlowTest extends TestCase
         $this->assertNull($order->paid_at);
     }
 
-    public function test_quote_returns_correct_total_in_grams(): void
+    public function test_quote_handles_each_variety_alone_and_combined(): void
     {
         $service = app(SpargelOrderService::class);
 
-        $pickup = $service->quote(300, 'pickup');
-        $this->assertSame(300, $pickup['quantity_grams']);
-        $this->assertSame(21.50, $pickup['unit_price_eur']);
-        // 300 g * 21.50 = 6.45
-        $this->assertSame(6.45, $pickup['line_total_eur']);
-        $this->assertSame(0.0, $pickup['delivery_fee_eur']);
-        $this->assertSame(6.45, $pickup['total_amount_eur']);
+        // Green only, pickup, no delivery fee.
+        $green = $service->quote(300, 0, 'pickup');
+        $this->assertSame(300, $green['quantity_green_grams']);
+        $this->assertSame(0, $green['quantity_white_grams']);
+        $this->assertSame(300, $green['total_grams']);
+        $this->assertSame(21.50, $green['unit_price_eur']);
+        $this->assertSame(6.45, $green['line_total_eur']); // 300 * 21.50 / 1000
+        $this->assertSame(0.0, $green['delivery_fee_eur']);
+        $this->assertSame(6.45, $green['total_amount_eur']);
 
-        $delivery = $service->quote(2000, 'delivery');
-        // 2000 g * 21.50 = 43.00
-        $this->assertSame(43.0, $delivery['line_total_eur']);
-        $this->assertSame(2.90, $delivery['delivery_fee_eur']);
-        // 43 + 2.90 = 45.90
-        $this->assertSame(45.90, $delivery['total_amount_eur']);
+        // White only, delivery, fee added.
+        $white = $service->quote(0, 2000, 'delivery');
+        $this->assertSame(0, $white['quantity_green_grams']);
+        $this->assertSame(2000, $white['quantity_white_grams']);
+        $this->assertSame(2000, $white['total_grams']);
+        $this->assertSame(43.0, $white['line_total_eur']);
+        $this->assertSame(2.90, $white['delivery_fee_eur']);
+        $this->assertSame(45.90, $white['total_amount_eur']);
+
+        // Mixed both, pickup. Total = (500+500)/1000 * 21.50 = 21.50
+        $mixed = $service->quote(500, 500, 'pickup');
+        $this->assertSame(1000, $mixed['total_grams']);
+        $this->assertSame(21.50, $mixed['line_total_eur']);
+        $this->assertSame(21.50, $mixed['total_amount_eur']);
     }
 
     /**
@@ -431,8 +516,8 @@ class SpargelOrderFlowTest extends TestCase
         $response = $this->post(route('public.spargel.store'), [
             'name' => 'Petra Persönlich',
             'email' => 'petra@example.com',
-            'asparagus_type' => 'green',
-            'quantity_grams' => '500',
+            'quantity_green_grams' => '500',
+            'quantity_white_grams' => '0',
             'fulfillment_mode' => 'pickup',
             'payment_method' => 'in_person',
             'consent' => '1',
@@ -453,22 +538,23 @@ class SpargelOrderFlowTest extends TestCase
         });
     }
 
-    public function test_form_renders_quantity_as_dropdown_with_50g_steps(): void
+    public function test_form_renders_per_variety_quantity_dropdowns(): void
     {
         $html = $this->get(route('public.spargel.show'))
             ->assertOk()
             ->getContent();
 
-        // Dropdown is a <select>, not <input type="number">.
-        $this->assertStringContainsString('<select', $html);
-        $this->assertStringContainsString('name="quantity_grams"', $html);
+        // Two <select> dropdowns — one per variety.
+        $this->assertStringContainsString('name="quantity_green_grams"', $html);
+        $this->assertStringContainsString('name="quantity_white_grams"', $html);
         // 50 g multiples are present in the option list.
+        $this->assertStringContainsString('value="0"', $html);
         $this->assertStringContainsString('value="100"', $html);
-        $this->assertStringContainsString('value="150"', $html);
         $this->assertStringContainsString('value="500"', $html);
         $this->assertStringContainsString('value="3000"', $html);
-        // Free-form number input is gone.
-        $this->assertStringNotContainsString('name="quantity_grams" type="number"', $html);
+        // The collapsed single-quantity name is gone.
+        $this->assertStringNotContainsString('name="quantity_grams"', $html);
+        $this->assertStringNotContainsString('name="asparagus_type"', $html);
     }
 
     public function test_form_renders_both_submit_buttons_so_alpine_can_pick(): void
@@ -546,8 +632,8 @@ class SpargelOrderFlowTest extends TestCase
                 'name' => 'Otto',
                 'email' => 'otto@example.com',
                 'phone' => '+49 30 12345678',
-                'asparagus_type' => 'white',
-                'quantity_grams' => '1000',
+                'quantity_green_grams' => '0',
+                'quantity_white_grams' => '1000',
                 'fulfillment_mode' => 'delivery',
                 'payment_method' => 'in_person',
                 'delivery_street' => 'Musterstr. 1',
