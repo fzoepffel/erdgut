@@ -108,7 +108,14 @@
                                         @endif
                                     </div>
                                 </td>
-                                <td class="px-3 py-3 text-brand-ink/85">{{ $order->line_description }}</td>
+                                <td class="px-3 py-3 text-brand-ink/85">
+                                    @if ((int) $order->quantity_green_grams > 0)
+                                        <div>{{ (int) $order->quantity_green_grams }} g <span class="text-brand-ink/55">·</span> {{ __('spargel.type_green') }}</div>
+                                    @endif
+                                    @if ((int) $order->quantity_white_grams > 0)
+                                        <div>{{ (int) $order->quantity_white_grams }} g <span class="text-brand-ink/55">·</span> {{ __('spargel.type_white') }}</div>
+                                    @endif
+                                </td>
                                 <td class="px-3 py-3">
                                     @if ($order->fulfillment_mode === 'delivery')
                                         <span class="text-brand-ink">{{ __('spargel.fulfillment_delivery') }}</span>

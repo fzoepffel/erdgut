@@ -15,14 +15,18 @@
 
     {{-- Order summary card --}}
     <dl class="mt-6 border border-brand-ink/15 bg-brand-ink/[0.02] p-5 text-sm text-brand-ink/80">
-        <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
-            <dt class="eyebrow text-brand-ink/60">{{ __('spargel.summary_line_product') }}</dt>
-            <dd class="text-brand-ink">{{ $order->line_description }}</dd>
-        </div>
-        <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
-            <dt class="eyebrow text-brand-ink/60">{{ __('spargel.summary_line_subtotal') }}</dt>
-            <dd class="tabular-nums text-brand-ink">{{ number_format(((int) $order->quantity_grams / 1000) * (float) $order->unit_price_eur, 2, ',', '.') }} €</dd>
-        </div>
+        @if ((int) $order->quantity_green_grams > 0)
+            <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
+                <dt class="eyebrow text-brand-ink/60">{{ (int) $order->quantity_green_grams }} g · {{ __('spargel.type_green') }}</dt>
+                <dd class="tabular-nums text-brand-ink">{{ number_format(((int) $order->quantity_green_grams / 1000) * (float) $order->unit_price_eur, 2, ',', '.') }} €</dd>
+            </div>
+        @endif
+        @if ((int) $order->quantity_white_grams > 0)
+            <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
+                <dt class="eyebrow text-brand-ink/60">{{ (int) $order->quantity_white_grams }} g · {{ __('spargel.type_white') }}</dt>
+                <dd class="tabular-nums text-brand-ink">{{ number_format(((int) $order->quantity_white_grams / 1000) * (float) $order->unit_price_eur, 2, ',', '.') }} €</dd>
+            </div>
+        @endif
         @if ($order->fulfillment_mode === 'delivery')
             <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
                 <dt class="eyebrow text-brand-ink/60">{{ __('spargel.summary_line_delivery') }}</dt>

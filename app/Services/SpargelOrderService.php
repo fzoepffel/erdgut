@@ -47,25 +47,34 @@ class SpargelOrderService
      *  internals so all three agree. */
     public const QUANTITY_STEP_GRAMS = 50;
 
-    /** Smallest sellable quantity. Below this is too little for a
-     *  meaningful portion. */
-    public const QUANTITY_MIN_GRAMS = 100;
+    /** Smallest *positive* per-variety amount. The dropdown also offers
+     *  0 (= "none of this variety"); the validator allows 0 OR
+     *  multiples of QUANTITY_STEP_GRAMS at or above this floor. */
+    public const QUANTITY_PER_VARIETY_MIN_GRAMS = 50;
 
-    /** Sanity ceiling on the dropdown. Customers ordering more than 3 kg
-     *  get in touch directly — the trial-shop isn't a wholesale channel. */
-    public const QUANTITY_MAX_GRAMS = 3000;
+    /** Largest amount we'll accept for a single variety on a single
+     *  order — same as the combined ceiling. */
+    public const QUANTITY_PER_VARIETY_MAX_GRAMS = 3000;
+
+    /** Smallest combined order. Below this is too little for a
+     *  meaningful portion (we'd lose money on the handling). */
+    public const QUANTITY_COMBINED_MIN_GRAMS = 100;
+
+    /** Sanity ceiling on the combined order. Customers ordering more
+     *  than 3 kg get in touch directly. */
+    public const QUANTITY_COMBINED_MAX_GRAMS = 3000;
 
     /**
-     * The list of quantities the dropdown offers — every {@see
-     * QUANTITY_STEP_GRAMS} between MIN and MAX, inclusive. Pre-rendered
-     * once instead of computed in Blade.
+     * The list of values each per-variety dropdown offers — 0 (none of
+     * this variety) plus every step between MIN and MAX, inclusive.
+     * Pre-rendered once instead of computed in Blade.
      *
      * @return array<int, int>
      */
     public static function quantityOptions(): array
     {
-        $options = [];
-        for ($g = self::QUANTITY_MIN_GRAMS; $g <= self::QUANTITY_MAX_GRAMS; $g += self::QUANTITY_STEP_GRAMS) {
+        $options = [0];
+        for ($g = self::QUANTITY_PER_VARIETY_MIN_GRAMS; $g <= self::QUANTITY_PER_VARIETY_MAX_GRAMS; $g += self::QUANTITY_STEP_GRAMS) {
             $options[] = $g;
         }
 
@@ -77,18 +86,23 @@ class SpargelOrderService
     /**
      * Compute the total a customer will be charged for a hypothetical order.
      * Stays in one place so the form preview, the controller validation,
-     * and the SumUp checkout can never disagree.
+     * and the SumUp checkout can never disagree. Both varieties share the
+     * same per-kg price.
      *
-     * @return array{quantity_grams:int, unit_price_eur:float, line_total_eur:float, delivery_fee_eur:float, total_amount_eur:float}
+     * @return array{quantity_green_grams:int, quantity_white_grams:int, total_grams:int, unit_price_eur:float, line_total_eur:float, delivery_fee_eur:float, total_amount_eur:float}
      */
-    public function quote(int $quantityGrams, string $fulfillmentMode): array
+    public function quote(int $greenGrams, int $whiteGrams, string $fulfillmentMode): array
     {
-        $quantityGrams = max(0, $quantityGrams);
-        $line = round(($quantityGrams / 1000) * self::PRICE_PER_KG_EUR, 2);
+        $green = max(0, $greenGrams);
+        $white = max(0, $whiteGrams);
+        $totalGrams = $green + $white;
+        $line = round(($totalGrams / 1000) * self::PRICE_PER_KG_EUR, 2);
         $deliveryFee = $fulfillmentMode === 'delivery' ? self::DELIVERY_FEE_EUR : 0.0;
 
         return [
-            'quantity_grams' => $quantityGrams,
+            'quantity_green_grams' => $green,
+            'quantity_white_grams' => $white,
+            'total_grams' => $totalGrams,
             'unit_price_eur' => self::PRICE_PER_KG_EUR,
             'line_total_eur' => $line,
             'delivery_fee_eur' => $deliveryFee,
@@ -129,7 +143,8 @@ class SpargelOrderService
     public function createOrder(array $payload): SpargelOrder
     {
         $quote = $this->quote(
-            (int) ($payload['quantity_grams'] ?? 0),
+            (int) ($payload['quantity_green_grams'] ?? 0),
+            (int) ($payload['quantity_white_grams'] ?? 0),
             (string) ($payload['fulfillment_mode'] ?? 'pickup')
         );
 
@@ -137,8 +152,8 @@ class SpargelOrderService
             'name' => $payload['name'],
             'email' => $payload['email'],
             'phone' => $payload['phone'] ?? null,
-            'asparagus_type' => $payload['asparagus_type'],
-            'quantity_grams' => $quote['quantity_grams'],
+            'quantity_green_grams' => $quote['quantity_green_grams'],
+            'quantity_white_grams' => $quote['quantity_white_grams'],
             'unit_price_eur' => $quote['unit_price_eur'],
             'fulfillment_mode' => $payload['fulfillment_mode'],
             'delivery_fee_eur' => $quote['delivery_fee_eur'],
