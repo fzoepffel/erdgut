@@ -8,6 +8,15 @@
         $greenInCartDateLabel = $greenInCartMonday->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
         $whiteWindowMain = __('spargel.delivery_window_main', ['date' => $whiteOnlyDateLabel]);
         $greenWindowMain = __('spargel.delivery_window_main', ['date' => $greenInCartDateLabel]);
+        // True when today is past the green cutoff: a mixed cart shifts
+        // from the closer Monday to a week later. Used to surface an
+        // inline notice under the variety selection so the customer
+        // sees the consequence while picking quantities.
+        $cartShiftsForGreen = $whiteOnlyMonday->toDateString() !== $greenInCartMonday->toDateString();
+        $mixedShiftNotice = __('spargel.mixed_shift_notice', [
+            'earlier' => $whiteOnlyDateLabel,
+            'later' => $greenInCartDateLabel,
+        ]);
     @endphp
 
     {{-- Hero block: editorial heading on the brand-cream page bg.
@@ -199,6 +208,24 @@
                     </div>
                 @endforeach
             </div>
+
+            @if ($cartShiftsForGreen)
+                {{-- Inline shift notice: only relevant Fri–Sun, when today
+                     is past the green cutoff. Tells the customer that a
+                     mixed cart pushes the whole order to the Monday a
+                     week later, so they can decide consciously between
+                     "white-only this week" and "both, next week". --}}
+                <div
+                    x-show="green > 0 && white > 0"
+                    x-cloak
+                    class="border border-chapter-meat/40 bg-chapter-meat/[0.05] p-4 text-sm leading-relaxed text-brand-ink"
+                    role="status"
+                    data-testid="spargel-mixed-shift-notice"
+                >
+                    <p class="eyebrow text-chapter-meat">{{ __('spargel.mixed_shift_eyebrow') }}</p>
+                    <p class="mt-1">{{ $mixedShiftNotice }}</p>
+                </div>
+            @endif
 
             <p class="text-xs text-brand-ink/60">
                 {{ __('spargel.quantity_hint', ['price' => number_format($pricePerKgEur, 2, ',', '.'), 'step' => $quantityStepGrams]) }}
