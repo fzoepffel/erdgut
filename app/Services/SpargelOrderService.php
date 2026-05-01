@@ -57,7 +57,7 @@ class SpargelOrderService
     public const PICKUP_LOCATIONS = [
         'karl_kunger' => [
             'name' => 'Arthur Hamcha',
-            'street' => 'Karl-Kunger-Straße 6',
+            'street' => 'Karl-Kunger-Straße 9',
             'postal_code' => '12435',
             'city' => 'Berlin',
         ],

@@ -765,7 +765,7 @@ class SpargelOrderFlowTest extends TestCase
         $this->assertStringContainsString('value="karl_kunger"', $html);
         $this->assertStringContainsString('value="gotenstrasse"', $html);
         // Addresses are visible on the form.
-        $this->assertStringContainsString('Karl-Kunger-Straße 6', $html);
+        $this->assertStringContainsString('Karl-Kunger-Straße 9', $html);
         $this->assertStringContainsString('Gotenstrasse 19', $html);
         // …but the host names are NOT shown on the order page.
         $this->assertStringNotContainsString('Arthur Hamcha', $html);
@@ -782,7 +782,7 @@ class SpargelOrderFlowTest extends TestCase
         $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
             ->assertOk()
             ->assertSee('Arthur Hamcha')
-            ->assertSee('Karl-Kunger-Straße 6')
+            ->assertSee('Karl-Kunger-Straße 9')
             ->assertSee('12435 Berlin');
     }
 
