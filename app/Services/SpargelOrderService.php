@@ -153,15 +153,39 @@ class SpargelOrderService
     }
 
     /**
+     * Per-variety order cutoff (ISO weekday: Mon=1, …, Sun=7). Anything
+     * ordered up to and including the cutoff day ships the coming Monday;
+     * anything ordered later shifts to the Monday after.
+     *
+     * Green needs more lead time in the field, so it cuts off on
+     * Thursday. White can be picked at very short notice — Max harvests
+     * Sunday for Monday — so we accept white right up to Sunday.
+     */
+    public const CUTOFF_ISO_GREEN = 4; // Thursday
+
+    public const CUTOFF_ISO_WHITE = 7; // Sunday
+
+    /**
      * The Monday on which an order placed at $now will be delivered.
      *
-     * Rule: Mon–Thu cutoff → coming Monday; Fri–Sun → following Monday.
+     * The cutoff depends on the varieties in the cart: green-only or
+     * mixed orders use the green (Thursday) cutoff because the same
+     * delivery day has to wait for the slower-to-prepare variety.
+     * White-only orders may use the Sunday cutoff. With nothing
+     * selected we fall back to the green cutoff (the safe default for
+     * the form's initial banner before the customer picks a variety).
+     *
      * Always returns a Carbon at start-of-day in the app timezone so the
      * date is formatter-friendly.
      */
-    public function nextDeliveryMonday(?Carbon $now = null): Carbon
-    {
+    public function nextDeliveryMonday(
+        ?Carbon $now = null,
+        int $greenGrams = 0,
+        int $whiteGrams = 0,
+    ): Carbon {
         $now = $now ?? Carbon::now();
+
+        $cutoffIso = $this->cutoffIsoForCart($greenGrams, $whiteGrams);
 
         // dayOfWeekIso: 1 = Mon, …, 7 = Sun.
         $iso = (int) $now->dayOfWeekIso;
@@ -170,13 +194,31 @@ class SpargelOrderService
         // exactly what we want (we can't deliver same-day).
         $monday = $now->copy()->next(Carbon::MONDAY);
 
-        // Friday (5) onwards including Sunday (7) miss the Thursday cutoff
-        // and shift to the Monday after.
-        if ($iso >= 5) {
+        // Past the cutoff for the varieties in the cart → shift one more
+        // week so Max has enough lead time to prepare.
+        if ($iso > $cutoffIso) {
             $monday = $monday->copy()->addWeek();
         }
 
         return $monday->startOfDay();
+    }
+
+    /**
+     * Pick the strictest cutoff that applies to the varieties in the cart.
+     * Green wins over white when both are present; an empty cart defaults
+     * to the green cutoff so the form's initial banner stays conservative.
+     */
+    private function cutoffIsoForCart(int $greenGrams, int $whiteGrams): int
+    {
+        if ($greenGrams > 0) {
+            return self::CUTOFF_ISO_GREEN;
+        }
+
+        if ($whiteGrams > 0) {
+            return self::CUTOFF_ISO_WHITE;
+        }
+
+        return self::CUTOFF_ISO_GREEN;
     }
 
     /**
@@ -201,7 +243,11 @@ class SpargelOrderService
             'delivery_fee_eur' => $quote['delivery_fee_eur'],
             'total_amount_eur' => $quote['total_amount_eur'],
             'payment_method' => $payload['payment_method'] ?? 'online',
-            'expected_delivery_date' => $this->nextDeliveryMonday()->toDateString(),
+            'expected_delivery_date' => $this->nextDeliveryMonday(
+                null,
+                $quote['quantity_green_grams'],
+                $quote['quantity_white_grams'],
+            )->toDateString(),
             'delivery_street' => $payload['delivery_street'] ?? null,
             'delivery_postal_code' => $payload['delivery_postal_code'] ?? null,
             'delivery_city' => $payload['delivery_city'] ?? null,
@@ -241,24 +287,41 @@ class SpargelOrderService
         return $checkout;
     }
 
+    /** Verification outcomes returned by {@see verifyPaymentWithProvider}. */
+    public const VERIFY_PAID = 'paid';
+
+    public const VERIFY_FAILED = 'failed';
+
+    public const VERIFY_PENDING = 'pending';
+
     /**
      * Server-side verification — used after SumUp redirects the browser back
      * to our return URL. Never trust the redirect itself; ask SumUp.
      *
-     * Returns true if the order is now paid.
+     * Returns one of three string outcomes:
+     *  - VERIFY_PAID    → checkout is PAID; order has been moved to Paid.
+     *  - VERIFY_FAILED  → checkout (or its latest transaction) is FAILED /
+     *                     EXPIRED; order has been moved to Failed.
+     *  - VERIFY_PENDING → checkout still pending OR the verification
+     *                     itself failed (network error etc.); order
+     *                     status untouched.
+     *
+     * Idempotent — if the order is already Paid or Failed we return that
+     * directly without hitting SumUp.
      */
-    public function confirmPaidFromProvider(SpargelOrder $order): bool
+    public function verifyPaymentWithProvider(SpargelOrder $order): string
     {
         if ($order->status === SpargelOrderStatus::Paid) {
-            return true;
+            return self::VERIFY_PAID;
         }
-
+        if ($order->status === SpargelOrderStatus::Failed) {
+            return self::VERIFY_FAILED;
+        }
         if ($order->status !== SpargelOrderStatus::PendingPayment) {
-            return false;
+            return self::VERIFY_PENDING;
         }
-
         if ($order->sumup_checkout_id === null) {
-            return false;
+            return self::VERIFY_PENDING;
         }
 
         try {
@@ -271,37 +334,65 @@ class SpargelOrderService
                 'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
             ]);
 
-            return false;
+            return self::VERIFY_PENDING;
         }
 
-        $status = strtoupper((string) data_get($checkout, 'status', ''));
+        $checkoutStatus = strtoupper((string) data_get($checkout, 'status', ''));
+        $transactions = (array) (data_get($checkout, 'transactions', []) ?? []);
 
-        if ($status !== 'PAID') {
-            SumUpCheckoutLogger::info('Spargel order: return-url verification — not paid yet.', [
+        if ($checkoutStatus === 'PAID') {
+            $paymentId = (string) (data_get($transactions, '0.id') ?? '');
+
+            $order->forceFill([
+                'status' => SpargelOrderStatus::Paid,
+                'paid_at' => now(),
+                'sumup_payment_id' => $paymentId !== '' ? $paymentId : null,
+                'provider_payload' => is_object($checkout) ? json_decode(json_encode($checkout), true) : null,
+            ])->save();
+
+            SumUpCheckoutLogger::info('Spargel order: return-url verification — marked paid.', [
                 'spargel_order_id' => $order->id,
                 'checkout_id' => $order->sumup_checkout_id,
-                'checkout_status' => $status ?: null,
+                'sumup_payment_id' => $paymentId !== '' ? $paymentId : null,
             ]);
 
-            return false;
+            return self::VERIFY_PAID;
         }
 
-        $transactions = (array) (data_get($checkout, 'transactions', []) ?? []);
-        $paymentId = (string) (data_get($transactions, '0.id') ?? '');
+        // The checkout itself can be FAILED / EXPIRED, or the checkout can
+        // still be PENDING while a 3DS attempt has flipped the most recent
+        // transaction to FAILED. Treat both as "this attempt failed" — the
+        // customer can retry, which spawns a fresh checkout (see
+        // SpargelOrderController::pay).
+        $transactionStatuses = array_map(
+            fn ($tx) => strtoupper((string) data_get($tx, 'status', '')),
+            $transactions,
+        );
+        $hasFailedTransaction = in_array('FAILED', $transactionStatuses, true);
+        $checkoutFailed = in_array($checkoutStatus, ['FAILED', 'EXPIRED'], true);
 
-        $order->forceFill([
-            'status' => SpargelOrderStatus::Paid,
-            'paid_at' => now(),
-            'sumup_payment_id' => $paymentId !== '' ? $paymentId : null,
-            'provider_payload' => is_object($checkout) ? json_decode(json_encode($checkout), true) : null,
-        ])->save();
+        if ($checkoutFailed || $hasFailedTransaction) {
+            $order->forceFill([
+                'status' => SpargelOrderStatus::Failed,
+                'provider_payload' => is_object($checkout) ? json_decode(json_encode($checkout), true) : null,
+            ])->save();
 
-        SumUpCheckoutLogger::info('Spargel order: return-url verification — marked paid.', [
+            SumUpCheckoutLogger::info('Spargel order: return-url verification — marked failed.', [
+                'spargel_order_id' => $order->id,
+                'checkout_id' => $order->sumup_checkout_id,
+                'checkout_status' => $checkoutStatus ?: null,
+                'has_failed_transaction' => $hasFailedTransaction,
+            ]);
+
+            return self::VERIFY_FAILED;
+        }
+
+        SumUpCheckoutLogger::info('Spargel order: return-url verification — still pending.', [
             'spargel_order_id' => $order->id,
             'checkout_id' => $order->sumup_checkout_id,
-            'sumup_payment_id' => $paymentId !== '' ? $paymentId : null,
+            'checkout_status' => $checkoutStatus ?: null,
         ]);
 
-        return true;
+        return self::VERIFY_PENDING;
     }
 }

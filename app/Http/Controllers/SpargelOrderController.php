@@ -31,6 +31,15 @@ class SpargelOrderController extends Controller
 
     public function show(): View
     {
+        // Both possible delivery Mondays — the form's banner switches
+        // between them based on the variety mix the customer picks. With
+        // the white-only flag we always get the closest Monday (Sunday
+        // cutoff is so late it never triggers a week-shift); with the
+        // green flag we may shift forward by a week if today is past
+        // Thursday.
+        $whiteOnlyMonday = $this->service->nextDeliveryMonday(null, 0, 1);
+        $greenInCartMonday = $this->service->nextDeliveryMonday(null, 1, 0);
+
         return view('spargel.show', [
             'pricePerKgEur' => SpargelOrderService::PRICE_PER_KG_EUR,
             'deliveryFeeEur' => SpargelOrderService::DELIVERY_FEE_EUR,
@@ -39,7 +48,8 @@ class SpargelOrderController extends Controller
             'quantityOptions' => SpargelOrderService::quantityOptions(),
             'pickupLocations' => SpargelOrderService::PICKUP_LOCATIONS,
             'vatRatePercent' => SpargelOrderService::VAT_RATE_PERCENT,
-            'nextDeliveryMonday' => $this->service->nextDeliveryMonday(),
+            'whiteOnlyMonday' => $whiteOnlyMonday,
+            'greenInCartMonday' => $greenInCartMonday,
         ]);
     }
 
@@ -68,6 +78,18 @@ class SpargelOrderController extends Controller
         // the confirmation page directly.
         if ($spargelOrder->payment_method === 'in_person') {
             return redirect()->route('public.spargel.return', ['spargelOrder' => $spargelOrder->id]);
+        }
+
+        // Retry path: a previous attempt failed (3DS declined, card
+        // refused, etc.). Reset the order to PendingPayment + clear the
+        // stale checkout id so /pay creates a fresh SumUp checkout.
+        if ($spargelOrder->status === SpargelOrderStatus::Failed) {
+            $spargelOrder->forceFill([
+                'status' => SpargelOrderStatus::PendingPayment,
+                'sumup_checkout_id' => null,
+                'sumup_payment_id' => null,
+            ])->save();
+            $spargelOrder->refresh();
         }
 
         if ($spargelOrder->status !== SpargelOrderStatus::PendingPayment) {
@@ -109,14 +131,19 @@ class SpargelOrderController extends Controller
 
     public function return(Request $request, SpargelOrder $spargelOrder): View
     {
-        // Authoritative server-side verification — we don't trust the redirect.
+        // Authoritative server-side verification — we don't trust the
+        // redirect. Skip for in-person orders (they're never charged
+        // through SumUp).
         if ($spargelOrder->status === SpargelOrderStatus::PendingPayment && $spargelOrder->payment_method !== 'in_person') {
-            $wasPaid = $this->service->confirmPaidFromProvider($spargelOrder);
+            $outcome = $this->service->verifyPaymentWithProvider($spargelOrder);
             $spargelOrder->refresh();
 
-            if ($wasPaid) {
+            if ($outcome === SpargelOrderService::VERIFY_PAID) {
                 $this->queueConfirmationMail($spargelOrder);
             }
+            // VERIFY_FAILED → row is now Failed; the view shows the failed
+            // UI + retry button. VERIFY_PENDING → keep the "still
+            // verifying" UI so the customer can refresh.
         }
 
         return view('spargel.return', [
