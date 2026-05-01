@@ -241,24 +241,41 @@ class SpargelOrderService
         return $checkout;
     }
 
+    /** Verification outcomes returned by {@see verifyPaymentWithProvider}. */
+    public const VERIFY_PAID = 'paid';
+
+    public const VERIFY_FAILED = 'failed';
+
+    public const VERIFY_PENDING = 'pending';
+
     /**
      * Server-side verification — used after SumUp redirects the browser back
      * to our return URL. Never trust the redirect itself; ask SumUp.
      *
-     * Returns true if the order is now paid.
+     * Returns one of three string outcomes:
+     *  - VERIFY_PAID    → checkout is PAID; order has been moved to Paid.
+     *  - VERIFY_FAILED  → checkout (or its latest transaction) is FAILED /
+     *                     EXPIRED; order has been moved to Failed.
+     *  - VERIFY_PENDING → checkout still pending OR the verification
+     *                     itself failed (network error etc.); order
+     *                     status untouched.
+     *
+     * Idempotent — if the order is already Paid or Failed we return that
+     * directly without hitting SumUp.
      */
-    public function confirmPaidFromProvider(SpargelOrder $order): bool
+    public function verifyPaymentWithProvider(SpargelOrder $order): string
     {
         if ($order->status === SpargelOrderStatus::Paid) {
-            return true;
+            return self::VERIFY_PAID;
         }
-
+        if ($order->status === SpargelOrderStatus::Failed) {
+            return self::VERIFY_FAILED;
+        }
         if ($order->status !== SpargelOrderStatus::PendingPayment) {
-            return false;
+            return self::VERIFY_PENDING;
         }
-
         if ($order->sumup_checkout_id === null) {
-            return false;
+            return self::VERIFY_PENDING;
         }
 
         try {
@@ -271,37 +288,65 @@ class SpargelOrderService
                 'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
             ]);
 
-            return false;
+            return self::VERIFY_PENDING;
         }
 
-        $status = strtoupper((string) data_get($checkout, 'status', ''));
+        $checkoutStatus = strtoupper((string) data_get($checkout, 'status', ''));
+        $transactions = (array) (data_get($checkout, 'transactions', []) ?? []);
 
-        if ($status !== 'PAID') {
-            SumUpCheckoutLogger::info('Spargel order: return-url verification — not paid yet.', [
+        if ($checkoutStatus === 'PAID') {
+            $paymentId = (string) (data_get($transactions, '0.id') ?? '');
+
+            $order->forceFill([
+                'status' => SpargelOrderStatus::Paid,
+                'paid_at' => now(),
+                'sumup_payment_id' => $paymentId !== '' ? $paymentId : null,
+                'provider_payload' => is_object($checkout) ? json_decode(json_encode($checkout), true) : null,
+            ])->save();
+
+            SumUpCheckoutLogger::info('Spargel order: return-url verification — marked paid.', [
                 'spargel_order_id' => $order->id,
                 'checkout_id' => $order->sumup_checkout_id,
-                'checkout_status' => $status ?: null,
+                'sumup_payment_id' => $paymentId !== '' ? $paymentId : null,
             ]);
 
-            return false;
+            return self::VERIFY_PAID;
         }
 
-        $transactions = (array) (data_get($checkout, 'transactions', []) ?? []);
-        $paymentId = (string) (data_get($transactions, '0.id') ?? '');
+        // The checkout itself can be FAILED / EXPIRED, or the checkout can
+        // still be PENDING while a 3DS attempt has flipped the most recent
+        // transaction to FAILED. Treat both as "this attempt failed" — the
+        // customer can retry, which spawns a fresh checkout (see
+        // SpargelOrderController::pay).
+        $transactionStatuses = array_map(
+            fn ($tx) => strtoupper((string) data_get($tx, 'status', '')),
+            $transactions,
+        );
+        $hasFailedTransaction = in_array('FAILED', $transactionStatuses, true);
+        $checkoutFailed = in_array($checkoutStatus, ['FAILED', 'EXPIRED'], true);
 
-        $order->forceFill([
-            'status' => SpargelOrderStatus::Paid,
-            'paid_at' => now(),
-            'sumup_payment_id' => $paymentId !== '' ? $paymentId : null,
-            'provider_payload' => is_object($checkout) ? json_decode(json_encode($checkout), true) : null,
-        ])->save();
+        if ($checkoutFailed || $hasFailedTransaction) {
+            $order->forceFill([
+                'status' => SpargelOrderStatus::Failed,
+                'provider_payload' => is_object($checkout) ? json_decode(json_encode($checkout), true) : null,
+            ])->save();
 
-        SumUpCheckoutLogger::info('Spargel order: return-url verification — marked paid.', [
+            SumUpCheckoutLogger::info('Spargel order: return-url verification — marked failed.', [
+                'spargel_order_id' => $order->id,
+                'checkout_id' => $order->sumup_checkout_id,
+                'checkout_status' => $checkoutStatus ?: null,
+                'has_failed_transaction' => $hasFailedTransaction,
+            ]);
+
+            return self::VERIFY_FAILED;
+        }
+
+        SumUpCheckoutLogger::info('Spargel order: return-url verification — still pending.', [
             'spargel_order_id' => $order->id,
             'checkout_id' => $order->sumup_checkout_id,
-            'sumup_payment_id' => $paymentId !== '' ? $paymentId : null,
+            'checkout_status' => $checkoutStatus ?: null,
         ]);
 
-        return true;
+        return self::VERIFY_PENDING;
     }
 }

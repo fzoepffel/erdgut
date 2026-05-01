@@ -83,6 +83,7 @@
                                 $statusKey = match ($order->status) {
                                     \App\Enums\SpargelOrderStatus::PendingPayment => 'pending',
                                     \App\Enums\SpargelOrderStatus::Paid => 'paid',
+                                    \App\Enums\SpargelOrderStatus::Failed => 'failed',
                                     \App\Enums\SpargelOrderStatus::Fulfilled => 'fulfilled',
                                     \App\Enums\SpargelOrderStatus::Cancelled => 'cancelled',
                                     \App\Enums\SpargelOrderStatus::Refunded => 'refunded',
@@ -90,6 +91,7 @@
                                 $statusBadge = match ($statusKey) {
                                     'pending' => 'bg-chapter-meat/10 text-chapter-meat border border-chapter-meat/30',
                                     'paid' => 'bg-chapter-produce/10 text-chapter-produce border border-chapter-produce/40',
+                                    'failed' => 'bg-chapter-meat/15 text-chapter-meat border border-chapter-meat/50 font-semibold',
                                     'fulfilled' => 'bg-chapter-bread/10 text-chapter-bread border border-chapter-bread/40',
                                     'cancelled', 'refunded' => 'bg-brand-ink/10 text-brand-ink/70 border border-brand-ink/30',
                                 };

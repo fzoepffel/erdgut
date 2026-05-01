@@ -13,6 +13,7 @@ enum SpargelOrderStatus: string
 {
     case PendingPayment = 'pending_payment';
     case Paid = 'paid';
+    case Failed = 'failed';
     case Fulfilled = 'fulfilled';
     case Cancelled = 'cancelled';
     case Refunded = 'refunded';
