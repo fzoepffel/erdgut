@@ -1,6 +1,13 @@
 <x-spargel-layout :title="__('spargel.page_title')">
     @php
-        $deliveryDateLabel = $nextDeliveryMonday->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
+        // Two possible delivery dates — the banner switches between them
+        // based on the variety mix the customer picks (green has a stricter
+        // Thursday cutoff; white may use Sunday). Pre-format both as
+        // localized labels so we don't have to do any date math in JS.
+        $whiteOnlyDateLabel = $whiteOnlyMonday->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
+        $greenInCartDateLabel = $greenInCartMonday->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
+        $whiteWindowMain = __('spargel.delivery_window_main', ['date' => $whiteOnlyDateLabel]);
+        $greenWindowMain = __('spargel.delivery_window_main', ['date' => $greenInCartDateLabel]);
     @endphp
 
     {{-- Hero block: editorial heading on the brand-cream page bg.
@@ -19,11 +26,40 @@
 
     {{-- Delivery date banner: tells the customer up-front when the order
          will arrive (or be ready for pickup). Uses chapter-bread soft —
-         warm earth tone that pairs with the produce-green cards below. --}}
-    <div class="border border-chapter-bread/30 bg-chapter-bread/[0.08] p-5 text-sm leading-relaxed text-brand-ink">
+         warm earth tone that pairs with the produce-green cards below.
+         Lives outside the form's x-data scope, so it has its own tiny
+         scope that mirrors the green/white quantities and recomputes
+         the banner copy as they change. --}}
+    <div
+        class="border border-chapter-bread/30 bg-chapter-bread/[0.08] p-5 text-sm leading-relaxed text-brand-ink"
+        x-data="{
+            green: parseInt({{ json_encode((string) old('quantity_green_grams', '0')) }}, 10) || 0,
+            white: parseInt({{ json_encode((string) old('quantity_white_grams', '500')) }}, 10) || 0,
+            get whiteOnly() { return this.green === 0 && this.white > 0; },
+            get windowMain() {
+                return this.whiteOnly
+                    ? {{ json_encode($whiteWindowMain) }}
+                    : {{ json_encode($greenWindowMain) }};
+            },
+        }"
+        x-init="
+            $watch('green', () => {});
+            $watch('white', () => {});
+            // Mirror the quantity selects in the form below so the banner
+            // updates as the customer changes them.
+            document.addEventListener('input', (ev) => {
+                if (ev.target?.name === 'quantity_green_grams') {
+                    green = parseInt(ev.target.value, 10) || 0;
+                }
+                if (ev.target?.name === 'quantity_white_grams') {
+                    white = parseInt(ev.target.value, 10) || 0;
+                }
+            });
+        "
+    >
         <p class="eyebrow text-chapter-bread">{{ __('spargel.delivery_window_eyebrow') }}</p>
-        <p class="mt-1 font-display text-base text-brand-ink sm:text-lg">
-            {{ __('spargel.delivery_window_main', ['date' => $deliveryDateLabel]) }}
+        <p class="mt-1 font-display text-base text-brand-ink sm:text-lg" x-text="windowMain">
+            {{ $greenWindowMain }}
         </p>
         <p class="mt-1 text-xs text-brand-ink/65">{{ __('spargel.delivery_window_rule') }}</p>
     </div>
@@ -35,8 +71,8 @@
         class="mt-10 space-y-10"
         data-testid="spargel-form"
         x-data="{
-            green: parseInt({{ json_encode((string) old('quantity_green_grams', '500')) }}, 10) || 0,
-            white: parseInt({{ json_encode((string) old('quantity_white_grams', '0')) }}, 10) || 0,
+            green: parseInt({{ json_encode((string) old('quantity_green_grams', '0')) }}, 10) || 0,
+            white: parseInt({{ json_encode((string) old('quantity_white_grams', '500')) }}, 10) || 0,
             mode: {{ json_encode(old('fulfillment_mode', 'pickup')) }},
             payment: {{ json_encode(old('payment_method', 'online')) }},
             pickupLocation: {{ json_encode(old('pickup_location', '')) }},
@@ -84,12 +120,14 @@
             //           border-chapter-eggdairy bg-chapter-eggdairy
             //           border-chapter-eggdairy/30 border-chapter-eggdairy/60
             //           text-chapter-eggdairy
+            // White first — Max has more white available right now, so we
+            // present it as the headline variety. Green follows.
             $varieties = [
-                ['key' => 'green', 'image' => 'spargel-green.jpg', 'chapter' => 'produce', 'index' => '01', 'state' => 'green'],
-                ['key' => 'white', 'image' => 'spargel-white.jpg', 'chapter' => 'eggdairy', 'index' => '02', 'state' => 'white'],
+                ['key' => 'white', 'image' => 'spargel-white.jpg', 'chapter' => 'eggdairy', 'index' => '01', 'state' => 'white'],
+                ['key' => 'green', 'image' => 'spargel-green.jpg', 'chapter' => 'produce', 'index' => '02', 'state' => 'green'],
             ];
-            $oldGreen = (int) old('quantity_green_grams', 500);
-            $oldWhite = (int) old('quantity_white_grams', 0);
+            $oldGreen = (int) old('quantity_green_grams', 0);
+            $oldWhite = (int) old('quantity_white_grams', 500);
         @endphp
         <fieldset class="space-y-4">
             <legend class="eyebrow text-chapter-eggdairy">{{ __('spargel.section_product') }}</legend>
@@ -452,14 +490,6 @@
         <div class="border border-brand-ink/15 bg-brand-paper p-6 text-sm text-brand-ink/85">
             <p class="eyebrow text-chapter-meat">{{ __('spargel.summary_heading') }}</p>
             <dl class="mt-4 space-y-1.5">
-                <div class="flex items-center justify-between gap-3" x-show="green > 0" x-cloak>
-                    <dt>
-                        <span x-text="green + ' g'"></span>
-                        <span class="text-brand-ink/60">·</span>
-                        {{ __('spargel.type_green') }}
-                    </dt>
-                    <dd class="tabular-nums" x-text="money(Math.round((green / 1000) * pricePerKg * 100) / 100)"></dd>
-                </div>
                 <div class="flex items-center justify-between gap-3" x-show="white > 0" x-cloak>
                     <dt>
                         <span x-text="white + ' g'"></span>
@@ -467,6 +497,14 @@
                         {{ __('spargel.type_white') }}
                     </dt>
                     <dd class="tabular-nums" x-text="money(Math.round((white / 1000) * pricePerKg * 100) / 100)"></dd>
+                </div>
+                <div class="flex items-center justify-between gap-3" x-show="green > 0" x-cloak>
+                    <dt>
+                        <span x-text="green + ' g'"></span>
+                        <span class="text-brand-ink/60">·</span>
+                        {{ __('spargel.type_green') }}
+                    </dt>
+                    <dd class="tabular-nums" x-text="money(Math.round((green / 1000) * pricePerKg * 100) / 100)"></dd>
                 </div>
                 <div class="flex items-center justify-between gap-3" x-show="effectiveMode === 'delivery'" x-cloak>
                     <dt>{{ __('spargel.summary_line_delivery') }}</dt>
@@ -558,14 +596,6 @@
                 </p>
 
                 <dl class="mt-5 space-y-1 border border-brand-ink/15 bg-brand-paper p-4 text-sm text-brand-ink/85">
-                    <div class="flex items-center justify-between gap-3" x-show="green > 0" x-cloak>
-                        <dt>
-                            <span x-text="green + ' g'"></span>
-                            <span class="text-brand-ink/60">·</span>
-                            {{ __('spargel.type_green') }}
-                        </dt>
-                        <dd class="tabular-nums" x-text="money(Math.round((green / 1000) * pricePerKg * 100) / 100)"></dd>
-                    </div>
                     <div class="flex items-center justify-between gap-3" x-show="white > 0" x-cloak>
                         <dt>
                             <span x-text="white + ' g'"></span>
@@ -573,6 +603,14 @@
                             {{ __('spargel.type_white') }}
                         </dt>
                         <dd class="tabular-nums" x-text="money(Math.round((white / 1000) * pricePerKg * 100) / 100)"></dd>
+                    </div>
+                    <div class="flex items-center justify-between gap-3" x-show="green > 0" x-cloak>
+                        <dt>
+                            <span x-text="green + ' g'"></span>
+                            <span class="text-brand-ink/60">·</span>
+                            {{ __('spargel.type_green') }}
+                        </dt>
+                        <dd class="tabular-nums" x-text="money(Math.round((green / 1000) * pricePerKg * 100) / 100)"></dd>
                     </div>
                     <div class="mt-1 flex items-center justify-between gap-3 border-t border-brand-ink/10 pt-2 font-semibold text-brand-ink">
                         <dt class="font-display">{{ __('spargel.summary_line_total') }}</dt>
@@ -601,16 +639,22 @@
         </div>
     </form>
 
-    {{-- Bottom story strip: short editorial paragraph + the field
-         photograph as a silent companion. The video lives in the hero;
-         this section is the still, slower counterpoint. --}}
+    {{-- Bottom story strip: longer editorial copy about Max in the
+         Spreewald and the way Kalkwitzer asparagus is grown. The field
+         image still sits as a silent companion on the side. --}}
     <section class="mt-16 -mx-4 overflow-hidden bg-brand-moss text-brand-cream sm:-mx-6">
-        <div class="mx-auto grid max-w-3xl gap-8 px-4 py-12 sm:grid-cols-[1fr_minmax(0,240px)] sm:items-center sm:px-6 sm:py-16">
-            <div>
+        <div class="mx-auto grid max-w-4xl gap-10 px-4 py-12 sm:grid-cols-[1fr_minmax(0,260px)] sm:items-start sm:px-6 sm:py-16">
+            <div class="space-y-4">
                 <p class="eyebrow text-brand-cream/75">{{ __('spargel.story_eyebrow') }}</p>
-                <p class="mt-3 font-display text-2xl leading-tight sm:text-3xl">{{ __('spargel.story_heading') }}</p>
-                <p class="mt-4 font-editorial text-sm italic leading-relaxed text-brand-cream/85 sm:text-base">
-                    {{ __('spargel.story_body') }}
+                <p class="font-display text-2xl leading-tight sm:text-3xl">{{ __('spargel.story_heading') }}</p>
+                <p class="font-editorial text-sm italic leading-relaxed text-brand-cream/85 sm:text-base">
+                    {{ __('spargel.story_p1') }}
+                </p>
+                <p class="font-editorial text-sm italic leading-relaxed text-brand-cream/85 sm:text-base">
+                    {{ __('spargel.story_p2') }}
+                </p>
+                <p class="font-editorial text-sm italic leading-relaxed text-brand-cream/85 sm:text-base">
+                    {{ __('spargel.story_p3') }}
                 </p>
             </div>
             <div class="overflow-hidden">

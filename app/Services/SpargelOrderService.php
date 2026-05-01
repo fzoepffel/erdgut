@@ -153,15 +153,39 @@ class SpargelOrderService
     }
 
     /**
+     * Per-variety order cutoff (ISO weekday: Mon=1, …, Sun=7). Anything
+     * ordered up to and including the cutoff day ships the coming Monday;
+     * anything ordered later shifts to the Monday after.
+     *
+     * Green needs more lead time in the field, so it cuts off on
+     * Thursday. White can be picked at very short notice — Max harvests
+     * Sunday for Monday — so we accept white right up to Sunday.
+     */
+    public const CUTOFF_ISO_GREEN = 4; // Thursday
+
+    public const CUTOFF_ISO_WHITE = 7; // Sunday
+
+    /**
      * The Monday on which an order placed at $now will be delivered.
      *
-     * Rule: Mon–Thu cutoff → coming Monday; Fri–Sun → following Monday.
+     * The cutoff depends on the varieties in the cart: green-only or
+     * mixed orders use the green (Thursday) cutoff because the same
+     * delivery day has to wait for the slower-to-prepare variety.
+     * White-only orders may use the Sunday cutoff. With nothing
+     * selected we fall back to the green cutoff (the safe default for
+     * the form's initial banner before the customer picks a variety).
+     *
      * Always returns a Carbon at start-of-day in the app timezone so the
      * date is formatter-friendly.
      */
-    public function nextDeliveryMonday(?Carbon $now = null): Carbon
-    {
+    public function nextDeliveryMonday(
+        ?Carbon $now = null,
+        int $greenGrams = 0,
+        int $whiteGrams = 0,
+    ): Carbon {
         $now = $now ?? Carbon::now();
+
+        $cutoffIso = $this->cutoffIsoForCart($greenGrams, $whiteGrams);
 
         // dayOfWeekIso: 1 = Mon, …, 7 = Sun.
         $iso = (int) $now->dayOfWeekIso;
@@ -170,13 +194,31 @@ class SpargelOrderService
         // exactly what we want (we can't deliver same-day).
         $monday = $now->copy()->next(Carbon::MONDAY);
 
-        // Friday (5) onwards including Sunday (7) miss the Thursday cutoff
-        // and shift to the Monday after.
-        if ($iso >= 5) {
+        // Past the cutoff for the varieties in the cart → shift one more
+        // week so Max has enough lead time to prepare.
+        if ($iso > $cutoffIso) {
             $monday = $monday->copy()->addWeek();
         }
 
         return $monday->startOfDay();
+    }
+
+    /**
+     * Pick the strictest cutoff that applies to the varieties in the cart.
+     * Green wins over white when both are present; an empty cart defaults
+     * to the green cutoff so the form's initial banner stays conservative.
+     */
+    private function cutoffIsoForCart(int $greenGrams, int $whiteGrams): int
+    {
+        if ($greenGrams > 0) {
+            return self::CUTOFF_ISO_GREEN;
+        }
+
+        if ($whiteGrams > 0) {
+            return self::CUTOFF_ISO_WHITE;
+        }
+
+        return self::CUTOFF_ISO_GREEN;
     }
 
     /**
@@ -201,7 +243,11 @@ class SpargelOrderService
             'delivery_fee_eur' => $quote['delivery_fee_eur'],
             'total_amount_eur' => $quote['total_amount_eur'],
             'payment_method' => $payload['payment_method'] ?? 'online',
-            'expected_delivery_date' => $this->nextDeliveryMonday()->toDateString(),
+            'expected_delivery_date' => $this->nextDeliveryMonday(
+                null,
+                $quote['quantity_green_grams'],
+                $quote['quantity_white_grams'],
+            )->toDateString(),
             'delivery_street' => $payload['delivery_street'] ?? null,
             'delivery_postal_code' => $payload['delivery_postal_code'] ?? null,
             'delivery_city' => $payload['delivery_city'] ?? null,

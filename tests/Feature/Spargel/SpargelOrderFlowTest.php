@@ -153,6 +153,64 @@ class SpargelOrderFlowTest extends TestCase
         $this->assertSame('45.90', (string) $order->total_amount_eur);
     }
 
+    /**
+     * White-only orders use the looser Sunday cutoff: a Friday-night
+     * white-only order should still ship the very next Monday rather
+     * than the Monday a week later.
+     */
+    public function test_white_only_friday_order_ships_coming_monday(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-01 22:00:00')); // Fri night
+
+        try {
+            $this->post(route('public.spargel.store'), [
+                'name' => 'Wanda Weiss',
+                'email' => 'wanda@example.com',
+                'quantity_green_grams' => '0',
+                'quantity_white_grams' => '500',
+                'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
+                'consent' => '1',
+            ]);
+
+            $order = SpargelOrder::query()->latest('id')->first();
+            $this->assertNotNull($order);
+            // 2026-05-04 = the Monday after that Friday — *not* +1 week.
+            $this->assertSame('2026-05-04', $order->expected_delivery_date->toDateString());
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
+    /**
+     * Counterpoint to the white-only test above: a Friday order with any
+     * green in the cart still bumps to the Monday after next, because
+     * green's strict Thursday cutoff has already passed.
+     */
+    public function test_mixed_friday_order_shifts_one_week_because_of_green(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-01 22:00:00')); // Fri night
+
+        try {
+            $this->post(route('public.spargel.store'), [
+                'name' => 'Mira Mixed',
+                'email' => 'mira@example.com',
+                'quantity_green_grams' => '200',
+                'quantity_white_grams' => '300',
+                'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
+                'consent' => '1',
+            ]);
+
+            $order = SpargelOrder::query()->latest('id')->first();
+            $this->assertNotNull($order);
+            // 2026-05-11 = the Monday a week after the Friday order.
+            $this->assertSame('2026-05-11', $order->expected_delivery_date->toDateString());
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
     public function test_quantity_must_be_a_multiple_of_50_grams(): void
     {
         $this->from(route('public.spargel.show'))
@@ -473,27 +531,22 @@ class SpargelOrderFlowTest extends TestCase
     }
 
     /**
-     * Cutoff calendar:
+     * Green-only / mixed cart cutoff:
      *
-     *   Mon (iso 1) → next Mon            (this Monday, +7 days)
-     *   Tue (iso 2) → next Mon            (+6)
-     *   Wed (iso 3) → next Mon            (+5)
-     *   Thu (iso 4) → next Mon            (+4)
-     *   Fri (iso 5) → following Mon       (+10)
-     *   Sat (iso 6) → following Mon       (+9)
-     *   Sun (iso 7) → following Mon       (+8)
+     *   Mon–Thu  → coming Monday            (Thu = cutoff)
+     *   Fri–Sun  → following Monday         (past cutoff → +1 week)
      *
-     * @dataProvider deliveryMondayProvider
+     * @dataProvider greenCutoffProvider
      */
-    public function test_next_delivery_monday_respects_thursday_cutoff(string $orderDate, string $expectedDelivery): void
+    public function test_next_delivery_monday_uses_thursday_cutoff_for_green(string $orderDate, string $expectedDelivery): void
     {
         $service = app(SpargelOrderService::class);
-        $monday = $service->nextDeliveryMonday(Carbon::parse($orderDate));
+        $monday = $service->nextDeliveryMonday(Carbon::parse($orderDate), greenGrams: 500, whiteGrams: 0);
 
         $this->assertSame($expectedDelivery, $monday->toDateString());
     }
 
-    public static function deliveryMondayProvider(): array
+    public static function greenCutoffProvider(): array
     {
         // Reference week: 2026-04-27 (Mon) → 2026-05-03 (Sun).
         return [
@@ -505,6 +558,51 @@ class SpargelOrderFlowTest extends TestCase
             'order Saturday' => ['2026-05-02 09:00', '2026-05-11'],
             'order Sunday' => ['2026-05-03 23:00', '2026-05-11'],
         ];
+    }
+
+    /**
+     * White-only cart cutoff: every day Mon–Sun ships the coming Monday
+     * (Sunday is the cutoff). Even Sunday-night orders make it.
+     *
+     * @dataProvider whiteCutoffProvider
+     */
+    public function test_next_delivery_monday_uses_sunday_cutoff_for_white_only(string $orderDate, string $expectedDelivery): void
+    {
+        $service = app(SpargelOrderService::class);
+        $monday = $service->nextDeliveryMonday(Carbon::parse($orderDate), greenGrams: 0, whiteGrams: 500);
+
+        $this->assertSame($expectedDelivery, $monday->toDateString());
+    }
+
+    public static function whiteCutoffProvider(): array
+    {
+        return [
+            'order Monday' => ['2026-04-27 10:00', '2026-05-04'],
+            'order Tuesday' => ['2026-04-28 10:00', '2026-05-04'],
+            'order Wednesday' => ['2026-04-29 10:00', '2026-05-04'],
+            'order Thursday' => ['2026-04-30 23:00', '2026-05-04'],
+            'order Friday' => ['2026-05-01 09:00', '2026-05-04'],
+            'order Saturday' => ['2026-05-02 09:00', '2026-05-04'],
+            'order Sunday' => ['2026-05-03 23:00', '2026-05-04'],
+        ];
+    }
+
+    /**
+     * Mixed-cart orders behave like green-only — the strictest cutoff in
+     * the cart wins, so a Friday order with both varieties ships the
+     * Monday after next.
+     */
+    public function test_next_delivery_monday_uses_strictest_cutoff_for_mixed_cart(): void
+    {
+        $service = app(SpargelOrderService::class);
+
+        $monday = $service->nextDeliveryMonday(
+            Carbon::parse('2026-05-01 09:00'), // Fri — past green cutoff
+            greenGrams: 200,
+            whiteGrams: 300,
+        );
+
+        $this->assertSame('2026-05-11', $monday->toDateString());
     }
 
     public function test_privacy_page_is_public_and_lists_data_categories(): void

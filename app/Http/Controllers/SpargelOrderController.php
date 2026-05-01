@@ -31,6 +31,15 @@ class SpargelOrderController extends Controller
 
     public function show(): View
     {
+        // Both possible delivery Mondays — the form's banner switches
+        // between them based on the variety mix the customer picks. With
+        // the white-only flag we always get the closest Monday (Sunday
+        // cutoff is so late it never triggers a week-shift); with the
+        // green flag we may shift forward by a week if today is past
+        // Thursday.
+        $whiteOnlyMonday = $this->service->nextDeliveryMonday(null, 0, 1);
+        $greenInCartMonday = $this->service->nextDeliveryMonday(null, 1, 0);
+
         return view('spargel.show', [
             'pricePerKgEur' => SpargelOrderService::PRICE_PER_KG_EUR,
             'deliveryFeeEur' => SpargelOrderService::DELIVERY_FEE_EUR,
@@ -39,7 +48,8 @@ class SpargelOrderController extends Controller
             'quantityOptions' => SpargelOrderService::quantityOptions(),
             'pickupLocations' => SpargelOrderService::PICKUP_LOCATIONS,
             'vatRatePercent' => SpargelOrderService::VAT_RATE_PERCENT,
-            'nextDeliveryMonday' => $this->service->nextDeliveryMonday(),
+            'whiteOnlyMonday' => $whiteOnlyMonday,
+            'greenInCartMonday' => $greenInCartMonday,
         ]);
     }
 
