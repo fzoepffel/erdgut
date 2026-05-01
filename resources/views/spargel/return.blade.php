@@ -104,7 +104,33 @@
         <p class="mt-6 text-sm text-brand-ink/70">
             {{ __('spargel.return_paid_followup') }}
         </p>
+    @elseif ($order->status === \App\Enums\SpargelOrderStatus::Failed)
+        {{-- Authoritative failed state: SumUp confirmed the payment did
+             not go through (3DS declined, card refused, etc.). Don't
+             pretend it might still come through — show a clear
+             "failed, please retry" UI. --}}
+        <p class="eyebrow text-chapter-meat">{{ __('spargel.return_failed_eyebrow') }}</p>
+        <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
+            {{ __('spargel.return_failed_heading') }}
+        </h1>
+        <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
+            {{ __('spargel.return_failed_body') }}
+        </p>
+        <div class="mt-6 border border-chapter-meat/40 bg-chapter-meat/5 p-4 text-sm leading-relaxed text-brand-ink">
+            <p>{{ __('spargel.return_failed_what_now') }}</p>
+        </div>
+        <div class="mt-6 flex flex-wrap items-center gap-4 text-sm">
+            <a href="{{ route('public.spargel.pay', ['spargelOrder' => $order->id]) }}" class="btn-solid" data-testid="spargel-failed-retry">
+                {{ __('spargel.return_failed_retry') }}
+            </a>
+            <a href="mailto:kontakt@erd-gut.de" class="text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
+                kontakt@erd-gut.de
+            </a>
+        </div>
     @else
+        {{-- True "still pending" — SumUp hasn't yet confirmed PAID or
+             FAILED (rare; usually means the verification request itself
+             timed out or the customer hasn't completed 3DS yet). --}}
         <p class="eyebrow text-chapter-meat">{{ __('spargel.return_pending_eyebrow') }}</p>
         <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
             {{ __('spargel.return_pending_heading') }}

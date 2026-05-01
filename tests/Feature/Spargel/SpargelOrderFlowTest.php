@@ -420,7 +420,7 @@ class SpargelOrderFlowTest extends TestCase
         $this->assertSame('pay_test_xyz', $order->sumup_payment_id);
     }
 
-    public function test_return_keeps_order_pending_when_sumup_says_not_paid(): void
+    public function test_return_keeps_order_pending_when_sumup_says_pending(): void
     {
         $order = SpargelOrder::factory()->create([
             'sumup_checkout_id' => 'co_pending_xyz',
@@ -430,7 +430,7 @@ class SpargelOrderFlowTest extends TestCase
         $sumUp = Mockery::mock(SumUpService::class);
         $sumUp->shouldReceive('getCheckout')
             ->with('co_pending_xyz')
-            ->andReturn((object) ['status' => 'PENDING']);
+            ->andReturn((object) ['status' => 'PENDING', 'transactions' => []]);
         $this->app->instance(SumUpService::class, $sumUp);
 
         $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
@@ -440,6 +440,77 @@ class SpargelOrderFlowTest extends TestCase
         $order->refresh();
         $this->assertSame(SpargelOrderStatus::PendingPayment, $order->status);
         $this->assertNull($order->paid_at);
+    }
+
+    public function test_return_marks_order_failed_when_checkout_status_is_failed(): void
+    {
+        $order = SpargelOrder::factory()->create([
+            'sumup_checkout_id' => 'co_dead_xyz',
+            'status' => SpargelOrderStatus::PendingPayment,
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldReceive('getCheckout')
+            ->with('co_dead_xyz')
+            ->andReturn((object) ['status' => 'FAILED', 'transactions' => []]);
+        $this->app->instance(SumUpService::class, $sumUp);
+
+        $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee(__('spargel.return_failed_heading'))
+            ->assertDontSee(__('spargel.return_pending_heading'));
+
+        $order->refresh();
+        $this->assertSame(SpargelOrderStatus::Failed, $order->status);
+    }
+
+    public function test_return_marks_order_failed_when_latest_transaction_is_failed(): void
+    {
+        // The 3DS-rejection case: the checkout itself stays PENDING but
+        // the customer's transaction came back FAILED. We treat that as
+        // "this attempt failed" so the customer sees the right UI.
+        $order = SpargelOrder::factory()->create([
+            'sumup_checkout_id' => 'co_3ds_dead',
+            'status' => SpargelOrderStatus::PendingPayment,
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldReceive('getCheckout')
+            ->with('co_3ds_dead')
+            ->andReturn((object) [
+                'status' => 'PENDING',
+                'transactions' => [(object) ['status' => 'FAILED', 'id' => 'tx_dead']],
+            ]);
+        $this->app->instance(SumUpService::class, $sumUp);
+
+        $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee(__('spargel.return_failed_heading'));
+
+        $order->refresh();
+        $this->assertSame(SpargelOrderStatus::Failed, $order->status);
+    }
+
+    public function test_pay_for_failed_order_resets_to_pending_and_creates_fresh_checkout(): void
+    {
+        $order = SpargelOrder::factory()->create([
+            'sumup_checkout_id' => 'co_old_dead',
+            'status' => SpargelOrderStatus::Failed,
+            'payment_method' => 'online',
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldReceive('createOneTimeCheckout')
+            ->once()
+            ->andReturn((object) ['id' => 'co_fresh_retry']);
+        $this->app->instance(SumUpService::class, $sumUp);
+
+        $this->get(route('public.spargel.pay', ['spargelOrder' => $order->id]))
+            ->assertOk();
+
+        $order->refresh();
+        $this->assertSame(SpargelOrderStatus::PendingPayment, $order->status);
+        $this->assertSame('co_fresh_retry', $order->sumup_checkout_id);
     }
 
     public function test_quote_handles_each_variety_alone_and_combined(): void
@@ -624,7 +695,7 @@ class SpargelOrderFlowTest extends TestCase
         $sumUp = Mockery::mock(SumUpService::class);
         $sumUp->shouldReceive('getCheckout')
             ->with('co_still_pending')
-            ->andReturn((object) ['status' => 'PENDING']);
+            ->andReturn((object) ['status' => 'PENDING', 'transactions' => []]);
         $this->app->instance(SumUpService::class, $sumUp);
 
         $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
