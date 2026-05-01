@@ -62,6 +62,47 @@ class SpargelOrderFlowTest extends TestCase
         }
     }
 
+    /**
+     * On Fri–Sun the green cutoff has already passed for the week, so the
+     * form should render an inline "mixed-cart shifts to next week"
+     * notice with the two candidate dates, ready for Alpine to reveal
+     * once the customer adds both varieties.
+     */
+    public function test_form_renders_mixed_cart_shift_notice_on_friday(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-01 10:00:00')); // Fri
+
+        try {
+            $response = $this->get(route('public.spargel.show'))->assertOk();
+
+            $earlier = Carbon::parse('2026-05-04')->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
+            $later = Carbon::parse('2026-05-11')->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
+
+            $response
+                ->assertSee('data-testid="spargel-mixed-shift-notice"', false)
+                ->assertSee(__('spargel.mixed_shift_notice', ['earlier' => $earlier, 'later' => $later]));
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
+    /**
+     * Mon–Thu both candidate dates collapse to the same Monday, so the
+     * notice has nothing to say and is omitted from the markup entirely.
+     */
+    public function test_form_omits_mixed_cart_shift_notice_when_dates_match(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-28 10:00:00')); // Tue
+
+        try {
+            $this->get(route('public.spargel.show'))
+                ->assertOk()
+                ->assertDontSee('data-testid="spargel-mixed-shift-notice"', false);
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
     public function test_coming_soon_renders_link_to_form(): void
     {
         $this->get(route('public.home'))
