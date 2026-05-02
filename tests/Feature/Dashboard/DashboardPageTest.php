@@ -26,7 +26,7 @@ class DashboardPageTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('This week at a glance')
-            ->assertSee('Quick actions')
+            ->assertSee(__('customer.story.producer_spotlight_eyebrow'))
             ->assertSee('Next deliveries')
             ->assertSee('Current week box')
             ->assertSee('Current and upcoming boxes');
