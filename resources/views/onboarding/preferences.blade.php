@@ -43,7 +43,7 @@
             <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 @foreach($sizeCards as $size => $card)
                     <label
-                        class="group relative flex cursor-pointer flex-col overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] has-[:checked]:ring-2 has-[:checked]:ring-brand-ink {{ $card['panel'] }}"
+                        class="group relative flex cursor-pointer flex-col overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] has-[:checked]:ring-1 has-[:checked]:ring-brand-cream/80 {{ $card['panel'] }}"
                         data-testid="onboarding-box-size-card-{{ $size }}"
                     >
                         <input
@@ -54,17 +54,19 @@
                             class="sr-only"
                             required
                         >
+                        {{-- Pure typography. The fieldset legend above already
+                             reads "BOX-GRÖSSE *" — repeating it inside each
+                             card was dead weight, so the only top-corner
+                             ornament is the rank number, sized larger so it
+                             reads as a chapter stamp instead of a column header. --}}
                         <div class="flex flex-1 flex-col p-6 sm:p-7">
-                            <div class="flex items-baseline justify-between gap-2">
-                                <p class="eyebrow text-brand-cream/75">{{ __('Box size') }}</p>
-                                <span aria-hidden="true" class="font-display text-base font-semibold text-brand-cream/55">
-                                    {{ sprintf('%02d', $loop->iteration) }}
-                                </span>
-                            </div>
+                            <p aria-hidden="true" class="font-display text-3xl font-semibold leading-none text-brand-cream/55">
+                                {{ sprintf('%02d', $loop->iteration) }}
+                            </p>
                             <p class="mt-6 font-display text-4xl font-semibold leading-tight sm:text-5xl">
                                 {{ __(ucfirst($size)) }}
                             </p>
-                            <p class="mt-3 font-editorial text-sm italic leading-relaxed text-brand-cream/85">
+                            <p class="mt-3 font-editorial text-sm italic leading-snug text-brand-cream/85">
                                 {{ $card['tagline'] }}
                             </p>
                             <div class="mt-auto pt-6">
