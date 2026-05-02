@@ -1,19 +1,21 @@
 @php
     $firstDeliveryCard = $deliveryCards->first();
+    $producerOfWeek = \App\Support\EditorialContent::producerOfTheWeek();
+    $weeklyIntro = \App\Support\EditorialContent::weeklyIntro();
+    $founderNote = \App\Support\EditorialContent::founderNote();
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-col gap-2">
-            <p class="eyebrow text-chapter-produce">{{ __('Dashboard') }}</p>
-            <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
-                {{ __('This week') }}
-            </h1>
-        </div>
-    </x-slot>
-
-    <div class="py-10 sm:py-16">
-        <div class="mx-auto max-w-6xl space-y-8 px-4 sm:px-6 lg:px-8">
+    <div class="pb-10 sm:pb-16">
+        <div class="mx-auto max-w-6xl space-y-8 px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+            <x-customer.hero-band
+                chapter="produce"
+                :image="asset('images/mock/hero/hero-farm.jpg')"
+                :eyebrow="__('Dashboard')"
+                :title="__('customer.story.dashboard.greeting', ['name' => Auth::user()->name])"
+                :lead="$weeklyIntro"
+                :caption="now()->locale(app()->getLocale())->isoFormat('MMMM YYYY')"
+            />
             @if (session('status') === 'current-box-missing')
                 <p class="border border-brand-ink/20 bg-brand-ink/[0.03] px-4 py-3 text-sm text-brand-ink">
                     {{ __('No current week box is available yet.') }}
@@ -220,29 +222,22 @@
                     </div>
                 </div>
 
-                {{-- Quick actions: only items NOT covered by the top nav (Dashboard /
-                     Abo / Lieferungen / Produkte). Otherwise this section just duplicates
-                     navigation. --}}
-                <div class="border-t border-brand-ink/15 bg-brand-ink/[0.02] px-6 py-5">
-                    <p class="eyebrow text-brand-ink/60">{{ __('Quick actions') }}</p>
-                    <div class="mt-3 flex flex-wrap gap-2">
-                        <a href="{{ route('app.deliveries.preferences.edit') }}" class="btn-ghost text-xs"
-                           data-track-section="glance.quick_actions"
-                           data-track-destination="app.deliveries.preferences.edit">{{ __('Address & timeslot') }}</a>
-                        <a href="{{ route('app.payments.history') }}" class="btn-ghost text-xs"
-                           data-track-section="glance.quick_actions"
-                           data-track-destination="app.payments.history">{{ __('Payments') }}</a>
-                        <a href="{{ route('public.producers') }}" class="btn-ghost text-xs"
-                           data-track-section="glance.quick_actions"
-                           data-track-destination="public.producers">{{ __('Producers') }}</a>
-                    </div>
+                {{-- Replaces the old "Quick actions" row (Address & timeslot,
+                     Payments, Producers). Address/Payments are reachable via
+                     the user dropdown; the producer spotlight covers the third.
+                     Bringing the homepage's producer voice onto the dashboard. --}}
+                <div class="border-t border-brand-ink/15 px-6 py-6">
+                    <x-customer.producer-spotlight :producer="$producerOfWeek" />
                 </div>
             </section>
 
-            <div class="flex flex-col items-center gap-3 py-2">
-                <x-triple-star class="opacity-60" />
-                <p class="font-editorial text-sm italic text-brand-ink/60">{{ __('The week ahead — deliveries, your box, and what comes next.') }}</p>
-            </div>
+            <x-customer.story-block
+                chapter="bread"
+                :image="asset('images/mock/stalls/produce/scene.jpg')"
+                :eyebrow="__('customer.story.weekly_story_eyebrow')"
+                :quote="$founderNote"
+                :signature="__('customer.story.dashboard.founder_signature')"
+            />
 
             <div class="grid gap-8 lg:grid-cols-3">
                 <section class="border border-brand-ink/15 lg:order-1">

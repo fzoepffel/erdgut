@@ -31,6 +31,14 @@ class TranslationParityTest extends TestCase
         // /spargel-admin renders status badges via 'spargel.admin.status_'.$key
         // — pending/paid/fulfilled/cancelled/refunded.
         'spargel.admin.status_',
+        // EditorialContent helper picks rotation indexes at runtime; concrete
+        // variants (_1.._6 etc.) live in lang/{de,en,fr}.json and the helper's
+        // own unit test asserts every ISO week resolves.
+        'customer.story.dashboard.weekly_intro_',
+        'customer.story.dashboard.founder_note_',
+        'customer.story.box.this_week_lead_',
+        // Producer slug is interpolated into the key (anna|elena|jakob|...).
+        'customer.producer.spotlight.',
     ];
 
     public function test_every_translation_key_used_in_source_exists_in_every_locale(): void

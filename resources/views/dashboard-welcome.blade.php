@@ -1,18 +1,18 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-col gap-2">
-            <p class="eyebrow text-chapter-produce">{{ __('Welcome') }}</p>
-            <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
-                {{ __('Welcome to Erdgut') }}
-            </h1>
-        </div>
-    </x-slot>
-
     @php($trialEnabled = (bool) config('features.trial_orders_enabled', true))
     @php($trialPrice = \App\Support\Money::format(config('box.trial_price_oneoff_ttc', 35), 0))
 
-    <div class="py-10 sm:py-16">
-        <div class="mx-auto max-w-3xl space-y-8 px-4 sm:px-6 lg:px-8">
+    <div class="pb-10 sm:pb-16">
+        <div class="mx-auto max-w-4xl space-y-8 px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+            <x-customer.hero-band
+                chapter="produce"
+                :image="asset('images/mock/hero/hero-field.jpg')"
+                :eyebrow="__('Welcome')"
+                :title="__('Welcome to Erdgut')"
+                :lead="\App\Support\EditorialContent::weeklyIntro()"
+            />
+        </div>
+        <div class="mx-auto max-w-3xl space-y-8 px-4 pt-8 sm:px-6 lg:px-8">
             @if (session('status') === 'subscriber-area-requires-setup')
                 <p class="border border-brand-ink/20 bg-brand-ink/[0.03] px-4 py-3 text-sm text-brand-ink" role="status">
                     {{ __('Complete your subscription and payment setup to access deliveries, shop extras, and billing.') }}
