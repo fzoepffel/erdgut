@@ -28,7 +28,7 @@ final class SubscriberAccess
             return false;
         }
 
-        if ($sub->status === SubscriptionStatus::Cancelled) {
+        if ($sub->status === SubscriptionStatus::Cancelled || $sub->status === SubscriptionStatus::PendingPayment) {
             return false;
         }
 
@@ -37,6 +37,11 @@ final class SubscriberAccess
 
     /**
      * Show the pre-subscription welcome dashboard (no active path to deliver yet).
+     *
+     * PendingPayment subs are intentionally treated like "no sub" here — the
+     * customer reached the wizard's payment step but never stored a card.
+     * They need to either complete onboarding or restart, NOT see a regular
+     * subscriber dashboard pretending the subscription is real.
      */
     public static function shouldShowWelcomeDashboard(?User $user): bool
     {
@@ -50,7 +55,9 @@ final class SubscriberAccess
 
         $sub = Subscription::billingSubscriptionForUser($user);
 
-        return $sub === null || $sub->status === SubscriptionStatus::Cancelled;
+        return $sub === null
+            || $sub->status === SubscriptionStatus::Cancelled
+            || $sub->status === SubscriptionStatus::PendingPayment;
     }
 
     /**
@@ -82,11 +89,16 @@ final class SubscriberAccess
 
         $sub = Subscription::billingSubscriptionForUser($user);
 
-        return $sub === null || $sub->status === SubscriptionStatus::Cancelled;
+        return $sub === null
+            || $sub->status === SubscriptionStatus::Cancelled
+            || $sub->status === SubscriptionStatus::PendingPayment;
     }
 
     /**
      * User has any kind of purchase history (subscription or paid/scheduled/delivered order).
+     *
+     * PendingPayment subs are NOT counted — they represent an abandoned
+     * onboarding attempt, not a real purchase relationship.
      */
     public static function hasAnyPurchaseHistory(?User $user): bool
     {
@@ -96,7 +108,10 @@ final class SubscriberAccess
 
         $sub = Subscription::billingSubscriptionForUser($user);
 
-        if ($sub !== null && $sub->status !== SubscriptionStatus::Cancelled) {
+        if ($sub !== null
+            && $sub->status !== SubscriptionStatus::Cancelled
+            && $sub->status !== SubscriptionStatus::PendingPayment
+        ) {
             return true;
         }
 

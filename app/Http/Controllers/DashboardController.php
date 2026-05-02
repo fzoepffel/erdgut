@@ -93,8 +93,15 @@ class DashboardController extends Controller
             ->orderByDesc('updated_at')
             ->first();
 
+        // Either: a PendingPayment sub (created at the wizard's payment step
+        // before a card was stored — needs to be completed or restarted), or
+        // an Active sub somehow missing its token (legacy data; the bug fix
+        // means new subs no longer reach this state).
         $needsPaymentSetup = $primarySubscription !== null
-            && $primarySubscription->status === SubscriptionStatus::Active
+            && in_array($primarySubscription->status, [
+                SubscriptionStatus::PendingPayment,
+                SubscriptionStatus::Active,
+            ], true)
             && empty($primarySubscription->sumup_token);
 
         // Small trial strip when a subscriber also has an open trial order (e.g. trial first, then subscribed).
