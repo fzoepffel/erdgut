@@ -19,34 +19,27 @@
         <fieldset>
             <legend class="eyebrow text-brand-ink/80">{{ __('Box size') }} <span class="text-chapter-meat" aria-hidden="true">*</span><span class="sr-only"> {{ __('required') }}</span></legend>
             @php
-                // Three plant-life-stage illustrations mirror the chapter strip
-                // on /home: a white-filtered PNG over a chapter-coloured panel.
-                // Small = wheat seeds, medium = sunflower microgreens, large
-                // = vine tomatoes — seed → seedling → fruit-bearing plant.
+                // Pure typographic chapter cards — chapter-coloured panel,
+                // cream text, oversized numeric badge as the visual anchor,
+                // big price as the punchline. The colour ladder mirrors the
+                // life-stage progression: bread (soil) → produce (sprout) →
+                // meat (ripe). No imagery; the brand palette + display type
+                // do the heavy lifting at the wizard's narrow ~190px column.
                 $sizeCards = [
                     'small' => [
-                        'image' => 'images/chapters/catalog-wheat-kernels-white-transparent.png',
                         'panel' => 'bg-chapter-bread',
                         'tagline' => __('box_size.tagline.small'),
                     ],
                     'medium' => [
-                        'image' => 'images/chapters/catalog-sunflower-microgreens-white-transparent.png',
                         'panel' => 'bg-chapter-produce',
                         'tagline' => __('box_size.tagline.medium'),
                     ],
                     'large' => [
-                        'image' => 'images/chapters/catalog-tomatoes-vine-white-transparent.png',
                         'panel' => 'bg-chapter-meat',
                         'tagline' => __('box_size.tagline.large'),
                     ],
                 ];
             @endphp
-            {{-- Stacked layout (image on top, text below): the wizard column
-                 is ~600px wide, so each 3-up card sits at ~190px wide. The
-                 homepage chapter strip's image-left-text-right pattern needs
-                 ~320px per card to breathe — at 190px it crops the title and
-                 wraps the price. The poster-style stack scales down without
-                 truncating any content. --}}
             <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 @foreach($sizeCards as $size => $card)
                     <label
@@ -61,33 +54,27 @@
                             class="sr-only"
                             required
                         >
-                        <div class="relative h-36 overflow-hidden sm:h-40">
-                            <img
-                                src="{{ asset($card['image']) }}"
-                                alt=""
-                                aria-hidden="true"
-                                class="absolute inset-0 h-full w-full select-none object-contain object-center p-3"
-                                style="filter: brightness(0) invert(1);"
-                            />
-                        </div>
-                        <div class="flex flex-1 flex-col gap-3 border-t border-brand-cream/20 p-5">
-                            <p class="eyebrow text-brand-cream/80">
-                                {{ sprintf('%02d', $loop->iteration) }} &nbsp;·&nbsp; {{ __('Box size') }}
+                        <div class="flex flex-1 flex-col p-6 sm:p-7">
+                            <div class="flex items-baseline justify-between gap-2">
+                                <p class="eyebrow text-brand-cream/75">{{ __('Box size') }}</p>
+                                <span aria-hidden="true" class="font-display text-base font-semibold text-brand-cream/55">
+                                    {{ sprintf('%02d', $loop->iteration) }}
+                                </span>
+                            </div>
+                            <p class="mt-6 font-display text-4xl font-semibold leading-tight sm:text-5xl">
+                                {{ __(ucfirst($size)) }}
                             </p>
-                            <div>
-                                <p class="font-display text-2xl leading-tight">{{ __(ucfirst($size)) }}</p>
-                                <p class="mt-1.5 font-editorial text-sm italic leading-relaxed text-brand-cream/85">
-                                    {{ $card['tagline'] }}
+                            <p class="mt-3 font-editorial text-sm italic leading-relaxed text-brand-cream/85">
+                                {{ $card['tagline'] }}
+                            </p>
+                            <div class="mt-auto pt-6">
+                                <p class="font-display text-3xl font-semibold tabular-nums">
+                                    @money($sizePrices[$size] ?? 0) €
+                                </p>
+                                <p class="mt-1 text-xs uppercase tracking-eyebrow text-brand-cream/75">
+                                    {{ __('Per delivery') }}
                                 </p>
                             </div>
-                            <p class="mt-auto inline-flex items-baseline gap-2 pt-2">
-                                <span class="font-display text-xl font-semibold text-brand-cream">
-                                    @money($sizePrices[$size] ?? 0) €
-                                </span>
-                                <span class="text-xs uppercase tracking-eyebrow text-brand-cream/75">
-                                    {{ __('Per delivery') }}
-                                </span>
-                            </p>
                         </div>
                     </label>
                 @endforeach

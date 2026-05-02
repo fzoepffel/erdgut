@@ -137,12 +137,8 @@ class HomePageAlignedRedesignTest extends TestCase
         $this->assertStringContainsString('data-testid="onboarding-box-size-card-medium"', $html);
         $this->assertStringContainsString('data-testid="onboarding-box-size-card-large"', $html);
 
-        // The three plant-stage illustrations are referenced.
-        $this->assertStringContainsString('catalog-wheat-kernels-white-transparent.png', $html);
-        $this->assertStringContainsString('catalog-sunflower-microgreens-white-transparent.png', $html);
-        $this->assertStringContainsString('catalog-tomatoes-vine-white-transparent.png', $html);
-
-        // Chapter-coloured backgrounds (one per size).
+        // Chapter-coloured backgrounds (one per size). The cards are now
+        // pure typography over the chapter colour — no illustration.
         $this->assertStringContainsString('bg-chapter-bread', $html);
         $this->assertStringContainsString('bg-chapter-produce', $html);
         $this->assertStringContainsString('bg-chapter-meat', $html);
