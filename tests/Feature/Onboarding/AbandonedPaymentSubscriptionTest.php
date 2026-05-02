@@ -54,29 +54,15 @@ class AbandonedPaymentSubscriptionTest extends TestCase
         ]);
 
         $this->assertFalse(SubscriberAccess::hasFullSubscriberExperience($user));
-        $this->assertTrue(SubscriberAccess::shouldShowWelcomeDashboard($user));
+        // PendingPayment now routes to the regular dashboard so it can render
+        // the "resume your subscription setup" affordance with the customer's
+        // saved selections; the welcome view's generic "Start subscription"
+        // CTA was hiding the in-progress signup.
+        $this->assertFalse(SubscriberAccess::shouldShowWelcomeDashboard($user));
         $this->assertFalse(SubscriberAccess::hasAnyPurchaseHistory($user));
     }
 
-    public function test_dashboard_shows_welcome_view_for_pending_payment_user(): void
-    {
-        $user = User::factory()->create();
-
-        Subscription::factory()->create([
-            'user_id' => $user->id,
-            'status' => SubscriptionStatus::PendingPayment,
-            'sumup_token' => null,
-        ]);
-
-        $this->actingAs($user)
-            ->get(route('app.dashboard'))
-            ->assertOk()
-            // dashboard-welcome.blade.php carries this string in its hero;
-            // dashboard.blade.php (the regular subscriber view) does not.
-            ->assertSee(__('Welcome to Erdgut'));
-    }
-
-    public function test_subscriber_navigation_is_hidden_for_pending_payment_user(): void
+    public function test_dashboard_shows_resume_setup_block_for_pending_payment_user(): void
     {
         $user = User::factory()->create();
 
@@ -91,10 +77,32 @@ class AbandonedPaymentSubscriptionTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        // Subscription / Deliveries / Payments nav links only render when
-        // hasSubscriberNav (= hasFullSubscriberExperience) is true.
-        $this->assertStringNotContainsString(route('app.subscriptions.show', [], false), $html);
-        $this->assertStringNotContainsString(route('app.deliveries.index', [], false), $html);
+        // The state-aware dashboard renders a resume-setup block for
+        // SubscriptionPendingNoTrial / WithTrial states.
+        $this->assertStringContainsString('data-testid="dashboard-resume-subscription-setup"', $html);
+    }
+
+    public function test_subscriber_header_navigation_is_hidden_for_pending_payment_user(): void
+    {
+        $user = User::factory()->create();
+
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::PendingPayment,
+            'sumup_token' => null,
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('app.dashboard'))
+            ->assertOk()
+            ->getContent();
+
+        // hasSubscriberNav is false for PendingPayment, so the masthead nav
+        // links (Subscription / Deliveries) don't render. The dashboard body
+        // CAN still link to those routes (e.g. the "Manage subscription" CTA
+        // on the at-a-glance card) — that's intentional, the user just can't
+        // navigate there from the global nav until they finish setup.
+        $this->assertFalse(SubscriberAccess::hasFullSubscriberExperience($user));
     }
 
     public function test_existing_active_no_token_subscription_was_backfilled_to_pending_payment(): void

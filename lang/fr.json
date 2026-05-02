@@ -2032,5 +2032,19 @@
     "customer.story.weekly_story_eyebrow": "L'histoire de la semaine",
     "box_size.tagline.small": "Pour les foyers d'une personne — ce qu'on cuisine frais en une semaine.",
     "box_size.tagline.medium": "Pour les couples et petits foyers — la taille standard par laquelle on commence.",
-    "box_size.tagline.large": "Pour les familles et grandes tablées — de quoi cuisiner plusieurs repas et garder des restes."
+    "box_size.tagline.large": "Pour les familles et grandes tablées — de quoi cuisiner plusieurs repas et garder des restes.",
+    "Finish setting up your subscription": "Termine la configuration de ton abonnement",
+    "You picked your box and preferences but did not complete the payment step. Your subscription is not active yet — no charge has been made and no box will be delivered until payment is set up.": "Tu as choisi ta box et tes préférences, mais tu n'as pas terminé l'étape de paiement. Ton abonnement n'est pas encore actif — rien n'a été prélevé, et aucune box ne sera livrée tant que le paiement n'est pas configuré.",
+    "Resume payment setup": "Reprendre la configuration du paiement",
+    "Or restart and change your selections": "Ou recommencer et changer la sélection",
+    "Your trial box was delivered": "Ta box d'essai a été livrée",
+    "Your trial box arrives :date": "Ta box d'essai arrive le :date",
+    "Your trial box is on the way": "Ta box d'essai est en route",
+    "In the trial box": "Dans la box d'essai",
+    "Composed shortly before delivery — items will appear here once finalised.": "Composée peu avant la livraison — les produits apparaîtront ici une fois finalisés.",
+    "No new card needed — we keep your address and preferences.": "Pas besoin de nouvelle carte — nous gardons l'adresse et les préférences.",
+    "Your trial box is a one-off — no recurring deliveries are scheduled yet.": "Ta box d'essai est unique — aucune livraison récurrente n'est encore prévue.",
+    "No deliveries scheduled — finish payment setup to schedule your first box.": "Aucune livraison prévue — termine la configuration du paiement pour planifier ta première box.",
+    "See the trial-box block above for this week's details.": "Les détails de la box de cette semaine sont dans le bloc box d'essai ci-dessus.",
+    "Your box will appear here once your subscription is fully set up.": "Ta box apparaîtra ici une fois ton abonnement entièrement configuré."
 }

@@ -44,6 +44,14 @@ class DemoSubscriptionBoxSeeder extends Seeder
                     'preferences' => ['veg_only' => false, 'meat_add_on' => false, 'eggs_dairy_add_on' => false],
                     'allergies' => [],
                     'status' => SubscriptionStatus::Active,
+                    // Demo subs are billed for real-looking dashboards. Without
+                    // a token the state resolver treats Active+no_token as
+                    // PendingPayment (legacy data shape) and hides subscription
+                    // box panels — making the seeded boxes invisible. The
+                    // placeholder token mirrors the SubscriptionFactory's
+                    // withPaymentToken() state.
+                    'sumup_token' => 'demo-token-'.$user->id,
+                    'sumup_customer_id' => 'demo-customer-'.$user->id,
                     'is_test' => true,
                     'trial_completed_at' => now(),
                 ]
@@ -139,6 +147,7 @@ class DemoSubscriptionBoxSeeder extends Seeder
                     'week_start_date' => $weekStart->format('Y-m-d'),
                 ],
                 [
+                    'subscription_id' => $subscription->id,
                     'status' => $boxData['status'],
                     'modification_deadline_at' => $modificationDeadline,
                     'estimated_value' => 0,

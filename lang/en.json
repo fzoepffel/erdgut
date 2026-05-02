@@ -2032,5 +2032,19 @@
     "customer.story.weekly_story_eyebrow": "This week's story",
     "box_size.tagline.small": "For solo households — what one person cooks fresh in a week.",
     "box_size.tagline.medium": "For couples and small households — the standard size most people start with.",
-    "box_size.tagline.large": "For families and frequent cooks — enough for several meals and a few leftovers."
+    "box_size.tagline.large": "For families and frequent cooks — enough for several meals and a few leftovers.",
+    "Finish setting up your subscription": "Finish setting up your subscription",
+    "You picked your box and preferences but did not complete the payment step. Your subscription is not active yet — no charge has been made and no box will be delivered until payment is set up.": "You picked your box and preferences but did not complete the payment step. Your subscription is not active yet — no charge has been made and no box will be delivered until payment is set up.",
+    "Resume payment setup": "Resume payment setup",
+    "Or restart and change your selections": "Or restart and change your selections",
+    "Your trial box was delivered": "Your trial box was delivered",
+    "Your trial box arrives :date": "Your trial box arrives :date",
+    "Your trial box is on the way": "Your trial box is on the way",
+    "In the trial box": "In the trial box",
+    "Composed shortly before delivery — items will appear here once finalised.": "Composed shortly before delivery — items will appear here once finalised.",
+    "No new card needed — we keep your address and preferences.": "No new card needed — we keep your address and preferences.",
+    "Your trial box is a one-off — no recurring deliveries are scheduled yet.": "Your trial box is a one-off — no recurring deliveries are scheduled yet.",
+    "No deliveries scheduled — finish payment setup to schedule your first box.": "No deliveries scheduled — finish payment setup to schedule your first box.",
+    "See the trial-box block above for this week's details.": "See the trial-box block above for this week's details.",
+    "Your box will appear here once your subscription is fully set up.": "Your box will appear here once your subscription is fully set up."
 }
