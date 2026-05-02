@@ -1,8 +1,12 @@
 @php
+    use App\Support\Dashboard\DashboardKind;
+
     $firstDeliveryCard = $deliveryCards->first();
     $producerOfWeek = \App\Support\EditorialContent::producerOfTheWeek();
     $weeklyIntro = \App\Support\EditorialContent::weeklyIntro();
     $founderNote = \App\Support\EditorialContent::founderNote();
+
+    $kind = $dashboardKind ?? DashboardKind::NewVisitor;
 @endphp
 
 <x-app-layout>
@@ -16,6 +20,8 @@
                 :lead="$weeklyIntro"
                 :caption="now()->locale(app()->getLocale())->isoFormat('MMMM YYYY')"
             />
+
+            {{-- Status flash banners (same regardless of state) --}}
             @if (session('status') === 'current-box-missing')
                 <p class="border border-brand-ink/20 bg-brand-ink/[0.03] px-4 py-3 text-sm text-brand-ink">
                     {{ __('No current week box is available yet.') }}
@@ -49,76 +55,164 @@
                 </p>
             @endif
 
-            @isset($openTrialOrder)
-                @if ($openTrialOrder)
-                    <div class="flex flex-col gap-3 border border-chapter-produce/40 bg-chapter-produce/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" data-testid="dashboard-trial-strip">
-                        <p class="text-sm text-brand-ink">
-                            <span class="font-semibold">{{ __('Trial box') }}</span>
-                            — {{ __('Order #:id · :status', ['id' => $openTrialOrder->id, 'status' => $openTrialOrder->status->label()]) }}
-                            @if ($openTrialOrder->scheduled_for_date)
-                                · {{ $openTrialOrder->scheduled_for_date->format('D d M') }}
-                            @endif
-                        </p>
-                        @if (! $primarySubscription)
-                            <a href="{{ route('app.onboarding.start', ['intent' => 'subscription', 'from_order' => $openTrialOrder->id]) }}"
-                               class="inline-flex items-center border border-chapter-produce bg-chapter-produce text-white px-4 py-2 text-xs font-semibold uppercase tracking-eyebrow hover:bg-chapter-produce/90"
-                               data-testid="dashboard-trial-convert-cta"
-                               data-track-section="header_alert.trial_conversion"
-                               data-track-destination="app.onboarding.start">
-                                {{ __('Turn your trial into a weekly box') }}
-                            </a>
-                        @endif
-                    </div>
-                @endif
-            @endisset
+            {{-- ─── State-aware top block ─────────────────────────────────────
+                 Resume-setup CTAs come first because they're the most urgent
+                 thing for that user; trial blocks come next; the steady-state
+                 subscription "first box arrives" hero is last. Exactly one of
+                 these renders for any given state. --}}
 
-            @if ($needsPaymentSetup)
-                <div class="flex flex-col gap-3 border border-chapter-meat/40 bg-chapter-meat/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p class="text-sm text-brand-ink">
-                        <span class="font-semibold">{{ __('Add a payment method') }}</span>
-                        — {{ __('Complete setup so we can charge your subscription on schedule.') }}
-                    </p>
-                    <x-solid-link :href="route('app.subscriptions.onboard.payment')"
-                                  data-track-section="header_alert.payment_setup"
-                                  data-track-destination="app.subscriptions.onboard.payment">
-                        {{ __('Set up payments') }}
-                    </x-solid-link>
-                </div>
-            @endif
-
-            {{-- W2-24: brand-new-subscriber hero. When a subscriber has a
-                 confirmed first delivery date but no composed box yet, the
-                 dashboard used to be six near-empty cards. Now it leads with
-                 a warm welcome + the concrete first-delivery date so the
-                 customer's first impression isn't blanks. --}}
-            @php
-                $isNewSubscriber = $primarySubscription
-                    && $primarySubscription->status === \App\Enums\SubscriptionStatus::Active
-                    && $currentBox === null
-                    && ! $firstDeliveryCard;
-                $heroFirstDelivery = $isNewSubscriber
-                    ? $primarySubscription->firstExpectedDeliveryDate()
-                    : null;
-            @endphp
-            @if ($isNewSubscriber && $heroFirstDelivery)
+            @if ($kind->showsResumeSubscriptionSetup())
+                @php
+                    $sub = $primarySubscription;
+                    $sizeLabel = $sub ? __(ucfirst($sub->box_size)) : null;
+                    $hasEggsAddon = $sub && (bool) data_get($sub->preferences, 'eggs_dairy_add_on', false);
+                @endphp
                 <section
-                    class="border border-chapter-produce/30 bg-chapter-produce/5"
-                    aria-labelledby="dashboard-new-subscriber-hero-heading"
-                    data-testid="dashboard-new-subscriber-hero"
+                    class="border border-chapter-meat/40 bg-chapter-meat/[0.04] p-6 sm:p-8"
+                    aria-labelledby="dashboard-resume-setup-heading"
+                    data-testid="dashboard-resume-subscription-setup"
                 >
-                    <div class="px-6 py-6">
-                        <p class="eyebrow text-chapter-produce">{{ __('Welcome to Erdgut') }}</p>
-                        <h2 id="dashboard-new-subscriber-hero-heading" class="mt-2 font-display text-3xl text-brand-ink sm:text-4xl">
-                            {{ __('Your first box arrives :date', ['date' => $heroFirstDelivery->locale(app()->getLocale())->isoFormat('dd, D. MMM')]) }}
-                        </h2>
-                        <p class="mt-3 max-w-2xl text-sm leading-relaxed text-brand-ink/70">
-                            {{ __('We compose your box from the season — exactly what is harvested that week. You will see the products listed here as soon as your box is composed (Thursdays, the day before delivery).') }}
-                        </p>
+                    <p class="eyebrow text-chapter-meat">{{ __('status.pending_payment') }}</p>
+                    <h2 id="dashboard-resume-setup-heading" class="mt-2 font-display text-3xl text-brand-ink sm:text-4xl">
+                        {{ __('Finish setting up your subscription') }}
+                    </h2>
+                    <p class="mt-3 max-w-2xl text-sm leading-relaxed text-brand-ink/75">
+                        {{ __('You picked your box and preferences but did not complete the payment step. Your subscription is not active yet — no charge has been made and no box will be delivered until payment is set up.') }}
+                    </p>
+
+                    @if ($sub)
+                        <dl class="mt-6 grid gap-4 border-t border-chapter-meat/20 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Box size') }}</dt>
+                                <dd class="mt-2 font-display text-base text-brand-ink">{{ $sizeLabel }}</dd>
+                            </div>
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Cadence') }}</dt>
+                                <dd class="mt-2 font-display text-base text-brand-ink">
+                                    {{ $sub->plan === \App\Enums\SubscriptionPlan::Weekly ? __('Every week') : __('Every two weeks') }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Eggs add-on') }}</dt>
+                                <dd class="mt-2 font-display text-base text-brand-ink">{{ $hasEggsAddon ? __('Yes') : __('No') }}</dd>
+                            </div>
+                            <div>
+                                <dt class="eyebrow text-brand-ink/60">{{ __('Total per delivery') }}</dt>
+                                <dd class="mt-2 font-display text-base text-brand-ink tabular-nums">
+                                    @money($sub->expectedChargeAmount()) €
+                                </dd>
+                            </div>
+                        </dl>
+                    @endif
+
+                    <div class="mt-6 flex flex-wrap items-center gap-3">
+                        <x-solid-link :href="route('app.subscriptions.onboard.payment')"
+                                      data-track-section="resume_setup.payment"
+                                      data-track-destination="app.subscriptions.onboard.payment">
+                            {{ __('Resume payment setup') }}
+                        </x-solid-link>
+                        <a href="{{ route('app.onboarding.start', ['intent' => 'subscription']) }}"
+                           class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                           data-track-section="resume_setup.restart"
+                           data-track-destination="app.onboarding.start">
+                            {{ __('Or restart and change your selections') }}
+                        </a>
                     </div>
                 </section>
             @endif
 
-            {{-- This week at a glance --}}
+            @if ($kind->showsTrialBlock() && $openTrialOrder)
+                <section
+                    class="border border-chapter-eggdairy/30 bg-chapter-eggdairy/[0.05] p-6 sm:p-8"
+                    aria-labelledby="dashboard-trial-block-heading"
+                    data-testid="dashboard-trial-block"
+                >
+                    <p class="eyebrow text-chapter-eggdairy">{{ __('Trial box') }}</p>
+                    <h2 id="dashboard-trial-block-heading" class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
+                        @if ($kind === DashboardKind::TrialDelivered)
+                            {{ __('Your trial box was delivered') }}
+                        @elseif ($openTrialOrder->scheduled_for_date)
+                            {{ __('Your trial box arrives :date', ['date' => $openTrialOrder->scheduled_for_date->locale(app()->getLocale())->isoFormat('dd, D. MMM')]) }}
+                        @else
+                            {{ __('Your trial box is on the way') }}
+                        @endif
+                    </h2>
+
+                    <dl class="mt-5 grid gap-4 border-t border-chapter-eggdairy/20 pt-5 sm:grid-cols-3">
+                        <div>
+                            <dt class="eyebrow text-brand-ink/60">{{ __('Order') }}</dt>
+                            <dd class="mt-2 text-base text-brand-ink">#{{ $openTrialOrder->id }}</dd>
+                        </div>
+                        <div>
+                            <dt class="eyebrow text-brand-ink/60">{{ __('Status') }}</dt>
+                            <dd class="mt-2 text-base text-brand-ink">{{ $openTrialOrder->status->label() }}</dd>
+                        </div>
+                        <div>
+                            <dt class="eyebrow text-brand-ink/60">{{ __('Box size') }}</dt>
+                            <dd class="mt-2 text-base text-brand-ink">{{ __(ucfirst($openTrialOrder->box_size)) }}</dd>
+                        </div>
+                    </dl>
+
+                    @if ($trialBox)
+                        <div class="mt-6 border-t border-chapter-eggdairy/20 pt-5">
+                            <p class="eyebrow text-chapter-eggdairy">{{ __('In the trial box') }}</p>
+                            <ul class="mt-3 grid gap-2 sm:grid-cols-2">
+                                @forelse ($trialBox->items as $item)
+                                    <li class="flex items-center justify-between gap-3 text-sm">
+                                        <span class="text-brand-ink">{{ $item->product?->name ?? __('Unknown product') }}</span>
+                                        <span class="tabular-nums text-brand-ink/60">{{ number_format((float) $item->quantity, 2) }} {{ $item->unit }}</span>
+                                    </li>
+                                @empty
+                                    <li class="text-sm text-brand-ink/65">{{ __('Composed shortly before delivery — items will appear here once finalised.') }}</li>
+                                @endforelse
+                            </ul>
+                        </div>
+                    @endif
+
+                    {{-- Conversion CTA: only when the user doesn't already have a sub being set up --}}
+                    @if ($kind === DashboardKind::TrialOnTheWay || $kind === DashboardKind::TrialDelivered)
+                        <div class="mt-6 flex flex-wrap items-center gap-3">
+                            <a href="{{ route('app.onboarding.start', ['intent' => 'subscription', 'from_order' => $openTrialOrder->id]) }}"
+                               class="inline-flex items-center border border-chapter-produce bg-chapter-produce px-4 py-2 text-xs font-semibold uppercase tracking-eyebrow text-white transition hover:bg-chapter-produce/90"
+                               data-testid="dashboard-trial-convert-cta"
+                               data-track-section="trial_block.convert"
+                               data-track-destination="app.onboarding.start">
+                                {{ __('Turn your trial into a weekly box') }}
+                            </a>
+                            <p class="font-editorial text-sm italic text-brand-ink/65">
+                                {{ __('No new card needed — we keep your address and preferences.') }}
+                            </p>
+                        </div>
+                    @endif
+                </section>
+            @endif
+
+            {{-- W2-24: brand-new-subscriber hero. Only fires for the "Active +
+                 token + no box yet" state — DashboardKind::SubscriptionFirstWeek. --}}
+            @if ($kind === DashboardKind::SubscriptionFirstWeek)
+                @php
+                    $heroFirstDelivery = $primarySubscription?->firstExpectedDeliveryDate();
+                @endphp
+                @if ($heroFirstDelivery)
+                    <section
+                        class="border border-chapter-produce/30 bg-chapter-produce/5"
+                        aria-labelledby="dashboard-new-subscriber-hero-heading"
+                        data-testid="dashboard-new-subscriber-hero"
+                    >
+                        <div class="px-6 py-6">
+                            <p class="eyebrow text-chapter-produce">{{ __('Welcome to Erdgut') }}</p>
+                            <h2 id="dashboard-new-subscriber-hero-heading" class="mt-2 font-display text-3xl text-brand-ink sm:text-4xl">
+                                {{ __('Your first box arrives :date', ['date' => $heroFirstDelivery->locale(app()->getLocale())->isoFormat('dd, D. MMM')]) }}
+                            </h2>
+                            <p class="mt-3 max-w-2xl text-sm leading-relaxed text-brand-ink/70">
+                                {{ __('We compose your box from the season — exactly what is harvested that week. You will see the products listed here as soon as your box is composed (Thursdays, the day before delivery).') }}
+                            </p>
+                        </div>
+                    </section>
+                @endif
+            @endif
+
+            {{-- This week at a glance — adapts per state --}}
             <section class="border border-brand-ink/15" aria-labelledby="dashboard-this-week-heading">
                 <div class="border-b border-brand-ink/15 px-6 py-6">
                     <p class="eyebrow text-chapter-produce">{{ __('At a glance') }}</p>
@@ -130,6 +224,7 @@
                     </p>
                 </div>
                 <div class="grid gap-8 p-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {{-- Card 1: Next delivery (only meaningful for active/paused subs) --}}
                     <div>
                         <p class="eyebrow text-chapter-produce">{{ __('Next delivery') }}</p>
                         @if ($firstDeliveryCard)
@@ -145,18 +240,11 @@
                                data-track-destination="app.deliveries.index">
                                 {{ __('Manage deliveries') }} <span aria-hidden="true">&rarr;</span>
                             </a>
-                        @elseif ($primarySubscription)
-                            {{-- W2-22: was reading next_charge_date as the next delivery date,
-                                 which could be in the past for new subs (next_charge_date is a
-                                 BILLING date, not a ship date). The subscription model now
-                                 returns the first cadence-matching, non-paused Wednesday from
-                                 today onward. --}}
-                            @php($firstDelivery = $primarySubscription->firstExpectedDeliveryDate())
+                        @elseif ($kind === DashboardKind::SubscriptionFirstWeek)
+                            @php($firstDelivery = $primarySubscription?->firstExpectedDeliveryDate())
                             @if ($firstDelivery)
                                 <p class="mt-3 font-display text-2xl text-brand-ink">{{ $firstDelivery->locale(app()->getLocale())->isoFormat('dd, D. MMM') }}</p>
                                 <p class="mt-1 text-sm text-brand-ink/70">{{ __('First delivery — we will confirm day and timeslot once your box is composed.') }}</p>
-                            @else
-                                <p class="mt-3 text-sm text-brand-ink/70">{{ __('Your subscription is currently paused — deliveries resume after the pause window.') }}</p>
                             @endif
                             <a href="{{ route('app.deliveries.preferences.edit') }}"
                                class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
@@ -164,16 +252,26 @@
                                data-track-destination="app.deliveries.preferences.edit">
                                 {{ __('Set delivery preferences') }} <span aria-hidden="true">&rarr;</span>
                             </a>
-                        @else
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('No subscription yet — we will plan deliveries once you subscribe.') }}</p>
-                            <a href="{{ route('app.subscriptions.create') }}"
+                        @elseif ($kind === DashboardKind::SubscriptionPaused)
+                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('Your subscription is currently paused — deliveries resume after the pause window.') }}</p>
+                            <a href="{{ route('app.subscriptions.show') }}"
                                class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
                                data-track-section="glance.next_delivery"
-                               data-track-destination="app.subscriptions.create">
-                                {{ __('Start a subscription') }} <span aria-hidden="true">&rarr;</span>
+                               data-track-destination="app.subscriptions.show">
+                                {{ __('Manage subscription') }} <span aria-hidden="true">&rarr;</span>
                             </a>
+                        @elseif ($kind->showsTrialBlock())
+                            <p class="mt-3 text-sm text-brand-ink/70">
+                                {{ __('Your trial box is a one-off — no recurring deliveries are scheduled yet.') }}
+                            </p>
+                        @elseif ($kind->showsResumeSubscriptionSetup())
+                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('No deliveries scheduled — finish payment setup to schedule your first box.') }}</p>
+                        @else
+                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('No subscription yet — we will plan deliveries once you subscribe.') }}</p>
                         @endif
                     </div>
+
+                    {{-- Card 2: Your box (subscription box only — trial box has its own block above) --}}
                     <div>
                         <p class="eyebrow text-chapter-fish">{{ __('Your box') }}</p>
                         @if ($currentBox)
@@ -186,24 +284,31 @@
                                data-track-destination="app.boxes.current">
                                 {{ __('View current box') }} <span aria-hidden="true">&rarr;</span>
                             </a>
-                        @elseif ($primarySubscription)
+                        @elseif ($kind === DashboardKind::SubscriptionFirstWeek)
                             <p class="mt-3 text-sm text-brand-ink/70">{{ __('Box composition runs each Thursday for the following Monday delivery — your first box will appear here once it is composed.') }}</p>
+                        @elseif ($kind->showsTrialBlock())
+                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('See the trial-box block above for this week\'s details.') }}</p>
+                        @elseif ($kind->showsResumeSubscriptionSetup())
+                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('Your box will appear here once your subscription is fully set up.') }}</p>
                         @else
                             <p class="mt-3 text-sm text-brand-ink/70">{{ __('Start a subscription to receive a weekly box.') }}</p>
                         @endif
                     </div>
+
+                    {{-- Card 3: Subscription status --}}
                     <div class="sm:col-span-2 lg:col-span-1">
                         <p class="eyebrow text-chapter-meat">{{ __('Subscription') }}</p>
                         @if ($primarySubscription)
                             <p class="mt-3 font-display text-2xl text-brand-ink">
                                 {{ __('status.'.$primarySubscription->status->value) }}
                             </p>
-                            {{-- W2-16 item 3: surface the recurring price so the customer
-                                 can spot-check it against the wizard's payment step + the
-                                 actual SumUp charge they'll see on the card statement. --}}
-                            <p class="mt-1 text-sm text-brand-ink/70">
-                                {{ __('EUR :amount / delivery', ['amount' => number_format($primarySubscription->expectedChargeAmount(), 2, ',', '.')]) }}
-                            </p>
+                            {{-- Only show the recurring price for real subscriptions, not for
+                                 the half-finished setup that hasn't committed to billing yet. --}}
+                            @if (! $kind->showsResumeSubscriptionSetup())
+                                <p class="mt-1 text-sm text-brand-ink/70">
+                                    {{ __('EUR :amount / delivery', ['amount' => number_format($primarySubscription->expectedChargeAmount(), 2, ',', '.')]) }}
+                                </p>
+                            @endif
                             <a href="{{ route('app.subscriptions.show') }}"
                                class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
                                data-track-section="glance.subscription"
@@ -212,20 +317,16 @@
                             </a>
                         @else
                             <p class="mt-3 text-sm text-brand-ink/70">{{ __('No subscription yet') }}</p>
-                            <a href="{{ route('app.subscriptions.create') }}"
+                            <a href="{{ route('app.onboarding.start', ['intent' => 'subscription']) }}"
                                class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
                                data-track-section="glance.subscription"
-                               data-track-destination="app.subscriptions.create">
+                               data-track-destination="app.onboarding.start">
                                 {{ __('Start a subscription') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @endif
                     </div>
                 </div>
 
-                {{-- Replaces the old "Quick actions" row (Address & timeslot,
-                     Payments, Producers). Address/Payments are reachable via
-                     the user dropdown; the producer spotlight covers the third.
-                     Bringing the homepage's producer voice onto the dashboard. --}}
                 <div class="border-t border-brand-ink/15 px-6 py-6">
                     <x-customer.producer-spotlight :producer="$producerOfWeek" />
                 </div>
@@ -239,161 +340,137 @@
                 :signature="__('customer.story.dashboard.founder_signature')"
             />
 
-            <div class="grid gap-8 lg:grid-cols-3">
-                <section class="border border-brand-ink/15 lg:order-1">
-                    <div class="border-b border-brand-ink/15 px-6 py-5">
-                        <div class="flex items-center justify-between gap-3">
-                            <div class="flex flex-col gap-1">
-                                <p class="eyebrow text-chapter-produce">{{ __('Deliveries') }}</p>
-                                <h3 class="font-display text-xl text-brand-ink">{{ __('Next deliveries') }}</h3>
+            {{-- ─── Bottom rail: subscription boxes + deliveries ───────────
+                 Only renders for states where the customer actually has a
+                 real subscription whose boxes belong to them. Trial-only
+                 customers see their trial info above — they shouldn't see
+                 a "current week box" panel that pretends a subscription
+                 exists. --}}
+            @if ($kind->showsSubscriptionBoxes())
+                <div class="grid gap-8 lg:grid-cols-3">
+                    <section class="border border-brand-ink/15 lg:order-1">
+                        <div class="border-b border-brand-ink/15 px-6 py-5">
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex flex-col gap-1">
+                                    <p class="eyebrow text-chapter-produce">{{ __('Deliveries') }}</p>
+                                    <h3 class="font-display text-xl text-brand-ink">{{ __('Next deliveries') }}</h3>
+                                </div>
+                                <a href="{{ route('app.deliveries.index') }}"
+                                   class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                                   data-track-section="feed.deliveries"
+                                   data-track-destination="app.deliveries.index">
+                                    {{ __('Manage all') }}
+                                </a>
                             </div>
-                            <a href="{{ route('app.deliveries.index') }}"
-                               class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                               data-track-section="feed.deliveries"
-                               data-track-destination="app.deliveries.index">
-                                {{ __('Manage all') }}
-                            </a>
                         </div>
-                    </div>
-                    <div class="p-6">
-                        <x-order-timeline
-                            :cards="$deliveryCards"
-                            :empty-description="$primarySubscription
-                                ? __('Your delivery days will show up here once we compose your first box.')
-                                : __('When your subscription is active, your delivery days will show up here.')"
-                        >
-                            <x-slot name="emptyAction">
-                                @if ($primarySubscription)
+                        <div class="p-6">
+                            <x-order-timeline
+                                :cards="$deliveryCards"
+                                :empty-description="__('Your delivery days will show up here once we compose your first box.')"
+                            >
+                                <x-slot name="emptyAction">
                                     <a href="{{ route('app.deliveries.preferences.edit') }}"
                                        class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
                                        data-track-section="feed.deliveries.empty"
                                        data-track-destination="app.deliveries.preferences.edit">
                                         {{ __('Review delivery preferences') }}
                                     </a>
-                                @else
-                                    <a href="{{ route('app.subscriptions.create') }}"
-                                       class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                                       data-track-section="feed.deliveries.empty"
-                                       data-track-destination="app.subscriptions.create">
-                                        {{ __('Start a subscription') }}
-                                    </a>
-                                @endif
-                            </x-slot>
-                        </x-order-timeline>
-                    </div>
-                </section>
-
-                <section class="border border-brand-ink/15 lg:order-2">
-                    <div class="border-b border-brand-ink/15 px-6 py-5">
-                        <p class="eyebrow text-chapter-fish">{{ __('This week') }}</p>
-                        <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current week box') }}</h3>
-                    </div>
-                    <div class="p-6">
-                        @if ($currentBox)
-                            <p class="text-sm text-brand-ink/70">
-                                {{ __('Week of :date', ['date' => $currentBox->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}
-                            </p>
-                            <p class="mt-2">
-                                <a href="{{ route('app.boxes.current') }}"
-                                   class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                                   data-track-section="feed.current_box"
-                                   data-track-destination="app.boxes.current">
-                                    {{ __('View current box') }}
-                                </a>
-                            </p>
-                            <ul class="mt-5 space-y-2 border-t border-brand-ink/10 pt-4">
-                                @forelse ($currentBox->items as $item)
-                                    <li class="flex items-center justify-between gap-3 text-sm">
-                                        <span class="text-brand-ink">{{ $item->product?->name ?? __('Unknown product') }}</span>
-                                        <span class="text-brand-ink/60">{{ number_format((float) $item->quantity, 2) }} {{ $item->unit }}</span>
-                                    </li>
-                                @empty
-                                    <li class="text-sm text-brand-ink/60">{{ __('No items in the current box yet.') }}</li>
-                                @endforelse
-                            </ul>
-                            <p class="mt-5 border-t border-brand-ink/10 pt-4 text-sm font-semibold text-brand-ink">
-                                {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($currentBox->estimated_value)]) }}
-                            </p>
-                        @else
-                            <x-empty-state
-                                :title="__('No box for this week')"
-                                :description="__('Your weekly box will appear here once it is generated for your delivery week.')"
-                                variant="inset"
-                            >
-                                <x-slot name="action">
-                                    <a href="{{ route('app.subscriptions.show') }}"
-                                       class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                                       data-track-section="feed.current_box.empty"
-                                       data-track-destination="app.subscriptions.show">
-                                        {{ __('Check subscription') }}
-                                    </a>
                                 </x-slot>
-                            </x-empty-state>
-                        @endif
-                    </div>
-                </section>
+                            </x-order-timeline>
+                        </div>
+                    </section>
 
-                <section class="border border-brand-ink/15 lg:order-3">
-                    <div class="border-b border-brand-ink/15 px-6 py-5">
-                        <p class="eyebrow text-chapter-almanach">{{ __('Almanach') }}</p>
-                        <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current and upcoming boxes') }}</h3>
-                    </div>
-                    <div class="p-6">
-                        @if ($upcomingBoxes->isEmpty())
-                            <x-empty-state
-                                :title="__('No boxes scheduled')"
-                                :description="__('Upcoming box weeks will be listed here as your plan rolls forward.')"
-                                variant="inset"
-                            >
-                                @if (! $primarySubscription)
+                    <section class="border border-brand-ink/15 lg:order-2">
+                        <div class="border-b border-brand-ink/15 px-6 py-5">
+                            <p class="eyebrow text-chapter-fish">{{ __('This week') }}</p>
+                            <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current week box') }}</h3>
+                        </div>
+                        <div class="p-6">
+                            @if ($currentBox)
+                                <p class="text-sm text-brand-ink/70">
+                                    {{ __('Week of :date', ['date' => $currentBox->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}
+                                </p>
+                                <p class="mt-2">
+                                    <a href="{{ route('app.boxes.current') }}"
+                                       class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
+                                       data-track-section="feed.current_box"
+                                       data-track-destination="app.boxes.current">
+                                        {{ __('View current box') }}
+                                    </a>
+                                </p>
+                                <ul class="mt-5 space-y-2 border-t border-brand-ink/10 pt-4">
+                                    @forelse ($currentBox->items as $item)
+                                        <li class="flex items-center justify-between gap-3 text-sm">
+                                            <span class="text-brand-ink">{{ $item->product?->name ?? __('Unknown product') }}</span>
+                                            <span class="text-brand-ink/60">{{ number_format((float) $item->quantity, 2) }} {{ $item->unit }}</span>
+                                        </li>
+                                    @empty
+                                        <li class="text-sm text-brand-ink/60">{{ __('No items in the current box yet.') }}</li>
+                                    @endforelse
+                                </ul>
+                                <p class="mt-5 border-t border-brand-ink/10 pt-4 text-sm font-semibold text-brand-ink">
+                                    {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($currentBox->estimated_value)]) }}
+                                </p>
+                            @else
+                                <x-empty-state
+                                    :title="__('No box for this week')"
+                                    :description="__('Your weekly box will appear here once it is generated for your delivery week.')"
+                                    variant="inset"
+                                >
                                     <x-slot name="action">
-                                        <a href="{{ route('app.subscriptions.create') }}"
+                                        <a href="{{ route('app.subscriptions.show') }}"
                                            class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                                           data-track-section="feed.almanach.empty"
-                                           data-track-destination="app.subscriptions.create">
-                                            {{ __('Start a subscription') }}
+                                           data-track-section="feed.current_box.empty"
+                                           data-track-destination="app.subscriptions.show">
+                                            {{ __('Check subscription') }}
                                         </a>
                                     </x-slot>
-                                @endif
-                            </x-empty-state>
-                        @else
-                            <ul class="space-y-3">
-                                @foreach ($upcomingBoxes as $box)
-                                    <li>
-                                        <a href="{{ route('app.boxes.show', $box) }}"
-                                           class="block border border-brand-ink/15 p-4 transition hover:border-brand-ink/40 hover:bg-brand-ink/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
-                                           data-track-section="feed.almanach.box_row"
-                                           data-track-destination="app.boxes.show">
-                                            <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
-                                            {{-- Customer-friendly box status labels (E in followups). The
-                                                 admin-facing `status.editable` → "Bearbeitbar" etc. would leak
-                                                 internal lifecycle terms; `box_status_customer.*` is the
-                                                 customer-side mapping ("In Vorbereitung", "Wird zugestellt",
-                                                 "Geliefert"), available in de/en/fr. --}}
-                                            @php($customerStatusKey = 'box_status_customer.'.$box->status->value)
-                                            @php($customerStatusLabel = __($customerStatusKey))
-                                            @if ($customerStatusLabel !== $customerStatusKey)
-                                                <p class="mt-1 text-sm text-brand-ink/70">{{ $customerStatusLabel }}</p>
-                                            @endif
-                                            <p class="text-sm text-brand-ink/70">
-                                                {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($box->estimated_value)]) }}
-                                            </p>
-                                        </a>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @endif
-                    </div>
-                </section>
-            </div>
+                                </x-empty-state>
+                            @endif
+                        </div>
+                    </section>
+
+                    <section class="border border-brand-ink/15 lg:order-3">
+                        <div class="border-b border-brand-ink/15 px-6 py-5">
+                            <p class="eyebrow text-chapter-almanach">{{ __('Almanach') }}</p>
+                            <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current and upcoming boxes') }}</h3>
+                        </div>
+                        <div class="p-6">
+                            @if ($upcomingBoxes->isEmpty())
+                                <x-empty-state
+                                    :title="__('No boxes scheduled')"
+                                    :description="__('Upcoming box weeks will be listed here as your plan rolls forward.')"
+                                    variant="inset"
+                                />
+                            @else
+                                <ul class="space-y-3">
+                                    @foreach ($upcomingBoxes as $box)
+                                        <li>
+                                            <a href="{{ route('app.boxes.show', $box) }}"
+                                               class="block border border-brand-ink/15 p-4 transition hover:border-brand-ink/40 hover:bg-brand-ink/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
+                                               data-track-section="feed.almanach.box_row"
+                                               data-track-destination="app.boxes.show">
+                                                <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
+                                                @php($customerStatusKey = 'box_status_customer.'.$box->status->value)
+                                                @php($customerStatusLabel = __($customerStatusKey))
+                                                @if ($customerStatusLabel !== $customerStatusKey)
+                                                    <p class="mt-1 text-sm text-brand-ink/70">{{ $customerStatusLabel }}</p>
+                                                @endif
+                                                <p class="text-sm text-brand-ink/70">
+                                                    {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($box->estimated_value)]) }}
+                                                </p>
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+                    </section>
+                </div>
+            @endif
         </div>
     </div>
 
-    {{-- Click-destination instrumentation. We collect anonymous click counts
-         per dashboard region so the redesign decision (single feed vs.
-         two-column vs. status-conditional, see customer-ux-walkthrough-followups)
-         can be informed by what users actually use. Beacon-style send so we
-         don't block navigation; on failure we just lose the row. --}}
     @push('scripts')
     <script>
         (function () {
@@ -403,11 +480,6 @@
             function track(section, destination) {
                 const payload = JSON.stringify({ section, destination });
                 try {
-                    if (navigator.sendBeacon) {
-                        const blob = new Blob([payload], { type: 'application/json' });
-                        // sendBeacon can't set custom headers, so we proxy through fetch+keepalive
-                        // when CSRF protection requires the X-CSRF-TOKEN header.
-                    }
                     fetch(url, {
                         method: 'POST',
                         headers: {
@@ -419,10 +491,8 @@
                         credentials: 'same-origin',
                         keepalive: true,
                         body: payload,
-                    }).catch(() => { /* no-op: instrumentation must never break the click */ });
-                } catch (_e) {
-                    /* no-op */
-                }
+                    }).catch(() => {});
+                } catch (_e) {}
             }
 
             document.addEventListener('click', function (e) {

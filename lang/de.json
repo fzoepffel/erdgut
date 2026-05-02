@@ -2032,5 +2032,19 @@
     "customer.story.weekly_story_eyebrow": "Die Geschichte der Woche",
     "box_size.tagline.small": "Für Solo-Haushalte — was eine Person in einer Woche frisch verkocht.",
     "box_size.tagline.medium": "Für Paare und kleine Haushalte — die Standardgröße, mit der die meisten anfangen.",
-    "box_size.tagline.large": "Für Familien und Vielkocher — genug für mehrere Mahlzeiten und ein paar Reste."
+    "box_size.tagline.large": "Für Familien und Vielkocher — genug für mehrere Mahlzeiten und ein paar Reste.",
+    "Finish setting up your subscription": "Setze dein Abo zu Ende auf",
+    "You picked your box and preferences but did not complete the payment step. Your subscription is not active yet — no charge has been made and no box will be delivered until payment is set up.": "Du hast deine Box und deine Vorlieben gewählt, aber den Zahlungsschritt noch nicht abgeschlossen. Dein Abo ist noch nicht aktiv — es wurde nichts abgebucht, und es wird keine Box geliefert, bevor die Zahlung eingerichtet ist.",
+    "Resume payment setup": "Zahlung jetzt einrichten",
+    "Or restart and change your selections": "Oder neu beginnen und die Auswahl ändern",
+    "Your trial box was delivered": "Deine Probebox wurde geliefert",
+    "Your trial box arrives :date": "Deine Probebox kommt am :date",
+    "Your trial box is on the way": "Deine Probebox ist unterwegs",
+    "In the trial box": "In der Probebox",
+    "Composed shortly before delivery — items will appear here once finalised.": "Wird kurz vor der Lieferung zusammengestellt — die Produkte erscheinen hier, sobald sie feststehen.",
+    "No new card needed — we keep your address and preferences.": "Keine neue Karte nötig — wir übernehmen Adresse und Vorlieben.",
+    "Your trial box is a one-off — no recurring deliveries are scheduled yet.": "Deine Probebox ist eine einmalige Bestellung — es sind noch keine wiederkehrenden Lieferungen geplant.",
+    "No deliveries scheduled — finish payment setup to schedule your first box.": "Noch keine Lieferungen geplant — schließe die Zahlung ab, um die erste Box zu terminieren.",
+    "See the trial-box block above for this week's details.": "Details zur Box dieser Woche siehst du oben im Probebox-Block.",
+    "Your box will appear here once your subscription is fully set up.": "Sobald dein Abo vollständig eingerichtet ist, erscheint deine Box hier."
 }
