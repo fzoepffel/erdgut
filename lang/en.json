@@ -2029,5 +2029,8 @@
     "customer.producer.spotlight.thomas.bio": "Thomas bakes only three loaves: a rye, a sourdough, a spelt. All from regional flour, all rested overnight in the cold room — baked four hours before your delivery.",
     "customer.story.producer_spotlight_eyebrow": "Producer of the week",
     "customer.story.this_week_eyebrow": "This week",
-    "customer.story.weekly_story_eyebrow": "This week's story"
+    "customer.story.weekly_story_eyebrow": "This week's story",
+    "box_size.tagline.small": "For solo households — what one person cooks fresh in a week.",
+    "box_size.tagline.medium": "For couples and small households — the standard size most people start with.",
+    "box_size.tagline.large": "For families and frequent cooks — enough for several meals and a few leftovers."
 }

@@ -2029,5 +2029,8 @@
     "customer.producer.spotlight.thomas.bio": "Thomas backt nur drei Brote: ein Roggen, ein Sauerteig, ein Dinkel. Alles aus regionalem Mehl, alles über Nacht in der kalten Stube gegangen — vier Stunden vor deiner Lieferung gebacken.",
     "customer.story.producer_spotlight_eyebrow": "Produzent der Woche",
     "customer.story.this_week_eyebrow": "Diese Woche",
-    "customer.story.weekly_story_eyebrow": "Die Geschichte der Woche"
+    "customer.story.weekly_story_eyebrow": "Die Geschichte der Woche",
+    "box_size.tagline.small": "Für Solo-Haushalte — was eine Person in einer Woche frisch verkocht.",
+    "box_size.tagline.medium": "Für Paare und kleine Haushalte — die Standardgröße, mit der die meisten anfangen.",
+    "box_size.tagline.large": "Für Familien und Vielkocher — genug für mehrere Mahlzeiten und ein paar Reste."
 }

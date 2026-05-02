@@ -123,4 +123,28 @@ class HomePageAlignedRedesignTest extends TestCase
 
         $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
     }
+
+    public function test_onboarding_preferences_step_renders_chapter_style_box_size_cards(): void
+    {
+        $user = User::factory()->create();
+
+        $html = $this->actingAs($user)
+            ->get(route('app.onboarding.step.preferences'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('data-testid="onboarding-box-size-card-small"', $html);
+        $this->assertStringContainsString('data-testid="onboarding-box-size-card-medium"', $html);
+        $this->assertStringContainsString('data-testid="onboarding-box-size-card-large"', $html);
+
+        // The three plant-stage illustrations are referenced.
+        $this->assertStringContainsString('catalog-wheat-kernels-white-transparent.png', $html);
+        $this->assertStringContainsString('catalog-sunflower-microgreens-white-transparent.png', $html);
+        $this->assertStringContainsString('catalog-tomatoes-vine-white-transparent.png', $html);
+
+        // Chapter-coloured backgrounds (one per size).
+        $this->assertStringContainsString('bg-chapter-bread', $html);
+        $this->assertStringContainsString('bg-chapter-produce', $html);
+        $this->assertStringContainsString('bg-chapter-meat', $html);
+    }
 }

@@ -2029,5 +2029,8 @@
     "customer.producer.spotlight.thomas.bio": "Thomas ne cuit que trois pains : un seigle, un levain, un épeautre. Tout en farine régionale, tout reposé une nuit en chambre froide — cuit quatre heures avant ta livraison.",
     "customer.story.producer_spotlight_eyebrow": "Producteur de la semaine",
     "customer.story.this_week_eyebrow": "Cette semaine",
-    "customer.story.weekly_story_eyebrow": "L'histoire de la semaine"
+    "customer.story.weekly_story_eyebrow": "L'histoire de la semaine",
+    "box_size.tagline.small": "Pour les foyers d'une personne — ce qu'on cuisine frais en une semaine.",
+    "box_size.tagline.medium": "Pour les couples et petits foyers — la taille standard par laquelle on commence.",
+    "box_size.tagline.large": "Pour les familles et grandes tablées — de quoi cuisiner plusieurs repas et garder des restes."
 }

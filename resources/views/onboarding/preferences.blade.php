@@ -18,17 +18,77 @@
 
         <fieldset>
             <legend class="eyebrow text-brand-ink/80">{{ __('Box size') }} <span class="text-chapter-meat" aria-hidden="true">*</span><span class="sr-only"> {{ __('required') }}</span></legend>
-            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                @foreach(['small', 'medium', 'large'] as $size)
-                    <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-5 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
-                        <input type="radio" name="box_size" value="{{ $size }}" {{ ($data['box_size'] ?? null) === $size ? 'checked' : '' }} class="mt-1 sr-only" required>
-                        <span class="flex flex-col gap-1">
-                            <span class="font-display text-lg font-semibold text-brand-ink">{{ __(ucfirst($size)) }}</span>
-                            <span class="text-xs leading-relaxed text-brand-ink/70">{{ __('box_size.description.' . $size) }}</span>
-                            <span class="mt-1 font-display text-sm text-brand-ink">
-                                {{ __('box_size.price_per_delivery', ['amount' => \App\Support\Money::format($sizePrices[$size] ?? 0)]) }}
-                            </span>
-                        </span>
+            @php
+                // Three plant-life-stage illustrations mirror the chapter strip
+                // on /home: a white-filtered PNG over a chapter-coloured panel.
+                // Small = wheat seeds, medium = sunflower microgreens, large
+                // = vine tomatoes — seed → seedling → fruit-bearing plant.
+                $sizeCards = [
+                    'small' => [
+                        'image' => 'images/chapters/catalog-wheat-kernels-white-transparent.png',
+                        'panel' => 'bg-chapter-bread',
+                        'tagline' => __('box_size.tagline.small'),
+                    ],
+                    'medium' => [
+                        'image' => 'images/chapters/catalog-sunflower-microgreens-white-transparent.png',
+                        'panel' => 'bg-chapter-produce',
+                        'tagline' => __('box_size.tagline.medium'),
+                    ],
+                    'large' => [
+                        'image' => 'images/chapters/catalog-tomatoes-vine-white-transparent.png',
+                        'panel' => 'bg-chapter-meat',
+                        'tagline' => __('box_size.tagline.large'),
+                    ],
+                ];
+            @endphp
+            {{-- Stacked layout (image on top, text below): the wizard column
+                 is ~600px wide, so each 3-up card sits at ~190px wide. The
+                 homepage chapter strip's image-left-text-right pattern needs
+                 ~320px per card to breathe — at 190px it crops the title and
+                 wraps the price. The poster-style stack scales down without
+                 truncating any content. --}}
+            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                @foreach($sizeCards as $size => $card)
+                    <label
+                        class="group relative flex cursor-pointer flex-col overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] has-[:checked]:ring-2 has-[:checked]:ring-brand-ink {{ $card['panel'] }}"
+                        data-testid="onboarding-box-size-card-{{ $size }}"
+                    >
+                        <input
+                            type="radio"
+                            name="box_size"
+                            value="{{ $size }}"
+                            {{ ($data['box_size'] ?? null) === $size ? 'checked' : '' }}
+                            class="sr-only"
+                            required
+                        >
+                        <div class="relative h-36 overflow-hidden sm:h-40">
+                            <img
+                                src="{{ asset($card['image']) }}"
+                                alt=""
+                                aria-hidden="true"
+                                class="absolute inset-0 h-full w-full select-none object-contain object-center p-3"
+                                style="filter: brightness(0) invert(1);"
+                            />
+                        </div>
+                        <div class="flex flex-1 flex-col gap-3 border-t border-brand-cream/20 p-5">
+                            <p class="eyebrow text-brand-cream/80">
+                                {{ sprintf('%02d', $loop->iteration) }} &nbsp;·&nbsp; {{ __('Box size') }}
+                            </p>
+                            <div>
+                                <p class="font-display text-2xl leading-tight">{{ __(ucfirst($size)) }}</p>
+                                <p class="mt-1.5 font-editorial text-sm italic leading-relaxed text-brand-cream/85">
+                                    {{ $card['tagline'] }}
+                                </p>
+                            </div>
+                            <p class="mt-auto inline-flex items-baseline gap-2 pt-2">
+                                <span class="font-display text-xl font-semibold text-brand-cream">
+                                    @money($sizePrices[$size] ?? 0) €
+                                </span>
+                                <span class="text-xs uppercase tracking-eyebrow text-brand-cream/75">
+                                    {{ __('Per delivery') }}
+                                </span>
+                            </p>
+                        </div>
                     </label>
                 @endforeach
             </div>
