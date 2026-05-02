@@ -12,8 +12,11 @@ class DashboardHubTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dashboard_includes_payments_quick_action_and_nav_link(): void
+    public function test_dashboard_includes_payments_nav_link_and_producer_spotlight(): void
     {
+        // The old "Quick actions" footer that linked to Payments / Producers /
+        // Address was replaced by a producer spotlight card; payments stays
+        // reachable via the user-dropdown nav link rendered for subscribers.
         $user = User::factory()->create();
         $this->subscribeUserFully($user);
 
@@ -21,7 +24,7 @@ class DashboardHubTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('This week at a glance', false)
-            ->assertSee('Quick actions', false)
+            ->assertSee(__('customer.story.producer_spotlight_eyebrow'), false)
             ->getContent();
 
         $this->assertStringContainsString(route('app.payments.history', [], false), $html);
@@ -51,6 +54,11 @@ class DashboardHubTest extends TestCase
 
     public function test_dashboard_shows_payment_setup_nudge_when_active_subscription_has_no_payment_token(): void
     {
+        // Legacy data shape (Active+no_token) — DashboardStateResolver
+        // classifies this as SubscriptionPendingNoTrial because billing
+        // isn't actually wired up. The state-aware dashboard renders a
+        // dedicated "Finish setting up your subscription" block instead
+        // of the old thin "Add a payment method" alert.
         $user = User::factory()->create();
         Subscription::factory()->create([
             'user_id' => $user->id,
@@ -59,11 +67,13 @@ class DashboardHubTest extends TestCase
             'sumup_customer_id' => null,
         ]);
 
-        $this->actingAs($user)
+        $html = $this->actingAs($user)
             ->get(route('app.dashboard'))
             ->assertOk()
-            ->assertSee('Add a payment method', false)
-            ->assertSee(route('app.subscriptions.onboard.payment', [], false), false);
+            ->getContent();
+
+        $this->assertStringContainsString('data-testid="dashboard-resume-subscription-setup"', $html);
+        $this->assertStringContainsString(route('app.subscriptions.onboard.payment', [], false), $html);
     }
 
     public function test_dashboard_hides_payment_setup_nudge_when_payment_token_present(): void

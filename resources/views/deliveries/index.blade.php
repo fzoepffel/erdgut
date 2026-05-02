@@ -1,18 +1,21 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-col gap-2">
-            <p class="eyebrow text-chapter-produce">{{ __('Deliveries') }}</p>
-            <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
-                {{ __('Deliveries timeline') }}
-            </h1>
-            <p class="mt-3 max-w-2xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
-                {{ __('Your upcoming weeks, in the order they arrive.') }}
-            </p>
-        </div>
-    </x-slot>
+    @php
+        // Per-week chapter colour rotation: each upcoming week gets its own
+        // accent so the timeline reads as a sequence of distinct moments
+        // rather than a single monotone column. Cycles through the catalogue's
+        // chapter palette in the homepage's chapter-strip order.
+        $chapterRotation = ['produce', 'eggdairy', 'bread', 'fish', 'meat', 'producers', 'almanach'];
+    @endphp
 
-    <div class="py-10 sm:py-16">
-        <div class="mx-auto max-w-5xl space-y-8 px-4 sm:px-6 lg:px-8">
+    <div class="pb-10 sm:pb-16">
+        <div class="mx-auto max-w-5xl space-y-8 px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+            <x-customer.hero-band
+                chapter="produce"
+                :image="asset('images/mock/hero/hero-field.jpg')"
+                :eyebrow="__('Deliveries')"
+                :title="__('Deliveries timeline')"
+                :lead="__('customer.story.deliveries.opening')"
+            />
             <div class="flex flex-col gap-4 border border-brand-ink/15 bg-brand-ink/[0.02] px-6 py-5 sm:flex-row sm:items-start sm:gap-6">
                 <x-chapter-mark chapter="produce" size="xs" class="shrink-0 opacity-90" />
                 <div class="flex-1">
@@ -75,9 +78,52 @@
                         }
                     @endphp
 
+                    @php
+                        $rowChapter = $chapterRotation[($loop->iteration - 1) % count($chapterRotation)];
+                        // Literal class strings per chapter so Tailwind JIT can
+                        // discover every utility used. Concatenation at runtime
+                        // would skip the JIT scanner.
+                        $rowEyebrowClass = [
+                            'produce' => 'text-chapter-produce',
+                            'eggdairy' => 'text-chapter-eggdairy',
+                            'bread' => 'text-chapter-bread',
+                            'fish' => 'text-chapter-fish',
+                            'meat' => 'text-chapter-meat',
+                            'producers' => 'text-chapter-producers',
+                            'almanach' => 'text-chapter-almanach',
+                        ][$rowChapter];
+                        $rowBorderNum = [
+                            'produce' => 'border-chapter-produce',
+                            'eggdairy' => 'border-chapter-eggdairy',
+                            'bread' => 'border-chapter-bread',
+                            'fish' => 'border-chapter-fish',
+                            'meat' => 'border-chapter-meat',
+                            'producers' => 'border-chapter-producers',
+                            'almanach' => 'border-chapter-almanach',
+                        ][$rowChapter];
+                        $rowBorderSoft = [
+                            'produce' => 'border-chapter-produce/40',
+                            'eggdairy' => 'border-chapter-eggdairy/40',
+                            'bread' => 'border-chapter-bread/40',
+                            'fish' => 'border-chapter-fish/40',
+                            'meat' => 'border-chapter-meat/40',
+                            'producers' => 'border-chapter-producers/40',
+                            'almanach' => 'border-chapter-almanach/40',
+                        ][$rowChapter];
+                        $rowRingClass = [
+                            'produce' => 'ring-chapter-produce',
+                            'eggdairy' => 'ring-chapter-eggdairy',
+                            'bread' => 'ring-chapter-bread',
+                            'fish' => 'ring-chapter-fish',
+                            'meat' => 'ring-chapter-meat',
+                            'producers' => 'ring-chapter-producers',
+                            'almanach' => 'ring-chapter-almanach',
+                        ][$rowChapter];
+                    @endphp
+
                     <x-reveal as="li" variant="fade-up" class="flex gap-6">
                         <div class="flex shrink-0 flex-col items-center">
-                            <span class="flex h-12 w-12 items-center justify-center border border-brand-ink font-display text-base font-semibold text-brand-ink">
+                            <span class="flex h-12 w-12 items-center justify-center border {{ $rowBorderNum }} font-display text-base font-semibold text-brand-ink">
                                 {{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}
                             </span>
                             @unless ($loop->last)
@@ -90,14 +136,14 @@
                                 id="delivery-{{ $baseDelivery->id }}"
                                 @class([
                                     'border p-6 sm:p-8',
-                                    'border-chapter-produce ring-1 ring-chapter-produce' => $isFocused,
-                                    'border-brand-ink/15' => ! $isFocused,
+                                    $rowBorderNum.' ring-1 '.$rowRingClass => $isFocused,
+                                    $rowBorderSoft => ! $isFocused,
                                 ])
                                 aria-labelledby="delivery-heading-{{ $baseDelivery->id }}"
                             >
                                 <div class="flex flex-wrap items-start justify-between gap-3">
                                     <div>
-                                        <p class="eyebrow text-chapter-produce">{{ $relativeWeekLabel ?? __('Upcoming') }}</p>
+                                        <p class="eyebrow {{ $rowEyebrowClass }}">{{ $relativeWeekLabel ?? __('Upcoming') }}</p>
                                         <h3 id="delivery-heading-{{ $baseDelivery->id }}" class="mt-2 font-display text-2xl text-brand-ink">
                                             {{ $baseDelivery->scheduled_for_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY') }}
                                         </h3>

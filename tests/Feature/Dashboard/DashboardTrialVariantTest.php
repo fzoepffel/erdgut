@@ -35,7 +35,9 @@ class DashboardTrialVariantTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.dashboard'))
             ->assertOk()
-            ->assertSee('dashboard-trial-strip', false)
+            // The thin strip was replaced by a richer trial block that
+            // renders trial-state-aware copy + composition + convert CTA.
+            ->assertSee('dashboard-trial-block', false)
             ->assertSee('dashboard-trial-convert-cta', false)
             ->assertSee('Turn your trial into a weekly box');
     }
@@ -63,7 +65,7 @@ class DashboardTrialVariantTest extends TestCase
             'status' => OrderStatus::Paid->value,
             'is_test' => true,
         ]);
-        Subscription::factory()->create([
+        Subscription::factory()->withPaymentToken()->create([
             'user_id' => $user->id,
             'status' => SubscriptionStatus::Active,
         ]);

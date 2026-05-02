@@ -56,6 +56,12 @@ class SubscriptionOnboardingService
         $weekday = $payload['delivery_weekday'] ?? null;
         $weekday = is_numeric($weekday) ? (int) $weekday : null;
 
+        // Create with PendingPayment, NOT Active. Until finalizeSetup()
+        // attaches a SumUp token, this row exists only so the wizard's
+        // payment step can reference it. A user who navigates away here
+        // must NOT be treated as a subscriber by the dashboard / nav /
+        // billing — finalizeSetup() flips status to Active when the
+        // payment mandate is actually captured.
         return Subscription::create([
             'user_id' => $user->id,
             'plan' => $plan,
@@ -63,7 +69,7 @@ class SubscriptionOnboardingService
             'preferences' => $payload['preferences'] ?? [],
             'allergies' => $payload['allergies'] ?? [],
             'allergies_note' => $payload['allergies_note'] ?? null,
-            'status' => SubscriptionStatus::Active,
+            'status' => SubscriptionStatus::PendingPayment,
             'fulfillment_mode' => $fulfillmentMode,
             'delivery_weekday' => $weekday,
             'preferred_timeslot' => $payload['preferred_timeslot'] ?? null,

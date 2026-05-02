@@ -28,7 +28,7 @@ final class SubscriberAccess
             return false;
         }
 
-        if ($sub->status === SubscriptionStatus::Cancelled) {
+        if ($sub->status === SubscriptionStatus::Cancelled || $sub->status === SubscriptionStatus::PendingPayment) {
             return false;
         }
 
@@ -36,7 +36,13 @@ final class SubscriberAccess
     }
 
     /**
-     * Show the pre-subscription welcome dashboard (no active path to deliver yet).
+     * Show the pre-subscription welcome dashboard (no purchase activity at all).
+     *
+     * PendingPayment subs intentionally route to the regular dashboard, which
+     * renders a "resume your subscription setup" affordance with the saved
+     * preferences via DashboardKind::SubscriptionPendingNoTrial. The welcome
+     * view's generic "Start subscription" CTA would hide that in-progress
+     * state; the regular dashboard's state-aware rendering handles it.
      */
     public static function shouldShowWelcomeDashboard(?User $user): bool
     {
@@ -82,11 +88,16 @@ final class SubscriberAccess
 
         $sub = Subscription::billingSubscriptionForUser($user);
 
-        return $sub === null || $sub->status === SubscriptionStatus::Cancelled;
+        return $sub === null
+            || $sub->status === SubscriptionStatus::Cancelled
+            || $sub->status === SubscriptionStatus::PendingPayment;
     }
 
     /**
      * User has any kind of purchase history (subscription or paid/scheduled/delivered order).
+     *
+     * PendingPayment subs are NOT counted — they represent an abandoned
+     * onboarding attempt, not a real purchase relationship.
      */
     public static function hasAnyPurchaseHistory(?User $user): bool
     {
@@ -96,7 +107,10 @@ final class SubscriberAccess
 
         $sub = Subscription::billingSubscriptionForUser($user);
 
-        if ($sub !== null && $sub->status !== SubscriptionStatus::Cancelled) {
+        if ($sub !== null
+            && $sub->status !== SubscriptionStatus::Cancelled
+            && $sub->status !== SubscriptionStatus::PendingPayment
+        ) {
             return true;
         }
 

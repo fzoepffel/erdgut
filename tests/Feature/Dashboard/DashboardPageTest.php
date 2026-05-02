@@ -26,7 +26,7 @@ class DashboardPageTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('This week at a glance')
-            ->assertSee('Quick actions')
+            ->assertSee(__('customer.story.producer_spotlight_eyebrow'))
             ->assertSee('Next deliveries')
             ->assertSee('Current week box')
             ->assertSee('Current and upcoming boxes');
@@ -35,8 +35,9 @@ class DashboardPageTest extends TestCase
     public function test_dashboard_only_shows_authenticated_user_data(): void
     {
         $dashboardUser = User::factory()->create();
-        $this->subscribeUserFully($dashboardUser);
+        $dashboardSubscription = $this->subscribeUserFully($dashboardUser);
         $otherUser = User::factory()->create();
+        $otherSubscription = $this->subscribeUserFully($otherUser);
 
         $dashboardAddress = Address::factory()->create([
             'user_id' => $dashboardUser->id,
@@ -64,12 +65,14 @@ class DashboardPageTest extends TestCase
 
         Box::factory()->create([
             'user_id' => $dashboardUser->id,
+            'subscription_id' => $dashboardSubscription->id,
             'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
             'status' => BoxStatus::Editable,
             'estimated_value' => 39.99,
         ]);
         Box::factory()->create([
             'user_id' => $otherUser->id,
+            'subscription_id' => $otherSubscription->id,
             'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
             'status' => BoxStatus::Locked,
             'estimated_value' => 88.88,
@@ -212,7 +215,7 @@ class DashboardPageTest extends TestCase
     public function test_dashboard_shows_delivery_deadline_and_modify_box_action_when_editable_box_exists(): void
     {
         $user = User::factory()->create();
-        $this->subscribeUserFully($user);
+        $subscription = $this->subscribeUserFully($user);
         $address = Address::factory()->create(['user_id' => $user->id]);
         $deliveryDate = now()->addWeek()->startOfWeek()->addDays(2);
 
@@ -226,6 +229,7 @@ class DashboardPageTest extends TestCase
 
         $box = Box::factory()->create([
             'user_id' => $user->id,
+            'subscription_id' => $subscription->id,
             'week_start_date' => $deliveryDate->copy()->startOfWeek()->toDateString(),
             'status' => BoxStatus::Editable,
             'modification_deadline_at' => now()->addWeek(),
@@ -244,10 +248,11 @@ class DashboardPageTest extends TestCase
     public function test_dashboard_shows_current_week_box_summary_with_items_and_value(): void
     {
         $user = User::factory()->create();
-        $this->subscribeUserFully($user);
+        $subscription = $this->subscribeUserFully($user);
 
         $currentBox = Box::factory()->create([
             'user_id' => $user->id,
+            'subscription_id' => $subscription->id,
             'week_start_date' => now()->startOfWeek()->toDateString(),
             'estimated_value' => 44.20,
         ]);

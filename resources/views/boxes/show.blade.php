@@ -27,20 +27,36 @@
         ];
     @endphp
 
-    <x-slot name="header">
-        <div class="flex flex-col gap-3">
-            <p class="eyebrow text-chapter-produce">{{ __('Your weekly food box') }}</p>
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
-                    {{ __('Week of :date', ['date' => $weekLabelDate]) }}
-                </h1>
-                <x-status-badge :value="$box->status" type="box" />
-            </div>
-        </div>
-    </x-slot>
+    @php
+        $boxStory = \App\Support\EditorialContent::thisWeekLead($box);
+        // Pick a producer that actually appears in this box; fall back to the
+        // weekly rotation if no producer can be sourced from the box items.
+        $boxProducerSlug = $box->items
+            ->pluck('product.producer.name')
+            ->filter()
+            ->map(fn ($name) => strtolower(explode(' ', $name)[0] ?? ''))
+            ->first(fn ($slug) => in_array($slug, \App\Support\EditorialContent::PRODUCER_SLUGS, true));
+        $boxProducer = is_string($boxProducerSlug) && $boxProducerSlug !== ''
+            ? \App\Support\EditorialContent::producer($boxProducerSlug)
+            : \App\Support\EditorialContent::producerOfTheWeek();
+    @endphp
 
-    <div class="py-10 sm:py-16">
-        <div class="mx-auto max-w-4xl space-y-10 px-4 sm:px-6 lg:px-8">
+    <div class="pb-10 sm:pb-16">
+        <div class="mx-auto max-w-4xl space-y-10 px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+            <x-customer.hero-band
+                chapter="produce"
+                :image="asset('images/mock/boxes/box-hero.jpg')"
+                :eyebrow="__('Your weekly food box')"
+                :title="__('Week of :date', ['date' => $weekLabelDate])"
+                :lead="$boxStory"
+            >
+                <x-slot name="actions">
+                    <span class="inline-flex bg-brand-cream/95 px-3 py-1.5">
+                        <x-status-badge :value="$box->status" type="box" />
+                    </span>
+                </x-slot>
+            </x-customer.hero-band>
+
             <section class="border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="box-week-heading">
                 <h2 id="box-week-heading" class="sr-only">{{ __('Box summary') }}</h2>
                 <div class="space-y-3 text-sm">
@@ -175,6 +191,8 @@
                     @endif
                 </div>
             </section>
+
+            <x-customer.producer-spotlight :producer="$boxProducer" />
 
             <div class="flex flex-col items-center gap-3 pt-4">
                 <x-triple-star class="opacity-70" />
