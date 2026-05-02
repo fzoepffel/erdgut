@@ -14,20 +14,22 @@
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-col gap-2">
-            <p class="eyebrow text-chapter-fish">{{ __('Billing') }}</p>
-            <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
-                {{ __('Payments and billing') }}
-            </h1>
-            <p class="mt-3 max-w-2xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
-                {{ __('The ledger of your weekly rhythm — quietly kept.') }}
-            </p>
-        </div>
-    </x-slot>
+    <div class="pb-10 sm:pb-16">
+        <div class="mx-auto max-w-4xl space-y-8 px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+            <x-customer.hero-band
+                chapter="fish"
+                :image="asset('images/mock/stalls/produce/scene.jpg')"
+                :eyebrow="__('Billing')"
+                :title="__('Payments and billing')"
+                :lead="__('customer.story.payments.ledger_intro')"
+            />
 
-    <div class="py-10 sm:py-16">
-        <div class="mx-auto max-w-4xl space-y-8 px-4 sm:px-6 lg:px-8">
+            <x-customer.story-block
+                chapter="fish"
+                :quote="__('customer.story.payments.why_weekly')"
+                :signature="__('customer.story.dashboard.founder_signature')"
+            />
+
             @include('payments.partials.session-status')
 
             <div class="border border-chapter-fish/40 bg-chapter-fish/5 px-4 py-5 sm:px-6">

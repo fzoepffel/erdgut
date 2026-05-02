@@ -2,23 +2,24 @@
     $vegOnly = (bool) data_get($subscription?->preferences, 'veg_only', false);
     $meatAddOn = (bool) data_get($subscription?->preferences, 'meat_add_on', false);
     $eggsDairyAddOn = (bool) data_get($subscription?->preferences, 'eggs_dairy_add_on', false);
+    $boxGrowthAsset = match ($subscription?->box_size) {
+        'small' => 'images/box-growth/box-plant-stage-small-transparent.png',
+        'medium' => 'images/box-growth/box-plant-stage-medium-transparent.png',
+        'large' => 'images/box-growth/box-plant-stage-large-transparent.png',
+        default => null,
+    };
 @endphp
 
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex flex-col gap-2">
-            <p class="eyebrow text-chapter-produce">{{ __('Subscription') }}</p>
-            <h1 class="font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
-                {{ __('Subscription overview') }}
-            </h1>
-            <p class="mt-3 max-w-2xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
-                {{ __('Your weekly rhythm — tuned to your table.') }}
-            </p>
-        </div>
-    </x-slot>
-
-    <div class="py-10 sm:py-16">
-        <div class="mx-auto max-w-4xl space-y-8 px-4 sm:px-6 lg:px-8">
+    <div class="pb-10 sm:pb-16">
+        <div class="mx-auto max-w-4xl space-y-8 px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+            <x-customer.hero-band
+                chapter="eggdairy"
+                :image="asset('images/mock/hero/about-hero.jpg')"
+                :eyebrow="__('Subscription')"
+                :title="__('Subscription overview')"
+                :lead="__('Your weekly rhythm — tuned to your table.')"
+            />
             @if (session('status') === 'subscription-updated')
                 <p class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink">
                     {{ __('Subscription details saved.') }}
@@ -134,10 +135,28 @@
                     @endif
                 </div>
 
+                <x-customer.story-block
+                    chapter="produce"
+                    :quote="__('customer.story.subscription.rhythm')"
+                    :signature="__('customer.story.dashboard.founder_signature')"
+                />
+
                 <div class="space-y-8">
                     <section id="sub-plan" class="scroll-mt-24 border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-plan">
-                        <p class="eyebrow text-chapter-produce">{{ __('Plan') }}</p>
-                        <h3 id="sub-section-plan" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Subscription and box') }}</h3>
+                        <div class="flex flex-wrap items-start justify-between gap-6">
+                            <div>
+                                <p class="eyebrow text-chapter-produce">{{ __('Plan') }}</p>
+                                <h3 id="sub-section-plan" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Subscription and box') }}</h3>
+                            </div>
+                            @if ($boxGrowthAsset)
+                                <img
+                                    src="{{ asset($boxGrowthAsset) }}"
+                                    alt=""
+                                    class="hidden h-24 w-24 shrink-0 object-contain opacity-90 sm:block"
+                                    loading="lazy"
+                                />
+                            @endif
+                        </div>
                         <dl class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                             <div>
                                 <dt class="eyebrow text-brand-ink/60">{{ __('Cadence') }}</dt>

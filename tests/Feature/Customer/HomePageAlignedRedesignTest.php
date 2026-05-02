@@ -69,4 +69,58 @@ class HomePageAlignedRedesignTest extends TestCase
 
         $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
     }
+
+    public function test_subscription_show_renders_hero_band_and_story_block(): void
+    {
+        $user = User::factory()->create();
+        $this->subscribeUserFully($user);
+
+        $html = $this->actingAs($user)
+            ->get(route('app.subscriptions.show'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
+        $this->assertStringContainsString('data-testid="customer-story-block"', $html);
+    }
+
+    public function test_payments_history_renders_hero_band_and_story_block(): void
+    {
+        $user = User::factory()->create();
+        $this->subscribeUserFully($user);
+
+        $html = $this->actingAs($user)
+            ->get(route('app.payments.history'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
+        $this->assertStringContainsString('data-testid="customer-story-block"', $html);
+    }
+
+    public function test_profile_edit_renders_hero_band_and_story_block(): void
+    {
+        $user = User::factory()->create();
+
+        $html = $this->actingAs($user)
+            ->get(route('account.profile.edit'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
+        $this->assertStringContainsString('data-testid="customer-story-block"', $html);
+    }
+
+    public function test_deliveries_index_renders_hero_band(): void
+    {
+        $user = User::factory()->create();
+        $this->subscribeUserFully($user);
+
+        $html = $this->actingAs($user)
+            ->get(route('app.deliveries.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
+    }
 }
