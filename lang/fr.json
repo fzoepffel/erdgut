@@ -2046,5 +2046,11 @@
     "Your trial box is a one-off — no recurring deliveries are scheduled yet.": "Ta box d'essai est unique — aucune livraison récurrente n'est encore prévue.",
     "No deliveries scheduled — finish payment setup to schedule your first box.": "Aucune livraison prévue — termine la configuration du paiement pour planifier ta première box.",
     "See the trial-box block above for this week's details.": "Les détails de la box de cette semaine sont dans le bloc box d'essai ci-dessus.",
-    "Your box will appear here once your subscription is fully set up.": "Ta box apparaîtra ici une fois ton abonnement entièrement configuré."
+    "Your box will appear here once your subscription is fully set up.": "Ta box apparaîtra ici une fois ton abonnement entièrement configuré.",
+    "Choose your start": "Choisis ton départ",
+    "A box every Monday rhythm.": "Une box chaque lundi, semaine après semaine.",
+    "Every other Monday — half the volume, same care.": "Un lundi sur deux — moitié moins de volume, même soin.",
+    "To you": "Chez toi",
+    "From the market": "Au marché",
+    "Weekly or bi-weekly. Size :size:eggs, cancel anytime.": "Hebdomadaire ou bimensuel. Taille :size:eggs, résiliable à tout moment."
 }
