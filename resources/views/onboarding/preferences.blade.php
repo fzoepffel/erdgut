@@ -41,10 +41,16 @@
                     ],
                 ];
             @endphp
+            {{-- Stacked layout (image on top, text below): the wizard column
+                 is ~600px wide, so each 3-up card sits at ~190px wide. The
+                 homepage chapter strip's image-left-text-right pattern needs
+                 ~320px per card to breathe — at 190px it crops the title and
+                 wraps the price. The poster-style stack scales down without
+                 truncating any content. --}}
             <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 @foreach($sizeCards as $size => $card)
                     <label
-                        class="group relative flex h-full min-h-[220px] cursor-pointer overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] has-[:checked]:ring-2 has-[:checked]:ring-brand-ink has-[:checked]:ring-offset-2 has-[:checked]:ring-offset-brand-cream {{ $card['panel'] }}"
+                        class="group relative flex cursor-pointer flex-col overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] has-[:checked]:ring-2 has-[:checked]:ring-brand-ink {{ $card['panel'] }}"
                         data-testid="onboarding-box-size-card-{{ $size }}"
                     >
                         <input
@@ -55,34 +61,34 @@
                             class="sr-only"
                             required
                         >
-                        <div class="relative flex w-20 shrink-0 items-stretch overflow-hidden sm:w-24">
+                        <div class="relative h-36 overflow-hidden sm:h-40">
                             <img
                                 src="{{ asset($card['image']) }}"
                                 alt=""
                                 aria-hidden="true"
-                                class="h-full w-full select-none object-contain object-center"
+                                class="absolute inset-0 h-full w-full select-none object-contain object-center p-3"
                                 style="filter: brightness(0) invert(1);"
                             />
                         </div>
-                        <span class="flex flex-1 flex-col justify-between gap-4 p-5 sm:p-6">
-                            <span class="eyebrow text-brand-cream/80">
+                        <div class="flex flex-1 flex-col gap-3 border-t border-brand-cream/20 p-5">
+                            <p class="eyebrow text-brand-cream/80">
                                 {{ sprintf('%02d', $loop->iteration) }} &nbsp;·&nbsp; {{ __('Box size') }}
-                            </span>
-                            <span class="block">
-                                <span class="block font-display text-2xl leading-tight">{{ __(ucfirst($size)) }}</span>
-                                <span class="mt-2 block font-editorial text-sm italic leading-relaxed text-brand-cream/85">
+                            </p>
+                            <div>
+                                <p class="font-display text-2xl leading-tight">{{ __(ucfirst($size)) }}</p>
+                                <p class="mt-1.5 font-editorial text-sm italic leading-relaxed text-brand-cream/85">
                                     {{ $card['tagline'] }}
-                                </span>
-                            </span>
-                            <span class="inline-flex items-baseline gap-2">
+                                </p>
+                            </div>
+                            <p class="mt-auto inline-flex items-baseline gap-2 pt-2">
                                 <span class="font-display text-xl font-semibold text-brand-cream">
                                     @money($sizePrices[$size] ?? 0) €
                                 </span>
                                 <span class="text-xs uppercase tracking-eyebrow text-brand-cream/75">
                                     {{ __('Per delivery') }}
                                 </span>
-                            </span>
-                        </span>
+                            </p>
+                        </div>
                     </label>
                 @endforeach
             </div>
