@@ -1,32 +1,53 @@
 @extends('layouts.onboarding', ['step' => 'commitment', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <h1 class="font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('How do you want to start?') }}</h1>
+    <p class="eyebrow text-chapter-produce">{{ __('Choose your start') }}</p>
+    <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('How do you want to start?') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('Try one box, or sign up for a recurring delivery — you can always switch.') }}
     </p>
 
+    {{-- Chapter-coloured commitment cards mirror the box-size pattern:
+         eggdairy (orange) for the one-off trial, produce (green) for the
+         recurring subscription. The colour difference + ranked numbering
+         makes the trade-off legible at a glance. --}}
     <form method="POST" action="{{ route('app.onboarding.step.commitment.store') }}" class="mt-8 grid gap-4 md:grid-cols-2">
         @csrf
         @if($trialEnabled)
             <button type="submit" name="intent" value="trial"
-                    class="group flex cursor-pointer flex-col gap-3 border border-brand-ink/20 p-6 text-left transition hover:border-chapter-produce hover:bg-chapter-produce/5 focus:outline-none focus:ring-2 focus:ring-chapter-produce focus:ring-offset-2">
-                <span class="eyebrow text-chapter-produce">{{ __('Try it once') }}</span>
-                <span class="block font-display text-3xl font-semibold text-brand-ink">@money($trialPrice, 0) EUR</span>
-                <span class="text-sm leading-relaxed text-brand-ink/70">{{ __('One delivery, no subscription, no auto-renewal.') }}</span>
-                <span class="mt-auto text-xs font-semibold uppercase tracking-eyebrow text-chapter-produce">{{ __('Pick trial') }} <span aria-hidden="true">&rarr;</span></span>
+                    class="group flex h-full cursor-pointer flex-col p-6 text-left text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] focus:outline-none focus:ring-2 focus:ring-brand-ink focus:ring-offset-2 focus:ring-offset-brand-cream bg-chapter-eggdairy">
+                <div class="flex items-baseline justify-between gap-2">
+                    <span class="eyebrow text-brand-cream/75">{{ __('Try it once') }}</span>
+                    <span aria-hidden="true" class="font-display text-base font-semibold text-brand-cream/55">01</span>
+                </div>
+                <span class="mt-6 font-display text-4xl font-semibold leading-tight sm:text-5xl">@money($trialPrice, 0) €</span>
+                <span class="mt-3 font-editorial text-sm italic leading-relaxed text-brand-cream/85">
+                    {{ __('One delivery, no subscription, no auto-renewal.') }}
+                </span>
+                <span class="mt-auto inline-flex items-center gap-2 pt-6 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream/90 transition-[gap] duration-200 group-hover:gap-3 group-hover:text-brand-cream">
+                    {{ __('Pick trial') }} <span aria-hidden="true">&rarr;</span>
+                </span>
             </button>
         @endif
         <button type="submit" name="intent" value="subscription"
-                class="group flex cursor-pointer flex-col gap-3 border border-brand-ink/20 p-6 text-left transition hover:border-chapter-produce hover:bg-chapter-produce/5 focus:outline-none focus:ring-2 focus:ring-chapter-produce focus:ring-offset-2">
-            <span class="eyebrow text-chapter-produce">{{ __('Regular delivery') }}</span>
-            <span class="block font-display text-3xl font-semibold text-brand-ink">{{ __('Subscribe') }}</span>
-            <span class="text-sm leading-relaxed text-brand-ink/70">{{ __('Weekly or bi-weekly. EUR :amount per delivery (size :size:eggs), cancel anytime.', [
-                'amount' => \App\Support\Money::format($subscriptionPerDelivery),
-                'size' => __(ucfirst($subscriptionSize)),
-                'eggs' => $subscriptionEggsAddOn ? ' + '.__('Add eggs to every box') : '',
-            ]) }}</span>
-            <span class="mt-auto text-xs font-semibold uppercase tracking-eyebrow text-chapter-produce">{{ __('Pick subscription') }} <span aria-hidden="true">&rarr;</span></span>
+                class="group flex h-full cursor-pointer flex-col p-6 text-left text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] focus:outline-none focus:ring-2 focus:ring-brand-ink focus:ring-offset-2 focus:ring-offset-brand-cream bg-chapter-produce">
+            <div class="flex items-baseline justify-between gap-2">
+                <span class="eyebrow text-brand-cream/75">{{ __('Regular delivery') }}</span>
+                <span aria-hidden="true" class="font-display text-base font-semibold text-brand-cream/55">{{ $trialEnabled ? '02' : '01' }}</span>
+            </div>
+            <span class="mt-6 font-display text-4xl font-semibold leading-tight sm:text-5xl">
+                @money($subscriptionPerDelivery) €
+                <span class="block font-editorial text-base font-normal italic text-brand-cream/85">{{ __('Per delivery') }}</span>
+            </span>
+            <span class="mt-3 font-editorial text-sm italic leading-relaxed text-brand-cream/85">
+                {{ __('Weekly or bi-weekly. Size :size:eggs, cancel anytime.', [
+                    'size' => __(ucfirst($subscriptionSize)),
+                    'eggs' => $subscriptionEggsAddOn ? ' + '.__('Add eggs to every box') : '',
+                ]) }}
+            </span>
+            <span class="mt-auto inline-flex items-center gap-2 pt-6 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream/90 transition-[gap] duration-200 group-hover:gap-3 group-hover:text-brand-cream">
+                {{ __('Pick subscription') }} <span aria-hidden="true">&rarr;</span>
+            </span>
         </button>
         <div class="md:col-span-2">
             <x-input-error :messages="$errors->get('intent')" />

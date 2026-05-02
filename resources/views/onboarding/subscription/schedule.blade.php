@@ -1,7 +1,8 @@
 @extends('layouts.onboarding', ['step' => 'subscription_schedule', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <h1 class="font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Pick your delivery rhythm') }}</h1>
+    <p class="eyebrow text-chapter-fish">{{ __('Schedule') }}</p>
+    <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Pick your delivery rhythm') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
         {{ __('You can pause, skip, or cancel from your dashboard at any time.') }}
     </p>
@@ -17,10 +18,15 @@
             <legend class="eyebrow text-brand-ink/80">{{ __('Cadence') }}</legend>
             <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @foreach($plans as $plan)
-                    <label class="flex cursor-pointer items-center justify-center border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
+                    <label class="flex cursor-pointer items-center justify-center gap-3 border border-brand-ink/20 p-5 transition hover:border-chapter-produce/60 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/[0.06] has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
                         <input type="radio" name="plan" value="{{ $plan->value }}" {{ ($data['plan'] ?? 'weekly') === $plan->value ? 'checked' : '' }} class="sr-only">
-                        <span class="font-display text-base font-semibold text-brand-ink">
-                            {{ $plan->value === 'weekly' ? __('Every week') : __('Every two weeks') }}
+                        <span class="text-center">
+                            <span class="block font-display text-lg font-semibold text-brand-ink">
+                                {{ $plan->value === 'weekly' ? __('Every week') : __('Every two weeks') }}
+                            </span>
+                            <span class="mt-1 block font-editorial text-xs italic text-brand-ink/65">
+                                {{ $plan->value === 'weekly' ? __('A box every Monday rhythm.') : __('Every other Monday — half the volume, same care.') }}
+                            </span>
                         </span>
                     </label>
                 @endforeach
@@ -28,18 +34,37 @@
             <x-input-error :messages="$errors->get('plan')" class="mt-3" />
         </fieldset>
 
+        @php
+            // Distinct chapter colours per fulfillment mode so the choice
+            // reads as two different things, not "two of the same thing."
+            $modeChapter = [
+                \App\Enums\FulfillmentMode::Delivery->value => [
+                    'border' => 'has-[:checked]:border-chapter-fish has-[:checked]:bg-chapter-fish/[0.06] has-[:checked]:ring-chapter-fish hover:border-chapter-fish/60',
+                    'eyebrow' => 'text-chapter-fish',
+                    'chapter' => 'fish',
+                ],
+                \App\Enums\FulfillmentMode::Pickup->value => [
+                    'border' => 'has-[:checked]:border-chapter-bread has-[:checked]:bg-chapter-bread/[0.06] has-[:checked]:ring-chapter-bread hover:border-chapter-bread/60',
+                    'eyebrow' => 'text-chapter-bread',
+                    'chapter' => 'bread',
+                ],
+            ];
+        @endphp
         <fieldset>
             <legend class="eyebrow text-brand-ink/80">{{ __('Fulfillment') }}</legend>
             <p class="mt-2 text-sm text-brand-ink/70">{{ __('We deliver to your door or you pick up at our partner stall.') }}</p>
             <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @foreach($fulfillmentModes as $mode)
-                    <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-4 transition hover:border-brand-ink/40 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5 has-[:checked]:ring-1 has-[:checked]:ring-chapter-produce">
+                    <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/20 p-5 transition has-[:checked]:ring-1 {{ $modeChapter[$mode->value]['border'] }}">
                         <input type="radio" name="fulfillment_mode" value="{{ $mode->value }}" x-model="fulfillment" class="mt-1 border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce">
-                        <span>
-                            <span class="block font-display text-base text-brand-ink">
+                        <span class="flex flex-col gap-1">
+                            <span class="eyebrow {{ $modeChapter[$mode->value]['eyebrow'] }}">
+                                {{ $mode === \App\Enums\FulfillmentMode::Delivery ? __('To you') : __('From the market') }}
+                            </span>
+                            <span class="font-display text-base text-brand-ink">
                                 {{ $mode === \App\Enums\FulfillmentMode::Delivery ? __('Home delivery') : __('Pickup') }}
                             </span>
-                            <span class="mt-1 block text-sm text-brand-ink/70">
+                            <span class="text-sm leading-relaxed text-brand-ink/70">
                                 {{ $mode === \App\Enums\FulfillmentMode::Delivery
                                     ? __('We bring the box to your address within your neighbourhood window.')
                                     : __('Collect at the weekly partner market — no delivery fee.') }}
