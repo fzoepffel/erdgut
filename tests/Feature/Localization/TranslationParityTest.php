@@ -31,9 +31,6 @@ class TranslationParityTest extends TestCase
         // /spargel-admin renders status badges via 'spargel.admin.status_'.$key
         // — pending/paid/fulfilled/cancelled/refunded.
         'spargel.admin.status_',
-        // /spargel trust strip iterates over ['bio', 'fresh', 'farm'] →
-        // 'spargel.trust_'.$badge.
-        'spargel.trust_',
         // EditorialContent helper picks rotation indexes at runtime; concrete
         // variants (_1.._6 etc.) live in lang/{de,en,fr}.json and the helper's
         // own unit test asserts every ISO week resolves.
