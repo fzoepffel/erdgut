@@ -2052,5 +2052,20 @@
     "Every other Monday — half the volume, same care.": "Every other Monday — half the volume, same care.",
     "To you": "To you",
     "From the market": "From the market",
-    "Weekly or bi-weekly. Size :size:eggs, cancel anytime.": "Weekly or bi-weekly. Size :size:eggs, cancel anytime."
+    "Weekly or bi-weekly. Size :size:eggs, cancel anytime.": "Weekly or bi-weekly. Size :size:eggs, cancel anytime.",
+    "spargel.farm_facts_eyebrow": "From the farm",
+    "spargel.farm_facts_heading": "Spargelhof Kalkwitz",
+    "spargel.farm_facts_farmer_label": "Farmer",
+    "spargel.farm_facts_farmer_value": "Max Scharkowski — fourth-generation farmer.",
+    "spargel.farm_facts_location_label": "Location",
+    "spargel.farm_facts_location_value": "Kalkwitz in the Spreewald, ~100 km south of Berlin.",
+    "spargel.farm_facts_field_label": "Field area",
+    "spargel.farm_facts_field_value": "6 hectares of asparagus — hand-cut every season.",
+    "spargel.farm_facts_method_label": "Growing method",
+    "spargel.farm_facts_method_value": "Without plastic or aluminium film — as eco as asparagus gets.",
+    "spargel.farm_facts_freshness_label": "Field to you",
+    "spargel.farm_facts_freshness_value": "Delivered the day of harvest or the day after.",
+    "spargel.farm_facts_season_label": "Season",
+    "spargel.farm_facts_season_value": "Mid-April to St. John’s Day (24 June).",
+    "spargel.farm_facts_outro": "The full story about Max and his fields is below."
 }

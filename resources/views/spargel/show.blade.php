@@ -33,6 +33,50 @@
         </p>
     </header>
 
+    {{-- Quick facts about the producer, surfaced before the order form so
+         the customer knows what makes this Spargel special before deciding
+         on quantity / variety. The full editorial story stays at the
+         bottom of the page; this block is the spec sheet. --}}
+    <section
+        class="mb-10 border border-chapter-producers/30 bg-chapter-producers/[0.06] p-6 sm:mb-14 sm:p-8"
+        aria-labelledby="spargel-farm-facts-heading"
+        data-testid="spargel-farm-facts"
+    >
+        <p class="eyebrow text-chapter-producers">{{ __('spargel.farm_facts_eyebrow') }}</p>
+        <h2 id="spargel-farm-facts-heading" class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
+            {{ __('spargel.farm_facts_heading') }}
+        </h2>
+        <dl class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+                <dt class="eyebrow text-brand-ink/60">{{ __('spargel.farm_facts_farmer_label') }}</dt>
+                <dd class="mt-1 text-base text-brand-ink">{{ __('spargel.farm_facts_farmer_value') }}</dd>
+            </div>
+            <div>
+                <dt class="eyebrow text-brand-ink/60">{{ __('spargel.farm_facts_location_label') }}</dt>
+                <dd class="mt-1 text-base text-brand-ink">{{ __('spargel.farm_facts_location_value') }}</dd>
+            </div>
+            <div>
+                <dt class="eyebrow text-brand-ink/60">{{ __('spargel.farm_facts_field_label') }}</dt>
+                <dd class="mt-1 text-base text-brand-ink">{{ __('spargel.farm_facts_field_value') }}</dd>
+            </div>
+            <div>
+                <dt class="eyebrow text-brand-ink/60">{{ __('spargel.farm_facts_method_label') }}</dt>
+                <dd class="mt-1 text-base text-brand-ink">{{ __('spargel.farm_facts_method_value') }}</dd>
+            </div>
+            <div>
+                <dt class="eyebrow text-brand-ink/60">{{ __('spargel.farm_facts_freshness_label') }}</dt>
+                <dd class="mt-1 text-base text-brand-ink">{{ __('spargel.farm_facts_freshness_value') }}</dd>
+            </div>
+            <div>
+                <dt class="eyebrow text-brand-ink/60">{{ __('spargel.farm_facts_season_label') }}</dt>
+                <dd class="mt-1 text-base text-brand-ink">{{ __('spargel.farm_facts_season_value') }}</dd>
+            </div>
+        </dl>
+        <p class="mt-6 font-editorial text-sm italic text-brand-ink/65">
+            {{ __('spargel.farm_facts_outro') }}
+        </p>
+    </section>
+
     {{-- Delivery date banner: tells the customer up-front when the order
          will arrive (or be ready for pickup). Uses chapter-bread soft —
          warm earth tone that pairs with the produce-green cards below.

@@ -2052,5 +2052,20 @@
     "Every other Monday — half the volume, same care.": "Un lundi sur deux — moitié moins de volume, même soin.",
     "To you": "Chez toi",
     "From the market": "Au marché",
-    "Weekly or bi-weekly. Size :size:eggs, cancel anytime.": "Hebdomadaire ou bimensuel. Taille :size:eggs, résiliable à tout moment."
+    "Weekly or bi-weekly. Size :size:eggs, cancel anytime.": "Hebdomadaire ou bimensuel. Taille :size:eggs, résiliable à tout moment.",
+    "spargel.farm_facts_eyebrow": "De la ferme",
+    "spargel.farm_facts_heading": "Spargelhof Kalkwitz",
+    "spargel.farm_facts_farmer_label": "Producteur",
+    "spargel.farm_facts_farmer_value": "Max Scharkowski — quatrième génération.",
+    "spargel.farm_facts_location_label": "Lieu",
+    "spargel.farm_facts_location_value": "Kalkwitz dans la Spreewald, à ~100 km au sud de Berlin.",
+    "spargel.farm_facts_field_label": "Surface cultivée",
+    "spargel.farm_facts_field_value": "6 hectares d’asperges — coupées à la main chaque saison.",
+    "spargel.farm_facts_method_label": "Méthode de culture",
+    "spargel.farm_facts_method_value": "Sans film plastique ni aluminium — l’asperge la plus écologique possible.",
+    "spargel.farm_facts_freshness_label": "Du champ à toi",
+    "spargel.farm_facts_freshness_value": "Livré le jour de la récolte ou le lendemain.",
+    "spargel.farm_facts_season_label": "Saison",
+    "spargel.farm_facts_season_value": "De mi-avril à la Saint-Jean (24 juin).",
+    "spargel.farm_facts_outro": "L’histoire complète de Max et de ses champs se trouve plus bas."
 }
