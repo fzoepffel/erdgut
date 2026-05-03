@@ -127,8 +127,20 @@
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-4 pt-4">
-            <a href="{{ route('app.onboarding.step.commitment') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
-                ← {{ __('Back to :step', ['step' => __('Commitment')]) }}
+            @php
+                // When intent=subscription, Commitment was skipped on the way
+                // here (W2-04 / CommitmentStepSkippableTest), so a back link
+                // to Commitment lands on a step that bounces forward — feels
+                // like nothing happens. Send the customer back to the actual
+                // previous step they were on (Preferences) instead.
+                $cameViaCommitment = ($draft->intent ?? null) === \App\Services\Onboarding\OnboardingDraftManager::INTENT_UNDECIDED;
+                $backRoute = $cameViaCommitment
+                    ? route('app.onboarding.step.commitment')
+                    : route('app.onboarding.step.preferences');
+                $backLabel = $cameViaCommitment ? __('Commitment') : __('Preferences');
+            @endphp
+            <a href="{{ $backRoute }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
+                ← {{ __('Back to :step', ['step' => $backLabel]) }}
             </a>
             <x-primary-button>{{ __('Continue to :step', ['step' => __('Payment')]) }}</x-primary-button>
         </div>
