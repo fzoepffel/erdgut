@@ -15,6 +15,13 @@
 @endphp
 
 <x-admin-layout>
+    <x-slot name="breadcrumbs">
+        <x-admin.breadcrumbs :items="[
+            ['label' => __('admin.shell.overview'), 'href' => route('app.admin.dashboard')],
+            ['label' => __('admin.operations.nav_users'), 'href' => route('app.admin.users.index')],
+            ['label' => $user->email],
+        ]" />
+    </x-slot>
     <x-slot name="header">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>

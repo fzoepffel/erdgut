@@ -1,4 +1,12 @@
 <x-admin-layout>
+    <x-slot name="breadcrumbs">
+        <x-admin.breadcrumbs :items="[
+            ['label' => __('admin.shell.overview'), 'href' => route('app.admin.dashboard')],
+            ['label' => __('admin.box_setup.title'), 'href' => route('app.admin.boxes.index')],
+            ['label' => __('admin.breadcrumbs.week_label', ['date' => $week->translatedFormat('d.m.Y')]), 'href' => route('app.admin.boxes.setup.show', ['week' => $week->toDateString()])],
+            ['label' => __('admin.box_setup.cta_view_boxes')],
+        ]" />
+    </x-slot>
     <x-slot name="header">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">

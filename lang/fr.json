@@ -2086,5 +2086,8 @@
     "Thanks for being part of our week.": "Merci de faire partie de notre semaine.",
     "admin.operations.subscriptions_empty_hint": "Les abonnements apparaissent ici une fois que les client·e·s ont terminé l’inscription avec un moyen de paiement.",
     "admin.operations.deliveries_empty_hint": "Les livraisons sont générées une fois les boîtes enregistrées pour une semaine dans la configuration.",
-    "admin.operations.payments_empty_hint": "Les tentatives de paiement apparaissent ici une fois la facturation hebdomadaire lancée ou un paiement manuel effectué."
+    "admin.operations.payments_empty_hint": "Les tentatives de paiement apparaissent ici une fois la facturation hebdomadaire lancée ou un paiement manuel effectué.",
+    "admin.breadcrumbs.aria_label": "Fil d’Ariane",
+    "admin.breadcrumbs.week_label": "Semaine :date",
+    "admin.breadcrumbs.box_label": "Box #:id"
 }

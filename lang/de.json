@@ -2086,5 +2086,8 @@
     "Thanks for being part of our week.": "Danke, dass Du Teil unserer Woche bist.",
     "admin.operations.subscriptions_empty_hint": "Abos erscheinen hier, sobald Kund:innen die Anmeldung mit Zahlungsmethode abgeschlossen haben.",
     "admin.operations.deliveries_empty_hint": "Lieferungen werden generiert, sobald für eine Woche Boxen gespeichert wurden.",
-    "admin.operations.payments_empty_hint": "Zahlungsversuche erscheinen hier, sobald die wöchentliche Abrechnung läuft oder eine Box manuell abgerechnet wird."
+    "admin.operations.payments_empty_hint": "Zahlungsversuche erscheinen hier, sobald die wöchentliche Abrechnung läuft oder eine Box manuell abgerechnet wird.",
+    "admin.breadcrumbs.aria_label": "Brotkrumen-Navigation",
+    "admin.breadcrumbs.week_label": "Woche :date",
+    "admin.breadcrumbs.box_label": "Box #:id"
 }
