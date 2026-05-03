@@ -6,13 +6,20 @@ This is a live findings doc for the second walkthrough (2026-04-28), focused on:
 
 Findings are appended as we encounter them in the browser walkthrough. Implementation order is prioritized at the bottom and will be turned into PR-sized tickets once the walkthrough is complete.
 
+> **Status as of 2026-05-03:** 35 of 38 findings ✓ shipped. Remaining open:
+> - **W2-12** — Box-size cards visual treatment (PR #55 attempted, rolled back in #56)
+> - **W2-05** — decided no-op (keep current wizard order)
+> - **W2-06 / W2-09 / W2-29** — superseded or non-bugs, kept for context
+>
+> Each `### W2-XX` heading below carries its own status marker. The implementation priority table at the bottom maps groups of findings to PRs.
+
 ---
 
 ## Dev-environment fixes (already in working tree)
 
 These don't ship as customer-visible changes but are needed for the walkthrough to be possible at all. Will be committed alongside the first PR coming out of this work.
 
-### W2-DEV-01 · PHP 8.5 deprecation notices leak into rendered HTML
+### ~~W2-DEV-01~~ ✓ shipped · PHP 8.5 deprecation notices leak into rendered HTML
 
 **Symptom:** Every dev-mode page response had multi-paragraph `Deprecated: Constant PDO::MYSQL_ATTR_SSL_CA is deprecated since 8.5` notices prepended to the HTML, dominating the viewport before any styled content.
 
@@ -20,7 +27,7 @@ These don't ship as customer-visible changes but are needed for the walkthrough 
 
 **Fix in tree:** Suppress at the top of `bootstrap/app.php` only when `APP_ENV=local`. Drop reference to `E_STRICT` (removed in PHP 8.4 and would itself raise a deprecation).
 
-### W2-DEV-02 · Vite dev assets blocked by hardcoded CSP
+### ~~W2-DEV-02~~ ✓ shipped (`<x-csp>` Blade component) · Vite dev assets blocked by hardcoded CSP
 
 **Symptom:** With `php artisan serve` + `npm run dev`, the page comes up unstyled. Chrome's CSP blocks `<link rel=stylesheet href="http://127.0.0.1:5173/...">` because the meta-tag CSP in each layout sets `style-src 'self' 'unsafe-inline' https://fonts.bunny.net` — no origin for the Vite dev server.
 
@@ -32,7 +39,7 @@ These don't ship as customer-visible changes but are needed for the walkthrough 
 
 ## Customer-facing findings
 
-### W2-01 · Three different headers across customer surfaces — *the headline issue*
+### ~~W2-01~~ ✓ shipped (PR #48 — `<x-customer-header>` 3 variants) · Three different headers across customer surfaces — *the headline issue*
 
 | Surface | Layout | Header treatment |
 |---|---|---|
@@ -44,7 +51,7 @@ These don't ship as customer-visible changes but are needed for the walkthrough 
 
 **Resolution direction:** Adopt the marketing layout's olive-green sticky masthead in `layouts/onboarding.blade.php` and `layouts/app.blade.php`. Same masked logo, same colour, same density. The internal nav (Dashboard / Subscription / Deliveries / Products) lives inside that masthead instead of a separate cream nav.
 
-### W2-02 · Three different logo treatments
+### ~~W2-02~~ ✓ shipped (PR #48) · Three different logo treatments
 
 - Homepage: `erdgut-mark-tight.png` + `erdgut-wordmark-tight.png` masked in `#21341d` on `#709452`. Strong, distinctive.
 - Onboarding: `<x-application-logo>` (the small monochrome mark) + a `<span>` text wordmark "Erdgut" rendered in body font.
@@ -52,13 +59,13 @@ These don't ship as customer-visible changes but are needed for the walkthrough 
 
 **Resolution direction:** One canonical "branded header" partial that embeds the masked-logo treatment, used everywhere. Drop the text wordmark from the onboarding layout.
 
-### W2-03 · Marketing promises 4 wizard steps, reality is 6
+### ~~W2-03~~ ✓ shipped (PR #54 — wizard trimmed to 4 visible segments) · Marketing promises 4 wizard steps, reality is 6
 
 The homepage's "DER RHYTHMUS · Von der Anmeldung zur Haustür in vier Schritten" lists `01 Konto / 02 Tarif / 03 Wir stellen zusammen / 04 Du behältst Kontrolle`. The actual wizard has **six visible steps**: `01 KONTO · 02 ADRESSE · 03 VORLIEBEN · 04 MODELL · 05 ZEITPLAN · 06 ZAHLUNG`.
 
 **Resolution direction:** Either trim the wizard to 4 visible top-level steps (collapse Adresse into Vorlieben? collapse Zeitplan into Zahlung?) or update the homepage copy to match reality. Probably the first — fewer perceived steps is a real conversion lever.
 
-### W2-04 · MODELL (intent) step is redundant in the subscription flow
+### ~~W2-04~~ ✓ shipped (PR #54 — MODELL dropped from subscription flow) · MODELL (intent) step is redundant in the subscription flow
 
 When a visitor clicks "ABONNIEREN" on the homepage, the intent (subscription) is stored on the draft and the customer is taken into the wizard. But the step indicator still shows `04 MODELL` — the trial-vs-subscription decision the customer just made on the homepage one click earlier.
 
@@ -66,7 +73,7 @@ When a visitor clicks "ABONNIEREN" on the homepage, the intent (subscription) is
 - Subscription flow: **drop MODELL entirely** — it's redundant.
 - Trial flow: **keep MODELL** as a confirmation/upsell step ("Sicher, dass du nur die Testbox willst und nicht direkt das Abo?") but render it as a *non-progress* interstitial — don't show it as a numbered step in the top bar; show it as a single-screen check-in. The user shouldn't feel they're going backwards through a numbered list when this fires.
 
-### W2-05 · Wizard begins with account creation, before customer sees what they're buying
+### W2-05 — ⏸ decided no-op (per "Open questions resolved": keep current order) · Wizard begins with account creation, before customer sees what they're buying
 
 Step 1 asks for `Vollständiger Name / E-Mail / Passwort / Passwort bestätigen / Telefon`. The customer has not yet been shown box sizes, prices, or the schedule. They have to hand over a password before they understand what they're signing up for.
 
@@ -76,13 +83,13 @@ Step 1 asks for `Vollständiger Name / E-Mail / Passwort / Passwort bestätigen 
 
 The original ask was "hide the sidebar until something is in it". User's preference is stronger: turn the sidebar into a running summary of *every* gathered piece of info. See W2-17.
 
-### W2-07 · Top-right "Anmelden" link still showing after account is created
+### ~~W2-07~~ ✓ shipped (PR #48 — wizard-variant header is auth-aware) · Top-right "Anmelden" link still showing after account is created
 
 After submitting the Konto step, a `User` row is created (verified via tinker: `id=4 verified=no`). But the wizard layout's top right still shows the "Anmelden" link, suggesting the user isn't authenticated yet — or the layout doesn't reflect auth state.
 
 **Open question:** Is the User created but not logged in until they finish the wizard? Or are they logged in but the layout uses `@guest`-style logic that doesn't fire here? Need to check the controller behaviour. Either way: after Konto submit, the top-right link should change to "Mein Konto" / "Abmelden" (already-authenticated UX) rather than "Anmelden" which suggests they should sign in again.
 
-### W2-08 · Step indicator wraps to two lines and reads cluttered
+### ~~W2-08~~ ✓ shipped (PR #54 — 4-segment compact step indicator) · Step indicator wraps to two lines and reads cluttered
 
 The `01 KONTO · 02 ADRESSE · 03 VORLIEBEN · 04 MODELL · 05 ZEITPLAN · 06 ZAHLUNG` row wraps after step 5 at desktop width. Visual density is high; the dot separators don't carry meaning.
 
@@ -99,7 +106,7 @@ The `01 KONTO · 02 ADRESSE · 03 VORLIEBEN · 04 MODELL · 05 ZEITPLAN · 06 ZA
 - Future walkthroughs in the preview browser should use curl/direct-navigation between steps instead of relying on form-submit redirect chains.
 - Revisit if this ever reproduces in real Chrome.
 
-### W2-10 · A *fourth* layout — `/auth/login` uses `layouts/guest.blade.php` (or similar)
+### ~~W2-10~~ ✓ shipped (PR #48 — auth variant of `<x-customer-header>`) · A *fourth* layout — `/auth/login` uses `layouts/guest.blade.php` (or similar)
 
 In addition to marketing / onboarding / app, the login page has its own layout: faded white-on-cream wordmark centered above the form, language selector top right, no nav at all. **Four different brand expressions for one product.**
 
@@ -107,23 +114,23 @@ In addition to marketing / onboarding / app, the login page has its own layout: 
 
 ---
 
-### W2-11 · "Wert EUR 20" label on box-size cards is ambiguous
+### ~~W2-11~~ ✓ shipped — copy now reads "EUR :amount / Lieferung" · "Wert EUR 20" label on box-size cards is ambiguous
 
 The Vorlieben step renders each size card as `Klein / ~6 Produkte (Wert EUR 20)`. "Wert" reads like *content/retail value of items inside*, not "what you pay". Config name (`included_value_by_size`) actually represents the recurring delivery price floor.
 
 **Resolution direction:** Render as `EUR 20 pro Lieferung` or `ab EUR 20 / Lieferung` — same number, unambiguous meaning. Could even drop "~6 Produkte" if it's a misleading proxy and the customer cares about the price line item.
 
-### W2-12 · Box-size cards are text-only — design opportunity
+### W2-12 — ⏳ open — visual direction tried + rolled back (PR #55 → #56); needs another pass · Box-size cards are text-only — design opportunity
 
 After the homepage's chapter-coloured chapter strip and the customer box show's stall imagery, the box-size pick is the page where atmosphere drops out hardest. The cards are pure text in a thin border. A subtle box silhouette per size, or a chapter-produce wash, would carry the brand voice through.
 
-### W2-13 · BUG: right-sidebar summary doesn't update as the customer fills the form
+### ~~W2-13~~ ✓ shipped (PR #47 — `<x-onboarding.summary>`) · BUG: right-sidebar summary doesn't update as the customer fills the form
 
 Selected Klein + Eier in the form (both visually highlighted). Right sidebar still shows `Ziel ... Abo` with no price. The sidebar is server-rendered from the persisted draft, so it can't reflect in-progress choices. Customer never sees a running total while choosing.
 
 **Resolution direction:** Make the sidebar Alpine-reactive: bind it to the form's current values. When customer toggles size or extras, recompute the price preview client-side. On submit, server validates and persists; if values diverge, server response wins. Same pattern as the box budget panel uses on `boxes/show` (`bindEstimate` prop already exists).
 
-### W2-14 · Schedule step's "Keine Präferenz" default is a validation trap
+### ~~W2-14~~ ✓ shipped (PR #54 — controller pre-selects first valid weekday + timeslot) · Schedule step's "Keine Präferenz" default is a validation trap
 
 The Zeitplan step (`/onboard/subscription/schedule`) shows two dropdowns:
 - *Bevorzugter Wochentag* — default option `Keine Präferenz` (empty value), then Montag…Freitag
@@ -135,7 +142,7 @@ But the FormRequest (`SubscriptionScheduleStepRequest`) marks both as `required_
 - Drop the "Keine Präferenz" placeholder, default-select the first valid option (e.g. Wednesday + Afternoon), and let the customer change it. **Cleaner.**
 - Or change validation to allow null (server fills in defaults later).
 
-### W2-15 · Submit on commitment confirmation actually advances — but the cards show 35 EUR for trial and 20 EUR for subscription, not size-aware
+### ~~W2-15~~ ✓ shipped (BoxPriceCalculator drives commitment-step copy) · Submit on commitment confirmation actually advances — but the cards show 35 EUR for trial and 20 EUR for subscription, not size-aware
 
 Trial card: `35 EUR` (config `trial_price_oneoff_ttc`).
 Sub card: "Erste Box EUR 35, danach ab EUR 20 pro Lieferung".
@@ -144,7 +151,7 @@ Both numbers are hardcoded against `small`. If the customer chose Klein (small) 
 
 **Resolution direction:** Pass the customer's already-chosen `box_size` into commitment view; render `from EUR :recurring per delivery` using `included_value_by_size[$size]`.
 
-### W2-16 · 🚨 BUG + DECISION: pricing model needs to be reset, then a single calculator service used everywhere
+### ~~W2-16~~ ✓ shipped (PRs #43–#45 → `App\Services\Billing\BoxPriceCalculator`) · 🚨 BUG + DECISION: pricing model needs to be reset, then a single calculator service used everywhere
 
 **Decision recorded during walkthrough:** There is no business rule that the first box of a subscription costs anything different from the following boxes. Every subscription delivery costs the same: `size-base + eggs-addon`.
 
@@ -202,7 +209,7 @@ The display in `resources/views/onboarding/subscription/payment.blade.php` recom
 
 **Acceptance:** Every surface that shows a customer a price shows the same number for the same `(size, eggs)` choice. Tested by a single feature test that walks the wizard at every (size × eggs) combo and asserts the displayed total at /payment matches the actual SumUp checkout amount + matches the dashboard later.
 
-### W2-17 · Right-sidebar `DEINE BOX` should show *everything* gathered, not only box
+### ~~W2-17~~ ✓ shipped (PR #47 — `<x-onboarding.summary>`) · Right-sidebar `DEINE BOX` should show *everything* gathered, not only box
 
 **Decision recorded:** the right-rail summary on the wizard should be the customer's running shopping cart of *every* piece of information they've handed over so far — not just the box size.
 
@@ -234,11 +241,11 @@ This:
 
 **Implementation note:** Build this as a new `<x-onboarding.summary>` Blade component. Driven by the `OnboardingDraft` data + the persisted User/Address/Subscription if they exist. Extends as new steps are added later. Same component used at the bottom of the payment step as a final confirmation card.
 
-### W2-18 · Header `step` flag inherits "commitment" semantics — eyebrow shows on a step that's neither first nor visually distinctive
+### ~~W2-18~~ ✓ shipped (PR #48 — clean header eyebrow handling) · Header `step` flag inherits "commitment" semantics — eyebrow shows on a step that's neither first nor visually distinctive
 
 PR #23 conditionally shows the "EIN PLATZ AM TISCH" eyebrow only when `$step === 'commitment'`. That assumption made sense when commitment was step 1, but in the current flow it's step 4 (after Konto, Adresse, Vorlieben). So the eyebrow flickers in/out across the wizard for no apparent reason. Cleared up automatically once W2-01 (unified header) lands.
 
-### W2-20 · Email-verification gate offers no continuity from the wizard
+### ~~W2-20~~ ✓ shipped (PRs #46 + #48 + #49 — verify-email continuity) · Email-verification gate offers no continuity from the wizard
 
 **What happened:** Customer completes payment-setup step. Browser redirects to `/app/dashboard`. The `verified` middleware bounces them to `/auth/email/verify` ("Fast geschafft. Bestätige deine E-Mail.").
 
@@ -249,7 +256,7 @@ PR #23 conditionally shows the "EIN PLATZ AM TISCH" eyebrow only when `$step ===
 - Add a date-of-first-delivery line: "Erste Lieferung: Mittwoch, 6. Mai · 12–16 Uhr".
 - Make the "Bestätige deine E-Mail" feel like the *last optional step before food shows up*, not a roadblock.
 
-### W2-21 · A *fifth* customer-visible layout (verify-email page)
+### ~~W2-21~~ ✓ shipped (PR #48 — verify-email uses `<x-customer-header variant="auth">`) · A *fifth* customer-visible layout (verify-email page)
 
 In addition to:
 - marketing — olive-green masthead
@@ -259,7 +266,7 @@ In addition to:
 
 We now also have a verify-email layout: cream + faded white-on-cream centered logo + minimal footer (Startseite/Über uns/Kontakt only). **Five visual treatments for one product.** Confirms W2-01's diagnosis: the design system needs one canonical customer-facing chrome (header + footer + treatment) used everywhere.
 
-### W2-22 · 🚨 BUG: Dashboard "next delivery" shows a date in the past + ignores customer's chosen weekday
+### ~~W2-22~~ ✓ shipped (PR #46 — `Subscription::firstExpectedDeliveryDate()` + dashboard reads from real Delivery) · 🚨 BUG: Dashboard "next delivery" shows a date in the past + ignores customer's chosen weekday
 
 **Reproduced live.** Test customer: signed up Tuesday 2026-04-28 with `delivery_weekday = 3` (Wednesday).
 
@@ -286,31 +293,31 @@ When `next_charge_date` is null (which it is for a brand-new subscription before
 
 This bug affects every brand-new subscriber. The first thing they see after signing up is a wrong date.
 
-### W2-23 · Dashboard shows no price anywhere
+### ~~W2-23~~ ✓ shipped (BoxPriceCalculator surfaced on dashboard subscription panel) · Dashboard shows no price anywhere
 
 After signing up for `Klein + Eier · weekly` the customer's dashboard never shows the recurring price (`24,50 EUR / Lieferung` post-fix). They have to drill into "Dein Abo, Woche für Woche" to find it.
 
 **Resolution direction:** Add a price line to the ABO panel — `Aktiv · EUR 24,50 / Lieferung`. Falls naturally out of the new `BoxPriceCalculator` from W2-16.
 
-### W2-24 · Dashboard for a brand-new subscriber is six mostly-empty cards
+### ~~W2-24~~ ✓ shipped (PRs #46 + #49 — new-subscriber hero) · Dashboard for a brand-new subscriber is six mostly-empty cards
 
 Confirmed live: top row (Nächste Lieferung / Deine Box / Abo) plus bottom row (Lieferungen / Box der aktuellen Woche / Almanach) — six panels, of which only "Abo · Aktiv" has anything to say. Every other panel reads as "wird zusammengestellt sobald…".
 
 This is the same dashboard-architecture issue we instrumented (PR #27). Two-week click data will tell us which panels matter, but the brand-new-subscriber state itself is the *worst* state of the dashboard and worth a dedicated layout: a single hero acknowledging the signup, restating the box (size + price + first delivery date), and pointing at the one thing worth doing right now (skip a week / change address / check box on Friday).
 
-### W2-25 · `Lieferpräferenzen anpassen →` is the only dashboard CTA on the new-subscriber page — and it's an ambiguous action
+### ~~W2-25~~ ✓ shipped (replaced w/ "what was set up" via `<x-onboarding.summary>`) · `Lieferpräferenzen anpassen →` is the only dashboard CTA on the new-subscriber page — and it's an ambiguous action
 
 The new subscriber's dashboard's only call-to-action is "LIEFERPRÄFERENZEN ANPASSEN" (adjust delivery preferences). That's strange — they just set those 30 seconds ago. A new subscriber doesn't yet need to "adjust" anything; they need to *understand what's been set up*.
 
 **Resolution direction:** For a brand-new subscriber, replace this CTA with "WAS WURDE EINGERICHTET" linking to the same summary block (W2-17's `<x-onboarding.summary>` reused). Once they have at least one delivery-row, switch back to the management CTAs.
 
-### W2-26 · Header on the dashboard is a *fourth* layout (`<x-app-layout>`'s navigation)
+### ~~W2-26~~ ✓ shipped (PR #48 — unified header used in app layout) · Header on the dashboard is a *fourth* layout (`<x-app-layout>`'s navigation)
 
 Cream/95 backdrop-blur, full coloured `erdgut.png` logo, tabs for Dashboard / Abo / Lieferungen / Produkte, language selector, user dropdown. Different from marketing (olive-green masthead), different from onboarding (cream + small wordmark + step bar), different from login (cream + faded centered logo), different from verify-email (cream + faded centered logo + minimal footer).
 
 Captured for completeness; resolution direction is the same as W2-01.
 
-### W2-27 · Orphaned User + Address rows when wizard is abandoned mid-flow
+### ~~W2-27~~ ✓ shipped (`CleanupOrphanUsers` Artisan command) · Orphaned User + Address rows when wizard is abandoned mid-flow
 
 **Confirmed via tinker during the walkthrough.** When a visitor completes the Konto step (`User::create` runs, `Auth::login`, verification email queued) and then abandons before completing payment, the User row sticks around forever. Same with Address (created on the address step). The `OnboardingDraft` is pruned by `PruneOnboardingDrafts` after expiry, but the User/Address aren't.
 
@@ -323,7 +330,7 @@ This is both a privacy concern (we're holding email + phone of someone who never
 
 Cascades to Address via existing FK. Add to scheduler.
 
-### W2-28 · No final "review your order" page before card collection
+### ~~W2-28~~ ✓ shipped (PR #49 — payment step uses `<x-onboarding.summary>` as review) · No final "review your order" page before card collection
 
 The current flow goes `commitment → schedule → payment` directly. The customer commits to a card without ever seeing a "here's everything you've chosen, confirm?" gate.
 
@@ -337,7 +344,7 @@ Probably the latter — fewer screens, but the summary needs to be visually equi
 
 (Was W2-19. The user clarified: there is no first-box discount — every subscription delivery costs the same. Folded into W2-16's pricing reset.)
 
-### W2-30 · "Mo, 27. Apr" date display: also a problem of *what to show before the box exists*
+### ~~W2-30~~ ✓ shipped (`Subscription::firstExpectedDeliveryDate` consumed on dashboard) · "Mo, 27. Apr" date display: also a problem of *what to show before the box exists*
 
 Tied to W2-22 but the deeper question: when a customer signs up on Tuesday and the next box-composition cycle is Thursday, the *actual* delivery is whichever weekday they chose in the week *after* Thursday's composition. So:
 - Tuesday signup, customer picks Wednesday delivery → first delivery is Wednesday of *next* week (May 6)
@@ -370,7 +377,7 @@ We've walked: marketing homepage `/home`, full subscription onboarding wizard, c
 
 Logged in as `admin.test@example.com` (Anna Admin), starting from `/app/admin`. The admin layout uses a left sidebar with `BETRIEB`-grouped navigation — visually distinct from customer-facing chrome, **which is fine and intentional.** The "five different layouts" finding (W2-01) targets *customer-facing* surfaces only; admin is allowed to look like an admin.
 
-### W2-31 · 🚨 BUG: eggs add-on AND allergies are invisible to the admin during box composition
+### ~~W2-31~~ ✓ shipped (PRs #30–#33 — per-customer-aware box composition) · 🚨 BUG: eggs add-on AND allergies are invisible to the admin during box composition
 
 **Reproduced live during walkthrough.** Anna ordered Klein + Eier (eggs add-on, +EUR 4,50/delivery — captured on `Subscription::preferences->eggs_dairy_add_on = true`).
 
@@ -397,11 +404,11 @@ So Anna pays EUR 24,50/week (20 base + 4,50 eggs), but if the admin doesn't *kno
 
 Critical because it directly affects what the customer receives vs what they pay for, and (with allergies) what they can safely eat.
 
-### W2-31a · Companion: per-box detail must show *which* customer it's for, with full preference snapshot
+### ~~W2-31a~~ ✓ shipped (PR #29 — admin user detail page surfaces full preference snapshot) · Companion: per-box detail must show *which* customer it's for, with full preference snapshot
 
 Currently the per-box detail page shows just the email + status. Should show the entire customer "shopping cart" we're building for the wizard sidebar (W2-17): name, email, address (delivery), subscription details, allergies, allergies-note, eggs-flag, last 3 deliveries, audit timeline. Same component the customer sees on their dashboard, just from the admin angle.
 
-### W2-32 · Customer-admin terminology mismatch: "Mittel" (customer) vs "Standard" (admin)
+### ~~W2-32~~ ✓ shipped (small-polish-batch 2026-05-03 — admin "Standard" → "Mittel") · Customer-admin terminology mismatch: "Mittel" (customer) vs "Standard" (admin)
 
 The customer chose `Mittel` on the preferences step. The admin Box-Setup view shows the column as `Standard`. Same enum value (`medium`), different label.
 
@@ -409,7 +416,7 @@ Internal-only impact, but still annoying when triaging customer support — "I h
 
 **Resolution direction:** Pick one label (`Mittel` is the customer-facing one, so admin should match) and use it everywhere. Translation key `admin.box_setup.size_medium` should produce "Mittel".
 
-### W2-33 · 🚨 No per-customer detail page in admin — admin must hop across sections to see one customer's full picture
+### ~~W2-33~~ ✓ shipped (PR #29 — `/app/admin/users/{user}` detail page) · 🚨 No per-customer detail page in admin — admin must hop across sections to see one customer's full picture
 
 **User decision (recorded during walkthrough): yes, build this.**
 
@@ -462,7 +469,7 @@ Becomes the **support-ticket landing page**. Admins land here when a customer em
 
 **Workflow detail:** Admin should also be able to *act* from this page — pause subscription, skip next week, change address — without bouncing to other pages. Phase-2 polish; phase-1 is read-only.
 
-### W2-34 · BUG?: stale "Nächste Abbuchung" date in Abos table
+### ~~W2-34~~ ✓ shipped — surfaced on the per-customer detail page; charge advancement guarded by feature tests · BUG?: stale "Nächste Abbuchung" date in Abos table
 
 Maria's row shows `NÄCHSTE ABBUCHUNG · 2026-04-27` (yesterday). Either:
 - Charge ran successfully yesterday and `next_charge_date` wasn't advanced after, **OR**
@@ -476,7 +483,7 @@ Since this is admin-visible *operational* data, a stale date hides a real issue 
 2. Highlight rows with `next_charge_date < today AND status = active` in red on the Abos table.
 3. Add a server-side test that subscribes a user, runs the charge command, and asserts `next_charge_date` advances.
 
-### W2-35 · Box-Setup overview row format quirks
+### ~~W2-35~~ ✓ shipped (small-polish-batch 2026-05-03 — date glued + S/M/L tooltips) · Box-Setup overview row format quirks
 
 - Date format: `04.05. 2026` — extra space before the year is non-standard.
 - `S 0/1` notation (boxes / abos) without a header tooltip — non-obvious. New admin or customer support can't read it.
@@ -484,7 +491,7 @@ Since this is admin-visible *operational* data, a stale date hides a real issue 
 
 **Resolution direction:** small admin polish — kill the extra space, clarify "S/M/L (Boxen / Abos)" header, rename "Standard" → "Mittel".
 
-### W2-36 · Box-Setup *Boxen ansehen* shows only saved boxes — admin must remember to hit "Boxen speichern" for new subscriptions
+### ~~W2-36~~ ✓ shipped (PR #46 — `ensureFirstBoxForActivation` auto-projects on activation) · Box-Setup *Boxen ansehen* shows only saved boxes — admin must remember to hit "Boxen speichern" for new subscriptions
 
 Anna's subscription is active for week 04.05, but `Boxen ansehen` for that week shows only **Maria's** Standard box. Anna's Klein box doesn't materialize until the admin explicitly clicks "Boxen speichern" on the Box-Setup detail page.
 
@@ -499,7 +506,7 @@ If the admin had already prepared that week's setup before Anna signed up, **Ann
 - When a subscription is activated (sumup_token attached) and within the editable window of an existing week's box-setup, automatically project Anna's box from the saved distribution. Don't make admins click "Boxen speichern" again per new customer.
 - OR: the Box-Setup overview page surfaces "1 abo without box for this week" as a warning chip, with a "Box jetzt erstellen" CTA.
 
-### W2-37 · Admin Lieferungen view: stale fixture deliveries from May 6 / May 13 + zero deliveries projected for Anna
+### ~~W2-37~~ ✓ shipped (PR #46 — auto-projection + PR #40 orphan-deliveries cleanup + UI surfacing) · Admin Lieferungen view: stale fixture deliveries from May 6 / May 13 + zero deliveries projected for Anna
 
 Anna's first delivery should be projected for the next compositional cycle (Wednesday May 6 at the earliest, given today is Tue Apr 28). The Admin Lieferungen page lists `maria.test 2026-05-06 GELIEFERT` and `ken.klocko 2026-05-13 GEPLANT` (×2) but no row for Anna.
 
@@ -515,20 +522,20 @@ This is the W2-22 dashboard-shows-bad-date bug from the customer side: Anna's cu
 
 We now have walked: marketing homepage `/home`, full subscription onboarding, customer dashboard, admin dashboard / Abos / Lieferungen / Box-Setup overview / Box-Setup detail / per-box detail / Nutzer.
 
-Still to walk:
+Status sweep 2026-05-03:
 
-- **Trial-box flow** (commitment → trial/delivery → trial/payment → trial/complete). Trial pricing is its own thing (`trial_price_oneoff_ttc` = 35 fixed regardless of size). MODELL upsell behaviour (W2-04) needs to be tested in the trial path specifically.
-- **Marketing pages** other than `/home` (`/about`, `/producers`, `/contact`).
-- **Login + verify-email + forgot/reset/resend flows**.
-- **Customer subscription edit page** `/app/subscriptions/show` — the page the dashboard links to. Skip / pause / cancel UX, plus the price display will be a third surface using `BoxPriceCalculator`.
-- **Customer payments history** `/app/payments/history`.
-- **Customer profile / account settings** `/account/profile/edit`.
-- **Wochen-Katalog** (admin) — product weekly stock setup. Walkthrough only touched it via Box-Setup; never as the catalog editor itself.
-- **Admin Zahlungen / Anstehende Abbuchungen / Verlauf / Abdeckung Abrechnung**.
-- **Admin Producers / Products forms** — translation tabs (already shipped) but not visited live.
-- **Email rendering** (verification, charge confirmation, delivery reminder, refund). Layout consistency across emails.
-- **Mobile viewport pass** — everything above was at desktop width.
-- **Real SumUp end-to-end** with a sandbox card. Token storage, first charge, refund. We mocked the token in this walkthrough.
+- **Trial-box flow** (commitment → trial/delivery → trial/payment → trial/complete). Trial pricing is its own thing (`trial_price_oneoff_ttc` = 35 fixed regardless of size). MODELL upsell behaviour (W2-04) needs to be tested in the trial path specifically. **Status:** still unwalked.
+- ~~**Marketing pages** other than `/home` (`/about`, `/producers`, `/contact`).~~ ✓ verified built — `marketing/about.blade.php` (286 lines), `marketing/producers.blade.php` (216 lines, DB-backed), `marketing/contact.blade.php` (184 lines). ERD-170/171/172 marked Done.
+- ~~**Login + verify-email + forgot/reset/resend flows**.~~ ✓ partially — auth views (`login`, `register`, `forgot-password`, `verify-email`) all branded under `<x-customer-header variant="auth">`; verify-email logout button bug fixed in `fix/secondary-button-default-submit` (2026-05-03). Forgot-password → reset → resend-verification end-to-end as a real returning user still unwalked.
+- ~~**Customer subscription edit page** `/app/subscriptions/show`.~~ ✓ touched extensively (price display surfaced via BoxPriceCalculator, heading hierarchy fixed in ERD-119, chapter-tabs nav). Skip/pause/cancel UX still benefits from a deliberate pass.
+- ~~**Customer payments history** `/app/payments/history`.~~ ✓ touched (heading hierarchy + chapter-fish hero per W2 redesign followups). Deliberate walkthrough still valuable.
+- ~~**Customer profile / account settings** `/account/profile/edit`.~~ ✓ touched (heading hierarchy, danger-zone copy, password-form a11y wiring in ERD-119). Deliberate walkthrough still valuable.
+- ~~**Wochen-Katalog** (admin) — catalog editor itself.~~ ✓ walked in admin-ux-walkthrough-followups (empty-state hint, REST/Verbleibend column, Löschen header — all shipped via PR #53 + small-polish-batch).
+- ~~**Admin Zahlungen / Anstehende Abbuchungen / Verlauf / Abdeckung Abrechnung**.~~ ✓ walked in admin-ux-walkthrough-followups; vertical-filter-form + CSV-export items still open there.
+- ~~**Admin Producers / Products forms** — translation tabs.~~ ✓ shipped + breadcrumbs added in admin-polish-three (2026-05-03). Required-field indicators on the form bodies still on the admin followup list.
+- **Email rendering** (verification, charge confirmation, delivery reminder, refund). 4 templates touched in brand-voice batch; full layout-consistency review still pending.
+- **Mobile viewport pass** — everything above was at desktop width. Still pending.
+- **Real SumUp end-to-end** with a sandbox card. Token storage, first charge, refund. We mocked the token in this walkthrough. Still pending.
 
 ---
 
