@@ -2077,5 +2077,10 @@
     "spargel.farm_facts_bullet_freshness": "Livré le jour de la récolte ou le lendemain",
     "spargel.admin.action_delete": "Supprimer",
     "spargel.admin.confirm_delete": "Vraiment supprimer la commande #:id ? Cette action est irréversible.",
-    "spargel.admin.flash_deleted": "Commande #:id supprimée."
+    "spargel.admin.flash_deleted": "Commande #:id supprimée.",
+    "spargel.trust_bio": "Bio · sans film plastique",
+    "spargel.trust_fresh": "Coupé aujourd’hui, chez toi demain",
+    "spargel.trust_farm": "Direct de la ferme — sans intermédiaire",
+    "spargel.farm_facts_intro": "Tes asperges viennent directement du Spargelhof Kalkwitz, dans la Spreewald. Max cultive l’asperge blanche et verte — toutes deux sans film plastique ni aluminium. Ce que tu commandes aujourd’hui, il l’a coupé hier ou ce matin.",
+    "spargel.farm_facts_jump_to_story": "En savoir plus sur Max et ses champs"
 }
