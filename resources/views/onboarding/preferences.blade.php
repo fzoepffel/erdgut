@@ -19,24 +19,26 @@
         <fieldset>
             <legend class="eyebrow text-brand-ink/80">{{ __('Box size') }} <span class="text-chapter-meat" aria-hidden="true">*</span><span class="sr-only"> {{ __('required') }}</span></legend>
             @php
-                // Pure typographic chapter cards — chapter-coloured panel,
-                // cream text, oversized numeric badge as the visual anchor,
-                // big price as the punchline. The colour ladder mirrors the
-                // life-stage progression: bread (soil) → produce (sprout) →
-                // meat (ripe). No imagery; the brand palette + display type
-                // do the heavy lifting at the wizard's narrow ~190px column.
+                // Chapter-coloured panel + plant-stage illustration — the same
+                // box-plant-stage-* asset is rendered on /subscriptions/show, so
+                // the customer sees their chosen size sprout / grow / ripen
+                // across their entire journey. Number + size + tagline + price
+                // stay typographic; the illustration is a small visual anchor.
                 $sizeCards = [
                     'small' => [
                         'panel' => 'bg-chapter-bread',
                         'tagline' => __('box_size.tagline.small'),
+                        'growth_asset' => 'images/box-growth/box-plant-stage-small-transparent.png',
                     ],
                     'medium' => [
                         'panel' => 'bg-chapter-produce',
                         'tagline' => __('box_size.tagline.medium'),
+                        'growth_asset' => 'images/box-growth/box-plant-stage-medium-transparent.png',
                     ],
                     'large' => [
                         'panel' => 'bg-chapter-meat',
                         'tagline' => __('box_size.tagline.large'),
+                        'growth_asset' => 'images/box-growth/box-plant-stage-large-transparent.png',
                     ],
                 ];
             @endphp
@@ -54,12 +56,18 @@
                             class="sr-only"
                             required
                         >
-                        {{-- Pure typography. The fieldset legend above already
-                             reads "BOX-GRÖSSE *" — repeating it inside each
-                             card was dead weight, so the only top-corner
-                             ornament is the rank number, sized larger so it
-                             reads as a chapter stamp instead of a column header. --}}
+                        {{-- Plant-stage illustration sits above the rank number
+                             as a visual anchor. Same asset + scale used on
+                             /subscriptions/show so the customer sees their
+                             chosen size in continuity from pick → dashboard. --}}
                         <div class="flex flex-1 flex-col p-6 sm:p-7">
+                            <img
+                                src="{{ asset($card['growth_asset']) }}"
+                                alt=""
+                                class="mb-4 h-20 w-20 self-start object-contain opacity-90 sm:h-24 sm:w-24"
+                                loading="eager"
+                                decoding="async"
+                            />
                             <p aria-hidden="true" class="font-display text-3xl font-semibold leading-none text-brand-cream/55">
                                 {{ sprintf('%02d', $loop->iteration) }}
                             </p>
