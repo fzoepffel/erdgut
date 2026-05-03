@@ -2077,5 +2077,10 @@
     "spargel.farm_facts_bullet_freshness": "Delivered the day of harvest or the day after",
     "spargel.admin.action_delete": "Delete",
     "spargel.admin.confirm_delete": "Really delete order #:id? This cannot be undone.",
-    "spargel.admin.flash_deleted": "Order #:id deleted."
+    "spargel.admin.flash_deleted": "Order #:id deleted.",
+    "spargel.trust_bio": "Organic · no plastic film",
+    "spargel.trust_fresh": "Cut today, with you tomorrow",
+    "spargel.trust_farm": "Direct from the farm — no middlemen",
+    "spargel.farm_facts_intro": "Your asparagus comes directly from Spargelhof Kalkwitz in the Spreewald. Max grows both white and green spears — both without plastic or aluminium film. What you order today he cut yesterday or this morning.",
+    "spargel.farm_facts_jump_to_story": "More about Max and his fields"
 }
