@@ -51,7 +51,7 @@ A standalone `/app/admin/audit-events` page exists with filters for entity-type 
 
 ### Produzenten / Produkte / Nutzer (catalog tables)
 
-- **Empty states are very plain** — "Noch keine Produzenten." with no CTA. New install onboarding for admins could be friendlier (animated arrow at the "Neu anlegen" button, sample-data import, etc.).
+- ~~Empty states are very plain~~ ✓ shipped — Producers + Products already had dashed-card empty states with "Add producer" / "Add product" CTAs. Subscriptions / Deliveries / Payments empty states upgraded to the same dashed-card pattern + explanatory hint ("appears once weekly billing runs / boxes are saved / customers complete signup"). Users empty state already had a hint pointing at public signup (dev-and-admin-polish 2026-05-03).
 - **No breadcrumbs** anywhere in admin. Sidebar gives location but breadcrumbs help when drilling 3+ levels deep (Produkt > Wochen-Katalog > Bestand).
 
 ### Wochen-Katalog (`/app/admin/products/weekly`)

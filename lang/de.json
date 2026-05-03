@@ -2083,5 +2083,8 @@
     "Your payment was received.": "Deine Zahlung ist bei uns angekommen.",
     "Your last payment of :amount :currency could not be processed.": "Deine letzte Zahlung von :amount :currency ist leider nicht durchgekommen.",
     "After that the box is locked for delivery.": "Danach wird die Box für die Lieferung gesperrt — bis nächste Woche.",
-    "Thanks for being part of our week.": "Danke, dass Du Teil unserer Woche bist."
+    "Thanks for being part of our week.": "Danke, dass Du Teil unserer Woche bist.",
+    "admin.operations.subscriptions_empty_hint": "Abos erscheinen hier, sobald Kund:innen die Anmeldung mit Zahlungsmethode abgeschlossen haben.",
+    "admin.operations.deliveries_empty_hint": "Lieferungen werden generiert, sobald für eine Woche Boxen gespeichert wurden.",
+    "admin.operations.payments_empty_hint": "Zahlungsversuche erscheinen hier, sobald die wöchentliche Abrechnung läuft oder eine Box manuell abgerechnet wird."
 }

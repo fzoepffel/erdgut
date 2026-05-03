@@ -2083,5 +2083,8 @@
     "Your payment was received.": "Your payment was received.",
     "Your last payment of :amount :currency could not be processed.": "Your last payment of :amount :currency could not be processed.",
     "After that the box is locked for delivery.": "After that the box is locked for delivery.",
-    "Thanks for being part of our week.": "Thanks for being part of our week."
+    "Thanks for being part of our week.": "Thanks for being part of our week.",
+    "admin.operations.subscriptions_empty_hint": "Subscriptions appear here once customers complete signup with a payment method.",
+    "admin.operations.deliveries_empty_hint": "Deliveries are generated once boxes are saved for a week in box-setup.",
+    "admin.operations.payments_empty_hint": "Payment attempts appear here once weekly billing runs or a box is manually charged."
 }
