@@ -117,4 +117,22 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Pickup location (mock until launch)
+    |--------------------------------------------------------------------------
+    |
+    | Single mock pickup location used on the schedule + payment + verify-email
+    | screens whenever the customer chose `fulfillment_mode = pickup`. Real
+    | location TBD; this lets the wizard render coherently in the meantime.
+    |
+    */
+    'pickup_location' => [
+        'name' => env('BOX_PICKUP_LOCATION_NAME', 'Erdgut Marktstand'),
+        'street' => env('BOX_PICKUP_LOCATION_STREET', 'Kollwitzplatz'),
+        'postal_code' => env('BOX_PICKUP_LOCATION_POSTAL_CODE', '10435'),
+        'city' => env('BOX_PICKUP_LOCATION_CITY', 'Berlin'),
+        'window' => env('BOX_PICKUP_LOCATION_WINDOW', 'Donnerstags 12–18 Uhr'),
+    ],
+
 ];
