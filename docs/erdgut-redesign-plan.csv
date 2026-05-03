@@ -207,7 +207,7 @@ ERD-348,Trial pricing bug — use BoxPricing for correct size + add-ons,Pricing,
 ERD-349,Taste profile per product + ""goes well with"" pairings UI,Catalog,Phase 3 - Product catalog UX,P3,Done,5,ERD-308 ERD-309 ERD-318,"Customer product detail renders taste profile chips and a pairings strip with thumbnails. Depends on catalog data work.","- Product detail shows taste chips.
 - Pairings strip links to each pair's detail.
 - Empty state renders gracefully when no pairings.",ui;catalog
-ERD-350,Per-user email history view in admin,Admin observability,Phase 7 - Email,P1,Backlog,8,ERD-339,"Admins currently can't see which transactional emails have already been sent to a customer — only the resend action is audited. Add a chronological email-history section to the per-user admin page (/app/admin/users/{user}) so support can answer ""did the customer get the trial confirmation?"" / ""why did they get two delivery reminders?"" without grepping logs.
+ERD-350,Per-user email history view in admin,Admin observability,Phase 7 - Email,P1,Done,8,ERD-339,"Admins currently can't see which transactional emails have already been sent to a customer — only the resend action is audited. Add a chronological email-history section to the per-user admin page (/app/admin/users/{user}) so support can answer ""did the customer get the trial confirmation?"" / ""why did they get two delivery reminders?"" without grepping logs.
 
 Capture every outbound email by listening to Illuminate\Mail\Events\MessageSent (or wrapping through a small EmailLogger service) and persisting one row per send. Reuse the existing `audit_events` table with `action='email_sent'`, or add a dedicated `email_log` table if `audit_events` becomes too noisy — decide once we measure volume.
 

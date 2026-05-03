@@ -2080,5 +2080,8 @@
     "spargel.admin.flash_deleted": "Order #:id deleted.",
     "spargel.farm_facts_intro": "Your asparagus comes directly from Spargelhof Kalkwitz in the Spreewald. Max grows both white and green spears — both without plastic or aluminium film. What you order today he cut yesterday or this morning.",
     "spargel.farm_facts_jump_to_story": "More about Max and his fields",
-    "admin.box_setup.compact_grid_size_tooltip": ":size — boxes / eligible subscriptions"
+    "admin.box_setup.compact_grid_size_tooltip": ":size — boxes / eligible subscriptions",
+    "admin.user_detail.audit_mail_label": "Email",
+    "admin.user_detail.audit_mail_to": "To :email",
+    "admin.user_detail.audit_mail_subject_unknown": "(subject not captured)"
 }

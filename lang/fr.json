@@ -2080,5 +2080,8 @@
     "spargel.admin.flash_deleted": "Commande #:id supprimée.",
     "spargel.farm_facts_intro": "Tes asperges viennent directement du Spargelhof Kalkwitz, dans la Spreewald. Max cultive l’asperge blanche et verte — toutes deux sans film plastique ni aluminium. Ce que tu commandes aujourd’hui, il l’a coupé hier ou ce matin.",
     "spargel.farm_facts_jump_to_story": "En savoir plus sur Max et ses champs",
-    "admin.box_setup.compact_grid_size_tooltip": ":size — boîtes / abonnements éligibles"
+    "admin.box_setup.compact_grid_size_tooltip": ":size — boîtes / abonnements éligibles",
+    "admin.user_detail.audit_mail_label": "E-mail",
+    "admin.user_detail.audit_mail_to": "À :email",
+    "admin.user_detail.audit_mail_subject_unknown": "(objet non capturé)"
 }

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Listeners\AddListUnsubscribeHeader;
+use App\Listeners\LogSentMail;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\User;
@@ -15,6 +16,7 @@ use App\Support\SubscriberAccess;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -47,6 +49,10 @@ class AppServiceProvider extends ServiceProvider
         Producer::observe(CatalogAuditObserver::class);
 
         Event::listen(MessageSending::class, AddListUnsubscribeHeader::class);
+        // ERD-350: per-user mail history surfaces in /app/admin/users/{user}
+        // via audit_events. Listener writes a 'mail.sent' row per recipient
+        // that maps to a known User.
+        Event::listen(MessageSent::class, LogSentMail::class);
 
         // Currency Blade directives — keep template rendering one-liner.
         // {@see \App\Support\Money} is the canonical German-format helper.
