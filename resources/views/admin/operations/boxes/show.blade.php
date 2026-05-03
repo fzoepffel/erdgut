@@ -3,6 +3,15 @@
      value chip with traffic light) so admins fine-tuning one saved box get
      the same affordances as during the weekly planner pass. --}}
 <x-admin-layout>
+    <x-slot name="breadcrumbs">
+        @php($boxWeek = $box->week_start_date)
+        <x-admin.breadcrumbs :items="[
+            ['label' => __('admin.shell.overview'), 'href' => route('app.admin.dashboard')],
+            ['label' => __('admin.box_setup.title'), 'href' => route('app.admin.boxes.index')],
+            ['label' => __('admin.breadcrumbs.week_label', ['date' => $boxWeek->translatedFormat('d.m.Y')]), 'href' => route('app.admin.boxes.week.show', ['week' => $boxWeek->toDateString()])],
+            ['label' => __('admin.breadcrumbs.box_label', ['id' => $box->id])],
+        ]" />
+    </x-slot>
     <x-slot name="header">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
