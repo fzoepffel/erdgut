@@ -15,9 +15,11 @@
                     <th scope="col" class="px-3 py-2 text-right">{{ __('admin.box_setup.eligible_subs') }}</th>
                     <th scope="col" class="px-3 py-2 text-right">{{ __('admin.box_setup.col_trial_boxes') }}</th>
                     <th scope="col" class="px-3 py-2 text-right">{{ __('admin.box_setup.boxes_set_up') }}</th>
-                    <th scope="col" class="px-3 py-2 text-right">S</th>
-                    <th scope="col" class="px-3 py-2 text-right">M</th>
-                    <th scope="col" class="px-3 py-2 text-right">L</th>
+                    {{-- S/M/L: per-size box counts. Tooltips spell out the
+                         meaning so a new admin doesn't have to guess. --}}
+                    <th scope="col" class="px-3 py-2 text-right" title="{{ __('admin.box_setup.compact_grid_size_tooltip', ['size' => __('admin.box_setup.size_small')]) }}">S</th>
+                    <th scope="col" class="px-3 py-2 text-right" title="{{ __('admin.box_setup.compact_grid_size_tooltip', ['size' => __('admin.box_setup.size_medium')]) }}">M</th>
+                    <th scope="col" class="px-3 py-2 text-right" title="{{ __('admin.box_setup.compact_grid_size_tooltip', ['size' => __('admin.box_setup.size_large')]) }}">L</th>
                     <th scope="col" class="px-3 py-2 text-right">{{ __('admin.box_setup.col_eggs_addon') }}</th>
                     <th scope="col" class="px-3 py-2 text-right">{{ __('admin.box_setup.total_value') }}</th>
                     <th scope="col" class="px-3 py-2"></th>
@@ -46,8 +48,10 @@
                         x-on:click="if (! $event.target.closest('a, button')) go()"
                     >
                         <th scope="row" class="whitespace-nowrap px-3 py-2 text-left font-medium text-gray-900">
-                            {{ $row['week']->translatedFormat('d.m.') }}
-                            <span class="text-gray-500">{{ $row['week']->translatedFormat('Y') }}</span>
+                            {{-- Inline-glued so the year sits flush with the
+                                 day.month and we don't read "04.05. 2026"
+                                 with a stray space (W2-35). --}}
+                            <span class="tabular-nums">{{ $row['week']->translatedFormat('d.m.') }}<span class="text-gray-500">{{ $row['week']->translatedFormat('Y') }}</span></span>
                         </th>
                         <td class="px-3 py-2">
                             <span class="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>

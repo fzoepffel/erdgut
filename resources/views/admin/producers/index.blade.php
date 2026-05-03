@@ -110,11 +110,11 @@
                                             <td class="py-3 pe-4 font-medium text-gray-900">{{ $producer->name }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $producer->region ?? '—' }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $producer->products_count }}</td>
-                                            <td class="py-3 pe-0 text-end space-x-2 whitespace-nowrap">
-                                                <a href="{{ route('app.admin.producers.edit', $producer) }}" class="text-emerald-700 hover:text-emerald-900 font-medium">{{ __('Edit') }}</a>
+                                            <td class="py-3 pe-0 text-end space-x-3 whitespace-nowrap">
+                                                <a href="{{ route('app.admin.producers.edit', $producer) }}" class="font-medium text-brand-ink underline-offset-4 hover:underline">{{ __('Edit') }}</a>
                                                 <button
                                                     type="button"
-                                                    class="inline-flex items-center rounded bg-rose-600 px-2 py-1 text-xs font-semibold text-white hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600 focus:ring-offset-2"
+                                                    class="btn-danger-sm"
                                                     x-on:click.prevent="deleteAction = @js(route('app.admin.producers.destroy', $producer)); deleteLabel = @js($producer->name); $dispatch('open-modal', 'confirm-admin-producer-delete')"
                                                 >
                                                     {{ __('Delete') }}
