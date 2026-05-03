@@ -2083,5 +2083,8 @@
     "Your payment was received.": "Ton paiement a bien été reçu.",
     "Your last payment of :amount :currency could not be processed.": "Ton dernier paiement de :amount :currency n'a pas pu être effectué.",
     "After that the box is locked for delivery.": "Ensuite la box est verrouillée pour la livraison.",
-    "Thanks for being part of our week.": "Merci de faire partie de notre semaine."
+    "Thanks for being part of our week.": "Merci de faire partie de notre semaine.",
+    "admin.operations.subscriptions_empty_hint": "Les abonnements apparaissent ici une fois que les client·e·s ont terminé l’inscription avec un moyen de paiement.",
+    "admin.operations.deliveries_empty_hint": "Les livraisons sont générées une fois les boîtes enregistrées pour une semaine dans la configuration.",
+    "admin.operations.payments_empty_hint": "Les tentatives de paiement apparaissent ici une fois la facturation hebdomadaire lancée ou un paiement manuel effectué."
 }

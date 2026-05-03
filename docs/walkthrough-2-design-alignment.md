@@ -553,7 +553,7 @@ Ordered by combined impact + correctness urgency. Each row maps to one PR-ish un
 | 13 | **Orphan-user cleanup** | W2-27 | ✓ shipped (PR #54 → `users:cleanup-orphans` Artisan command with --older-than-days + --dry-run; daily cron suggested in the README) |
 | 14 | **Final review / payment-page summary placement** | W2-28 | ✓ shipped (PR #49 → payment-step uses `<x-onboarding.summary>` as a review card) |
 | 15 | **Admin terminology + label polish** | W2-32, W2-35 | ✓ shipped — `admin.box_setup.size_medium` "Standard" → "Mittel/Medium/Moyenne", compact-grid date "04.05. 2026" → "04.05.2026", S/M/L tooltips on the column headers (small-polish-batch on 2026-05-03). |
-| 16 | **Dev-env: real CSP fix for Vite + retire `npm run build` workaround** | W2-DEV-02 | open — workaround in use; not blocking. |
+| 16 | **Dev-env: real CSP fix for Vite + retire `npm run build` workaround** | W2-DEV-02 | ✓ shipped — extracted CSP into `<x-csp>` Blade component used by all 6 layouts; component appends `http://127.0.0.1:5173` + `ws://127.0.0.1:5173` to script-/style-/connect-src when `app()->environment('local')`. `npm run dev` HMR now works without the build workaround (dev-and-admin-polish 2026-05-03). |
 
 **Bonus shipped, not on the original list:**
 - W2-DEV-01 (PHP 8.5 deprecation notices in HTML) — addressed via dev-only suppression (PR #28)
