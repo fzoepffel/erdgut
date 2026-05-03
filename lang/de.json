@@ -1787,7 +1787,7 @@
     "spargel.eyebrow_trial_shop": "Testverkauf",
     "spargel.page_title": "Erdgut — Spargel bestellen",
     "spargel.heading": "Frischer Spargel, direkt vom Feld",
-    "spargel.intro": "Subtil weiß oder frisch grün — diese Woche geerntet. Bestelle heute, hol ihn ab oder lass ihn dir liefern.",
+    "spargel.intro": "Subtil weiß oder frisch grün — wähle deine Lieblingssorte.",
     "spargel.delivery_window_eyebrow": "Lieferung & Abholung",
     "spargel.delivery_window_main": "Wir liefern bzw. übergeben am :date.",
     "spargel.delivery_window_rule": "Grünen Spargel bis Donnerstag, weißen bis Sonntag bestellen — Lieferung am folgenden Montag. Spätere Bestellungen verschieben sich um eine Woche.",
@@ -2078,9 +2078,6 @@
     "spargel.admin.action_delete": "Löschen",
     "spargel.admin.confirm_delete": "Bestellung #:id wirklich löschen? Diese Aktion lässt sich nicht rückgängig machen.",
     "spargel.admin.flash_deleted": "Bestellung #:id gelöscht.",
-    "spargel.trust_bio": "Bio · ohne Plastikfolie",
-    "spargel.trust_fresh": "Heute geerntet, morgen bei dir",
-    "spargel.trust_farm": "Direkt vom Hof — kein Zwischenhandel",
     "spargel.farm_facts_intro": "Dein Spargel kommt direkt vom Spargelhof Kalkwitz im Spreewald. Max baut sowohl weißen als auch grünen Spargel an — beides ohne Plastik- oder Aluminiumfolie. Was du heute bestellst, hat er gestern oder heute gestochen.",
     "spargel.farm_facts_jump_to_story": "Mehr zu Max und seinem Anbau"
 }

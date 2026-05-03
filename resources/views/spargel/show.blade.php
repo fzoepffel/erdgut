@@ -19,8 +19,11 @@
         ]);
     @endphp
 
-    {{-- Hero block: editorial heading on the brand-cream page bg. --}}
-    <header class="mb-8 sm:mb-10">
+    {{-- Hero block: editorial heading on the brand-cream page bg. The
+         intro line stays focused on the variety choice — the freshness /
+         origin / no-plastic story is told in detail by the farm-facts
+         panel right below, so we don't restate it here. --}}
+    <header class="mb-10 sm:mb-12">
         <p class="eyebrow text-chapter-produce">{{ __('spargel.eyebrow_trial_shop') }}</p>
         <h1 class="mt-3 max-w-2xl font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
             {{ __('spargel.heading') }}
@@ -29,21 +32,6 @@
             {{ __('spargel.intro') }}
         </p>
     </header>
-
-    {{-- Trust strip: three small inline reassurances directly under the hero.
-         Restraint over chapter-colour: a single produce-green tone for the
-         icons keeps the strip feeling like one calm row, not a paint-chip
-         catalogue. --}}
-    <ul class="mb-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-brand-ink/85 sm:mb-12" data-testid="spargel-trust-strip">
-        @foreach (['bio', 'fresh', 'farm'] as $badge)
-            <li class="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-chapter-produce" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                <span>{{ __('spargel.trust_'.$badge) }}</span>
-            </li>
-        @endforeach
-    </ul>
 
     {{-- Producer intro, surfaced before the order form so the customer
          knows who grew it and how before deciding on quantity. The full
