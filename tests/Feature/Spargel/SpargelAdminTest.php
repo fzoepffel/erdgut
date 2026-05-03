@@ -154,4 +154,30 @@ class SpargelAdminTest extends TestCase
         $order->refresh();
         $this->assertSame(SpargelOrderStatus::PendingPayment, $order->status);
     }
+
+    public function test_admin_can_delete_an_order_via_destroy_route(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $order = SpargelOrder::factory()->create();
+        $orderId = $order->id;
+
+        $this->actingAs($admin)
+            ->delete(route('spargel.admin.destroy', $order))
+            ->assertRedirect(route('spargel.admin.index'));
+
+        $this->assertNull(SpargelOrder::find($orderId));
+    }
+
+    public function test_non_admin_cannot_delete_an_order(): void
+    {
+        $user = User::factory()->create(['is_admin' => false]);
+        $order = SpargelOrder::factory()->create();
+        $orderId = $order->id;
+
+        $this->actingAs($user)
+            ->delete(route('spargel.admin.destroy', $order))
+            ->assertForbidden();
+
+        $this->assertNotNull(SpargelOrder::find($orderId));
+    }
 }

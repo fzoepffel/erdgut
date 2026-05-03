@@ -2074,5 +2074,8 @@
     "spargel.farm_facts_bullet_location": "Spreewald, à ~100 km au sud de Berlin",
     "spargel.farm_facts_bullet_field": "6 hectares, coupé à la main",
     "spargel.farm_facts_bullet_method": "Sans film plastique ni aluminium",
-    "spargel.farm_facts_bullet_freshness": "Livré le jour de la récolte ou le lendemain"
+    "spargel.farm_facts_bullet_freshness": "Livré le jour de la récolte ou le lendemain",
+    "spargel.admin.action_delete": "Supprimer",
+    "spargel.admin.confirm_delete": "Vraiment supprimer la commande #:id ? Cette action est irréversible.",
+    "spargel.admin.flash_deleted": "Commande #:id supprimée."
 }

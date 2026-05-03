@@ -70,4 +70,19 @@ class SpargelAdminController extends Controller
             ->route('spargel.admin.index')
             ->with('status', __('spargel.admin.flash_marked_completed', ['id' => $spargelOrder->id]));
     }
+
+    /**
+     * Hard-delete a single order. Built for the early-launch reset where
+     * every order on prod so far is a test order. SpargelOrder is
+     * standalone (no FK relations) so the delete is straightforward.
+     */
+    public function destroy(Request $request, SpargelOrder $spargelOrder): RedirectResponse
+    {
+        $id = $spargelOrder->id;
+        $spargelOrder->delete();
+
+        return redirect()
+            ->route('spargel.admin.index')
+            ->with('status', __('spargel.admin.flash_deleted', ['id' => $id]));
+    }
 }
