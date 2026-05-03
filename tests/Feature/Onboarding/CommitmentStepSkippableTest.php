@@ -103,6 +103,6 @@ class CommitmentStepSkippableTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.onboarding.step.commitment'))
             ->assertOk()
-            ->assertSee(__('Try it once'));
+            ->assertSee(__('Trial box'));
     }
 }
