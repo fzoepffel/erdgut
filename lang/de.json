@@ -1206,7 +1206,7 @@
     "admin.box_setup.setup_title": "Box-Setup · Woche ab :date",
     "admin.box_setup.size_large": "Groß",
     "admin.box_setup.size_lines_empty": "Noch keine Produkte für diese Box-Größe.",
-    "admin.box_setup.size_medium": "Standard",
+    "admin.box_setup.size_medium": "Mittel",
     "admin.box_setup.size_small": "Klein",
     "admin.box_setup.status_not_set_up": "Nicht eingerichtet",
     "admin.box_setup.status_partial": "Teilweise",
@@ -2079,5 +2079,6 @@
     "spargel.admin.confirm_delete": "Bestellung #:id wirklich löschen? Diese Aktion lässt sich nicht rückgängig machen.",
     "spargel.admin.flash_deleted": "Bestellung #:id gelöscht.",
     "spargel.farm_facts_intro": "Dein Spargel kommt direkt vom Spargelhof Kalkwitz im Spreewald. Max baut sowohl weißen als auch grünen Spargel an — beides ohne Plastik- oder Aluminiumfolie. Was du heute bestellst, hat er gestern oder heute gestochen.",
-    "spargel.farm_facts_jump_to_story": "Mehr zu Max und seinem Anbau"
+    "spargel.farm_facts_jump_to_story": "Mehr zu Max und seinem Anbau",
+    "admin.box_setup.compact_grid_size_tooltip": ":size — Boxen / berechtigte Abos"
 }
