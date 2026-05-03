@@ -2080,5 +2080,8 @@
     "spargel.admin.flash_deleted": "Bestellung #:id gelöscht.",
     "spargel.farm_facts_intro": "Dein Spargel kommt direkt vom Spargelhof Kalkwitz im Spreewald. Max baut sowohl weißen als auch grünen Spargel an — beides ohne Plastik- oder Aluminiumfolie. Was du heute bestellst, hat er gestern oder heute gestochen.",
     "spargel.farm_facts_jump_to_story": "Mehr zu Max und seinem Anbau",
-    "admin.box_setup.compact_grid_size_tooltip": ":size — Boxen / berechtigte Abos"
+    "admin.box_setup.compact_grid_size_tooltip": ":size — Boxen / berechtigte Abos",
+    "admin.user_detail.audit_mail_label": "E-Mail",
+    "admin.user_detail.audit_mail_to": "An :email",
+    "admin.user_detail.audit_mail_subject_unknown": "(Betreff nicht erfasst)"
 }

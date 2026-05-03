@@ -105,6 +105,10 @@ class AdminUserController extends Controller
             ->where(function ($q) use ($user, $subscriptionIds, $orderIds, $deliveryIds, $boxIds, $paymentIds): void {
                 $q->where('actor_user_id', $user->id);
 
+                // ERD-350: events targeting this user directly — currently
+                // mail.sent rows written by the LogSentMail listener.
+                $q->orWhere(fn ($qq) => $qq->where('entity_type', 'user')->where('entity_id', $user->id));
+
                 if (! empty($subscriptionIds)) {
                     $q->orWhere(fn ($qq) => $qq->where('entity_type', 'subscription')->whereIn('entity_id', $subscriptionIds));
                 }

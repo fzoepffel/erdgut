@@ -43,8 +43,11 @@ class AuditLoggerBackfillTest extends TestCase
         app(SubscriptionLifecycleService::class)
             ->cancelNow($subscription, 'No longer needed', $user->id);
 
-        $this->assertSame(1, AuditEvent::count());
-        $event = AuditEvent::first();
+        // Filter to subscription rows only — the LogSentMail listener (ERD-350)
+        // also writes mail.sent rows for any cancellation email queued, which
+        // is correct behaviour but unrelated to what this test asserts.
+        $this->assertSame(1, AuditEvent::query()->where('entity_type', 'subscription')->count());
+        $event = AuditEvent::query()->where('entity_type', 'subscription')->first();
         $this->assertSame('subscription', $event->entity_type);
         $this->assertSame($subscription->id, $event->entity_id);
         $this->assertSame('cancelled', $event->action);
