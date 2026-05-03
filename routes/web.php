@@ -336,6 +336,9 @@ Route::middleware(['auth', 'can:admin'])
         Route::post('/{spargelOrder}/mark-completed', [SpargelAdminController::class, 'markCompleted'])
             ->middleware('throttle:30,1')
             ->name('mark-completed');
+        Route::delete('/{spargelOrder}', [SpargelAdminController::class, 'destroy'])
+            ->middleware('throttle:30,1')
+            ->name('destroy');
     });
 
 require __DIR__.'/auth.php';
