@@ -1207,7 +1207,7 @@
     "admin.box_setup.setup_title": "Box setup · Week of :date",
     "admin.box_setup.size_large": "Large",
     "admin.box_setup.size_lines_empty": "No products selected for this size yet.",
-    "admin.box_setup.size_medium": "Standard",
+    "admin.box_setup.size_medium": "Medium",
     "admin.box_setup.size_small": "Small",
     "admin.box_setup.status_not_set_up": "Not set up",
     "admin.box_setup.status_partial": "Partial",
@@ -2079,5 +2079,6 @@
     "spargel.admin.confirm_delete": "Really delete order #:id? This cannot be undone.",
     "spargel.admin.flash_deleted": "Order #:id deleted.",
     "spargel.farm_facts_intro": "Your asparagus comes directly from Spargelhof Kalkwitz in the Spreewald. Max grows both white and green spears — both without plastic or aluminium film. What you order today he cut yesterday or this morning.",
-    "spargel.farm_facts_jump_to_story": "More about Max and his fields"
+    "spargel.farm_facts_jump_to_story": "More about Max and his fields",
+    "admin.box_setup.compact_grid_size_tooltip": ":size — boxes / eligible subscriptions"
 }
