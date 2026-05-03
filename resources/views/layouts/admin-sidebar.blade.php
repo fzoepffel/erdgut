@@ -1,10 +1,4 @@
 {{-- Persistent backoffice sidebar; parent layout must wrap with x-data="{ adminSidebarOpen: false }". --}}
-@php
-    $navLinkBase = 'flex items-center rounded-md px-3 py-2 text-sm font-medium transition';
-    $navInactive = 'text-gray-700 hover:bg-amber-50 hover:text-amber-900';
-    $navActive = 'bg-amber-100 text-amber-900';
-@endphp
-
 <div
     x-show="adminSidebarOpen"
     x-transition.opacity
@@ -42,123 +36,70 @@
         <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-amber-800/80">
             {{ __('admin.shell.section_main') }}
         </p>
-        <a
-            href="{{ route('app.admin.dashboard') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.dashboard') ? $navActive : $navInactive }}"
-        >
+        <x-admin.nav-link :href="route('app.admin.dashboard')" matches="app.admin.dashboard">
             {{ __('admin.shell.overview') }}
-        </a>
+        </x-admin.nav-link>
 
         <p class="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-amber-800/80">
             {{ __('admin.shell.section_catalog') }}
         </p>
-        <a
-            href="{{ route('app.admin.producers.index') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.producers.*') ? $navActive : $navInactive }}"
-        >
+        <x-admin.nav-link :href="route('app.admin.producers.index')" matches="app.admin.producers.*">
             {{ __('Producers') }}
-        </a>
-        <a
-            href="{{ route('app.admin.products.index') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.products.index') || request()->routeIs('app.admin.products.create') || request()->routeIs('app.admin.products.edit') ? $navActive : $navInactive }}"
+        </x-admin.nav-link>
+        <x-admin.nav-link
+            :href="route('app.admin.products.index')"
+            :matches="['app.admin.products.index', 'app.admin.products.create', 'app.admin.products.edit']"
         >
             {{ __('Products') }}
-        </a>
-        <a
-            href="{{ route('app.admin.products.weekly.show') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.products.weekly.*') ? $navActive : $navInactive }}"
-        >
+        </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.products.weekly.show')" matches="app.admin.products.weekly.*">
             {{ __('admin.weekly_catalog.nav_label') }}
-        </a>
+        </x-admin.nav-link>
 
         <p class="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-amber-800/80">
             {{ __('admin.shell.section_operations') }}
         </p>
-        <a
-            href="{{ route('app.admin.users.index') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.users.*') ? $navActive : $navInactive }}"
-        >
+        <x-admin.nav-link :href="route('app.admin.users.index')" matches="app.admin.users.*">
             {{ __('admin.operations.nav_users') }}
-        </a>
-        <a
-            href="{{ route('app.admin.subscriptions.index') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.subscriptions.*') ? $navActive : $navInactive }}"
-        >
+        </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.subscriptions.index')" matches="app.admin.subscriptions.*">
             {{ __('admin.operations.nav_subscriptions') }}
-        </a>
-        <a
-            href="{{ route('app.admin.orders.index', ['product_type' => 'trial_box']) }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.orders.*') ? $navActive : $navInactive }}"
-        >
+        </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.orders.index', ['product_type' => 'trial_box'])" matches="app.admin.orders.*">
             {{ __('Trial orders') }}
-        </a>
-        <a
-            href="{{ route('app.admin.deliveries.index') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.deliveries.*') ? $navActive : $navInactive }}"
-        >
+        </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.deliveries.index')" matches="app.admin.deliveries.*">
             {{ __('admin.operations.nav_deliveries') }}
-        </a>
-        <a
-            href="{{ route('app.admin.boxes.index') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.boxes.*') ? $navActive : $navInactive }}"
-        >
+        </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.boxes.index')" matches="app.admin.boxes.*">
             {{ __('admin.operations.nav_boxes_setup') }}
-        </a>
-        <a
-            href="{{ route('app.admin.payments.index') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.payments.*') ? $navActive : $navInactive }}"
-        >
+        </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.payments.index')" matches="app.admin.payments.*">
             {{ __('admin.operations.nav_payments') }}
-        </a>
-        <a
-            href="{{ route('app.admin.billing.upcoming') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.billing.upcoming') ? $navActive : $navInactive }}"
-        >
+        </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.billing.upcoming')" matches="app.admin.billing.upcoming">
             {{ __('admin.operations.nav_upcoming') }}
-        </a>
-        <a
-            href="{{ route('app.admin.billing.coverage') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.billing.coverage') ? $navActive : $navInactive }}"
-        >
+        </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.billing.coverage')" matches="app.admin.billing.coverage">
             {{ __('admin.operations.nav_billing_coverage') }}
-        </a>
-        <a
-            href="{{ route('app.admin.audit-events.index') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('app.admin.audit-events.*') ? $navActive : $navInactive }}"
-        >
+        </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.audit-events.index')" matches="app.admin.audit-events.*">
             {{ __('admin.audit.nav_label') }}
-        </a>
+        </x-admin.nav-link>
     </nav>
 
     <div class="border-t border-amber-100 p-3">
         <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-amber-800/80">
             {{ __('admin.shell.section_account') }}
         </p>
-        <a
-            href="{{ route('account.profile.edit') }}"
-            @click="adminSidebarOpen = false"
-            class="{{ $navLinkBase }} {{ request()->routeIs('account.profile.*') ? $navActive : $navInactive }}"
-        >
+        <x-admin.nav-link :href="route('account.profile.edit')" matches="account.profile.*">
             {{ __('Account settings') }}
-        </a>
+        </x-admin.nav-link>
         <form method="POST" action="{{ route('auth.logout') }}" class="mt-1">
             @csrf
             <button
                 type="submit"
-                class="{{ $navLinkBase }} {{ $navInactive }} w-full text-left"
+                class="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-gray-700 transition hover:bg-amber-50 hover:text-amber-900"
             >
                 {{ __('Log Out') }}
             </button>

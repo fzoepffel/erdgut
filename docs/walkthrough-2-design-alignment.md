@@ -354,8 +354,8 @@ The dashboard should be able to show this exact date pre-emptively (from the cus
 We've walked: marketing homepage `/home`, full subscription onboarding wizard, customer dashboard. We have *not* walked:
 
 - **Trial-box flow** (commitment → trial/delivery → trial/payment → trial/complete). Trial pricing is its own thing (`trial_price_oneoff_ttc` = 35 fixed regardless of size). Commitment-step "MODELL" upsell behaviour (W2-04) needs to be tested in the trial path specifically.
-- **Marketing pages** other than `/home` (`/about`, `/producers`, `/contact`). They use the marketing layout but content is unaudited.
-- **Login + verify-email flow as a real returning user** (we used existing user). Forgot-password, reset, resend-verification, etc.
+- ~~**Marketing pages** other than `/home` (`/about`, `/producers`, `/contact`)~~ ✓ shipped — verified 2026-05-03: `marketing/about.blade.php` (286 lines, 5 chapters: founder letter, how-a-box-is-assembled, principles, producers invitation, FAQ), `marketing/producers.blade.php` (216 lines, DB-backed cards w/ filter + CTA), `marketing/contact.blade.php` (184 lines, branded form). All on the marketing layout with chapter-coloured editorial sections. (ERD-170/171/172 marked Done.)
+- ~~**Login + verify-email flow** branded layout~~ ✓ partially shipped — `auth/login.blade.php`, `auth/register.blade.php`, `auth/forgot-password.blade.php` all carry chapter-produce eyebrows + `font-display` headings on `<x-customer-header variant="auth" />`. (ERD-173 marked Done for the layout work.) End-to-end flow as a real returning user (forgot-password → reset → resend-verification) still unwalked.
 - **Customer subscription edit page** `/app/subscriptions/show` — the page we link to from the dashboard. Skip / pause / cancel UX, plus the price display would be a third surface using `BoxPriceCalculator`.
 - **Customer payments history** `/app/payments/history`.
 - **Customer profile / account settings** `/account/profile/edit`.

@@ -7,7 +7,7 @@
         ]" />
     </x-slot>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+        <h1 class="font-semibold text-xl text-gray-800 leading-tight">
             {{ __('Edit producer') }}: {{ $producer->name }}
         </h2>
     </x-slot>

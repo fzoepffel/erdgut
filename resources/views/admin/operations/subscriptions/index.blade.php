@@ -5,7 +5,7 @@
 <x-admin-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between gap-4">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            <h1 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('admin.operations.subscriptions_title') }}
             </h2>
             <a href="{{ route('app.admin.subscriptions.create') }}" class="btn-solid-sm">
