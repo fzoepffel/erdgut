@@ -19,18 +19,9 @@ This creates three problems:
 
 Defer until you have a stronger position on whether admin is a "different brand surface" or "same brand, different audience".
 
-### Inline status enum-bleed audit (~2h)
+### Inline status enum-bleed audit — ✓ shipped
 
-The walkthrough caught the obvious tables (Abos / Anstehende Abbuchungen / Lieferungen) but the codebase still has more `{{ $model->status->value }}` / `{{ $model->plan->value }}` instances. Audit:
-
-```bash
-grep -rn '\$.*->status->value\|\$.*->plan->value\|\$.*->box_size }}' resources/views/admin/
-```
-
-Each hit is either:
-- A status badge → swap for `<x-status-badge :value="$model->status" type="..." />`
-- A plan label → swap for `__('plan.'.$model->plan->value)`
-- A box size label → swap for `__(ucfirst($model->box_size))`
+Verified 2026-05-03: every admin status badge uses `<x-status-badge>`. The 2 remaining `->status->value` references are both correct usages — a form `<option value="">` in `deliveries/edit.blade.php` and an `@if` conditional in `orders/show.blade.php`, neither of which is a display.
 
 ### ~~Currency formatting helper~~ ✓ shipped (PR #51)
 
@@ -47,17 +38,15 @@ PR #51 swept every currency render site (customer onboarding, dashboard, payment
 
 The admin sidebar covers navigation but typing "/" or `Cmd+K` to open a search palette would speed up daily use. Common targets: "user by email", "subscription by ID", "delivery by date". Shows up later in lifetime; flag now so it's not forgotten.
 
-### Audit log / events viewer (~1 day)
+### Audit log / events viewer — ✓ shipped
 
-The redesign added `audit_events` table (Batch H equivalent on subscription side). No admin UI to view it. A "Verlauf" tab on user/subscription/delivery detail pages showing recent events would be high-leverage for support work.
+A standalone `/app/admin/audit-events` page exists with filters for entity-type / entity-id / action / actor, AND the per-user admin page (`/app/admin/users/{user}`) renders a 30-row "Audit timeline" section scoped to events involving that user (their subscriptions / orders / deliveries / boxes / payments + direct entity_type='user' rows including the new mail.sent events from ERD-350).
 
 ## Per-page leftover polish
 
 ### Übersicht (`/app/admin`)
 
-- **`Registrierte Nutzer 3` + `E-Mail verifiziert 3`** are still two cards even though both show the same number. Either:
-  - Merge to one card "3 Nutzer (alle verifiziert)" with conditional sub-line for unverified count
-  - Keep separate but show "verified" only when there's a discrepancy worth flagging
+- ~~`Registrierte Nutzer 3` + `E-Mail verifiziert 3` duplicate cards~~ ✓ shipped — merged into one card with a conditional "X unverified" subline (`admin/dashboard.blade.php:101-112`).
 - ~~Trial-pipeline panel: empty-state copy~~ ✓ already implemented — `admin.trials.pipeline_*_empty` keys (4) render below the count when zero (`admin/dashboard.blade.php:48-92`).
 
 ### Produzenten / Produkte / Nutzer (catalog tables)
@@ -79,8 +68,9 @@ The redesign added `audit_events` table (Batch H equivalent on subscription side
 
 ### Box-Setup
 
-- **Rows in the compact grid table aren't visually clickable** — admin probably doesn't realize each row links to that week's setup view. Add `cursor-pointer` + a hover row-bg + an explicit `<a>` wrap so the whole row is the link.
-- **The bottom 8-week card grid** duplicates the table data. Could collapse one or the other depending on which is more useful per-admin (instrument click destinations to decide).
+- ~~Rows in the compact grid table aren't visually clickable~~ ✓ shipped — `cursor-pointer` + `hover:bg-gray-50` + Alpine `x-on:click` navigates to the per-week setup page; explicit link in the last column kept for keyboard / screen-reader users.
+- ~~The bottom 8-week card grid~~ ✓ removed — the compact grid table is now the single source of truth; the duplicate card grid was deleted along with the row-click handler.
+- ~~Compact-grid date "04.05. 2026" extra space + bare S/M/L letters~~ ✓ shipped — date glued inline, S/M/L now carry hover tooltips (small-polish-batch 2026-05-03).
 
 ### Zahlungsversuche
 
