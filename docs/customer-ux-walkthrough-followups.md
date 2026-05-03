@@ -4,30 +4,15 @@ Items deferred during the browser walkthrough that produced PR `feature/onboardi
 
 ## Tone & translation
 
-### Global formal → informal German pronoun pass (~3h)
+### Global formal → informal German pronoun pass — ✓ shipped
 
-`lang/de.json` still has **~70 instances** of formal "Sie/Ihr/Ihre/Ihren/Ihrer/Ihnen" outside the pages we walked. The customer-facing strings on the walked pages (onboarding wizard, dashboard, subscription show/edit, cancel/pause modals) are now clean.
+Verified 2026-05-03: zero customer-visible formal-pronoun instances remain in `lang/de.json` values. The two mid-sentence "Sie / Ihr" matches are 3rd-person feminine pronouns referring to female farmers (Anna, Elena bios) and are correct German.
 
-Audit command:
-```bash
-grep -c "\\bSie\\b\\|\\bIhr\\b\\|\\bIhre\\b\\|\\bIhren\\b\\|\\bIhrer\\b\\|\\bIhnen\\b" lang/de.json
-```
+The remaining lookup-key cleanup (9 email-template `__()` calls that used formal-German strings as the lookup key, even though the runtime value was already informal) was migrated to clean English keys at the same time so a future contributor "fixing" the formal lookup string can't accidentally break the i18n lookup.
 
-Approach:
-- **Don't** do a blind sed — most instances are in mid-sentence prose where automated replacement breaks grammar (e.g. "Wählen Sie" needs to become "Wähle", not "Wähle du").
-- Read each line, rewrite to informal, retain capitalization rules (sentence-start `Du/Dein` only when starting a sentence; otherwise lowercase).
-- Brand voice glossary already established by the walked pages: lowercase `du/dein/dich/dir`, capitalize only at sentence start.
-- Verify all three locales stay in parity after.
+### Brand voice glossary — ✓ shipped
 
-A subagent with a tight glossary and one-string-at-a-time review is the right shape here.
-
-### Brand voice glossary (~30 min)
-
-While doing the pronoun pass, write `docs/brand-voice.md` with:
-- Pronoun policy (informal du, lowercase except sentence start)
-- Common verb-form replacements (Wählen Sie → Wähle, Geben Sie ein → Gib ein, Klicken Sie → Klicke)
-- Tone (warm, editorial, factual; avoid corporate "Bei Fragen wenden Sie sich…")
-- Forbidden words (currently: "vegan", "vegetarisch" in customer copy — product policy)
+`docs/brand-voice.md` now captures pronoun policy (informal `du/dein`, lowercase except sentence start), common verb-form replacements, tone notes (warm, editorial, factual; no corporate softeners), forbidden product words (`vegan`, `vegetarisch`), and punctuation/typography conventions (em dash, eyebrow uppercase, German number formatting).
 
 ## Architectural
 

@@ -24,5 +24,5 @@
     </tr>
     @endif
 </table>
-<p style="margin: 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 14px; color: #6b5b4c;">{{ __('Bitte stellen Sie sicher, dass jemand die Lieferung entgegennehmen kann.') }}</p>
+<p style="margin: 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 14px; color: #6b5b4c;">{{ __('Make sure someone can take the delivery.') }}</p>
 @endsection
