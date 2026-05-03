@@ -372,18 +372,38 @@
                 @else
                     <ul class="mt-4 space-y-2 text-sm">
                         @foreach ($auditEvents as $event)
-                            <li class="flex items-start gap-3 border-l-2 border-gray-200 ps-3">
+                            @php
+                                $isMailSent = $event->action === 'mail.sent';
+                                $mailSubject = $isMailSent ? (string) data_get($event->metadata, 'subject', '') : null;
+                                $mailRecipient = $isMailSent ? (string) data_get($event->metadata, 'recipient_email', '') : null;
+                            @endphp
+                            <li class="flex items-start gap-3 border-l-2 ps-3 {{ $isMailSent ? 'border-emerald-200' : 'border-gray-200' }}">
                                 <span class="mt-0.5 text-xs text-gray-400 tabular-nums shrink-0">{{ $event->created_at?->format('d.m.Y H:i') }}</span>
                                 <div class="min-w-0 flex-1">
-                                    <p class="text-gray-900">
-                                        <span class="font-mono text-xs text-gray-600">{{ $event->entity_type }}#{{ $event->entity_id }}</span>
-                                        <span class="font-semibold">{{ $event->action }}</span>
-                                        @if ($event->from_state || $event->to_state)
-                                            <span class="text-xs text-gray-500">({{ $event->from_state ?? '—' }} → {{ $event->to_state ?? '—' }})</span>
+                                    @if ($isMailSent)
+                                        {{-- ERD-350: friendlier line for mail-sent events. The
+                                             subject is the most useful trace for support
+                                             ("did the customer get the trial confirmation?"). --}}
+                                        <p class="text-gray-900">
+                                            <span class="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-800">
+                                                {{ __('admin.user_detail.audit_mail_label') }}
+                                            </span>
+                                            <span class="ms-1 font-medium">{{ $mailSubject !== '' ? $mailSubject : __('admin.user_detail.audit_mail_subject_unknown') }}</span>
+                                        </p>
+                                        @if ($mailRecipient !== '')
+                                            <p class="text-xs text-gray-500">{{ __('admin.user_detail.audit_mail_to', ['email' => $mailRecipient]) }}</p>
                                         @endif
-                                    </p>
-                                    @if ($event->reason)
-                                        <p class="text-xs text-gray-600">{{ $event->reason }}</p>
+                                    @else
+                                        <p class="text-gray-900">
+                                            <span class="font-mono text-xs text-gray-600">{{ $event->entity_type }}#{{ $event->entity_id }}</span>
+                                            <span class="font-semibold">{{ $event->action }}</span>
+                                            @if ($event->from_state || $event->to_state)
+                                                <span class="text-xs text-gray-500">({{ $event->from_state ?? '—' }} → {{ $event->to_state ?? '—' }})</span>
+                                            @endif
+                                        </p>
+                                        @if ($event->reason)
+                                            <p class="text-xs text-gray-600">{{ $event->reason }}</p>
+                                        @endif
                                     @endif
                                     @if ($event->actor)
                                         <p class="text-xs text-gray-400">{{ __('admin.user_detail.audit_actor', ['email' => $event->actor->email]) }}</p>
