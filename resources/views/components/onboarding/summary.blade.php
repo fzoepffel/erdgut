@@ -81,7 +81,7 @@
         </section>
     @endif
 
-    @if ($addressFilled && $address !== null)
+    @if ($addressFilled && $address !== null && $fulfillmentMode !== 'pickup')
         <section data-testid="onboarding-summary-address">
             <div class="flex items-baseline justify-between gap-3">
                 <p class="eyebrow text-brand-ink/60">{{ __('Your delivery address') }}</p>
@@ -93,6 +93,23 @@
                 {{ $address->street_line_1 }}@if ($address->street_line_2), {{ $address->street_line_2 }}@endif
             </p>
             <p class="text-xs text-brand-ink/65">{{ $address->postal_code }} {{ $address->city }}</p>
+        </section>
+    @endif
+
+    @if ($fulfillmentMode === 'pickup')
+        @php
+            $pickup = config('box.pickup_location');
+        @endphp
+        <section data-testid="onboarding-summary-pickup">
+            <div class="flex items-baseline justify-between gap-3">
+                <p class="eyebrow text-chapter-bread">{{ __('Pickup location') }}</p>
+                <a href="{{ route('app.onboarding.step.subscription_schedule') }}" class="text-xs text-brand-ink/60 underline-offset-4 hover:text-brand-ink hover:underline">
+                    {{ __('Edit') }}
+                </a>
+            </div>
+            <p class="mt-1 font-medium text-brand-ink">{{ $pickup['name'] }}</p>
+            <p class="text-xs text-brand-ink/65">{{ $pickup['street'] }} · {{ $pickup['postal_code'] }} {{ $pickup['city'] }}</p>
+            <p class="text-xs italic text-brand-ink/65">{{ $pickup['window'] }}</p>
         </section>
     @endif
 
@@ -139,16 +156,20 @@
                     {{ $plan === 'weekly' ? __('Every week') : __('Every two weeks') }}
                 </p>
             @endif
-            @if ($deliveryWeekday !== null && isset($weekdayLabels[(int) $deliveryWeekday]))
-                <p class="text-xs text-brand-ink/65">{{ $weekdayLabels[(int) $deliveryWeekday] }}</p>
-            @endif
-            @if ($preferredTimeslot !== null)
-                <p class="text-xs text-brand-ink/65">{{ $preferredTimeslot }}</p>
-            @endif
-            @if ($fulfillmentMode !== null)
-                <p class="text-xs text-brand-ink/65">
-                    {{ $fulfillmentMode === 'pickup' ? __('Pickup') : __('Home delivery') }}
-                </p>
+            @if ($fulfillmentMode === 'pickup')
+                {{-- Pickup mode: weekday/timeslot don't apply (the pickup
+                     location's open window above already says when). --}}
+                <p class="text-xs text-brand-ink/65">{{ __('Pickup') }}</p>
+            @else
+                @if ($deliveryWeekday !== null && isset($weekdayLabels[(int) $deliveryWeekday]))
+                    <p class="text-xs text-brand-ink/65">{{ $weekdayLabels[(int) $deliveryWeekday] }}</p>
+                @endif
+                @if ($preferredTimeslot !== null)
+                    <p class="text-xs text-brand-ink/65">{{ $preferredTimeslot }}</p>
+                @endif
+                @if ($fulfillmentMode !== null)
+                    <p class="text-xs text-brand-ink/65">{{ __('Home delivery') }}</p>
+                @endif
             @endif
         </section>
     @endif

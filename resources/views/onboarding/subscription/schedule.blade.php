@@ -120,7 +120,22 @@
             </div>
         </div>
 
-        <div>
+        {{-- Pickup-mode-only pickup location panel — replaces the
+             delivery_instructions textarea (which is meaningless when there is
+             no delivery). Shows the mock pickup location from config/box.php
+             until the real partner location is finalized. --}}
+        @php
+            $pickup = config('box.pickup_location');
+        @endphp
+        <div x-show="fulfillment === '{{ \App\Enums\FulfillmentMode::Pickup->value }}'" x-cloak class="border border-chapter-bread/30 bg-chapter-bread/5 p-5">
+            <p class="eyebrow text-chapter-bread">{{ __('Pickup location') }}</p>
+            <p class="mt-2 font-display text-base text-brand-ink">{{ $pickup['name'] }}</p>
+            <p class="text-sm text-brand-ink/75">{{ $pickup['street'] }} · {{ $pickup['postal_code'] }} {{ $pickup['city'] }}</p>
+            <p class="mt-1 text-sm text-brand-ink/75">{{ $pickup['window'] }}</p>
+            <p class="mt-3 text-xs italic text-brand-ink/60">{{ __('More pickup locations coming soon.') }}</p>
+        </div>
+
+        <div x-show="fulfillment === '{{ \App\Enums\FulfillmentMode::Delivery->value }}'" x-cloak>
             <x-input-label for="delivery_instructions" :value="__('Delivery instructions')" />
             <textarea id="delivery_instructions" name="delivery_instructions" rows="3"
                       class="mt-2 w-full rounded-none border-0 border-b border-brand-ink/30 bg-transparent px-0 py-2 text-brand-ink placeholder:text-brand-ink/40 focus:border-brand-ink focus:ring-0">{{ old('delivery_instructions', $data['delivery_instructions'] ?? '') }}</textarea>
