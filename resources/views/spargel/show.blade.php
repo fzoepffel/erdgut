@@ -45,9 +45,8 @@
         <div class="grid gap-0 sm:grid-cols-[minmax(0,260px)_1fr] sm:items-stretch">
             <div class="overflow-hidden">
                 <img
-                    src="{{ asset('images/spargel/farmer-max-3.jpg') }}"
-                    alt=""
-                    aria-hidden="true"
+                    src="{{ asset('images/spargel/farmer-max.jpg') }}"
+                    alt="{{ __('spargel.farm_facts_photo_alt') }}"
                     class="h-56 w-full object-cover sm:h-full"
                     loading="lazy"
                 />
