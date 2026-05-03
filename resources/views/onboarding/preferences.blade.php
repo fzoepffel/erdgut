@@ -43,7 +43,7 @@
             <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 @foreach($sizeCards as $size => $card)
                     <label
-                        class="group relative flex cursor-pointer flex-col overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] has-[:checked]:ring-1 has-[:checked]:ring-brand-cream/80 {{ $card['panel'] }}"
+                        class="group relative flex cursor-pointer flex-col overflow-hidden text-brand-cream transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)] has-[:checked]:ring-4 has-[:checked]:ring-brand-ink has-[:checked]:ring-offset-2 has-[:checked]:ring-offset-brand-cream {{ $card['panel'] }}"
                         data-testid="onboarding-box-size-card-{{ $size }}"
                     >
                         <input
@@ -138,7 +138,19 @@
             <a href="{{ route('app.onboarding.step.address') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
                 ← {{ __('Back to :step', ['step' => __('Address')]) }}
             </a>
-            <x-primary-button>{{ __('Continue to :step', ['step' => __('Commitment')]) }}</x-primary-button>
+            @php
+                // Intent-aware forward label: when the customer already chose
+                // subscription/trial on the homepage, Commitment is skipped on
+                // POST (per CommitmentStepSkippableTest). The button should
+                // name the step the user actually lands on, not the skipped
+                // commitment step.
+                $forwardLabel = match ($draft->intent ?? null) {
+                    \App\Services\Onboarding\OnboardingDraftManager::INTENT_SUBSCRIPTION => __('Schedule'),
+                    \App\Services\Onboarding\OnboardingDraftManager::INTENT_TRIAL => __('Delivery'),
+                    default => __('Commitment'),
+                };
+            @endphp
+            <x-primary-button>{{ __('Continue to :step', ['step' => $forwardLabel]) }}</x-primary-button>
         </div>
     </form>
 @endsection
