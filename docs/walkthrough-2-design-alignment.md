@@ -6,7 +6,8 @@ This is a live findings doc for the second walkthrough (2026-04-28), focused on:
 
 Findings are appended as we encounter them in the browser walkthrough. Implementation order is prioritized at the bottom and will be turned into PR-sized tickets once the walkthrough is complete.
 
-> **Status as of 2026-05-03:** 36 of 38 findings ✓ shipped. Remaining open:
+> **Status as of 2026-05-03:** 35 of 38 findings ✓ shipped. Remaining open:
+> - **W2-12** — Box-size cards visual treatment. PR #55 (photographic crates) rolled back in #56; `feature/w2-12-box-size-plant-stage` (plant-stage illustrations top + side + bottom-left variants) tried 2026-05-03 and reverted by user — visual direction still TBD.
 > - **W2-05** — decided no-op (keep current wizard order)
 > - **W2-06 / W2-09 / W2-29** — superseded or non-bugs, kept for context
 >
@@ -119,7 +120,7 @@ The Vorlieben step renders each size card as `Klein / ~6 Produkte (Wert EUR 20)`
 
 **Resolution direction:** Render as `EUR 20 pro Lieferung` or `ab EUR 20 / Lieferung` — same number, unambiguous meaning. Could even drop "~6 Produkte" if it's a misleading proxy and the customer cares about the price line item.
 
-### ~~W2-12~~ ✓ shipped (`feature/w2-12-box-size-plant-stage` — plant-stage transparent PNGs from `/subscriptions/show` re-used as a visual anchor on each card; same illustration carries through pick → dashboard) · Box-size cards are text-only — design opportunity
+### W2-12 — ⏳ open — PR #55 (photo crates) rolled back in #56; `feature/w2-12-box-size-plant-stage` (plant-stage illustrations) tried + reverted 2026-05-03 — neither direction landed visually · Box-size cards are text-only — design opportunity
 
 After the homepage's chapter-coloured chapter strip and the customer box show's stall imagery, the box-size pick is the page where atmosphere drops out hardest. The cards are pure text in a thin border. A subtle box silhouette per size, or a chapter-produce wash, would carry the brand voice through.
 
@@ -552,7 +553,7 @@ Ordered by combined impact + correctness urgency. Each row maps to one PR-ish un
 | 6 | **Wizard sidebar: progressive summary of everything gathered** | W2-17, W2-06, W2-13 | ✓ shipped (PR #47 → `<x-onboarding.summary>`) |
 | 7 | **MODELL flow correction** | W2-04 | ✓ shipped (PR #54 → preferences-step uses `OnboardingDraftManager::nextStep()` instead of hardcoding commitment, and commitment-show bounces forward when intent is already set) |
 | 8 | **Wizard step trim + step indicator polish** *(no reorder)* | W2-03, W2-08 | ✓ shipped (PR #54 → 4 visible segments: Konto · Adresse · Box · Zahlung; the actual 5–6 internal steps still run) |
-| 9 | **Box-size cards: clearer "Pro Lieferung" + brand visual treatment** | W2-11, W2-12 | ✓ shipped — copy reads "EUR :amount / Lieferung" via `box_size.price_per_delivery`; **photographic crate-illustration direction (PR #55, rolled back PR #56) replaced** with a smaller, additive treatment: the existing `box-plant-stage-*-transparent.png` assets already used on `/subscriptions/show` are now also rendered on the onboarding preferences cards (`feature/w2-12-box-size-plant-stage`, 2026-05-03). Same illustration appears at pick-time and on the customer's dashboard, reinforcing continuity. |
+| 9 | **Box-size cards: clearer "Pro Lieferung" + brand visual treatment** | W2-11, W2-12 | partial — copy reads "EUR :amount / Lieferung" via `box_size.price_per_delivery` ✓. Visual treatment **still open**: photographic crate-illustration direction (PR #55) rolled back in #56; plant-stage illustration attempt (`feature/w2-12-box-size-plant-stage`, 2026-05-03) tried top-anchor / full-height left sliver / bottom-left stamp variants — all reverted ("didn't land"). Future pass should explore a different direction (stylized SVG silhouette? typographic numerals? subtle background pattern?) before committing assets across surfaces. |
 | 10 | **Brand-new-subscriber dashboard hero + verify-email continuity** | W2-24, W2-25, W2-20 | ✓ shipped — hero shipped (PR #46+#49); verify-email already routes through `<x-customer-header variant="auth">` (PR #48) so the "fifth standalone layout" ask is closed. |
 | 11 | **Schedule "Keine Präferenz" trap** | W2-14 | ✓ shipped (PR #54 → controller pre-selects first valid weekday + timeslot; placeholder option dropped from the markup) |
 | 12 | **Auth-state-aware wizard header** | W2-07 | ✓ shipped via PR #48 — wizard variant of `<x-customer-header>` only renders the logout link when `@auth`, never an "Anmelden" link. |
