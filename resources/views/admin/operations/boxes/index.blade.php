@@ -1,7 +1,7 @@
 <x-admin-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            <h1 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('admin.box_setup.title') }}
             </h2>
             <a href="{{ route('app.admin.products.weekly.show') }}" class="text-sm font-medium text-emerald-700 hover:underline">

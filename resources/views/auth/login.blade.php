@@ -12,13 +12,13 @@
         <div>
             <x-input-label for="email" :value="__('Email')" />
             <x-text-input id="email" class="mt-2 block w-full" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <x-input-error id="email-error" :messages="$errors->get('email')" class="mt-2" />
         </div>
 
         <div>
             <x-input-label for="password" :value="__('Password')" />
             <x-text-input id="password" class="mt-2 block w-full" type="password" name="password" required autocomplete="current-password" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            <x-input-error id="password-error" :messages="$errors->get('password')" class="mt-2" />
         </div>
 
         <div class="block">

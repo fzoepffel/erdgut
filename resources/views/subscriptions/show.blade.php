@@ -146,7 +146,7 @@
                         <div class="flex flex-wrap items-start justify-between gap-6">
                             <div>
                                 <p class="eyebrow text-chapter-produce">{{ __('Plan') }}</p>
-                                <h3 id="sub-section-plan" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Subscription and box') }}</h3>
+                                <h2 id="sub-section-plan" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Subscription and box') }}</h2>
                             </div>
                             @if ($boxGrowthAsset)
                                 <img
@@ -191,7 +191,7 @@
 
                     <section id="sub-diet" class="scroll-mt-24 border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-diet">
                         <p class="eyebrow text-chapter-eggdairy">{{ __('Preferences') }}</p>
-                        <h3 id="sub-section-diet" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Diet and allergies') }}</h3>
+                        <h2 id="sub-section-diet" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Diet and allergies') }}</h2>
                         <dl class="mt-6 grid gap-5 sm:grid-cols-2">
                             {{-- veg_only / meat_add_on are forced product policy (boxes are
                                  vegetable+fruit only). Showing them here as Yes/No would
@@ -237,7 +237,7 @@
                         'border-brand-ink/15' => ! $subscription->hasPauseWindow(),
                     ]) aria-labelledby="sub-section-pause">
                         <p class="eyebrow text-chapter-bread">{{ __('Skip window') }}</p>
-                        <h3 id="sub-section-pause" class="mt-2 font-display text-2xl text-brand-ink">{{ __('subscriptions.skip_section_title') }}</h3>
+                        <h2 id="sub-section-pause" class="mt-2 font-display text-2xl text-brand-ink">{{ __('subscriptions.skip_section_title') }}</h2>
                         <p class="mt-4 text-base leading-relaxed text-brand-ink/80">
                             @if ($subscription->hasPauseWindow())
                                 {{ __('subscriptions.skip_window_text', ['from' => $subscription->pause_from?->format('d.m.Y'), 'until' => $subscription->pause_until?->format('d.m.Y')]) }}
@@ -289,7 +289,7 @@
 
                     <section id="sub-billing" class="scroll-mt-24 border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-billing">
                         <p class="eyebrow text-chapter-fish">{{ __('Billing') }}</p>
-                        <h3 id="sub-section-billing" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Billing and payments') }}</h3>
+                        <h2 id="sub-section-billing" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Billing and payments') }}</h2>
                         <p class="mt-4 text-base text-brand-ink/80">
                             <span class="font-semibold text-brand-ink">{{ __('Next charge date') }}:</span>
                             {{ $billingDateDisplay }}
@@ -316,7 +316,7 @@
                     @if ($subscription->status === \App\Enums\SubscriptionStatus::Cancelled && $subscription->cancellation_reason)
                         <section id="sub-cancel" class="scroll-mt-24 border border-brand-ink/15 p-6 sm:p-8" aria-labelledby="sub-section-cancel-reason">
                             <p class="eyebrow text-chapter-meat">{{ __('Cancelled') }}</p>
-                            <h3 id="sub-section-cancel-reason" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Cancellation reason') }}</h3>
+                            <h2 id="sub-section-cancel-reason" class="mt-2 font-display text-2xl text-brand-ink">{{ __('Cancellation reason') }}</h2>
                             <p class="mt-4 text-base leading-relaxed text-brand-ink/80">{{ $subscription->cancellation_reason }}</p>
                         </section>
                     @endif

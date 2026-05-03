@@ -18,7 +18,7 @@
         <div>
             <x-input-label for="email" :value="__('Email')" />
             <x-text-input id="email" class="mt-2 block w-full" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <x-input-error id="email-error" :messages="$errors->get('email')" class="mt-2" />
         </div>
 
         <div class="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">

@@ -62,10 +62,10 @@
 
         @if ($variant === 'marketing')
             <nav class="hidden items-center gap-10 text-sm font-medium md:flex">
-                <a href="{{ route('public.marketing-home') }}" class="transition {{ request()->routeIs('public.marketing-home') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.marketing-home') ? $ink : $inkSubtle }};">{{ __('Home') }}</a>
-                <a href="{{ route('public.about') }}" class="transition {{ request()->routeIs('public.about') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.about') ? $ink : $inkSubtle }};">{{ __('About') }}</a>
-                <a href="{{ route('public.producers') }}" class="transition {{ request()->routeIs('public.producers') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.producers') ? $ink : $inkSubtle }};">{{ __('Producers') }}</a>
-                <a href="{{ route('public.contact') }}" class="transition {{ request()->routeIs('public.contact') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.contact') ? $ink : $inkSubtle }};">{{ __('Contact') }}</a>
+                <a href="{{ route('public.marketing-home') }}" @if (request()->routeIs('public.marketing-home')) aria-current="page" @endif class="transition {{ request()->routeIs('public.marketing-home') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.marketing-home') ? $ink : $inkSubtle }};">{{ __('Home') }}</a>
+                <a href="{{ route('public.about') }}" @if (request()->routeIs('public.about')) aria-current="page" @endif class="transition {{ request()->routeIs('public.about') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.about') ? $ink : $inkSubtle }};">{{ __('About') }}</a>
+                <a href="{{ route('public.producers') }}" @if (request()->routeIs('public.producers')) aria-current="page" @endif class="transition {{ request()->routeIs('public.producers') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.producers') ? $ink : $inkSubtle }};">{{ __('Producers') }}</a>
+                <a href="{{ route('public.contact') }}" @if (request()->routeIs('public.contact')) aria-current="page" @endif class="transition {{ request()->routeIs('public.contact') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.contact') ? $ink : $inkSubtle }};">{{ __('Contact') }}</a>
             </nav>
         @endif
 
@@ -115,10 +115,10 @@
     @if ($variant === 'marketing')
         <div x-show="open" x-transition class="border-t px-4 py-6 md:hidden" style="display: none; border-color: rgba(33, 52, 29, 0.15);">
             <div class="space-y-3 text-base font-medium">
-                <a href="{{ route('public.marketing-home') }}" class="block" style="color: {{ $ink }};">{{ __('Home') }}</a>
-                <a href="{{ route('public.about') }}" class="block" style="color: {{ $inkSubtle }};">{{ __('About') }}</a>
-                <a href="{{ route('public.producers') }}" class="block" style="color: {{ $inkSubtle }};">{{ __('Producers') }}</a>
-                <a href="{{ route('public.contact') }}" class="block" style="color: {{ $inkSubtle }};">{{ __('Contact') }}</a>
+                <a href="{{ route('public.marketing-home') }}" @if (request()->routeIs('public.marketing-home')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.marketing-home') ? $ink : $inkSubtle }};">{{ __('Home') }}</a>
+                <a href="{{ route('public.about') }}" @if (request()->routeIs('public.about')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.about') ? $ink : $inkSubtle }};">{{ __('About') }}</a>
+                <a href="{{ route('public.producers') }}" @if (request()->routeIs('public.producers')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.producers') ? $ink : $inkSubtle }};">{{ __('Producers') }}</a>
+                <a href="{{ route('public.contact') }}" @if (request()->routeIs('public.contact')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.contact') ? $ink : $inkSubtle }};">{{ __('Contact') }}</a>
             </div>
             <div class="mt-5 border-t pt-5" style="border-color: rgba(33, 52, 29, 0.15);">
                 <div class="mb-4">

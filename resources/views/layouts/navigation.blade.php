@@ -33,31 +33,31 @@
                     @endphp
                     @if($isOperator)
                         @php($active = request()->routeIs('app.admin.*'))
-                        <a href="{{ route('app.admin.dashboard') }}" class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
+                        <a href="{{ route('app.admin.dashboard') }}" @if ($active) aria-current="page" @endif class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
                             {{ __('admin.shell.overview') }}
                         </a>
                     @else
                         @php($active = request()->routeIs('app.dashboard'))
-                        <a href="{{ route('app.dashboard') }}" class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
+                        <a href="{{ route('app.dashboard') }}" @if ($active) aria-current="page" @endif class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
                             {{ __('Dashboard') }}
                         </a>
                         @if ($hasSubscriberNav)
                             @php($active = request()->routeIs('app.subscriptions.*'))
-                            <a href="{{ route('app.subscriptions.show') }}" class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
+                            <a href="{{ route('app.subscriptions.show') }}" @if ($active) aria-current="page" @endif class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
                                 {{ __('Subscription') }}
                             </a>
                             @php($active = request()->routeIs('app.deliveries.*') && !request()->routeIs('app.deliveries.preferences.*'))
-                            <a href="{{ route('app.deliveries.index') }}" class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
+                            <a href="{{ route('app.deliveries.index') }}" @if ($active) aria-current="page" @endif class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
                                 {{ __('Deliveries') }}
                             </a>
                         @endif
                         @php($active = request()->routeIs('app.products.*'))
-                        <a href="{{ route('app.products.index') }}" class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
+                        <a href="{{ route('app.products.index') }}" @if ($active) aria-current="page" @endif class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
                             {{ __('products.index_title') }}
                         </a>
                         @can('admin')
                             @php($active = request()->routeIs('app.admin.*'))
-                            <a href="{{ route('app.admin.dashboard') }}" class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
+                            <a href="{{ route('app.admin.dashboard') }}" @if ($active) aria-current="page" @endif class="transition {{ $active ? 'font-semibold' : '' }}" style="{{ $linkStyle($active) }}">
                                 {{ __('Admin') }}
                             </a>
                         @endcan

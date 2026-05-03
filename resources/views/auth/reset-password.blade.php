@@ -15,7 +15,7 @@
         <div>
             <x-input-label for="email" :value="__('Email')" />
             <x-text-input id="email" class="mt-2 block w-full" type="email" name="email" :value="old('email', $request->email)" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <x-input-error id="email-error" :messages="$errors->get('email')" class="mt-2" />
         </div>
 
         <div>
@@ -24,7 +24,7 @@
             <p class="mt-2 text-xs text-brand-ink/60">
                 {{ __('Use at least 8 characters. A mix of letters and numbers is recommended.') }}
             </p>
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            <x-input-error id="password-error" :messages="$errors->get('password')" class="mt-2" />
         </div>
 
         <div>
@@ -33,7 +33,7 @@
                 type="password"
                 name="password_confirmation" required autocomplete="new-password"
                 minlength="8" />
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
+            <x-input-error id="password_confirmation-error" :messages="$errors->get('password_confirmation')" class="mt-2" />
         </div>
 
         <div class="flex justify-end pt-2">

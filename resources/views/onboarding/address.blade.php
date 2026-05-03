@@ -14,14 +14,14 @@
             <x-text-input id="recipient_name" name="recipient_name" type="text" required
                           :value="old('recipient_name', $address?->recipient_name ?? auth()->user()?->name)"
                           autocomplete="name" class="mt-2" />
-            <x-input-error :messages="$errors->get('recipient_name')" class="mt-2" />
+            <x-input-error id="recipient_name-error" :messages="$errors->get('recipient_name')" class="mt-2" />
         </div>
         <div>
             <x-input-label for="street_line_1" :value="__('Street and number')" required />
             <x-text-input id="street_line_1" name="street_line_1" type="text" required
                           :value="old('street_line_1', $address?->street_line_1)"
                           autocomplete="address-line1" class="mt-2" />
-            <x-input-error :messages="$errors->get('street_line_1')" class="mt-2" />
+            <x-input-error id="street_line_1-error" :messages="$errors->get('street_line_1')" class="mt-2" />
         </div>
         <div>
             <x-input-label for="street_line_2" :value="__('Address line 2')" optional />
@@ -35,14 +35,14 @@
                 <x-text-input id="postal_code" name="postal_code" type="text" required
                               :value="old('postal_code', $address?->postal_code)"
                               autocomplete="postal-code" class="mt-2" />
-                <x-input-error :messages="$errors->get('postal_code')" class="mt-2" />
+                <x-input-error id="postal_code-error" :messages="$errors->get('postal_code')" class="mt-2" />
             </div>
             <div class="col-span-2">
                 <x-input-label for="city" :value="__('City')" required />
                 <x-text-input id="city" name="city" type="text" required
                               :value="old('city', $address?->city)"
                               autocomplete="address-level2" class="mt-2" />
-                <x-input-error :messages="$errors->get('city')" class="mt-2" />
+                <x-input-error id="city-error" :messages="$errors->get('city')" class="mt-2" />
             </div>
         </div>
         <div>
@@ -55,7 +55,7 @@
                 <span aria-hidden="true">🇩🇪</span> {{ __('Germany') }}
             </p>
             <input type="hidden" name="country_code" value="DE">
-            <x-input-error :messages="$errors->get('country_code')" class="mt-2" />
+            <x-input-error id="country_code-error" :messages="$errors->get('country_code')" class="mt-2" />
         </div>
         <div class="grid grid-cols-2 gap-4">
             <div>

@@ -81,9 +81,9 @@
             <section class="border border-brand-ink/15" aria-labelledby="box-items-heading">
                 <div class="border-b border-brand-ink/15 px-6 py-5">
                     <p class="eyebrow text-chapter-produce">{{ __('Contents') }}</p>
-                    <h3 id="box-items-heading" class="mt-2 font-display text-xl text-brand-ink">
+                    <h2 id="box-items-heading" class="mt-2 font-display text-xl text-brand-ink">
                         {{ __('This week in the box') }}
-                    </h3>
+                    </h2>
                     <p class="mt-2 font-editorial text-sm italic text-brand-ink/65">
                         {{ __('Arranged stall by stall — the way a good market unfolds.') }}
                     </p>

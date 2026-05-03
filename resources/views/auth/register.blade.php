@@ -10,13 +10,13 @@
         <div>
             <x-input-label for="name" :value="__('Name')" />
             <x-text-input id="name" class="mt-2 block w-full" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" />
-            <x-input-error :messages="$errors->get('name')" class="mt-2" />
+            <x-input-error id="name-error" :messages="$errors->get('name')" class="mt-2" />
         </div>
 
         <div>
             <x-input-label for="email" :value="__('Email')" />
             <x-text-input id="email" class="mt-2 block w-full" type="email" name="email" :value="old('email')" required autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <x-input-error id="email-error" :messages="$errors->get('email')" class="mt-2" />
         </div>
 
         <div>
@@ -29,7 +29,7 @@
             <p class="mt-2 text-xs text-brand-ink/60">
                 {{ __('Use at least 8 characters. A mix of letters and numbers is recommended.') }}
             </p>
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            <x-input-error id="password-error" :messages="$errors->get('password')" class="mt-2" />
         </div>
 
         <div>
@@ -38,7 +38,7 @@
                 type="password"
                 name="password_confirmation" required autocomplete="new-password"
                 minlength="8" />
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
+            <x-input-error id="password_confirmation-error" :messages="$errors->get('password_confirmation')" class="mt-2" />
         </div>
 
         <div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-end">
