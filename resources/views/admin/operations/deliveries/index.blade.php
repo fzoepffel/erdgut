@@ -159,7 +159,10 @@
                     </form>
 
                     @if ($deliveries->isEmpty())
-                        <p class="text-sm text-gray-600">{{ __('admin.operations.deliveries_empty') }}</p>
+                        <div class="rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center">
+                            <p class="text-sm font-medium text-gray-900">{{ __('admin.operations.deliveries_empty') }}</p>
+                            <p class="mt-1 text-sm text-gray-500">{{ __('admin.operations.deliveries_empty_hint') }}</p>
+                        </div>
                     @else
                         <div class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                             <table class="min-w-full divide-y divide-gray-200 text-sm">
