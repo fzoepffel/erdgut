@@ -1,7 +1,7 @@
 <x-admin-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between gap-3">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Trial orders') }}</h2>
+            <h1 class="font-semibold text-xl text-gray-800 leading-tight">{{ __('Trial orders') }}</h1>
             <a href="{{ route('app.admin.orders.create') }}" class="btn-solid-sm">
                 {{ __('admin.orders.create_title') }}
             </a>
