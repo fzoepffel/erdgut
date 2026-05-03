@@ -1787,7 +1787,7 @@
     "spargel.eyebrow_trial_shop": "Vente test",
     "spargel.page_title": "Erdgut — Commander des asperges",
     "spargel.heading": "Asperges fraîches, directement du champ",
-    "spargel.intro": "Blanches subtiles ou vertes fraîches — récoltées cette semaine. Commandez aujourd'hui, retrait ou livraison.",
+    "spargel.intro": "Blanche subtile ou verte fraîche — choisis ta variété préférée.",
     "spargel.delivery_window_eyebrow": "Livraison & retrait",
     "spargel.delivery_window_main": "Livraison ou remise prévue le :date.",
     "spargel.delivery_window_rule": "Asperges vertes à commander avant jeudi, blanches avant dimanche — livraison le lundi suivant. Les commandes plus tardives sont décalées d'une semaine.",
@@ -2078,9 +2078,6 @@
     "spargel.admin.action_delete": "Supprimer",
     "spargel.admin.confirm_delete": "Vraiment supprimer la commande #:id ? Cette action est irréversible.",
     "spargel.admin.flash_deleted": "Commande #:id supprimée.",
-    "spargel.trust_bio": "Bio · sans film plastique",
-    "spargel.trust_fresh": "Coupé aujourd’hui, chez toi demain",
-    "spargel.trust_farm": "Direct de la ferme — sans intermédiaire",
     "spargel.farm_facts_intro": "Tes asperges viennent directement du Spargelhof Kalkwitz, dans la Spreewald. Max cultive l’asperge blanche et verte — toutes deux sans film plastique ni aluminium. Ce que tu commandes aujourd’hui, il l’a coupé hier ou ce matin.",
     "spargel.farm_facts_jump_to_story": "En savoir plus sur Max et ses champs"
 }
