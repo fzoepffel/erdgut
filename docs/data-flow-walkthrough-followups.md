@@ -4,97 +4,53 @@ End-to-end walkthrough on `feature/data-flow-walkthrough`: created 3 producers +
 
 ## High-priority bugs
 
-### Box-Setup → no auto-deliveries
+### Box-Setup → no auto-deliveries — ✓ shipped
 
-**Symptom:** Admin clicks `Boxen speichern`, gets "Boxen für 1 Abo(s) gespeichert.", but no `deliveries` rows are created. Customer dashboard shows the box in Almanach but `Lieferzeitplan` is empty.
+**Verified 2026-05-03:** `WeeklyBoxSetupService::applyDistribution()` and `applyPerCustomerDistribution()` both call `$this->deliveryProjector->projectForBox($box->fresh())` after each box save. Idempotent via `updateOrCreate` on `(user_id, scheduled_for_date)`.
 
-**Cause:** `WeeklyBoxSetupService` creates `boxes` rows but doesn't fire `DeliveryProjector::projectForBox()`. Delivery generation lives in a separate command (`deliveries:sync-from-boxes`) + an admin button (`Lieferungen aus Boxen synchronisieren`). Probably also runs daily via cron, but for the same-day setup case the customer sees no scheduled delivery.
+### `deliveries` table missing `in_transit_at` / `delivered_at` — ✓ shipped
 
-**Fix shapes:**
-- (a) Hook the projector inside `WeeklyBoxSetupService::compose()` so saving boxes always projects deliveries in one transaction.
-- (b) Keep them separate, but make the admin "Boxen speichern" button also POST to the sync endpoint (chained UX).
-- (c) Show a banner on Box-Setup if there are boxes-without-deliveries: "12 boxes have no delivery — sync now?"
+**Verified 2026-05-03:** Both columns exist in `deliveries`, the model casts them to `datetime`, and `AdminDeliveryController::updateStatus`/`update` stamp them on the `geplant → in_transit → delivered` transitions (with backfill logic when admins skip a step).
 
-### `deliveries` table missing `in_transit_at` / `delivered_at`
+### Per-user locale persistence missing — ✓ shipped
 
-**Symptom:** When admin flips status `geplant → in_transit → delivered` via the inline dropdown, no timestamps are recorded — only the current `status` enum updates. Support questions like "when was delivery #4 marked delivered?" can't be answered without log scraping.
-
-**Fix:** migration to add nullable `in_transit_at` / `delivered_at` timestamp columns, plus controller logic to stamp them on transition (already prepared but reverted in this PR because the columns don't exist yet).
-
-```php
-Schema::table('deliveries', function (Blueprint $t): void {
-    $t->timestamp('in_transit_at')->nullable()->after('status');
-    $t->timestamp('delivered_at')->nullable()->after('in_transit_at');
-});
-```
-
-Add timestamping logic in `AdminDeliveryController::updateStatus` and `update` (existing draft in this branch's reverted diff).
-
-### Per-user locale persistence missing
-
-**Symptom:** Queued mailables render in `app.locale` (the .env value) regardless of the recipient's preferred language. Maria, a German user, would have received "Your Erdgut box is on the way" instead of "Deine Erdgut-Kiste ist unterwegs" if the .env had `APP_LOCALE=en` (which the local skeleton did — fixed locally).
-
-**Fix:**
-- Migration: add `locale` column to `users` table (`string('locale', 5)->default('de')`).
-- Implement `Illuminate\Contracts\Translation\HasLocalePreference` on `User` model:
-  ```php
-  public function preferredLocale(): string {
-      return $this->locale ?? config('app.locale');
-  }
-  ```
-- Set the locale during onboarding from the active session (the `SetLocale` middleware already detects request locale).
-- Now `Mail::to($user)->queue(...)` will render in the user's locale automatically.
+**Verified 2026-05-03:** `users.locale` column exists (migration `2026_04_27_000002_add_locale_to_users.php`), `User` implements `HasLocalePreference`, `preferredLocale()` falls back to `config('app.locale', 'de')`. Queued mailables now render in the recipient's locale automatically.
 
 ## Medium-priority bugs
 
-### Customer-facing "Status: BEARBEITBAR" leaks an admin term
+### Customer-facing "Status: BEARBEITBAR" leaks an admin term — ✓ shipped
 
-**Symptom:** In the dashboard's Almanach section, an upcoming box shows `Status: BEARBEITBAR`. "Bearbeitbar" / "editable" is a meaningful internal state (the box can still be modified before the lock date) but doesn't translate to anything the customer needs to know.
+`box_status_customer.editable/locked/delivered` lang keys exist in de/en/fr ("In Vorbereitung" / "Wird zugestellt" / "Geliefert") and the dashboard Almanach panel uses them via `__('box_status_customer.'.$box->status->value)`. Falls back to no-status-row when the key resolves to itself (i.e. unknown enum cases).
 
-**Fix:** Map admin status values → customer-facing labels in the status badge component:
-- `editable` → "In Vorbereitung" / "Wird zusammengestellt"
-- `locked` → "Steht fest" / "Wird zugestellt"
-- `delivered` → "Geliefert"
+### Box rows in Almanach have no click-through — ✓ shipped
 
-Or hide the status row entirely on customer views and only show on admin views.
+Each Almanach row in `dashboard.blade.php` is wrapped in `<a href="{{ route('app.boxes.show', $box) }}">` with chapter-produce focus ring.
 
-### Box rows in Almanach have no click-through
+### Currency formatting still inconsistent — ✓ shipped
 
-**Symptom:** "Woche vom 06. Mai 2026 — Status: BEARBEITBAR — Geschätzter Wert: EUR 24,20" is plain text. Customers can't click to see what's in the box.
+PR #51 swept every currency render site onto `App\Support\Money::format` + the `@money` / `@eur` / `@eurCents` Blade directives, including the Almanach.
 
-**Fix:** Wrap the row in a `<a href="{{ route('app.boxes.show', $box) }}">` so the customer can preview contents.
+### Admin Lieferungen sort order arbitrary — ✓ shipped
 
-### Currency formatting still inconsistent
+`AdminDeliveryController::index` orders by `('scheduled_for_date')->orderBy('id')` (verified 2026-05-03).
 
-**Symptom:** Almanach renders "EUR 24.20" (period decimal). Other places use "24,20 €". The Almanach's `Estimated value: EUR :amount` translation key uses `number_format($v, 2)` which defaults to a period.
+### Box-Setup target/max labels need explanation — ✓ shipped
 
-**Fix:** Same as the admin-side currency follow-up — adopt a single helper (`Money::formatEur()` or `@eur` Blade directive) and use it everywhere.
-
-### Admin Lieferungen sort order arbitrary
-
-**Symptom:** Rows in the deliveries table appear in order 2, 1, 3, 4 — neither chronological nor ID-based.
-
-**Fix:** `AdminDeliveryController::index` should `orderBy('scheduled_for_date', 'asc')` so admins see deliveries in upcoming-first order.
-
-### Box-Setup target/max labels need explanation
-
-**Symptom:** "Ziel: 24,50 € / Max: 35,00 €" — admins seeing this for the first time wonder why the target is below the customer's price. Math is correct (target = price × (1 − margin_rate)) but unexplained.
-
-**Fix:** Either change labels to `Produktwert (Soll): 24,50 € · Kundenpreis: 35,00 €`, or add a `?` icon with a tooltip explaining the 30% margin.
+`admin.box_setup.target_max_explanation` lang key exists ("Ziel = Kundenpreis × (1 − Planungs-Marge)…") and is rendered as a `title` tooltip on the target/max labels in `boxes/setup.blade.php` and `boxes/show.blade.php`.
 
 ## UX polish
 
-### Lieferzeitplan formal-pronoun bleed
+### Lieferzeitplan formal-pronoun bleed — ✓ shipped
 
-`Wenn Ihr Abo aktiv ist, erscheinen Ihre Lieferwochen hier. Sie können dennoch Standardwerte für den nächsten Zyklus festlegen.` — should be informal. Belongs in the global formal→informal pass.
+The string is now informal: *"Wenn dein Abo aktiv ist, erscheinen deine Lieferwochen hier. Du kannst dennoch Standardwerte für den nächsten Zyklus festlegen."*
 
-### Producer index `Bearbeiten / Löschen` action column
+### Producer index `Bearbeiten / Löschen` action column — ✓ shipped
 
-Inline text-link styling. The customer-facing redesign adopted filled `btn-danger` for destructive actions. Keep the inline version for table density, but apply the new red filled style for emphasis.
+Delete uses `btn-danger-sm`, Edit uses brand-ink with underline-on-hover (small-polish-batch 2026-05-03).
 
-### Categories dropdown sort
+### Categories dropdown sort — ✓ shipped
 
-Order is whatever `Product::categories()` returns. Sort alphabetically (using the localized label, not the enum value) for find-ability.
+`ProductCategory::casesSortedByLabel()` + `valuesSortedByLabel()` exist and are used by `AdminProductController` for both filter + form dropdowns. Sort respects locale via `Collator`.
 
 ## Not yet walked
 

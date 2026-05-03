@@ -83,7 +83,7 @@ Most of this phase is **done** on [`feature/phase-4-customer-flexibility`](https
 - ERD-339 — Missing transactional templates
 - ERD-340 — Email deliverability (SPF/DKIM/DMARC + provider migration)
 - ERD-341 — `docs/transactional-emails.md` matrix
-- ERD-350 — Per-user email history view in admin (audit every Mailable, surface on user detail page)
+- ERD-350 — Per-user email history view in admin (audit every Mailable, surface on user detail page) — **Done**
 
 ## Phase 8 — Polish + tests
 
@@ -91,15 +91,11 @@ Most of this phase is **done** on [`feature/phase-4-customer-flexibility`](https
 - ERD-343 — Accessibility baseline
 - ERD-344 — Performance audit on 12-week planner
 
-## Recommended shipping order
+## Status (2026-05-03)
 
-Phase 1 data backbone is already in. Next highest-leverage tickets:
+**All 50 redesign-plan tickets are Done.** ERD-350 (per-user email history) was the last Backlog row; shipped via the LogSentMail listener that writes `mail.sent` AuditEvent rows surfaced on the per-user admin page.
 
-1. **ERD-336** — Trial → sub defer (pure logic fix, small blast radius)
-2. **ERD-316** — SumUp widget loading state
-3. **ERD-313** + **ERD-347** — Extract `WeeklyDistributionService` with allergy/diet filtering (unlocks much of Phase 2 and fixes the composition correctness gap)
-
-Then Phase 5 admin overrides and Phase 7 email are largely parallelizable.
+Open follow-up work now lives in the post-redesign docs (`walkthrough-2-design-alignment.md`, `customer-ux-walkthrough-followups.md`, `admin-ux-walkthrough-followups.md`, `data-flow-walkthrough-followups.md`) — none of those rows live in this CSV.
 
 ## Marking tickets done
 

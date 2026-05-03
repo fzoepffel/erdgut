@@ -552,8 +552,8 @@ Ordered by combined impact + correctness urgency. Each row maps to one PR-ish un
 | 12 | **Auth-state-aware wizard header** | W2-07 | ✓ shipped via PR #48 — wizard variant of `<x-customer-header>` only renders the logout link when `@auth`, never an "Anmelden" link. |
 | 13 | **Orphan-user cleanup** | W2-27 | ✓ shipped (PR #54 → `users:cleanup-orphans` Artisan command with --older-than-days + --dry-run; daily cron suggested in the README) |
 | 14 | **Final review / payment-page summary placement** | W2-28 | ✓ shipped (PR #49 → payment-step uses `<x-onboarding.summary>` as a review card) |
-| 15 | **Admin terminology + label polish** | W2-32, W2-35 | open |
-| 16 | **Dev-env: real CSP fix for Vite + retire `npm run build` workaround** | W2-DEV-02 | open |
+| 15 | **Admin terminology + label polish** | W2-32, W2-35 | ✓ shipped — `admin.box_setup.size_medium` "Standard" → "Mittel/Medium/Moyenne", compact-grid date "04.05. 2026" → "04.05.2026", S/M/L tooltips on the column headers (small-polish-batch on 2026-05-03). |
+| 16 | **Dev-env: real CSP fix for Vite + retire `npm run build` workaround** | W2-DEV-02 | open — workaround in use; not blocking. |
 
 **Bonus shipped, not on the original list:**
 - W2-DEV-01 (PHP 8.5 deprecation notices in HTML) — addressed via dev-only suppression (PR #28)
@@ -567,17 +567,17 @@ Ordered by combined impact + correctness urgency. Each row maps to one PR-ish un
 PRs 1–3 are the correctness/operational batch (pricing + add-on integrity + composition pipeline). 4–5 are the design + flow rebuild. 6–9 are wizard/onboarding cleanup. 10+ tail-end + dev-env.
 
 **Next batch candidates (post-W2-stack-merge, 2026-04-29):**
-- **#8** Wizard step trim + step indicator polish — collapse 6 segments to 4 to match the homepage promise. ~1h.
-- **#11** Schedule "Keine Präferenz" trap — drop the placeholder, default-select first valid weekday + slot. ~30min.
-- **#15** Admin terminology polish — "Standard" (admin) vs "Mittel" (customer) for the medium box. ~15min sweep.
-- **#7** Drop MODELL step from subscription flow. ~1h (route + Blade adjustments + step counter).
-- **#10** Verify-email continuity — reuse the brand-new-subscriber hero on the verify-email page. ~30min.
+- ~~**#8** Wizard step trim + step indicator polish~~ ✓ shipped (PR #54 — 4 visible segments).
+- ~~**#11** Schedule "Keine Präferenz" trap~~ ✓ shipped (PR #54 — controller pre-selects first valid).
+- ~~**#15** Admin terminology polish — "Standard" → "Mittel"~~ ✓ shipped (small-polish-batch 2026-05-03).
+- ~~**#7** Drop MODELL step from subscription flow~~ ✓ shipped (PR #54).
+- ~~**#10** Verify-email continuity~~ ✓ shipped (PR #46 + #48 + #49).
 
-Smaller polish from the followup docs (independent of W2 priorities):
-- Schedule-step "PLANEN" → "ZEITPLAN" / "PLAN" label tweak. ~5min.
-- Skip-card week range "4. Mai" → "4.–10. Mai". ~10min.
-- Übersicht trial-pipeline empty-state copy ("0" → "Keine offenen Bestellungen"). ~10min.
-- Wochen-Katalog empty-state confusion (3 empty rows + "noch keine Produkte" message). ~15min.
+Smaller polish from the followup docs:
+- ~~Schedule-step "PLANEN" → "ZEITPLAN"~~ ✓ already correct (`lang/de.json:Schedule = Zeitplan`; uppercase via Tailwind).
+- ~~Skip-card week range "4. Mai" → "4.–10. Mai"~~ ✓ already implemented (`subscriptions/show.blade.php`).
+- ~~Übersicht trial-pipeline empty-state~~ ✓ already implemented (`admin.trials.pipeline_*_empty` keys).
+- ~~Wochen-Katalog empty-state confusion~~ ✓ shipped (PR #53 — banner above the table).
 
 **Open questions resolved (2026-04-28):**
 - ~~Step 7 — reordering wizard~~ → **decision: keep the current step order**. Konto/Adresse/Vorlieben/Modell/Zeitplan/Zahlung stays as-is. The "trim to four steps" part of W2-03 still stands; the *order* doesn't change.

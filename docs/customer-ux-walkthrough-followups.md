@@ -76,9 +76,9 @@ W2-16 collapsed first-vs-recurring entirely: every charge is now `BoxPriceCalcul
 
 `resources/views/subscriptions/show.blade.php:246-248` renders the range as `4.–10. Mai` (same-month) / `27. Apr–3. Mai` (cross-month). Doc snapshot was outdated.
 
-### Admin button styling consistency (~30 min)
+### Admin button styling consistency — ✓ shipped
 
-`btn-danger` is now filled red across the app (admin delete, profile delete, cancel sub). Verify nothing in admin looks wrong with the new style — visually scan `admin/producers/index`, `admin/products/index`, `profile/partials/delete-user-form` after the merge.
+Producer index Delete button migrated to `btn-danger-sm`, Edit link migrated to brand-ink underline-on-hover (small-polish-batch 2026-05-03). Other admin destructive actions verified as already on the brand button system.
 
 ## Not yet walked
 
