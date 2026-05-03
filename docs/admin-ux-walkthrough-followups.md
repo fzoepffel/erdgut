@@ -52,7 +52,7 @@ A standalone `/app/admin/audit-events` page exists with filters for entity-type 
 ### Produzenten / Produkte / Nutzer (catalog tables)
 
 - ~~Empty states are very plain~~ ✓ shipped — Producers + Products already had dashed-card empty states with "Add producer" / "Add product" CTAs. Subscriptions / Deliveries / Payments empty states upgraded to the same dashed-card pattern + explanatory hint ("appears once weekly billing runs / boxes are saved / customers complete signup"). Users empty state already had a hint pointing at public signup (dev-and-admin-polish 2026-05-03).
-- **No breadcrumbs** anywhere in admin. Sidebar gives location but breadcrumbs help when drilling 3+ levels deep (Produkt > Wochen-Katalog > Bestand).
+- ~~No breadcrumbs anywhere in admin~~ ✓ shipped — `<x-admin.breadcrumbs>` component renders an optional `breadcrumbs` slot in `layouts/admin.blade.php` between the top bar and the page header. Wired into the 6 deep pages: producer-edit, product-edit, user-show, boxes/setup/show, boxes/week, boxes/show. Pages with 1-2 levels of depth deliberately don't carry breadcrumbs (sidebar already shows location). aria-current="page" + per-link focus ring for keyboard access (admin-polish-three 2026-05-03).
 
 ### Wochen-Katalog (`/app/admin/products/weekly`)
 

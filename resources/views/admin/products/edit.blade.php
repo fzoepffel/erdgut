@@ -1,4 +1,11 @@
 <x-admin-layout>
+    <x-slot name="breadcrumbs">
+        <x-admin.breadcrumbs :items="[
+            ['label' => __('admin.shell.overview'), 'href' => route('app.admin.dashboard')],
+            ['label' => __('Products'), 'href' => route('app.admin.products.index')],
+            ['label' => $product->name],
+        ]" />
+    </x-slot>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
             {{ __('Edit product') }}: {{ $product->name }}

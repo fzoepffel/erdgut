@@ -69,6 +69,14 @@
                         </div>
                     </header>
 
+                    @isset($breadcrumbs)
+                        <div class="border-b border-gray-200 bg-white">
+                            <div class="mx-auto max-w-7xl px-4 py-2.5 sm:px-6 lg:px-8">
+                                {{ $breadcrumbs }}
+                            </div>
+                        </div>
+                    @endisset
+
                     @isset($header)
                         <header class="border-b border-gray-200 bg-white shadow-sm">
                             <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
