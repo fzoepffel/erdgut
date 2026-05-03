@@ -2069,5 +2069,10 @@
     "spargel.farm_facts_season_value": "Mitte April bis Johannistag (24. Juni).",
     "spargel.farm_facts_outro": "Die ganze Geschichte zu Max und seinem Anbau steht weiter unten.",
     "spargel.farm_facts_paragraph": "Max Scharkowski baut Spargel auf 6 Hektar in Kalkwitz an — rund 100 km südlich von Berlin, im Spreewald. Sein Spargel wächst ohne Plastik- oder Aluminiumfolie und wird am Erntetag oder am Tag danach geliefert.",
-    "spargel.farm_facts_photo_alt": "Max Scharkowski mit frisch gestochenem Spargel auf seinem Hof in Kalkwitz."
+    "spargel.farm_facts_photo_alt": "Max Scharkowski mit frisch gestochenem Spargel auf seinem Hof in Kalkwitz.",
+    "spargel.farm_facts_bullet_farmer": "Bauer: Max Scharkowski",
+    "spargel.farm_facts_bullet_location": "Spreewald, ~100 km südlich von Berlin",
+    "spargel.farm_facts_bullet_field": "6 Hektar, von Hand gestochen",
+    "spargel.farm_facts_bullet_method": "Ohne Plastik- oder Aluminiumfolie",
+    "spargel.farm_facts_bullet_freshness": "Am Erntetag oder am Tag danach geliefert"
 }

@@ -42,7 +42,38 @@
         aria-labelledby="spargel-farm-facts-heading"
         data-testid="spargel-farm-facts"
     >
-        <div class="grid gap-0 sm:grid-cols-[minmax(0,260px)_1fr] sm:items-stretch">
+        <div class="grid gap-0 sm:grid-cols-[1fr_minmax(0,260px)] sm:items-stretch">
+            <div class="p-6 sm:p-8">
+                <p class="eyebrow text-chapter-producers">{{ __('spargel.farm_facts_eyebrow') }}</p>
+                <h2 id="spargel-farm-facts-heading" class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
+                    {{ __('spargel.farm_facts_heading') }}
+                </h2>
+                <ul class="mt-5 space-y-2 text-base text-brand-ink/85">
+                    <li class="flex gap-3">
+                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-producers/70"></span>
+                        <span>{{ __('spargel.farm_facts_bullet_farmer') }}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-producers/70"></span>
+                        <span>{{ __('spargel.farm_facts_bullet_location') }}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-producers/70"></span>
+                        <span>{{ __('spargel.farm_facts_bullet_field') }}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-producers/70"></span>
+                        <span>{{ __('spargel.farm_facts_bullet_method') }}</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-producers/70"></span>
+                        <span>{{ __('spargel.farm_facts_bullet_freshness') }}</span>
+                    </li>
+                </ul>
+                <p class="mt-5 font-editorial text-sm italic text-brand-ink/65">
+                    {{ __('spargel.farm_facts_outro') }}
+                </p>
+            </div>
             <div class="overflow-hidden">
                 <img
                     src="{{ asset('images/spargel/farmer-max.jpg') }}"
@@ -50,18 +81,6 @@
                     class="h-56 w-full object-cover sm:h-full"
                     loading="lazy"
                 />
-            </div>
-            <div class="p-6 sm:p-8">
-                <p class="eyebrow text-chapter-producers">{{ __('spargel.farm_facts_eyebrow') }}</p>
-                <h2 id="spargel-farm-facts-heading" class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
-                    {{ __('spargel.farm_facts_heading') }}
-                </h2>
-                <p class="mt-4 text-base leading-relaxed text-brand-ink/85">
-                    {{ __('spargel.farm_facts_paragraph') }}
-                </p>
-                <p class="mt-4 font-editorial text-sm italic text-brand-ink/65">
-                    {{ __('spargel.farm_facts_outro') }}
-                </p>
             </div>
         </div>
     </section>

@@ -2069,5 +2069,10 @@
     "spargel.farm_facts_season_value": "De mi-avril à la Saint-Jean (24 juin).",
     "spargel.farm_facts_outro": "L’histoire complète de Max et de ses champs se trouve plus bas.",
     "spargel.farm_facts_paragraph": "Max Scharkowski cultive l’asperge sur six hectares à Kalkwitz — à environ 100 km au sud de Berlin, dans la Spreewald. Il travaille sans film plastique ni aluminium, et les pointes te parviennent le jour de la récolte ou le lendemain.",
-    "spargel.farm_facts_photo_alt": "Max Scharkowski avec des asperges fraîchement coupées dans sa ferme à Kalkwitz."
+    "spargel.farm_facts_photo_alt": "Max Scharkowski avec des asperges fraîchement coupées dans sa ferme à Kalkwitz.",
+    "spargel.farm_facts_bullet_farmer": "Producteur : Max Scharkowski",
+    "spargel.farm_facts_bullet_location": "Spreewald, à ~100 km au sud de Berlin",
+    "spargel.farm_facts_bullet_field": "6 hectares, coupé à la main",
+    "spargel.farm_facts_bullet_method": "Sans film plastique ni aluminium",
+    "spargel.farm_facts_bullet_freshness": "Livré le jour de la récolte ou le lendemain"
 }
