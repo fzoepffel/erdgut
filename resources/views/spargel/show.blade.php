@@ -19,11 +19,8 @@
         ]);
     @endphp
 
-    {{-- Hero block: editorial heading on the brand-cream page bg.
-         Hero video was removed — the source clip didn't render at the
-         quality bar we want for the brand. Re-introduce later when
-         we have a properly-shot harvest video. --}}
-    <header class="mb-10 sm:mb-14">
+    {{-- Hero block: editorial heading on the brand-cream page bg. --}}
+    <header class="mb-8 sm:mb-10">
         <p class="eyebrow text-chapter-produce">{{ __('spargel.eyebrow_trial_shop') }}</p>
         <h1 class="mt-3 max-w-2xl font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
             {{ __('spargel.heading') }}
@@ -33,46 +30,69 @@
         </p>
     </header>
 
-    {{-- Short producer intro, surfaced before the order form so the
-         customer knows the name, the place and the how before deciding
-         on quantity. The full editorial story stays at the bottom of
-         the page. --}}
+    {{-- Trust strip: three small inline reassurances directly under the hero.
+         Restraint over chapter-colour: a single produce-green tone for the
+         icons keeps the strip feeling like one calm row, not a paint-chip
+         catalogue. --}}
+    <ul class="mb-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-brand-ink/85 sm:mb-12" data-testid="spargel-trust-strip">
+        @foreach (['bio', 'fresh', 'farm'] as $badge)
+            <li class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-chapter-produce" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>{{ __('spargel.trust_'.$badge) }}</span>
+            </li>
+        @endforeach
+    </ul>
+
+    {{-- Producer intro, surfaced before the order form so the customer
+         knows who grew it and how before deciding on quantity. The full
+         editorial story stays at the bottom; we link there from here so
+         the customer can dive deeper without scrolling blindly. --}}
     <section
-        class="mb-10 overflow-hidden border border-chapter-producers/30 bg-chapter-producers/[0.06] sm:mb-14"
+        class="mb-10 overflow-hidden border border-brand-ink/15 bg-brand-paper sm:mb-14"
         aria-labelledby="spargel-farm-facts-heading"
         data-testid="spargel-farm-facts"
     >
         <div class="grid gap-0 sm:grid-cols-[1fr_minmax(0,260px)] sm:items-stretch">
             <div class="p-6 sm:p-8">
-                <p class="eyebrow text-chapter-producers">{{ __('spargel.farm_facts_eyebrow') }}</p>
+                <p class="eyebrow text-chapter-produce">{{ __('spargel.farm_facts_eyebrow') }}</p>
                 <h2 id="spargel-farm-facts-heading" class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
                     {{ __('spargel.farm_facts_heading') }}
                 </h2>
-                <ul class="mt-5 space-y-2 text-base text-brand-ink/85">
+                <p class="mt-3 text-sm leading-relaxed text-brand-ink/80">
+                    {{ __('spargel.farm_facts_intro') }}
+                </p>
+                <ul class="mt-5 space-y-2 text-sm text-brand-ink/85">
                     <li class="flex gap-3">
-                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-producers/70"></span>
+                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-produce/70"></span>
                         <span>{{ __('spargel.farm_facts_bullet_farmer') }}</span>
                     </li>
                     <li class="flex gap-3">
-                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-producers/70"></span>
+                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-produce/70"></span>
                         <span>{{ __('spargel.farm_facts_bullet_location') }}</span>
                     </li>
                     <li class="flex gap-3">
-                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-producers/70"></span>
+                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-produce/70"></span>
                         <span>{{ __('spargel.farm_facts_bullet_field') }}</span>
                     </li>
                     <li class="flex gap-3">
-                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-producers/70"></span>
+                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-produce/70"></span>
                         <span>{{ __('spargel.farm_facts_bullet_method') }}</span>
                     </li>
                     <li class="flex gap-3">
-                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-producers/70"></span>
+                        <span aria-hidden="true" class="mt-2 h-1 w-3 shrink-0 bg-chapter-produce/70"></span>
                         <span>{{ __('spargel.farm_facts_bullet_freshness') }}</span>
                     </li>
                 </ul>
-                <p class="mt-5 font-editorial text-sm italic text-brand-ink/65">
-                    {{ __('spargel.farm_facts_outro') }}
-                </p>
+                <a
+                    href="#spargel-story"
+                    class="mt-5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-chapter-produce underline-offset-4 hover:underline"
+                    data-testid="spargel-farm-facts-jump"
+                >
+                    {{ __('spargel.farm_facts_jump_to_story') }}
+                    <span aria-hidden="true">↓</span>
+                </a>
             </div>
             <div class="overflow-hidden">
                 <img
@@ -85,14 +105,11 @@
         </div>
     </section>
 
-    {{-- Delivery date banner: tells the customer up-front when the order
-         will arrive (or be ready for pickup). Uses chapter-bread soft —
-         warm earth tone that pairs with the produce-green cards below.
-         Lives outside the form's x-data scope, so it has its own tiny
-         scope that mirrors the green/white quantities and recomputes
-         the banner copy as they change. --}}
+    {{-- Delivery date banner. Neutral paper background — this is
+         informational, not a decision card; chapter colour would
+         compete with the form below. --}}
     <div
-        class="border border-chapter-bread/30 bg-chapter-bread/[0.08] p-5 text-sm leading-relaxed text-brand-ink"
+        class="border border-brand-ink/15 bg-brand-paper p-5 text-sm leading-relaxed text-brand-ink"
         x-data="{
             green: parseInt({{ json_encode((string) old('quantity_green_grams', '0')) }}, 10) || 0,
             white: parseInt({{ json_encode((string) old('quantity_white_grams', '500')) }}, 10) || 0,
@@ -118,7 +135,7 @@
             });
         "
     >
-        <p class="eyebrow text-chapter-bread">{{ __('spargel.delivery_window_eyebrow') }}</p>
+        <p class="eyebrow text-chapter-produce">{{ __('spargel.delivery_window_eyebrow') }}</p>
         <p class="mt-1 font-display text-base text-brand-ink sm:text-lg" x-text="windowMain">
             {{ $greenWindowMain }}
         </p>
@@ -167,31 +184,23 @@
             $inputClass = 'mt-2 block w-full border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-chapter-produce focus:outline-none focus:ring-0';
         @endphp
 
-        {{-- Sorte + Menge: each variety gets its own card. Customer can
-             pick green, white, or both. The card lights up to its
-             chapter colour as soon as its quantity > 0. --}}
+        {{-- Sorte + Menge: each variety gets its own card. Single accent
+             colour (chapter-produce) for the active state — the image
+             at the top differentiates white vs green, the active border
+             tells you what's in the cart. No full-colour-block flooding
+             so the page stays calm as later sections also light up. --}}
         @php
-            // Tailwind JIT safelist for the dynamically-built classes
-            // below. Listing them as literals here keeps them in the
-            // compiled stylesheet:
-            //
-            // safelist: border-chapter-produce bg-chapter-produce
-            //           border-chapter-produce/30 border-chapter-produce/60
-            //           text-chapter-produce
-            //           border-chapter-eggdairy bg-chapter-eggdairy
-            //           border-chapter-eggdairy/30 border-chapter-eggdairy/60
-            //           text-chapter-eggdairy
             // White first — Max has more white available right now, so we
             // present it as the headline variety. Green follows.
             $varieties = [
-                ['key' => 'white', 'image' => 'spargel-white.jpg', 'chapter' => 'eggdairy', 'index' => '01', 'state' => 'white'],
-                ['key' => 'green', 'image' => 'spargel-green.jpg', 'chapter' => 'produce', 'index' => '02', 'state' => 'green'],
+                ['key' => 'white', 'image' => 'spargel-white.jpg', 'index' => '01', 'state' => 'white'],
+                ['key' => 'green', 'image' => 'spargel-green.jpg', 'index' => '02', 'state' => 'green'],
             ];
             $oldGreen = (int) old('quantity_green_grams', 0);
             $oldWhite = (int) old('quantity_white_grams', 500);
         @endphp
         <fieldset class="space-y-4">
-            <legend class="eyebrow text-chapter-eggdairy">{{ __('spargel.section_product') }}</legend>
+            <legend class="eyebrow text-chapter-produce">{{ __('spargel.section_product') }}</legend>
             <p class="text-sm text-brand-ink/70">{{ __('spargel.section_product_hint') }}</p>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -202,10 +211,10 @@
                         $current = $v['key'] === 'green' ? $oldGreen : $oldWhite;
                     @endphp
                     <div
-                        class="group flex flex-col overflow-hidden border transition"
+                        class="group relative flex flex-col overflow-hidden border bg-white transition"
                         :class="{{ $stateVar }} > 0
-                            ? @js('border-chapter-'.$v['chapter'].' bg-chapter-'.$v['chapter'].' text-brand-cream')
-                            : @js('border-chapter-'.$v['chapter'].'/30 bg-white text-brand-ink')"
+                            ? 'border-chapter-produce ring-1 ring-chapter-produce'
+                            : 'border-brand-ink/15 hover:border-brand-ink/40'"
                     >
                         <div class="aspect-[5/3] w-full overflow-hidden">
                             <img
@@ -217,36 +226,27 @@
                             />
                         </div>
                         <div class="flex flex-col gap-2 p-5">
-                            <p
-                                class="eyebrow"
-                                :class="{{ $stateVar }} > 0 ? 'text-brand-cream/80' : @js('text-chapter-'.$v['chapter'])"
-                            >
-                                {{ $v['index'] }} &nbsp;·&nbsp; {{ __('spargel.type_'.$v['key']) }}
-                            </p>
-                            <p class="font-display text-2xl font-semibold leading-tight">
+                            <div class="flex items-baseline justify-between gap-2">
+                                <p class="eyebrow text-brand-ink/55">{{ __('spargel.type_'.$v['key']) }}</p>
+                                <span aria-hidden="true" class="font-display text-sm font-semibold text-brand-ink/45">{{ $v['index'] }}</span>
+                            </div>
+                            <p class="font-display text-2xl font-semibold leading-tight text-brand-ink">
                                 {{ __('spargel.type_'.$v['key']) }}
                             </p>
-                            <p
-                                class="font-editorial text-sm italic leading-relaxed"
-                                :class="{{ $stateVar }} > 0 ? 'text-brand-cream/85' : 'text-brand-ink/70'"
-                            >
+                            <p class="font-editorial text-sm italic leading-relaxed text-brand-ink/70">
                                 {{ __('spargel.type_'.$v['key'].'_hint') }}
                             </p>
 
                             <div class="mt-4 flex items-center gap-2">
                                 <label
                                     for="spargel-{{ $v['key'] }}-grams"
-                                    class="text-xs font-semibold uppercase tracking-eyebrow"
-                                    :class="{{ $stateVar }} > 0 ? 'text-brand-cream/80' : 'text-brand-ink/65'"
+                                    class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink/65"
                                 >{{ __('spargel.quantity_label') }}</label>
                                 <select
                                     id="spargel-{{ $v['key'] }}-grams"
                                     name="{{ $field }}"
                                     x-model.number="{{ $stateVar }}"
-                                    class="border bg-white py-2 pl-3 pr-8 text-sm text-brand-ink focus:outline-none focus:ring-0"
-                                    :class="{{ $stateVar }} > 0
-                                        ? @js('border-brand-cream/40 focus:border-brand-cream')
-                                        : @js('border-brand-ink/30 focus:border-chapter-'.$v['chapter'])"
+                                    class="border border-brand-ink/30 bg-white py-2 pl-3 pr-8 text-sm text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
                                     data-testid="spargel-{{ $v['key'] }}-grams"
                                 >
                                     @foreach ($quantityOptions as $g)
@@ -289,16 +289,18 @@
             <x-input-error :messages="$errors->get('quantity_white_grams')" class="mt-2" />
         </fieldset>
 
-        {{-- Fulfillment — chapter-bread for pickup (warm earth tone, "by
-             hand"), chapter-fish for delivery (blue, "on the move"). --}}
+        {{-- Fulfillment, pickup-location, payment all use the same single-
+             accent pattern as the variety cards above: white card with
+             a chapter-produce ring when selected, neutral border otherwise.
+             Disabled state for delivery-when-too-light stays muted-grey. --}}
         <fieldset class="space-y-3">
-            <legend class="eyebrow text-chapter-eggdairy">{{ __('spargel.section_fulfillment') }}</legend>
+            <legend class="eyebrow text-chapter-produce">{{ __('spargel.section_fulfillment') }}</legend>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label
-                    class="flex cursor-pointer items-start gap-3 border p-5 transition"
+                    class="flex cursor-pointer items-start gap-3 border bg-white p-5 text-brand-ink transition"
                     :class="mode === 'pickup'
-                        ? 'border-chapter-bread bg-chapter-bread text-brand-cream'
-                        : 'border-chapter-bread/30 bg-white text-brand-ink hover:border-chapter-bread/60'"
+                        ? 'border-chapter-produce ring-1 ring-chapter-produce'
+                        : 'border-brand-ink/15 hover:border-brand-ink/40'"
                 >
                     <input
                         type="radio"
@@ -309,24 +311,18 @@
                         @if (old('fulfillment_mode', 'pickup') === 'pickup') checked @endif
                     >
                     <span class="flex flex-col gap-1">
-                        <span
-                            class="eyebrow"
-                            :class="mode === 'pickup' ? 'text-brand-cream/80' : 'text-chapter-bread'"
-                        >{{ __('spargel.fulfillment_pickup_eyebrow') }}</span>
+                        <span class="eyebrow text-brand-ink/55">{{ __('spargel.fulfillment_pickup_eyebrow') }}</span>
                         <span class="font-display text-lg font-semibold">{{ __('spargel.fulfillment_pickup') }}</span>
-                        <span
-                            class="text-xs leading-relaxed"
-                            :class="mode === 'pickup' ? 'text-brand-cream/85' : 'text-brand-ink/65'"
-                        >{{ __('spargel.fulfillment_pickup_hint') }}</span>
+                        <span class="text-xs leading-relaxed text-brand-ink/65">{{ __('spargel.fulfillment_pickup_hint') }}</span>
                     </span>
                 </label>
                 <label
-                    class="flex items-start gap-3 border p-5 transition"
+                    class="flex items-start gap-3 border bg-white p-5 transition"
                     :class="!deliveryAllowed
                         ? 'cursor-not-allowed border-brand-ink/15 bg-brand-ink/[0.03] text-brand-ink/45'
                         : (effectiveMode === 'delivery'
-                            ? 'cursor-pointer border-chapter-fish bg-chapter-fish text-brand-cream'
-                            : 'cursor-pointer border-chapter-fish/30 bg-white text-brand-ink hover:border-chapter-fish/60')"
+                            ? 'cursor-pointer border-chapter-produce ring-1 ring-chapter-produce text-brand-ink'
+                            : 'cursor-pointer border-brand-ink/15 text-brand-ink hover:border-brand-ink/40')"
                 >
                     <input
                         type="radio"
@@ -340,7 +336,7 @@
                     <span class="flex flex-col gap-1">
                         <span
                             class="eyebrow"
-                            :class="!deliveryAllowed ? 'text-brand-ink/45' : (effectiveMode === 'delivery' ? 'text-brand-cream/80' : 'text-chapter-fish')"
+                            :class="!deliveryAllowed ? 'text-brand-ink/45' : 'text-brand-ink/55'"
                         >{{ __('spargel.fulfillment_delivery_eyebrow') }}</span>
                         <span class="font-display text-lg font-semibold">{{ __('spargel.fulfillment_delivery') }}</span>
                         <span
@@ -348,9 +344,7 @@
                             x-text="!deliveryAllowed
                                 ? {{ json_encode(__('spargel.fulfillment_delivery_blocked', ['min' => $deliveryMinGrams])) }}
                                 : {{ json_encode(__('spargel.fulfillment_delivery_hint', ['fee' => number_format($deliveryFeeEur, 2, ',', '.')])) }}"
-                            :class="!deliveryAllowed
-                                ? 'text-brand-ink/55'
-                                : (effectiveMode === 'delivery' ? 'text-brand-cream/85' : 'text-brand-ink/65')"
+                            :class="!deliveryAllowed ? 'text-brand-ink/55' : 'text-brand-ink/65'"
                         ></span>
                     </span>
                 </label>
@@ -363,15 +357,15 @@
              appears later (confirmation page + email) so the form
              doesn't surface contact info before the customer commits. --}}
         <fieldset class="space-y-3" x-show="effectiveMode === 'pickup'" x-cloak>
-            <legend class="eyebrow text-chapter-eggdairy">{{ __('spargel.pickup_location_section') }}</legend>
+            <legend class="eyebrow text-chapter-produce">{{ __('spargel.pickup_location_section') }}</legend>
             <p class="text-sm text-brand-ink/70">{{ __('spargel.pickup_location_hint') }}</p>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 @foreach ($pickupLocations as $key => $loc)
                     <label
-                        class="flex cursor-pointer items-start gap-3 border p-5 transition"
+                        class="flex cursor-pointer items-start gap-3 border bg-white p-5 text-brand-ink transition"
                         :class="pickupLocation === @js((string) $key)
-                            ? 'border-chapter-bread bg-chapter-bread text-brand-cream'
-                            : 'border-chapter-bread/30 bg-white text-brand-ink hover:border-chapter-bread/60'"
+                            ? 'border-chapter-produce ring-1 ring-chapter-produce'
+                            : 'border-brand-ink/15 hover:border-brand-ink/40'"
                     >
                         <input
                             type="radio"
@@ -382,15 +376,9 @@
                             @if (old('pickup_location') === $key) checked @endif
                         >
                         <span class="flex flex-col gap-1">
-                            <span
-                                class="eyebrow"
-                                :class="pickupLocation === @js((string) $key) ? 'text-brand-cream/80' : 'text-chapter-bread'"
-                            >{{ __('spargel.pickup_location_eyebrow', ['index' => $loop->iteration]) }}</span>
+                            <span class="eyebrow text-brand-ink/55">{{ __('spargel.pickup_location_eyebrow', ['index' => $loop->iteration]) }}</span>
                             <span class="font-display text-base font-semibold leading-snug">{{ $loc['street'] }}</span>
-                            <span
-                                class="text-xs leading-relaxed"
-                                :class="pickupLocation === @js((string) $key) ? 'text-brand-cream/85' : 'text-brand-ink/65'"
-                            >{{ $loc['postal_code'] }} {{ $loc['city'] }}</span>
+                            <span class="text-xs leading-relaxed text-brand-ink/65">{{ $loc['postal_code'] }} {{ $loc['city'] }}</span>
                         </span>
                     </label>
                 @endforeach
@@ -401,13 +389,13 @@
         {{-- Payment method — only meaningful for pickup. We auto-flip to
              'online' when delivery is the effective mode. --}}
         <fieldset class="space-y-3" x-show="effectiveMode === 'pickup'" x-cloak>
-            <legend class="eyebrow text-chapter-eggdairy">{{ __('spargel.section_payment') }}</legend>
+            <legend class="eyebrow text-chapter-produce">{{ __('spargel.section_payment') }}</legend>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label
-                    class="flex cursor-pointer items-start gap-3 border p-5 transition"
+                    class="flex cursor-pointer items-start gap-3 border bg-white p-5 text-brand-ink transition"
                     :class="payment === 'online'
-                        ? 'border-chapter-meat bg-chapter-meat text-brand-cream'
-                        : 'border-chapter-meat/30 bg-white text-brand-ink hover:border-chapter-meat/60'"
+                        ? 'border-chapter-produce ring-1 ring-chapter-produce'
+                        : 'border-brand-ink/15 hover:border-brand-ink/40'"
                 >
                     <input
                         type="radio"
@@ -418,22 +406,16 @@
                         @if (old('payment_method', 'online') === 'online') checked @endif
                     >
                     <span class="flex flex-col gap-1">
-                        <span
-                            class="eyebrow"
-                            :class="payment === 'online' ? 'text-brand-cream/80' : 'text-chapter-meat'"
-                        >{{ __('spargel.payment_online_eyebrow') }}</span>
+                        <span class="eyebrow text-brand-ink/55">{{ __('spargel.payment_online_eyebrow') }}</span>
                         <span class="font-display text-lg font-semibold">{{ __('spargel.payment_online') }}</span>
-                        <span
-                            class="text-xs leading-relaxed"
-                            :class="payment === 'online' ? 'text-brand-cream/85' : 'text-brand-ink/65'"
-                        >{{ __('spargel.payment_online_hint') }}</span>
+                        <span class="text-xs leading-relaxed text-brand-ink/65">{{ __('spargel.payment_online_hint') }}</span>
                     </span>
                 </label>
                 <label
-                    class="flex cursor-pointer items-start gap-3 border p-5 transition"
+                    class="flex cursor-pointer items-start gap-3 border bg-white p-5 text-brand-ink transition"
                     :class="payment === 'in_person'
-                        ? 'border-chapter-meat bg-chapter-meat text-brand-cream'
-                        : 'border-chapter-meat/30 bg-white text-brand-ink hover:border-chapter-meat/60'"
+                        ? 'border-chapter-produce ring-1 ring-chapter-produce'
+                        : 'border-brand-ink/15 hover:border-brand-ink/40'"
                 >
                     <input
                         type="radio"
@@ -444,15 +426,9 @@
                         @if (old('payment_method') === 'in_person') checked @endif
                     >
                     <span class="flex flex-col gap-1">
-                        <span
-                            class="eyebrow"
-                            :class="payment === 'in_person' ? 'text-brand-cream/80' : 'text-chapter-meat'"
-                        >{{ __('spargel.payment_in_person_eyebrow') }}</span>
+                        <span class="eyebrow text-brand-ink/55">{{ __('spargel.payment_in_person_eyebrow') }}</span>
                         <span class="font-display text-lg font-semibold">{{ __('spargel.payment_in_person') }}</span>
-                        <span
-                            class="text-xs leading-relaxed"
-                            :class="payment === 'in_person' ? 'text-brand-cream/85' : 'text-brand-ink/65'"
-                        >{{ __('spargel.payment_in_person_hint') }}</span>
+                        <span class="text-xs leading-relaxed text-brand-ink/65">{{ __('spargel.payment_in_person_hint') }}</span>
                     </span>
                 </label>
             </div>
@@ -461,7 +437,7 @@
 
         {{-- Personal data --}}
         <fieldset class="space-y-4">
-            <legend class="eyebrow text-chapter-eggdairy">{{ __('spargel.section_contact') }}</legend>
+            <legend class="eyebrow text-chapter-produce">{{ __('spargel.section_contact') }}</legend>
 
             <div>
                 <x-input-label for="spargel-name" :value="__('Name')" />
@@ -514,7 +490,7 @@
 
         {{-- Delivery address — only when mode == delivery --}}
         <fieldset class="space-y-4" x-show="effectiveMode === 'delivery'" x-cloak>
-            <legend class="eyebrow text-chapter-fish">{{ __('spargel.section_address') }}</legend>
+            <legend class="eyebrow text-chapter-produce">{{ __('spargel.section_address') }}</legend>
             <div>
                 <x-input-label for="spargel-street" :value="__('spargel.delivery_street')" />
                 <input
@@ -567,7 +543,7 @@
 
         {{-- Order summary — one line per variety, then optional delivery fee. --}}
         <div class="border border-brand-ink/15 bg-brand-paper p-6 text-sm text-brand-ink/85">
-            <p class="eyebrow text-chapter-meat">{{ __('spargel.summary_heading') }}</p>
+            <p class="eyebrow text-chapter-produce">{{ __('spargel.summary_heading') }}</p>
             <dl class="mt-4 space-y-1.5">
                 <div class="flex items-center justify-between gap-3" x-show="white > 0" x-cloak>
                     <dt>
@@ -591,7 +567,7 @@
                 </div>
                 <div class="mt-3 flex items-center justify-between gap-3 border-t border-brand-ink/10 pt-3 font-semibold text-brand-ink">
                     <dt class="font-display text-base">{{ __('spargel.summary_line_total') }}</dt>
-                    <dd class="font-display text-2xl tabular-nums text-chapter-meat" x-text="money(total)"></dd>
+                    <dd class="font-display text-2xl tabular-nums text-brand-ink" x-text="money(total)"></dd>
                 </div>
             </dl>
             <p class="mt-3 text-xs text-brand-ink/60">
@@ -720,8 +696,12 @@
 
     {{-- Bottom story strip: longer editorial copy about Max in the
          Spreewald and the way Kalkwitzer asparagus is grown. The field
-         image still sits as a silent companion on the side. --}}
-    <section class="mt-16 -mx-4 overflow-hidden bg-brand-moss text-brand-cream sm:-mx-6">
+         image still sits as a silent companion on the side. The id is
+         the jump-link target from the farm-facts panel above. --}}
+    <section
+        id="spargel-story"
+        class="mt-16 scroll-mt-8 -mx-4 overflow-hidden bg-brand-moss text-brand-cream sm:-mx-6"
+    >
         <div class="mx-auto grid max-w-4xl gap-10 px-4 py-12 sm:grid-cols-[1fr_minmax(0,260px)] sm:items-start sm:px-6 sm:py-16">
             <div class="space-y-4">
                 <p class="eyebrow text-brand-cream/75">{{ __('spargel.story_eyebrow') }}</p>

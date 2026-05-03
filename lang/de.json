@@ -2077,5 +2077,10 @@
     "spargel.farm_facts_bullet_freshness": "Am Erntetag oder am Tag danach geliefert",
     "spargel.admin.action_delete": "Löschen",
     "spargel.admin.confirm_delete": "Bestellung #:id wirklich löschen? Diese Aktion lässt sich nicht rückgängig machen.",
-    "spargel.admin.flash_deleted": "Bestellung #:id gelöscht."
+    "spargel.admin.flash_deleted": "Bestellung #:id gelöscht.",
+    "spargel.trust_bio": "Bio · ohne Plastikfolie",
+    "spargel.trust_fresh": "Heute geerntet, morgen bei dir",
+    "spargel.trust_farm": "Direkt vom Hof — kein Zwischenhandel",
+    "spargel.farm_facts_intro": "Dein Spargel kommt direkt vom Spargelhof Kalkwitz im Spreewald. Max baut sowohl weißen als auch grünen Spargel an — beides ohne Plastik- oder Aluminiumfolie. Was du heute bestellst, hat er gestern oder heute gestochen.",
+    "spargel.farm_facts_jump_to_story": "Mehr zu Max und seinem Anbau"
 }
