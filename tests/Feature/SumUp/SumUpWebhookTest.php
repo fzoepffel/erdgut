@@ -112,6 +112,68 @@ class SumUpWebhookTest extends TestCase
         $this->assertSame(Carbon::today()->addWeek()->toDateString(), $subscription->next_charge_date?->toDateString());
     }
 
+    public function test_webhook_backfills_sumup_payment_id_from_checkout_transactions(): void
+    {
+        // Discovered during real-SumUp E2E walk 2026-05-04: charge → reconcile
+        // marks Payment paid but never stores transactions[0].id, so admin
+        // refund silently degrades to local-only (no sumup_payment_id ⇒ no
+        // SumUp refund API call). Webhook handler now backfills it from the
+        // checkout response so both webhook + reconcile paths get the id.
+        $subscription = Subscription::factory()->create(['plan' => SubscriptionPlan::Weekly]);
+        $payment = Payment::factory()->create([
+            'subscription_id' => $subscription->id,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_with_tx',
+            'sumup_payment_id' => null,
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')->with('checkout_with_tx')->andReturn((object) [
+            'status' => 'PAID',
+            'transactions' => [
+                (object) ['id' => 'tx-deadbeef-0001', 'status' => 'SUCCESSFUL'],
+            ],
+        ]);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_with_tx',
+        ])->assertOk();
+
+        $payment->refresh();
+        $this->assertSame(Payment::STATUS_PAID, $payment->status);
+        $this->assertSame('tx-deadbeef-0001', $payment->sumup_payment_id);
+    }
+
+    public function test_webhook_does_not_overwrite_existing_sumup_payment_id(): void
+    {
+        $subscription = Subscription::factory()->create(['plan' => SubscriptionPlan::Weekly]);
+        $payment = Payment::factory()->create([
+            'subscription_id' => $subscription->id,
+            'status' => Payment::STATUS_PENDING,
+            'sumup_checkout_id' => 'checkout_existing_tx',
+            'sumup_payment_id' => 'pre-existing-tx-id',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('getCheckout')->with('checkout_existing_tx')->andReturn((object) [
+            'status' => 'PAID',
+            'transactions' => [
+                (object) ['id' => 'different-tx-id', 'status' => 'SUCCESSFUL'],
+            ],
+        ]);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->postSignedWebhook([
+            'event_type' => 'CHECKOUT_STATUS_CHANGED',
+            'id' => 'checkout_existing_tx',
+        ])->assertOk();
+
+        $payment->refresh();
+        $this->assertSame('pre-existing-tx-id', $payment->sumup_payment_id);
+    }
+
     public function test_webhook_sets_trial_completed_at_when_first_payment_marked_paid(): void
     {
         $subscription = Subscription::factory()->withPendingTrialBilling()->create([

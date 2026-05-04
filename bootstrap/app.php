@@ -16,6 +16,8 @@ if (($_SERVER['APP_ENV'] ?? null) === 'local' || (getenv('APP_ENV') ?: null) ===
 use App\Http\Middleware\EnsureOnboardingDraft;
 use App\Http\Middleware\EnsureSubscriberHasPayment;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\RedirectIfOnboardingComplete;
+use App\Http\Middleware\RedirectToCorrectOnboardingStep;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\VerifySumUpWebhookSignature;
@@ -54,6 +56,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'subscriber.full' => EnsureSubscriberHasPayment::class,
             'sumup.webhook.verify' => VerifySumUpWebhookSignature::class,
             'onboarding.draft' => EnsureOnboardingDraft::class,
+            'onboarding.step' => RedirectToCorrectOnboardingStep::class,
+            'onboarding.complete.redirect' => RedirectIfOnboardingComplete::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
