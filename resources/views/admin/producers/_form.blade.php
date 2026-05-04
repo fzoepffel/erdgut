@@ -114,13 +114,6 @@
     </div>
 
     <div>
-        <x-input-label for="image_url" :value="__('External image URL (optional)')" />
-        <x-text-input id="image_url" name="image_url" type="url" class="mt-1 block w-full" :value="old('image_url', $producer?->image_url)" placeholder="https://..." />
-        <p class="mt-1 text-xs text-gray-500">{{ __('Used on the public producers page when no uploaded image is set.') }}</p>
-        <x-input-error class="mt-2" :messages="$errors->get('image_url')" />
-    </div>
-
-    <div>
         <label class="inline-flex items-center gap-2">
             <input type="checkbox" name="is_test" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_test', $producer?->is_test))>
             <span class="text-sm text-gray-700">{{ __('Test data') }}</span>
@@ -128,6 +121,9 @@
         <x-input-error class="mt-2" :messages="$errors->get('is_test')" />
     </div>
 
+    {{-- Uploaded file is the primary image source; the external URL below
+         is a fallback used only when nothing is uploaded. Order in the form
+         reflects the precedence so admins don't fill in both. --}}
     <div
         x-data="{
             previewUrl: null,
@@ -143,14 +139,21 @@
             },
         }"
     >
-        <x-input-label for="image" :value="__('Uploaded image')" />
+        <x-input-label for="image" :value="__('Uploaded image (primary)')" />
         <input id="image" name="image" type="file" accept="image/*" class="mt-1 block w-full text-sm text-gray-600" x-on:change="onFile($event)" />
-        <p class="mt-1 text-xs text-gray-500">{{ __('Optional. Takes precedence over external URL. Max 5 MB.') }}</p>
+        <p class="mt-1 text-xs text-gray-500">{{ __('Optional. Used on the public producers page. Max 5 MB.') }}</p>
         <div class="mt-3" x-show="previewUrl !== null" x-cloak>
             <p class="text-xs font-medium text-gray-600 mb-1">{{ __('admin.form.new_image_preview') }}</p>
             <img src="" alt="" class="max-h-40 rounded border border-gray-200 shadow-sm" x-bind:src="previewUrl" />
         </div>
         <x-input-error class="mt-2" :messages="$errors->get('image')" />
+    </div>
+
+    <div>
+        <x-input-label for="image_url" :value="__('External image URL (fallback)')" />
+        <x-text-input id="image_url" name="image_url" type="url" class="mt-1 block w-full" :value="old('image_url', $producer?->image_url)" placeholder="https://..." />
+        <p class="mt-1 text-xs text-gray-500">{{ __('Used only when no file is uploaded above.') }}</p>
+        <x-input-error class="mt-2" :messages="$errors->get('image_url')" />
     </div>
 
     @if ($isEdit && $producer->primaryImageUrl())

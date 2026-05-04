@@ -154,6 +154,7 @@
                                         <th scope="col" class="py-2 pe-4">{{ __('Price') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Shop') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Catalog') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.catalog.col_last_updated') }}</th>
                                         <th scope="col" class="py-2 pe-0 text-end">{{ __('Actions') }}</th>
                                     </tr>
                                 </thead>
@@ -194,6 +195,9 @@
                                                     <span class="text-amber-800">{{ __('Draft') }}</span>
                                                 @endif
                                             </td>
+                                            <td class="py-3 pe-4 text-xs text-gray-500 tabular-nums" title="{{ $product->updated_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') }}">
+                                                {{ $product->updated_at?->diffForHumans() ?? '—' }}
+                                            </td>
                                             <td class="py-3 pe-0 text-end space-x-2 whitespace-nowrap">
                                                 <a href="{{ route('app.admin.products.edit', $product) }}" class="text-emerald-700 hover:text-emerald-900 font-medium">{{ __('Edit') }}</a>
                                                 <x-danger-button
@@ -209,7 +213,14 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="mt-4">
+                        <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-xs text-gray-500" data-testid="admin-products-row-count">
+                                {{ __('admin.catalog.pagination_count', [
+                                    'from' => $products->firstItem() ?? 0,
+                                    'to' => $products->lastItem() ?? 0,
+                                    'total' => $products->total(),
+                                ]) }}
+                            </p>
                             {{ $products->links() }}
                         </div>
                     @endif

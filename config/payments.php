@@ -29,4 +29,18 @@ return [
     */
     'refund_api_enabled' => (bool) env('PAYMENTS_REFUND_API_ENABLED', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Recurring Charge Schedule Label
+    |--------------------------------------------------------------------------
+    |
+    | Display-only mirror of the time `subscriptions:charge` runs in
+    | `bootstrap/app.php`. The actual schedule is the source of truth; this
+    | label exists so admin views (e.g. subscriptions index) can render
+    | "next_charge_date 06:00" without hard-coding the time in markup. If the
+    | schedule changes, update both this and `bootstrap/app.php` together.
+    |
+    */
+    'recurring_charge_time_label' => env('PAYMENTS_RECURRING_CHARGE_TIME_LABEL', '06:00'),
+
 ];
