@@ -2,6 +2,14 @@
 
 Companion to `feature/admin-ux-walkthrough` PR. Items deferred during the browser walkthrough that warrant their own batch.
 
+> **Status as of 2026-05-04:** most line items shipped or invalidated. Remaining open work:
+> - **Architectural decision:** admin design language (A: adopt customer button components / B: build admin-specific ones). Defer until product call.
+> - **Per-page polish:** Wochen-Katalog `Bestehend` dropdown hint · Lieferungen sync-button colour (waits on design-language) · Zahlungsversuche filter form layout · Producer/Product required-field indicators + translation message wrap behavior.
+> - **Features (not polish):** Anstehende Abbuchungen reminder-email action · Admin user impersonation (confirmed missing).
+> - **Still unwalked surfaces:** per-week box-setup edit · admin order detail · trial-box setup · admin email-resend buttons · `mark-paid-externally` flow on payment detail.
+>
+> Each `### ` heading carries its own status marker.
+
 ## Architectural
 
 ### Admin design language: separate component set or merge with customer? (~discussion)
@@ -34,9 +42,9 @@ Three Blade directives (`@eur`, `@eurCents`, `@money`) wrap them.
 
 PR #51 swept every currency render site (customer onboarding, dashboard, payments history, marketing home, both transactional emails, admin dashboard, box budget panel, subscriptions edit/create) onto the helper. Quantity calls (kg / pcs in dashboard, weekly catalog, box detail) intentionally left as raw `number_format` — they're not currency.
 
-### Top-bar search & quick-jump (~3h)
+### ~~Top-bar search & quick-jump~~ ✓ shipped
 
-The admin sidebar covers navigation but typing "/" or `Cmd+K` to open a search palette would speed up daily use. Common targets: "user by email", "subscription by ID", "delivery by date". Shows up later in lifetime; flag now so it's not forgotten.
+`<x-admin.search-palette>` component renders a Cmd+K palette in the admin header (`resources/views/components/admin/search-palette.blade.php`). The trigger button in `layouts/admin.blade.php:42-51` opens it with the `⌘K` hint visible.
 
 ### Audit log / events viewer — ✓ shipped
 
@@ -63,7 +71,7 @@ A standalone `/app/admin/audit-events` page exists with filters for entity-type 
 
 ### Lieferungen
 
-- **Status setzen inline dropdown** still doesn't have an obvious "save" button — relies on `onchange` auto-submit (or does it?). Verify the UX is intentional and not silently failing.
+- ~~**Status setzen inline dropdown** save button~~ ✓ verified — has explicit `<button type="submit">` (not silent onchange). Doc was outdated; `resources/views/admin/operations/deliveries/index.blade.php:242`.
 - **`Lieferungen aus Boxen synchronisieren` button is amber** — different from black `Neue Lieferung` next to it. Same row, two colors. Worth normalizing once the design-language question is settled.
 
 ### Box-Setup
@@ -75,7 +83,7 @@ A standalone `/app/admin/audit-events` page exists with filters for entity-type 
 ### Zahlungsversuche
 
 - **Vertical filter form** still vertical even on desktop. Could be a horizontal grid (4 fields per row) for compactness on wide viewports. Saves ~3 viewport heights.
-- **No CSV export** of the filtered payments list. Common admin need (reconciliation, accounting, etc.). Add a `?format=csv` query param + a download button.
+- ~~**No CSV export**~~ ✓ shipped — `payments.export` route + `AdminPaymentController::export()` builds a timestamped CSV (`payments-Y-m-d-His.csv`). Filename pattern at `AdminPaymentController.php:60`.
 
 ### Anstehende Abbuchungen
 
@@ -84,22 +92,24 @@ A standalone `/app/admin/audit-events` page exists with filters for entity-type 
 ### Producer / Product detail forms
 
 - **No required-field indicators** on the create/edit forms. Same fix as customer onboarding (`required` / `optional` props on `<x-input-label>`) — but admin uses raw `<label>` tags. Either migrate admin to the same component, or apply asterisks inline.
-- **Translation panels (DE/EN/FR) take significant vertical space** — could become tabs (DE | EN | FR) instead of stacked. Smaller form, same content.
+- ~~**Translation panels stacked**~~ ✓ shipped — both `producers/_form.blade.php:25` and `products/_form.blade.php:95` are now tabbed via Alpine `x-data="{ tab: ... }"` instead of stacked. Smaller form, same content.
 - **`Übersetzungen — Alle drei Sprachen sind erforderlich.`** is good messaging but the visual treatment is a tiny grey caption right of the heading. On smaller viewports it might wrap awkwardly.
 
 ### Nutzer
 
-- **No way to promote/demote users** to/from admin. Currently you can only create new admins via the form. If a customer needs to become an admin, you have to ask them to re-register.
-- **Admin row's "Löschen" button is greyed** — good (you can't delete yourself). Should also block deleting the last admin to avoid lockout.
+- ~~**No way to promote/demote users** to/from admin~~ ✓ shipped — `AdminUserController.php:198-214` has the role-update flow with `admin` / `customer` toggling. Last-admin demotion is blocked at line 208 with `flash_cannot_demote_last_admin`.
+- ~~**Block deleting the last admin to avoid lockout**~~ ✓ shipped — `AdminUserController.php:178-180` checks `adminCount` before delete and returns `flash_cannot_delete_last_admin` when blocking.
 
 ## Not yet walked
 
-- **Producer/product create + edit forms in detail** (just glanced)
-- **Box-setup detail view** (per-week edit page; the planner overview was walked, the per-week was not)
-- **Box-setup compact grid week-link click flow**
-- **Admin payment detail** (`/app/admin/payments/{id}`) — refund flow, mark-paid-externally
-- **Admin order detail** (`/app/admin/orders/{id}`) — schedule/compose/mark-delivered actions
-- **Trial box setup page** (`/app/admin/operations/trial_boxes/setup`)
-- **Billing coverage page** (`/app/admin/billing/coverage`)
-- **Admin user impersonation** (does it exist? Useful for support)
-- **Admin email-resend buttons** (we added these in Batch D — verify they all render correctly and trigger the right Mailable)
+Status sweep 2026-05-04:
+
+- **Producer/product create + edit forms in detail** (just glanced) — partially covered: translation tabs verified ✓, required-field indicators still open
+- **Box-setup detail view** (per-week edit page; the planner overview was walked, the per-week was not) — still unwalked
+- ~~**Box-setup compact grid week-link click flow**~~ ✓ walked + breadcrumbs added (admin-polish-three 2026-05-03)
+- ~~**Admin payment detail** (`/app/admin/payments/{id}`) — refund flow, mark-paid-externally~~ ✓ refund flow walked end-to-end during real-SumUp E2E (2026-05-04); mark-paid-externally still unwalked
+- **Admin order detail** (`/app/admin/orders/{id}`) — schedule/compose/mark-delivered actions — still unwalked
+- **Trial box setup page** (`/app/admin/operations/trial_boxes/setup`) — still unwalked
+- ~~**Billing coverage page** (`/app/admin/billing/coverage`)~~ ✓ partially used during real-SumUp E2E (the manual charge endpoint POST /admin/billing/charge — works correctly via `SubscriptionRecurringChargeService::initiate`); deliberate UI walkthrough still valuable
+- **Admin user impersonation** ❌ confirmed missing — no `impersonate` / `loginAs` references anywhere in `app/`. Useful for support; would need a new feature.
+- **Admin email-resend buttons** (we added these in Batch D — verify they all render correctly and trigger the right Mailable) — still unwalked
