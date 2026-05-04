@@ -16,19 +16,19 @@ The remaining lookup-key cleanup (9 email-template `__()` calls that used formal
 
 ## Architectural
 
-### 🐛 `.env.example` ships with `APP_URL=http://localhost` (no port) — breaks SumUp post-checkout redirect (~10min fix)
+### ~~🐛 `.env.example` ships with `APP_URL=http://localhost` (no port)~~ ✓ shipped (`fix/sumup-e2e-followups` 2026-05-04)
 
 **Reproduced 2026-05-04 during real-SumUp E2E:** with `APP_URL=http://localhost` and `php artisan serve` on `:8000`, `route('app.payments.setup.complete', absolute: true)` generated `http://localhost/app/payments/setup/complete` — port 80, dead. SumUp redirected the customer's browser there after the widget; browser hit "Connection refused"; `PaymentSetupController.complete()` never ran; the SumUp checkout was PAID server-side but the local DB had token_len=0 + subscription stuck in `pending_payment`. Recovered manually by replaying `complete()` via tinker.
 
 **Fix shape:** change `.env.example` line 6 to `APP_URL=http://localhost:8000` (matches `php artisan serve` default), OR add a comment `# Must include port if using artisan serve — e.g. http://localhost:8000`.
 
-### 🐛 `sumup:reconcile-pending-payments` doesn't backfill `sumup_payment_id` on the Payment row (~30min fix)
+### ~~🐛 `sumup:reconcile-pending-payments` doesn't backfill `sumup_payment_id`~~ ✓ shipped (`fix/sumup-e2e-followups` 2026-05-04 — backfill in `SumUpWebhookHandler::handleCheckoutStatusChanged`, two regression tests)
 
 **Reproduced 2026-05-04:** after a successful charge → reconcile cycle, Payment.status correctly flipped to `paid` but `sumup_payment_id` stayed empty. The transaction ID is available in the checkout's `transactions[0].id` field (verified via `getCheckout`). The webhook handler probably backfills it; reconcile should too, otherwise admin refund (which needs `sumup_payment_id` to call SumUp's refund API) silently degrades to local-only when the webhook didn't fire.
 
 **Fix shape:** in `ReconcilePendingSumUpPayments::handle()` (or wherever the paid-status flip happens), also extract `data_get($checkout, 'transactions.0.id')` and persist to `Payment.sumup_payment_id`. One-line change + a feature test.
 
-### 🔒 Onboarding step-gating: customer can jump straight to /onboard/subscription/payment by URL (~2h fix)
+### ~~🔒 Onboarding step-gating~~ ✓ shipped (`fix/sumup-e2e-followups` 2026-05-04 — `RedirectToCorrectOnboardingStep` middleware applied to every step show-route, 6 forward/back/wrong-path tests)
 
 **Reproduced 2026-05-04:** an authenticated customer can hit `http://.../onboard/subscription/payment` directly and it renders the SumUp checkout without checking that the prior wizard steps (account / address / preferences / commitment / schedule) are complete. The `OnboardingDraftManager::nextStep()` helper exists for exactly this — each step controller's `show()` should call it and redirect to the actual current step when the URL doesn't match.
 
@@ -40,7 +40,7 @@ The remaining lookup-key cleanup (9 email-template `__()` calls that used formal
 
 **How to apply:** When picking this up, audit all 7 onboarding step controllers (`Onboarding/AccountStepController`, `AddressStepController`, `PreferencesStepController`, `CommitmentStepController`, `Subscription/ScheduleStepController`, `Subscription/PaymentStepController`, `Trial/DeliveryStepController`, `Trial/PaymentStepController`) for the missing gate.
 
-### 🔒 Email-verification gate doesn't block onboarding-route access (~1h fix or decision)
+### ~~🔒 Email-verification gate doesn't block onboarding-route access~~ ✓ shipped (`fix/sumup-e2e-followups` 2026-05-04 — `RedirectIfOnboardingComplete` middleware: customers with active/pending Subscription get bounced to /app/dashboard or /auth/email/verify per their verification state)
 
 **Reproduced 2026-05-04:** an authenticated-but-unverified user (just signed up, hasn't clicked the verification email) can navigate to any `/onboard/*` route and continue the wizard. The `verified` middleware is intentionally NOT applied to onboarding (since you can't verify before you have an account). But there's no gate to STOP an unverified user who is in some other state — e.g. one who just signed up and got bounced to `/auth/email/verify` shouldn't be able to backdoor into `/onboard/account` again.
 

@@ -99,30 +99,39 @@ Route::name('app.onboarding.')
             ->middleware('throttle:6,1')
             ->name('step.account.store');
 
-        Route::middleware('auth')->group(function () {
-            Route::get('/address', [AddressStepController::class, 'show'])->name('step.address');
+        // Auth-required steps. Two onboarding-specific middleware applied
+        // to every step show-route:
+        //   - onboarding.complete.redirect bounces customers who already
+        //     have an active/pending Subscription back to dashboard or
+        //     verify-email (the wizard is single-shot).
+        //   - onboarding.step blocks forward URL jumps so a customer can't
+        //     land on /payment without going through earlier steps.
+        // POST .store handlers handle their own redirect via nextStep(), so
+        // step-gating only fires on GET.
+        Route::middleware(['auth', 'onboarding.complete.redirect'])->group(function () {
+            Route::get('/address', [AddressStepController::class, 'show'])->middleware('onboarding.step')->name('step.address');
             Route::post('/address', [AddressStepController::class, 'store'])->name('step.address.store');
 
-            Route::get('/preferences', [PreferencesStepController::class, 'show'])->name('step.preferences');
+            Route::get('/preferences', [PreferencesStepController::class, 'show'])->middleware('onboarding.step')->name('step.preferences');
             Route::post('/preferences', [PreferencesStepController::class, 'store'])->name('step.preferences.store');
 
-            Route::get('/commitment', [CommitmentStepController::class, 'show'])->name('step.commitment');
+            Route::get('/commitment', [CommitmentStepController::class, 'show'])->middleware('onboarding.step')->name('step.commitment');
             Route::post('/commitment', [CommitmentStepController::class, 'store'])->name('step.commitment.store');
 
-            Route::get('/trial/delivery', [TrialWizardDeliveryController::class, 'show'])->name('step.trial_delivery');
+            Route::get('/trial/delivery', [TrialWizardDeliveryController::class, 'show'])->middleware('onboarding.step')->name('step.trial_delivery');
             Route::post('/trial/delivery', [TrialWizardDeliveryController::class, 'store'])->name('step.trial_delivery.store');
 
-            Route::get('/trial/payment', [TrialWizardPaymentController::class, 'show'])->name('step.trial_payment');
+            Route::get('/trial/payment', [TrialWizardPaymentController::class, 'show'])->middleware('onboarding.step')->name('step.trial_payment');
             Route::get('/trial/payment/{order}/complete', [TrialWizardPaymentController::class, 'complete'])
                 ->name('trial.payment.complete');
             Route::get('/trial/complete/{order}', [TrialWizardPaymentController::class, 'confirmation'])
                 ->name('trial.complete');
 
-            Route::get('/subscription/schedule', [SubscriptionWizardScheduleController::class, 'show'])->name('step.subscription_schedule');
+            Route::get('/subscription/schedule', [SubscriptionWizardScheduleController::class, 'show'])->middleware('onboarding.step')->name('step.subscription_schedule');
             Route::post('/subscription/schedule', [SubscriptionWizardScheduleController::class, 'store'])->name('step.subscription_schedule.store');
 
             Route::get('/subscription/payment', [SubscriptionWizardPaymentController::class, 'show'])
-                ->middleware('throttle:payment-setup')
+                ->middleware(['throttle:payment-setup', 'onboarding.step'])
                 ->name('step.subscription_payment');
             Route::get('/subscription/complete', [SubscriptionWizardPaymentController::class, 'complete'])
                 ->middleware('throttle:payment-setup')
