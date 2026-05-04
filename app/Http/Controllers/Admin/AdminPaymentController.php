@@ -3,18 +3,19 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminPaymentBulkMarkPaidExternallyRequest;
 use App\Http\Requests\Admin\AdminPaymentMarkPaidExternallyRequest;
 use App\Http\Requests\Admin\AdminPaymentRefundRequest;
 use App\Http\Requests\Admin\AdminPaymentsIndexRequest;
 use App\Models\AuditEvent;
 use App\Models\Payment;
 use App\Support\AuditLogger;
+use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -203,12 +204,17 @@ class AdminPaymentController extends Controller
     }
 
     /**
-     * ERD-337: admin refund action.
+     * Admin refund action — mirrors the spargel-orders pattern (2026-05-04).
      *
-     * Updates local ledger unconditionally; optionally calls the SumUp refund API
-     * when `config('payments.refund_api_enabled')` is on. Provider failure is
-     * logged and surfaced as a non-blocking status message — local refund is
-     * already recorded so the books don't drift.
+     * Try SumUp first (when a `sumup_payment_id` exists and refund-api is
+     * enabled); only flip local status to Refunded after the provider
+     * confirms. If SumUp rejects we record the failed attempt on the
+     * payment so the admin sees "refund failed — retry" instead of a
+     * misleading green badge.
+     *
+     * Externally-paid payments (no `sumup_payment_id`, or refund-api off)
+     * skip SumUp and flip directly — that's the admin recording a manual
+     * refund (cash / SEPA reversal) for the books.
      */
     public function refund(AdminPaymentRefundRequest $request, Payment $payment, SumUpService $sumUpService): RedirectResponse
     {
@@ -227,24 +233,51 @@ class AdminPaymentController extends Controller
         $reason = $request->validated('refund_reason');
         $reference = $request->validated('refund_reference');
         $actorId = (int) $request->user()->id;
-
-        $payment->recordRefund($amount, $actorId, $reason, $reference);
-
-        $providerStatus = null;
         $transactionId = (string) ($payment->sumup_payment_id ?? '');
-        if ((bool) config('payments.refund_api_enabled') && $transactionId !== '') {
+        $refundApiEnabled = (bool) config('payments.refund_api_enabled');
+
+        $shouldCallProvider = $refundApiEnabled && $transactionId !== '';
+
+        if ($shouldCallProvider) {
             try {
                 $sumUpService->refund($transactionId, $amount);
-                $providerStatus = 'ok';
             } catch (Throwable $e) {
-                $providerStatus = 'failed';
-                Log::warning('payment.refund.provider_failed', [
+                $rawError = SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage());
+                $payment->recordRefundAttemptFailed($rawError);
+
+                SumUpCheckoutLogger::warning('Payment refund: SumUp provider call failed — status NOT changed.', [
                     'payment_id' => $payment->id,
+                    'sumup_payment_id' => $transactionId,
                     'exception_class' => $e::class,
-                    'error' => $e->getMessage(),
+                    'error' => $rawError,
+                    'refund_attempts' => (int) $payment->refund_attempts,
                 ]);
+
+                AuditLogger::log(
+                    entityType: 'payment',
+                    entityId: $payment->id,
+                    action: 'refund_attempt_failed',
+                    fromState: $previousStatus,
+                    toState: $previousStatus,
+                    reason: $reason,
+                    metadata: array_filter([
+                        'amount' => (string) $amount,
+                        'currency' => $payment->currency,
+                        'refund_reference' => $reference,
+                        'error' => $rawError,
+                        'attempts' => (string) $payment->refund_attempts,
+                    ], static fn ($v) => $v !== null),
+                    actorUserId: $actorId,
+                );
+
+                return redirect()
+                    ->route('app.admin.payments.show', $payment)
+                    ->with('status', 'admin-payment-refund-provider-failed');
             }
         }
+
+        // SumUp confirmed (or not applicable) → safe to flip status.
+        $payment->recordRefund($amount, $actorId, $reason, $reference);
 
         AuditLogger::log(
             entityType: 'payment',
@@ -257,18 +290,14 @@ class AdminPaymentController extends Controller
                 'amount' => (string) $amount,
                 'currency' => $payment->currency,
                 'refund_reference' => $reference,
-                'provider_call' => $providerStatus,
+                'provider_call' => $shouldCallProvider ? 'ok' : null,
             ], static fn ($v) => $v !== null),
             actorUserId: $actorId,
         );
 
-        $statusKey = $providerStatus === 'failed'
-            ? 'admin-payment-refund-recorded-provider-failed'
-            : 'admin-payment-refunded';
-
         return redirect()
             ->route('app.admin.payments.show', $payment)
-            ->with('status', $statusKey);
+            ->with('status', 'admin-payment-refunded');
     }
 
     public function markPaidExternally(AdminPaymentMarkPaidExternallyRequest $request, Payment $payment): RedirectResponse
@@ -304,5 +333,62 @@ class AdminPaymentController extends Controller
         return redirect()
             ->back()
             ->with('status', 'admin-payment-marked-paid-externally');
+    }
+
+    /**
+     * Bulk-mark a list of payments as externally paid (e.g. SEPA reconciliation).
+     *
+     * Skips already-paid / refunded rows silently — admins typically include
+     * them by accident from a "select all on page" gesture. Each updated row
+     * gets the same external reference + reason so the audit trail can be
+     * grouped after the fact via `external_reference`.
+     */
+    public function bulkMarkPaidExternally(AdminPaymentBulkMarkPaidExternallyRequest $request): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        /** @var list<int> $ids */
+        $ids = array_values(array_unique(array_map('intval', (array) $request->validated('payment_ids'))));
+        $reference = (string) $request->validated('external_reference');
+        $reason = $request->validated('reason');
+        $actorId = (int) $request->user()->id;
+
+        $payments = Payment::query()->whereIn('id', $ids)->get();
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($payments as $payment) {
+            if (in_array($payment->status, [Payment::STATUS_PAID, Payment::STATUS_REFUNDED], true)) {
+                $skipped++;
+
+                continue;
+            }
+
+            $previousStatus = $payment->status;
+            $payment->markPaidExternally($reference, $actorId);
+
+            AuditLogger::log(
+                entityType: 'payment',
+                entityId: $payment->id,
+                action: 'manual_paid',
+                fromState: $previousStatus,
+                toState: Payment::STATUS_PAID,
+                reason: $reason,
+                metadata: [
+                    'external_reference' => $reference,
+                    'amount' => (string) $payment->amount,
+                    'currency' => $payment->currency,
+                    'bulk' => true,
+                ],
+            );
+
+            $updated++;
+        }
+
+        return redirect()
+            ->back()
+            ->with('status', 'admin-payment-bulk-marked-paid-externally')
+            ->with('bulk_marked_count', $updated)
+            ->with('bulk_skipped_count', $skipped);
     }
 }

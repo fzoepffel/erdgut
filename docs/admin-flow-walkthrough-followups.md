@@ -2,7 +2,7 @@
 
 Captured 2026-05-04 during a top-to-bottom code-walk of the operational admin surfaces (producers → products → weekly catalog → boxes → deliveries → payments → subscriptions → orders → billing → audit-events). Companion to `admin-ux-walkthrough-followups.md` but scoped to operational ergonomics rather than visual design.
 
-> **Status as of 2026-05-04:** 6 quick-wins shipped (`fix/admin-quick-wins-batch`). Each `### ` heading carries its own status marker. Smoke-test verified all admin pages render 200 OK as admin — no undefined-variable / null-call crashes.
+> **Status as of 2026-05-04:** 6 quick-wins shipped (`fix/admin-quick-wins-batch`); 5 medium items shipped (`feature/admin-medium-batch`: #1 box-setup draft persistence, #10 dynamic timeslot dropdown, #13 bulk mark-paid, #14+#15 box-detail eggs/stock warnings, #25 spargel refund pattern mirrored on payments). Each `### ` heading carries its own status marker. Smoke-test verified all admin pages render 200 OK as admin — no undefined-variable / null-call crashes.
 
 ---
 
@@ -10,12 +10,9 @@ Captured 2026-05-04 during a top-to-bottom code-walk of the operational admin su
 
 These can either lose data, lead to silent state drift, or let an operator ship wrong info to customers. Should be picked first.
 
-### #1 — Box-Setup composition lives in memory only, no warning on refresh
+### ~~#1 — Box-Setup composition lives in memory only, no warning on refresh~~ ✓ shipped (`feature/admin-medium-batch`)
 
-**What:** Alpine state in the per-week box-setup view is in-memory; if the admin builds a 20-minute composition and accidentally refreshes/navigates away, every unsaved edit vanishes silently.
-**Where:** `resources/views/admin/operations/boxes/setup.blade.php` (Alpine `x-data` block)
-**Why it matters:** Real data loss for the most operationally complex flow. Every admin who hits this loses minutes-to-hours of work.
-**Suggested fix:** Add `beforeunload` warning when state is dirty + auto-persist drafts to `localStorage` keyed by week+box-id; restore on next visit with a "restore unsaved changes" banner.
+`beforeunload` confirmation now fires whenever the Alpine state is dirty, and editable composition (sizes + customer lines + eggs lines + ok flags) is snapshotted to `localStorage` on every change keyed by week. On revisit, an opt-in "Restore unsaved changes" banner offers apply / discard — never auto-overwrites server-resolved state, since composition can shift between visits.
 
 ### #2 — Box composition fingerprint goes stale on out-of-flow edits
 
@@ -70,12 +67,9 @@ Now reads from `admin.operations.payment_status.{pending|paid|failed|refunded}` 
 **Why it matters:** Accountancy-grade summary information missing; estimating cash gap is manual.
 **Suggested fix:** Add a summary line below the filter row: "Total outstanding: €XXX,XX over N subscriptions."
 
-### #10 — Order schedule form: timeslot dropdown not filtered by selected date
+### ~~#10 — Order schedule form: timeslot dropdown not filtered by selected date~~ ✓ shipped (`feature/admin-medium-batch`)
 
-**What:** Date and timeslot are independent inputs; admin can pick a date with no available timeslots and submit, getting a silent validation rejection.
-**Where:** `resources/views/admin/orders/show.blade.php:73-82`
-**Why it matters:** Wasted clicks; admin doesn't know which dates have which slots.
-**Suggested fix:** Pre-load weekly availability into Alpine state; have timeslot options re-render based on `selectedDate`. Or render the available combinations as a single grid picker.
+Date + timeslot are now reactive: picking a past date or today-after-the-slot-already-passed filters the slot dropdown to only viable options, the submit button disables itself when no slots are valid, and a localised weekday hint renders next to the date so the admin can see which weekday they've picked. Server-side validation untouched — this just stops admins submitting combinations that would bounce.
 
 ### #11 — Trial order box-setup link only appears after scheduling
 
@@ -91,26 +85,17 @@ Now reads from `admin.operations.payment_status.{pending|paid|failed|refunded}` 
 **Why it matters:** Admin tries partial refund, gets silent validation error or unexpected SumUp behavior.
 **Suggested fix:** Add `max="{{ $payment->amount }}"`, placeholder showing the full amount, and help text: "Leave blank to refund the full amount."
 
-### #13 — No bulk mark-paid-externally action on payments index
+### ~~#13 — No bulk mark-paid-externally action on payments index~~ ✓ shipped (`feature/admin-medium-batch`)
 
-**What:** Each row has its own form for `mark-paid-externally`. Admin reconciling 20 manual bank payments fills 20 forms.
-**Where:** `resources/views/admin/operations/payments/index.blade.php:159-169`
-**Why it matters:** High-friction common operational task; weekly reconciliation pain point.
-**Suggested fix:** Row checkboxes + a bulk-action bar: "Mark N selected payments as paid externally" → modal with shared external-reference input applied to all.
+Row checkboxes (only on bulk-eligible rows = pending / failed) + a header "select all eligible on page" toggle + a sticky bulk action bar that prompts for a single shared external-reference and submits to a new `payments.bulk-mark-paid-externally` route. Already-paid / refunded rows that sneak into the payload are silently skipped; the flash message reports `X marked, Y skipped`. Each updated row writes its own audit event with `metadata.bulk = true` so post-hoc grouping by `external_reference` works.
 
-### #14 — Eggs-missing warning shown on setup but not on box detail
+### ~~#14 — Eggs-missing warning shown on setup but not on box detail~~ ✓ shipped (`feature/admin-medium-batch`)
 
-**What:** If the customer has `eggs_addon=true` but the box contains zero egg products, the warning surfaces during box setup but is invisible on the per-box detail page when the admin reviews it later.
-**Where:** `resources/views/admin/operations/boxes/show.blade.php` (no eggs_missing alert in header)
-**Why it matters:** Box ships without eggs; customer paid for them; complaint inbound.
-**Suggested fix:** Add a persistent alert at the top of box detail when `preferences.eggs_dairy_add_on === true && eggs_lines_count === 0`. Use chapter-meat banner.
+Persistent chapter-meat banner now renders at the top of `boxes/show.blade.php` whenever the customer paid for the eggs add-on and the box has zero eggs lines. Driven by Alpine reactivity — adding an eggs line clears the warning live without a reload.
 
-### #15 — Out-of-stock indicator only in dropdown, not on inline product card
+### ~~#15 — Out-of-stock indicator only in dropdown, not on inline product card~~ ✓ shipped (`feature/admin-medium-batch`)
 
-**What:** When adding items to a box, products with `missing_stock=true` are flagged in the dropdown's option text but not on the inline product card after adding. Admin can ship out-of-stock items.
-**Where:** `resources/views/admin/operations/boxes/show.blade.php` (Alpine `missing_stock` flag handling)
-**Why it matters:** Box ships incomplete; customer complaint.
-**Suggested fix:** Add a persistent "OUT OF STOCK" badge on every line whose product has missing_stock=true; optionally disable selection for missing-stock items in the add dropdown.
+Persistent chapter-meat "Außerhalb Woche" badge now renders next to the product name on every line whose product is flagged `missing_stock=true`, with a tooltip explaining the admin should review or replace it. New `productMissingStock(pid)` accessor on the Alpine state mirrors the existing `productIsSafe(pid)` pattern.
 
 ### ~~#16 — Products `is_available` and `is_published` default to `true` on create~~ ✓ shipped (`fix/admin-quick-wins-batch`)
 
@@ -168,11 +153,9 @@ Lower-priority. Won't bite anyone immediately but worth a sweep when convenient.
 **Where:** `resources/views/admin/producers/_form.blade.php:110-114`
 **Suggested fix:** Rename the URL field to "External image URL (fallback)" and update its help text to explicitly say "Used only when no file is uploaded above."
 
-### #25 — Refund audit trail doesn't differentiate success from failed-attempt-recorded for subscription/order payments
+### ~~#25 — Refund audit trail doesn't differentiate success from failed-attempt-recorded for subscription/order payments~~ ✓ shipped (`feature/admin-medium-batch`)
 
-**What:** `AdminPaymentController::refund()` always logs the same `refund` action with `provider_call: 'failed'` metadata when SumUp rejects, but the spargel refund flow (which we just refactored) splits into `refund` vs `refund_attempt_failed` — clearer audit trail.
-**Where:** `app/Http/Controllers/Admin/AdminPaymentController.php:249-263`
-**Suggested fix:** Mirror the spargel pattern: two distinct audit actions (`refund` for success, `refund_attempt_failed` for rejection). Bonus: don't flip status to refunded if the SumUp call rejects (same fix we shipped for spargel).
+`AdminPaymentController::refund()` now mirrors the spargel refund pattern: try SumUp first, only flip local status to `refunded` after the provider confirms. On rejection we log `refund_attempt_failed` (not `refund`), record the attempt count + last error on the payment row (new `refund_attempts` / `last_refund_attempt_at` / `last_refund_error` columns), and leave the status as `paid` so the admin doesn't see a misleading green badge. The detail page surfaces a persistent rose banner with the attempt count + last error whenever `refund_attempts > 0` and status is still paid.
 
 ---
 

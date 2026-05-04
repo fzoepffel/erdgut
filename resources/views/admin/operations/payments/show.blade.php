@@ -15,6 +15,13 @@
                 <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     {{ __('admin.operations.payments.refund_provider_failed') }}
                 </div>
+            @elseif (session('status') === 'admin-payment-refund-provider-failed')
+                <div class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900" role="alert" data-testid="admin-payment-refund-provider-failed-flash">
+                    <p class="font-semibold">{{ __('admin.operations.payments.refund_provider_failed_status_unchanged') }}</p>
+                    @if ($payment->last_refund_error)
+                        <p class="mt-1 text-xs text-rose-700">{{ __('admin.operations.payments.refund_last_error_label') }}: {{ $payment->last_refund_error }}</p>
+                    @endif
+                </div>
             @elseif (session('status') === 'admin-payment-refund-not-allowed')
                 <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
                     {{ __('admin.operations.payments.refund_not_allowed') }}
@@ -104,6 +111,27 @@
                 <div class="rounded-lg border border-gray-100 bg-white shadow-sm">
                     <div class="p-6 sm:p-8">
                         <h3 class="text-lg font-semibold text-gray-900">{{ __('admin.operations.payments.refund_heading') }}</h3>
+                        @if ($payment->refund_attempts > 0)
+                            {{-- Persistent reminder: a refund was attempted and rejected.
+                                 Status stays Paid until SumUp confirms; show the
+                                 attempt count + last provider error so the admin
+                                 has something concrete to retry / escalate. --}}
+                            <div class="mt-3 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900" role="alert" data-testid="admin-payment-refund-attempt-warning">
+                                <p class="font-semibold">
+                                    {{ trans_choice('admin.operations.payments.refund_attempts_warning', $payment->refund_attempts, ['count' => $payment->refund_attempts]) }}
+                                </p>
+                                @if ($payment->last_refund_attempt_at)
+                                    <p class="mt-1 text-xs text-rose-700">
+                                        {{ __('admin.operations.payments.refund_last_attempt_at_label') }}: {{ $payment->last_refund_attempt_at->timezone(config('app.timezone'))->format('Y-m-d H:i') }}
+                                    </p>
+                                @endif
+                                @if ($payment->last_refund_error)
+                                    <p class="mt-1 text-xs text-rose-700">
+                                        {{ __('admin.operations.payments.refund_last_error_label') }}: {{ $payment->last_refund_error }}
+                                    </p>
+                                @endif
+                            </div>
+                        @endif
                         <p class="mt-1 text-sm text-gray-600">
                             {{ $refundApiEnabled
                                 ? __('admin.operations.payments.refund_intro_with_api')
