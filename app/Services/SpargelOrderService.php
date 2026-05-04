@@ -372,8 +372,14 @@ class SpargelOrderService
         $checkoutFailed = in_array($checkoutStatus, ['FAILED', 'EXPIRED'], true);
 
         if ($checkoutFailed || $hasFailedTransaction) {
+            // Bump the failed-attempts counter so the admin row preserves the
+            // history even when the customer clicks "Try again" (which resets
+            // status back to PendingPayment in SpargelOrderController::pay).
+            // Without this, repeated failed attempts leave no visible trace.
             $order->forceFill([
                 'status' => SpargelOrderStatus::Failed,
+                'payment_attempts' => (int) $order->payment_attempts + 1,
+                'last_payment_failed_at' => now(),
                 'provider_payload' => is_object($checkout) ? json_decode(json_encode($checkout), true) : null,
             ])->save();
 
@@ -382,6 +388,7 @@ class SpargelOrderService
                 'checkout_id' => $order->sumup_checkout_id,
                 'checkout_status' => $checkoutStatus ?: null,
                 'has_failed_transaction' => $hasFailedTransaction,
+                'payment_attempts' => (int) $order->payment_attempts,
             ]);
 
             return self::VERIFY_FAILED;

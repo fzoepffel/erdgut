@@ -33,6 +33,51 @@ class SpargelAdminTest extends TestCase
             ->assertForbidden();
     }
 
+    /**
+     * Surfaced in production 2026-05-04: a customer who got declined by SumUp
+     * and clicked "Try again" reset the order back to PendingPayment, leaving
+     * no visible trace of the failed attempt in the admin list. The admin row
+     * now shows a "❌ N failed attempts" badge whenever payment_attempts > 0,
+     * regardless of current status, so the history doesn't evaporate on retry.
+     */
+    public function test_failed_payment_attempts_render_in_admin_row(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        // After-retry state: status reset to PendingPayment but counter persisted.
+        $order = SpargelOrder::factory()->create([
+            'status' => SpargelOrderStatus::PendingPayment,
+            'payment_attempts' => 2,
+            'last_payment_failed_at' => now()->subMinutes(5),
+        ]);
+
+        // Pin the request locale to de via the session (the SetLocale
+        // middleware reads from session > Accept-Language > app default) so
+        // we exercise the customer-facing pluralization that production sees.
+        $html = $this->actingAs($admin)
+            ->withSession(['locale' => 'de'])
+            ->get(route('spargel.admin.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('spargel-admin-failed-attempts', $html);
+        $this->assertStringContainsString('2 gescheiterte Versuche', $html);
+    }
+
+    public function test_failed_attempts_badge_is_absent_when_no_attempts(): void
+    {
+        $admin = User::factory()->admin()->create();
+        SpargelOrder::factory()->create([
+            'status' => SpargelOrderStatus::PendingPayment,
+            'payment_attempts' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('spargel.admin.index'))
+            ->assertOk()
+            ->assertDontSee('spargel-admin-failed-attempts');
+    }
+
     public function test_admin_sees_all_orders_with_customer_details(): void
     {
         $admin = User::factory()->admin()->create();
