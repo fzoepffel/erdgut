@@ -2,9 +2,8 @@
 
 Companion to `feature/admin-ux-walkthrough` PR. Items deferred during the browser walkthrough that warrant their own batch.
 
-> **Status as of 2026-05-04:** most line items shipped or invalidated. Remaining open work:
+> **Status as of 2026-05-04 (after fix/admin-polish-batch-three):** most line items shipped or invalidated. Remaining open work:
 > - **Architectural decision:** admin design language (A: adopt customer button components / B: build admin-specific ones). Defer until product call.
-> - **Per-page polish:** Wochen-Katalog `Bestehend` dropdown hint · Lieferungen sync-button colour (waits on design-language) · Zahlungsversuche filter form layout · Producer/Product required-field indicators + translation message wrap behavior.
 > - **Features (not polish):** Anstehende Abbuchungen reminder-email action · Admin user impersonation (confirmed missing).
 > - **Still unwalked surfaces:** per-week box-setup edit · admin order detail · trial-box setup · admin email-resend buttons · `mark-paid-externally` flow on payment detail.
 >
@@ -67,12 +66,12 @@ A standalone `/app/admin/audit-events` page exists with filters for entity-type 
 - ~~Empty state confusion~~ ✓ shipped (PR #53) — moved the "no rows yet" message out of the tbody into a banner above the table; locked with a feature test asserting the hint's `weekly-catalog-empty-hint` testid renders before the `<table>` opening tag.
 - ~~`REST` column header~~ ✓ already says `Verbleibend` in lang/de.json (`admin.weekly_catalog.col_remaining`); doc was outdated.
 - ~~`LÖSCHE...` truncated~~ ✓ already says `Löschen` in full (`admin.weekly_catalog.col_delete`); the truncation was a CSS width artifact in an older walkthrough screenshot.
-- **`Bestehend` dropdown values** — first column of input rows. Categorizes the row (existing product vs new product?) but the label doesn't make that obvious. Worth a short hint or tooltip.
+- ~~**`Bestehend` dropdown values**~~ ✓ shipped — `?` info icon in the column header + `title` attr on the dropdown both surface a new `admin.weekly_catalog.col_mode_hint` translation explaining "use existing catalog product vs define a new one inline" (de/en/fr).
 
 ### Lieferungen
 
 - ~~**Status setzen inline dropdown** save button~~ ✓ verified — has explicit `<button type="submit">` (not silent onchange). Doc was outdated; `resources/views/admin/operations/deliveries/index.blade.php:242`.
-- **`Lieferungen aus Boxen synchronisieren` button is amber** — different from black `Neue Lieferung` next to it. Same row, two colors. Worth normalizing once the design-language question is settled.
+- ~~**`Lieferungen aus Boxen synchronisieren` button is amber**~~ ✓ verified shipped — sync button now uses `<x-primary-button>` (brand-ink), matching `Neue Lieferung` (`btn-solid-sm`). Doc was outdated; the only remaining amber button is the orphan-cleanup banner which is intentionally amber as a warning state, not a primary action.
 
 ### Box-Setup
 
@@ -82,7 +81,7 @@ A standalone `/app/admin/audit-events` page exists with filters for entity-type 
 
 ### Zahlungsversuche
 
-- **Vertical filter form** still vertical even on desktop. Could be a horizontal grid (4 fields per row) for compactness on wide viewports. Saves ~3 viewport heights.
+- ~~**Vertical filter form**~~ ✓ verified shipped — already uses `flex md:flex-row md:items-end flex-wrap` with `w-full sm:w-auto` per field, giving a horizontal compact layout from the md: breakpoint up. Doc was outdated.
 - ~~**No CSV export**~~ ✓ shipped — `payments.export` route + `AdminPaymentController::export()` builds a timestamped CSV (`payments-Y-m-d-His.csv`). Filename pattern at `AdminPaymentController.php:60`.
 
 ### Anstehende Abbuchungen
@@ -91,9 +90,9 @@ A standalone `/app/admin/audit-events` page exists with filters for entity-type 
 
 ### Producer / Product detail forms
 
-- **No required-field indicators** on the create/edit forms. Same fix as customer onboarding (`required` / `optional` props on `<x-input-label>`) — but admin uses raw `<label>` tags. Either migrate admin to the same component, or apply asterisks inline.
+- ~~**No required-field indicators**~~ ✓ verified shipped — both producer and product forms already use `<x-input-label ... required />` on every required field (Name, Region, Description, Producer, Category, Unit, Origin, Variety + translations across all 3 locales). Doc was outdated; the original "uses raw `<label>` tags" was true at some point but the migration happened. The only remaining raw `<label>` tags are checkbox rows (Test producer, allergens, dietary tags) which don't need asterisks.
 - ~~**Translation panels stacked**~~ ✓ shipped — both `producers/_form.blade.php:25` and `products/_form.blade.php:95` are now tabbed via Alpine `x-data="{ tab: ... }"` instead of stacked. Smaller form, same content.
-- **`Übersetzungen — Alle drei Sprachen sind erforderlich.`** is good messaging but the visual treatment is a tiny grey caption right of the heading. On smaller viewports it might wrap awkwardly.
+- ~~**`Übersetzungen — Alle drei Sprachen sind erforderlich.` wraps awkwardly on narrow viewports**~~ ✓ shipped — header + hint now stack vertically on mobile (`flex-col gap-1`), inline at sm:+. No more cramped two-column wrap.
 
 ### Nutzer
 

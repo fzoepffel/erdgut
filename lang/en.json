@@ -1628,6 +1628,7 @@
     "admin.weekly_catalog.category_placeholder": "— Category —",
     "admin.weekly_catalog.col_delete": "Delete",
     "admin.weekly_catalog.col_mode": "Type",
+    "admin.weekly_catalog.col_mode_hint": "Choose per row whether to use an existing catalog product or define a new one inline.",
     "admin.weekly_catalog.col_product": "Product",
     "admin.weekly_catalog.col_quantity": "Quantity",
     "admin.weekly_catalog.col_remaining": "Remaining",
