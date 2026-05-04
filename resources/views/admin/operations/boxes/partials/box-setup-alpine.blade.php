@@ -1,6 +1,124 @@
 <script>
     document.addEventListener('alpine:init', () => {
         Alpine.data('boxSetup', (initial) => ({
+            // --- Unsaved-draft persistence -----------------------------
+            //
+            // Box-setup is a long, fiddly composition flow; an accidental
+            // refresh used to wipe minutes of work. We snapshot the
+            // editable parts of the state to localStorage on every change
+            // and warn on `beforeunload` while the form is dirty.
+            //
+            // Restore is opt-in (banner with apply/discard) because the
+            // server may have re-derived the customer set or stock plan
+            // between visits — silently overwriting server state would
+            // be worse than losing the draft.
+            weekKey: String(initial.week_key ?? ''),
+            dirty: false,
+            restorableDraft: null,
+            draftStorageKey() {
+                return this.weekKey ? 'erdgut.box-setup-draft.' + this.weekKey : null;
+            },
+            restorableDraftHint() {
+                const at = this.restorableDraft?.saved_at ?? '';
+                if (!at) return @js(__('admin.box_setup.draft_restore_hint'));
+                try {
+                    return @js(__('admin.box_setup.draft_restore_hint_with_time')).replace(':time', new Date(at).toLocaleString());
+                } catch (e) {
+                    return @js(__('admin.box_setup.draft_restore_hint'));
+                }
+            },
+            init() {
+                const key = this.draftStorageKey();
+                if (key) {
+                    try {
+                        const raw = localStorage.getItem(key);
+                        if (raw) {
+                            const parsed = JSON.parse(raw);
+                            if (parsed && typeof parsed === 'object') {
+                                this.restorableDraft = parsed;
+                            }
+                        }
+                    } catch (e) { /* localStorage unavailable / corrupt — ignore */ }
+                }
+
+                const persist = () => {
+                    if (!this.weekKey) return;
+                    const k = this.draftStorageKey();
+                    if (!k) return;
+                    try {
+                        const snap = {
+                            saved_at: new Date().toISOString(),
+                            sizes: this.sizes.map(s => ({
+                                key: s.key,
+                                lines: s.lines.map(l => ({ product_id: l.product_id, quantity: l.quantity })),
+                            })),
+                            customers: this.customers.map(c => ({
+                                form_key: c.form_key,
+                                lines: c.lines.map(l => ({ product_id: l.product_id, quantity: l.quantity })),
+                                eggsLines: c.eggsLines.map(l => ({ product_id: l.product_id, quantity: l.quantity })),
+                                ok: !!c.ok,
+                            })),
+                        };
+                        localStorage.setItem(k, JSON.stringify(snap));
+                    } catch (e) { /* quota / disabled — non-fatal */ }
+                };
+
+                this.$watch('sizes', () => { this.dirty = true; persist(); }, { deep: true });
+                this.$watch('customers', () => { this.dirty = true; persist(); }, { deep: true });
+
+                window.addEventListener('beforeunload', (e) => {
+                    if (!this.dirty) return;
+                    e.preventDefault();
+                    e.returnValue = '';
+                });
+            },
+            applyRestorableDraft() {
+                if (!this.restorableDraft) return;
+                const draft = this.restorableDraft;
+                if (Array.isArray(draft.sizes)) {
+                    for (const s of draft.sizes) {
+                        const target = this.sizes.find(t => t.key === s.key);
+                        if (target && Array.isArray(s.lines)) {
+                            target.lines = s.lines
+                                .filter(l => l && l.product_id != null)
+                                .map(l => ({ product_id: Number(l.product_id), quantity: Number(l.quantity) || 0 }));
+                        }
+                    }
+                }
+                if (Array.isArray(draft.customers)) {
+                    for (const dc of draft.customers) {
+                        const target = this.customers.find(c => c.form_key === dc.form_key);
+                        if (!target) continue;
+                        if (Array.isArray(dc.lines)) {
+                            target.lines = dc.lines
+                                .filter(l => l && l.product_id != null)
+                                .map(l => ({ product_id: Number(l.product_id), quantity: Number(l.quantity) || 0 }));
+                        }
+                        if (Array.isArray(dc.eggsLines)) {
+                            target.eggsLines = dc.eggsLines
+                                .filter(l => l && l.product_id != null)
+                                .map(l => ({ product_id: Number(l.product_id), quantity: Number(l.quantity) || 0 }));
+                        }
+                        if (typeof dc.ok === 'boolean') target.ok = dc.ok;
+                    }
+                }
+                this.restorableDraft = null;
+            },
+            discardRestorableDraft() {
+                this.restorableDraft = null;
+                const k = this.draftStorageKey();
+                if (k) {
+                    try { localStorage.removeItem(k); } catch (e) {}
+                }
+            },
+            onSubmit() {
+                this.dirty = false;
+                const k = this.draftStorageKey();
+                if (k) {
+                    try { localStorage.removeItem(k); } catch (e) {}
+                }
+            },
+            // --- /Unsaved-draft persistence ----------------------------
             marginRate: initial.margin_rate,
             // Eggs add-on price (config('box.eggs_dairy_add_on_eur')). Customers
             // with the eggs flag pay this on top of their size base TTC, so it

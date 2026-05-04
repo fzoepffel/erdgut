@@ -250,6 +250,9 @@ Route::middleware(['auth', 'verified'])
             Route::post('payments/{payment}/mark-paid-externally', [AdminPaymentController::class, 'markPaidExternally'])
                 ->middleware('throttle:30,1')
                 ->name('payments.mark-paid-externally');
+            Route::post('payments/bulk-mark-paid-externally', [AdminPaymentController::class, 'bulkMarkPaidExternally'])
+                ->middleware('throttle:10,1')
+                ->name('payments.bulk-mark-paid-externally');
             Route::post('payments/{payment}/refund', [AdminPaymentController::class, 'refund'])
                 ->middleware('throttle:20,1')
                 ->name('payments.refund');
