@@ -134,14 +134,13 @@
                                                             </x-secondary-button>
                                                         </form>
                                                     @endif
-                                                    <button
+                                                    <x-danger-button
                                                         type="button"
-                                                        class="inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm {{ $canDelete ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-gray-100 text-gray-400' }}"
-                                                        @if (! $canDelete) disabled @endif
+                                                        :disabled="! $canDelete"
                                                         @click="deleteUserId={{ $user->id }}; deleteEmail='{{ e($user->email) }}'; deleteOpen=true"
                                                     >
                                                         {{ __('admin.users.delete_cta') }}
-                                                    </button>
+                                                    </x-danger-button>
                                                 </div>
                                             </td>
                                         </tr>

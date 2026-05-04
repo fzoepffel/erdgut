@@ -64,9 +64,9 @@
                     </div>
                     <form method="POST" action="{{ route('app.admin.deliveries.cleanup-orphans') }}" onsubmit="return confirm('{{ __('admin.deliveries.orphans_confirm') }}')">
                         @csrf
-                        <button type="submit" class="inline-flex items-center rounded-md bg-amber-700 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-amber-800">
+                        <x-danger-button size="sm">
                             {{ __('admin.deliveries.orphans_cleanup_button') }}
-                        </button>
+                        </x-danger-button>
                     </form>
                 </div>
             @endif
@@ -239,9 +239,9 @@
                                                             </option>
                                                         @endforeach
                                                     </select>
-                                                    <button type="submit" class="inline-flex items-center rounded-md bg-gray-900 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-gray-800">
+                                                    <x-primary-button size="sm">
                                                         {{ __('admin.deliveries.status.save') }}
-                                                    </button>
+                                                    </x-primary-button>
                                                 </form>
                                             </td>
                                             <td class="py-3 pe-4 text-gray-600">

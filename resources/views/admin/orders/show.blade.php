@@ -52,10 +52,7 @@
                             <p class="mt-1 text-sm text-gray-600">{{ __('admin.trial_order_box_setup.compose_in_box_setup_hint') }}</p>
                         </div>
                         @if ($boxSetupUrl)
-                            <a
-                                href="{{ $boxSetupUrl }}"
-                                class="inline-flex items-center rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-                            >
+                            <a href="{{ $boxSetupUrl }}" class="btn-solid-sm">
                                 {{ __('admin.trial_order_box_setup.cta_open_box_setup') }}
                             </a>
                         @else
@@ -84,7 +81,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <button class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">{{ __('Schedule') }}</button>
+                    <x-primary-button size="sm">{{ __('Schedule') }}</x-primary-button>
                 </form>
                 @error('scheduled_for_date') <p class="mt-2 text-xs text-rose-600">{{ $message }}</p> @enderror
                 @error('timeslot') <p class="mt-2 text-xs text-rose-600">{{ $message }}</p> @enderror
@@ -136,7 +133,7 @@
             @if ($order->status->value !== 'delivered' && $order->status->value !== 'cancelled')
                 <form method="post" action="{{ route('app.admin.orders.mark-delivered', $order) }}">
                     @csrf
-                    <button class="rounded-md bg-emerald-800 px-3 py-2 text-sm font-semibold text-white">{{ __('Mark as delivered') }}</button>
+                    <x-primary-button size="sm">{{ __('Mark as delivered') }}</x-primary-button>
                 </form>
             @endif
 

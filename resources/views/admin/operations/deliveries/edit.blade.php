@@ -92,9 +92,9 @@
                     </div>
 
                     <div class="flex flex-wrap gap-2 pt-2">
-                        <button type="submit" class="inline-flex items-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+                        <x-primary-button>
                             {{ __('admin.deliveries.save_update') }}
-                        </button>
+                        </x-primary-button>
                         <a href="{{ route('app.admin.deliveries.index') }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
                             {{ __('admin.deliveries.cancel') }}
                         </a>
