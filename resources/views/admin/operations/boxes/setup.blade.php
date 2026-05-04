@@ -254,14 +254,14 @@
                                                 <option :value="row.product_id" x-text="row.name + ' (' + formatEur(row.unit_price) + ')'"></option>
                                             </template>
                                         </select>
-                                        <button
+                                        <x-primary-button
                                             type="button"
-                                            class="rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-                                            :disabled="!size.addProductId"
+                                            size="sm"
+                                            x-bind:disabled="!size.addProductId"
                                             @click="addLine(size.key)"
                                         >
                                             {{ __('admin.box_setup.add_line') }}
-                                        </button>
+                                        </x-primary-button>
                                     </div>
                                 </div>
                             </template>
@@ -553,7 +553,7 @@
                                                         <option :value="opt.product_id" x-text="(productIsSafe(customer, opt.product_id) ? '✓ ' : '✗ ') + opt.name"></option>
                                                     </template>
                                                 </select>
-                                                <button type="button" class="rounded bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800" @click="customerAddLine(customer)">{{ __('admin.box_setup.add_button') }}</button>
+                                                <x-primary-button type="button" size="sm" @click="customerAddLine(customer)">{{ __('admin.box_setup.add_button') }}</x-primary-button>
                                             </div>
 
                                             {{-- Eggs panel: separate slot for is_egg_addon products. --}}
@@ -631,15 +631,13 @@
                         <p class="text-xs text-gray-500">
                             {{ __('admin.box_setup.save_hint') }}
                         </p>
-                        <button
-                            type="submit"
-                            class="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-300"
-                            :disabled="anyCustomerBlocking()"
-                            :title="anyCustomerBlocking() ? @js(__('admin.box_setup.save_blocked_title')) : ''"
+                        <x-primary-button
+                            x-bind:disabled="anyCustomerBlocking()"
+                            x-bind:title="anyCustomerBlocking() ? @js(__('admin.box_setup.save_blocked_title')) : ''"
                         >
                             <span x-show="!anyCustomerBlocking()">{{ __('admin.box_setup.save_button') }}</span>
                             <span x-show="anyCustomerBlocking()">{{ __('admin.box_setup.save_button_blocked') }}</span>
-                        </button>
+                        </x-primary-button>
                     </div>
                 </form>
             </div>

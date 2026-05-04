@@ -157,9 +157,9 @@
                                 >{{ old('refund_reason') }}</textarea>
                                 <x-input-error class="mt-1" :messages="$errors->get('refund_reason')" />
                             </div>
-                            <button type="submit" data-testid="admin-payment-refund-submit" class="inline-flex items-center rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-600">
+                            <x-danger-button data-testid="admin-payment-refund-submit">
                                 {{ __('admin.operations.payments.refund_submit') }}
-                            </button>
+                            </x-danger-button>
                         </form>
                     </div>
                 </div>
