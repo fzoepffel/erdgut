@@ -345,6 +345,9 @@ Route::middleware(['auth', 'can:admin'])
         Route::post('/{spargelOrder}/mark-completed', [SpargelAdminController::class, 'markCompleted'])
             ->middleware('throttle:30,1')
             ->name('mark-completed');
+        Route::post('/{spargelOrder}/refund', [SpargelAdminController::class, 'refund'])
+            ->middleware('throttle:30,1')
+            ->name('refund');
         Route::delete('/{spargelOrder}', [SpargelAdminController::class, 'destroy'])
             ->middleware('throttle:30,1')
             ->name('destroy');

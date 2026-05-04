@@ -5,7 +5,10 @@ namespace Tests\Feature\Spargel;
 use App\Enums\SpargelOrderStatus;
 use App\Models\SpargelOrder;
 use App\Models\User;
+use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Tests\TestCase;
 
 /**
@@ -16,6 +19,7 @@ use Tests\TestCase;
  */
 class SpargelAdminTest extends TestCase
 {
+    use MockeryPHPUnitIntegration;
     use RefreshDatabase;
 
     public function test_guest_is_redirected_to_login(): void
@@ -224,5 +228,103 @@ class SpargelAdminTest extends TestCase
             ->assertForbidden();
 
         $this->assertNotNull(SpargelOrder::find($orderId));
+    }
+
+    public function test_admin_can_refund_a_paid_spargel_order(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $order = SpargelOrder::factory()->create([
+            'status' => SpargelOrderStatus::Paid,
+            'total_amount_eur' => 12.50,
+            'paid_at' => now()->subMinutes(20),
+            'sumup_payment_id' => 'tx-real-123',
+            'payment_method' => 'online',
+        ]);
+
+        // Mock SumUp's refund API to confirm the controller calls it.
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('refund')
+            ->once()
+            ->with('tx-real-123', Mockery::on(fn ($v) => abs((float) $v - 12.50) < 0.001))
+            ->andReturn(true);
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->actingAs($admin)
+            ->post(route('spargel.admin.refund', $order), ['refund_reason' => 'customer changed plans'])
+            ->assertRedirect(route('spargel.admin.index'));
+
+        $order->refresh();
+        $this->assertSame(SpargelOrderStatus::Refunded, $order->status);
+        $this->assertEquals('12.50', (string) $order->refund_amount);
+        $this->assertNotNull($order->refunded_at);
+        $this->assertSame('customer changed plans', $order->refund_reason);
+        $this->assertSame($admin->id, $order->refunded_by_user_id);
+
+        // Audit trail captured the transition.
+        $this->assertDatabaseHas('audit_events', [
+            'entity_type' => 'spargel_order',
+            'entity_id' => $order->id,
+            'action' => 'refund',
+            'from_state' => 'paid',
+            'to_state' => 'refunded',
+        ]);
+    }
+
+    public function test_refund_records_locally_even_when_sumup_provider_call_fails(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $order = SpargelOrder::factory()->create([
+            'status' => SpargelOrderStatus::Paid,
+            'total_amount_eur' => 8.00,
+            'sumup_payment_id' => 'tx-will-fail',
+            'payment_method' => 'online',
+        ]);
+
+        $sumUpService = Mockery::mock(SumUpService::class);
+        $sumUpService->shouldReceive('refund')
+            ->once()
+            ->andThrow(new \RuntimeException('SumUp said no'));
+        $this->app->instance(SumUpService::class, $sumUpService);
+
+        $this->actingAs($admin)
+            ->post(route('spargel.admin.refund', $order))
+            ->assertRedirect(route('spargel.admin.index'));
+
+        $order->refresh();
+        // Local DB still flipped to refunded — admin has the paper trail.
+        $this->assertSame(SpargelOrderStatus::Refunded, $order->status);
+        $this->assertNotNull($order->refunded_at);
+    }
+
+    public function test_refund_endpoint_rejects_non_paid_orders(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $order = SpargelOrder::factory()->create([
+            'status' => SpargelOrderStatus::PendingPayment,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('spargel.admin.refund', $order))
+            ->assertRedirect(route('spargel.admin.index'));
+
+        $order->refresh();
+        $this->assertSame(SpargelOrderStatus::PendingPayment, $order->status);
+        $this->assertNull($order->refunded_at);
+    }
+
+    public function test_non_admin_cannot_refund(): void
+    {
+        $user = User::factory()->create(['is_admin' => false]);
+        $order = SpargelOrder::factory()->create([
+            'status' => SpargelOrderStatus::Paid,
+            'sumup_payment_id' => 'tx-x',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('spargel.admin.refund', $order))
+            ->assertForbidden();
+
+        $order->refresh();
+        $this->assertSame(SpargelOrderStatus::Paid, $order->status);
     }
 }
