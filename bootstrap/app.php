@@ -51,6 +51,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [SetLocale::class]);
         $middleware->redirectGuestsTo('/auth/login');
         $middleware->redirectUsersTo('/app/dashboard');
+        // Exempt the payment-widget telemetry endpoint from CSRF: the
+        // beacon must work via navigator.sendBeacon (which doesn't carry
+        // the X-XSRF-TOKEN header) and survive the 3DS redirect when the
+        // page is already unloading. Throttling + schema validation +
+        // hashed IP keep abuse risk low; nothing on this endpoint mutates
+        // payment state.
+        $middleware->validateCsrfTokens(except: [
+            'payment-diagnostics',
+        ]);
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
             'subscriber.full' => EnsureSubscriberHasPayment::class,

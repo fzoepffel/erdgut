@@ -86,6 +86,9 @@
         <x-admin.nav-link :href="route('app.admin.audit-events.index')" matches="app.admin.audit-events.*">
             {{ __('admin.audit.nav_label') }}
         </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.payment-diagnostics.index')" matches="app.admin.payment-diagnostics.*">
+            {{ __('admin.operations.nav_payment_diagnostics') }}
+        </x-admin.nav-link>
     </nav>
 
     <div class="border-t border-amber-100 p-3">

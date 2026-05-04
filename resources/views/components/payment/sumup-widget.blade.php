@@ -26,6 +26,75 @@
         state: 'loading',
         widgetError: '',
         timeoutId: null,
+        stallTimeoutId: null,
+        mountedAt: 0,
+        diagnosticsUrl: {{ json_encode(route('public.payment-diagnostics.store')) }},
+        diagnosticsCheckoutId: {{ json_encode($checkoutId) }},
+        diagnosticsIntent: {{ json_encode($intent) }},
+        diagnosticsSnapshot: null,
+        // Lightweight UA → 'mobile/desktop + os' summary for quick triage.
+        // Full UA goes into meta. Keep this branchless and safe; if any
+        // browser API is missing we just record null fields.
+        captureSnapshot() {
+            const ua = (navigator && navigator.userAgent) || '';
+            const isMobile = /Mobile|Android|iPhone|iPad/.test(ua);
+            const os = /Android/.test(ua) ? 'Android'
+                : /iPhone|iPad|iOS/.test(ua) ? 'iOS'
+                : /Windows/.test(ua) ? 'Windows'
+                : /Mac OS X|Macintosh/.test(ua) ? 'macOS'
+                : /Linux/.test(ua) ? 'Linux'
+                : 'unknown';
+            const summary = (isMobile ? 'mobile' : 'desktop') + ' / ' + os;
+            let storage = { local: false, session: false };
+            try { localStorage.setItem('__pd', '1'); localStorage.removeItem('__pd'); storage.local = true; } catch (_) {}
+            try { sessionStorage.setItem('__pd', '1'); sessionStorage.removeItem('__pd'); storage.session = true; } catch (_) {}
+            const conn = navigator && navigator.connection ? navigator.connection : null;
+            return {
+                summary: summary.slice(0, 160),
+                meta: {
+                    ua: ua.slice(0, 320),
+                    viewport: window.innerWidth + 'x' + window.innerHeight,
+                    devicePixelRatio: window.devicePixelRatio || null,
+                    locale: (navigator && navigator.language) || null,
+                    cookieEnabled: !!(navigator && navigator.cookieEnabled),
+                    localStorage: storage.local,
+                    sessionStorage: storage.session,
+                    networkType: conn ? (conn.effectiveType || null) : null,
+                    saveData: conn ? !!conn.saveData : null,
+                    referrer: document.referrer ? document.referrer.slice(0, 200) : null,
+                    visibility: document.visibilityState || null,
+                },
+            };
+        },
+        beacon(phase, extraMeta) {
+            try {
+                const snap = this.diagnosticsSnapshot || this.captureSnapshot();
+                const meta = Object.assign({}, snap.meta, { state: this.state }, extraMeta || {});
+                const payload = {
+                    phase: phase,
+                    checkout_id: this.diagnosticsCheckoutId,
+                    intent: this.diagnosticsIntent,
+                    ms_since_mount: this.mountedAt ? (Date.now() - this.mountedAt) : null,
+                    ua_summary: snap.summary,
+                    meta: meta,
+                };
+                const body = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                if (navigator && navigator.sendBeacon) {
+                    navigator.sendBeacon(this.diagnosticsUrl, body);
+                } else {
+                    fetch(this.diagnosticsUrl, { method: 'POST', body: body, keepalive: true });
+                }
+            } catch (_) { /* telemetry must never break checkout */ }
+        },
+        armStallDetector() {
+            if (this.stallTimeoutId) clearTimeout(this.stallTimeoutId);
+            // Sentinel value while armed; nulled when fired so the UI can
+            // distinguish 'still waiting (<25s)' from 'past the threshold'.
+            this.stallTimeoutId = setTimeout(() => {
+                if (this.state === 'processing') this.beacon('stalled', { reason: 'no_response_25s' });
+                this.stallTimeoutId = null;
+            }, 25000);
+        },
         init() {
             const widgetErrorMap = {{ json_encode($widgetErrorMap) }};
             const genericFail = {{ json_encode(__('Payment setup failed. Please try again.')) }};
@@ -33,10 +102,15 @@
             const loadFailed = {{ json_encode(__('Unable to load payment widget. Please refresh and try again.')) }};
             const self = this;
 
+            this.mountedAt = Date.now();
+            this.diagnosticsSnapshot = this.captureSnapshot();
+            this.beacon('mounted');
+
             this.timeoutId = setTimeout(function() {
                 if (self.state === 'loading') {
                     self.state = 'timeout';
                     self.widgetError = loadFailed;
+                    self.beacon('load_timeout');
                 }
             }, {{ (int) $timeoutSeconds }} * 1000);
 
@@ -44,8 +118,10 @@
                 clearTimeout(this.timeoutId);
                 self.state = 'error';
                 self.widgetError = loadFailed;
+                self.beacon('sdk_failed', { reason: 'SumUpCard_undefined' });
                 return;
             }
+            self.beacon('sdk_loaded');
 
             try {
                 SumUpCard.mount({
@@ -57,6 +133,7 @@
                     onLoad: function() {
                         clearTimeout(self.timeoutId);
                         self.state = 'ready';
+                        self.beacon('widget_ready');
                         @if ($autoEnableSaveCard)
                         const poll = setInterval(function() {
                             const cb = document.querySelector('input[type=checkbox]');
@@ -73,14 +150,18 @@
                                 const btn = ev.target.closest('button[type=submit], button[data-name=\'pay_button\']');
                                 if (btn) {
                                     self.state = 'processing';
+                                    self.beacon('submit_clicked');
+                                    self.armStallDetector();
                                 }
                             }, true);
                         }
                     },
                     onResponse: function(type, body) {
                         try { console.log('[SumUp widget]', type, body); } catch (_) {}
+                        if (self.stallTimeoutId) { clearTimeout(self.stallTimeoutId); self.stallTimeoutId = null; }
                         if (type === 'success') {
                             self.state = 'processing';
+                            self.beacon('response_success', { body_id: body?.id ?? null, body_status: body?.status ?? null });
                             @if ($appendCheckoutParam)
                             const checkoutId = body?.id ?? {{ json_encode($checkoutId) }};
                             const target = new URL({{ json_encode($returnUrl) }}, window.location.origin);
@@ -88,20 +169,26 @@
                             @if ($appendIntentParam)
                             target.searchParams.set('intent', {{ json_encode($appendIntentParam) }});
                             @endif
+                            self.beacon('redirect_starting', { to_host: target.host });
                             window.location.href = target.toString();
                             @else
+                            self.beacon('redirect_starting', { to_host: (new URL({{ json_encode($returnUrl) }}, window.location.origin)).host });
                             window.location.href = {{ json_encode($returnUrl) }};
                             @endif
                             return;
                         }
                         if (type === 'error' || type === 'fail') {
                             self.state = 'ready';
+                            const code = body?.error_code || body?.errorCode || body?.code || null;
+                            self.beacon(type === 'fail' ? 'response_fail' : 'response_error', {
+                                error_code: code,
+                                message: typeof body?.message === 'string' ? body.message.slice(0, 200) : null,
+                            });
                             const sumupMsg = body?.message || body?.detail || '';
                             if (typeof sumupMsg === 'string' && sumupMsg.includes('form.mandate.errors')) {
                                 self.widgetError = mandateInvalid;
                                 return;
                             }
-                            const code = body?.error_code || body?.errorCode || body?.code;
                             const mapped = code && widgetErrorMap[code] ? widgetErrorMap[code] : null;
                             if (mapped) { self.widgetError = mapped; return; }
                             const raw = body?.message;
@@ -117,7 +204,13 @@
                 clearTimeout(this.timeoutId);
                 self.state = 'error';
                 self.widgetError = e.message || loadFailed;
+                self.beacon('mount_threw', { message: typeof e?.message === 'string' ? e.message.slice(0, 200) : null });
             }
+        },
+        reportProblem() {
+            this.beacon('user_reported', { state_when_reported: this.state, error_when_reported: this.widgetError || null });
+            // Visible feedback so the user knows their report was sent.
+            this.widgetError = {{ json_encode(__('Thanks — we logged this so we can investigate. Please try a different card or device.')) }};
         },
         retry() {
             window.location.reload();
@@ -172,6 +265,20 @@
             <p class="max-w-md text-sm leading-relaxed text-brand-ink/65">
                 {{ __('Please do not close this window. Your bank may ask for a quick confirmation (SMS, app, or popup).') }}
             </p>
+            {{-- "Stuck?" affordance: appears after 25s in processing — that's
+                 also when the stall beacon fires server-side. Tapping flags
+                 the report so we can correlate the user complaint with the
+                 stall event in payment_diagnostics. --}}
+            <button
+                type="button"
+                x-show="stallTimeoutId === null"
+                x-cloak
+                x-on:click="reportProblem()"
+                class="text-xs text-brand-ink/55 underline-offset-4 hover:text-brand-ink hover:underline"
+                data-testid="sumup-stuck-report"
+            >
+                {{ __('Stuck for too long? Tap to report.') }}
+            </button>
         </div>
 
         <div
@@ -182,13 +289,23 @@
             aria-live="polite"
         >
             <p x-text="widgetError"></p>
-            <button
-                type="button"
-                x-on:click="retry()"
-                class="mt-3 btn-solid text-xs"
-            >
-                {{ __('Try again') }}
-            </button>
+            <div class="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                    type="button"
+                    x-on:click="retry()"
+                    class="btn-solid text-xs"
+                >
+                    {{ __('Try again') }}
+                </button>
+                <button
+                    type="button"
+                    x-on:click="reportProblem()"
+                    class="text-xs text-brand-ink/55 underline-offset-4 hover:text-brand-ink hover:underline"
+                    data-testid="sumup-error-report"
+                >
+                    {{ __('Stuck for too long? Tap to report.') }}
+                </button>
+            </div>
         </div>
 
         <p
