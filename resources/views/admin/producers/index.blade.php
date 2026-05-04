@@ -101,6 +101,7 @@
                                         <th scope="col" class="py-2 pe-4">{{ __('Name') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Region') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Products') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.catalog.col_last_updated') }}</th>
                                         <th scope="col" class="py-2 pe-0 text-end">{{ __('Actions') }}</th>
                                     </tr>
                                 </thead>
@@ -110,6 +111,9 @@
                                             <td class="py-3 pe-4 font-medium text-gray-900">{{ $producer->name }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $producer->region ?? '—' }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $producer->products_count }}</td>
+                                            <td class="py-3 pe-4 text-xs text-gray-500 tabular-nums" title="{{ $producer->updated_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') }}">
+                                                {{ $producer->updated_at?->diffForHumans() ?? '—' }}
+                                            </td>
                                             <td class="py-3 pe-0 text-end space-x-3 whitespace-nowrap">
                                                 <a href="{{ route('app.admin.producers.edit', $producer) }}" class="font-medium text-brand-ink underline-offset-4 hover:underline">{{ __('Edit') }}</a>
                                                 <button
@@ -125,7 +129,14 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="mt-4">
+                        <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-xs text-gray-500" data-testid="admin-producers-row-count">
+                                {{ __('admin.catalog.pagination_count', [
+                                    'from' => $producers->firstItem() ?? 0,
+                                    'to' => $producers->lastItem() ?? 0,
+                                    'total' => $producers->total(),
+                                ]) }}
+                            </p>
                             {{ $producers->links() }}
                         </div>
                     @endif

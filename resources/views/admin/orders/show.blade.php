@@ -67,6 +67,9 @@
             <section class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
                 <h3 class="mb-3 font-semibold text-gray-800">{{ __('Schedule delivery') }}</h3>
                 <p class="mb-3 text-xs text-gray-500">{{ __('admin.trial_order_schedule.intro') }}</p>
+                @if ($order->product_type->value === 'trial_box' && ! $boxSetupUrl)
+                    <p class="mb-3 text-xs text-emerald-700">{{ __('admin.trial_order_schedule.box_setup_appears_after_save_hint') }}</p>
+                @endif
                 {{-- Date+timeslot are reactive: picking a date in the past
                      disables all slots; picking today filters out slots whose
                      start time has already passed. The server still validates

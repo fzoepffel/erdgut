@@ -223,7 +223,27 @@
                                                     </span>
                                                 @endif
                                             </td>
-                                            <td class="py-3 pe-4"><x-status-badge :value="$delivery->status" type="delivery" /></td>
+                                            <td class="py-3 pe-4">
+                                                @php
+                                                    // Surface the timestamp of the most recent status change
+                                                    // so admins can tell "delivered an hour ago" from
+                                                    // "delivered last week" without clicking through. Only
+                                                    // in_transit + delivered carry timestamps today; other
+                                                    // states (scheduled / skipped / failed) fall back to the
+                                                    // row-level updated_at.
+                                                    $statusAt = match ($delivery->status->value) {
+                                                        'in_transit' => $delivery->in_transit_at,
+                                                        'delivered' => $delivery->delivered_at,
+                                                        default => $delivery->updated_at,
+                                                    };
+                                                @endphp
+                                                <x-status-badge :value="$delivery->status" type="delivery" />
+                                                @if ($statusAt)
+                                                    <p class="mt-0.5 text-[11px] text-gray-500 tabular-nums" title="{{ $statusAt->timezone(config('app.timezone'))->format('Y-m-d H:i') }}">
+                                                        {{ $statusAt->timezone(config('app.timezone'))->diffForHumans() }}
+                                                    </p>
+                                                @endif
+                                            </td>
                                             <td class="py-3 pe-4">
                                                 <form method="POST" action="{{ route('app.admin.deliveries.status.update', $delivery) }}" class="flex items-center gap-2">
                                                     @csrf
