@@ -100,7 +100,17 @@ class SumUpWebhookHandler
             $shouldAdvanceNextChargeDate = $subscription !== null
                 && $subscription->status === SubscriptionStatus::Active;
 
-            DB::transaction(function () use ($payment, $subscription, $order, $shouldAdvanceNextChargeDate): void {
+            // Backfill the SumUp transaction id from the checkout's first
+            // transaction so admin refund (which calls SumUp's refund API
+            // via $payment->sumup_payment_id) doesn't silently degrade to
+            // local-only when the row was created via reconcile/charge.
+            $transactionId = (string) (data_get($checkout, 'transactions.0.id') ?? '');
+
+            DB::transaction(function () use ($payment, $subscription, $order, $shouldAdvanceNextChargeDate, $transactionId): void {
+                if ($transactionId !== '' && (string) $payment->sumup_payment_id === '') {
+                    $payment->forceFill(['sumup_payment_id' => $transactionId])->save();
+                }
+
                 $payment->markPaid();
 
                 if ($subscription !== null) {
