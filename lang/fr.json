@@ -389,6 +389,8 @@
     "Skip to main content": "Aller au contenu principal",
     "Preparing the secure card form…": "Préparation du formulaire de carte sécurisé…",
     "Stuck for too long? Tap to report.": "Bloqué trop longtemps ? Signaler ici.",
+    "payment.processing_stalled_hint": "Cela prend plus de temps que d'habitude. Votre réseau mobile bloque peut-être la connexion au prestataire de paiement. Essayez en Wi-Fi, depuis un autre appareil, ou avec une autre carte.",
+    "payment.processing_stalled_retry": "Recharger la page",
     "Thanks — we logged this so we can investigate. Please try a different card or device.": "Merci — nous avons enregistré ce signalement. Réessayez avec une autre carte ou un autre appareil.",
     "This usually takes under 5 seconds.": "Cela prend généralement moins de 5 secondes.",
     "Processing your payment": "Traitement de votre paiement",
