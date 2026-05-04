@@ -1858,6 +1858,8 @@
     "spargel.admin.flash_marked_completed": "Commande n° :id marquée comme honorée.",
     "spargel.admin.paid_at": "Payée le :date",
     "spargel.admin.fulfilled_at": "Honorée le :date",
+    "spargel.admin.failed_attempts": "{1} 1 tentative échouée|[2,*] :count tentatives échouées",
+    "spargel.admin.last_failed_at": "Dernière : :date",
     "spargel.admin.footer_disposable": "Cette vue sera retirée à l'ouverture de la boutique régulière.",
     "spargel.story_eyebrow": "Du Spreewald",
     "spargel.story_heading": "Asperges de Kalkwitz",

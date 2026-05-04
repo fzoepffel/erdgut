@@ -1858,6 +1858,8 @@
     "spargel.admin.flash_marked_completed": "Bestellung #:id wurde als erledigt markiert.",
     "spargel.admin.paid_at": "Bezahlt am :date",
     "spargel.admin.fulfilled_at": "Erledigt am :date",
+    "spargel.admin.failed_attempts": "{1} 1 gescheiterter Versuch|[2,*] :count gescheiterte Versuche",
+    "spargel.admin.last_failed_at": "Zuletzt: :date",
     "spargel.admin.footer_disposable": "Diese Übersicht wird zum Launch des regulären Shops entfernt.",
     "spargel.story_eyebrow": "Aus dem Spreewald",
     "spargel.story_heading": "Kalkwitzer Spargel",

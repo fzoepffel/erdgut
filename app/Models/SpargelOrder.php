@@ -73,6 +73,8 @@ class SpargelOrder extends Model
         'fulfilled_at',
         'sumup_checkout_id',
         'sumup_payment_id',
+        'payment_attempts',
+        'last_payment_failed_at',
         'provider_payload',
     ];
 
@@ -99,6 +101,8 @@ class SpargelOrder extends Model
             'paid_at' => 'datetime',
             'marked_paid_by_admin_at' => 'datetime',
             'fulfilled_at' => 'datetime',
+            'payment_attempts' => 'integer',
+            'last_payment_failed_at' => 'datetime',
             'provider_payload' => 'array',
         ];
     }
