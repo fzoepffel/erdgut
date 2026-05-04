@@ -1627,6 +1627,7 @@
     "admin.weekly_catalog.category_placeholder": "— Catégorie —",
     "admin.weekly_catalog.col_delete": "Supprimer",
     "admin.weekly_catalog.col_mode": "Type",
+    "admin.weekly_catalog.col_mode_hint": "Choisir par ligne entre un produit existant du catalogue ou un nouveau produit défini ici.",
     "admin.weekly_catalog.col_product": "Produit",
     "admin.weekly_catalog.col_quantity": "Quantité",
     "admin.weekly_catalog.col_remaining": "Restant",

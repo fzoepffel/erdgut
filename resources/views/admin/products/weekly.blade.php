@@ -119,7 +119,17 @@
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50">
                                 <tr class="text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                                    <th class="px-3 py-2">{{ __('admin.weekly_catalog.col_mode') }}</th>
+                                    <th class="px-3 py-2">
+                                        <span class="inline-flex items-center gap-1">
+                                            {{ __('admin.weekly_catalog.col_mode') }}
+                                            <span
+                                                tabindex="0"
+                                                class="cursor-help rounded-full border border-gray-400 px-1.5 text-[10px] font-bold normal-case tracking-normal text-gray-500 hover:border-gray-600 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                                title="{{ __('admin.weekly_catalog.col_mode_hint') }}"
+                                                aria-label="{{ __('admin.weekly_catalog.col_mode_hint') }}"
+                                            >?</span>
+                                        </span>
+                                    </th>
                                     <th class="px-3 py-2">{{ __('admin.weekly_catalog.col_product') }}</th>
                                     <th class="px-3 py-2">{{ __('admin.weekly_catalog.col_quantity') }}</th>
                                     <th class="px-3 py-2">{{ __('admin.weekly_catalog.col_unit') }}</th>
@@ -200,6 +210,7 @@
                                         <td class="px-3 py-2 align-top">
                                             <select
                                                 name="rows[{{ $rowIndexKey }}][mode]"
+                                                title="{{ __('admin.weekly_catalog.col_mode_hint') }}"
                                                 class="rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                             >
                                                 <option value="existing">{{ __('admin.weekly_catalog.row_mode_existing') }}</option>

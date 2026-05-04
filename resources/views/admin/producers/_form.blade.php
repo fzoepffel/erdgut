@@ -23,7 +23,11 @@
     @endif
 
     <div class="space-y-4" x-data="{ tab: '{{ $initialTab }}' }">
-        <div class="flex items-center justify-between">
+        {{-- Stack on narrow viewports so the all-three-required hint
+             doesn't crash into the heading — the text is long in DE/FR
+             and `justify-between` would otherwise wrap to two cramped
+             columns. Inline at sm: where there's room. --}}
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
             <h2 class="text-sm font-semibold text-gray-900">{{ __('Translations') }}</h2>
             <p class="text-xs text-gray-600">{{ __('All three languages are required.') }}</p>
         </div>
