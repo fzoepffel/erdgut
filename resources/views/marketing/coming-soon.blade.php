@@ -88,7 +88,7 @@
                             class="mt-5 max-w-xl font-editorial text-base italic leading-relaxed sm:text-lg"
                             style="color: rgba(33, 52, 29, 0.85);"
                         >
-                            {{ __('Noch sind wir auf dem Feld und ernten das Beste der Saison. In Kürze kannst du dich hier selbst davon überzeugen.') }}
+                            {{ __('Noch sind wir auf dem Feld und ernten das Beste der Saison. In Kürze kannst du dich hier selbst davon überzeugen und in ganz Berlin beliefert werden.') }}
                         </p>
                     </div>
 
