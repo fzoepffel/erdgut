@@ -1859,6 +1859,8 @@
     "spargel.admin.flash_marked_completed": "Order #:id marked as completed.",
     "spargel.admin.paid_at": "Paid :date",
     "spargel.admin.fulfilled_at": "Done :date",
+    "spargel.admin.failed_attempts": "{1} 1 failed attempt|[2,*] :count failed attempts",
+    "spargel.admin.last_failed_at": "Last: :date",
     "spargel.admin.footer_disposable": "This view is removed when the proper shop launches.",
     "spargel.story_eyebrow": "From the Spreewald",
     "spargel.story_heading": "Kalkwitz asparagus",

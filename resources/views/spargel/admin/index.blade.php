@@ -157,6 +157,21 @@
                                     <span class="inline-flex px-2 py-0.5 text-xs font-medium {{ $statusBadge }}">
                                         {{ __('spargel.admin.status_'.$statusKey) }}
                                     </span>
+                                    @if ((int) $order->payment_attempts > 0)
+                                        {{-- Surface payment-attempt history even after the customer
+                                             clicks "Try again" (which resets status back to PendingPayment
+                                             in SpargelOrderController::pay). Without this, repeated
+                                             failures leave no visible trace and the row looks "Open". --}}
+                                        <div class="mt-1 inline-flex items-center gap-1 border border-chapter-meat/40 bg-chapter-meat/5 px-1.5 py-0.5 text-[11px] font-semibold text-chapter-meat" data-testid="spargel-admin-failed-attempts">
+                                            <span aria-hidden="true">⚠</span>
+                                            {{ trans_choice('spargel.admin.failed_attempts', (int) $order->payment_attempts, ['count' => (int) $order->payment_attempts]) }}
+                                        </div>
+                                        @if ($order->last_payment_failed_at)
+                                            <div class="mt-0.5 text-[11px] text-brand-ink/55">
+                                                {{ __('spargel.admin.last_failed_at', ['date' => $order->last_payment_failed_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm')]) }}
+                                            </div>
+                                        @endif
+                                    @endif
                                     @if ($order->paid_at)
                                         <div class="mt-1 text-[11px] text-brand-ink/55">
                                             {{ __('spargel.admin.paid_at', ['date' => $order->paid_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm')]) }}
