@@ -62,7 +62,10 @@
                         <p class="font-semibold">{{ __('admin.deliveries.orphans_banner_title', ['count' => $orphanCount]) }}</p>
                         <p class="mt-1 text-xs">{{ __('admin.deliveries.orphans_banner_hint') }}</p>
                     </div>
-                    <form method="POST" action="{{ route('app.admin.deliveries.cleanup-orphans') }}" onsubmit="return confirm('{{ __('admin.deliveries.orphans_confirm') }}')">
+                    {{-- Fallback to a hardcoded English string if the
+                         translation key is empty so an empty confirm()
+                         never bulk-deletes silently. --}}
+                    <form method="POST" action="{{ route('app.admin.deliveries.cleanup-orphans') }}" onsubmit="return confirm({{ Js::from(__('admin.deliveries.orphans_confirm') ?: 'Delete all orphaned deliveries? This cannot be undone.') }})">
                         @csrf
                         <x-danger-button size="sm">
                             {{ __('admin.deliveries.orphans_cleanup_button') }}
@@ -127,7 +130,7 @@
                             <select id="admin-del-status" name="status" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-44">
                                 <option value="">{{ __('admin.operations.filter_all') }}</option>
                                 @foreach ($deliveryStatuses as $st)
-                                    <option value="{{ $st->value }}" @selected(request('status') === $st->value)>{{ $st->value }}</option>
+                                    <option value="{{ $st->value }}" @selected(request('status') === $st->value)>{{ __('admin.deliveries.status.'.$st->value) }}</option>
                                 @endforeach
                             </select>
                         </div>
