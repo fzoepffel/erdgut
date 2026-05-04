@@ -75,6 +75,9 @@ class SpargelOrder extends Model
         'refunded_at',
         'refund_reason',
         'refunded_by_user_id',
+        'refund_attempts',
+        'last_refund_attempt_at',
+        'last_refund_error',
         'sumup_checkout_id',
         'sumup_payment_id',
         'payment_attempts',
@@ -107,6 +110,8 @@ class SpargelOrder extends Model
             'fulfilled_at' => 'datetime',
             'refund_amount' => 'decimal:2',
             'refunded_at' => 'datetime',
+            'refund_attempts' => 'integer',
+            'last_refund_attempt_at' => 'datetime',
             'payment_attempts' => 'integer',
             'last_payment_failed_at' => 'datetime',
             'provider_payload' => 'array',
@@ -114,8 +119,9 @@ class SpargelOrder extends Model
     }
 
     /**
-     * Mark this spargel order as refunded — both locally and (via the
-     * controller layer) on SumUp's side. Mirrors {@see Payment::recordRefund}.
+     * Mark this spargel order as refunded — call AFTER SumUp confirmed the
+     * refund (or for a manual external refund). Flips status to Refunded
+     * and records who/when/why.
      */
     public function recordRefund(float $amount, int $actorUserId, ?string $reason = null): void
     {
@@ -125,6 +131,21 @@ class SpargelOrder extends Model
             'refunded_at' => now(),
             'refund_reason' => $reason,
             'refunded_by_user_id' => $actorUserId,
+        ])->save();
+    }
+
+    /**
+     * Record that a refund attempt was made but SumUp rejected it. Status
+     * stays Paid — we don't want to lie to the admin about whether the
+     * customer's money has actually moved. The admin can retry, and the
+     * refund_attempts counter + last_refund_error surface in the UI.
+     */
+    public function recordRefundAttemptFailed(string $error): void
+    {
+        $this->forceFill([
+            'refund_attempts' => (int) $this->refund_attempts + 1,
+            'last_refund_attempt_at' => now(),
+            'last_refund_error' => mb_substr($error, 0, 500),
         ])->save();
     }
 
