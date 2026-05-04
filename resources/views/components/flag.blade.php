@@ -29,19 +29,26 @@
             @break
 
         @case('en')
-            {{-- Union Jack with proper Saint Patrick counterchange. The
-                 previous version used `clip-path="polygon(...)"` which is
-                 CSS syntax — invalid as an SVG attribute, silently ignored
-                 by browsers, so the red saltire rendered without offset.
-                 This version uses a real <clipPath> element to mask the
-                 red saltire into the canonical four counterchange triangles
-                 (Wikipedia/Wikimedia Commons heraldic spec). --}}
+            {{-- Union Jack with proper Saint Patrick counterchange.
+                 Each of the 4 diagonal arms gets its red offset to ONE
+                 side of the white Saint Andrew saltire — the canonical
+                 asymmetric look. Each clip triangle covers the arm's
+                 offset half (TL+TR: red below the diagonal; BR+BL: red
+                 above), so when the full red X stroke is clipped, only
+                 the offset half remains in each arm. --}}
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30" preserveAspectRatio="none" class="block h-full w-full">
                 <clipPath id="union-jack-frame">
                     <rect width="60" height="30" />
                 </clipPath>
                 <clipPath id="union-jack-counterchange">
-                    <path d="M30,15 h30 v15 z v-15 h-30 z h-30 v-15 z v15 h30 z" />
+                    {{-- TL arm: lower-half triangle of TL quadrant --}}
+                    <path d="M0,0 L0,15 L30,15 z" />
+                    {{-- TR arm: lower-half triangle of TR quadrant --}}
+                    <path d="M60,0 L60,15 L30,15 z" />
+                    {{-- BR arm: upper-half triangle of BR quadrant --}}
+                    <path d="M60,30 L60,15 L30,15 z" />
+                    {{-- BL arm: upper-half triangle of BL quadrant --}}
+                    <path d="M0,30 L0,15 L30,15 z" />
                 </clipPath>
                 <g clip-path="url(#union-jack-frame)">
                     <rect width="60" height="30" fill="#012169" />
