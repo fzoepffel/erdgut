@@ -91,11 +91,11 @@ class SpargelAdminController extends Controller
     }
 
     /**
-     * Refund a paid spargel order. Records the refund locally regardless
-     * of provider outcome (so the admin always has a paper trail), and
-     * additionally calls SumUp's refund API when the order has a stored
-     * `sumup_payment_id`. If the SumUp call fails, the local DB is still
-     * updated and the admin sees a "recorded but provider failed" flash.
+     * Refund a paid spargel order. Tries SumUp's refund API first — only
+     * if SumUp confirms the refund do we flip local status to Refunded.
+     * If SumUp rejects (NOT_ENOUGH_BALANCE, settlement-pending, etc.) the
+     * order stays Paid and we record the failed attempt so the admin sees
+     * "refund failed — retry" rather than a misleading "refunded" badge.
      */
     public function refund(Request $request, SpargelOrder $spargelOrder, SumUpService $sumUpService): RedirectResponse
     {
@@ -108,27 +108,71 @@ class SpargelAdminController extends Controller
         $reason = (string) $request->input('refund_reason', '');
         $amount = (float) $spargelOrder->total_amount_eur;
         $actorId = (int) $request->user()->id;
-
-        $spargelOrder->recordRefund($amount, $actorId, $reason !== '' ? $reason : null);
-
-        $providerStatus = null;
         $transactionId = (string) ($spargelOrder->sumup_payment_id ?? '');
-        if ($transactionId !== '') {
-            try {
-                $sumUpService->refund($transactionId, $amount);
-                $providerStatus = 'ok';
-            } catch (Throwable $e) {
-                $providerStatus = 'failed';
-                SumUpCheckoutLogger::warning('Spargel order refund: SumUp provider call failed.', [
-                    'spargel_order_id' => $spargelOrder->id,
-                    'sumup_payment_id' => $transactionId,
-                    'exception_class' => $e::class,
-                    'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
-                ]);
-            }
-        } else {
-            $providerStatus = 'no_transaction_id';
+
+        // No SumUp transaction id ⇒ this is an externally-paid order
+        // (cash, bank transfer) we're recording a manual refund for.
+        // Flip to Refunded directly without calling SumUp.
+        if ($transactionId === '') {
+            $spargelOrder->recordRefund($amount, $actorId, $reason !== '' ? $reason : null);
+            AuditLogger::log(
+                entityType: 'spargel_order',
+                entityId: $spargelOrder->id,
+                action: 'refund',
+                fromState: SpargelOrderStatus::Paid->value,
+                toState: SpargelOrderStatus::Refunded->value,
+                reason: $reason !== '' ? $reason : null,
+                metadata: array_filter([
+                    'amount' => (string) $amount,
+                    'currency' => 'EUR',
+                    'provider_call' => 'no_transaction_id',
+                ], static fn ($v) => $v !== null),
+                actorUserId: $actorId,
+            );
+
+            return redirect()
+                ->route('spargel.admin.index')
+                ->with('status', __('spargel.admin.flash_refunded_local_only', ['id' => $spargelOrder->id]));
         }
+
+        // Standard path: ask SumUp first, only promote status on success.
+        try {
+            $sumUpService->refund($transactionId, $amount);
+        } catch (Throwable $e) {
+            $rawError = SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage());
+            $spargelOrder->recordRefundAttemptFailed($rawError);
+
+            SumUpCheckoutLogger::warning('Spargel order refund: SumUp provider call failed — status NOT changed.', [
+                'spargel_order_id' => $spargelOrder->id,
+                'sumup_payment_id' => $transactionId,
+                'exception_class' => $e::class,
+                'error' => $rawError,
+                'refund_attempts' => (int) $spargelOrder->refund_attempts,
+            ]);
+
+            AuditLogger::log(
+                entityType: 'spargel_order',
+                entityId: $spargelOrder->id,
+                action: 'refund_attempt_failed',
+                fromState: SpargelOrderStatus::Paid->value,
+                toState: SpargelOrderStatus::Paid->value,
+                reason: $reason !== '' ? $reason : null,
+                metadata: array_filter([
+                    'amount' => (string) $amount,
+                    'currency' => 'EUR',
+                    'error' => $rawError,
+                    'attempts' => (string) $spargelOrder->refund_attempts,
+                ], static fn ($v) => $v !== null),
+                actorUserId: $actorId,
+            );
+
+            return redirect()
+                ->route('spargel.admin.index')
+                ->with('status', __('spargel.admin.flash_refund_provider_failed', ['id' => $spargelOrder->id]));
+        }
+
+        // SumUp confirmed → safe to flip status.
+        $spargelOrder->recordRefund($amount, $actorId, $reason !== '' ? $reason : null);
 
         AuditLogger::log(
             entityType: 'spargel_order',
@@ -140,20 +184,13 @@ class SpargelAdminController extends Controller
             metadata: array_filter([
                 'amount' => (string) $amount,
                 'currency' => 'EUR',
-                'provider_call' => $providerStatus,
+                'provider_call' => 'ok',
             ], static fn ($v) => $v !== null),
             actorUserId: $actorId,
         );
 
-        $flashKey = match ($providerStatus) {
-            'ok' => 'spargel.admin.flash_refunded',
-            'failed' => 'spargel.admin.flash_refunded_provider_failed',
-            'no_transaction_id' => 'spargel.admin.flash_refunded_local_only',
-            default => 'spargel.admin.flash_refunded',
-        };
-
         return redirect()
             ->route('spargel.admin.index')
-            ->with('status', __($flashKey, ['id' => $spargelOrder->id]));
+            ->with('status', __('spargel.admin.flash_refunded', ['id' => $spargelOrder->id]));
     }
 }
