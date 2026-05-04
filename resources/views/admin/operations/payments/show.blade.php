@@ -152,8 +152,12 @@
                                         min="0.01"
                                         max="{{ $payment->amount }}"
                                         value="{{ old('refund_amount', $payment->amount) }}"
+                                        placeholder="{{ number_format((float) $payment->amount, 2, '.', '') }}"
                                         class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
                                     />
+                                    <p class="mt-1 text-xs text-gray-500">
+                                        {{ __('admin.operations.payments.refund_amount_hint', ['amount' => number_format((float) $payment->amount, 2, ',', '.'), 'currency' => $payment->currency]) }}
+                                    </p>
                                     <x-input-error class="mt-1" :messages="$errors->get('refund_amount')" />
                                 </div>
                                 <div>

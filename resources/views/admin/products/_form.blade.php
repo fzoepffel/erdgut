@@ -418,6 +418,9 @@
         <div>
             <x-input-label for="gallery_images" :value="__('Add images')" />
             <input id="gallery_images" name="gallery_images[]" type="file" multiple accept="image/*" class="mt-1 block w-full text-sm text-gray-600" />
+            @if (! $isEdit)
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.gallery_alt_after_save_hint') }}</p>
+            @endif
             <x-input-error class="mt-2" :messages="$errors->get('gallery_images')" />
             <x-input-error class="mt-2" :messages="$errors->get('gallery_images.0')" />
         </div>

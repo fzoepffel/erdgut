@@ -2,7 +2,7 @@
 
 Captured 2026-05-04 during a top-to-bottom code-walk of the operational admin surfaces (producers → products → weekly catalog → boxes → deliveries → payments → subscriptions → orders → billing → audit-events). Companion to `admin-ux-walkthrough-followups.md` but scoped to operational ergonomics rather than visual design.
 
-> **Status as of 2026-05-04:** 6 quick-wins shipped (`fix/admin-quick-wins-batch`); 5 medium items shipped (`feature/admin-medium-batch`: #1 box-setup draft persistence, #10 dynamic timeslot dropdown, #13 bulk mark-paid, #14+#15 box-detail eggs/stock warnings, #25 spargel refund pattern mirrored on payments). Each `### ` heading carries its own status marker. Smoke-test verified all admin pages render 200 OK as admin — no undefined-variable / null-call crashes.
+> **Status as of 2026-05-04:** 6 quick-wins shipped (`fix/admin-quick-wins-batch`); 5 medium items shipped (`feature/admin-medium-batch`: #1 box-setup draft persistence, #10 dynamic timeslot dropdown, #13 bulk mark-paid, #14+#15 box-detail eggs/stock warnings, #25 spargel refund pattern mirrored on payments); 9 small polish items shipped (`feature/admin-small-polish-batch`: #8 next_charge_date time, #11 trial setup-link hint, #12 refund hints, #19 delivery status timestamp, #20 orders delivered_at column, #21 producers/products timestamps, #22 pagination row count, #23 product alt-text on create, #24 producer image hierarchy). Each `### ` heading carries its own status marker. Smoke-test verified all admin pages render 200 OK as admin — no undefined-variable / null-call crashes.
 
 ---
 
@@ -53,12 +53,9 @@ Workable bugs but not data-loss; each is a real friction point that costs minute
 
 Now reads from `admin.operations.payment_status.{pending|paid|failed|refunded}` keys (added across de/en/fr). Drive-by also fixed delivery status filter dropdown which had the same untranslated-labels bug — added `admin.deliveries.status.in_transit` and `admin.deliveries.status.failed` translations that were missing across all 3 locales.
 
-### #8 — Subscriptions index `next_charge_date` shows date only, no time
+### ~~#8 — Subscriptions index `next_charge_date` shows date only, no time~~ ✓ shipped (`feature/admin-small-polish-batch`)
 
-**What:** Display is `toDateString()` so admin can't tell if the charge fires at 00:00 today (already happened) or 23:59 (still upcoming).
-**Where:** `resources/views/admin/operations/subscriptions/index.blade.php:84`
-**Why it matters:** Rescheduling decisions get made on incomplete info; potential double-charges or missed reschedules.
-**Suggested fix:** Show "06:00" suffix matching the cron schedule (or pull configured charge time from a service); or add a tooltip showing exact charge time.
+The next-charge column now renders the date plus a small `06:00` suffix (matching the configured `subscriptions:charge` cron). The label is sourced from a new `config('payments.recurring_charge_time_label')` so the schedule + display can drift in lockstep if the cron moves.
 
 ### #9 — "Missing payment" filter doesn't sum total outstanding
 
@@ -71,19 +68,13 @@ Now reads from `admin.operations.payment_status.{pending|paid|failed|refunded}` 
 
 Date + timeslot are now reactive: picking a past date or today-after-the-slot-already-passed filters the slot dropdown to only viable options, the submit button disables itself when no slots are valid, and a localised weekday hint renders next to the date so the admin can see which weekday they've picked. Server-side validation untouched — this just stops admins submitting combinations that would bounce.
 
-### #11 — Trial order box-setup link only appears after scheduling
+### ~~#11 — Trial order box-setup link only appears after scheduling~~ ✓ shipped (`feature/admin-small-polish-batch`)
 
-**What:** Order detail shows a "Schedule first" badge until scheduled, then *after* scheduling a separate "Setup box contents" link materializes elsewhere on the page. Two-step UX with no inline hint.
-**Where:** `resources/views/admin/orders/show.blade.php:54-62`
-**Why it matters:** Admin schedules and then has to scroll to find the box-setup link, doesn't intuitively know it'll appear.
-**Suggested fix:** Inline a note in the schedule form: "After scheduling, the 'Setup box contents' link will appear above."
+When the trial order isn't scheduled yet, the schedule form now inlines a small emerald hint explaining that the "Setup box contents" link will appear above on this page after saving.
 
-### #12 — Refund form lacks validation hints
+### ~~#12 — Refund form lacks validation hints~~ ✓ shipped (`feature/admin-small-polish-batch`)
 
-**What:** `refund_amount` field has no visible constraint or hint. Partial refund supported? Must match payment amount? Defaults to full refund?
-**Where:** `resources/views/admin/operations/payments/show.blade.php` (refund form)
-**Why it matters:** Admin tries partial refund, gets silent validation error or unexpected SumUp behavior.
-**Suggested fix:** Add `max="{{ $payment->amount }}"`, placeholder showing the full amount, and help text: "Leave blank to refund the full amount."
+The amount input already had `min`/`max` and a default value; we added a placeholder showing the full amount and a help line under the field: "Maximum :amount EUR — pre-filled with the full payment amount, change it for a partial refund."
 
 ### ~~#13 — No bulk mark-paid-externally action on payments index~~ ✓ shipped (`feature/admin-medium-batch`)
 
@@ -109,19 +100,13 @@ Tabs with validation errors now render with rose-600 border + rose-50 background
 
 `DeliveryStatus` enum cases ARE declared in workflow order: `Scheduled → InTransit → Delivered → Skipped → Failed`. `cases()` preserves declaration order. The agent's claim was wrong. (Drive-by fix from #7 did add missing translations for the labels.)
 
-### #19 — Delivery list shows status badge but no last-status-change timestamp
+### ~~#19 — Delivery list shows status badge but no last-status-change timestamp~~ ✓ shipped (`feature/admin-small-polish-batch`)
 
-**What:** Status column shows the badge but doesn't show when that status was set. Admin can't distinguish "delivered 1 hour ago" from "delivered 1 week ago" without clicking through.
-**Where:** `resources/views/admin/operations/deliveries/index.blade.php` (status column)
-**Why it matters:** Operational triage decisions get harder; "is this delivery stuck?" requires extra clicks.
-**Suggested fix:** Add a tooltip on the status badge or a thin secondary line showing `in_transit_at` / `delivered_at` / `failed_at` depending on current state, formatted via the new `<x-admin-datetime>` (see #6).
+The status cell now renders a small relative-time line under the badge (`in_transit_at` / `delivered_at` / `updated_at` fallback), with the absolute timestamp surfaced via the `title` tooltip. Failed/skipped/scheduled fall back to row `updated_at` since there's no per-state timestamp column for those.
 
-### #20 — Orders index missing `delivered_at` column
+### ~~#20 — Orders index missing `delivered_at` column~~ ✓ shipped (`feature/admin-small-polish-batch`)
 
-**What:** Index shows `created_at` and `scheduled_for_date` but not `delivered_at` — "which trial orders shipped last week?" requires N detail clicks.
-**Where:** `resources/views/admin/orders/index.blade.php` (orders table)
-**Why it matters:** Common operational query; should be a column.
-**Suggested fix:** Add a "Delivered" column with `delivered_at` formatted, or a single combined "Last activity" column showing whichever timestamp is most recent (created < scheduled < paid < delivered).
+Added a "Delivered" column between Scheduled and City. Renders `d M H:i` when set, em-dash when not. Empty-state colspan bumped from 8 to 9.
 
 ---
 
@@ -129,29 +114,21 @@ Tabs with validation errors now render with rose-600 border + rose-50 background
 
 Lower-priority. Won't bite anyone immediately but worth a sweep when convenient.
 
-### #21 — Producers + Products index: no `Created at` / `Updated at` column
+### ~~#21 — Producers + Products index: no `Created at` / `Updated at` column~~ ✓ shipped (`feature/admin-small-polish-batch`)
 
-**What:** Tables don't show timestamps, so admin can't audit recent additions or spot stale test data.
-**Where:** `resources/views/admin/producers/index.blade.php:95-131`, `resources/views/admin/products/index.blade.php:144-210`
-**Suggested fix:** Add a "Last updated" column with relative time ("vor 2 Tagen"), or add a "Sort by newest" toggle.
+Both indexes now have a "Zuletzt aktualisiert" column with relative time (`diffForHumans()`) and the absolute timestamp on hover via `title`.
 
-### #22 — Pagination shows page count but no row count
+### ~~#22 — Pagination shows page count but no row count~~ ✓ shipped (`feature/admin-small-polish-batch`)
 
-**What:** Both producer and product index paginate at 24/page but no "Showing 1–24 of N" indicator.
-**Where:** Same files as #21
-**Suggested fix:** Add total-count display in the table caption or near pagination controls.
+Both indexes now render "Zeige :from–:to von :total" beside the pagination links. Hidden when the table is empty (firstItem/lastItem default to 0).
 
-### #23 — Product gallery alt-text inputs only on edit
+### ~~#23 — Product gallery alt-text inputs only on edit~~ ✓ shipped (`feature/admin-small-polish-batch`)
 
-**What:** The gallery alt-text inputs render with `@if ($isEdit && $product->images->isNotEmpty())` so they're absent on create. Admin uploading images on create can't add alt text without re-editing.
-**Where:** `resources/views/admin/products/_form.blade.php:381-399`
-**Suggested fix:** Allow alt-text entry on create, or surface a clear note: "Add alt text after creating the product."
+Took the simpler route: kept the alt-text inputs gated to edit (matches how `gallery_remove` checkboxes work), but added an inline help line under "Add images" on the create form explaining alt text is added in edit view after saving. Avoids juggling temporary IDs in the create-time payload.
 
-### #24 — Producer form has two image fields without clear hierarchy
+### ~~#24 — Producer form has two image fields without clear hierarchy~~ ✓ shipped (`feature/admin-small-polish-batch`)
 
-**What:** Both an upload field and an external URL field. Help text mentions the URL is fallback but the labels don't make this clear.
-**Where:** `resources/views/admin/producers/_form.blade.php:110-114`
-**Suggested fix:** Rename the URL field to "External image URL (fallback)" and update its help text to explicitly say "Used only when no file is uploaded above."
+Reordered the producer form so upload comes first ("Uploaded image (primary)"), with the URL underneath labelled "External image URL (fallback)" and help text "Used only when no file is uploaded above." Order in markup now mirrors precedence so admins don't fill both.
 
 ### ~~#25 — Refund audit trail doesn't differentiate success from failed-attempt-recorded for subscription/order payments~~ ✓ shipped (`feature/admin-medium-batch`)
 
