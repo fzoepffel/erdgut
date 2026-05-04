@@ -87,6 +87,20 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Browser-side telemetry for the SumUp card widget. Captures phase
+        // transitions (mounted → ready → submit → response/redirect) plus a
+        // capability snapshot (UA, viewport, cookie/storage state) so we can
+        // diagnose payment-widget stalls that don't surface as server errors —
+        // e.g. mobile privacy browsers blocking the 3DS redirect or the
+        // SumUp iframe's cross-origin storage.
+        'payment_diag' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/payment-diag.log'),
+            'level' => env('LOG_PAYMENT_DIAG_LEVEL', 'info'),
+            'days' => env('LOG_PAYMENT_DIAG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

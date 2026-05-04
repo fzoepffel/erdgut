@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\AdminDeliveryController;
 use App\Http\Controllers\Admin\AdminEmailResendController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
+use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
@@ -41,6 +42,7 @@ use App\Http\Controllers\Onboarding\Trial\DeliveryStepController as TrialWizardD
 use App\Http\Controllers\Onboarding\Trial\PaymentStepController as TrialWizardPaymentController;
 use App\Http\Controllers\Operations\CronRunController;
 use App\Http\Controllers\Operations\HealthcheckController;
+use App\Http\Controllers\PaymentDiagnosticsController;
 use App\Http\Controllers\PaymentHistoryController;
 use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProductController as CustomerProductController;
@@ -66,6 +68,13 @@ Route::name('public.')->group(function () {
     Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact')->name('contact.store');
 
     Route::get('/health', HealthcheckController::class)->name('health');
+
+    // Browser-side telemetry intake from the SumUp card widget. Open
+    // (no auth — the spargel checkout is anonymous) but throttled and
+    // schema-validated. See PaymentDiagnosticsController for context.
+    Route::post('/payment-diagnostics', [PaymentDiagnosticsController::class, 'store'])
+        ->middleware('throttle:60,1')
+        ->name('payment-diagnostics.store');
 
     Route::get('/locale/{locale}', [LocaleController::class, 'switch'])
         ->whereAlpha('locale')
@@ -256,6 +265,8 @@ Route::middleware(['auth', 'verified'])
             Route::post('payments/{payment}/refund', [AdminPaymentController::class, 'refund'])
                 ->middleware('throttle:20,1')
                 ->name('payments.refund');
+            Route::get('payment-diagnostics', [AdminPaymentDiagnosticsController::class, 'index'])
+                ->name('payment-diagnostics.index');
             Route::post('emails/resend', [AdminEmailResendController::class, 'store'])
                 ->middleware('throttle:30,1')
                 ->name('emails.resend');
