@@ -177,6 +177,25 @@
                                             {{ __('spargel.admin.paid_at', ['date' => $order->paid_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm')]) }}
                                         </div>
                                     @endif
+                                    @if ((int) $order->refund_attempts > 0 && $order->status !== \App\Enums\SpargelOrderStatus::Refunded)
+                                        {{-- Refund was attempted but SumUp rejected it (typically
+                                             NOT_ENOUGH_BALANCE while the original payment is still
+                                             pending settlement). Order stays Paid; admin can retry. --}}
+                                        <div class="mt-1 inline-flex items-center gap-1 border border-chapter-meat/40 bg-chapter-meat/5 px-1.5 py-0.5 text-[11px] font-semibold text-chapter-meat" data-testid="spargel-admin-refund-failed">
+                                            <span aria-hidden="true">⚠</span>
+                                            {{ trans_choice('spargel.admin.refund_attempts_failed', (int) $order->refund_attempts, ['count' => (int) $order->refund_attempts]) }}
+                                        </div>
+                                        @if ($order->last_refund_attempt_at)
+                                            <div class="mt-0.5 text-[11px] text-brand-ink/55">
+                                                {{ __('spargel.admin.last_refund_attempt', ['date' => $order->last_refund_attempt_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm')]) }}
+                                            </div>
+                                        @endif
+                                        @if ($order->last_refund_error)
+                                            <div class="mt-0.5 text-[11px] italic text-brand-ink/65" title="{{ $order->last_refund_error }}">
+                                                {{ \Illuminate\Support\Str::limit($order->last_refund_error, 60) }}
+                                            </div>
+                                        @endif
+                                    @endif
                                     @if ($order->fulfilled_at)
                                         <div class="mt-1 text-[11px] text-brand-ink/55">
                                             {{ __('spargel.admin.fulfilled_at', ['date' => $order->fulfilled_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm')]) }}

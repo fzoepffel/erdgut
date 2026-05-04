@@ -270,7 +270,14 @@ class SpargelAdminTest extends TestCase
         ]);
     }
 
-    public function test_refund_records_locally_even_when_sumup_provider_call_fails(): void
+    /**
+     * Surfaced in production 2026-05-04: the previous behaviour flipped
+     * status to Refunded BEFORE knowing if SumUp accepted the call —
+     * misleading the admin into thinking a refund went through when it
+     * didn't (e.g. NOT_ENOUGH_BALANCE while funds are still pending
+     * settlement). Now: SumUp first, only flip on confirmation.
+     */
+    public function test_failed_sumup_refund_keeps_status_paid_and_records_attempt(): void
     {
         $admin = User::factory()->admin()->create();
         $order = SpargelOrder::factory()->create([
@@ -278,12 +285,13 @@ class SpargelAdminTest extends TestCase
             'total_amount_eur' => 8.00,
             'sumup_payment_id' => 'tx-will-fail',
             'payment_method' => 'online',
+            'refund_attempts' => 0,
         ]);
 
         $sumUpService = Mockery::mock(SumUpService::class);
         $sumUpService->shouldReceive('refund')
             ->once()
-            ->andThrow(new \RuntimeException('SumUp said no'));
+            ->andThrow(new \RuntimeException('NOT_ENOUGH_BALANCE'));
         $this->app->instance(SumUpService::class, $sumUpService);
 
         $this->actingAs($admin)
@@ -291,9 +299,47 @@ class SpargelAdminTest extends TestCase
             ->assertRedirect(route('spargel.admin.index'));
 
         $order->refresh();
-        // Local DB still flipped to refunded — admin has the paper trail.
-        $this->assertSame(SpargelOrderStatus::Refunded, $order->status);
-        $this->assertNotNull($order->refunded_at);
+        // Status STAYS Paid — we don't lie to the admin.
+        $this->assertSame(SpargelOrderStatus::Paid, $order->status);
+        $this->assertNull($order->refunded_at);
+        $this->assertNull($order->refund_amount);
+
+        // Failed attempt is recorded so the admin sees a warning badge.
+        $this->assertSame(1, (int) $order->refund_attempts);
+        $this->assertNotNull($order->last_refund_attempt_at);
+        $this->assertStringContainsString('NOT_ENOUGH_BALANCE', (string) $order->last_refund_error);
+
+        // Audit log captures the failed attempt distinctly from a successful refund.
+        $this->assertDatabaseHas('audit_events', [
+            'entity_type' => 'spargel_order',
+            'entity_id' => $order->id,
+            'action' => 'refund_attempt_failed',
+            'from_state' => 'paid',
+            'to_state' => 'paid',
+        ]);
+    }
+
+    public function test_admin_row_shows_refund_failed_badge_when_attempts_exist(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $order = SpargelOrder::factory()->create([
+            'status' => SpargelOrderStatus::Paid,
+            'sumup_payment_id' => 'tx-x',
+            'payment_method' => 'online',
+            'refund_attempts' => 2,
+            'last_refund_attempt_at' => now()->subMinutes(5),
+            'last_refund_error' => 'NOT_ENOUGH_BALANCE',
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->withSession(['locale' => 'de'])
+            ->get(route('spargel.admin.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('spargel-admin-refund-failed', $html);
+        $this->assertStringContainsString('2× Rückerstattung fehlgeschlagen', $html);
+        $this->assertStringContainsString('NOT_ENOUGH_BALANCE', $html);
     }
 
     public function test_refund_endpoint_rejects_non_paid_orders(): void
