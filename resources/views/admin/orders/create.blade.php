@@ -125,9 +125,9 @@
                     </div>
 
                     <div class="flex flex-wrap gap-2 pt-2">
-                        <button type="submit" @disabled($selectedUserId <= 0 || $addresses->isEmpty()) class="inline-flex items-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50">
+                        <x-primary-button :disabled="$selectedUserId <= 0 || $addresses->isEmpty()">
                             {{ __('admin.orders.create_submit') }}
-                        </button>
+                        </x-primary-button>
                         <a href="{{ route('app.admin.orders.index') }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
                             {{ __('admin.deliveries.cancel') }}
                         </a>

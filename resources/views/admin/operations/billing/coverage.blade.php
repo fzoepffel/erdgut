@@ -137,9 +137,9 @@
                             >
                                 {{ __('admin.billing_charge.cancel') }}
                             </button>
-                            <button type="submit" class="inline-flex rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800">
+                            <x-primary-button>
                                 {{ __('admin.billing_charge.submit') }}
-                            </button>
+                            </x-primary-button>
                         </div>
                     </form>
                 </div>

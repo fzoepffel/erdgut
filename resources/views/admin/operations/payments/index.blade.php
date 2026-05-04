@@ -160,9 +160,9 @@
                                                         <form method="POST" action="{{ route('app.admin.payments.mark-paid-externally', $payment) }}" class="inline-flex items-center gap-2" onsubmit="return confirm('{{ __('admin.operations.payments.mark_paid_externally_confirm') }}');">
                                                             @csrf
                                                             <input type="text" name="external_reference" required maxlength="160" placeholder="{{ __('admin.operations.payments.external_reference_placeholder') }}" class="w-40 rounded-md border-gray-300 text-xs shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
-                                                            <button type="submit" class="inline-flex items-center rounded-md bg-emerald-700 px-2 py-1 text-xs font-semibold text-white shadow-sm hover:bg-emerald-600">
+                                                            <x-primary-button size="sm">
                                                                 {{ __('admin.operations.payments.mark_paid_externally') }}
-                                                            </button>
+                                                            </x-primary-button>
                                                         </form>
                                                     @elseif ($payment->status === \App\Models\Payment::STATUS_PAID && $payment->external_reference)
                                                         <span class="text-xs text-gray-500" title="{{ $payment->external_reference }}">{{ __('admin.operations.payments.external_marked') }}</span>

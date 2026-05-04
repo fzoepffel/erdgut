@@ -2,8 +2,7 @@
 
 Companion to `feature/admin-ux-walkthrough` PR. Items deferred during the browser walkthrough that warrant their own batch.
 
-> **Status as of 2026-05-04 (after fix/admin-polish-batch-three):** most line items shipped or invalidated. Remaining open work:
-> - **Architectural decision:** admin design language (A: adopt customer button components / B: build admin-specific ones). Defer until product call.
+> **Status as of 2026-05-04 (after refactor/admin-button-components-path-a):** architectural + per-page polish all shipped. Remaining open work:
 > - **Features (not polish):** Anstehende Abbuchungen reminder-email action · Admin user impersonation (confirmed missing).
 > - **Still unwalked surfaces:** per-week box-setup edit · admin order detail · trial-box setup · admin email-resend buttons · `mark-paid-externally` flow on payment detail.
 >
@@ -11,20 +10,15 @@ Companion to `feature/admin-ux-walkthrough` PR. Items deferred during the browse
 
 ## Architectural
 
-### Admin design language: separate component set or merge with customer? (~discussion)
+### ~~Admin design language~~ ✓ shipped — Path A (one button system, one brand)
 
-Admin currently uses raw Tailwind utility classes (`bg-emerald-600`, `bg-gray-900`, `bg-amber-500`) inline in views, while customer area uses the `<x-primary-button>` / `<x-secondary-button>` / `<x-danger-button>` components backed by `btn-solid` / `btn-ghost` / `btn-danger` CSS classes.
+**Decision recorded 2026-05-04:** admin and customer share one button vocabulary. Replaced 23 inline button class strings (emerald-600/700/800, gray-900, amber-700, rose/red-600/700) across 13 admin views with `<x-primary-button>` / `<x-secondary-button>` / `<x-danger-button>` (the customer components). Action buttons across admin now render as brand-ink olive primaries; destructive actions (delete, refund, override-after-deadline, orphan-cleanup) use the danger variant.
 
-This creates three problems:
-1. **Color drift**: every new admin button is a new Tailwind palette decision. Buttons like "Produzent anlegen" are emerald, "Bestellung anlegen" are gray-900, "Lieferungen aus Boxen synchronisieren" are amber. No system.
-2. **Refactor friction**: changing a button style means find-and-replace across 20+ inline class strings vs one CSS class.
-3. **Brand consistency**: admin doesn't *need* to look like the customer area, but the disconnect is jarring when an admin clicks through to a customer-side detail page.
+The remaining amber on admin pages (`bg-amber-50` warning banner backgrounds, the orphan-deliveries banner border) is intentional — those signal STATE, not action, and the danger-button inside the banner is still the call-to-action.
 
-**Two paths:**
-- (A) **Adopt the customer button components in admin**: replace inline classes with `<x-primary-button>` / `<x-secondary-button>` / `<x-danger-button>`. ~1-2 days. Visually unifies; loses the "elevated admin surface" vibe that emerald-green currently signals.
-- (B) **Build admin-specific button components**: `<x-admin-primary-button>` etc. with their own CSS classes. Same effort, preserves the visual distinction.
-
-Defer until you have a stronger position on whether admin is a "different brand surface" or "same brand, different audience".
+Two Alpine-binding gotchas surfaced during the migration, both worth remembering:
+- `:disabled="..."` inside a Blade component is parsed as a PHP expression by Blade, not as an Alpine binding. Use `x-bind:disabled="..."` to pass through to the rendered element so Alpine can evaluate it.
+- `@disabled(...)` directive only works on raw HTML elements, not inside `<x-primary-button>`. Use the `:disabled="..."` Blade prop instead.
 
 ### Inline status enum-bleed audit — ✓ shipped
 
