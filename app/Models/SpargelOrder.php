@@ -71,6 +71,10 @@ class SpargelOrder extends Model
         'paid_at',
         'marked_paid_by_admin_at',
         'fulfilled_at',
+        'refund_amount',
+        'refunded_at',
+        'refund_reason',
+        'refunded_by_user_id',
         'sumup_checkout_id',
         'sumup_payment_id',
         'payment_attempts',
@@ -101,10 +105,27 @@ class SpargelOrder extends Model
             'paid_at' => 'datetime',
             'marked_paid_by_admin_at' => 'datetime',
             'fulfilled_at' => 'datetime',
+            'refund_amount' => 'decimal:2',
+            'refunded_at' => 'datetime',
             'payment_attempts' => 'integer',
             'last_payment_failed_at' => 'datetime',
             'provider_payload' => 'array',
         ];
+    }
+
+    /**
+     * Mark this spargel order as refunded — both locally and (via the
+     * controller layer) on SumUp's side. Mirrors {@see Payment::recordRefund}.
+     */
+    public function recordRefund(float $amount, int $actorUserId, ?string $reason = null): void
+    {
+        $this->forceFill([
+            'status' => SpargelOrderStatus::Refunded,
+            'refund_amount' => $amount,
+            'refunded_at' => now(),
+            'refund_reason' => $reason,
+            'refunded_by_user_id' => $actorUserId,
+        ])->save();
     }
 
     /**

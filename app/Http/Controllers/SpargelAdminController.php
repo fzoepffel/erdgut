@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Enums\SpargelOrderStatus;
 use App\Models\SpargelOrder;
+use App\Support\AuditLogger;
+use App\Support\SumUpCheckoutLogger;
+use App\Support\SumUpService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Throwable;
 
 /**
  * Disposable admin view for the spargel trial-shop.
@@ -84,5 +88,72 @@ class SpargelAdminController extends Controller
         return redirect()
             ->route('spargel.admin.index')
             ->with('status', __('spargel.admin.flash_deleted', ['id' => $id]));
+    }
+
+    /**
+     * Refund a paid spargel order. Records the refund locally regardless
+     * of provider outcome (so the admin always has a paper trail), and
+     * additionally calls SumUp's refund API when the order has a stored
+     * `sumup_payment_id`. If the SumUp call fails, the local DB is still
+     * updated and the admin sees a "recorded but provider failed" flash.
+     */
+    public function refund(Request $request, SpargelOrder $spargelOrder, SumUpService $sumUpService): RedirectResponse
+    {
+        if ($spargelOrder->status !== SpargelOrderStatus::Paid) {
+            return redirect()
+                ->route('spargel.admin.index')
+                ->with('status', __('spargel.admin.flash_refund_not_allowed', ['id' => $spargelOrder->id]));
+        }
+
+        $reason = (string) $request->input('refund_reason', '');
+        $amount = (float) $spargelOrder->total_amount_eur;
+        $actorId = (int) $request->user()->id;
+
+        $spargelOrder->recordRefund($amount, $actorId, $reason !== '' ? $reason : null);
+
+        $providerStatus = null;
+        $transactionId = (string) ($spargelOrder->sumup_payment_id ?? '');
+        if ($transactionId !== '') {
+            try {
+                $sumUpService->refund($transactionId, $amount);
+                $providerStatus = 'ok';
+            } catch (Throwable $e) {
+                $providerStatus = 'failed';
+                SumUpCheckoutLogger::warning('Spargel order refund: SumUp provider call failed.', [
+                    'spargel_order_id' => $spargelOrder->id,
+                    'sumup_payment_id' => $transactionId,
+                    'exception_class' => $e::class,
+                    'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
+                ]);
+            }
+        } else {
+            $providerStatus = 'no_transaction_id';
+        }
+
+        AuditLogger::log(
+            entityType: 'spargel_order',
+            entityId: $spargelOrder->id,
+            action: 'refund',
+            fromState: SpargelOrderStatus::Paid->value,
+            toState: SpargelOrderStatus::Refunded->value,
+            reason: $reason !== '' ? $reason : null,
+            metadata: array_filter([
+                'amount' => (string) $amount,
+                'currency' => 'EUR',
+                'provider_call' => $providerStatus,
+            ], static fn ($v) => $v !== null),
+            actorUserId: $actorId,
+        );
+
+        $flashKey = match ($providerStatus) {
+            'ok' => 'spargel.admin.flash_refunded',
+            'failed' => 'spargel.admin.flash_refunded_provider_failed',
+            'no_transaction_id' => 'spargel.admin.flash_refunded_local_only',
+            default => 'spargel.admin.flash_refunded',
+        };
+
+        return redirect()
+            ->route('spargel.admin.index')
+            ->with('status', __($flashKey, ['id' => $spargelOrder->id]));
     }
 }

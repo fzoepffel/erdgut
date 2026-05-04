@@ -209,6 +209,22 @@
                                                 </button>
                                             </form>
                                         @endif
+                                        @if ($order->status === \App\Enums\SpargelOrderStatus::Paid && $order->payment_method !== 'in_person')
+                                            <form
+                                                method="POST"
+                                                action="{{ route('spargel.admin.refund', $order) }}"
+                                                onsubmit="return confirm({{ Js::from(__('spargel.admin.confirm_refund', ['id' => $order->id, 'amount' => number_format((float) $order->total_amount_eur, 2, ',', '.')])) }})"
+                                            >
+                                                @csrf
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex items-center gap-1 border border-chapter-meat bg-chapter-meat/10 px-3 py-1.5 text-xs font-semibold text-chapter-meat transition hover:bg-chapter-meat hover:text-brand-cream"
+                                                    data-testid="spargel-admin-refund-{{ $order->id }}"
+                                                >
+                                                    {{ __('spargel.admin.action_refund') }}
+                                                </button>
+                                            </form>
+                                        @endif
                                         <form
                                             method="POST"
                                             action="{{ route('spargel.admin.destroy', $order) }}"
