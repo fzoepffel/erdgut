@@ -6,6 +6,7 @@
         'customers' => $customers ?? [],
         'egg_candidates' => $eggCandidates ?? [],
         'eggs_add_on_eur' => (float) config('box.eggs_dairy_add_on_eur', 4.5),
+        'week_key' => $week->toDateString(),
     ];
     $sizeMeta = [];
     foreach ($data['size_blocks'] as $block) {
@@ -83,7 +84,29 @@
                 x-data="boxSetup(@js($initialState))"
                 x-cloak
             >
-                <form method="post" action="{{ route('app.admin.boxes.setup.apply', ['week' => $week->toDateString()]) }}">
+                {{-- Unsaved-draft restore banner. Shown when init() finds a
+                     localStorage snapshot from a previous unsaved session for
+                     this same week. Admin opts in — we don't auto-overwrite
+                     server-derived state because composition can shift between
+                     visits (new customers, stock plan changes, etc.). --}}
+                <template x-if="restorableDraft">
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status" data-testid="admin-box-setup-restore-banner">
+                        <div>
+                            <p class="font-semibold">{{ __('admin.box_setup.draft_restore_title') }}</p>
+                            <p class="text-xs text-amber-800" x-text="restorableDraftHint()"></p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" class="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700" @click="applyRestorableDraft()" data-testid="admin-box-setup-restore-apply">
+                                {{ __('admin.box_setup.draft_restore_apply') }}
+                            </button>
+                            <button type="button" class="inline-flex items-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-sm hover:bg-amber-100" @click="discardRestorableDraft()" data-testid="admin-box-setup-restore-discard">
+                                {{ __('admin.box_setup.draft_restore_discard') }}
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <form method="post" action="{{ route('app.admin.boxes.setup.apply', ['week' => $week->toDateString()]) }}" @submit="onSubmit()">
                     @csrf
                     <input type="hidden" name="week_start_date" value="{{ $week->toDateString() }}" />
 

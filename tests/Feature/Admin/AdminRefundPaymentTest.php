@@ -242,8 +242,13 @@ class AdminRefundPaymentTest extends TestCase
         $this->assertSame('ok', $event->metadata['provider_call'] ?? null);
     }
 
-    public function test_refund_records_ledger_and_surfaces_warning_when_provider_fails(): void
+    public function test_refund_keeps_status_paid_and_records_attempt_when_provider_fails(): void
     {
+        // Mirrors spargel-orders flow (2026-05-04): if SumUp rejects the refund,
+        // we DO NOT flip local status — the customer's money hasn't actually
+        // moved, and a misleading "Refunded" badge previously caused real
+        // operational confusion. Status stays Paid + the failed attempt is
+        // recorded on the payment for the admin to retry.
         config(['payments.refund_api_enabled' => true]);
 
         $admin = User::factory()->admin()->create();
@@ -259,21 +264,33 @@ class AdminRefundPaymentTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('app.admin.payments.refund', $payment), [])
-            ->assertSessionHas('status', 'admin-payment-refund-recorded-provider-failed');
+            ->assertSessionHas('status', 'admin-payment-refund-provider-failed');
 
         $payment->refresh();
-        // Ledger must still reflect the refund so books don't drift.
-        $this->assertSame(Payment::STATUS_REFUNDED, $payment->status);
-        $this->assertEquals(35.00, (float) $payment->refund_amount);
+        $this->assertSame(Payment::STATUS_PAID, $payment->status);
+        $this->assertNull($payment->refunded_at);
+        $this->assertNull($payment->refund_amount);
+        $this->assertSame(1, (int) $payment->refund_attempts);
+        $this->assertNotNull($payment->last_refund_attempt_at);
+        $this->assertNotNull($payment->last_refund_error);
 
-        $event = AuditEvent::query()
+        $this->assertFalse(AuditEvent::query()
             ->where('entity_type', 'payment')
             ->where('entity_id', $payment->id)
             ->where('action', 'refund')
+            ->exists());
+
+        $failureEvent = AuditEvent::query()
+            ->where('entity_type', 'payment')
+            ->where('entity_id', $payment->id)
+            ->where('action', 'refund_attempt_failed')
             ->first();
 
-        $this->assertNotNull($event);
-        $this->assertSame('failed', $event->metadata['provider_call'] ?? null);
+        $this->assertNotNull($failureEvent);
+        $this->assertSame(Payment::STATUS_PAID, $failureEvent->from_state);
+        $this->assertSame(Payment::STATUS_PAID, $failureEvent->to_state);
+        $this->assertSame('1', $failureEvent->metadata['attempts'] ?? null);
+        $this->assertArrayHasKey('error', $failureEvent->metadata);
     }
 
     public function test_refund_with_missing_provider_id_skips_api_even_when_flag_on(): void

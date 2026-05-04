@@ -67,21 +67,75 @@
             <section class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
                 <h3 class="mb-3 font-semibold text-gray-800">{{ __('Schedule delivery') }}</h3>
                 <p class="mb-3 text-xs text-gray-500">{{ __('admin.trial_order_schedule.intro') }}</p>
-                <form method="post" action="{{ route('app.admin.orders.schedule', $order) }}" class="flex flex-wrap items-end gap-3">
+                {{-- Date+timeslot are reactive: picking a date in the past
+                     disables all slots; picking today filters out slots whose
+                     start time has already passed. The server still validates
+                     `after_or_equal:today` + the timeslot whitelist; this is
+                     just to stop admins submitting combinations that will
+                     bounce. --}}
+                <form
+                    method="post"
+                    action="{{ route('app.admin.orders.schedule', $order) }}"
+                    class="flex flex-wrap items-end gap-3"
+                    x-data="{
+                        scheduledDate: @js(old('scheduled_for_date', $order->scheduled_for_date?->toDateString())),
+                        timeslot: @js(old('timeslot', $order->preferred_timeslot)),
+                        allSlots: @js($timeslots),
+                        todayIso() {
+                            const d = new Date();
+                            d.setHours(0, 0, 0, 0);
+                            return d.toISOString().slice(0, 10);
+                        },
+                        isPast() {
+                            return this.scheduledDate && this.scheduledDate < this.todayIso();
+                        },
+                        availableSlots() {
+                            if (!this.scheduledDate) return this.allSlots;
+                            if (this.isPast()) return [];
+                            if (this.scheduledDate !== this.todayIso()) return this.allSlots;
+                            const now = new Date();
+                            const minutes = now.getHours() * 60 + now.getMinutes();
+                            return this.allSlots.filter(slot => {
+                                const [hh, mm] = slot.split('-')[0].split(':').map(Number);
+                                return (hh * 60 + (mm || 0)) > minutes;
+                            });
+                        },
+                        weekdayLabel() {
+                            if (!this.scheduledDate) return '';
+                            try {
+                                const d = new Date(this.scheduledDate + 'T00:00:00');
+                                return d.toLocaleDateString(@js(app()->getLocale()), { weekday: 'long' });
+                            } catch (e) { return ''; }
+                        },
+                    }"
+                    x-init="$watch('scheduledDate', () => {
+                        const slots = availableSlots();
+                        if (!slots.includes(timeslot)) timeslot = slots[0] ?? '';
+                    })"
+                >
                     @csrf
                     <div>
                         <label for="scheduled_for_date" class="mb-1 block text-xs font-medium text-gray-600">{{ __('Date') }}</label>
-                        <input id="scheduled_for_date" type="date" name="scheduled_for_date" value="{{ old('scheduled_for_date', $order->scheduled_for_date?->toDateString()) }}" required class="rounded-md border-gray-300 text-sm" />
+                        <input id="scheduled_for_date" type="date" name="scheduled_for_date" x-model="scheduledDate" required class="rounded-md border-gray-300 text-sm" />
+                        <p class="mt-1 text-[11px] text-gray-500" x-show="weekdayLabel()" x-cloak>
+                            <span x-text="weekdayLabel()"></span>
+                        </p>
                     </div>
                     <div>
                         <label for="timeslot" class="mb-1 block text-xs font-medium text-gray-600">{{ __('Timeslot') }}</label>
-                        <select id="timeslot" name="timeslot" required class="rounded-md border-gray-300 text-sm">
-                            @foreach ($timeslots as $slot)
-                                <option value="{{ $slot }}" @selected(old('timeslot', $order->preferred_timeslot) === $slot)>{{ $slot }}</option>
-                            @endforeach
+                        <select id="timeslot" name="timeslot" required class="rounded-md border-gray-300 text-sm" x-model="timeslot">
+                            <template x-if="availableSlots().length === 0">
+                                <option value="">{{ __('admin.trial_order_schedule.no_slots_for_date') }}</option>
+                            </template>
+                            <template x-for="slot in availableSlots()" :key="slot">
+                                <option :value="slot" x-text="slot"></option>
+                            </template>
                         </select>
+                        <p class="mt-1 text-[11px] text-rose-600" x-show="scheduledDate && availableSlots().length === 0" x-cloak>
+                            {{ __('admin.trial_order_schedule.no_slots_hint') }}
+                        </p>
                     </div>
-                    <x-primary-button size="sm">{{ __('Schedule') }}</x-primary-button>
+                    <x-primary-button size="sm" x-bind:disabled="!scheduledDate || availableSlots().length === 0">{{ __('Schedule') }}</x-primary-button>
                 </form>
                 @error('scheduled_for_date') <p class="mt-2 text-xs text-rose-600">{{ $message }}</p> @enderror
                 @error('timeslot') <p class="mt-2 text-xs text-rose-600">{{ $message }}</p> @enderror

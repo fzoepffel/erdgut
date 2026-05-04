@@ -147,6 +147,18 @@
                  toggle, and the single Speichern button. --}}
             <div x-data="boxEditor(@js($initialState))" x-cloak class="space-y-4">
 
+                {{-- Persistent eggs-missing warning at the top of the page so
+                     the admin sees it immediately when reviewing — not just
+                     buried inside the eggs panel below. Only shows when the
+                     customer paid for the add-on but the box has no eggs lines. --}}
+                @if ($eggsAddOn)
+                    <template x-if="eggsLines.length === 0">
+                        <div class="rounded-md border border-chapter-meat bg-chapter-meat/10 px-4 py-3 text-sm font-medium text-chapter-meat" role="alert" data-testid="admin-box-show-eggs-missing-banner">
+                            ⚠ {{ __('admin.box_setup.per_customer_eggs_missing_hint') }}
+                        </div>
+                    </template>
+                @endif
+
                 {{-- Wochen-Bestand panel. Each row's Verteilt is the sum of
                      qty across all OTHER boxes for the week, plus the live
                      contribution of THIS box (regular + eggs). Rest goes
@@ -286,6 +298,11 @@
                                         <td class="px-3 py-2">
                                             <span :class="productIsSafe(line.product_id) ? 'font-medium text-gray-900' : 'font-semibold text-rose-900'" x-text="productName(line.product_id)"></span>
                                             <span class="ms-1 text-[11px] text-gray-500" x-text="productUnit(line.product_id)"></span>
+                                            <template x-if="productMissingStock(line.product_id)">
+                                                <span class="ms-1 inline-flex items-center rounded bg-chapter-meat/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-chapter-meat" data-testid="admin-box-item-out-of-stock-chip" :title="@js(__('admin.box_setup.stock_out_of_week_hint'))">
+                                                    {{ __('admin.box_setup.stock_out_of_week') }}
+                                                </span>
+                                            </template>
                                             <template x-if="!productIsSafe(line.product_id)">
                                                 <p class="mt-0.5 text-[10px] font-medium text-rose-700" data-testid="admin-box-item-conflict-chip" x-text="@js(__('admin.box_items.conflict_with_label')) + ': ' + productConflicts(line.product_id).join(', ')"></p>
                                             </template>
@@ -531,6 +548,7 @@
                     return this.allergensFor(pid).filter(a => have.has(String(a)));
                 },
                 productIsSafe(pid) { return this.productConflicts(pid).length === 0; },
+                productMissingStock(pid) { return !!this.productInfo(pid).missing_stock; },
                 conflictTitle(pid) {
                     const conflicts = this.productConflicts(pid);
                     return @js(__('admin.box_items.conflict_with_label')) + ': ' + conflicts.join(', ');

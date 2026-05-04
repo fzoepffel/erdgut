@@ -77,6 +77,9 @@ class Payment extends Model
         'refund_reason',
         'refund_reference',
         'refunded_by_user_id',
+        'refund_attempts',
+        'last_refund_attempt_at',
+        'last_refund_error',
     ];
 
     /**
@@ -96,6 +99,8 @@ class Payment extends Model
             'manual_marked_at' => 'datetime',
             'refunded_at' => 'datetime',
             'refund_amount' => 'decimal:2',
+            'refund_attempts' => 'integer',
+            'last_refund_attempt_at' => 'datetime',
         ];
     }
 
@@ -197,5 +202,22 @@ class Payment extends Model
             'refund_reference' => $reference,
             'refunded_by_user_id' => $actorUserId,
         ]);
+    }
+
+    /**
+     * Record that a refund attempt was made but the provider rejected it.
+     * Status stays Paid — we don't want to show a misleading "Refunded"
+     * badge while the customer's money hasn't actually moved. The admin
+     * can retry; refund_attempts + last_refund_error surface in the UI.
+     *
+     * Mirrors {@see SpargelOrder::recordRefundAttemptFailed()}.
+     */
+    public function recordRefundAttemptFailed(string $error): void
+    {
+        $this->forceFill([
+            'refund_attempts' => (int) $this->refund_attempts + 1,
+            'last_refund_attempt_at' => now(),
+            'last_refund_error' => mb_substr($error, 0, 500),
+        ])->save();
     }
 }
