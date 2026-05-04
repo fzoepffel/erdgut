@@ -115,14 +115,21 @@
                     role="tab"
                     :aria-selected="tab === '{{ $locale }}'"
                     @click="tab = '{{ $locale }}'"
-                    :class="tab === '{{ $locale }}'
-                        ? 'border-emerald-600 text-emerald-700'
-                        : 'border-transparent text-gray-600 hover:text-gray-900'"
-                    class="relative -mb-px border-b-2 px-3 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                    @if ($hasError)
+                        :class="tab === '{{ $locale }}'
+                            ? 'border-rose-600 bg-rose-50 text-rose-800'
+                            : 'border-rose-300 bg-rose-50/60 text-rose-700 hover:bg-rose-50'"
+                    @else
+                        :class="tab === '{{ $locale }}'
+                            ? 'border-emerald-600 text-emerald-700'
+                            : 'border-transparent text-gray-600 hover:text-gray-900'"
+                    @endif
+                    class="relative -mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                    title="{{ $hasError ? __('admin.form.tab_has_errors') : '' }}"
                 >
                     {{ $label }}
                     @if ($hasError)
-                        <span class="ml-1 inline-block h-2 w-2 rounded-full bg-rose-600" aria-hidden="true" title="{{ __('admin.form.tab_has_errors') }}"></span>
+                        <span class="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white" aria-hidden="true">!</span>
                     @endif
                 </button>
             @endforeach
@@ -310,12 +317,15 @@
             <input type="checkbox" name="is_seasonal" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_seasonal', $product?->is_seasonal))>
             <span class="text-sm text-gray-700">{{ __('Seasonal') }}</span>
         </label>
+        {{-- Both publication flags default to FALSE on create — operators
+             must explicitly opt in once the product is fully filled out.
+             On edit, fall back to whatever's stored on the row. --}}
         <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_available" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_available', $product?->is_available ?? true))>
+            <input type="checkbox" name="is_available" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_available', $product?->is_available ?? false))>
             <span class="text-sm text-gray-700">{{ __('Available in shop') }}</span>
         </label>
         <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_published" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_published', $product?->is_published ?? true))>
+            <input type="checkbox" name="is_published" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_published', $product?->is_published ?? false))>
             <span class="text-sm text-gray-700">{{ __('Published') }}</span>
         </label>
         <label class="inline-flex items-center gap-2">

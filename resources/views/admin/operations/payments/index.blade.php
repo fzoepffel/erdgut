@@ -66,10 +66,10 @@
                             <label for="admin-pay-status" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.operations.status') }}</label>
                             <select id="admin-pay-status" name="status" class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 sm:w-40">
                                 <option value="">{{ __('admin.operations.filter_all') }}</option>
-                                <option value="pending" @selected(request('status') === 'pending')>pending</option>
-                                <option value="paid" @selected(request('status') === 'paid')>paid</option>
-                                <option value="failed" @selected(request('status') === 'failed')>failed</option>
-                                <option value="refunded" @selected(request('status') === 'refunded')>refunded</option>
+                                <option value="pending" @selected(request('status') === 'pending')>{{ __('admin.operations.payment_status.pending') }}</option>
+                                <option value="paid" @selected(request('status') === 'paid')>{{ __('admin.operations.payment_status.paid') }}</option>
+                                <option value="failed" @selected(request('status') === 'failed')>{{ __('admin.operations.payment_status.failed') }}</option>
+                                <option value="refunded" @selected(request('status') === 'refunded')>{{ __('admin.operations.payment_status.refunded') }}</option>
                             </select>
                         </div>
                         <div class="w-full sm:w-auto">
