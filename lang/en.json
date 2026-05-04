@@ -389,6 +389,8 @@
     "Skip to main content": "Skip to main content",
     "Preparing the secure card form…": "Preparing the secure card form…",
     "Stuck for too long? Tap to report.": "Stuck for too long? Tap to report.",
+    "payment.processing_stalled_hint": "This is taking longer than usual. Your mobile network may be blocking the connection to our payment provider. Try Wi-Fi, another device, or a different card.",
+    "payment.processing_stalled_retry": "Reload page",
     "Thanks — we logged this so we can investigate. Please try a different card or device.": "Thanks — we logged this so we can investigate. Please try a different card or device.",
     "This usually takes under 5 seconds.": "This usually takes under 5 seconds.",
     "Processing your payment": "Processing your payment",

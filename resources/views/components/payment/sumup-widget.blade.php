@@ -86,14 +86,34 @@
                 }
             } catch (_) { /* telemetry must never break checkout */ }
         },
+        heartbeatId: null,
+        processingStartedAt: 0,
         armStallDetector() {
             if (this.stallTimeoutId) clearTimeout(this.stallTimeoutId);
-            // Sentinel value while armed; nulled when fired so the UI can
-            // distinguish 'still waiting (<25s)' from 'past the threshold'.
+            if (this.heartbeatId) clearInterval(this.heartbeatId);
+            this.processingStartedAt = Date.now();
+            // Heartbeat every 3s tells us how long the user waited even if
+            // they close the tab before the 8s stall fires. Stops itself
+            // once we're out of the processing state.
+            this.heartbeatId = setInterval(() => {
+                if (this.state !== 'processing') {
+                    clearInterval(this.heartbeatId);
+                    this.heartbeatId = null;
+                    return;
+                }
+                this.beacon('processing_heartbeat', {
+                    waited_ms: Date.now() - this.processingStartedAt,
+                });
+            }, 3000);
+            // 8s threshold: matches when impatient mobile users give up
+            // (the friend on /e/OS closed the tab before our previous 25s
+            // timer ever had a chance to fire). Sentinel value while
+            // armed; nulled when fired so the UI can distinguish
+            // 'still waiting (<8s)' from 'past the threshold'.
             this.stallTimeoutId = setTimeout(() => {
-                if (this.state === 'processing') this.beacon('stalled', { reason: 'no_response_25s' });
+                if (this.state === 'processing') this.beacon('stalled', { reason: 'no_response_8s' });
                 this.stallTimeoutId = null;
-            }, 25000);
+            }, 8000);
         },
         init() {
             const widgetErrorMap = {{ json_encode($widgetErrorMap) }};
@@ -159,6 +179,7 @@
                     onResponse: function(type, body) {
                         try { console.log('[SumUp widget]', type, body); } catch (_) {}
                         if (self.stallTimeoutId) { clearTimeout(self.stallTimeoutId); self.stallTimeoutId = null; }
+                        if (self.heartbeatId) { clearInterval(self.heartbeatId); self.heartbeatId = null; }
                         if (type === 'success') {
                             self.state = 'processing';
                             self.beacon('response_success', { body_id: body?.id ?? null, body_status: body?.status ?? null });
@@ -265,20 +286,39 @@
             <p class="max-w-md text-sm leading-relaxed text-brand-ink/65">
                 {{ __('Please do not close this window. Your bank may ask for a quick confirmation (SMS, app, or popup).') }}
             </p>
-            {{-- "Stuck?" affordance: appears after 25s in processing — that's
-                 also when the stall beacon fires server-side. Tapping flags
-                 the report so we can correlate the user complaint with the
-                 stall event in payment_diagnostics. --}}
-            <button
-                type="button"
-                x-show="stallTimeoutId === null"
+            {{-- "Stuck?" affordance: appears after 8s in processing (the
+                 stall threshold), after which the server has also recorded
+                 a `stalled` beacon. The hint explains the most likely
+                 cause we've actually seen in production (mobile-network
+                 path to api.sumup.com dropping the request); the report
+                 button correlates the user complaint with the stall
+                 event in payment_diagnostics. --}}
+            <div
+                x-show="stallTimeoutId === null && state === 'processing'"
                 x-cloak
-                x-on:click="reportProblem()"
-                class="text-xs text-brand-ink/55 underline-offset-4 hover:text-brand-ink hover:underline"
-                data-testid="sumup-stuck-report"
+                class="space-y-3 border-t border-brand-ink/10 pt-3 text-left"
             >
-                {{ __('Stuck for too long? Tap to report.') }}
-            </button>
+                <p class="text-xs leading-relaxed text-brand-ink/65">
+                    {{ __('payment.processing_stalled_hint') }}
+                </p>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button
+                        type="button"
+                        x-on:click="retry()"
+                        class="text-xs text-brand-ink underline underline-offset-4 hover:text-chapter-produce"
+                    >
+                        {{ __('payment.processing_stalled_retry') }}
+                    </button>
+                    <button
+                        type="button"
+                        x-on:click="reportProblem()"
+                        class="text-xs text-brand-ink/55 underline-offset-4 hover:text-brand-ink hover:underline"
+                        data-testid="sumup-stuck-report"
+                    >
+                        {{ __('Stuck for too long? Tap to report.') }}
+                    </button>
+                </div>
+            </div>
         </div>
 
         <div
