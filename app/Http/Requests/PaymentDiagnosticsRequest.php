@@ -39,6 +39,7 @@ class PaymentDiagnosticsRequest extends FormRequest
                 'redirect_starting',
                 'load_timeout',
                 'mount_threw',
+                'processing_heartbeat',
                 'stalled',
                 'user_reported',
             ])],
