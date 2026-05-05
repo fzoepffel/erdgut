@@ -65,6 +65,7 @@
                 <a href="{{ route('public.marketing-home') }}" @if (request()->routeIs('public.marketing-home')) aria-current="page" @endif class="transition {{ request()->routeIs('public.marketing-home') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.marketing-home') ? $ink : $inkSubtle }};">{{ __('Home') }}</a>
                 <a href="{{ route('public.about') }}" @if (request()->routeIs('public.about')) aria-current="page" @endif class="transition {{ request()->routeIs('public.about') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.about') ? $ink : $inkSubtle }};">{{ __('About') }}</a>
                 <a href="{{ route('public.producers') }}" @if (request()->routeIs('public.producers')) aria-current="page" @endif class="transition {{ request()->routeIs('public.producers') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.producers') ? $ink : $inkSubtle }};">{{ __('Producers') }}</a>
+                <a href="{{ route('public.products.index') }}" @if (request()->routeIs('public.products.*')) aria-current="page" @endif class="transition {{ request()->routeIs('public.products.*') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.products.*') ? $ink : $inkSubtle }};">{{ __('Products') }}</a>
                 <a href="{{ route('public.contact') }}" @if (request()->routeIs('public.contact')) aria-current="page" @endif class="transition {{ request()->routeIs('public.contact') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.contact') ? $ink : $inkSubtle }};">{{ __('Contact') }}</a>
             </nav>
         @endif
@@ -85,16 +86,13 @@
                     </a>
                 @endauth
             @elseif ($variant === 'wizard')
-                {{-- Wizard: a quiet log-out link is the only useful action.
-                     The progress indicator below carries the navigation. --}}
-                @auth
-                    {{-- E2 (UX notes): tag the wizard's logout form so
-                         broad selectors don't accidentally hit it during
-                         automation / keyboard navigation. --}}
-                    <form method="POST" action="{{ route('auth.logout') }}" class="inline" data-purpose="logout">@csrf
-                        <button type="submit" data-action="logout" class="text-sm font-medium transition" style="color: {{ $inkSubtle }};">{{ __('Log out') }}</button>
-                    </form>
-                @endauth
+                {{-- B1 (UX notes): wizard chrome is intentionally nav-free.
+                     A logout link used to live here, but a single misclick
+                     during onboarding logged the customer out, and the
+                     verified-middleware then blocked them from resuming
+                     (see B3). The draft survives a closed tab; the user
+                     can resume via /onboard. If they truly need to log
+                     out they can do so from any post-onboarding page. --}}
             @endif
         </div>
 
@@ -121,6 +119,7 @@
                 <a href="{{ route('public.marketing-home') }}" @if (request()->routeIs('public.marketing-home')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.marketing-home') ? $ink : $inkSubtle }};">{{ __('Home') }}</a>
                 <a href="{{ route('public.about') }}" @if (request()->routeIs('public.about')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.about') ? $ink : $inkSubtle }};">{{ __('About') }}</a>
                 <a href="{{ route('public.producers') }}" @if (request()->routeIs('public.producers')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.producers') ? $ink : $inkSubtle }};">{{ __('Producers') }}</a>
+                <a href="{{ route('public.products.index') }}" @if (request()->routeIs('public.products.*')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.products.*') ? $ink : $inkSubtle }};">{{ __('Products') }}</a>
                 <a href="{{ route('public.contact') }}" @if (request()->routeIs('public.contact')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.contact') ? $ink : $inkSubtle }};">{{ __('Contact') }}</a>
             </div>
             <div class="mt-5 border-t pt-5" style="border-color: rgba(33, 52, 29, 0.15);">

@@ -64,6 +64,15 @@ Route::name('public.')->group(function () {
     Route::get('/home', [HomeController::class, 'index'])->name('marketing-home');
     Route::get('/about', [AboutController::class, 'index'])->name('about');
     Route::get('/producers', [MarketingProducerController::class, 'index'])->name('producers');
+
+    // Public catalogue: same controller as the auth-shell list/show under
+    // /app/products. The controller renders the marketing-shell template
+    // for guests, the app-shell template for authenticated users. Open
+    // catalogue lets the marketing site link directly to a category
+    // (e.g. the homepage chapter tiles) without forcing signup first.
+    Route::get('/products', [CustomerProductController::class, 'index'])->name('products.index');
+    Route::get('/products/{product}', [CustomerProductController::class, 'show'])->name('products.show');
+
     Route::get('/contact', [ContactController::class, 'create'])->name('contact');
     Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact')->name('contact.store');
 
