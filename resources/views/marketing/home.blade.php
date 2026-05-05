@@ -208,7 +208,7 @@
                     {{ __('Try one box before you commit.') }}
                 </h2>
                 <p class="mt-4 max-w-2xl font-editorial text-base leading-relaxed text-brand-ink/80 sm:text-lg">
-                    {{ __('EUR :amount for a single Erdgut box — one delivery, no subscription, no stored card. You pick the date; we handle the rest.', ['amount' => \App\Support\Money::format(config('box.trial_price_oneoff_ttc', 35), 0)]) }}
+                    {{ __('From EUR :amount for a single Erdgut box — you pick the size and date, one delivery, no subscription, no stored card.', ['amount' => \App\Support\Money::format(config('box.included_value_by_size.small', 20), 0)]) }}
                 </p>
             </div>
             <a
