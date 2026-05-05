@@ -6,8 +6,10 @@ use App\Listeners\AddListUnsubscribeHeader;
 use App\Listeners\LogSentMail;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\SpargelOrder;
 use App\Models\User;
 use App\Observers\CatalogAuditObserver;
+use App\Observers\SpargelOrderObserver;
 use App\Policies\ProducerPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\UserPolicy;
@@ -47,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
 
         Product::observe(CatalogAuditObserver::class);
         Producer::observe(CatalogAuditObserver::class);
+        SpargelOrder::observe(SpargelOrderObserver::class);
 
         Event::listen(MessageSending::class, AddListUnsubscribeHeader::class);
         // ERD-350: per-user mail history surfaces in /app/admin/users/{user}
