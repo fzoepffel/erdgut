@@ -28,14 +28,22 @@ class ProductController extends Controller
             ->paginate(24)
             ->withQueryString();
 
-        return view('products.index', [
+        // Logged-in users get the customer app shell (sidebar nav,
+        // dashboard return path); guests get the marketing-shell version
+        // (single canonical view, just different chrome). The auth-shell
+        // route stays at /app/products for in-app links; the public-shell
+        // route lives at /products so the marketing nav can reach it
+        // without forcing visitors through login.
+        $template = $request->user() !== null ? 'products.index' : 'products.public';
+
+        return view($template, [
             'products' => $products,
             'activeCategory' => $activeCategory,
             'categories' => ProductCategory::casesSortedByLabel(),
         ]);
     }
 
-    public function show(Product $product): View
+    public function show(Request $request, Product $product): View
     {
         if (! $product->is_available || ! $product->is_published) {
             throw new NotFoundHttpException;
@@ -48,6 +56,8 @@ class ProductController extends Controller
             'pairings' => fn ($q) => $q->visibleInCatalog()->with(['translations', 'producer.translations', 'images']),
         ]);
 
-        return view('products.show', ['product' => $product]);
+        $template = $request->user() !== null ? 'products.show' : 'products.show-public';
+
+        return view($template, ['product' => $product]);
     }
 }

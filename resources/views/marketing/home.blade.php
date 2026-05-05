@@ -145,12 +145,17 @@
                     // original A4 cover). We render the illustration white via a
                     // `brightness(0) invert(1)` filter and set the left column to the
                     // full chapter colour, producing catalogue-style coloured plates.
+                    // Chapters 1-5 link to the public products index, filtered
+                    // by category. The catalog is now public (A1 fix), so guests
+                    // can land directly on a category preview without being
+                    // bounced to /auth/login. Chapters 6 + 7 keep their existing
+                    // public destinations.
                     $chapters = [
-                        ['slug' => 'produce', 'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'), 'href' => route('app.products.index', ['category' => 'vegetables']), 'image' => 'catalog-strip-cabbage.png'],
-                        ['slug' => 'meat', 'label' => __('Meat'), 'tagline' => __('Pasture-raised cuts'), 'href' => route('app.products.index', ['category' => 'meat']), 'image' => 'catalog-strip-waguy.png'],
-                        ['slug' => 'fish', 'label' => __('Fish & Seafood'), 'tagline' => __('Line-caught & smoked'), 'href' => route('app.products.index', ['category' => 'fish']), 'image' => 'catalog-strip-sardines.png'],
-                        ['slug' => 'eggdairy', 'label' => __('Eggs & Dairy'), 'tagline' => __('Milk, butter, cheese'), 'href' => route('app.products.index', ['category' => 'dairy']), 'image' => 'catalog-strip-eggs.png'],
-                        ['slug' => 'bread', 'label' => __('Bread'), 'tagline' => __('Sourdough & pastry'), 'href' => route('app.products.index', ['category' => 'bakery']), 'image' => 'catalog-strip-wheat.png'],
+                        ['slug' => 'produce', 'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'), 'href' => route('public.products.index', ['category' => 'vegetables']), 'image' => 'catalog-strip-cabbage.png'],
+                        ['slug' => 'meat', 'label' => __('Meat'), 'tagline' => __('Pasture-raised cuts'), 'href' => route('public.products.index', ['category' => 'meat']), 'image' => 'catalog-strip-waguy.png'],
+                        ['slug' => 'fish', 'label' => __('Fish & Seafood'), 'tagline' => __('Line-caught & smoked'), 'href' => route('public.products.index', ['category' => 'fish']), 'image' => 'catalog-strip-sardines.png'],
+                        ['slug' => 'eggdairy', 'label' => __('Eggs & Dairy'), 'tagline' => __('Milk, butter, cheese'), 'href' => route('public.products.index', ['category' => 'dairy']), 'image' => 'catalog-strip-eggs.png'],
+                        ['slug' => 'bread', 'label' => __('Bread'), 'tagline' => __('Sourdough & pastry'), 'href' => route('public.products.index', ['category' => 'bakery']), 'image' => 'catalog-strip-wheat.png'],
                         ['slug' => 'producers', 'label' => __('Producers'), 'tagline' => __('The people behind the food'), 'href' => route('public.producers'), 'image' => 'catalog-strip-producers.png'],
                         ['slug' => 'almanach', 'label' => __('Almanac'), 'tagline' => __('Seasons, stories, traditions'), 'href' => route('public.about'), 'image' => 'catalog-strip-almanach.png'],
                     ];
