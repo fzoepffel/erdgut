@@ -66,7 +66,7 @@ class SpargelOrderOpenedAdminNotificationTest extends TestCase
         Mail::assertSent(SpargelOrderOpenedAdminNotification::class, function ($mail) {
             $env = $mail->envelope();
 
-            return str_contains($env->subject, 'vor Ort') && str_contains($env->subject, '12,00');
+            return str_contains($env->subject, 'in person') && str_contains($env->subject, '12.00');
         });
     }
 }
