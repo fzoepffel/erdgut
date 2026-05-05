@@ -36,11 +36,11 @@ class SpargelOrderOpenedAdminNotification extends Mailable
     public function envelope(): Envelope
     {
         $methodSuffix = $this->order->payment_method === 'in_person'
-            ? 'vor Ort'
+            ? 'in person'
             : 'SumUp';
 
         return new Envelope(
-            subject: '[Erdgut] Neue Spargel-Bestellung #'.$this->order->id.' eingegangen — '.number_format((float) $this->order->total_amount_eur, 2, ',', '.').' € · '.$methodSuffix,
+            subject: '[Erdgut] New spargel order #'.$this->order->id.' opened — €'.number_format((float) $this->order->total_amount_eur, 2, '.', ',').' · '.$methodSuffix,
         );
     }
 
