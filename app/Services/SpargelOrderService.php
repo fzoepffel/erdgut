@@ -63,7 +63,7 @@ class SpargelOrderService
         ],
         'gotenstrasse' => [
             'name' => 'Milan Ross',
-            'street' => 'Gotenstrasse 19',
+            'street' => 'Gotenstraße 19',
             'postal_code' => '10829',
             'city' => 'Berlin',
         ],

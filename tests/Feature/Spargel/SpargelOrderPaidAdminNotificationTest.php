@@ -87,7 +87,7 @@ class SpargelOrderPaidAdminNotificationTest extends TestCase
             $envelope = $mail->envelope();
 
             return str_contains($envelope->subject, '#'.$order->id)
-                && str_contains($envelope->subject, '18,50');
+                && str_contains($envelope->subject, '18.50');
         });
     }
 

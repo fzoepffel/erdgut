@@ -30,7 +30,7 @@ class SpargelOrderPaidAdminNotification extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: '[Erdgut] Neue Spargel-Bestellung #'.$this->order->id.' — '.number_format((float) $this->order->total_amount_eur, 2, ',', '.').' €',
+            subject: '[Erdgut] Spargel order #'.$this->order->id.' paid — €'.number_format((float) $this->order->total_amount_eur, 2, '.', ','),
         );
     }
 
