@@ -41,7 +41,7 @@ class SpargelOrderPaidAdminNotificationTest extends TestCase
         Mail::assertNotSent(SpargelOrderPaidAdminNotification::class, fn ($mail) => $mail->hasTo('customer@example.test'));
     }
 
-    public function test_no_email_when_status_change_is_not_to_paid(): void
+    public function test_no_paid_email_when_status_change_is_not_to_paid(): void
     {
         Mail::fake();
         User::factory()->admin()->create();
@@ -52,10 +52,12 @@ class SpargelOrderPaidAdminNotificationTest extends TestCase
 
         $order->forceFill(['status' => SpargelOrderStatus::Failed])->save();
 
-        Mail::assertNothingSent();
+        // Opened-notification is expected to fire on creation; the test
+        // only asserts the paid follow-up does NOT fire on a non-paid edge.
+        Mail::assertNotSent(SpargelOrderPaidAdminNotification::class);
     }
 
-    public function test_no_email_when_paid_order_is_updated_again(): void
+    public function test_no_paid_email_when_paid_order_is_updated_again(): void
     {
         Mail::fake();
         User::factory()->admin()->create();
@@ -66,7 +68,8 @@ class SpargelOrderPaidAdminNotificationTest extends TestCase
 
         $order->forceFill(['fulfilled_at' => now()])->save();
 
-        Mail::assertNothingSent();
+        // Re-saving an already-paid order should not re-fire the paid email.
+        Mail::assertNotSent(SpargelOrderPaidAdminNotification::class);
     }
 
     public function test_email_subject_includes_order_id_and_total(): void
