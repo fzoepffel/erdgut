@@ -1686,6 +1686,7 @@
     "admin.user_detail.audit_actor_system": "par le système",
     "admin.weekly_catalog.back_to_products": "Retour aux produits",
     "admin.weekly_catalog.category_placeholder": "— Catégorie —",
+    "— Select category —": "— Choisir une catégorie —",
     "admin.weekly_catalog.col_delete": "Supprimer",
     "admin.weekly_catalog.col_mode": "Type",
     "admin.weekly_catalog.col_mode_hint": "Choisir par ligne entre un produit existant du catalogue ou un nouveau produit défini ici.",

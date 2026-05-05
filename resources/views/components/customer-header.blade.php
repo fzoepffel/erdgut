@@ -88,8 +88,11 @@
                 {{-- Wizard: a quiet log-out link is the only useful action.
                      The progress indicator below carries the navigation. --}}
                 @auth
-                    <form method="POST" action="{{ route('auth.logout') }}" class="inline">@csrf
-                        <button type="submit" class="text-sm font-medium transition" style="color: {{ $inkSubtle }};">{{ __('Log out') }}</button>
+                    {{-- E2 (UX notes): tag the wizard's logout form so
+                         broad selectors don't accidentally hit it during
+                         automation / keyboard navigation. --}}
+                    <form method="POST" action="{{ route('auth.logout') }}" class="inline" data-purpose="logout">@csrf
+                        <button type="submit" data-action="logout" class="text-sm font-medium transition" style="color: {{ $inkSubtle }};">{{ __('Log out') }}</button>
                     </form>
                 @endauth
             @endif
