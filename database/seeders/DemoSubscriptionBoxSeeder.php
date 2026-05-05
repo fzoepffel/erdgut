@@ -14,6 +14,7 @@ use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Support\BoxValueRecalculationService;
+use App\Support\SubscriptionLifecycleService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -56,6 +57,19 @@ class DemoSubscriptionBoxSeeder extends Seeder
                     'trial_completed_at' => now(),
                 ]
             );
+
+            // Mirror the production activation paths
+            // (PaymentSetupController, SubscriptionOnboardController,
+            // SubscriptionOnboardingService::finalizeSetup) — they all
+            // compute next_charge_date when activating. Without it the
+            // seed users are invisible to Anstehende Abbuchungen and
+            // their "Nächstes Abbuchungsdatum" tab stays blank.
+            if ($subscription->next_charge_date === null) {
+                $subscription->update([
+                    'next_charge_date' => app(SubscriptionLifecycleService::class)
+                        ->computeNextChargeDate($subscription->fresh()),
+                ]);
+            }
 
             $this->createBoxesForUser($user, $subscription, $productIds);
             $this->createDeliveriesForUser($user, $address);

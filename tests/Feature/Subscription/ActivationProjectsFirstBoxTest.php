@@ -62,6 +62,11 @@ class ActivationProjectsFirstBoxTest extends TestCase
 
         $this->assertNotNull($box);
         $this->assertSame('2026-05-04', $box->week_start_date->toDateString()); // Monday of next week
+        // The box must be linked back to the subscription. Without this the
+        // dashboard query (`whereNotNull('subscription_id')` in
+        // DashboardStateResolver::resolveSubscriptionBoxes) hides it from
+        // the customer.
+        $this->assertSame($sub->id, $box->subscription_id);
 
         $delivery = Delivery::query()
             ->where('user_id', $sub->user_id)
