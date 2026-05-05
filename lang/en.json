@@ -1687,6 +1687,7 @@
     "admin.user_detail.audit_actor_system": "by system",
     "admin.weekly_catalog.back_to_products": "Back to products",
     "admin.weekly_catalog.category_placeholder": "— Category —",
+    "— Select category —": "— Select category —",
     "admin.weekly_catalog.col_delete": "Delete",
     "admin.weekly_catalog.col_mode": "Type",
     "admin.weekly_catalog.col_mode_hint": "Choose per row whether to use an existing catalog product or define a new one inline.",

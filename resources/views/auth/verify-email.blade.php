@@ -89,9 +89,9 @@
             </x-primary-button>
         </form>
 
-        <form method="POST" action="{{ route('auth.logout') }}">
+        <form method="POST" action="{{ route('auth.logout') }}" data-purpose="logout">
             @csrf
-            <x-secondary-button class="w-full justify-center">
+            <x-secondary-button class="w-full justify-center" data-action="logout">
                 {{ __('Log out') }}
             </x-secondary-button>
         </form>

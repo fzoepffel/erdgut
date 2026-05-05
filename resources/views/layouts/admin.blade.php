@@ -57,9 +57,9 @@
                                         <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                     </button>
                                     <div x-show="open" x-cloak x-transition class="absolute right-0 mt-1 w-44 rounded-md border border-gray-200 bg-white py-1 shadow-lg" role="menu">
-                                        <form method="POST" action="{{ route('auth.logout') }}">
+                                        <form method="POST" action="{{ route('auth.logout') }}" data-purpose="logout">
                                             @csrf
-                                            <button type="submit" class="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                                            <button type="submit" data-action="logout" class="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
                                                 {{ __('Log out') }}
                                             </button>
                                         </form>

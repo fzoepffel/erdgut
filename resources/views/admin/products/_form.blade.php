@@ -215,8 +215,17 @@
     <div>
         <x-input-label for="category" :value="__('Category')" required />
         <select id="category" name="category" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
+            {{-- F2 (UX notes): force an explicit category choice instead of
+                 silently defaulting to the first enum value (Backwaren). The
+                 placeholder is a disabled empty option that Laravel's
+                 `required` rule will reject, so a "saved as Backwaren by
+                 mistake" outcome stops being possible. --}}
+            @php($currentCategory = old('category', $product?->category))
+            <option value="" disabled @selected($currentCategory === null || $currentCategory === '')>
+                {{ __('— Select category —') }}
+            </option>
             @foreach ($categories as $cat)
-                <option value="{{ $cat }}" @selected(old('category', $product?->category) === $cat)>{{ __('admin.category.'.$cat) }}</option>
+                <option value="{{ $cat }}" @selected($currentCategory === $cat)>{{ __('admin.category.'.$cat) }}</option>
             @endforeach
         </select>
         <x-input-error class="mt-2" :messages="$errors->get('category')" />

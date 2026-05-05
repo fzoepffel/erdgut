@@ -97,7 +97,7 @@
                             {{ __('Account settings') }}
                         </x-dropdown-link>
 
-                        <form method="POST" action="{{ route('auth.logout') }}">
+                        <form method="POST" action="{{ route('auth.logout') }}" data-purpose="logout">
                             @csrf
                             <x-dropdown-link :href="route('auth.logout')"
                                     onclick="event.preventDefault(); this.closest('form').submit();">
@@ -173,7 +173,7 @@
                     <x-language-selector align="left" />
                 </div>
 
-                <form method="POST" action="{{ route('auth.logout') }}">
+                <form method="POST" action="{{ route('auth.logout') }}" data-purpose="logout">
                     @csrf
                     <x-responsive-nav-link :href="route('auth.logout')"
                             onclick="event.preventDefault(); this.closest('form').submit();">
