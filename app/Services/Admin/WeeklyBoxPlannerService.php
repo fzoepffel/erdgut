@@ -204,6 +204,7 @@ final class WeeklyBoxPlannerService
 
         $box = Box::create([
             'user_id' => $subscription->user_id,
+            'subscription_id' => $subscription->id,
             'week_start_date' => $weekStart->toDateString(),
             'status' => BoxStatus::Editable,
             'modification_deadline_at' => $this->modificationDeadlineForWeek($weekStart),
@@ -226,6 +227,7 @@ final class WeeklyBoxPlannerService
 
         $box = Box::create([
             'user_id' => $subscription->user_id,
+            'subscription_id' => $subscription->id,
             'week_start_date' => $weekStart->toDateString(),
             'status' => BoxStatus::Editable,
             'modification_deadline_at' => $this->modificationDeadlineForWeek($weekStart),
