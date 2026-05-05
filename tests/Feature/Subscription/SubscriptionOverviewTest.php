@@ -40,7 +40,10 @@ class SubscriptionOverviewTest extends TestCase
             ->assertSee('Active')
             ->assertSee('Eggs add-on')
             ->assertSee('nuts')
-            ->assertSee('Set after first charge');
+            // The fallback copy was renamed from the misleading "Set after
+            // first charge" (implies billing has happened) to the more
+            // accurate "Set after payment setup" — see notes file D4.
+            ->assertSee('Set after payment setup');
     }
 
     public function test_subscription_overview_shows_empty_state_without_subscription(): void

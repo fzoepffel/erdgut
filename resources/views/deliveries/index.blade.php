@@ -42,7 +42,7 @@
             @if ($weeklyDeliveries->isEmpty())
                 <x-empty-state
                     :title="__('No upcoming deliveries')"
-                    :description="__('When your subscription is active, your delivery weeks appear here. You can still set defaults for the next cycle.')"
+                    :description="__('Your delivery weeks will appear here as soon as we plan them. You can still set defaults for the next cycle.')"
                     variant="card"
                 >
                     <x-slot name="action">

@@ -25,7 +25,7 @@
         <div>
             <x-input-label for="preferred_delivery_window" :value="__('Preferred week or date')" />
             <x-text-input id="preferred_delivery_window" name="preferred_delivery_window" type="text"
-                          :placeholder="__('e.g. next week, after 6 May')"
+                          :placeholder="__('e.g. next week, after :date', ['date' => $exampleDate])"
                           :value="old('preferred_delivery_window', $data['preferred_delivery_window'] ?? '')"
                           class="mt-2" />
         </div>

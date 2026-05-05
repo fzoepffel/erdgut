@@ -180,7 +180,7 @@
                                 {{ __('Turn your trial into a weekly box') }}
                             </a>
                             <p class="font-editorial text-sm italic text-brand-ink/65">
-                                {{ __('No new card needed — we keep your address and preferences.') }}
+                                {{ __('We keep your address and preferences — you only need to set up your payment card.') }}
                             </p>
                         </div>
                     @endif

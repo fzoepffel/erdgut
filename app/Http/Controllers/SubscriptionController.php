@@ -26,7 +26,7 @@ class SubscriptionController extends Controller
         $subscription = $this->resolveSubscription($request);
 
         $nextChargeDate = $subscription?->next_charge_date?->format('d.m.Y');
-        $billingDateDisplay = $nextChargeDate ?? __('Set after first charge');
+        $billingDateDisplay = $nextChargeDate ?? __('Set after payment setup');
 
         $skipPickerWeeks = [];
         $userSkippedWeeks = [];
