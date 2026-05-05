@@ -26,7 +26,7 @@ class PaymentHistoryController extends Controller
 
         $billingDateDisplay = $subscription?->next_charge_date !== null
             ? $subscription->next_charge_date->format('d.m.Y')
-            : __('Set after first charge');
+            : __('Set after payment setup');
 
         $payments = $user
             ->payments()

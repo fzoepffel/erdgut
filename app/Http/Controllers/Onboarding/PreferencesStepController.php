@@ -32,6 +32,7 @@ class PreferencesStepController extends OnboardingController
             'data' => $draft->data ?? [],
             'sizePrices' => $sizePrices,
             'eggsAddOnEur' => (float) config('box.eggs_dairy_add_on_eur', 4.5),
+            'isTrial' => $draft->intent === OnboardingDraftManager::INTENT_TRIAL,
         ]);
     }
 

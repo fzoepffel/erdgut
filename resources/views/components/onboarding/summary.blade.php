@@ -10,6 +10,7 @@
 
 @php
     use App\Services\Billing\BoxPriceCalculator;
+    use App\Services\Onboarding\OnboardingDraftManager;
 
     /** @var \App\Models\OnboardingDraft|null $draft */
     /** @var \App\Models\User|null $user */
@@ -23,8 +24,12 @@
     $eggsAddOn = (bool) data_get($data, 'preferences.eggs_dairy_add_on', false);
     $allergies = (array) ($data['allergies'] ?? []);
 
+    $isTrial = $draft?->intent === OnboardingDraftManager::INTENT_TRIAL;
+
     $perDelivery = $boxSize !== null
-        ? app(BoxPriceCalculator::class)->subscriptionPerDelivery($boxSize, $eggsAddOn)
+        ? ($isTrial
+            ? app(BoxPriceCalculator::class)->trialOneOff($boxSize, $eggsAddOn)
+            : app(BoxPriceCalculator::class)->subscriptionPerDelivery($boxSize, $eggsAddOn))
         : null;
 
     $sizeApproxCount = match ($boxSize) {
@@ -128,7 +133,11 @@
                 @endif
             </p>
             @if ($perDelivery !== null)
-                <p class="text-xs text-brand-ink/65">{{ __('EUR :amount / delivery', ['amount' => \App\Support\Money::format($perDelivery)]) }}</p>
+                <p class="text-xs text-brand-ink/65">
+                    {{ $isTrial
+                        ? __('EUR :amount once', ['amount' => \App\Support\Money::format($perDelivery)])
+                        : __('EUR :amount / delivery', ['amount' => \App\Support\Money::format($perDelivery)]) }}
+                </p>
             @endif
             @if ($eggsAddOn)
                 <span class="mt-2 inline-block bg-chapter-eggdairy/10 px-2 py-0.5 text-[11px] font-medium text-chapter-eggdairy">

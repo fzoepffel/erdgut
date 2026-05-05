@@ -74,7 +74,7 @@
                                     @money($sizePrices[$size] ?? 0) €
                                 </p>
                                 <p class="mt-1 text-xs uppercase tracking-eyebrow text-brand-cream/75">
-                                    {{ __('Per delivery') }}
+                                    {{ ($isTrial ?? false) ? __('Once') : __('Per delivery') }}
                                 </p>
                             </div>
                         </div>

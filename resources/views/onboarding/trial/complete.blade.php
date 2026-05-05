@@ -27,7 +27,7 @@
         <div class="flex flex-col items-start gap-2">
             <x-triple-star class="opacity-70" />
             <p class="font-editorial text-sm italic text-brand-ink/60">
-                {{ __('A seat at the table — yours, from next delivery.') }}
+                {{ __('A seat at the table — yours, with this first box.') }}
             </p>
         </div>
     </div>
