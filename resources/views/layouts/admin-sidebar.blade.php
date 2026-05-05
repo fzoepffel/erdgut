@@ -98,10 +98,16 @@
         <x-admin.nav-link :href="route('account.profile.edit')" matches="account.profile.*">
             {{ __('Account settings') }}
         </x-admin.nav-link>
-        <form method="POST" action="{{ route('auth.logout') }}" class="mt-1">
+        {{-- The Abmelden form is the only submit on the admin shell that
+             isn't part of the page's main form. Tagging it explicitly so
+             selectors / automation can route around it (E2 in the UX
+             review notes — generic button[type=submit] selectors used to
+             accidentally log the operator out mid-edit). --}}
+        <form method="POST" action="{{ route('auth.logout') }}" class="mt-1" data-purpose="logout">
             @csrf
             <button
                 type="submit"
+                data-action="logout"
                 class="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-gray-700 transition hover:bg-amber-50 hover:text-amber-900"
             >
                 {{ __('Log Out') }}

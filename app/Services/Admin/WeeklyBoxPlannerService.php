@@ -77,12 +77,20 @@ final class WeeklyBoxPlannerService
     /**
      * @return Collection<int, Subscription>
      */
-    public function eligibleSubscriptionsForWeek(Carbon $weekStart): Collection
+    public function eligibleSubscriptionsForWeek(Carbon $weekStart, bool $includeTest = false): Collection
     {
-        return Subscription::query()
+        $query = Subscription::query()
             ->where('status', SubscriptionStatus::Active)
-            ->with('user')
-            ->get()
+            ->with('user');
+
+        // H3 (UX notes): hide is_test=true subs from real-operator views
+        // by default. Demo accounts (`sumup-test-1@example.test` etc.) used
+        // to mix in with real customers on the planner.
+        if (! $includeTest) {
+            $query->where('is_test', false);
+        }
+
+        return $query->get()
             ->filter(fn (Subscription $s) => ! $s->isWithinPauseWindow($weekStart))
             ->filter(fn (Subscription $s) => $this->matchesPlanCadence($s, $weekStart))
             ->values();
@@ -97,21 +105,27 @@ final class WeeklyBoxPlannerService
      *
      * @return Collection<int, Order>
      */
-    public function eligibleTrialOrdersForWeek(Carbon $weekStart): Collection
+    public function eligibleTrialOrdersForWeek(Carbon $weekStart, bool $includeTest = false): Collection
     {
         $monday = $weekStart->copy()->startOfDay();
         $sunday = $monday->copy()->endOfWeek(Carbon::SUNDAY);
 
-        return Order::query()
+        $query = Order::query()
             ->where('product_type', OrderProductType::TrialBox->value)
             ->whereIn('status', [
                 OrderStatus::Paid->value,
                 OrderStatus::Scheduled->value,
             ])
             ->whereBetween('scheduled_for_date', [$monday->toDateString(), $sunday->toDateString()])
-            ->with(['user'])
-            ->orderBy('id')
-            ->get();
+            ->with(['user']);
+
+        // H3 (UX notes): same default-hide-test behaviour as
+        // eligibleSubscriptionsForWeek.
+        if (! $includeTest) {
+            $query->where('is_test', false);
+        }
+
+        return $query->orderBy('id')->get();
     }
 
     public function matchesPlanCadence(Subscription $subscription, Carbon $weekStart): bool

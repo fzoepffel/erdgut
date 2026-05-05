@@ -49,7 +49,12 @@
                             {{ $week->translatedFormat('l, d.m.Y') }}
                         </p>
                     </div>
-                    <form method="get" action="{{ route('app.admin.products.weekly.show') }}" class="flex items-end gap-2">
+                    {{-- G1 (UX notes): two forms on this page both have
+                         actions matching `*products/weekly*`, which used to
+                         confuse selectors and tab-Enter chains. Tagged
+                         data-purpose to disambiguate without changing
+                         behaviour. --}}
+                    <form method="get" action="{{ route('app.admin.products.weekly.show') }}" class="flex items-end gap-2" data-purpose="week-jump">
                         <div>
                             <label for="weekly-catalog-week" class="block text-xs font-medium text-gray-600 mb-1">
                                 {{ __('admin.weekly_catalog.jump_to_week') }}
@@ -97,7 +102,7 @@
                 </div>
             @endif
 
-            <form method="post" action="{{ route('app.admin.products.weekly.save', ['week' => $week->toDateString()]) }}" class="space-y-4">
+            <form method="post" action="{{ route('app.admin.products.weekly.save', ['week' => $week->toDateString()]) }}" class="space-y-4" data-purpose="weekly-catalog-save">
                 @csrf
                 <input type="hidden" name="week_start_date" value="{{ $week->toDateString() }}" />
 
