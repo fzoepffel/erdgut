@@ -12,13 +12,7 @@ enum DeliveryStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Scheduled => 'Scheduled',
-            self::InTransit => 'In delivery',
-            self::Delivered => 'Delivered',
-            self::Skipped => 'Skipped',
-            self::Failed => 'Failed',
-        };
+        return __('status.'.$this->value);
     }
 
     public function isTerminal(): bool

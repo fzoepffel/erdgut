@@ -2022,6 +2022,7 @@
     "box_status_customer.locked": "Out for delivery",
     "box_status_customer.delivered": "Delivered",
     "status.failed": "Failed",
+    "status.in_transit": "In transit",
     "status.locked": "Locked",
     "status.paid": "Paid",
     "status.paused": "Paused",
