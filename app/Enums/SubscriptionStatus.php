@@ -19,4 +19,9 @@ enum SubscriptionStatus: string
     case Active = 'active';
     case Paused = 'paused';
     case Cancelled = 'cancelled';
+
+    public function label(): string
+    {
+        return __('status.'.$this->value);
+    }
 }

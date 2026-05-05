@@ -2021,6 +2021,7 @@
     "box_status_customer.locked": "En cours de livraison",
     "box_status_customer.delivered": "Livrée",
     "status.failed": "Échoué",
+    "status.in_transit": "En cours de livraison",
     "status.locked": "Verrouillé",
     "status.paid": "Payé",
     "status.paused": "En pause",
