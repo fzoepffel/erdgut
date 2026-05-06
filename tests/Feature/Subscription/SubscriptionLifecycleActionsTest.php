@@ -273,10 +273,14 @@ class SubscriptionLifecycleActionsTest extends TestCase
             'status' => SubscriptionStatus::Active,
         ]);
 
+        // K15: skip-next now flashes a dedicated status key so the
+        // confirmation banner can interpolate the actual Monday date
+        // instead of the generic "Pause timeframe saved" copy used for
+        // multi-week pauses.
         $this->actingAs($user)
             ->post(route('app.subscriptions.skip.next'))
             ->assertRedirect(route('app.subscriptions.show'))
-            ->assertSessionHas('status', 'subscription-pause-scheduled');
+            ->assertSessionHas('status', 'subscription-next-week-skipped');
 
         $subscription->refresh();
 
