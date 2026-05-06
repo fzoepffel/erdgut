@@ -290,9 +290,16 @@ class AdminBoxController extends Controller
             app(EggsUnfulfilledHandler::class)->handle([$fresh], $actorId);
         }
 
+        // K14 (UX notes): when the customer paid for the eggs add-on but
+        // the saved box has no eggs product, the handler queues a partial
+        // refund + customer email. Surface that side-effect to the
+        // operator on the redirect so they don't only learn about it
+        // by reading their inbox.
+        $statusKey = $unfulfilledEggsTriggered ? 'box-saved-eggs-unfulfilled' : 'box-saved';
+
         return redirect()
             ->route('app.admin.boxes.show', $box)
-            ->with('status', 'box-saved');
+            ->with('status', $statusKey);
     }
 
     /**

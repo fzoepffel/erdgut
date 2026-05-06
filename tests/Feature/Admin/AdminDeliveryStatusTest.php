@@ -37,9 +37,16 @@ class AdminDeliveryStatusTest extends TestCase
             'status' => DeliveryStatus::Scheduled,
         ]);
 
+        // J9 (UX notes): the orphan-box guard now blocks delivered without
+        // composed contents. This test cares about the status transition
+        // itself, not box-content rules — pass confirm_empty=1 to keep the
+        // contract focused.
         $this->actingAs($admin)
             ->from(route('app.admin.deliveries.index'))
-            ->patch(route('app.admin.deliveries.status.update', $delivery), ['status' => 'delivered'])
+            ->patch(
+                route('app.admin.deliveries.status.update', $delivery),
+                ['status' => 'delivered', 'confirm_empty' => '1']
+            )
             ->assertRedirect(route('app.admin.deliveries.index'))
             ->assertSessionHas('status', 'admin-delivery-status-updated');
 
@@ -66,12 +73,17 @@ class AdminDeliveryStatusTest extends TestCase
     {
         // Self-pickup customers might go straight from scheduled → delivered
         // without ever being marked in_transit. Backfill both for a clean record.
+        // confirm_empty=1 to bypass the J9 guard since this test is about
+        // timestamp backfill, not orphan-box rules.
         $admin = User::factory()->admin()->create();
         $delivery = Delivery::factory()->create(['status' => DeliveryStatus::Scheduled]);
 
         $this->actingAs($admin)
             ->from(route('app.admin.deliveries.index'))
-            ->patch(route('app.admin.deliveries.status.update', $delivery), ['status' => 'delivered']);
+            ->patch(
+                route('app.admin.deliveries.status.update', $delivery),
+                ['status' => 'delivered', 'confirm_empty' => '1']
+            );
 
         $delivery->refresh();
         $this->assertNotNull($delivery->in_transit_at, 'in_transit_at backfilled even when skipped directly to delivered');
