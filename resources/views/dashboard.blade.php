@@ -188,10 +188,18 @@
             @endif
 
             {{-- W2-24: brand-new-subscriber hero. Only fires for the "Active +
-                 token + no box yet" state — DashboardKind::SubscriptionFirstWeek. --}}
+                 token + no box yet" state — DashboardKind::SubscriptionFirstWeek.
+                 K8/K17 (UX notes): prefer the next *actual* scheduled delivery
+                 over the cadence-based calculation. The calculation gives a
+                 forward-looking estimate that is correct on day one of a fresh
+                 subscription but quickly drifts as soon as ops creates a real
+                 Box / Delivery for a different week or the customer adjusts
+                 their schedule. --}}
             @if ($kind === DashboardKind::SubscriptionFirstWeek)
                 @php
-                    $heroFirstDelivery = $primarySubscription?->firstExpectedDeliveryDate();
+                    $actualNextDelivery = $firstDeliveryCard['delivery']?->scheduled_for_date ?? null;
+                    $heroFirstDelivery = $actualNextDelivery
+                        ?? $primarySubscription?->firstExpectedDeliveryDate();
                 @endphp
                 @if ($heroFirstDelivery)
                     <section
@@ -228,7 +236,13 @@
                     <div>
                         <p class="eyebrow text-chapter-produce">{{ __('Next delivery') }}</p>
                         @if ($firstDeliveryCard)
-                            @php($delivery = $firstDeliveryCard['delivery'])
+                            @php
+                                // Use the full block form rather than the
+                                // single-line shorthand: the latter breaks
+                                // subsequent block compilation. See
+                                // docs/feedback_blade_php_shorthand.md.
+                                $delivery = $firstDeliveryCard['delivery'];
+                            @endphp
                             <p class="mt-3 font-display text-2xl text-brand-ink">{{ $delivery->scheduled_for_date->locale(app()->getLocale())->isoFormat('dd, D. MMM YYYY') }}</p>
                             <p class="mt-1 text-sm text-brand-ink/70">{{ $delivery->timeslot }}</p>
                             <p class="text-sm text-brand-ink/70">
@@ -241,7 +255,9 @@
                                 {{ __('Manage deliveries') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @elseif ($kind === DashboardKind::SubscriptionFirstWeek)
-                            @php($firstDelivery = $primarySubscription?->firstExpectedDeliveryDate())
+                            @php
+                                $firstDelivery = $primarySubscription?->firstExpectedDeliveryDate();
+                            @endphp
                             @if ($firstDelivery)
                                 <p class="mt-3 font-display text-2xl text-brand-ink">{{ $firstDelivery->locale(app()->getLocale())->isoFormat('dd, D. MMM') }}</p>
                                 <p class="mt-1 text-sm text-brand-ink/70">{{ __('First delivery — we will confirm day and timeslot once your box is composed.') }}</p>
@@ -299,9 +315,33 @@
                     <div class="sm:col-span-2 lg:col-span-1">
                         <p class="eyebrow text-chapter-meat">{{ __('Subscription') }}</p>
                         @if ($primarySubscription)
+                            @php
+                                /* K16: Subscription.status stays Active until "today" enters
+                                   the pause window. Expose pause_from explicitly so the card
+                                   can flag a pending pause while the sub is still nominally
+                                   Active, and a back-on-date once the pause is running. */
+                                $pauseFrom = $primarySubscription->pause_from;
+                                $pauseUntil = $primarySubscription->pause_until;
+                                $todayDate = now()->toDateString();
+                                $isCurrentlyPaused = $pauseFrom !== null
+                                    && $pauseUntil !== null
+                                    && $primarySubscription->isWithinPauseWindow();
+                                $isPausePending = $pauseFrom !== null
+                                    && $pauseFrom->toDateString() > $todayDate;
+                                $resumeDate = $pauseUntil?->copy()->addDay();
+                            @endphp
                             <p class="mt-3 font-display text-2xl text-brand-ink">
                                 {{ __('status.'.$primarySubscription->status->value) }}
                             </p>
+                            @if ($isCurrentlyPaused && $resumeDate)
+                                <p class="mt-1 text-sm text-brand-ink/70" data-testid="dashboard-subscription-pause-active">
+                                    {{ __('Back on :date', ['date' => $resumeDate->translatedFormat('d.m.Y')]) }}
+                                </p>
+                            @elseif ($isPausePending)
+                                <p class="mt-1 text-sm text-brand-ink/70" data-testid="dashboard-subscription-pause-pending">
+                                    {{ __('Pause from :date', ['date' => $pauseFrom->translatedFormat('d.m.Y')]) }}
+                                </p>
+                            @endif
                             {{-- Only show the recurring price for real subscriptions, not for
                                  the half-finished setup that hasn't committed to billing yet. --}}
                             @if (! $kind->showsResumeSubscriptionSetup())
@@ -451,8 +491,10 @@
                                                data-track-section="feed.almanach.box_row"
                                                data-track-destination="app.boxes.show">
                                                 <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
-                                                @php($customerStatusKey = 'box_status_customer.'.$box->status->value)
-                                                @php($customerStatusLabel = __($customerStatusKey))
+                                                @php
+                                                    $customerStatusKey = 'box_status_customer.'.$box->status->value;
+                                                    $customerStatusLabel = __($customerStatusKey);
+                                                @endphp
                                                 @if ($customerStatusLabel !== $customerStatusKey)
                                                     <p class="mt-1 text-sm text-brand-ink/70">{{ $customerStatusLabel }}</p>
                                                 @endif

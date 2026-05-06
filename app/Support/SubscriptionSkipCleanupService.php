@@ -20,6 +20,16 @@ class SubscriptionSkipCleanupService
             $windowStart = $from->startOfWeek()->toDateString();
             $windowEnd = $until->endOfWeek()->toDateString();
 
+            // K7 (UX notes): a Box should only be removed by skip-cleanup if
+            // it is genuinely "in flight" still (Editable, or Locked but
+            // before the modification deadline). We additionally guard
+            // against the case where the operator has already moved the
+            // linked Delivery out of `scheduled` (in_transit, delivered,
+            // skipped, failed) — that's a sign the box has been physically
+            // actioned and deleting it would lose history. The Delivery
+            // model is the source of truth for that "did anything happen
+            // for this week?" question; the Box.status field can lag
+            // (because the I4 propagation hop isn't built yet).
             $boxes = Box::query()
                 ->where('user_id', $subscription->user_id)
                 ->whereBetween('week_start_date', [$from->toDateString(), $until->toDateString()])
@@ -29,6 +39,14 @@ class SubscriptionSkipCleanupService
                             $sub->where('status', BoxStatus::Locked)
                                 ->where('modification_deadline_at', '>', $now);
                         });
+                })
+                ->whereDoesntHave('deliveries', function ($q): void {
+                    $q->whereIn('status', [
+                        DeliveryStatus::InTransit,
+                        DeliveryStatus::Delivered,
+                        DeliveryStatus::Skipped,
+                        DeliveryStatus::Failed,
+                    ]);
                 })
                 ->get();
 
