@@ -359,6 +359,20 @@
 
                 if (c.eggs && c.eggsLines.length === 0) flags.push('eggs_missing');
 
+                // H9 (UX notes): surface per-customer overallocation. Without
+                // this flag, an operator editing one customer's box doesn't
+                // see that they pushed cumulative allocation above the
+                // weekly stock — only the global table at the top reflects
+                // it. We compute the global stockRows view (which already
+                // sums every customer's lines into used_total) and check
+                // whether any product the current customer touches has
+                // remaining < 0.
+                const customerProductIds = new Set(allLines.map(l => Number(l.product_id)));
+                const overByCustomer = this.stockRows.some(r =>
+                    r.remaining < 0 && customerProductIds.has(Number(r.product_id))
+                );
+                if (overByCustomer) flags.push('over_stock');
+
                 return flags;
             },
             customerFlagged(c) {
@@ -554,6 +568,7 @@
                     'note' => __('admin.box_setup.flag_note'),
                     'allergy_conflict' => __('admin.box_setup.flag_allergy_conflict'),
                     'eggs_missing' => __('admin.box_setup.flag_eggs_missing'),
+                    'over_stock' => __('admin.box_setup.flag_over_stock'),
                 ]);
                 return labels[flag] ?? flag;
             },

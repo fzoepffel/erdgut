@@ -53,9 +53,17 @@ class Flow01TrialLifecycleTest extends TestCase
             ->assertRedirect();
         Mail::assertQueued(DeliveryInTransitMail::class);
 
+        // J9 (UX notes): the orphan-box guard on Delivered now requires
+        // either composed box contents or an explicit confirm_empty=1.
+        // This stress flow doesn't compose a Box (the trial-order
+        // composition path is exercised in box-setup tests) so we
+        // acknowledge the empty box explicitly here.
         $this->actingAs($admin)
             ->from(route('app.admin.deliveries.index'))
-            ->patch(route('app.admin.deliveries.status.update', $delivery), ['status' => 'delivered'])
+            ->patch(
+                route('app.admin.deliveries.status.update', $delivery),
+                ['status' => 'delivered', 'confirm_empty' => '1']
+            )
             ->assertRedirect();
         Mail::assertQueued(DeliveredMail::class);
 
