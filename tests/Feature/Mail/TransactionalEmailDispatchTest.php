@@ -113,9 +113,14 @@ class TransactionalEmailDispatchTest extends TestCase
             'status' => DeliveryStatus::InTransit,
         ]);
 
+        // confirm_empty=1 bypasses the J9 orphan-box guard — this test is
+        // about email dispatch, not box composition.
         $this->actingAs($admin)
             ->from(route('app.admin.deliveries.index'))
-            ->patch(route('app.admin.deliveries.status.update', $delivery), ['status' => 'delivered'])
+            ->patch(
+                route('app.admin.deliveries.status.update', $delivery),
+                ['status' => 'delivered', 'confirm_empty' => '1']
+            )
             ->assertRedirect();
 
         Mail::assertQueued(DeliveredMail::class);

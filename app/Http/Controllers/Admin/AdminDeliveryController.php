@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\BoxStatus;
 use App\Enums\DeliveryStatus;
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminDeliveriesBulkDelayRequest;
 use App\Http\Requests\Admin\AdminDeliveriesIndexRequest;
@@ -387,6 +389,29 @@ class AdminDeliveryController extends Controller
         $previousStatus = $delivery->status?->value;
         $nextStatus = DeliveryStatus::from($validated['status']);
 
+        // J9 (UX notes): block "Geliefert" when nothing was actually
+        // composed for this delivery. The admin dashboard already
+        // surfaces "Geplante Probierbestellungen ohne zusammengestellte
+        // Box" as a warning — once the operator manually flips the
+        // status they bypass that warning and create a delivered record
+        // with no contents. Force them to either compose the box first
+        // or pass an explicit `confirm_empty=1` to acknowledge the
+        // edge case.
+        if ($nextStatus === DeliveryStatus::Delivered
+            && (string) $previousStatus !== DeliveryStatus::Delivered->value
+            && ! (bool) $request->boolean('confirm_empty')
+        ) {
+            $hasBoxContents = $this->deliveryHasBoxContents($delivery);
+            if (! $hasBoxContents) {
+                return redirect()
+                    ->back()
+                    ->withErrors([
+                        'status' => __('admin.deliveries.delivered_without_box_warning'),
+                    ])
+                    ->with('status', 'admin-delivery-blocked-no-box');
+            }
+        }
+
         // Stamp operational timestamps on terminal transitions (in_transit_at /
         // delivered_at). Both are nullable + stamp-once-only so flipping back
         // and forth doesn't overwrite the canonical record.
@@ -407,6 +432,14 @@ class AdminDeliveryController extends Controller
         $delivery->update($updates);
 
         if ($previousStatus !== $nextStatus->value) {
+            // I4 (UX notes): propagate the terminal state from Delivery
+            // to its linked Order and Box so the customer dashboard
+            // (which reads Order.status / Box.status) doesn't drift
+            // out of sync with operational reality. Idempotent —
+            // re-applying the same delivered transition stays a no-op
+            // because the linked rows are already terminal.
+            $this->propagateDeliveryStatusToLinkedRecords($delivery->fresh(), $nextStatus);
+
             AuditLogger::log(
                 entityType: 'delivery',
                 entityId: $delivery->id,
@@ -432,5 +465,75 @@ class AdminDeliveryController extends Controller
         return redirect()
             ->back()
             ->with('status', 'admin-delivery-status-updated');
+    }
+
+    /**
+     * Mirror a Delivery status change onto the linked Order and Box so
+     * the customer-facing dashboard (which reads Order.status /
+     * Box.status) doesn't lag operational reality. Only called when
+     * the delivery itself actually transitioned, so already-terminal
+     * Order/Box rows are not nudged repeatedly.
+     *
+     * Closes I4 in the UX review notes.
+     */
+    private function propagateDeliveryStatusToLinkedRecords(Delivery $delivery, DeliveryStatus $deliveryStatus): void
+    {
+        // Trial Order: only the canonical (non-override) Delivery should
+        // mutate the Order. Skip overrides to avoid double-stamping.
+        if (! $delivery->is_weekly_override) {
+            $order = $delivery->order ?? $delivery->box?->order ?? null;
+            if ($order !== null) {
+                $orderUpdates = [];
+                if ($deliveryStatus === DeliveryStatus::Delivered
+                    && $order->status !== OrderStatus::Delivered
+                ) {
+                    $orderUpdates['status'] = OrderStatus::Delivered;
+                    if ($order->delivered_at === null) {
+                        $orderUpdates['delivered_at'] = $delivery->delivered_at ?? now();
+                    }
+                }
+                if ($orderUpdates !== []) {
+                    $order->update($orderUpdates);
+                }
+            }
+        }
+
+        $box = $delivery->box ?? $delivery->order?->box;
+        if ($box !== null && $deliveryStatus === DeliveryStatus::Delivered) {
+            // Box.status enum: Editable -> Locked -> Delivered. The model
+            // exposes lock() and deliver() with the canonical
+            // assertCanTransitionTo() guard; no need for a hand-rolled
+            // try/catch here.
+            if ($box->status === BoxStatus::Editable) {
+                $box->lock();
+                $box->refresh();
+            }
+            if ($box->status === BoxStatus::Locked) {
+                $box->deliver();
+            }
+        }
+    }
+
+    /**
+     * Does this Delivery have a non-empty Box behind it? Subscription
+     * deliveries link via Delivery.box_id; trial deliveries link via the
+     * linked Order's box. A Box "has contents" when at least one BoxItem
+     * exists.
+     *
+     * Used by the J9 guard in updateStatus() — see notes file.
+     */
+    private function deliveryHasBoxContents(Delivery $delivery): bool
+    {
+        $box = $delivery->box;
+        if ($box === null) {
+            $orderBox = $delivery->order?->box;
+            $box = $orderBox;
+        }
+
+        if ($box === null) {
+            return false;
+        }
+
+        return $box->items()->exists();
     }
 }

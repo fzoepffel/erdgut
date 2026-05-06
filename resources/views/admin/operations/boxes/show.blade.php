@@ -32,7 +32,20 @@
 
     <div class="py-6 sm:py-8">
         <div class="mx-auto max-w-5xl space-y-4 px-4 sm:px-6 lg:px-8">
-            @if (session('status'))
+            {{-- K14 (UX notes): the box-saved flash key splits in two
+                 depending on whether saving triggered an eggs-add-on
+                 unfulfilled refund. Show the eggs case as an amber
+                 warning so the operator sees the side-effect at a
+                 glance instead of only via the customer's email. --}}
+            @if (session('status') === 'box-saved-eggs-unfulfilled')
+                <div
+                    class="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+                    role="status"
+                    data-testid="admin-box-saved-eggs-unfulfilled"
+                >
+                    {{ __('admin.box_saved_eggs_unfulfilled_notice', ['amount' => number_format((float) config('box.eggs_dairy_add_on_eur', 4.5), 2, ',', '.')]) }}
+                </div>
+            @elseif (session('status'))
                 <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status">
                     {{ session('status') }}
                 </div>

@@ -66,6 +66,23 @@
                         </p>
                     @endif
 
+                    {{-- K14 (UX notes): customers who paid for the eggs add-on but
+                         couldn't be supplied this week deserve to be told before
+                         the next email arrives. eggs_addon_unfulfilled_at is set
+                         by the box-save handler when the saved lines have no
+                         is_egg_addon=true product; the EggsUnfulfilledHandler
+                         already books the partial refund and queues an email.
+                         Surfacing it on the box page closes the loop on the
+                         customer side. --}}
+                    @if ($box->eggs_addon_unfulfilled_at !== null)
+                        <p
+                            class="border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900"
+                            data-testid="customer-box-eggs-unfulfilled-notice"
+                        >
+                            {{ __('No eggs in this box — we are refunding the EUR :amount add-on for this delivery.', ['amount' => number_format((float) config('box.eggs_dairy_add_on_eur', 4.5), 2, ',', '.')]) }}
+                        </p>
+                    @endif
+
                     <p class="border border-brand-ink/20 bg-brand-ink/[0.03] px-4 py-3 font-medium text-brand-ink">
                         {{ __('boxes.read_only_notice') }}
                     </p>

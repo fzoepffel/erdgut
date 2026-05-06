@@ -29,11 +29,36 @@
                 </form>
             </div>
 
+            {{-- I1 (UX notes): top-level validation banner. The
+                 AdminDeliveryStoreRequest::withValidator hook adds
+                 errors keyed under `user_id` (no_box_or_order) and
+                 `scheduled_for_date` (canonical_duplicate). The
+                 per-field @error blocks below already catch the
+                 scheduled_for_date case, but `user_id` is a hidden
+                 input so its inline message used to render in nowhere.
+                 The banner ensures any custom-rule error surfaces, and
+                 the explicit @error('user_id') below it places the
+                 message visibly inside the form too. --}}
+            @if ($errors->any())
+                <div class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900" role="alert" data-testid="admin-deliveries-create-errors">
+                    <p class="font-semibold">{{ __('admin.deliveries.create_errors_heading') }}</p>
+                    <ul class="mt-1 list-disc pl-5">
+                        @foreach ($errors->all() as $message)
+                            <li>{{ $message }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             @if ($addresses->isNotEmpty())
                 <div class="rounded-lg border border-gray-100 bg-white p-6 shadow-sm">
                     <form method="post" action="{{ route('app.admin.deliveries.store') }}" class="space-y-4">
                         @csrf
                         <input type="hidden" name="user_id" value="{{ $selectedUserId }}" />
+
+                        @error('user_id')
+                            <p class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">{{ $message }}</p>
+                        @enderror
 
                         <div>
                             <label for="address_id" class="mb-1 block text-xs font-medium text-gray-600">{{ __('admin.deliveries.field_address') }}</label>
