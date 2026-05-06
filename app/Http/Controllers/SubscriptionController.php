@@ -173,9 +173,13 @@ class SubscriptionController extends Controller
                 ->with('status', 'subscription-action-not-allowed');
         }
 
+        // K15 (UX notes): use a dedicated flash key so the confirmation
+        // copy can be specific to "next week skipped" instead of the
+        // generic "pause timeframe saved" used for multi-week pauses.
         return redirect()
             ->route('app.subscriptions.show')
-            ->with('status', 'subscription-pause-scheduled');
+            ->with('status', 'subscription-next-week-skipped')
+            ->with('subscription_skipped_week', $nextMonday->toDateString());
     }
 
     public function updateSkipWeeks(

@@ -28,6 +28,17 @@
                 <p class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink">
                     {{ __('Pause timeframe saved.') }}
                 </p>
+            @elseif (session('status') === 'subscription-next-week-skipped')
+                @php
+                    $skippedWeek = session('subscription_skipped_week');
+                @endphp
+                <p class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink" data-testid="subscription-skip-confirmation">
+                    @if ($skippedWeek)
+                        {{ __('Week of :date is paused — no delivery, no charge.', ['date' => \Carbon\Carbon::parse($skippedWeek)->translatedFormat('d.m.Y')]) }}
+                    @else
+                        {{ __('Next week is paused — no delivery, no charge.') }}
+                    @endif
+                </p>
             @elseif (session('status') === 'subscription-resumed')
                 <p class="border border-chapter-produce/40 bg-chapter-produce/5 px-4 py-3 text-sm text-brand-ink">
                     {{ __('Subscription resumed immediately.') }}
