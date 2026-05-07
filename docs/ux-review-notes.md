@@ -420,12 +420,12 @@ end state is to label both eggs and dairy as "Eier & Milchprodukte".
   `eggs_and_dairy` with display label "Eier & Milchprodukte"; route eggs
   to that category by default. No need for a separate "eggs" enum.
 
-### D8. "Sabine Subscriber" wraps to two lines in nav at narrow widths **[Low]**
+### D8. "Sabine Subscriber" wraps to two lines in nav at narrow widths **[Low] · DONE (fix/erd-ux-dashboard-density-batch)**
 Username button can wrap mid-name when there's not enough room on the
 right side. Truncate with ellipsis, or display only first name in the
 top bar.
 
-### D9. Long blank stretches between dashboard sections **[Med]**
+### D9. Long blank stretches between dashboard sections **[Med] · DONE (fix/erd-ux-dashboard-density-batch)**
 At normal scroll positions the screenshot shows multiple full viewport
 heights of empty cream background between content cards. Combined with
 the tall hero, the dashboard's information density is very low — the
@@ -444,7 +444,7 @@ geography. (Spot-check marketing copy on `/home`: phrases like "von
 Erzeugern, die wir mit Namen kennen" are fine; phrases like "aus der
 Region" should be reviewed.)
 
-### D11. Header user button is the only nav item that opens a dropdown **[Low]**
+### D11. Header user button is the only nav item that opens a dropdown **[Low] · DONE (fix/erd-ux-dashboard-density-batch)**
 "Sabine Subscriber" expands to {Zahlungen, Liefervorlieben,
 Kontoeinstellungen, Abmelden}. Three of those four are the only way to
 reach important pages (account settings, delivery preferences) — they

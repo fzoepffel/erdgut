@@ -142,7 +142,7 @@ class AdminFormClarityTest extends TestCase
             // strip HEAD-side btn-danger-sm references in @vite output if any
             // by matching only inside the producers-table area:
             substr($html, (int) strpos($html, 'admin-producer-delete-trigger') - 200,
-                          400),
+                400),
             'Delete trigger near the producers table must not be a btn-danger-sm.'
         );
     }
@@ -246,7 +246,7 @@ class AdminFormClarityTest extends TestCase
         $response->assertSee('text-rose-700', false);
     }
 
-    public function test_f6_grossMarginPercent_returns_null_when_buying_price_unset(): void
+    public function test_f6_gross_margin_percent_returns_null_when_buying_price_unset(): void
     {
         $product = new Product([
             'unit_price' => 10.00,
@@ -255,7 +255,7 @@ class AdminFormClarityTest extends TestCase
         $this->assertNull($product->grossMarginPercent());
     }
 
-    public function test_f6_grossMarginPercent_returns_null_when_unit_price_zero(): void
+    public function test_f6_gross_margin_percent_returns_null_when_unit_price_zero(): void
     {
         $product = new Product([
             'unit_price' => 0.00,
@@ -264,7 +264,7 @@ class AdminFormClarityTest extends TestCase
         $this->assertNull($product->grossMarginPercent());
     }
 
-    public function test_f6_grossMarginPercent_computes_correctly(): void
+    public function test_f6_gross_margin_percent_computes_correctly(): void
     {
         $product = new Product([
             'unit_price' => 10.00,

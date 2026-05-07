@@ -17,6 +17,11 @@
 
     // Optional small ornament line under the lead (e.g. month label).
     'caption' => null,
+
+    // Vertical density. 'spacious' (default) keeps the marketing-page
+    // big-band feel; 'compact' tightens the padding so the band fits
+    // in the customer dashboard above the fold (D9 in UX review notes).
+    'density' => 'spacious',
 ])
 
 @php
@@ -69,13 +74,21 @@
         aria-hidden="true"
     ></div>
 
-    <div class="relative px-6 py-12 sm:px-10 sm:py-16 lg:py-20">
+    @php
+        $paddingClasses = $density === 'compact'
+            ? 'relative px-6 py-8 sm:px-10 sm:py-10 lg:py-12'
+            : 'relative px-6 py-12 sm:px-10 sm:py-16 lg:py-20';
+        $titleClasses = $density === 'compact'
+            ? 'mt-2 font-display text-2xl font-semibold leading-tight text-brand-cream sm:text-4xl'
+            : 'mt-3 font-display text-3xl font-semibold leading-tight text-brand-cream sm:text-5xl';
+    @endphp
+    <div class="{{ $paddingClasses }}">
         <div class="max-w-2xl">
             <x-reveal variant="fade-up">
                 @if ($eyebrow)
                     <p class="eyebrow text-brand-cream/85">{{ $eyebrow }}</p>
                 @endif
-                <h1 class="mt-3 font-display text-3xl font-semibold leading-tight text-brand-cream sm:text-5xl">
+                <h1 class="{{ $titleClasses }}">
                     {{ $title }}
                 </h1>
                 @if ($lead)

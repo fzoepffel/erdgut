@@ -1303,6 +1303,7 @@
     "admin.catalog.producers_empty_hint": "Lege die Höfe, Molkereien und andere Lieferanten an, deren Produkte in den Boxen landen.",
     "admin.catalog.producer_no_products_hint": "Dieser Erzeuger hat noch keine Produkte — er erscheint weder im Shop noch in einer Box, bis du eines anlegst.",
     "Margin": "Marge",
+    "My account": "Mein Konto",
     "Cost: EUR :amount": "Einkauf: EUR :amount",
     "admin.catalog.products_empty_hint": "Sobald du mindestens einen Produzenten hast, lege seine Produkte an — sie füllen den Wochen-Katalog und die Kund:innen-Boxen.",
     "admin.catalog.producers_search_hint": "Suche durchsucht Produzentennamen und Region.",

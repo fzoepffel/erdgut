@@ -10,10 +10,15 @@
 @endphp
 
 <x-app-layout>
-    <div class="pb-10 sm:pb-16">
-        <div class="mx-auto max-w-6xl space-y-8 px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+    {{-- D9 (UX notes): tighter overall vertical rhythm. The previous
+         space-y-8 / pb-16 / pt-10 wasted multiple viewport heights of
+         empty cream between cards. Trimmed to space-y-6 / pb-12 / pt-8
+         so action items reach the fold sooner. --}}
+    <div class="pb-8 sm:pb-12">
+        <div class="mx-auto max-w-6xl space-y-6 px-4 pt-6 sm:px-6 sm:pt-8 lg:px-8">
             <x-customer.hero-band
                 chapter="produce"
+                density="compact"
                 :image="asset('images/mock/hero/hero-farm.jpg')"
                 :eyebrow="__('Dashboard')"
                 :title="__('customer.story.dashboard.greeting', ['name' => Auth::user()->name])"
@@ -230,18 +235,22 @@
                 </section>
             @endif
 
-            {{-- This week at a glance — adapts per state --}}
+            {{-- This week at a glance — adapts per state.
+                 D9 (UX notes): card-header padding tightened from
+                 py-6 to py-5 and inner grid from gap-8/p-6 to
+                 gap-6/p-5 so the three glance cards land in one
+                 viewport on desktop. --}}
             <section class="border border-brand-ink/15" aria-labelledby="dashboard-this-week-heading">
-                <div class="border-b border-brand-ink/15 px-6 py-6">
+                <div class="border-b border-brand-ink/15 px-6 py-5">
                     <p class="eyebrow text-chapter-produce">{{ __('At a glance') }}</p>
                     <h2 id="dashboard-this-week-heading" class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
                         {{ __('This week at a glance') }}
                     </h2>
-                    <p class="mt-2 text-sm text-brand-ink/70">
+                    <p class="mt-1 text-sm text-brand-ink/70">
                         {{ __('Next delivery, box deadlines, and your subscription status.') }}
                     </p>
                 </div>
-                <div class="grid gap-8 p-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="grid gap-6 p-5 sm:grid-cols-2 lg:grid-cols-3 sm:p-6">
                     {{-- Card 1: Next delivery (only meaningful for active/paused subs) --}}
                     <div>
                         <p class="eyebrow text-chapter-produce">{{ __('Next delivery') }}</p>
@@ -380,7 +389,7 @@
                     </div>
                 </div>
 
-                <div class="border-t border-brand-ink/15 px-6 py-6">
+                <div class="border-t border-brand-ink/15 px-6 py-5">
                     <x-customer.producer-spotlight :producer="$producerOfWeek" />
                 </div>
             </section>
@@ -400,7 +409,11 @@
                  a "current week box" panel that pretends a subscription
                  exists. --}}
             @if ($kind->showsSubscriptionBoxes())
-                <div class="grid gap-8 lg:grid-cols-3">
+                {{-- D9 (UX notes): grid gap tightened from 8 to 6 and
+                     inner card padding from p-6 to p-5 so the three
+                     bottom-rail panels share more horizontal real estate
+                     and less vertical air. --}}
+                <div class="grid gap-6 lg:grid-cols-3">
                     <section class="border border-brand-ink/15 lg:order-1">
                         <div class="border-b border-brand-ink/15 px-6 py-5">
                             <div class="flex items-center justify-between gap-3">
@@ -416,7 +429,7 @@
                                 </a>
                             </div>
                         </div>
-                        <div class="p-6">
+                        <div class="p-5 sm:p-6">
                             <x-order-timeline
                                 :cards="$deliveryCards"
                                 :empty-description="__('Your delivery days will show up here once we compose your first box.')"
@@ -438,7 +451,7 @@
                             <p class="eyebrow text-chapter-fish">{{ __('This week') }}</p>
                             <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current week box') }}</h3>
                         </div>
-                        <div class="p-6">
+                        <div class="p-5 sm:p-6">
                             @if ($currentBox)
                                 <p class="text-sm text-brand-ink/70">
                                     {{ __('Week of :date', ['date' => $currentBox->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}
@@ -488,7 +501,7 @@
                             <p class="eyebrow text-chapter-almanach">{{ __('Almanach') }}</p>
                             <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current and upcoming boxes') }}</h3>
                         </div>
-                        <div class="p-6">
+                        <div class="p-5 sm:p-6">
                             @if ($upcomingBoxes->isEmpty())
                                 <x-empty-state
                                     :title="__('No boxes scheduled')"
