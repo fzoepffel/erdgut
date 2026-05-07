@@ -56,8 +56,9 @@ class AdminSubscriptionCreateTest extends TestCase
                 'plan' => 'weekly',
                 'box_size' => 'medium',
                 'fulfillment_mode' => 'delivery',
+                // D2 (UX notes): zone is now pinned to Wed × Afternoon.
                 'delivery_weekday' => 3,
-                'preferred_timeslot' => Timeslot::Morning->value,
+                'preferred_timeslot' => Timeslot::Afternoon->value,
                 'preferences' => [],
                 'reason' => 'Phone sign-up; invoiced monthly.',
             ])
@@ -94,7 +95,7 @@ class AdminSubscriptionCreateTest extends TestCase
                 'box_size' => 'medium',
                 'fulfillment_mode' => 'delivery',
                 'delivery_weekday' => 3,
-                'preferred_timeslot' => Timeslot::Morning->value,
+                'preferred_timeslot' => Timeslot::Afternoon->value,
             ])
             ->assertSessionHasErrors('user_id');
     }

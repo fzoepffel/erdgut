@@ -7,7 +7,28 @@
         {{ __('Every Erdgut box is filled with seasonal vegetables and fruit from the region. You can change the size later.') }}
     </p>
 
-    <form method="POST" action="{{ route('app.onboarding.step.preferences.store') }}" class="mt-8 space-y-8">
+    @php
+        // D3 (UX notes): the eggs add-on must be impossible to combine
+        // with eggs allergy. Alpine reactively unticks + disables the
+        // eggs checkbox the moment the customer ticks the eggs allergy
+        // (and re-enables when they untick it). The server validates
+        // the same rule via PreferencesStepRequest::withValidator so
+        // anyone bypassing the JS still gets a 422.
+        $initialAllergies = old('allergies', $data['allergies'] ?? []);
+        if (! is_array($initialAllergies)) {
+            $initialAllergies = [];
+        }
+        $initialEggsAllergic = in_array(\App\Enums\Allergen::Eggs->value, $initialAllergies, true);
+    @endphp
+
+    <form method="POST" action="{{ route('app.onboarding.step.preferences.store') }}" class="mt-8 space-y-8"
+          x-data="{
+              eggsAllergic: {{ $initialEggsAllergic ? 'true' : 'false' }},
+          }"
+          x-init="$watch('eggsAllergic', (v) => {
+              if (v) { document.getElementById('preferences-eggs-addon').checked = false }
+          })"
+    >
         @csrf
 
         {{-- All Erdgut boxes are vegetable + fruit only for now (no meat, no dairy).
@@ -87,11 +108,15 @@
         <fieldset>
             <legend class="eyebrow text-brand-ink/80">{{ __('Extras') }}</legend>
             <div class="mt-4">
-                <label class="flex cursor-pointer items-start gap-3 border border-brand-ink/15 px-4 py-4 transition hover:border-brand-ink/30 has-[:checked]:border-chapter-eggdairy has-[:checked]:bg-chapter-eggdairy/5">
+                <label
+                    class="flex cursor-pointer items-start gap-3 border border-brand-ink/15 px-4 py-4 transition hover:border-brand-ink/30 has-[:checked]:border-chapter-eggdairy has-[:checked]:bg-chapter-eggdairy/5"
+                    x-bind:class="eggsAllergic ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''"
+                >
                     <input type="hidden" name="preferences[eggs_dairy_add_on]" value="0">
-                    <input type="checkbox" name="preferences[eggs_dairy_add_on]" value="1"
+                    <input id="preferences-eggs-addon" type="checkbox" name="preferences[eggs_dairy_add_on]" value="1"
                            class="mt-1 h-4 w-4 border-brand-ink/40 text-chapter-eggdairy focus:ring-chapter-eggdairy"
-                           {{ !empty($data['preferences']['eggs_dairy_add_on'] ?? false) ? 'checked' : '' }}>
+                           {{ ! $initialEggsAllergic && ! empty($data['preferences']['eggs_dairy_add_on'] ?? false) ? 'checked' : '' }}
+                           x-bind:disabled="eggsAllergic">
                     <span class="flex flex-col gap-1">
                         <span class="font-display text-base text-brand-ink">{{ __('Add eggs to every box') }}</span>
                         <span class="text-xs text-brand-ink/65">
@@ -99,6 +124,16 @@
                         </span>
                     </span>
                 </label>
+                <p
+                    x-show="eggsAllergic"
+                    x-cloak
+                    class="mt-2 text-xs text-chapter-meat"
+                    role="status"
+                    data-testid="preferences-eggs-allergic-hint"
+                >
+                    {{ __('Eggs add-on is disabled because eggs is in your allergies.') }}
+                </p>
+                <x-input-error :messages="$errors->get('preferences.eggs_dairy_add_on')" class="mt-2" />
             </div>
         </fieldset>
 
@@ -116,7 +151,12 @@
                     <label class="flex cursor-pointer items-center gap-2 border border-brand-ink/15 px-3 py-2 text-sm transition hover:border-brand-ink/30 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
                         <input type="checkbox" name="allergies[]" value="{{ $allergen->value }}"
                                class="h-4 w-4 border-brand-ink/40 text-chapter-produce focus:ring-chapter-produce"
-                               {{ in_array($allergen->value, $selectedAllergens, true) ? 'checked' : '' }}>
+                               {{ in_array($allergen->value, $selectedAllergens, true) ? 'checked' : '' }}
+                               @if ($allergen === \App\Enums\Allergen::Eggs)
+                                   x-on:change="eggsAllergic = $event.target.checked"
+                                   data-testid="allergy-eggs-checkbox"
+                               @endif
+                        >
                         <span class="text-brand-ink/85">{{ __('allergens.'.$allergen->value) }}</span>
                     </label>
                 @endforeach

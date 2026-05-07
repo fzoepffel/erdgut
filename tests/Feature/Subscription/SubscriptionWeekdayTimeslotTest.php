@@ -53,14 +53,17 @@ class SubscriptionWeekdayTimeslotTest extends TestCase
                     'eggs_dairy_add_on' => '0',
                 ],
                 'allergies' => '',
-                'delivery_weekday' => 4,
-                'preferred_timeslot' => Timeslot::Morning->value,
+                // D2 (UX notes): zone now exposes only Wed × 12-16. Use
+                // those real values; the older Thursday/Morning combo
+                // is no longer in the picker.
+                'delivery_weekday' => 3,
+                'preferred_timeslot' => Timeslot::Afternoon->value,
             ])
             ->assertRedirect(route('app.subscriptions.show'));
 
         $subscription->refresh();
-        $this->assertSame(4, $subscription->delivery_weekday);
-        $this->assertSame(Timeslot::Morning, $subscription->preferred_timeslot);
+        $this->assertSame(3, $subscription->delivery_weekday);
+        $this->assertSame(Timeslot::Afternoon, $subscription->preferred_timeslot);
     }
 
     public function test_update_rejects_weekday_outside_zone_window(): void

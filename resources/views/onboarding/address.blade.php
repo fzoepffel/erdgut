@@ -7,6 +7,16 @@
         {{ __('Primary delivery address and gate / floor details so we can find you.') }}
     </p>
 
+    @php($zoneHint = app(\App\Support\DeliveryZoneResolver::class)->defaultZonePostalCodeHint())
+    @if ($zoneHint !== null)
+        {{-- B5 (UX notes): Berlin-only delivery — surface the zone before
+             the user types an unsupported PLZ. Validation enforces the
+             same range server-side; this is the up-front transparency. --}}
+        <p class="mt-4 border border-brand-ink/15 bg-brand-cream/40 px-4 py-3 text-sm text-brand-ink/85" data-testid="address-delivery-zone-hint">
+            {{ __('We currently deliver only in Berlin (PLZ :hint).', ['hint' => $zoneHint]) }}
+        </p>
+    @endif
+
     <form method="POST" action="{{ route('app.onboarding.step.address.store') }}" class="mt-8 space-y-6">
         @csrf
         <div>

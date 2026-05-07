@@ -18,7 +18,22 @@
                     {{ __('Adjust your delivery rhythm, box size, preferences, and allergies.') }}
                 </p>
 
-                <form method="post" action="{{ route('app.subscriptions.update') }}" class="mt-6 space-y-10">
+                @php
+                    // D3 (UX notes): Alpine state mirrors the eggs-allergic
+                    // status so the eggs add-on checkbox auto-disables when
+                    // the customer ticks the eggs allergy. The shared
+                    // _allergies_field partial dispatches a window-level
+                    // event we listen for here.
+                    $editEggsAllergicInitial = in_array(
+                        \App\Enums\Allergen::Eggs->value,
+                        old('allergies', $subscription->allergies ?? []),
+                        true
+                    );
+                @endphp
+                <form method="post" action="{{ route('app.subscriptions.update') }}" class="mt-6 space-y-10"
+                      x-data="{ eggsAllergic: {{ $editEggsAllergicInitial ? 'true' : 'false' }} }"
+                      x-on:eggs-allergic-changed.window="eggsAllergic = $event.detail.allergic; if (eggsAllergic) { document.getElementById('subscription-edit-eggs-addon').checked = false }"
+                >
                     @csrf
                     @method('patch')
 
@@ -101,14 +116,17 @@
                         <input type="hidden" name="preferences[veg_only]" value="1">
                         <input type="hidden" name="preferences[meat_add_on]" value="0">
 
-                        <label class="flex items-start gap-3">
+                        <label class="flex items-start gap-3"
+                               x-bind:class="eggsAllergic ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''">
                             <input type="hidden" name="preferences[eggs_dairy_add_on]" value="0">
                             <input
+                                id="subscription-edit-eggs-addon"
                                 type="checkbox"
                                 name="preferences[eggs_dairy_add_on]"
                                 value="1"
-                                @checked((bool) old('preferences.eggs_dairy_add_on', data_get($subscription->preferences, 'eggs_dairy_add_on', false)))
+                                @checked(! $editEggsAllergicInitial && (bool) old('preferences.eggs_dairy_add_on', data_get($subscription->preferences, 'eggs_dairy_add_on', false)))
                                 class="mt-1 border-brand-ink/30 text-chapter-eggdairy focus:ring-chapter-eggdairy"
+                                x-bind:disabled="eggsAllergic"
                             />
                             <span>
                                 <span class="block text-sm text-brand-ink">{{ __('Add eggs to every box') }}</span>
@@ -117,6 +135,16 @@
                                 </span>
                             </span>
                         </label>
+
+                        <p
+                            x-show="eggsAllergic"
+                            x-cloak
+                            class="mt-1 text-xs text-chapter-meat"
+                            role="status"
+                            data-testid="subscription-edit-eggs-allergic-hint"
+                        >
+                            {{ __('Eggs add-on is disabled because eggs is in your allergies.') }}
+                        </p>
 
                         <x-input-error class="mt-2" :messages="$errors->get('preferences.eggs_dairy_add_on')" />
                     </fieldset>

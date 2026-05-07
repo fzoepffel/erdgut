@@ -6,6 +6,7 @@ use App\Enums\Allergen;
 use App\Support\AllergyInputNormaliser;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class PreferencesStepRequest extends FormRequest
 {
@@ -42,5 +43,26 @@ class PreferencesStepRequest extends FormRequest
             'allergies' => AllergyInputNormaliser::toArray($this->input('allergies')),
             'allergies_note' => AllergyInputNormaliser::normaliseNote($this->input('allergies_note')),
         ]);
+    }
+
+    /**
+     * D3 (UX notes): hard-block the impossible combination of "I'm
+     * allergic to eggs" + "I want the eggs add-on". Without this guard
+     * the wizard happily accepts both and the customer ends up
+     * declared-allergic-yet-charged-and-shipped eggs.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $allergies = (array) $this->input('allergies', []);
+            $eggsAddOn = (bool) $this->boolean('preferences.eggs_dairy_add_on');
+
+            if ($eggsAddOn && in_array(Allergen::Eggs->value, $allergies, true)) {
+                $validator->errors()->add(
+                    'preferences.eggs_dairy_add_on',
+                    __('You cannot add the eggs add-on when eggs is in your allergies.')
+                );
+            }
+        });
     }
 }

@@ -24,17 +24,19 @@ class Flow13AddressPropagationTest extends TestCase
             'user_id' => $user->id,
             'is_primary' => true,
             'street_line_1' => 'Old Street 1',
-            'postal_code' => '50354',
-            'city' => 'Old City',
+            'postal_code' => '10115',
+            'city' => 'Berlin',
             'country_code' => 'DE',
         ]);
 
+        // B5 zone validation rejects out-of-Berlin addresses — keep this
+        // propagation test inside the configured zone (Berlin).
         $this->actingAs($user)
             ->patch(route('app.deliveries.preferences.update'), [
                 'recipient_name' => 'Test Receiver',
                 'street_line_1' => 'New Street 99',
-                'postal_code' => '50354',
-                'city' => 'Hürth',
+                'postal_code' => '12435',
+                'city' => 'Berlin',
                 'country_code' => 'DE',
                 'phone' => null,
                 'instructions' => null,
@@ -45,6 +47,6 @@ class Flow13AddressPropagationTest extends TestCase
         $primary = Address::where('user_id', $user->id)->where('is_primary', true)->first();
         $this->assertNotNull($primary);
         $this->assertSame('New Street 99', $primary->street_line_1);
-        $this->assertSame('Hürth', $primary->city);
+        $this->assertSame('Berlin', $primary->city);
     }
 }

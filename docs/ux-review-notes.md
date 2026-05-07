@@ -85,7 +85,7 @@ lost — they don't even land back in the right place after login.
   visibility looks confusing later, we can revisit by tightening copy
   rather than collapsing the routes.
 
-### A3. Marketing copy on /home implies trial = fixed 35 € — but trial offers all 3 sizes **[High] · TODO**
+### A3. Marketing copy on /home implies trial = fixed 35 € — but trial offers all 3 sizes **[High] · DONE (fix/erd-ux-trust-coherence-batch)**
 The trial section on `/home` says: "EUR 35 für eine einzelne Erdgut-Box —
 eine Lieferung, kein Abo, keine gespeicherte Karte." This implies the trial
 is a fixed-price 35 € (Mittel) box. In reality, the trial wizard
@@ -129,7 +129,7 @@ indicator promises "BOX". Pick one taxonomy.
   "Weiter" without naming the next destination. Inconsistency makes it look
   buggy.
 
-### B3. Email verification gate is inconsistent across the wizard **[High]**
+### B3. Email verification gate is inconsistent across the wizard **[High] · DONE (fix/erd-ux-trust-coherence-batch)**
 - During onboarding the wizard does NOT require email verification: a user
   can fill account → address → preferences → ... without ever clicking the
   email link.
@@ -162,7 +162,7 @@ The locale is `de` and the rest of the page is German — these stick out.
   `street_line_1` → "Straße und Hausnummer" etc. Same approach across all
   FormRequests project-wide.
 
-### B5. Address form has zero geo-validation — Berlin-only service accepts any junk **[High]**
+### B5. Address form has zero geo-validation — Berlin-only service accepts any junk **[High] · DONE (fix/erd-ux-trust-coherence-batch)**
 The address form accepted PLZ `ABC123XYZ`, city `Pjöngjang`, country `DE`
 and saved the record. There's no:
 - format check on PLZ (German PLZ is 5 digits, regex `^\d{5}$`),
@@ -220,7 +220,7 @@ from "Vorlieben" → "Zeitplan" → "Zahlung", spelling out 3 distinct steps
 that the bar collapses into "BOX". Pick one taxonomy and apply it
 consistently to the bar AND the button labels.
 
-### B12. Payment step has no T&Cs / privacy / mandate consent **[High]**
+### B12. Payment step has no T&Cs / privacy / mandate consent **[High] · DONE (fix/erd-ux-trust-coherence-batch)**
 At the SumUp setup step the user is about to authorise a recurring
 charge. There is no checkbox accepting Erdgut's AGB, privacy policy, or
 recurring-billing mandate. The link at the bottom is to SumUp's policy.
@@ -342,7 +342,7 @@ confuse the customer about whether they're now subscribed.
 
 ## D. Customer dashboard & account
 
-### D1. Hero promises a delivery date that doesn't exist in DB **[High]**
+### D1. Hero promises a delivery date that doesn't exist in DB **[High] · DONE (fix/erd-ux-trust-coherence-batch)**
 Dashboard hero of a freshly-onboarded subscriber says
 "Deine erste Box kommt am Mi, 6. Mai" while:
 - The Lieferungen empty state says "Keine Lieferungen im Kalender."
@@ -356,7 +356,7 @@ the user's PLZ, the user will still see this date and feel deceived.
   for the user. Otherwise show a softer "Wir planen deine erste
   Lieferung – wir melden uns sobald sie bereit ist."
 
-### D2. Promised delivery weekday/timeslot don't match what is offered **[High]**
+### D2. Promised delivery weekday/timeslot don't match what is offered **[High] · DONE (fix/erd-ux-trust-coherence-batch)**
 The onboarding wizard let the user pick `Montag, 08:00–12:00`. After
 onboarding:
 - Dashboard says "donnerstags für die folgende Montagslieferung" but the
@@ -371,7 +371,7 @@ ignored.
   note "Aktuell liefern wir nur mittwochs 12-16 in Berlin"). Don't
   collect a preference you cannot honour.
 
-### D3. Subscription page shows EIER:Ja and ALLERGIE:Eier side by side **[High]**
+### D3. Subscription page shows EIER:Ja and ALLERGIE:Eier side by side **[High] · DONE (fix/erd-ux-trust-coherence-batch)**
 On `/app/subscriptions` Vorlieben tab the user can see:
 - EIER: Ja (the +4,50€ add-on)
 - ALLERGIEN: Eier, Schalenfrüchte

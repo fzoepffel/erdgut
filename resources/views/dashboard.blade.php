@@ -194,30 +194,40 @@
                  forward-looking estimate that is correct on day one of a fresh
                  subscription but quickly drifts as soon as ops creates a real
                  Box / Delivery for a different week or the customer adjusts
-                 their schedule. --}}
+                 their schedule.
+                 D1 (UX notes): the older fallback to the cadence-only
+                 estimate has been removed. The hero only promises a date
+                 when a real Delivery row exists — otherwise it shows the
+                 softer "we are planning" copy so the customer is not
+                 told a date that has no record behind it. --}}
             @if ($kind === DashboardKind::SubscriptionFirstWeek)
                 @php
                     $actualNextDelivery = $firstDeliveryCard['delivery']?->scheduled_for_date ?? null;
-                    $heroFirstDelivery = $actualNextDelivery
-                        ?? $primarySubscription?->firstExpectedDeliveryDate();
                 @endphp
-                @if ($heroFirstDelivery)
-                    <section
-                        class="border border-chapter-produce/30 bg-chapter-produce/5"
-                        aria-labelledby="dashboard-new-subscriber-hero-heading"
-                        data-testid="dashboard-new-subscriber-hero"
-                    >
-                        <div class="px-6 py-6">
-                            <p class="eyebrow text-chapter-produce">{{ __('Welcome to Erdgut') }}</p>
+                <section
+                    class="border border-chapter-produce/30 bg-chapter-produce/5"
+                    aria-labelledby="dashboard-new-subscriber-hero-heading"
+                    data-testid="dashboard-new-subscriber-hero"
+                >
+                    <div class="px-6 py-6">
+                        <p class="eyebrow text-chapter-produce">{{ __('Welcome to Erdgut') }}</p>
+                        @if ($actualNextDelivery)
                             <h2 id="dashboard-new-subscriber-hero-heading" class="mt-2 font-display text-3xl text-brand-ink sm:text-4xl">
-                                {{ __('Your first box arrives :date', ['date' => $heroFirstDelivery->locale(app()->getLocale())->isoFormat('dd, D. MMM')]) }}
+                                {{ __('Your first box arrives :date', ['date' => $actualNextDelivery->locale(app()->getLocale())->isoFormat('dd, D. MMM')]) }}
                             </h2>
                             <p class="mt-3 max-w-2xl text-sm leading-relaxed text-brand-ink/70">
                                 {{ __('We compose your box from the season — exactly what is harvested that week. You will see the products listed here as soon as your box is composed (Thursdays, the day before delivery).') }}
                             </p>
-                        </div>
-                    </section>
-                @endif
+                        @else
+                            <h2 id="dashboard-new-subscriber-hero-heading" class="mt-2 font-display text-3xl text-brand-ink sm:text-4xl" data-testid="dashboard-first-box-pending">
+                                {{ __('We are planning your first delivery.') }}
+                            </h2>
+                            <p class="mt-3 max-w-2xl text-sm leading-relaxed text-brand-ink/70">
+                                {{ __('We will confirm the date and timeslot here as soon as your delivery slot is reserved.') }}
+                            </p>
+                        @endif
+                    </div>
+                </section>
             @endif
 
             {{-- This week at a glance — adapts per state --}}
@@ -255,13 +265,14 @@
                                 {{ __('Manage deliveries') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @elseif ($kind === DashboardKind::SubscriptionFirstWeek)
-                            @php
-                                $firstDelivery = $primarySubscription?->firstExpectedDeliveryDate();
-                            @endphp
-                            @if ($firstDelivery)
-                                <p class="mt-3 font-display text-2xl text-brand-ink">{{ $firstDelivery->locale(app()->getLocale())->isoFormat('dd, D. MMM') }}</p>
-                                <p class="mt-1 text-sm text-brand-ink/70">{{ __('First delivery — we will confirm day and timeslot once your box is composed.') }}</p>
-                            @endif
+                            {{-- D1 (UX notes): the cadence-only estimate
+                                 used to render here even when no Delivery
+                                 row existed — fooling the customer into
+                                 expecting a date that wasn't backed by a
+                                 record. Soft-pending message instead. --}}
+                            <p class="mt-3 text-sm text-brand-ink/70" data-testid="dashboard-glance-first-delivery-pending">
+                                {{ __('We are planning your first delivery — we will confirm here as soon as it is scheduled.') }}
+                            </p>
                             <a href="{{ route('app.deliveries.preferences.edit') }}"
                                class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
                                data-track-section="glance.next_delivery"
@@ -301,7 +312,9 @@
                                 {{ __('View current box') }} <span aria-hidden="true">&rarr;</span>
                             </a>
                         @elseif ($kind === DashboardKind::SubscriptionFirstWeek)
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('Box composition runs each Thursday for the following Monday delivery — your first box will appear here once it is composed.') }}</p>
+                            {{-- D2 (UX notes): mention reality of Wed-only
+                                 delivery, not the older Mon copy. --}}
+                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('We compose your box before each Wednesday delivery — your first box will appear here once it is composed.') }}</p>
                         @elseif ($kind->showsTrialBlock())
                             <p class="mt-3 text-sm text-brand-ink/70">{{ __('See the trial-box block above for this week\'s details.') }}</p>
                         @elseif ($kind->showsResumeSubscriptionSetup())

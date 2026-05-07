@@ -20,12 +20,27 @@ return [
     'zones' => [
         'berlin_core' => [
             'label' => 'Berlin core zone',
-            'allowed_weekdays' => [1, 2, 3, 4, 5], // Mon-Fri
+
+            // D2 (UX notes): we only deliver Wed 12–16 today. Earlier the
+            // picker offered Mon–Fri × 3 timeslots and silently dropped
+            // the preference because the only honoured slot is the
+            // afternoon Wednesday window. Pinning the config to reality
+            // means the wizard only collects a preference we can keep.
+            // Widen these arrays once the fleet covers more days.
+            'allowed_weekdays' => [3], // Wednesday
             'allowed_timeslots' => [
-                Timeslot::Morning->value,
                 Timeslot::Afternoon->value,
-                Timeslot::Evening->value,
             ],
+
+            // B5 (UX notes): Berlin-only delivery zone. Customer-facing
+            // address forms must validate that the postal code falls in
+            // this range (and country is DE). The conservative span
+            // 10115–14199 covers the inner Berlin ZIP block; refine into
+            // discrete sub-ranges if needed (Berlin PLZ has gaps but
+            // the outer envelope stays inside 10000–14999).
+            'country_code' => 'DE',
+            'postal_code_min' => 10115,
+            'postal_code_max' => 14199,
         ],
     ],
 
