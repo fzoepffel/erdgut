@@ -40,7 +40,12 @@ class SubscriptionScheduleStepRequest extends FormRequest
                 Rule::in($zone->allowedTimeslots($zoneKey)),
                 Rule::enum(Timeslot::class),
             ],
-            'delivery_instructions' => ['nullable', 'string', 'max:1000'],
+            // B10 (UX notes): delivery_instructions is collected on the
+            // address step now (single source of truth on the address
+            // record). Kept nullable here so any old form post that
+            // still ships the field doesn't 422; the controller no
+            // longer reads it.
+            'delivery_instructions' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ];
     }
 

@@ -68,11 +68,14 @@ class CustomerCopyHonestyTest extends TestCase
         $response->assertSee('Per delivery', false);
     }
 
-    public function test_c5_trial_delivery_placeholder_uses_dynamic_date(): void
+    public function test_c5_trial_delivery_no_hardcoded_6_may_placeholder(): void
     {
+        // C4 (UX notes) replaced the free-text Wunschwoche field with a
+        // bounded date picker, so the older "after 6 May" placeholder
+        // stub is gone outright. This test continues to guard against
+        // any future copy that pins a specific calendar date in
+        // placeholder text.
         $user = User::factory()->create(['email_verified_at' => now()]);
-        // Trial delivery is one step beyond preferences — mark preferences
-        // completed so the step-gate lets the user through.
         $this->startDraftWithIntent(
             $user,
             OnboardingDraftManager::INTENT_TRIAL,
@@ -83,11 +86,8 @@ class CustomerCopyHonestyTest extends TestCase
             ->get(route('app.onboarding.step.trial_delivery'));
 
         $response->assertOk();
-        // The hardcoded "6 May" hint must not leak through any more.
         $response->assertDontSee('after 6 May', false);
-        // Some "after :date" placeholder rendered with a real day-month token
-        // must be present (locale-aware so we just look for the phrase).
-        $response->assertSee('after', false);
+        $response->assertDontSee('nach dem 6. Mai', false);
     }
 
     public function test_c11_trial_dashboard_upsell_no_longer_promises_no_new_card(): void

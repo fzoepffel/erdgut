@@ -18,6 +18,27 @@
             <x-input-label for="email" :value="__('Email')" required />
             <x-text-input id="email" name="email" type="email" :value="old('email')" required autocomplete="email" class="mt-2" />
             <x-input-error id="email-error" :messages="$errors->get('email')" class="mt-2" />
+
+            @if (session('account_step_email_already_registered'))
+                {{-- B6 (UX notes): email is already registered. Surface a
+                     one-click recovery rather than letting the user stare
+                     at "already taken" with no exit. The login link
+                     pre-fills email via the standard login route. --}}
+                <div class="mt-2 border border-chapter-meat/30 bg-chapter-meat/5 px-3 py-2 text-sm text-brand-ink/85"
+                     role="alert"
+                     data-testid="account-step-email-recovery">
+                    <p>{{ __('This email is already registered.') }}</p>
+                    <p class="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                        <a href="{{ route('auth.login') }}" class="font-semibold text-chapter-meat underline-offset-4 hover:underline" data-testid="account-step-email-recovery-login">
+                            {{ __('Log in') }}
+                        </a>
+                        <span aria-hidden="true">·</span>
+                        <a href="{{ route('password.request') }}" class="font-semibold text-chapter-meat underline-offset-4 hover:underline" data-testid="account-step-email-recovery-reset">
+                            {{ __('Reset password') }}
+                        </a>
+                    </p>
+                </div>
+            @endif
         </div>
         <div>
             <x-input-label for="phone" :value="__('Phone (for delivery updates)')" optional />

@@ -135,13 +135,20 @@ class PaymentStepController extends OnboardingController
             return $existing;
         }
 
+        // C4 (UX notes): the trial delivery step now writes a real ISO
+        // date to `preferred_delivery_date`; older drafts may still
+        // hold a free-text `preferred_delivery_window`. Pass whatever
+        // is set into the legacy column on the Order — the column name
+        // stays for back-compat across admin views, emails, and the
+        // already-shipped TrialOrder model.
         return $this->trialOrders->createOrder($user, [
             'address_id' => $data['address_id'] ?? null,
             'box_size' => $data['box_size'] ?? 'medium',
             'preferences' => $data['preferences'] ?? [],
             'allergies' => $data['allergies'] ?? [],
             'preferred_timeslot' => $data['preferred_timeslot'] ?? null,
-            'preferred_delivery_window' => $data['preferred_delivery_window'] ?? null,
+            'preferred_delivery_window' => $data['preferred_delivery_date']
+                ?? ($data['preferred_delivery_window'] ?? null),
             'special_instructions' => $data['special_instructions'] ?? null,
             'is_test' => (bool) $user->is_test,
         ]);

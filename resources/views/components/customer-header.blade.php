@@ -70,31 +70,34 @@
             </nav>
         @endif
 
-        <div class="hidden items-center gap-3 md:flex" style="color: {{ $ink }};">
-            <x-language-selector />
-            @if ($variant === 'marketing')
-                @auth
-                    <a href="{{ route('app.dashboard') }}" class="inline-flex items-center justify-center border px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:bg-[{{ $ink }}] hover:text-[{{ $bg }}]" style="border-color: {{ $ink }}; color: {{ $ink }};">
-                        {{ __('Dashboard') }}
-                    </a>
-                @else
-                    <a href="{{ route('auth.login') }}" class="text-sm font-medium transition" style="color: {{ $inkSubtle }};">
-                        {{ __('Log in') }}
-                    </a>
-                    <a href="{{ route('auth.register') }}" class="inline-flex items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: {{ $ink }}; color: {{ $cream }};">
-                        {{ __('Sign up') }}
-                    </a>
-                @endauth
-            @elseif ($variant === 'wizard')
-                {{-- B1 (UX notes): wizard chrome is intentionally nav-free.
-                     A logout link used to live here, but a single misclick
-                     during onboarding logged the customer out, and the
-                     verified-middleware then blocked them from resuming
-                     (see B3). The draft survives a closed tab; the user
-                     can resume via /onboard. If they truly need to log
-                     out they can do so from any post-onboarding page. --}}
-            @endif
-        </div>
+        @if ($variant !== 'wizard')
+            <div class="hidden items-center gap-3 md:flex" style="color: {{ $ink }};">
+                <x-language-selector />
+                @if ($variant === 'marketing')
+                    @auth
+                        <a href="{{ route('app.dashboard') }}" class="inline-flex items-center justify-center border px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:bg-[{{ $ink }}] hover:text-[{{ $bg }}]" style="border-color: {{ $ink }}; color: {{ $ink }};">
+                            {{ __('Dashboard') }}
+                        </a>
+                    @else
+                        <a href="{{ route('auth.login') }}" class="text-sm font-medium transition" style="color: {{ $inkSubtle }};">
+                            {{ __('Log in') }}
+                        </a>
+                        <a href="{{ route('auth.register') }}" class="inline-flex items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: {{ $ink }}; color: {{ $cream }};">
+                            {{ __('Sign up') }}
+                        </a>
+                    @endauth
+                @endif
+            </div>
+        @endif
+        {{-- B1/B9 (UX notes): wizard chrome is intentionally nav-free
+             on every width. The logout link used to live here, but a
+             single misclick during onboarding logged the customer out,
+             and the verified-middleware then blocked them from resuming
+             (see B3). The language selector also lived on desktop only,
+             which broke the focused-shell intent — both viewports now
+             render just the logo. The draft survives a closed tab; the
+             user can resume via /onboard, and language can be switched
+             from the public marketing pages before entering onboarding. --}}
 
         @if ($variant === 'marketing')
             <button

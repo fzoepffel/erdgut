@@ -58,29 +58,33 @@ class ScheduleStepController extends OnboardingController
         $draft = $this->drafts->currentOrCreate($request);
         $validated = $request->validated();
 
+        // B10 (UX notes): delivery_instructions is no longer collected on
+        // this step — the address step is the canonical home for the
+        // delivery note. Drop the old delivery_instructions slot from
+        // the draft so a stale value doesn't leak through if it was
+        // saved by an earlier wizard pass.
         $this->drafts->update($draft, [
             'plan' => $validated['plan'],
             'fulfillment_mode' => $validated['fulfillment_mode'],
             'delivery_weekday' => $validated['delivery_weekday'] ?? null,
             'preferred_timeslot' => $validated['preferred_timeslot'] ?? null,
-            'delivery_instructions' => $validated['delivery_instructions'] ?? null,
+            'delivery_instructions' => null,
             'subscription_schedule_completed' => true,
         ], OnboardingDraftManager::STEP_SUBSCRIPTION_PAYMENT);
 
-        // Persist delivery preference (and update address instructions) for subscription users.
+        // Mirror the timeslot onto the customer's delivery preference. The
+        // instructions field is left untouched here (address step owns
+        // it); we still pull whatever the address record currently
+        // holds so the per-user delivery_preferences stays in sync.
+        $address = $user->primaryAddress()->first();
         $user->deliveryPreference()->updateOrCreate(
             ['user_id' => $user->id],
             [
                 'preferred_timeslot' => $validated['preferred_timeslot'] ?? null,
                 'phone' => $user->phone,
-                'instructions' => $validated['delivery_instructions'] ?? null,
+                'instructions' => $address?->delivery_instructions,
             ]
         );
-
-        $address = $user->primaryAddress()->first();
-        if ($address !== null && isset($validated['delivery_instructions'])) {
-            $address->update(['delivery_instructions' => $validated['delivery_instructions']]);
-        }
 
         return redirect()->route('app.onboarding.step.'.OnboardingDraftManager::STEP_SUBSCRIPTION_PAYMENT);
     }

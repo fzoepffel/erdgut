@@ -178,19 +178,14 @@
             <a href="{{ route('app.onboarding.step.address') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
                 ← {{ __('Back to :step', ['step' => __('Address')]) }}
             </a>
-            @php
-                // Intent-aware forward label: when the customer already chose
-                // subscription/trial on the homepage, Commitment is skipped on
-                // POST (per CommitmentStepSkippableTest). The button should
-                // name the step the user actually lands on, not the skipped
-                // commitment step.
-                $forwardLabel = match ($draft->intent ?? null) {
-                    \App\Services\Onboarding\OnboardingDraftManager::INTENT_SUBSCRIPTION => __('Schedule'),
-                    \App\Services\Onboarding\OnboardingDraftManager::INTENT_TRIAL => __('Delivery'),
-                    default => __('Commitment'),
-                };
-            @endphp
-            <x-primary-button>{{ __('Continue to :step', ['step' => $forwardLabel]) }}</x-primary-button>
+            {{-- B11 (UX notes): preferences / commitment / schedule /
+                 delivery all live inside the same "Box" pill on the
+                 progress bar. Rather than spelling out the inner-step
+                 names (Schedule / Delivery / Commitment) in the button
+                 — which made the bar and the button contradict — use a
+                 generic "Continue" so the chrome stays consistent
+                 regardless of which sub-step is up next. --}}
+            <x-primary-button>{{ __('Continue') }}</x-primary-button>
         </div>
     </form>
 @endsection

@@ -13,10 +13,13 @@ class PaymentExpectationsComponentTest extends TestCase
 
         $this->assertStringContainsString(__('Enter card details'), $html);
         $this->assertStringContainsString(__('Confirm with your bank'), $html);
-        $this->assertStringContainsString(__('Your trial box ships Monday'), $html);
+        // C8 (UX notes): older copy promised Monday delivery; reframed
+        // to a non-day-specific message + Wednesday delivery confirmation.
+        $this->assertStringContainsString(__('Your trial box is on the way'), $html);
         $this->assertStringContainsString('aria-current="step"', $html);
         $this->assertStringContainsString(__('What happens next'), $html);
         $this->assertStringNotContainsString(__('Your subscription is live'), $html);
+        $this->assertStringNotContainsString(__('Your trial box ships Monday'), $html);
     }
 
     public function test_subscription_variant_shows_subscription_copy(): void
@@ -24,8 +27,11 @@ class PaymentExpectationsComponentTest extends TestCase
         $html = Blade::render('<x-onboarding.payment-expectations intent="subscription" />');
 
         $this->assertStringContainsString(__('Your subscription is live'), $html);
-        $this->assertStringContainsString(__('First delivery the following Monday.'), $html);
+        // D2/C8 (UX notes): the older "First delivery the following
+        // Monday." copy contradicted the Wed-only fleet. Reframed.
+        $this->assertStringContainsString(__('First delivery on the next eligible Wednesday.'), $html);
         $this->assertStringNotContainsString(__('Your trial box ships Monday'), $html);
+        $this->assertStringNotContainsString(__('First delivery the following Monday.'), $html);
     }
 
     public function test_security_badge_component_renders_three_reassurances(): void

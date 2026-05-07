@@ -17,12 +17,17 @@
         ],
         [
             'number' => '3',
+            // C8 / D2 (UX notes): older copy promised a Monday ship +
+            // "first delivery the following Monday", but the only
+            // active delivery slot is Wed 12-16. Reframe to match
+            // reality without hard-coding a date — operations confirm
+            // the exact date out-of-band per delivery.
             'label' => $intent === 'trial'
-                ? __('Your trial box ships Monday')
+                ? __('Your trial box is on the way')
                 : __('Your subscription is live'),
             'detail' => $intent === 'trial'
-                ? __('We compose it Thursday, deliver it next week.')
-                : __('First delivery the following Monday.'),
+                ? __('We confirm the exact Wednesday delivery and pack the box the day before.')
+                : __('First delivery on the next eligible Wednesday.'),
             'state' => 'next',
         ],
     ];
