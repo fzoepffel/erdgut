@@ -170,6 +170,28 @@ class OnboardingDraftManager
         $draft->delete();
     }
 
+    /**
+     * Does this user have a draft that's still in-flight (not yet
+     * finalised by Subscription/Order creation)? Used by login redirect
+     * (B3 in UX review notes) to send returning users back into the
+     * wizard instead of bouncing them off the verified-email gate on
+     * the dashboard.
+     *
+     * "In-flight" = there's a draft row keyed to the user that still
+     * has an open expiry (i.e., the wizard hasn't finalised and dropped
+     * the draft yet via PaymentStepController::storeComplete).
+     */
+    public function userHasInFlightDraft(User $user): bool
+    {
+        return OnboardingDraft::query()
+            ->where('user_id', $user->id)
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', Carbon::now());
+            })
+            ->exists();
+    }
+
     private function sessionKey(Request $request): string
     {
         $session = $request->session();

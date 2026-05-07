@@ -138,8 +138,10 @@ class DeliveryPreferencesTest extends TestCase
                 'recipient_name' => 'Own User',
                 'street_line_1' => 'Own Street 1',
                 'street_line_2' => null,
-                'postal_code' => '20095',
-                'city' => 'Hamburg',
+                // Berlin PLZ — B5 zone validation rejects out-of-Berlin
+                // addresses now, so test addresses must stay in zone.
+                'postal_code' => '12435',
+                'city' => 'Berlin',
                 'country_code' => 'DE',
                 'phone' => null,
                 'building_code' => null,

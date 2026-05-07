@@ -7,6 +7,16 @@
         {{ __('You can pause, skip, or cancel from your dashboard at any time.') }}
     </p>
 
+    {{-- D2 (UX notes): be honest about what we actually deliver. The
+         picker auto-shows whatever zone config exposes; today that's
+         Wed 12-16 only. The hint reads "we currently only deliver Wed
+         12-16 in Berlin" so the customer doesn't pick Monday morning
+         and feel bait-and-switched when their first delivery lands on
+         Wednesday afternoon. --}}
+    <p class="mt-4 border border-brand-ink/15 bg-brand-cream/40 px-4 py-3 text-sm text-brand-ink/85" data-testid="schedule-zone-hint">
+        {{ __('We currently deliver only Wednesdays 12–16 in Berlin. The schedule below reflects that — once we expand, more days and timeslots will appear.') }}
+    </p>
+
     <form
         method="POST"
         action="{{ route('app.onboarding.step.subscription_schedule.store') }}"
