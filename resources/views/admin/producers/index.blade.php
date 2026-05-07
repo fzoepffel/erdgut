@@ -107,18 +107,47 @@
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     @foreach ($producers as $producer)
-                                        <tr>
+                                        @php
+                                            // Block form, not @php(...) — the
+                                            // shorthand breaks subsequent block
+                                            // compilation. See
+                                            // docs/feedback_blade_php_shorthand.md.
+                                            $producerHasNoProducts = (int) $producer->products_count === 0;
+                                        @endphp
+                                        <tr @class([
+                                            'bg-amber-50/40' => $producerHasNoProducts,
+                                        ])>
                                             <td class="py-3 pe-4 font-medium text-gray-900">{{ $producer->name }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $producer->region ?? '—' }}</td>
-                                            <td class="py-3 pe-4 text-gray-600">{{ $producer->products_count }}</td>
+                                            {{-- E4 (UX notes): producers with 0 products won't appear on
+                                                 the public producers page or in any box. Highlight the
+                                                 row so admins notice and can add products. --}}
+                                            @if ($producerHasNoProducts)
+                                                <td class="py-3 pe-4" data-testid="admin-producer-no-products">
+                                                    <a href="{{ route('app.admin.products.create', ['producer_id' => $producer->id]) }}"
+                                                       class="inline-flex items-center gap-1 text-sm font-semibold text-amber-800 underline-offset-4 hover:underline"
+                                                       title="{{ __('admin.catalog.producer_no_products_hint') }}">
+                                                        <span aria-hidden="true">0</span>
+                                                        <span>· {{ __('Add product') }}</span>
+                                                    </a>
+                                                </td>
+                                            @else
+                                                <td class="py-3 pe-4 text-gray-600">{{ $producer->products_count }}</td>
+                                            @endif
                                             <td class="py-3 pe-4 text-xs text-gray-500 tabular-nums" title="{{ $producer->updated_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') }}">
                                                 {{ $producer->updated_at?->diffForHumans() ?? '—' }}
                                             </td>
-                                            <td class="py-3 pe-0 text-end space-x-3 whitespace-nowrap">
+                                            <td class="py-3 pe-0 text-end space-x-4 whitespace-nowrap">
                                                 <a href="{{ route('app.admin.producers.edit', $producer) }}" class="font-medium text-brand-ink underline-offset-4 hover:underline">{{ __('Edit') }}</a>
+                                                {{-- E5 (UX notes): destructive action is now a quiet
+                                                     text link in the same visual register as Edit, no
+                                                     longer a red solid button screaming for the
+                                                     fat-finger click. The confirm-modal pattern
+                                                     (already in place) still gates the actual delete. --}}
                                                 <button
                                                     type="button"
-                                                    class="btn-danger-sm"
+                                                    class="text-sm font-medium text-rose-700 underline-offset-4 hover:underline"
+                                                    data-testid="admin-producer-delete-trigger"
                                                     x-on:click.prevent="deleteAction = @js(route('app.admin.producers.destroy', $producer)); deleteLabel = @js($producer->name); $dispatch('open-modal', 'confirm-admin-producer-delete')"
                                                 >
                                                     {{ __('Delete') }}

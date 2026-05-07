@@ -152,6 +152,11 @@
                                         <th scope="col" class="py-2 pe-4">{{ __('Producer') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Category') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Price') }}</th>
+                                        {{-- F6 (UX notes): expose margin (or "—" when buying
+                                             price is missing) so operators can spot pricing
+                                             issues from the list. Title-attribute reveals the
+                                             buying price for the curious. --}}
+                                        <th scope="col" class="py-2 pe-4" data-testid="admin-products-col-margin">{{ __('Margin') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Shop') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Catalog') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('admin.catalog.col_last_updated') }}</th>
@@ -181,6 +186,27 @@
                                                 {{ $catEnum ? __('admin.category.'.$catEnum->value) : $product->category }}
                                             </td>
                                             <td class="py-3 pe-4 text-gray-600">@eur($product->unit_price)</td>
+                                            @php
+                                                $marginPct = $product->grossMarginPercent();
+                                                $marginEur = $product->grossMargin();
+                                                $buyingPriceEur = $product->buying_price_cents !== null
+                                                    ? round((int) $product->buying_price_cents / 100, 2)
+                                                    : null;
+                                            @endphp
+                                            <td class="py-3 pe-4 text-gray-600 tabular-nums" title="{{ $buyingPriceEur !== null ? __('Cost: EUR :amount', ['amount' => number_format($buyingPriceEur, 2, ',', '.')]) : '' }}">
+                                                @if ($marginPct === null)
+                                                    <span class="text-gray-400">—</span>
+                                                @else
+                                                    <span @class([
+                                                        'text-rose-700 font-semibold' => $marginPct < 20,
+                                                        'text-amber-700' => $marginPct >= 20 && $marginPct < 30,
+                                                        'text-gray-700' => $marginPct >= 30,
+                                                    ])>
+                                                        {{ number_format($marginPct, 1, ',', '.') }}&nbsp;%
+                                                    </span>
+                                                    <span class="block text-xs text-gray-500">@eur($marginEur)</span>
+                                                @endif
+                                            </td>
                                             <td class="py-3 pe-4">
                                                 @if ($product->is_available)
                                                     <span class="text-emerald-700">{{ __('Available') }}</span>
@@ -198,15 +224,20 @@
                                             <td class="py-3 pe-4 text-xs text-gray-500 tabular-nums" title="{{ $product->updated_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') }}">
                                                 {{ $product->updated_at?->diffForHumans() ?? '—' }}
                                             </td>
-                                            <td class="py-3 pe-0 text-end space-x-2 whitespace-nowrap">
+                                            <td class="py-3 pe-0 text-end space-x-4 whitespace-nowrap">
                                                 <a href="{{ route('app.admin.products.edit', $product) }}" class="text-emerald-700 hover:text-emerald-900 font-medium">{{ __('Edit') }}</a>
-                                                <x-danger-button
+                                                {{-- E5 (UX notes): destructive action is now the
+                                                     same visual register as Edit (text link, red).
+                                                     The confirm-modal still gates the actual
+                                                     delete. --}}
+                                                <button
                                                     type="button"
-                                                    size="sm"
+                                                    class="text-sm font-medium text-rose-700 underline-offset-4 hover:underline"
+                                                    data-testid="admin-product-delete-trigger"
                                                     x-on:click.prevent="deleteAction = @js(route('app.admin.products.destroy', $product)); deleteLabel = @js($product->name); $dispatch('open-modal', 'confirm-admin-product-delete')"
                                                 >
                                                     {{ __('Delete') }}
-                                                </x-danger-button>
+                                                </button>
                                             </td>
                                         </tr>
                                     @endforeach
