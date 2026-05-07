@@ -1303,6 +1303,7 @@
     "admin.catalog.producers_empty_hint": "Ajoute les fermes, laiteries et autres fournisseurs dont les produits apparaissent dans tes box.",
     "admin.catalog.producer_no_products_hint": "Ce producteur n'a pas encore de produits — il n'apparaîtra ni dans la boutique ni dans une box tant que tu n'en ajoutes pas.",
     "Margin": "Marge",
+    "My account": "Mon compte",
     "Cost: EUR :amount": "Coût : EUR :amount",
     "admin.catalog.products_empty_hint": "Une fois que tu as au moins un producteur, ajoute ses produits — ils alimentent le catalogue hebdomadaire et les box clients.",
     "admin.catalog.producers_search_hint": "La recherche porte sur le nom et la région des producteurs.",

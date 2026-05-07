@@ -67,10 +67,25 @@
 
             <div class="hidden sm:flex sm:items-center sm:gap-2" style="color: {{ $headerInk }};">
                 <x-language-selector />
+                {{-- D8 / D11 (UX notes): the trigger now uses a stable
+                     "Mein Konto" / "My account" label so customers know
+                     this is where account/payment/delivery settings
+                     live. The user's full name lives inside the dropdown
+                     where it has room to breathe — solves the wrap-mid-name
+                     problem (D8) and gives the dropdown a discoverable
+                     handle (D11). --}}
                 <x-dropdown align="right" width="56">
                     <x-slot name="trigger">
-                        <button type="button" class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition duration-200 focus:outline-none" style="color: {{ $headerInk }};">
-                            <span>{{ Auth::user()->name }}</span>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition duration-200 focus:outline-none"
+                            style="color: {{ $headerInk }};"
+                            data-testid="customer-header-account-trigger"
+                        >
+                            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                            </svg>
+                            <span>{{ __('My account') }}</span>
                             <svg class="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                             </svg>
@@ -78,6 +93,13 @@
                     </x-slot>
 
                     <x-slot name="content">
+                        {{-- D8 (UX notes): user name lives inside the
+                             dropdown where there's room to wrap. Truncated
+                             via Tailwind so super-long names also look ok. --}}
+                        <div class="border-b border-gray-200 px-4 py-3" data-testid="customer-header-account-summary">
+                            <p class="text-sm font-semibold text-gray-900 truncate">{{ Auth::user()->name }}</p>
+                            <p class="text-xs text-gray-500 truncate">{{ Auth::user()->email }}</p>
+                        </div>
                         @unless($isOperator)
                             @can('admin')
                                 <x-dropdown-link :href="route('app.admin.dashboard')">

@@ -1304,6 +1304,7 @@
     "admin.catalog.producers_empty_hint": "Add the farms, dairies, and other suppliers whose products appear in your boxes.",
     "admin.catalog.producer_no_products_hint": "This producer has no products yet — they will not appear in the shop or in any box until you add one.",
     "Margin": "Margin",
+    "My account": "My account",
     "Cost: EUR :amount": "Cost: EUR :amount",
     "admin.catalog.products_empty_hint": "Once you have at least one producer, add the products they supply — these are what fills the weekly catalogue and customer boxes.",
     "admin.catalog.producers_search_hint": "Search covers producer name and region.",
