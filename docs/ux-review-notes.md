@@ -486,7 +486,7 @@ they tab-tab-Enter looking for the actual form submit.
   forms), or add an `aria-label` and `tabindex=-1` so it isn't the next
   reachable submit when the user keyboard-focuses.
 
-### E3. "Alle drei Sprachen sind erforderlich" but tabs aren't marked **[Med]**
+### E3. "Alle drei Sprachen sind erforderlich" but tabs aren't marked **[Med] · DONE (fix/erd-ux-admin-form-clarity-batch)**
 On `/app/admin/producers/create` the user has to fill DE + EN + FR;
 filling only DE submits but returns the validation banner "Alle drei
 Sprachen sind erforderlich." However, the EN and FR tabs aren't
@@ -496,13 +496,13 @@ click each tab to find what's missing. Easy to fix.
   language is empty. Same pattern needed wherever the multi-language
   form pattern is repeated (Produkte etc.).
 
-### E4. Producers without products show no warning **[Low]**
+### E4. Producers without products show no warning **[Low] · DONE (fix/erd-ux-admin-form-clarity-batch)**
 "Imkerei Sonnenfeld" sits in the list with PRODUKTE = 0 and no visual
 hint. A producer with no products won't appear on the public producers
 page (and won't end up in any box). Worth a small "0 — Produkte
 ergänzen" hint or muted styling so admins know to act.
 
-### E5. Destructive "Löschen" button is the rightmost / largest action **[Low]**
+### E5. Destructive "Löschen" button is the rightmost / largest action **[Low] · DONE (fix/erd-ux-admin-form-clarity-batch)**
 Each producer row has an inline "Löschen" button rendered in red,
 without an inline confirmation step (need to verify if a JS confirm
 fires; a one-line note at minimum). Adjacent to "Bearbeiten" which is
@@ -554,7 +554,7 @@ Verfügbar: wird im Shop angezeigt, sofern veröffentlicht.";
 ausgeschlossen ..."; "Alt-Texte können nach dem Speichern beim Bearbeiten
 ergänzt werden." Keep this density of helper text in other admin forms.
 
-### F5. is_published / is_available / is_seasonal triple is subtle **[Med]**
+### F5. is_published / is_available / is_seasonal triple is subtle **[Med] · DONE (fix/erd-ux-admin-form-clarity-batch)**
 A product has three boolean toggles whose interaction is non-trivial:
 `is_published`, `is_available` (im Shop verfügbar), `is_seasonal`. The
 form helper explains "Veröffentlicht" + "Verfügbar" but not
@@ -564,7 +564,7 @@ and seasonal but not available) isn't explained.
   collapsible "Wann sehen Kund:innen das Produkt?" panel under the
   toggles).
 
-### F6. List view doesn't show Einkaufspreis or margin **[Low]**
+### F6. List view doesn't show Einkaufspreis or margin **[Low] · DONE (fix/erd-ux-admin-form-clarity-batch)**
 The products list shows only Preis (= Stückpreis). There's an
 Einkaufspreis column captured but it's hidden on the index. For an
 operator using the list to spot pricing/margin issues, surfacing

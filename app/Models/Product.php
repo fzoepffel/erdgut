@@ -172,6 +172,22 @@ class Product extends Model
     }
 
     /**
+     * Margin as a percentage of the customer-facing unit price. Null if
+     * buying price isn't set or unit price is zero. Used by the admin
+     * product list (F6 in UX review notes) so operators can spot
+     * pricing/margin issues at a glance.
+     */
+    public function grossMarginPercent(): ?float
+    {
+        $margin = $this->grossMargin();
+        if ($margin === null || (float) $this->unit_price <= 0) {
+            return null;
+        }
+
+        return round($margin / ((float) $this->unit_price) * 100, 1);
+    }
+
+    /**
      * Get all boxes that include this product via box items.
      */
     public function boxes(): BelongsToMany

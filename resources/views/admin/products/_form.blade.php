@@ -71,6 +71,24 @@
             }
         }
     }
+
+    // E3 (UX notes): pre-compute the initial missing-fields map so the
+    // tabs are red on first render whenever a returning failed
+    // submission has empty required fields. Alpine's recheckTabs()
+    // then keeps the map current as the admin types.
+    $initialTabMissing = [];
+    foreach ($locales as $locale => $_) {
+        $hasMissing = false;
+        $t = $product?->translations?->firstWhere('locale', $locale);
+        foreach ($translationFields as $f) {
+            $current = old("translations.$locale.$f", $t?->$f);
+            if (trim((string) $current) === '') {
+                $hasMissing = true;
+                break;
+            }
+        }
+        $initialTabMissing[$locale] = $hasMissing;
+    }
 @endphp
 
 <form method="post" action="{{ $action }}" class="space-y-6" enctype="multipart/form-data">
@@ -92,7 +110,23 @@
         <x-input-error class="mt-2" :messages="$errors->get('producer_id')" />
     </div>
 
-    <div class="space-y-4" x-data="{ tab: '{{ $initialTab }}' }">
+    <div class="space-y-4"
+         x-data='{
+            tab: "{{ $initialTab }}",
+            tabMissing: {!! json_encode($initialTabMissing, JSON_UNESCAPED_UNICODE) !!},
+            recheckTabs() {
+                Object.keys(this.tabMissing).forEach(loc => {
+                    const fields = ["name", "unit", "origin", "variety", "taste_profile"];
+                    let missing = false;
+                    for (const f of fields) {
+                        const el = document.getElementById("translations_" + loc + "_" + f);
+                        if (!el || el.value.trim() === "") { missing = true; break; }
+                    }
+                    this.tabMissing[loc] = missing;
+                });
+            },
+         }'
+         x-init="recheckTabs()">
         {{-- Stack on narrow viewports so the all-three-required hint
              doesn't crash into the heading — the text is long in DE/FR
              and `justify-between` would otherwise wrap to two cramped
@@ -115,22 +149,29 @@
                     role="tab"
                     :aria-selected="tab === '{{ $locale }}'"
                     @click="tab = '{{ $locale }}'"
-                    @if ($hasError)
-                        :class="tab === '{{ $locale }}'
+                    {{-- E3 (UX notes): tab visual state combines server-side
+                         errors and the live missing-fields map so admins see
+                         empty required tabs immediately, not only after a
+                         failed submit. --}}
+                    :class="(tabMissing['{{ $locale }}'] || {{ $hasError ? 'true' : 'false' }})
+                        ? (tab === '{{ $locale }}'
                             ? 'border-rose-600 bg-rose-50 text-rose-800'
-                            : 'border-rose-300 bg-rose-50/60 text-rose-700 hover:bg-rose-50'"
-                    @else
-                        :class="tab === '{{ $locale }}'
+                            : 'border-rose-300 bg-rose-50/60 text-rose-700 hover:bg-rose-50')
+                        : (tab === '{{ $locale }}'
                             ? 'border-emerald-600 text-emerald-700'
-                            : 'border-transparent text-gray-600 hover:text-gray-900'"
-                    @endif
+                            : 'border-transparent text-gray-600 hover:text-gray-900')"
                     class="relative -mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-                    title="{{ $hasError ? __('admin.form.tab_has_errors') : '' }}"
+                    x-bind:title="(tabMissing['{{ $locale }}'] || {{ $hasError ? 'true' : 'false' }}) ? '{{ __('admin.form.tab_has_missing_fields') }}' : ''"
+                    data-testid="product-form-tab-{{ $locale }}"
                 >
                     {{ $label }}
-                    @if ($hasError)
-                        <span class="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white" aria-hidden="true">!</span>
-                    @endif
+                    <span
+                        x-show="tabMissing['{{ $locale }}'] || {{ $hasError ? 'true' : 'false' }}"
+                        x-cloak
+                        class="inline-flex h-2 w-2 rounded-full bg-rose-600"
+                        aria-hidden="true"
+                        data-testid="product-form-tab-missing-{{ $locale }}"
+                    ></span>
                 </button>
             @endforeach
         </div>
@@ -151,6 +192,7 @@
                             class="mt-1 block w-full"
                             :value="old('translations.'.$locale.'.name', $t?->name)"
                             required
+                            x-on:input="recheckTabs()"
                         />
                         <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.name')" />
                     </div>
@@ -165,6 +207,7 @@
                                 class="mt-1 block w-full"
                                 :value="old('translations.'.$locale.'.unit', $t?->unit)"
                                 required
+                                x-on:input="recheckTabs()"
                             />
                             <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.unit')" />
                         </div>
@@ -178,6 +221,7 @@
                                 class="mt-1 block w-full"
                                 :value="old('translations.'.$locale.'.origin', $t?->origin)"
                                 required
+                                x-on:input="recheckTabs()"
                             />
                             <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.origin')" />
                         </div>
@@ -191,6 +235,7 @@
                                 class="mt-1 block w-full"
                                 :value="old('translations.'.$locale.'.variety', $t?->variety)"
                                 required
+                                x-on:input="recheckTabs()"
                             />
                             <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.variety')" />
                         </div>
@@ -204,6 +249,7 @@
                             rows="2"
                             class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
                             required
+                            x-on:input="recheckTabs()"
                         >{{ old('translations.'.$locale.'.taste_profile', $t?->taste_profile) }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.taste_profile')" />
                     </div>
@@ -220,7 +266,12 @@
                  placeholder is a disabled empty option that Laravel's
                  `required` rule will reject, so a "saved as Backwaren by
                  mistake" outcome stops being possible. --}}
-            @php($currentCategory = old('category', $product?->category))
+            @php
+                // Use the full block form rather than the single-line
+                // shorthand: the latter breaks subsequent block compilation.
+                // See docs/feedback_blade_php_shorthand.md.
+                $currentCategory = old('category', $product?->category);
+            @endphp
             <option value="" disabled @selected($currentCategory === null || $currentCategory === '')>
                 {{ __('— Select category —') }}
             </option>
@@ -347,8 +398,52 @@
         </label>
     </div>
     <x-input-error class="mt-2" :messages="$errors->get('is_seasonal')" />
-    <p class="text-xs text-gray-500 -mt-1 sm:col-span-full">{{ __('Published: visible in shop and default box composition. Available: shown in shop when published.') }}</p>
     <p class="text-xs text-amber-700 -mt-1 sm:col-span-full">{{ __('admin.products.is_egg_addon_hint') }}</p>
+
+    {{-- F5 (UX notes): the boolean trio (Published + Available + Seasonal)
+         interacts non-trivially. The shop scope `visibleInCatalog` requires
+         BOTH published AND available, so "Published" alone isn't enough —
+         the older helper text gave the wrong impression. This collapsible
+         panel spells out the customer-side consequence of each combo so
+         operators know what they're saving. --}}
+    <details class="mt-2 group border border-gray-200 bg-gray-50 rounded-md" data-testid="product-visibility-explainer">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-100 select-none flex items-center justify-between">
+            <span>{{ __('admin.products.visibility_explainer_title') }}</span>
+            <span aria-hidden="true" class="text-gray-500 group-open:rotate-180 transition-transform">▾</span>
+        </summary>
+        <div class="border-t border-gray-200 px-4 py-3 space-y-3 text-sm text-gray-700">
+            <p>{{ __('admin.products.visibility_explainer_intro') }}</p>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-xs">
+                    <thead>
+                        <tr class="text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            <th scope="col" class="py-2 pe-3">{{ __('Published') }}</th>
+                            <th scope="col" class="py-2 pe-3">{{ __('Available in shop') }}</th>
+                            <th scope="col" class="py-2 pe-3">{{ __('admin.products.visibility_explainer_col_outcome') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr>
+                            <td class="py-2 pe-3 text-emerald-700">✓</td>
+                            <td class="py-2 pe-3 text-emerald-700">✓</td>
+                            <td class="py-2 pe-3">{{ __('admin.products.visibility_outcome_visible') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 pe-3 text-emerald-700">✓</td>
+                            <td class="py-2 pe-3 text-rose-700">✗</td>
+                            <td class="py-2 pe-3">{{ __('admin.products.visibility_outcome_hidden_unavailable') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 pe-3 text-rose-700">✗</td>
+                            <td class="py-2 pe-3 text-gray-500">—</td>
+                            <td class="py-2 pe-3">{{ __('admin.products.visibility_outcome_draft') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-xs text-gray-600">{{ __('admin.products.visibility_explainer_seasonal_hint') }}</p>
+        </div>
+    </details>
     <x-input-error class="mt-2" :messages="$errors->get('is_available')" />
     <x-input-error class="mt-2" :messages="$errors->get('is_published')" />
     <x-input-error class="mt-2" :messages="$errors->get('is_egg_addon')" />
