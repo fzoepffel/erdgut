@@ -31,6 +31,7 @@
                 :checkout-id="$checkoutId"
                 :return-url="$returnUrl"
                 intent="one_time"
+                :require-consent="true"
             />
 
             <x-payment.security-badge />

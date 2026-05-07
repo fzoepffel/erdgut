@@ -31,6 +31,7 @@ use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\PrivacyController;
 use App\Http\Controllers\Marketing\ProducerController as MarketingProducerController;
+use App\Http\Controllers\Marketing\TermsController;
 use App\Http\Controllers\Onboarding\AccountStepController;
 use App\Http\Controllers\Onboarding\AddressStepController;
 use App\Http\Controllers\Onboarding\CommitmentStepController;
@@ -104,6 +105,11 @@ Route::name('public.')->group(function () {
     // German B2C purchase). Replace with a full notice once the rest
     // of the marketing site is live.
     Route::get('/datenschutz', [PrivacyController::class, 'show'])->name('privacy');
+
+    // Minimal AGB stub — exists so the payment-step consent checkbox
+    // (B12 in UX review notes) can link to a real page. Replace with a
+    // counsel-reviewed T&Cs document before launch.
+    Route::get('/agb', [TermsController::class, 'show'])->name('terms');
 });
 
 // Onboarding wizard — guest-allowed entry, auth enforced after the account step.

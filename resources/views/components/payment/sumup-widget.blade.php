@@ -6,6 +6,12 @@
     'appendCheckoutParam' => false, // if true, append ?checkout=<id>[&intent=update] to returnUrl
     'appendIntentParam' => null, // extra ?intent= value (e.g. 'update')
     'timeoutSeconds' => 30,
+    // B12 (UX notes): a required consent checkbox above the widget that
+    // gates the SumUp pay button until the user accepts AGB +
+    // Datenschutz (and, for setup_recurring, the recurring-billing
+    // mandate). When false, the widget runs unchanged for flows that
+    // don't need re-acceptance (e.g. updating an existing card).
+    'requireConsent' => false,
 ])
 @php
     $sumupLocale = match (config('app.locale')) {
@@ -25,6 +31,11 @@
     x-data="{
         state: 'loading',
         widgetError: '',
+        // B12: consent state. When `requireConsent` is true, the widget
+        // visually disables the pay button until `consent === true`.
+        // Defaults to !requireConsent so legacy callers stay unblocked.
+        requireConsent: {{ $requireConsent ? 'true' : 'false' }},
+        consent: {{ $requireConsent ? 'false' : 'true' }},
         timeoutId: null,
         stallTimeoutId: null,
         mountedAt: 0,
@@ -164,11 +175,21 @@
                         @endif
                         // Intercept the widget's submit button so we can flip to the
                         // 'processing' overlay before the 3-D Secure round-trip.
+                        // B12: also block the click when consent is required but
+                        // not yet given. Capture-phase listener so it runs before
+                        // SumUp's own handler.
                         const host = document.getElementById('sumup-card');
                         if (host) {
                             host.addEventListener('click', function(ev) {
                                 const btn = ev.target.closest('button[type=submit], button[data-name=\'pay_button\']');
                                 if (btn) {
+                                    if (self.requireConsent && !self.consent) {
+                                        ev.stopImmediatePropagation();
+                                        ev.preventDefault();
+                                        self.widgetError = {{ json_encode(__('Please accept the terms before paying.')) }};
+                                        self.beacon('consent_blocked');
+                                        return;
+                                    }
                                     self.state = 'processing';
                                     self.beacon('submit_clicked');
                                     self.armStallDetector();
@@ -241,9 +262,43 @@
 >
     <script type="text/javascript" src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"></script>
 
+    @if ($requireConsent)
+        {{-- B12 (UX notes): explicit consent above the SumUp widget. The
+             checkbox is required for German B2C recurring billing — AGB +
+             Datenschutz acceptance must be opt-in (no pre-checked) and
+             linked to stable URLs. The widget visually grays out and
+             refuses to submit until this is checked; see the consent_blocked
+             beacon for the click guard. --}}
+        <div class="mb-4 border border-brand-ink/15 bg-brand-cream/40 p-4" data-testid="payment-consent-gate">
+            <label class="flex items-start gap-3 text-sm text-brand-ink/85 cursor-pointer">
+                <input
+                    type="checkbox"
+                    x-model="consent"
+                    class="mt-0.5 h-4 w-4 shrink-0 cursor-pointer border-brand-ink/30 text-chapter-produce focus:ring-chapter-produce"
+                    data-testid="payment-consent-checkbox"
+                    aria-required="true"
+                />
+                <span class="leading-relaxed">
+                    @if ($intent === 'setup_recurring')
+                        {!! __('I accept the <a href=":terms" target="_blank" rel="noopener" class="underline underline-offset-4 hover:text-chapter-produce">Terms</a> and <a href=":privacy" target="_blank" rel="noopener" class="underline underline-offset-4 hover:text-chapter-produce">Privacy notice</a>, and authorise Erdgut to charge my card for each delivery until I cancel.', [
+                                'terms' => route('public.terms'),
+                                'privacy' => route('public.privacy'),
+                            ]) !!}
+                    @else
+                        {!! __('I accept the <a href=":terms" target="_blank" rel="noopener" class="underline underline-offset-4 hover:text-chapter-produce">Terms</a> and <a href=":privacy" target="_blank" rel="noopener" class="underline underline-offset-4 hover:text-chapter-produce">Privacy notice</a>.', [
+                                'terms' => route('public.terms'),
+                                'privacy' => route('public.privacy'),
+                            ]) !!}
+                    @endif
+                </span>
+            </label>
+        </div>
+    @endif
+
     <div class="relative">
         <div
             id="sumup-card"
+            x-bind:class="requireConsent && !consent ? 'pointer-events-none opacity-60' : ''"
             class="min-h-[12rem] border border-brand-ink/15 bg-white p-4"
             role="region"
             aria-labelledby="payment-widget-heading"

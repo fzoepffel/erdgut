@@ -32,13 +32,15 @@ class Flow11ChangeDeliveryWeekdayTest extends TestCase
                     'eggs_dairy_add_on' => '0',
                 ],
                 'allergies' => '',
-                'delivery_weekday' => 4,
+                // D2 (UX notes): zone is now Wed × 12-16 only. Use those
+                // values instead of the older Thursday/Afternoon combo.
+                'delivery_weekday' => 3,
                 'preferred_timeslot' => Timeslot::Afternoon->value,
             ])
             ->assertRedirect(route('app.subscriptions.show'));
 
         $subscription->refresh();
-        $this->assertSame(4, $subscription->delivery_weekday);
+        $this->assertSame(3, $subscription->delivery_weekday);
     }
 
     public function test_weekday_outside_zone_window_is_rejected(): void

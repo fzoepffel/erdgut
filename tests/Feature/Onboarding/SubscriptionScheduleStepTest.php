@@ -35,12 +35,14 @@ class SubscriptionScheduleStepTest extends TestCase
         $user = User::factory()->create();
         $this->draftFor($user);
 
+        // D2 (UX notes): zone is now pinned to Wed × Afternoon, so only
+        // the Afternoon slot value should render in the timeslot select.
         $this->actingAs($user)
             ->get(route('app.onboarding.step.subscription_schedule'))
             ->assertOk()
             ->assertSee('name="delivery_weekday"', false)
             ->assertSee('name="preferred_timeslot"', false)
-            ->assertSee(Timeslot::Morning->value);
+            ->assertSee(Timeslot::Afternoon->value);
     }
 
     public function test_posting_valid_weekday_and_timeslot_persists_to_draft(): void

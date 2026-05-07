@@ -14,6 +14,16 @@
         $address = $isPickup ? null : $authedUser?->primaryAddress;
         $pickup = config('box.pickup_location');
         $firstDelivery = $subscription?->firstExpectedDeliveryDate();
+
+        // B3 (UX notes): when an unverified user is mid-onboarding (has a
+        // draft, no finalised subscription) and lands here — typically
+        // because they logged out and back in — surface a "Continue
+        // setup" affordance. Without this they have no path back into
+        // the wizard from the verify gate. The wizard itself doesn't
+        // require email verification, so the link is safe to follow.
+        $hasInflightDraft = $authedUser !== null
+            && $subscription === null
+            && app(\App\Services\Onboarding\OnboardingDraftManager::class)->userHasInFlightDraft($authedUser);
     @endphp
 
     <div class="mb-6">
@@ -82,6 +92,19 @@
     @endif
 
     <div class="flex flex-col gap-3">
+        @if ($hasInflightDraft)
+            {{-- B3: returning user mid-onboarding — give them an obvious
+                 path back into the wizard so the verify gate isn't a
+                 dead end. --}}
+            <a
+                href="{{ route('app.onboarding.start') }}"
+                class="btn-solid w-full justify-center"
+                data-testid="verify-email-continue-onboarding"
+            >
+                {{ __('Continue setup') }}
+            </a>
+        @endif
+
         <form method="POST" action="{{ route('verification.send') }}">
             @csrf
             <x-primary-button class="w-full justify-center">

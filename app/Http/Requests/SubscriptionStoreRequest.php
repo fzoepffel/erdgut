@@ -10,6 +10,7 @@ use App\Support\DeliveryZoneResolver;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class SubscriptionStoreRequest extends FormRequest
 {
@@ -57,5 +58,25 @@ class SubscriptionStoreRequest extends FormRequest
             'delivery_weekday' => is_numeric($weekday) ? (int) $weekday : null,
             'preferred_timeslot' => is_string($timeslot) && $timeslot !== '' ? $timeslot : null,
         ]);
+    }
+
+    /**
+     * D3 (UX notes): same eggs-add-on / eggs-allergy hard block as the
+     * onboarding step and the edit form — direct subscription store
+     * shouldn't be a back door to the impossible state either.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $allergies = (array) $this->input('allergies', []);
+            $eggsAddOn = (bool) $this->boolean('preferences.eggs_dairy_add_on');
+
+            if ($eggsAddOn && in_array(Allergen::Eggs->value, $allergies, true)) {
+                $validator->errors()->add(
+                    'preferences.eggs_dairy_add_on',
+                    __('You cannot add the eggs add-on when eggs is in your allergies.')
+                );
+            }
+        });
     }
 }

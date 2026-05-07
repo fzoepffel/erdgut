@@ -13,7 +13,6 @@ use App\Models\BoxItem;
 use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;

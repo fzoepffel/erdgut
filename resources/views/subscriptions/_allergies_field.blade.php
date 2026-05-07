@@ -14,7 +14,16 @@
             <label class="flex cursor-pointer items-center gap-2 border border-brand-ink/15 px-3 py-2 text-sm transition hover:border-brand-ink/30 has-[:checked]:border-chapter-produce has-[:checked]:bg-chapter-produce/5">
                 <input type="checkbox" name="allergies[]" value="{{ $allergen->value }}"
                        class="h-4 w-4 border-brand-ink/40 text-chapter-produce focus:ring-chapter-produce"
-                       {{ in_array($allergen->value, $selectedAllergens, true) ? 'checked' : '' }}>
+                       {{ in_array($allergen->value, $selectedAllergens, true) ? 'checked' : '' }}
+                       @if ($allergen === \App\Enums\Allergen::Eggs)
+                           {{-- D3 (UX notes): emit a window-level event so any
+                                surrounding Alpine form listening for it can
+                                disable the eggs add-on. Pages that don't
+                                listen are unaffected. --}}
+                           x-on:change="window.dispatchEvent(new CustomEvent('eggs-allergic-changed', { detail: { allergic: $event.target.checked } }))"
+                           data-testid="allergy-eggs-checkbox"
+                       @endif
+                >
                 <span class="text-brand-ink/85">{{ __('allergens.'.$allergen->value) }}</span>
             </label>
         @endforeach

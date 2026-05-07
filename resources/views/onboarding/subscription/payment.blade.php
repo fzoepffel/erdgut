@@ -46,6 +46,7 @@
             :checkout-id="$checkoutId"
             :return-url="route('app.payments.setup.complete')"
             intent="setup_recurring"
+            :require-consent="true"
         />
 
         <x-payment.security-badge />
