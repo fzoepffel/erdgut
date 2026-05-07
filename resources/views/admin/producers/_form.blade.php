@@ -22,7 +22,45 @@
         @method($method)
     @endif
 
-    <div class="space-y-4" x-data="{ tab: '{{ $initialTab }}' }">
+    @php
+        // E3 (UX notes): live tab-state map. We compute the initial state
+        // from old() / model values so a returning failed submission still
+        // shows red dots on tabs whose required fields are now empty.
+        // The Alpine-side recheckTabs() then keeps the map current as the
+        // admin types.
+        $tabRequiredKeys = ['name', 'region', 'description'];
+        $initialTabMissing = [];
+        foreach ($locales as $locale => $_) {
+            $hasMissing = false;
+            $t = $producer?->translations?->firstWhere('locale', $locale);
+            foreach ($tabRequiredKeys as $key) {
+                $current = old("translations.$locale.$key", $t?->$key);
+                if (trim((string) $current) === '') {
+                    $hasMissing = true;
+                    break;
+                }
+            }
+            $initialTabMissing[$locale] = $hasMissing;
+        }
+    @endphp
+
+    <div class="space-y-4"
+         x-data='{
+            tab: "{{ $initialTab }}",
+            tabMissing: {!! json_encode($initialTabMissing, JSON_UNESCAPED_UNICODE) !!},
+            recheckTabs() {
+                Object.keys(this.tabMissing).forEach(loc => {
+                    const fields = ["name", "region", "description"];
+                    let missing = false;
+                    for (const f of fields) {
+                        const el = document.getElementById("translations_" + loc + "_" + f);
+                        if (!el || el.value.trim() === "") { missing = true; break; }
+                    }
+                    this.tabMissing[loc] = missing;
+                });
+            },
+         }'
+         x-init="recheckTabs()">
         {{-- Stack on narrow viewports so the all-three-required hint
              doesn't crash into the heading — the text is long in DE/FR
              and `justify-between` would otherwise wrap to two cramped
@@ -44,22 +82,28 @@
                     role="tab"
                     :aria-selected="tab === '{{ $locale }}'"
                     @click="tab = '{{ $locale }}'"
-                    @if ($hasError)
-                        :class="tab === '{{ $locale }}'
+                    {{-- E3: tab visual state combines server-side errors
+                         (post-submit) and the live missing-field map (always
+                         in sync as the admin types). --}}
+                    :class="(tabMissing['{{ $locale }}'] || {{ $hasError ? 'true' : 'false' }})
+                        ? (tab === '{{ $locale }}'
                             ? 'border-rose-600 bg-rose-50 text-rose-800'
-                            : 'border-rose-300 bg-rose-50/60 text-rose-700 hover:bg-rose-50'"
-                    @else
-                        :class="tab === '{{ $locale }}'
+                            : 'border-rose-300 bg-rose-50/60 text-rose-700 hover:bg-rose-50')
+                        : (tab === '{{ $locale }}'
                             ? 'border-emerald-600 text-emerald-700'
-                            : 'border-transparent text-gray-600 hover:text-gray-900'"
-                    @endif
+                            : 'border-transparent text-gray-600 hover:text-gray-900')"
                     class="relative -mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-                    title="{{ $hasError ? __('admin.form.tab_has_errors') : '' }}"
+                    x-bind:title="(tabMissing['{{ $locale }}'] || {{ $hasError ? 'true' : 'false' }}) ? '{{ __('admin.form.tab_has_missing_fields') }}' : ''"
+                    data-testid="producer-form-tab-{{ $locale }}"
                 >
                     {{ $label }}
-                    @if ($hasError)
-                        <span class="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white" aria-hidden="true">!</span>
-                    @endif
+                    <span
+                        x-show="tabMissing['{{ $locale }}'] || {{ $hasError ? 'true' : 'false' }}"
+                        x-cloak
+                        class="inline-flex h-2 w-2 rounded-full bg-rose-600"
+                        aria-hidden="true"
+                        data-testid="producer-form-tab-missing-{{ $locale }}"
+                    ></span>
                 </button>
             @endforeach
         </div>
@@ -80,6 +124,7 @@
                             class="mt-1 block w-full"
                             :value="old('translations.'.$locale.'.name', $t?->name)"
                             required
+                            x-on:input="recheckTabs()"
                         />
                         <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.name')" />
                     </div>
@@ -93,6 +138,7 @@
                             class="mt-1 block w-full"
                             :value="old('translations.'.$locale.'.region', $t?->region)"
                             required
+                            x-on:input="recheckTabs()"
                         />
                         <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.region')" />
                     </div>
@@ -105,6 +151,7 @@
                             rows="4"
                             class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
                             required
+                            x-on:input="recheckTabs()"
                         >{{ old('translations.'.$locale.'.description', $t?->description) }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.description')" />
                     </div>

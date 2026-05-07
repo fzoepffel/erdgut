@@ -91,9 +91,18 @@ class ProductController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         $this->authorize('create', Product::class);
+
+        // E4 (UX notes): the producer-list "0 — Add product" link sends
+        // `?producer_id=...` so the operator lands on the create form
+        // with the right producer pre-selected. Surface that as a flash
+        // value the form blade picks up via `old()`.
+        $preselectProducerId = $request->integer('producer_id');
+        if ($preselectProducerId > 0) {
+            $request->session()->flashInput(['producer_id' => $preselectProducerId]);
+        }
 
         return view('admin.products.create', $this->formViewData(null));
     }
