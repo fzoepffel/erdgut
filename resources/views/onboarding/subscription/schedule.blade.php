@@ -145,11 +145,14 @@
             <p class="mt-3 text-xs italic text-brand-ink/60">{{ __('More pickup locations coming soon.') }}</p>
         </div>
 
-        <div x-show="fulfillment === '{{ \App\Enums\FulfillmentMode::Delivery->value }}'" x-cloak>
-            <x-input-label for="delivery_instructions" :value="__('Delivery instructions')" />
-            <textarea id="delivery_instructions" name="delivery_instructions" rows="3"
-                      class="mt-2 w-full rounded-none border-0 border-b border-brand-ink/30 bg-transparent px-0 py-2 text-brand-ink placeholder:text-brand-ink/40 focus:border-brand-ink focus:ring-0">{{ old('delivery_instructions', $data['delivery_instructions'] ?? '') }}</textarea>
-        </div>
+        {{-- B10 (UX notes): the duplicate Lieferhinweise textarea used to
+             live here. The address step already collects + persists
+             delivery_instructions on the address record, so a second
+             input on the schedule step silently overwrote that value
+             whenever the user edited it. The address page is the
+             canonical home for this; if the customer wants to change
+             the note, the wizard summary rail's "edit address" link
+             (or the Abo > Adresse page later) takes them back. --}}
 
         <div class="flex flex-wrap items-center justify-between gap-4 pt-4">
             @php

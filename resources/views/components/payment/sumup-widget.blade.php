@@ -166,10 +166,24 @@
                         self.state = 'ready';
                         self.beacon('widget_ready');
                         @if ($autoEnableSaveCard)
+                        // B14 (UX notes): for setup_recurring the save-card
+                        // option is mandatory — if SumUp ignores the
+                        // `showSaveCardOption: false` flag and renders the
+                        // toggle anyway, we tick it AND disable it so the
+                        // customer can't untick (and accidentally end up
+                        // with no mandate). Skip our own consent checkbox
+                        // (#preferences-eggs-addon etc.) which is a real
+                        // Erdgut-owned input — only the SumUp-injected
+                        // sibling is a save-card toggle candidate.
+                        const sumupHost = document.getElementById('sumup-card');
                         const poll = setInterval(function() {
-                            const cb = document.querySelector('input[type=checkbox]');
-                            if (cb && !cb.checked) { cb.click(); clearInterval(poll); }
-                            else if (cb && cb.checked) { clearInterval(poll); }
+                            const cb = sumupHost && sumupHost.querySelector('input[type=checkbox]');
+                            if (cb) {
+                                if (!cb.checked) { cb.click(); }
+                                cb.disabled = true;
+                                cb.setAttribute('aria-readonly', 'true');
+                                clearInterval(poll);
+                            }
                         }, 100);
                         setTimeout(function() { clearInterval(poll); }, 5000);
                         @endif
