@@ -1,10 +1,15 @@
 @extends('layouts.onboarding', ['step' => 'subscription_payment', 'intent' => 'subscription', 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-meat">{{ __('Last step — your card') }}</p>
-    <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Add your card') }}</h1>
+    {{-- B13 (UX notes): the SumUp widget's submit reads "Speichern",
+         which made it sound like we're just saving a card. Reframe
+         the page heading so the customer understands this step starts
+         the subscription itself — adding the card is the mechanism,
+         not the goal. --}}
+    <p class="eyebrow text-chapter-meat">{{ __('Last step — start your subscription') }}</p>
+    <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Save card and start subscription') }}</h1>
     <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
-        {{ __('SumUp securely stores a token so we can charge each weekly delivery. We never store the full card number.') }}
+        {{ __('SumUp securely stores a token so we can charge each delivery. Once you save the card, your subscription is active and we will plan the first delivery for the next eligible week.') }}
     </p>
 
     @php

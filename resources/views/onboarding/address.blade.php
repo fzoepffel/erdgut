@@ -57,12 +57,16 @@
         </div>
         <div>
             {{-- Erdgut delivers only to Germany today; the country is fixed.
-                 Display as a static value with a hidden input so the form
-                 still submits country_code; switch to a <select> if/when
-                 the delivery zone expands. --}}
-            <p class="eyebrow text-brand-ink/80">{{ __('Country') }}</p>
-            <p class="mt-2 border-b border-brand-ink/30 pb-2 text-brand-ink">
-                <span aria-hidden="true">🇩🇪</span> {{ __('Germany') }}
+                 B7 (UX notes): the previous render looked like an
+                 interactive field that mysteriously couldn't be edited.
+                 Now styled as a clear read-only "Wir liefern aktuell nur in
+                 Deutschland" notice — visually static, no underline, no
+                 false affordance. The hidden input still ships
+                 country_code so the form contract is unchanged. --}}
+            <p class="eyebrow text-brand-ink/60">{{ __('Country') }}</p>
+            <p class="mt-2 inline-flex items-center gap-2 text-sm text-brand-ink/85" data-testid="address-country-static">
+                <span aria-hidden="true">🇩🇪</span>
+                <span>{{ __('We currently only deliver in Germany.') }}</span>
             </p>
             <input type="hidden" name="country_code" value="DE">
             <x-input-error id="country_code-error" :messages="$errors->get('country_code')" class="mt-2" />
@@ -94,7 +98,13 @@
             <a href="{{ route('app.onboarding.step.account') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
                 ← {{ __('Back to :step', ['step' => __('Account')]) }}
             </a>
-            <x-primary-button>{{ __('Continue to :step', ['step' => __('Preferences')]) }}</x-primary-button>
+            {{-- B11 (UX notes): button label uses the same taxonomy as
+                 the progress bar. The bar collapses preferences /
+                 commitment / schedule / delivery into a single "Box"
+                 pill, so the forward button says "Continue to Box"
+                 rather than the older "Continue to Preferences" that
+                 didn't appear anywhere on the bar. --}}
+            <x-primary-button>{{ __('Continue to :step', ['step' => __('Box')]) }}</x-primary-button>
         </div>
     </form>
 @endsection

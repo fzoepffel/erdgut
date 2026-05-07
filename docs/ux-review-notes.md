@@ -177,14 +177,14 @@ hand-off to drivers, this is a real data-integrity problem (and breaks the
   Show a friendly warning above the form: "Aktuell liefern wir nur
   in Berlin (PLZ 10115–14199)."
 
-### B6. "E-Mail bereits vergeben" gives no recovery link **[Med]**
+### B6. "E-Mail bereits vergeben" gives no recovery link **[Med] · DONE (fix/erd-ux-wizard-polish-batch)**
 When duplicate email is detected at step 1 the inline error reads
 "The email has already been taken." The user might have an account already
 and just not remember. The error should offer a one-click recovery:
 "Diese E-Mail ist bereits registriert. **Hier anmelden** · **Passwort
 zurücksetzen**". This is a standard pattern that reduces drop-offs.
 
-### B7. Address form: country chooser is hidden but visually present **[Low]**
+### B7. Address form: country chooser is hidden but visually present **[Low] · DONE (fix/erd-ux-wizard-polish-batch)**
 The country block is rendered visually as "LAND: Deutschland" but the
 `country_code` input is `type=hidden`. Users can't change it. Either make
 that explicit ("Wir liefern aktuell nur in Deutschland") or remove the
@@ -196,12 +196,12 @@ All address fields carry the right `autocomplete` tokens
 (`name`, `address-line1`, `address-line2`, `postal-code`,
 `address-level2`, `tel`). Browser autofill will work.
 
-### B9. Mobile wizard header is clean — desktop should follow **[Med]**
+### B9. Mobile wizard header is clean — desktop should follow **[Med] · DONE (fix/erd-ux-wizard-polish-batch)**
 On a 375-wide viewport the wizard header is just the logo (no Anmelden,
 no language switcher, no Abmelden). That focused shell would improve the
 desktop wizard too. Keep nav-free during onboarding regardless of width.
 
-### B10. "Lieferhinweise" appears twice — schedule step overwrites address step **[Med]**
+### B10. "Lieferhinweise" appears twice — schedule step overwrites address step **[Med] · DONE (fix/erd-ux-wizard-polish-batch)**
 The address step (`/onboard/address`) has a `Lieferhinweise` textarea
 saving to `addresses.delivery_instructions`. The schedule step
 (`/onboard/subscription/schedule`) has another `Lieferhinweise` textarea
@@ -212,7 +212,7 @@ sign of carry-over, no warning that you're overwriting earlier text.
   Pre-fill the schedule step's textarea with the address's value, or
   remove the textarea from the schedule step entirely.
 
-### B11. Step-bar labels disagree with reality (4 pills, 5 real steps) **[Med]**
+### B11. Step-bar labels disagree with reality (4 pills, 5 real steps) **[Med] · DONE (fix/erd-ux-wizard-polish-batch)**
 The progress bar shows 4 pills (KONTO · ADRESSE · BOX · ZAHLUNG) but
 there are at least 5 real steps for subscription onboarding (account,
 address, preferences, schedule, payment) — and the button text moves
@@ -229,13 +229,13 @@ protection standpoint and probably required by Datenschutz law.
 - **Fix**: add a required checkbox above "Speichern" linking to AGB &
   Datenschutz; only enable the SumUp save button when checked.
 
-### B13. Final submit button reads "Speichern" — not "Abo starten" **[Low]**
+### B13. Final submit button reads "Speichern" — not "Abo starten" **[Low] · DONE (fix/erd-ux-wizard-polish-batch)**
 The user is committing to a recurring subscription, not just saving a
 card. "Speichern" makes it sound like the card is saved without
 starting the subscription.
 - **Fix**: rename to "Karte speichern und Abo starten" or similar.
 
-### B14. "Für zukünftige Zahlungen speichern" toggle is shown as optional **[Med]**
+### B14. "Für zukünftige Zahlungen speichern" toggle is shown as optional **[Med] · DONE (fix/erd-ux-wizard-polish-batch)**
 For a subscription this toggle MUST be on. Showing it as a switchable
 control invites the user to flip it off — and at best the flow then
 breaks; at worst they think they avoided being billed.
@@ -261,7 +261,7 @@ size cards read "20,00 € PRO LIEFERUNG", "35,00 € PRO LIEFERUNG",
   einmalig" (or similar). The `Onboarding/PreferencesStepController`
   already knows the intent — branch the label.
 
-### C3. Trial delivery picker offers 3 timeslots — only one is real **[Med]**
+### C3. Trial delivery picker offers 3 timeslots — only one is real **[Med] · DONE (fix/erd-ux-wizard-polish-batch)**
 Same as D2 (subscription): the picker presents 08-12, 12-16, 16-20 but
 the real fleet runs Mittwochs 12-16. For a trial, where date+slot is
 manually confirmed within 14 days, this matters less, but it still
@@ -270,7 +270,7 @@ sets up false expectations.
   helper "Aktuell liefern wir Mittwochs zwischen 12 und 16 Uhr — wir
   bemühen uns, deinen Wunschzeitraum so gut wie möglich zu treffen."
 
-### C4. "Wunschwoche oder -Datum" is a free-text field with no validation **[Med]**
+### C4. "Wunschwoche oder -Datum" is a free-text field with no validation **[Med] · DONE (fix/erd-ux-wizard-polish-batch)**
 Users can type anything ("nächste Woche", "8.4.", "asap", "in zwei
 Monaten"). Operators have to read free-form German and translate to a
 real date.
@@ -295,7 +295,7 @@ Abo, keine gespeicherte Karte." The order number is shown and the
 3-step "WAS ALS NÄCHSTES PASSIERT" panel explains 3DS + dispatch.
 Significantly clearer than the subscription payment step.
 
-### C8. "Geht Montag raus" on payment step contradicts other copy **[Low]**
+### C8. "Geht Montag raus" on payment step contradicts other copy **[Low] · DONE (fix/erd-ux-wizard-polish-batch)**
 Step 3 of the payment explainer says "Deine Probe-Kiste geht Montag raus —
 Wir stellen sie Donnerstag zusammen, liefern sie nächste Woche." The
 customer-facing copy elsewhere says delivery is Mittwoch 12-16. "Geht

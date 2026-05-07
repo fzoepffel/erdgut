@@ -9,14 +9,18 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Bug regression: when a customer's intent is already known
- * (subscription/trial), Commitment is skipped on the way out of Preferences
- * (per CommitmentStepSkippableTest). The "Continue to ..." button on the
- * preferences step and the "Back to ..." link on the schedule step both used
- * to hardcode "Commitment" as the destination — leaving subscription users
- * with a back link that bounced them right back to where they came from.
+ * Step-bar / forward-button taxonomy regression test.
  *
- * These tests pin the labels to the actual destination steps per intent.
+ * Earlier the preferences-step forward button labelled itself with
+ * the *next inner* step name (Schedule / Delivery / Commitment) which
+ * contradicted the wizard's progress bar (where preferences /
+ * commitment / schedule / delivery all live inside the single "Box"
+ * pill). The button now reads a generic "Continue" regardless of
+ * intent — this test pins that taxonomy alignment (B11 in UX notes).
+ *
+ * The schedule-step back-link logic IS still intent-aware: subscribers
+ * who skipped Commitment land back on Preferences. That contract is
+ * still tested below.
  */
 class IntentAwareNavigationLabelsTest extends TestCase
 {
@@ -36,7 +40,7 @@ class IntentAwareNavigationLabelsTest extends TestCase
         ]);
     }
 
-    public function test_preferences_forward_button_says_schedule_for_subscription_intent(): void
+    public function test_preferences_forward_button_uses_generic_continue_for_subscription(): void
     {
         $user = User::factory()->create();
         $this->draftFor($user, OnboardingDraftManager::INTENT_SUBSCRIPTION, OnboardingDraftManager::STEP_PREFERENCES);
@@ -47,18 +51,21 @@ class IntentAwareNavigationLabelsTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString(
+            __('Continue'),
+            $html,
+            'subscription intent should render a generic "Continue" — the bar pill stays "Box".'
+        );
+        $this->assertStringNotContainsString(
             __('Continue to :step', ['step' => __('Schedule')]),
             $html,
-            'subscription intent should label the forward button "Continue to Schedule" — Commitment is skipped on POST.'
         );
         $this->assertStringNotContainsString(
             __('Continue to :step', ['step' => __('Commitment')]),
             $html,
-            'subscription intent should not point at the skipped Commitment step.'
         );
     }
 
-    public function test_preferences_forward_button_says_delivery_for_trial_intent(): void
+    public function test_preferences_forward_button_uses_generic_continue_for_trial(): void
     {
         $user = User::factory()->create();
         $this->draftFor($user, OnboardingDraftManager::INTENT_TRIAL, OnboardingDraftManager::STEP_PREFERENCES);
@@ -68,14 +75,14 @@ class IntentAwareNavigationLabelsTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString(
+        $this->assertStringContainsString(__('Continue'), $html);
+        $this->assertStringNotContainsString(
             __('Continue to :step', ['step' => __('Delivery')]),
             $html,
-            'trial intent should label the forward button "Continue to Delivery".'
         );
     }
 
-    public function test_preferences_forward_button_keeps_commitment_when_intent_undecided(): void
+    public function test_preferences_forward_button_uses_generic_continue_when_intent_undecided(): void
     {
         $user = User::factory()->create();
         $this->draftFor($user, OnboardingDraftManager::INTENT_UNDECIDED, OnboardingDraftManager::STEP_PREFERENCES);
@@ -85,10 +92,10 @@ class IntentAwareNavigationLabelsTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString(
+        $this->assertStringContainsString(__('Continue'), $html);
+        $this->assertStringNotContainsString(
             __('Continue to :step', ['step' => __('Commitment')]),
             $html,
-            'undecided intent should still flow Preferences → Commitment.'
         );
     }
 
