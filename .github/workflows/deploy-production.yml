@@ -123,6 +123,22 @@ jobs:
             # half-broken until a customer hits the bad code path.
             php artisan about > /dev/null
 
+            # Rebuild bootstrap caches the `optimize:clear` step wiped.
+            # Without this, every customer request after a deploy pays
+            # the cold-boot cost: fresh blade compilation, raw config-
+            # file reads on every request, full service-provider boot.
+            # Symptom (2026-05-08) was a global app slowdown across all
+            # customer-facing pages until the next deploy or a manual
+            # cache rebuild.
+            #
+            # `route:cache` is intentionally skipped: routes/web.php
+            # contains closure redirects (the legacy /onboard URLs in
+            # the auth-app prefix block) that are not cacheable. Move
+            # those to `Route::redirect(...)` or a controller method
+            # before adding the route cache.
+            php artisan config:cache
+            php artisan view:cache
+
       - name: Public URL health check
         run: |
           # Hit the public /up endpoint from outside so a CDN / DNS /
