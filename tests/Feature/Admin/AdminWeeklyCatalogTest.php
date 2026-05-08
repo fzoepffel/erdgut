@@ -175,7 +175,7 @@ class AdminWeeklyCatalogTest extends TestCase
                         'new' => [
                             'name' => 'Fresh Inline Carrots',
                             'producer_id' => $producer->id,
-                            'category' => 'vegetables',
+                            'category' => 'produce',
                             'unit_price_cents' => 199,
                             'is_published' => '1',
                         ],

@@ -40,7 +40,8 @@ class ProductFactory extends Factory
     {
         return [
             'producer_id' => Producer::factory(),
-            'category' => fake()->randomElement(['vegetables', 'fruit', 'dairy', 'bakery']),
+            // Chapter taxonomy (D6/D7/F8 in UX-review notes).
+            'category' => fake()->randomElement(['produce', 'eggs_and_dairy', 'bread']),
             'unit_price' => fake()->randomFloat(2, 1, 30),
             'is_seasonal' => fake()->boolean(),
             'is_available' => true,

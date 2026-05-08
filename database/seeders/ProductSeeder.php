@@ -23,9 +23,12 @@ class ProductSeeder extends Seeder
             return;
         }
 
+        // Chapter taxonomy (D6/D7/F8 in UX-review notes): seeded
+        // products use the canonical produce / eggs_and_dairy / bread
+        // values that match the marketing chapters.
         $products = [
             [
-                'category' => 'vegetables',
+                'category' => 'produce',
                 'unit_price' => 2.49,
                 'is_seasonal' => false,
                 'translations' => [
@@ -35,7 +38,7 @@ class ProductSeeder extends Seeder
                 ],
             ],
             [
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => 3.20,
                 'is_seasonal' => false,
                 'translations' => [
@@ -45,7 +48,7 @@ class ProductSeeder extends Seeder
                 ],
             ],
             [
-                'category' => 'dairy',
+                'category' => 'eggs_and_dairy',
                 'unit_price' => 4.20,
                 'is_seasonal' => false,
                 'translations' => [
@@ -55,7 +58,7 @@ class ProductSeeder extends Seeder
                 ],
             ],
             [
-                'category' => 'bakery',
+                'category' => 'bread',
                 'unit_price' => 4.80,
                 'is_seasonal' => false,
                 'translations' => [

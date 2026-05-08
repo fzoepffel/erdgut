@@ -397,7 +397,7 @@ if the user is not yet a subscriber.
   "Sobald wir die Box für deine Lieferwoche zusammenstellen, erscheint
   sie hier."
 
-### D6. Produkte filter chips don't match marketing "Kapitel" taxonomy **[Med]**
+### D6. Produkte filter chips don't match marketing "Kapitel" taxonomy **[Med] · DONE (fix/erd-ux-category-taxonomy-batch)**
 - Marketing home Kapitel: **Obst & Gemüse · Fleisch · Fisch &
   Meeresfrüchte · Eier & Milchprodukte · Brot** (+ Produzenten + Almanach).
 - `/app/products` filter chips: **Backwaren · Fisch · Fleisch · Gemüse ·
@@ -413,7 +413,7 @@ under MILCHPRODUKTE rather than the named chapter.
   Eier & Milchprodukte · Brot. Drop the separate Backwaren label
   (use "Brot") and merge Obst+Gemüse into one chip.
 
-### D7. "Bio-Eier" labeled MILCHPRODUKTE — should be "Eier & Milchprodukte" **[Low]**
+### D7. "Bio-Eier" labeled MILCHPRODUKTE — should be "Eier & Milchprodukte" **[Low] · DONE (fix/erd-ux-category-taxonomy-batch)**
 The "Bio-Eier" product card is tagged "MILCHPRODUKTE". Per D6 the target
 end state is to label both eggs and dairy as "Eier & Milchprodukte".
 - **Fix**: rename the existing `dairy` (or equivalent) category to
@@ -576,7 +576,7 @@ need translation. Forcing 3 languages on every field of every product
 slows admin entry. Consider letting EN/FR fall back to DE for fields
 where the value is the same.
 
-### F8. Product category enum has 6 values across the system **[Med]**
+### F8. Product category enum has 6 values across the system **[Med] · DONE (fix/erd-ux-category-taxonomy-batch)**
 Admin select shows: Backwaren · Fisch · Fleisch · Gemüse ·
 Milchprodukte · Obst (per the customer-side filter chips).
 - See **D6** for the marketing/customer-side mismatch and the desired

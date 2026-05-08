@@ -1153,7 +1153,9 @@ final class WeeklyBoxSetupService
     {
         $baseOrder = array_keys((array) config('box.composition_by_size.small', []));
         if ($baseOrder === []) {
-            $baseOrder = ['vegetables', 'fruit', 'dairy', 'bakery'];
+            // Match the chapter-aligned taxonomy from
+            // config/box.php (D6/D7/F8 in UX review notes).
+            $baseOrder = ['produce', 'eggs_and_dairy', 'bread'];
         }
         $baseIndex = array_flip($baseOrder);
 
