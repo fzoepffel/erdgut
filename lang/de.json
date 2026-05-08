@@ -806,6 +806,8 @@
     "Team": "Team",
     "Test data": "Testdaten",
     "admin.products.is_egg_addon_label": "Eier-Zusatz-Produkt",
+    "admin.products.producer_search_placeholder": "Erzeuger suchen — Name eintippen …",
+    "No producers match.": "Kein Erzeuger gefunden.",
     "admin.products.is_egg_addon_hint": "Wenn aktiv, wird dieses Produkt aus dem Standard-Größen-Template ausgeschlossen und erscheint nur im Eier-Zusatz-Slot pro Kund:in. Nutze das für alle Eier, die du auf Lager hast — mehrere Produzent:innen sind möglich.",
     "admin.products.visibility_explainer_title": "Wann sehen Kund:innen das Produkt?",
     "admin.products.visibility_explainer_intro": "Damit ein Produkt im Shop oder in einer Box landet, müssen sowohl „Veröffentlicht“ als auch „Im Shop verfügbar“ aktiv sein. „Veröffentlicht“ allein reicht nicht.",

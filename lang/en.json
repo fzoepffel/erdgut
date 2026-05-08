@@ -808,6 +808,8 @@
     "Team": "Team",
     "Test data": "Test data",
     "admin.products.is_egg_addon_label": "Eggs add-on product",
+    "admin.products.producer_search_placeholder": "Search producer — start typing a name …",
+    "No producers match.": "No producers match.",
     "admin.products.is_egg_addon_hint": "When checked, this product is excluded from the standard size template and only surfaces in the per-customer eggs add-on slot. Use this for any eggs you stock — different producers may co-exist.",
     "admin.products.visibility_explainer_title": "When do customers see this product?",
     "admin.products.visibility_explainer_intro": "A product lands in the shop or a box only when BOTH 'Published' and 'Available in shop' are on. 'Published' alone is not enough.",

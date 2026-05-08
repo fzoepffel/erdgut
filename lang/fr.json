@@ -807,6 +807,8 @@
     "Team": "Équipe",
     "Test data": "Données de test",
     "admin.products.is_egg_addon_label": "Produit supplément œufs",
+    "admin.products.producer_search_placeholder": "Rechercher un producteur — commence à taper un nom …",
+    "No producers match.": "Aucun producteur ne correspond.",
     "admin.products.is_egg_addon_hint": "Si coché, ce produit est exclu du modèle de taille standard et n'apparaît que dans le créneau supplément œufs par client. Utilise-le pour les œufs que tu stockes — plusieurs producteurs sont possibles.",
     "admin.products.visibility_explainer_title": "Quand les client·e·s voient-ils ce produit ?",
     "admin.products.visibility_explainer_intro": "Un produit n'apparaît dans la boutique ou dans une box que si « Publié » ET « Disponible en boutique » sont activés. « Publié » seul ne suffit pas.",
