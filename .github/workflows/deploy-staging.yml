@@ -93,7 +93,7 @@ jobs:
             tar -xzf ~/release.tar.gz -C "${{ env.APP_DIR }}"
             rm -f ~/release.tar.gz
 
-      - name: Run post-deploy migrations on server
+      - name: Run post-deploy steps on server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ env.SSH_HOST }}
@@ -103,5 +103,27 @@ jobs:
             set -e
             cd "${{ env.APP_DIR }}"
             test -f artisan || (echo "Missing artisan in ${APP_DIR}" && exit 1)
+
+            # See comment in deploy-production.yml: clear bootstrap caches
+            # before migrate to avoid stale-cache hangs (regression on
+            # 2026-05-08).
+            php artisan optimize:clear
+
             php artisan migrate --force
             php artisan storage:link --force
+
+            # Boot smoke test — fails the deploy if the app can't bootstrap.
+            php artisan about > /dev/null
+
+      - name: Public URL health check
+        run: |
+          for i in 1 2 3; do
+            if curl -fsS --max-time 15 https://staging.erd-gut.de/up > /dev/null; then
+              echo "staging.erd-gut.de healthy"
+              exit 0
+            fi
+            echo "attempt $i failed, retrying..."
+            sleep 5
+          done
+          echo "staging.erd-gut.de failed health check after deploy" >&2
+          exit 1
