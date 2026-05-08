@@ -97,16 +97,122 @@
         @method($method)
     @endif
 
-    <div>
-        <x-input-label for="producer_id" :value="__('Producer')" required />
-        <select id="producer_id" name="producer_id" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
-            <option value="">{{ __('Select producer') }}</option>
-            @foreach ($producers as $producer)
-                <option value="{{ $producer->id }}" @selected((int) old('producer_id', $product?->producer_id) === (int) $producer->id)>
-                    {{ $producer->name }}
-                </option>
-            @endforeach
-        </select>
+    @php
+        // F3 (UX-review notes): the plain <select> doesn't scale past
+        // ~30 producers. We feed the same producer rows into an Alpine
+        // combobox below — it filters as the admin types, keyboard
+        // navigates with ↑/↓/Enter/Escape, and stores the chosen ID
+        // in a hidden input so the existing form contract is preserved.
+        $producerOptions = $producers->map(fn ($p) => [
+            'id' => (int) $p->id,
+            'name' => (string) $p->name,
+        ])->values()->all();
+        $initialProducerId = (int) old('producer_id', $product?->producer_id ?? 0);
+        $initialProducerName = '';
+        foreach ($producerOptions as $option) {
+            if ($option['id'] === $initialProducerId) {
+                $initialProducerName = $option['name'];
+                break;
+            }
+        }
+    @endphp
+    <div
+        x-data='{
+            options: {!! json_encode($producerOptions, JSON_UNESCAPED_UNICODE) !!},
+            selectedId: {{ $initialProducerId ?: 'null' }},
+            query: {!! json_encode($initialProducerName) !!},
+            open: false,
+            highlight: 0,
+            get filtered() {
+                const q = this.query.trim().toLocaleLowerCase();
+                if (q === "") return this.options;
+                return this.options.filter(o => o.name.toLocaleLowerCase().includes(q));
+            },
+            pick(option) {
+                this.selectedId = option.id;
+                this.query = option.name;
+                this.open = false;
+            },
+            onInput() {
+                this.open = true;
+                this.highlight = 0;
+                // Typing breaks the previous selection until the admin
+                // picks (or the input matches an option exactly).
+                const exact = this.options.find(o => o.name.toLocaleLowerCase() === this.query.trim().toLocaleLowerCase());
+                this.selectedId = exact ? exact.id : null;
+            },
+            onKey(ev) {
+                const list = this.filtered;
+                if (ev.key === "ArrowDown") {
+                    ev.preventDefault();
+                    this.open = true;
+                    this.highlight = Math.min(list.length - 1, this.highlight + 1);
+                } else if (ev.key === "ArrowUp") {
+                    ev.preventDefault();
+                    this.highlight = Math.max(0, this.highlight - 1);
+                } else if (ev.key === "Enter") {
+                    if (this.open && list[this.highlight]) {
+                        ev.preventDefault();
+                        this.pick(list[this.highlight]);
+                    }
+                } else if (ev.key === "Escape") {
+                    this.open = false;
+                }
+            },
+        }'
+        x-on:click.outside="open = false"
+        class="relative"
+    >
+        <x-input-label for="producer_id_search" :value="__('Producer')" required />
+        <input
+            id="producer_id_search"
+            type="text"
+            class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+            x-model="query"
+            x-on:input="onInput()"
+            x-on:focus="open = true"
+            x-on:keydown="onKey($event)"
+            placeholder="{{ __('admin.products.producer_search_placeholder') }}"
+            autocomplete="off"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded="false"
+            x-bind:aria-expanded="open ? 'true' : 'false'"
+            aria-controls="producer-combobox-listbox"
+            data-testid="product-form-producer-combobox"
+        />
+        {{-- Hidden input is what actually submits with the form. Stays
+             empty until a real option is picked, so the existing
+             `required|exists:producers,id` rule rejects free-form
+             garbage. --}}
+        <input type="hidden" name="producer_id" x-bind:value="selectedId ?? ''" />
+
+        <ul
+            id="producer-combobox-listbox"
+            role="listbox"
+            x-show="open && filtered.length > 0"
+            x-cloak
+            class="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+        >
+            <template x-for="(option, idx) in filtered" :key="option.id">
+                <li
+                    role="option"
+                    x-bind:aria-selected="selectedId === option.id"
+                    x-bind:class="idx === highlight ? 'bg-emerald-50 text-emerald-900' : 'text-gray-700 hover:bg-gray-50'"
+                    class="cursor-pointer px-3 py-2 text-sm"
+                    x-on:mouseenter="highlight = idx"
+                    x-on:click="pick(option)"
+                    x-text="option.name"
+                ></li>
+            </template>
+        </ul>
+
+        <p
+            x-show="open && filtered.length === 0 && query.trim() !== ''"
+            x-cloak
+            class="absolute z-20 mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg"
+        >{{ __('No producers match.') }}</p>
+
         <x-input-error class="mt-2" :messages="$errors->get('producer_id')" />
     </div>
 
