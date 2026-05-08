@@ -37,5 +37,9 @@ public/images/**/*.MOV
 /.claude/worktrees
 /.claude/settings.local.json
 /.claude/launch.json
-# Local PHP 8.5 deprecation noise suppression
-public/.user.ini
+# public/.user.ini was previously gitignored to let devs suppress
+# local PHP 8.5 deprecation noise. We now ship a committed file with
+# the production opcache config (without it, IONOS PHP-FPM defaults
+# to opcache=0 and every request reparses Laravel's vendor tree).
+# Devs who need local deprecation suppression can use php.ini or
+# `php -d` flags instead.
