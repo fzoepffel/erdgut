@@ -96,24 +96,31 @@ return [
     */
     'admin_planning_margin_rate' => (float) env('BOX_ADMIN_PLANNING_MARGIN_RATE', 0.30),
 
+    /*
+    | D6/D7/F8 (UX-review notes): box composition uses the chapter
+    | taxonomy. The older `vegetables` + `fruit` keys merged into
+    | `produce` (with the combined count), `dairy` renamed to
+    | `eggs_and_dairy`, and `bakery` renamed to `bread`. Per-size
+    | totals are unchanged from before:
+    |   small  = 7 (3+2+1+1 → 5+1+1)
+    |   medium = 11 (5+3+2+1 → 8+2+1)
+    |   large  = 15 (7+4+2+2 → 11+2+2)
+    */
     'composition_by_size' => [
         'small' => [
-            'vegetables' => 3,
-            'fruit' => 2,
-            'dairy' => 1,
-            'bakery' => 1,
+            'produce' => 5,
+            'eggs_and_dairy' => 1,
+            'bread' => 1,
         ],
         'medium' => [
-            'vegetables' => 5,
-            'fruit' => 3,
-            'dairy' => 2,
-            'bakery' => 1,
+            'produce' => 8,
+            'eggs_and_dairy' => 2,
+            'bread' => 1,
         ],
         'large' => [
-            'vegetables' => 7,
-            'fruit' => 4,
-            'dairy' => 2,
-            'bakery' => 2,
+            'produce' => 11,
+            'eggs_and_dairy' => 2,
+            'bread' => 2,
         ],
     ],
 

@@ -8,15 +8,15 @@
     /** @var string $detailRouteName */
 
     $catEnum = \App\Enums\ProductCategory::tryFrom($product->category);
+    // D6/D7/F8 (UX-review notes): chapter-aligned category keys.
     $categoryPlaceholders = [
-        'vegetables' => asset('images/mock/products/vegetables.jpg'),
-        'fruit' => asset('images/mock/products/fruit.jpg'),
-        'dairy' => asset('images/mock/products/dairy.jpg'),
-        'bakery' => asset('images/mock/products/bakery.jpg'),
+        'produce' => asset('images/mock/products/vegetables.jpg'),
+        'eggs_and_dairy' => asset('images/mock/products/dairy.jpg'),
+        'bread' => asset('images/mock/products/bakery.jpg'),
         'fish' => asset('images/mock/products/fish.jpg'),
         'meat' => asset('images/mock/products/meat.jpg'),
     ];
-    $placeholder = $categoryPlaceholders[$product->category] ?? $categoryPlaceholders['vegetables'];
+    $placeholder = $categoryPlaceholders[$product->category] ?? $categoryPlaceholders['produce'];
     $style = $catEnum ? \App\Support\ProductCategoryStyle::for($catEnum) : null;
     $chapter = $style['chapter'] ?? null;
 
@@ -205,7 +205,7 @@
                     @foreach ($product->pairings as $pair)
                         @php
                             $pairCatEnum = \App\Enums\ProductCategory::tryFrom($pair->category);
-                            $pairPlaceholder = $categoryPlaceholders[$pair->category] ?? $categoryPlaceholders['vegetables'];
+                            $pairPlaceholder = $categoryPlaceholders[$pair->category] ?? $categoryPlaceholders['produce'];
                             $pairImage = $pair->images->first()?->url() ?? $pair->imageUrl() ?? $pairPlaceholder;
                         @endphp
                         <li>

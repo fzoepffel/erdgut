@@ -1,11 +1,14 @@
 <x-app-layout>
     @php
         $weekLabelDate = $box->week_start_date->format('d.m.Y');
+        // D6/D7/F8 (UX-review notes): chapter-aligned category keys.
+        // Existing image filenames left in place — they're keyed by
+        // category value rather than chapter, so adding new entries
+        // for the merged taxonomy is the cleanest forward path.
         $categoryPlaceholders = [
-            'vegetables' => asset('images/mock/products/vegetables.jpg'),
-            'fruit' => asset('images/mock/products/fruit.jpg'),
-            'dairy' => asset('images/mock/products/dairy.jpg'),
-            'bakery' => asset('images/mock/products/bakery.jpg'),
+            'produce' => asset('images/mock/products/vegetables.jpg'),
+            'eggs_and_dairy' => asset('images/mock/products/dairy.jpg'),
+            'bread' => asset('images/mock/products/bakery.jpg'),
             'fish' => asset('images/mock/products/fish.jpg'),
             'meat' => asset('images/mock/products/meat.jpg'),
         ];
@@ -121,27 +124,31 @@
                                 $enum = $cat ? \App\Enums\ProductCategory::tryFrom($cat) : null;
                                 return $enum?->stall() ?? 'other';
                             });
-                            $stallOrder = ['produce', 'bakery', 'dairy', 'fish', 'meat', 'other'];
+                            // D6/D7/F8 (UX-review notes): the new stall
+                            // keys come from `ProductCategory::stall()`
+                            // — `bread` (was `bakery`), `eggdairy`
+                            // (was `dairy`).
+                            $stallOrder = ['produce', 'bread', 'eggdairy', 'fish', 'meat', 'other'];
                             $stallChapter = [
                                 'produce' => 'produce',
-                                'bakery' => 'bread',
-                                'dairy' => 'eggdairy',
+                                'bread' => 'bread',
+                                'eggdairy' => 'eggdairy',
                                 'fish' => 'fish',
                                 'meat' => 'meat',
                                 'other' => null,
                             ];
                             $stallColor = [
                                 'produce' => 'text-chapter-produce',
-                                'bakery' => 'text-chapter-bread',
-                                'dairy' => 'text-chapter-eggdairy',
+                                'bread' => 'text-chapter-bread',
+                                'eggdairy' => 'text-chapter-eggdairy',
                                 'fish' => 'text-chapter-fish',
                                 'meat' => 'text-chapter-meat',
                                 'other' => 'text-brand-ink/60',
                             ];
                             $stallLabel = [
                                 'produce' => __('Greengrocer'),
-                                'bakery' => __('Bakery'),
-                                'dairy' => __('Dairy'),
+                                'bread' => __('Bakery'),
+                                'eggdairy' => __('Dairy'),
                                 'fish' => __('Fishmonger'),
                                 'meat' => __('Butcher'),
                                 'other' => __('Other'),
@@ -161,7 +168,7 @@
                                             @foreach ($grouped[$stall] as $item)
                                                 @php
                                                     $itemCat = $item->product?->category;
-                                                    $itemPlaceholder = $categoryPlaceholders[$itemCat] ?? $categoryPlaceholders['vegetables'];
+                                                    $itemPlaceholder = $categoryPlaceholders[$itemCat] ?? $categoryPlaceholders['produce'];
                                                     $itemImage = $item->product?->images->first()?->url()
                                                         ?? $item->product?->imageUrl()
                                                         ?? $itemPlaceholder;

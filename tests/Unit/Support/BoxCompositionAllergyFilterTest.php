@@ -32,15 +32,15 @@ class BoxCompositionAllergyFilterTest extends TestCase
 
     public function test_gluten_allergy_excludes_gluten_products(): void
     {
-        Config::set('box.composition_by_size.small', ['bakery' => 3]);
+        Config::set('box.composition_by_size.small', ['bread' => 3]);
 
         $gluten = Product::factory()->count(5)->create([
-            'category' => 'bakery',
+            'category' => 'bread',
             'is_available' => true,
             'allergens' => [Allergen::Gluten->value],
         ]);
         $safe = Product::factory()->count(3)->create([
-            'category' => 'bakery',
+            'category' => 'bread',
             'is_available' => true,
             'allergens' => [],
         ]);
@@ -96,20 +96,20 @@ class BoxCompositionAllergyFilterTest extends TestCase
 
     public function test_eggs_dairy_off_excludes_eggs_and_dairy_products(): void
     {
-        Config::set('box.composition_by_size.medium', ['dairy' => 2]);
+        Config::set('box.composition_by_size.medium', ['eggs_and_dairy' => 2]);
 
         $eggs = Product::factory()->count(3)->create([
-            'category' => 'dairy',
+            'category' => 'eggs_and_dairy',
             'is_available' => true,
             'dietary_tags' => [DietaryTag::ContainsEggs->value],
         ]);
         $milk = Product::factory()->count(3)->create([
-            'category' => 'dairy',
+            'category' => 'eggs_and_dairy',
             'is_available' => true,
             'dietary_tags' => [DietaryTag::ContainsDairy->value],
         ]);
         $plantBased = Product::factory()->count(3)->create([
-            'category' => 'dairy',
+            'category' => 'eggs_and_dairy',
             'is_available' => true,
             'dietary_tags' => [DietaryTag::Vegan->value],
         ]);

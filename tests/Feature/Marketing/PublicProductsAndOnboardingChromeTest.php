@@ -29,7 +29,7 @@ class PublicProductsAndOnboardingChromeTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makePublishedProduct(string $category = 'vegetables'): Product
+    private function makePublishedProduct(string $category = 'produce'): Product
     {
         // Product factory's `configure()` afterCreating hook already
         // seeds DE / EN / FR translations with random names — no manual
@@ -69,15 +69,16 @@ class PublicProductsAndOnboardingChromeTest extends TestCase
 
     public function test_public_products_index_filters_by_category(): void
     {
-        $veg = $this->makePublishedProduct('vegetables');
-        $bread = $this->makePublishedProduct('bakery');
+        // D6/D7/F8 (UX-review notes): chapter-aligned taxonomy.
+        $veg = $this->makePublishedProduct('produce');
+        $bread = $this->makePublishedProduct('bread');
 
-        $response = $this->get(route('public.products.index', ['category' => 'bakery']));
+        $response = $this->get(route('public.products.index', ['category' => 'bread']));
 
         $response->assertOk();
         $html = $response->getContent();
 
-        // The bakery product should appear; the vegetable one should not
+        // The bread product should appear; the produce one should not
         // (filter narrows the list).
         $this->assertStringContainsString('href="'.route('public.products.show', $bread).'"', $html);
         $this->assertStringNotContainsString('href="'.route('public.products.show', $veg).'"', $html);
@@ -99,7 +100,11 @@ class PublicProductsAndOnboardingChromeTest extends TestCase
         $response->assertOk();
         $html = $response->getContent();
 
-        foreach (['vegetables', 'meat', 'fish', 'dairy', 'bakery'] as $cat) {
+        // D6/D7/F8 (UX-review notes): the chapter strip points at the
+        // canonical produce / fish / meat / eggs_and_dairy / bread
+        // category values shared with the admin filter and the chip
+        // labels.
+        foreach (['produce', 'meat', 'fish', 'eggs_and_dairy', 'bread'] as $cat) {
             $this->assertStringContainsString(
                 'href="'.route('public.products.index', ['category' => $cat]).'"',
                 $html,
@@ -109,7 +114,7 @@ class PublicProductsAndOnboardingChromeTest extends TestCase
 
         // The auth-gated routes for the same categories must not leak.
         $this->assertStringNotContainsString(
-            route('app.products.index', ['category' => 'vegetables']),
+            route('app.products.index', ['category' => 'produce']),
             $html
         );
     }

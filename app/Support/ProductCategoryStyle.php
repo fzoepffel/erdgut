@@ -62,7 +62,7 @@ class ProductCategoryStyle
                 'border_classes' => 'border-chapter-produce',
                 'mark' => 'onion',
             ],
-            'dairy' => [
+            'eggdairy' => [
                 'chapter' => 'eggdairy',
                 'dark' => '#e46f25',
                 'soft' => '#e6c0a8',
@@ -72,7 +72,7 @@ class ProductCategoryStyle
                 'border_classes' => 'border-chapter-eggdairy',
                 'mark' => 'cheese',
             ],
-            'bakery' => [
+            'bread' => [
                 'chapter' => 'bread',
                 'dark' => '#944e22',
                 'soft' => '#dec1ae',

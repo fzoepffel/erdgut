@@ -25,13 +25,16 @@ class BoxCompositionServiceTest extends TestCase
 
     public function test_compose_fills_box_with_products_per_size_rules(): void
     {
+        // D6/D7/F8 (UX-review notes): the older vegetables + fruit
+        // pairing collapsed into a single produce enum value, so the
+        // multi-category test now mixes produce + bread instead.
         Config::set('box.composition_by_size.small', [
-            'vegetables' => 2,
-            'fruit' => 1,
+            'produce' => 2,
+            'bread' => 1,
         ]);
 
-        Product::factory()->count(5)->create(['category' => 'vegetables', 'is_available' => true]);
-        Product::factory()->count(3)->create(['category' => 'fruit', 'is_available' => true]);
+        Product::factory()->count(5)->create(['category' => 'produce', 'is_available' => true]);
+        Product::factory()->count(3)->create(['category' => 'bread', 'is_available' => true]);
 
         $box = Box::factory()->create(['estimated_value' => 0]);
 
@@ -41,20 +44,20 @@ class BoxCompositionServiceTest extends TestCase
         $this->assertSame(3, $box->items()->count());
 
         $categories = $box->items()->with('product')->get()->pluck('product.category')->sort()->values()->toArray();
-        $this->assertContains('vegetables', $categories);
-        $this->assertContains('fruit', $categories);
-        $this->assertCount(2, array_filter($categories, fn ($c) => $c === 'vegetables'));
-        $this->assertCount(1, array_filter($categories, fn ($c) => $c === 'fruit'));
+        $this->assertContains('produce', $categories);
+        $this->assertContains('bread', $categories);
+        $this->assertCount(2, array_filter($categories, fn ($c) => $c === 'produce'));
+        $this->assertCount(1, array_filter($categories, fn ($c) => $c === 'bread'));
     }
 
     public function test_compose_recalculates_estimated_value(): void
     {
         Config::set('box.composition_by_size.medium', [
-            'dairy' => 1,
+            'eggs_and_dairy' => 1,
         ]);
 
         Product::factory()->create([
-            'category' => 'dairy',
+            'category' => 'eggs_and_dairy',
             'is_available' => true,
             'unit_price' => 4.50,
         ]);
@@ -70,11 +73,11 @@ class BoxCompositionServiceTest extends TestCase
     public function test_compose_skips_unavailable_products(): void
     {
         Config::set('box.composition_by_size.small', [
-            'vegetables' => 3,
+            'produce' => 3,
         ]);
 
-        Product::factory()->count(2)->create(['category' => 'vegetables', 'is_available' => true]);
-        Product::factory()->count(5)->create(['category' => 'vegetables', 'is_available' => false]);
+        Product::factory()->count(2)->create(['category' => 'produce', 'is_available' => true]);
+        Product::factory()->count(5)->create(['category' => 'produce', 'is_available' => false]);
 
         $box = Box::factory()->create();
 
@@ -87,16 +90,16 @@ class BoxCompositionServiceTest extends TestCase
     public function test_compose_skips_unpublished_products(): void
     {
         Config::set('box.composition_by_size.small', [
-            'vegetables' => 2,
+            'produce' => 2,
         ]);
 
         Product::factory()->count(2)->create([
-            'category' => 'vegetables',
+            'category' => 'produce',
             'is_available' => true,
             'is_published' => true,
         ]);
         Product::factory()->count(4)->create([
-            'category' => 'vegetables',
+            'category' => 'produce',
             'is_available' => true,
             'is_published' => false,
         ]);
@@ -122,11 +125,11 @@ class BoxCompositionServiceTest extends TestCase
     public function test_compose_sets_unit_from_product_metadata(): void
     {
         Config::set('box.composition_by_size.small', [
-            'bakery' => 1,
+            'bread' => 1,
         ]);
 
         Product::factory()->create([
-            'category' => 'bakery',
+            'category' => 'bread',
             'is_available' => true,
             'metadata' => ['unit' => 'piece', 'origin' => 'local'],
         ]);
@@ -143,10 +146,10 @@ class BoxCompositionServiceTest extends TestCase
 
     public function test_different_sizes_produce_different_item_counts(): void
     {
-        Product::factory()->count(10)->create(['category' => 'vegetables', 'is_available' => true]);
-        Product::factory()->count(5)->create(['category' => 'fruit', 'is_available' => true]);
-        Product::factory()->count(3)->create(['category' => 'dairy', 'is_available' => true]);
-        Product::factory()->count(3)->create(['category' => 'bakery', 'is_available' => true]);
+        Product::factory()->count(10)->create(['category' => 'produce', 'is_available' => true]);
+        Product::factory()->count(5)->create(['category' => 'produce', 'is_available' => true]);
+        Product::factory()->count(3)->create(['category' => 'eggs_and_dairy', 'is_available' => true]);
+        Product::factory()->count(3)->create(['category' => 'bread', 'is_available' => true]);
 
         $smallBox = Box::factory()->create();
         $largeBox = Box::factory()->create();
@@ -191,12 +194,12 @@ class BoxCompositionServiceTest extends TestCase
     public function test_compose_marks_all_items_as_not_extra(): void
     {
         Config::set('box.composition_by_size.medium', [
-            'vegetables' => 2,
-            'fruit' => 1,
+            'produce' => 2,
+            'bread' => 1,
         ]);
 
-        Product::factory()->count(3)->create(['category' => 'vegetables', 'is_available' => true]);
-        Product::factory()->count(2)->create(['category' => 'fruit', 'is_available' => true]);
+        Product::factory()->count(3)->create(['category' => 'produce', 'is_available' => true]);
+        Product::factory()->count(2)->create(['category' => 'bread', 'is_available' => true]);
 
         $box = Box::factory()->create();
 
@@ -210,13 +213,13 @@ class BoxCompositionServiceTest extends TestCase
     public function test_compose_preset_from_scratch_removes_core_lines_then_fills_and_keeps_extras(): void
     {
         Config::set('box.composition_by_size.small', [
-            'vegetables' => 2,
-            'fruit' => 1,
+            'produce' => 2,
+            'bread' => 1,
         ]);
 
-        Product::factory()->count(5)->create(['category' => 'vegetables', 'is_available' => true]);
-        Product::factory()->count(3)->create(['category' => 'fruit', 'is_available' => true]);
-        $extraProduct = Product::factory()->create(['category' => 'dairy', 'is_available' => true]);
+        Product::factory()->count(5)->create(['category' => 'produce', 'is_available' => true]);
+        Product::factory()->count(3)->create(['category' => 'bread', 'is_available' => true]);
+        $extraProduct = Product::factory()->create(['category' => 'eggs_and_dairy', 'is_available' => true]);
 
         $box = Box::factory()->create(['estimated_value' => 0]);
 

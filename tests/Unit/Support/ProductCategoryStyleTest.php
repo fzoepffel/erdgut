@@ -8,18 +8,19 @@ use PHPUnit\Framework\TestCase;
 
 class ProductCategoryStyleTest extends TestCase
 {
-    public function test_vegetables_and_fruit_map_to_produce_chapter(): void
+    public function test_produce_uses_produce_chapter_palette(): void
     {
-        $veg = ProductCategoryStyle::for(ProductCategory::Vegetables);
-        $fruit = ProductCategoryStyle::for(ProductCategory::Fruit);
+        // D6/D7/F8 (UX-review notes): the older Vegetables + Fruit
+        // enum cases were merged into a single Produce case that maps
+        // to the produce chapter and label "Obst & Gemüse".
+        $produce = ProductCategoryStyle::for(ProductCategory::Produce);
 
-        $this->assertSame('produce', $veg['chapter']);
-        $this->assertSame('produce', $fruit['chapter']);
-        $this->assertSame('#21341d', $veg['dark']);
-        $this->assertSame('#709452', $veg['soft']);
-        $this->assertSame('filled', $veg['variant']);
-        $this->assertStringContainsString('bg-chapter-produce', $veg['badge_classes']);
-        $this->assertSame('onion', $veg['mark']);
+        $this->assertSame('produce', $produce['chapter']);
+        $this->assertSame('#21341d', $produce['dark']);
+        $this->assertSame('#709452', $produce['soft']);
+        $this->assertSame('filled', $produce['variant']);
+        $this->assertStringContainsString('bg-chapter-produce', $produce['badge_classes']);
+        $this->assertSame('onion', $produce['mark']);
     }
 
     public function test_fish_uses_fish_chapter_palette(): void
@@ -46,28 +47,28 @@ class ProductCategoryStyleTest extends TestCase
         $this->assertSame('beef', $style['mark']);
     }
 
-    public function test_dairy_maps_to_eggdairy_chapter(): void
+    public function test_eggs_and_dairy_uses_eggdairy_chapter_palette(): void
     {
-        $dairy = ProductCategoryStyle::for(ProductCategory::Dairy);
+        $eggsAndDairy = ProductCategoryStyle::for(ProductCategory::EggsAndDairy);
 
-        $this->assertSame('eggdairy', $dairy['chapter']);
-        $this->assertSame('#e46f25', $dairy['dark']);
-        $this->assertSame('#e6c0a8', $dairy['soft']);
-        $this->assertSame('filled', $dairy['variant']);
-        $this->assertStringContainsString('bg-chapter-eggdairy', $dairy['badge_classes']);
-        $this->assertSame('cheese', $dairy['mark']);
+        $this->assertSame('eggdairy', $eggsAndDairy['chapter']);
+        $this->assertSame('#e46f25', $eggsAndDairy['dark']);
+        $this->assertSame('#e6c0a8', $eggsAndDairy['soft']);
+        $this->assertSame('filled', $eggsAndDairy['variant']);
+        $this->assertStringContainsString('bg-chapter-eggdairy', $eggsAndDairy['badge_classes']);
+        $this->assertSame('cheese', $eggsAndDairy['mark']);
     }
 
-    public function test_bakery_maps_to_bread_chapter(): void
+    public function test_bread_uses_bread_chapter_palette(): void
     {
-        $bakery = ProductCategoryStyle::for(ProductCategory::Bakery);
+        $bread = ProductCategoryStyle::for(ProductCategory::Bread);
 
-        $this->assertSame('bread', $bakery['chapter']);
-        $this->assertSame('#944e22', $bakery['dark']);
-        $this->assertSame('#dec1ae', $bakery['soft']);
-        $this->assertSame('filled', $bakery['variant']);
-        $this->assertStringContainsString('bg-chapter-bread', $bakery['badge_classes']);
-        $this->assertSame('wheat', $bakery['mark']);
+        $this->assertSame('bread', $bread['chapter']);
+        $this->assertSame('#944e22', $bread['dark']);
+        $this->assertSame('#dec1ae', $bread['soft']);
+        $this->assertSame('filled', $bread['variant']);
+        $this->assertStringContainsString('bg-chapter-bread', $bread['badge_classes']);
+        $this->assertSame('wheat', $bread['mark']);
     }
 
     public function test_text_class_for_chapter_is_deterministic(): void
