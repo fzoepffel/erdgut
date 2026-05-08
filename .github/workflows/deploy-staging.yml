@@ -115,6 +115,14 @@ jobs:
             # Boot smoke test — fails the deploy if the app can't bootstrap.
             php artisan about > /dev/null
 
+            # Rebuild bootstrap caches that `optimize:clear` wiped.
+            # See deploy-production.yml for the full rationale; the
+            # short version is "without these, every request after a
+            # deploy is slow until the next deploy or a manual rebuild
+            # warms the caches again".
+            php artisan config:cache
+            php artisan view:cache
+
       - name: Public URL health check
         run: |
           for i in 1 2 3; do
