@@ -33,7 +33,7 @@ class CatalogAuditLogTest extends TestCase
                     'en' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
                     'fr' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '1.00',
             ])
             ->assertRedirect();
@@ -58,7 +58,7 @@ class CatalogAuditLogTest extends TestCase
                     'en' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
                     'fr' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '2.00',
                 'is_available' => '1',
                 'is_published' => '1',

@@ -19,7 +19,7 @@ class ProductModelCrudTest extends TestCase
 
         $product = Product::create([
             'producer_id' => $producer->id,
-            'category' => 'vegetables',
+            'category' => 'produce',
             'unit_price' => 3.49,
             'is_seasonal' => true,
             'is_available' => true,
@@ -41,7 +41,7 @@ class ProductModelCrudTest extends TestCase
         $this->assertDatabaseHas('products', [
             'id' => $product->id,
             'producer_id' => $producer->id,
-            'category' => 'vegetables',
+            'category' => 'produce',
             'unit_price' => 3.49,
             'is_seasonal' => 1,
             'is_available' => 1,

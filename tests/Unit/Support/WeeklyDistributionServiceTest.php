@@ -20,15 +20,15 @@ class WeeklyDistributionServiceTest extends TestCase
     public function test_pick_products_excludes_products_tagged_with_a_listed_allergen(): void
     {
         Product::factory()->create([
-            'category' => 'bakery',
+            'category' => 'bread',
             'allergens' => ['gluten'],
         ]);
         $safe = Product::factory()->create([
-            'category' => 'bakery',
+            'category' => 'bread',
             'allergens' => ['sesame'],
         ]);
 
-        $picks = $this->service()->pickProducts('bakery', 10, ['gluten'], []);
+        $picks = $this->service()->pickProducts('bread', 10, ['gluten'], []);
 
         $this->assertCount(1, $picks);
         $this->assertSame($safe->id, $picks->first()->id);
@@ -58,19 +58,19 @@ class WeeklyDistributionServiceTest extends TestCase
     public function test_eggs_dairy_add_on_default_excludes_eggs_and_dairy(): void
     {
         Product::factory()->create([
-            'category' => 'dairy',
+            'category' => 'eggs_and_dairy',
             'dietary_tags' => [DietaryTag::ContainsDairy->value],
         ]);
         Product::factory()->create([
-            'category' => 'dairy',
+            'category' => 'eggs_and_dairy',
             'dietary_tags' => [DietaryTag::ContainsEggs->value],
         ]);
         $oatMilk = Product::factory()->create([
-            'category' => 'dairy',
+            'category' => 'eggs_and_dairy',
             'dietary_tags' => [DietaryTag::Vegan->value],
         ]);
 
-        $picks = $this->service()->pickProducts('dairy', 10, [], []);
+        $picks = $this->service()->pickProducts('eggs_and_dairy', 10, [], []);
 
         $this->assertCount(1, $picks);
         $this->assertSame($oatMilk->id, $picks->first()->id);
@@ -79,33 +79,33 @@ class WeeklyDistributionServiceTest extends TestCase
     public function test_eggs_dairy_add_on_enabled_includes_eggs_and_dairy(): void
     {
         Product::factory()->count(2)->create([
-            'category' => 'dairy',
+            'category' => 'eggs_and_dairy',
             'dietary_tags' => [DietaryTag::ContainsDairy->value],
         ]);
         Product::factory()->create([
-            'category' => 'dairy',
+            'category' => 'eggs_and_dairy',
             'dietary_tags' => [DietaryTag::ContainsEggs->value],
         ]);
 
-        $picks = $this->service()->pickProducts('dairy', 10, [], ['eggs_dairy_add_on' => true]);
+        $picks = $this->service()->pickProducts('eggs_and_dairy', 10, [], ['eggs_dairy_add_on' => true]);
 
         $this->assertCount(3, $picks);
     }
 
     public function test_limit_caps_the_selection(): void
     {
-        Product::factory()->count(5)->create(['category' => 'vegetables']);
+        Product::factory()->count(5)->create(['category' => 'produce']);
 
-        $picks = $this->service()->pickProducts('vegetables', 2, [], []);
+        $picks = $this->service()->pickProducts('produce', 2, [], []);
 
         $this->assertCount(2, $picks);
     }
 
     public function test_returns_empty_when_limit_is_zero(): void
     {
-        Product::factory()->count(3)->create(['category' => 'vegetables']);
+        Product::factory()->count(3)->create(['category' => 'produce']);
 
-        $picks = $this->service()->pickProducts('vegetables', 0, [], []);
+        $picks = $this->service()->pickProducts('produce', 0, [], []);
 
         $this->assertCount(0, $picks);
     }
@@ -113,18 +113,18 @@ class WeeklyDistributionServiceTest extends TestCase
     public function test_unpublished_or_unavailable_products_are_not_selected(): void
     {
         Product::factory()->create([
-            'category' => 'fruit',
+            'category' => 'produce',
             'is_available' => false,
         ]);
         Product::factory()->create([
-            'category' => 'fruit',
+            'category' => 'produce',
             'is_published' => false,
         ]);
         $visible = Product::factory()->create([
-            'category' => 'fruit',
+            'category' => 'produce',
         ]);
 
-        $picks = $this->service()->pickProducts('fruit', 10, [], []);
+        $picks = $this->service()->pickProducts('produce', 10, [], []);
 
         $this->assertCount(1, $picks);
         $this->assertSame($visible->id, $picks->first()->id);

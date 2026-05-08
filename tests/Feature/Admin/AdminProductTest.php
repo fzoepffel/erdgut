@@ -70,21 +70,21 @@ class AdminProductTest extends TestCase
         $producer = Producer::factory()->create();
         $fruit = Product::factory()->create([
             'producer_id' => $producer->id,
-            'category' => 'fruit',
+            'category' => 'produce',
             'is_published' => true,
         ]);
         $fruit->translations()->where('locale', 'en')->update(['name' => 'Only Fruit Row']);
 
         $veg = Product::factory()->create([
             'producer_id' => $producer->id,
-            'category' => 'vegetables',
+            'category' => 'produce',
             'is_published' => false,
         ]);
         $veg->translations()->where('locale', 'en')->update(['name' => 'Veg Row']);
 
         $this->actingAs($admin)
             ->get(route('app.admin.products.index', [
-                'category' => 'fruit',
+                'category' => 'produce',
                 'published' => '1',
             ]))
             ->assertOk()
@@ -133,20 +133,20 @@ class AdminProductTest extends TestCase
                     'en' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'Lightly sweet and crisp.'],
                     'fr' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'Légèrement sucrées et croquantes.'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '2.50',
             ])
             ->assertRedirect();
 
         $product = Product::query()
             ->where('producer_id', $producer->id)
-            ->where('category', 'fruit')
+            ->where('category', 'produce')
             ->firstOrFail();
 
         $this->assertDatabaseHas('products', [
             'id' => $product->id,
             'producer_id' => $producer->id,
-            'category' => 'fruit',
+            'category' => 'produce',
             'unit_price' => 2.5,
             'is_available' => false,
             'is_published' => true,
@@ -176,7 +176,7 @@ class AdminProductTest extends TestCase
                     'en' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
                     'fr' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
-                'category' => 'vegetables',
+                'category' => 'produce',
                 'unit_price' => '1.00',
                 'is_available' => '1',
                 'image' => $file,
@@ -243,7 +243,7 @@ class AdminProductTest extends TestCase
                     'en' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
                     'fr' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '1.00',
             ])
             ->assertForbidden();
@@ -256,7 +256,7 @@ class AdminProductTest extends TestCase
                     'en' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
                     'fr' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '9.99',
             ])
             ->assertForbidden();
@@ -279,7 +279,7 @@ class AdminProductTest extends TestCase
                     'en' => ['name' => 'Attr Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'sweet'],
                     'fr' => ['name' => 'Attr Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'sucré'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '2.50',
                 'buying_price' => '1.10',
                 'allergens' => ['gluten', 'nuts'],
@@ -316,7 +316,7 @@ class AdminProductTest extends TestCase
                     'en' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
                     'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '1.00',
                 'pairings' => [$partnerB->id],
             ])
@@ -341,7 +341,7 @@ class AdminProductTest extends TestCase
                     'en' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
                     'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '1.00',
                 'pairings' => [$product->id],
             ])
@@ -365,7 +365,7 @@ class AdminProductTest extends TestCase
                     'en' => ['name' => 'G', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
                     'fr' => ['name' => 'G', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '1.00',
                 'gallery_images' => [$a, $b],
             ])
@@ -400,7 +400,7 @@ class AdminProductTest extends TestCase
                     'en' => ['name' => 'R', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
                     'fr' => ['name' => 'R', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '1.00',
                 'gallery_remove' => [$image->id],
             ])
@@ -416,7 +416,7 @@ class AdminProductTest extends TestCase
         $producer = Producer::factory()->create();
         $product = Product::factory()->create([
             'producer_id' => $producer->id,
-            'category' => 'vegetables',
+            'category' => 'produce',
             'unit_price' => 1.00,
             'is_available' => true,
         ]);
@@ -430,7 +430,7 @@ class AdminProductTest extends TestCase
                     'en' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
                     'fr' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
-                'category' => 'fruit',
+                'category' => 'produce',
                 'unit_price' => '3.25',
                 'is_available' => '1',
             ])
@@ -438,7 +438,7 @@ class AdminProductTest extends TestCase
 
         $product->refresh();
         $this->assertSame('New Name', $product->name);
-        $this->assertSame('fruit', $product->category);
+        $this->assertSame('produce', $product->category);
         $this->assertSame('3.25', $product->unit_price);
     }
 }

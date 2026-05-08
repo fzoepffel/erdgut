@@ -64,7 +64,7 @@ class WeeklyBoxSetupServiceTest extends TestCase
         float $plannedQty,
         string $unit = 'piece',
         ?string $name = null,
-        string $category = 'vegetables',
+        string $category = 'produce',
     ): Product {
         $resolvedName = $name ?? 'Prod-'.uniqid();
         $product = Product::factory()->create([
@@ -117,7 +117,7 @@ class WeeklyBoxSetupServiceTest extends TestCase
 
         $this->createSubscription('small');
 
-        $product = $this->createStockedProduct($monday, 2.0, 10, unit: 'piece', name: 'RemainProd', category: 'vegetables');
+        $product = $this->createStockedProduct($monday, 2.0, 10, unit: 'piece', name: 'RemainProd', category: 'produce');
 
         // Existing allocation already consumed 9 out of 10 units for that week.
         // Use a non-eligible box owner so weekly setup cannot reuse it as a representative template.
@@ -174,9 +174,9 @@ class WeeklyBoxSetupServiceTest extends TestCase
 
         $this->createSubscription('small');
 
-        $p5 = $this->createStockedProduct($monday, 5.0, 20, category: 'vegetables');
-        $p3 = $this->createStockedProduct($monday, 3.0, 20, category: 'vegetables');
-        $p2 = $this->createStockedProduct($monday, 2.0, 20, category: 'vegetables');
+        $p5 = $this->createStockedProduct($monday, 5.0, 20, category: 'produce');
+        $p3 = $this->createStockedProduct($monday, 3.0, 20, category: 'produce');
+        $p2 = $this->createStockedProduct($monday, 2.0, 20, category: 'produce');
 
         $data = $this->service()->buildInitialDistribution($monday);
 
@@ -207,9 +207,16 @@ class WeeklyBoxSetupServiceTest extends TestCase
 
         $this->createSubscription('small');
 
-        $vegA = $this->createStockedProduct($monday, 3.0, 20, category: 'vegetables');
-        $vegB = $this->createStockedProduct($monday, 2.0, 20, category: 'vegetables');
-        $fruitC = $this->createStockedProduct($monday, 4.0, 20, category: 'fruit');
+        // D6/D7/F8 (UX-review notes): the category taxonomy collapsed
+        // vegetables + fruit into one "produce" enum value; this test
+        // still wants to verify category-then-price ordering, so the
+        // third product moves to eggs_and_dairy (the second canonical
+        // category in `composition_by_size.small`) — produce comes
+        // before eggs_and_dairy in $baseOrder, then by price DESC
+        // within each.
+        $vegA = $this->createStockedProduct($monday, 3.0, 20, category: 'produce');
+        $vegB = $this->createStockedProduct($monday, 2.0, 20, category: 'produce');
+        $fruitC = $this->createStockedProduct($monday, 4.0, 20, category: 'eggs_and_dairy');
 
         $data = $this->service()->buildInitialDistribution($monday);
         $small = collect($data['size_blocks'])->firstWhere('box_size', 'small');
@@ -228,8 +235,8 @@ class WeeklyBoxSetupServiceTest extends TestCase
 
         $sub = $this->createSubscription('small');
 
-        $prodA = $this->createStockedProduct($monday, 5.0, 20, category: 'vegetables');
-        $prodB = $this->createStockedProduct($monday, 3.0, 20, category: 'fruit');
+        $prodA = $this->createStockedProduct($monday, 5.0, 20, category: 'produce');
+        $prodB = $this->createStockedProduct($monday, 3.0, 20, category: 'produce');
 
         $box = Box::factory()->create([
             'user_id' => $sub->user_id,
@@ -277,7 +284,7 @@ class WeeklyBoxSetupServiceTest extends TestCase
 
         $orphanProduct = Product::factory()->create([
             'unit_price' => 4.0,
-            'category' => 'vegetables',
+            'category' => 'produce',
             'is_available' => true,
             'is_published' => true,
             'metadata' => ['unit' => 'piece'],

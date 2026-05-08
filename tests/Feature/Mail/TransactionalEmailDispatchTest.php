@@ -48,12 +48,13 @@ class TransactionalEmailDispatchTest extends TestCase
 
         // Seed a small product catalog so the composition rules can pick lines.
         Product::factory()->count(5)->create([
-            'category' => 'vegetables',
+            'category' => 'produce',
             'is_available' => true,
             'is_published' => true,
         ]);
 
-        Config::set('box.composition_by_size.small', ['vegetables' => 2]);
+        // D6/D7/F8 (UX-review notes): chapter-aligned composition keys.
+        Config::set('box.composition_by_size.small', ['produce' => 2]);
 
         $service = app(BoxCompositionService::class);
         $added = $service->compose($box, 'small');

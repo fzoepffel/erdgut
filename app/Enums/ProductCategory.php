@@ -2,14 +2,27 @@
 
 namespace App\Enums;
 
+/**
+ * Product category. Aligned with the marketing-home Kapitel taxonomy
+ * (D6/D7/F8 in UX review notes): five chapters that map 1:1 to the
+ * customer-facing chips and the admin filter dropdown.
+ *
+ *  - produce         → "Obst & Gemüse"      (chapter: produce)
+ *  - fish            → "Fisch & Meeresfrüchte" (chapter: fish)
+ *  - meat            → "Fleisch"             (chapter: meat)
+ *  - eggs_and_dairy  → "Eier & Milchprodukte" (chapter: eggdairy)
+ *  - bread           → "Brot"                (chapter: bread)
+ *
+ * The older `vegetables / fruit / dairy / bakery` values were merged /
+ * renamed by the data migration shipped alongside this batch.
+ */
 enum ProductCategory: string
 {
-    case Vegetables = 'vegetables';
-    case Fruit = 'fruit';
-    case Dairy = 'dairy';
-    case Bakery = 'bakery';
+    case Produce = 'produce';
     case Fish = 'fish';
     case Meat = 'meat';
+    case EggsAndDairy = 'eggs_and_dairy';
+    case Bread = 'bread';
 
     /**
      * @return list<string>
@@ -52,17 +65,17 @@ enum ProductCategory: string
     }
 
     /**
-     * The visual "market stall" this category belongs to.
-     * Drives the color system.
+     * The visual "market stall" / chapter this category belongs to.
+     * Drives the colour system and `<x-eyebrow color="...">` accents.
      */
     public function stall(): string
     {
         return match ($this) {
-            self::Vegetables, self::Fruit => 'produce',
-            self::Dairy => 'dairy',
-            self::Bakery => 'bakery',
+            self::Produce => 'produce',
             self::Fish => 'fish',
             self::Meat => 'meat',
+            self::EggsAndDairy => 'eggdairy',
+            self::Bread => 'bread',
         };
     }
 }
