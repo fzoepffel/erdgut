@@ -540,7 +540,7 @@ valid enum value).
 - **Fix**: render with a placeholder option ("— Kategorie wählen —")
   and require an explicit choice.
 
-### F3. ERZEUGER select isn't searchable for long lists **[Low]**
+### F3. ERZEUGER select isn't searchable for long lists **[Low] · DONE (fix/erd-ux-admin-polish-3-batch)**
 The producer dropdown is a plain `<select>`. Once the catalog grows past
 ~30 producers it'll be hard to find one. Switch to a typeahead /
 combobox.

@@ -114,11 +114,12 @@ class AdminFormClarityTest extends TestCase
             ->get(route('app.admin.products.create', ['producer_id' => $producer->id]))
             ->assertOk();
 
-        // Pre-selected producer comes through as the `selected` option.
-        $response->assertSee(
-            'value="'.$producer->id.'" selected',
-            false
-        );
+        // F3 (UX-review notes): the producer field is now an Alpine
+        // typeahead. The pre-selected value lives in the x-data
+        // initialiser (`selectedId: <id>,`) instead of a `<option ...
+        // selected>` attribute.
+        $response->assertSee('selectedId: '.$producer->id, false);
+        $response->assertSee($producer->name, false);
     }
 
     // ---------------------------------------------------------------------
