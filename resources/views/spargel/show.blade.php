@@ -1,23 +1,7 @@
 <x-spargel-layout :title="__('spargel.page_title')">
-    @php
-        // Two possible delivery dates — the banner switches between them
-        // based on the variety mix the customer picks (green has a stricter
-        // Thursday cutoff; white may use Sunday). Pre-format both as
-        // localized labels so we don't have to do any date math in JS.
-        $whiteOnlyDateLabel = $whiteOnlyMonday->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
-        $greenInCartDateLabel = $greenInCartMonday->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
-        $whiteWindowMain = __('spargel.delivery_window_main', ['date' => $whiteOnlyDateLabel]);
-        $greenWindowMain = __('spargel.delivery_window_main', ['date' => $greenInCartDateLabel]);
-        // True when today is past the green cutoff: a mixed cart shifts
-        // from the closer Monday to a week later. Used to surface an
-        // inline notice under the variety selection so the customer
-        // sees the consequence while picking quantities.
-        $cartShiftsForGreen = $whiteOnlyMonday->toDateString() !== $greenInCartMonday->toDateString();
-        $mixedShiftNotice = __('spargel.mixed_shift_notice', [
-            'earlier' => $whiteOnlyDateLabel,
-            'later' => $greenInCartDateLabel,
-        ]);
-    @endphp
+    {{-- Phase 3 (2026-05-09): the old time-cutoff date math is gone.
+         The form now uses an explicit week picker driven by
+         `$availableWeeks` (set in SpargelOrderController::show()). --}}
 
     {{-- Hero block: editorial heading on the brand-cream page bg. The
          intro line stays focused on the variety choice — the freshness /
@@ -93,42 +77,12 @@
         </div>
     </section>
 
-    {{-- Delivery date banner. Neutral paper background — this is
-         informational, not a decision card; chapter colour would
-         compete with the form below. --}}
-    <div
-        class="border border-brand-ink/15 bg-brand-paper p-5 text-sm leading-relaxed text-brand-ink"
-        x-data="{
-            green: parseInt({{ json_encode((string) old('quantity_green_grams', '0')) }}, 10) || 0,
-            white: parseInt({{ json_encode((string) old('quantity_white_grams', '500')) }}, 10) || 0,
-            get whiteOnly() { return this.green === 0 && this.white > 0; },
-            get windowMain() {
-                return this.whiteOnly
-                    ? {{ json_encode($whiteWindowMain) }}
-                    : {{ json_encode($greenWindowMain) }};
-            },
-        }"
-        x-init="
-            $watch('green', () => {});
-            $watch('white', () => {});
-            // Mirror the quantity selects in the form below so the banner
-            // updates as the customer changes them.
-            document.addEventListener('input', (ev) => {
-                if (ev.target?.name === 'quantity_green_grams') {
-                    green = parseInt(ev.target.value, 10) || 0;
-                }
-                if (ev.target?.name === 'quantity_white_grams') {
-                    white = parseInt(ev.target.value, 10) || 0;
-                }
-            });
-        "
-    >
-        <p class="eyebrow text-chapter-produce">{{ __('spargel.delivery_window_eyebrow') }}</p>
-        <p class="mt-1 font-display text-base text-brand-ink sm:text-lg" x-text="windowMain">
-            {{ $greenWindowMain }}
-        </p>
-        <p class="mt-1 text-xs text-brand-ink/65">{{ __('spargel.delivery_window_rule') }}</p>
-    </div>
+    {{-- Phase 3 (2026-05-09): the old time-cutoff banner has been
+         replaced by an explicit week picker inside the form below.
+         The previous behaviour ("Mon–Thu → next Mon; Fri–Sun → Mon+1")
+         is now a capacity check — admin sets the weekly stock in the
+         Wochenkatalog / recurring schedule UI, and only weeks with
+         remaining stock appear in the picker. --}}
 
     <form
         id="spargel-order-form"
@@ -249,24 +203,6 @@
                 @endforeach
             </div>
 
-            @if ($cartShiftsForGreen)
-                {{-- Inline shift notice: only relevant Fri–Sun, when today
-                     is past the green cutoff. Tells the customer that a
-                     mixed cart pushes the whole order to the Monday a
-                     week later, so they can decide consciously between
-                     "white-only this week" and "both, next week". --}}
-                <div
-                    x-show="green > 0 && white > 0"
-                    x-cloak
-                    class="border border-chapter-meat/40 bg-chapter-meat/[0.05] p-4 text-sm leading-relaxed text-brand-ink"
-                    role="status"
-                    data-testid="spargel-mixed-shift-notice"
-                >
-                    <p class="eyebrow text-chapter-meat">{{ __('spargel.mixed_shift_eyebrow') }}</p>
-                    <p class="mt-1">{{ $mixedShiftNotice }}</p>
-                </div>
-            @endif
-
             <p class="text-xs text-brand-ink/60">
                 {{ __('spargel.quantity_hint', ['price' => number_format($pricePerKgEur, 2, ',', '.'), 'step' => $quantityStepGrams]) }}
             </p>
@@ -275,6 +211,46 @@
             </p>
             <x-input-error :messages="$errors->get('quantity_green_grams')" class="mt-2" />
             <x-input-error :messages="$errors->get('quantity_white_grams')" class="mt-2" />
+        </fieldset>
+
+        {{-- Phase 3 week picker. Only weeks with non-zero remaining
+             stock for at least one variety appear here. The "limited"
+             badge surfaces when the smaller of (white_remaining,
+             green_remaining) drops below the configured threshold —
+             no exact gram counts (admins don't want a live ticker
+             gamifying the cart). --}}
+        <fieldset class="space-y-3" data-testid="spargel-week-picker-fieldset">
+            <legend class="eyebrow text-chapter-produce">{{ __('spargel.week_picker_label') }}</legend>
+            @if ($availableWeeks->isEmpty())
+                <div class="border border-chapter-meat/40 bg-chapter-meat/[0.06] p-4 text-sm leading-relaxed text-brand-ink" role="status" data-testid="spargel-week-picker-empty">
+                    <p>{{ __('spargel.week_picker_empty') }}</p>
+                </div>
+            @else
+                <p class="text-sm text-brand-ink/70">{{ __('spargel.week_picker_intro') }}</p>
+                <select
+                    id="spargel-expected-delivery-date"
+                    name="expected_delivery_date"
+                    class="block w-full border border-brand-ink/30 bg-white py-2.5 pl-3 pr-8 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0 sm:w-auto"
+                    required
+                    data-testid="spargel-week-picker"
+                >
+                    <option value="" @selected(old('expected_delivery_date', '') === '')>{{ __('spargel.week_picker_placeholder') }}</option>
+                    @foreach ($availableWeeks as $week)
+                        @php
+                            $iso = $week['monday']->toDateString();
+                            $minRemaining = max(0, min($week['remaining_white_g'], $week['remaining_green_g']));
+                            $isLowStock = $minRemaining > 0 && $minRemaining < (int) $lowStockThreshold;
+                            $dateLabel = $week['monday']->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
+                            $suffix = $isLowStock ? ' · '.__('spargel.week_option_limited_badge') : '';
+                        @endphp
+                        <option value="{{ $iso }}" @selected(old('expected_delivery_date') === $iso)>
+                            {{ $dateLabel }}{{ $suffix }}
+                        </option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-brand-ink/55">{{ __('spargel.week_picker_hint') }}</p>
+            @endif
+            <x-input-error :messages="$errors->get('expected_delivery_date')" class="mt-2" />
         </fieldset>
 
         {{-- Fulfillment, pickup-location, payment all use the same single-

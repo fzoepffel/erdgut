@@ -4,6 +4,9 @@ namespace Tests\Feature\Spargel;
 
 use App\Enums\SpargelOrderStatus;
 use App\Mail\SpargelOrderConfirmationMail;
+use App\Models\Producer;
+use App\Models\Product;
+use App\Models\ProductWeekStock;
 use App\Models\SpargelOrder;
 use App\Services\SpargelOrderService;
 use App\Support\SumUpService;
@@ -28,6 +31,67 @@ class SpargelOrderFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Monday used by every order-create POST in this suite. setUp() creates
+     * ProductWeekStock rows for this date (and the two Mondays after it)
+     * with generous stock so per-week cap validation doesn't trip on basic
+     * cases. Tests that want to exercise the cap override the stock.
+     */
+    private const DEFAULT_DELIVERY_MONDAY = '2026-05-04';
+
+    /**
+     * Wire the spargel-products-and-stock scaffold once per test. Phase 3
+     * gates order-create on `expected_delivery_date` being a Monday that
+     * appears in `availableWeeks()`, which means we need real `Product`
+     * rows (unit=g) and `ProductWeekStock` rows present in every test.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Lock "now" to the Tuesday before DEFAULT_DELIVERY_MONDAY so all
+        // three seeded Mondays are in the future from the suite's POV.
+        // Individual tests that need a different "now" override via their
+        // own Carbon::setTestNow(); the tearDown null-resets it.
+        Carbon::setTestNow(Carbon::parse('2026-04-28 10:00:00'));
+
+        $producer = Producer::factory()->create();
+
+        $white = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'category' => 'produce',
+            'unit' => 'g',
+            'unit_price' => 21.50,
+        ]);
+        $green = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'category' => 'produce',
+            'unit' => 'g',
+            'unit_price' => 21.50,
+        ]);
+
+        config([
+            'spargel.white_product_id' => $white->id,
+            'spargel.green_product_id' => $green->id,
+        ]);
+
+        // 5 kg each for 3 future Mondays — plenty for every default-payload
+        // order in this suite. Individual tests that exercise the per-week
+        // cap shrink these on demand.
+        foreach ([self::DEFAULT_DELIVERY_MONDAY, '2026-05-11', '2026-05-18'] as $monday) {
+            ProductWeekStock::create([
+                'product_id' => $white->id,
+                'week_start_date' => $monday,
+                'planned_quantity' => 5000,
+            ]);
+            ProductWeekStock::create([
+                'product_id' => $green->id,
+                'week_start_date' => $monday,
+                'planned_quantity' => 5000,
+            ]);
+        }
+    }
+
     public function test_show_form_renders_publicly_without_auth(): void
     {
         $this->get(route('public.spargel.show'))
@@ -38,66 +102,84 @@ class SpargelOrderFlowTest extends TestCase
             ->assertSee('data-testid="spargel-form"', false);
     }
 
-    public function test_form_surfaces_next_delivery_monday_banner(): void
-    {
-        // Lock 'now' to a Tuesday so we know the cutoff math.
-        Carbon::setTestNow(Carbon::parse('2026-04-28 10:00:00')); // Tuesday
-
-        try {
-            $response = $this->get(route('public.spargel.show'))
-                ->assertOk()
-                ->assertSee(__('spargel.delivery_window_rule'));
-
-            // Render the expected label in the same locale the response just
-            // used — `app()->getLocale()` reflects whatever the locale
-            // middleware resolved during the request, which may differ
-            // from the locale of the surrounding test process.
-            $expectedLabel = Carbon::parse('2026-05-04')
-                ->locale(app()->getLocale())
-                ->isoFormat('dddd, D. MMMM');
-
-            $response->assertSee($expectedLabel);
-        } finally {
-            Carbon::setTestNow(null);
-        }
-    }
-
-    /**
-     * On Fri–Sun the green cutoff has already passed for the week, so the
-     * form should render an inline "mixed-cart shifts to next week"
-     * notice with the two candidate dates, ready for Alpine to reveal
-     * once the customer adds both varieties.
-     */
-    public function test_form_renders_mixed_cart_shift_notice_on_friday(): void
+    public function test_form_renders_week_picker_with_available_weeks(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-05-01 10:00:00')); // Fri
 
         try {
             $response = $this->get(route('public.spargel.show'))->assertOk();
 
-            $earlier = Carbon::parse('2026-05-04')->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
-            $later = Carbon::parse('2026-05-11')->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
-
             $response
-                ->assertSee('data-testid="spargel-mixed-shift-notice"', false)
-                ->assertSee(__('spargel.mixed_shift_notice', ['earlier' => $earlier, 'later' => $later]));
+                ->assertSee('data-testid="spargel-week-picker"', false)
+                ->assertSee('name="expected_delivery_date"', false);
+
+            // All three setUp-seeded Mondays should appear as options.
+            foreach (['2026-05-04', '2026-05-11', '2026-05-18'] as $monday) {
+                $response->assertSee('value="'.$monday.'"', false);
+            }
         } finally {
             Carbon::setTestNow(null);
         }
     }
 
-    /**
-     * Mon–Thu both candidate dates collapse to the same Monday, so the
-     * notice has nothing to say and is omitted from the markup entirely.
-     */
-    public function test_form_omits_mixed_cart_shift_notice_when_dates_match(): void
+    public function test_form_shows_empty_state_when_no_weeks_have_stock(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-04-28 10:00:00')); // Tue
+        Carbon::setTestNow(Carbon::parse('2026-06-01 10:00:00')); // past all seeded Mondays
 
         try {
             $this->get(route('public.spargel.show'))
                 ->assertOk()
-                ->assertDontSee('data-testid="spargel-mixed-shift-notice"', false);
+                ->assertSee('data-testid="spargel-week-picker-empty"', false)
+                ->assertSee(__('spargel.week_picker_empty'));
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
+    public function test_overbooking_a_week_is_rejected_per_variety(): void
+    {
+        // Shrink white stock for 2026-05-04 to 200 g.
+        ProductWeekStock::query()
+            ->where('product_id', config('spargel.white_product_id'))
+            ->whereDate('week_start_date', self::DEFAULT_DELIVERY_MONDAY)
+            ->update(['planned_quantity' => 200]);
+
+        $this->from(route('public.spargel.show'))
+            ->post(route('public.spargel.store'), [
+                'name' => 'Greedy',
+                'email' => 'greedy@example.com',
+                'quantity_green_grams' => '0',
+                'quantity_white_grams' => '500', // > 200 g remaining
+                'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
+                'consent' => '1',
+            ])
+            ->assertSessionHasErrors('quantity_white_grams');
+
+        $this->assertSame(0, SpargelOrder::query()->count());
+    }
+
+    public function test_friday_order_can_target_next_monday_without_cutoff_shift(): void
+    {
+        // Phase 3 removed the time-based cutoff entirely. On Friday the
+        // customer can still pick the very next Monday — no auto-shift.
+        Carbon::setTestNow(Carbon::parse('2026-05-01 22:00:00')); // Fri night
+
+        try {
+            $this->post(route('public.spargel.store'), [
+                'name' => 'Late Friday',
+                'email' => 'late@example.com',
+                'quantity_green_grams' => '200',
+                'quantity_white_grams' => '300',
+                'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
+                'consent' => '1',
+            ])->assertRedirect();
+
+            $order = SpargelOrder::query()->latest('id')->first();
+            $this->assertSame(self::DEFAULT_DELIVERY_MONDAY, $order->expected_delivery_date->toDateString());
         } finally {
             Carbon::setTestNow(null);
         }
@@ -124,6 +206,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
                 'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ]);
 
@@ -157,6 +240,7 @@ class SpargelOrderFlowTest extends TestCase
             'delivery_street' => 'Musterstraße 12',
             'delivery_postal_code' => '10115',
             'delivery_city' => 'Berlin',
+            'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
             'consent' => '1',
         ]);
 
@@ -181,6 +265,7 @@ class SpargelOrderFlowTest extends TestCase
             'delivery_street' => 'Musterstraße 12',
             'delivery_postal_code' => '10115',
             'delivery_city' => 'Berlin',
+            'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
             'consent' => '1',
         ]);
 
@@ -194,64 +279,6 @@ class SpargelOrderFlowTest extends TestCase
         $this->assertSame('45.90', (string) $order->total_amount_eur);
     }
 
-    /**
-     * White-only orders use the looser Sunday cutoff: a Friday-night
-     * white-only order should still ship the very next Monday rather
-     * than the Monday a week later.
-     */
-    public function test_white_only_friday_order_ships_coming_monday(): void
-    {
-        Carbon::setTestNow(Carbon::parse('2026-05-01 22:00:00')); // Fri night
-
-        try {
-            $this->post(route('public.spargel.store'), [
-                'name' => 'Wanda Weiss',
-                'email' => 'wanda@example.com',
-                'quantity_green_grams' => '0',
-                'quantity_white_grams' => '500',
-                'fulfillment_mode' => 'pickup',
-                'pickup_location' => 'karl_kunger',
-                'consent' => '1',
-            ]);
-
-            $order = SpargelOrder::query()->latest('id')->first();
-            $this->assertNotNull($order);
-            // 2026-05-04 = the Monday after that Friday — *not* +1 week.
-            $this->assertSame('2026-05-04', $order->expected_delivery_date->toDateString());
-        } finally {
-            Carbon::setTestNow(null);
-        }
-    }
-
-    /**
-     * Counterpoint to the white-only test above: a Friday order with any
-     * green in the cart still bumps to the Monday after next, because
-     * green's strict Thursday cutoff has already passed.
-     */
-    public function test_mixed_friday_order_shifts_one_week_because_of_green(): void
-    {
-        Carbon::setTestNow(Carbon::parse('2026-05-01 22:00:00')); // Fri night
-
-        try {
-            $this->post(route('public.spargel.store'), [
-                'name' => 'Mira Mixed',
-                'email' => 'mira@example.com',
-                'quantity_green_grams' => '200',
-                'quantity_white_grams' => '300',
-                'fulfillment_mode' => 'pickup',
-                'pickup_location' => 'karl_kunger',
-                'consent' => '1',
-            ]);
-
-            $order = SpargelOrder::query()->latest('id')->first();
-            $this->assertNotNull($order);
-            // 2026-05-11 = the Monday a week after the Friday order.
-            $this->assertSame('2026-05-11', $order->expected_delivery_date->toDateString());
-        } finally {
-            Carbon::setTestNow(null);
-        }
-    }
-
     public function test_quantity_must_be_a_multiple_of_50_grams(): void
     {
         $this->from(route('public.spargel.show'))
@@ -262,6 +289,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
                 'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('quantity_green_grams');
@@ -280,6 +308,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_white_grams' => '5000',
                 'fulfillment_mode' => 'pickup',
                 'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('quantity_white_grams');
@@ -298,6 +327,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
                 'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('quantity_green_grams');
@@ -317,6 +347,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_white_grams' => '1600',
                 'fulfillment_mode' => 'pickup',
                 'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('quantity_green_grams');
@@ -334,6 +365,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
                 'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('quantity_green_grams');
@@ -354,6 +386,7 @@ class SpargelOrderFlowTest extends TestCase
                 'delivery_street' => 'Kleine Str. 1',
                 'delivery_postal_code' => '10115',
                 'delivery_city' => 'Berlin',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('fulfillment_mode');
@@ -374,6 +407,7 @@ class SpargelOrderFlowTest extends TestCase
             'delivery_street' => 'Hauptstr. 1',
             'delivery_postal_code' => '10115',
             'delivery_city' => 'Berlin',
+            'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
             'consent' => '1',
         ])->assertRedirect();
 
@@ -393,6 +427,7 @@ class SpargelOrderFlowTest extends TestCase
                 'delivery_street' => 'Strasse 1',
                 'delivery_postal_code' => '10115',
                 'delivery_city' => 'Berlin',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('phone');
@@ -408,6 +443,7 @@ class SpargelOrderFlowTest extends TestCase
             'quantity_white_grams' => '0',
             'fulfillment_mode' => 'pickup',
             'pickup_location' => 'karl_kunger',
+            'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
             'consent' => '1',
         ])->assertRedirect();
 
@@ -425,6 +461,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_white_grams' => '1500',
                 'fulfillment_mode' => 'delivery',
                 // address fields intentionally omitted
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors(['delivery_street', 'delivery_postal_code', 'delivery_city']);
@@ -642,81 +679,6 @@ class SpargelOrderFlowTest extends TestCase
         $this->assertSame(21.50, $mixed['total_amount_eur']);
     }
 
-    /**
-     * Green-only / mixed cart cutoff:
-     *
-     *   Mon–Thu  → coming Monday            (Thu = cutoff)
-     *   Fri–Sun  → following Monday         (past cutoff → +1 week)
-     *
-     * @dataProvider greenCutoffProvider
-     */
-    public function test_next_delivery_monday_uses_thursday_cutoff_for_green(string $orderDate, string $expectedDelivery): void
-    {
-        $service = app(SpargelOrderService::class);
-        $monday = $service->nextDeliveryMonday(Carbon::parse($orderDate), greenGrams: 500, whiteGrams: 0);
-
-        $this->assertSame($expectedDelivery, $monday->toDateString());
-    }
-
-    public static function greenCutoffProvider(): array
-    {
-        // Reference week: 2026-04-27 (Mon) → 2026-05-03 (Sun).
-        return [
-            'order Monday' => ['2026-04-27 10:00', '2026-05-04'],
-            'order Tuesday' => ['2026-04-28 10:00', '2026-05-04'],
-            'order Wednesday' => ['2026-04-29 10:00', '2026-05-04'],
-            'order Thursday' => ['2026-04-30 23:00', '2026-05-04'],
-            'order Friday' => ['2026-05-01 09:00', '2026-05-11'],
-            'order Saturday' => ['2026-05-02 09:00', '2026-05-11'],
-            'order Sunday' => ['2026-05-03 23:00', '2026-05-11'],
-        ];
-    }
-
-    /**
-     * White-only cart cutoff: every day Mon–Sun ships the coming Monday
-     * (Sunday is the cutoff). Even Sunday-night orders make it.
-     *
-     * @dataProvider whiteCutoffProvider
-     */
-    public function test_next_delivery_monday_uses_sunday_cutoff_for_white_only(string $orderDate, string $expectedDelivery): void
-    {
-        $service = app(SpargelOrderService::class);
-        $monday = $service->nextDeliveryMonday(Carbon::parse($orderDate), greenGrams: 0, whiteGrams: 500);
-
-        $this->assertSame($expectedDelivery, $monday->toDateString());
-    }
-
-    public static function whiteCutoffProvider(): array
-    {
-        return [
-            'order Monday' => ['2026-04-27 10:00', '2026-05-04'],
-            'order Tuesday' => ['2026-04-28 10:00', '2026-05-04'],
-            'order Wednesday' => ['2026-04-29 10:00', '2026-05-04'],
-            'order Thursday' => ['2026-04-30 23:00', '2026-05-04'],
-            'order Friday' => ['2026-05-01 09:00', '2026-05-04'],
-            'order Saturday' => ['2026-05-02 09:00', '2026-05-04'],
-            'order Sunday' => ['2026-05-03 23:00', '2026-05-04'],
-        ];
-    }
-
-    /**
-     * Mixed-cart orders behave like green-only — the strictest cutoff in
-     * the cart wins, so a Friday order with both varieties ships the
-     * Monday after next.
-     */
-    public function test_next_delivery_monday_uses_strictest_cutoff_for_mixed_cart(): void
-    {
-        $service = app(SpargelOrderService::class);
-
-        $monday = $service->nextDeliveryMonday(
-            Carbon::parse('2026-05-01 09:00'), // Fri — past green cutoff
-            greenGrams: 200,
-            whiteGrams: 300,
-        );
-
-        $this->assertSame('2026-05-11', $monday->toDateString());
-    }
-
     public function test_privacy_page_is_public_and_lists_data_categories(): void
     {
         $this->get(route('public.privacy'))
@@ -738,6 +700,7 @@ class SpargelOrderFlowTest extends TestCase
             'fulfillment_mode' => 'pickup',
             'pickup_location' => 'karl_kunger',
             'payment_method' => 'in_person',
+            'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
             'consent' => '1',
         ]);
 
@@ -857,6 +820,7 @@ class SpargelOrderFlowTest extends TestCase
                 'delivery_street' => 'Musterstr. 1',
                 'delivery_postal_code' => '10115',
                 'delivery_city' => 'Berlin',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('payment_method');
@@ -901,6 +865,7 @@ class SpargelOrderFlowTest extends TestCase
             'quantity_white_grams' => '0',
             'fulfillment_mode' => 'pickup',
             'pickup_location' => 'gotenstrasse',
+            'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
             'consent' => '1',
         ]);
 
@@ -918,6 +883,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
                 // pickup_location intentionally omitted
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('pickup_location');
@@ -935,6 +901,7 @@ class SpargelOrderFlowTest extends TestCase
                 'quantity_white_grams' => '0',
                 'fulfillment_mode' => 'pickup',
                 'pickup_location' => 'somewhere_else',
+                'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
                 'consent' => '1',
             ])
             ->assertSessionHasErrors('pickup_location');
@@ -958,6 +925,7 @@ class SpargelOrderFlowTest extends TestCase
             'delivery_street' => 'Musterstr 1',
             'delivery_postal_code' => '10115',
             'delivery_city' => 'Berlin',
+            'expected_delivery_date' => self::DEFAULT_DELIVERY_MONDAY,
             'consent' => '1',
         ]);
 
@@ -999,6 +967,7 @@ class SpargelOrderFlowTest extends TestCase
     protected function tearDown(): void
     {
         Mockery::close();
+        Carbon::setTestNow(null);
         parent::tearDown();
     }
 }
