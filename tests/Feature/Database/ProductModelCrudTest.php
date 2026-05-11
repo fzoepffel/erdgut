@@ -20,7 +20,8 @@ class ProductModelCrudTest extends TestCase
         $product = Product::create([
             'producer_id' => $producer->id,
             'category' => 'produce',
-            'unit' => 'kg',
+            'unit' => 'mass',
+            'price_display_unit' => 'kg',
             'unit_price' => 3.49,
             'is_seasonal' => true,
             'is_available' => true,

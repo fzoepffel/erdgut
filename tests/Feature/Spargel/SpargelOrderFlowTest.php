@@ -57,17 +57,22 @@ class SpargelOrderFlowTest extends TestCase
 
         $producer = Producer::factory()->create();
 
+        // Spargel products are mass-kind, canonical = grams. Store
+        // €/g (= 21.50 / 1000 = 0.0215) so the per-kilogram display
+        // round-trips to €21,50/kg.
         $white = Product::factory()->create([
             'producer_id' => $producer->id,
             'category' => 'produce',
-            'unit' => 'g',
-            'unit_price' => 21.50,
+            'unit' => 'mass',
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.0215,
         ]);
         $green = Product::factory()->create([
             'producer_id' => $producer->id,
             'category' => 'produce',
-            'unit' => 'g',
-            'unit_price' => 21.50,
+            'unit' => 'mass',
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.0215,
         ]);
 
         config([

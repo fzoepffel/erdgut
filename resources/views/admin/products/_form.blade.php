@@ -374,79 +374,120 @@
         <x-input-error class="mt-2" :messages="$errors->get('category')" />
     </div>
 
-    {{-- Unit + natural-unit price live in a shared Alpine state because
-         the price input's label depends on the chosen unit's natural
-         denomination (g → "Preis pro kg", ml → "Preis pro L", others →
-         "Preis pro Stück / kg / Bund"). The submitted field is
-         `price_per_natural_unit`; the controller converts to the
-         per-storage-unit price before persist. --}}
+    {{-- Unit, display unit, and price live in a shared Alpine state so
+         the price label and the allowed display-unit options stay in
+         sync with the chosen kind. The admin enters the price in
+         whichever display unit they pick (€/g, €/kg, €/ml, €/L,
+         €/Stück, €/Bund); the controller divides by the kind's
+         canonical factor before persisting. --}}
     @php
+        // Use the full block form rather than the single-line shorthand:
+        // the latter breaks subsequent block compilation. See
+        // docs/feedback_blade_php_shorthand.md.
         $currentUnit = old('unit', $product?->unit?->value);
-        // Pre-fill the natural-unit price when editing: storage price
-        // (per g / ml / kg / etc.) × storageUnitsPerNaturalUnit. For
-        // first-time-create this stays empty so the placeholder shows.
-        $defaultNaturalPrice = null;
-        if ($product?->unit !== null && $product?->unit_price !== null) {
-            $defaultNaturalPrice = round((float) $product->unit_price * $product->unit->storageUnitsPerNaturalUnit(), 2);
-        }
-        $oldNaturalPrice = old('price_per_natural_unit', $defaultNaturalPrice);
+        $currentDisplayUnit = old('price_display_unit', $product?->price_display_unit);
 
-        // Pre-build the per-unit-case natural label map so Alpine can
-        // swap the field label live without another lookup.
-        $naturalLabels = [];
-        foreach (\App\Enums\ProductUnit::cases() as $uc) {
-            $naturalLabels[$uc->value] = __('units.'.$uc->naturalUnit()->value);
+        // Pre-fill the price using the currently-chosen display unit so
+        // the round-trip is stable. Storage = €/canonical; display =
+        // storage × canonicalUnitsPerDisplay.
+        $defaultPrice = null;
+        if ($product?->unit !== null && $product?->unit_price !== null) {
+            $du = $currentDisplayUnit ?? $product->unit->defaultDisplayUnit();
+            $factor = $product->unit->canonicalUnitsPerDisplay($du);
+            $defaultPrice = round((float) $product->unit_price * $factor, 2);
         }
+        $oldPrice = old('price', $defaultPrice);
+
+        $allowedDisplayMap = [];
+        $kindLabels = [];
+        foreach (\App\Enums\ProductUnit::cases() as $uc) {
+            $allowedDisplayMap[$uc->value] = $uc->allowedDisplayUnits();
+            $kindLabels[$uc->value] = __('units.'.$uc->value);
+        }
+        $displayLabels = [
+            'g' => 'g',
+            'kg' => 'kg',
+            'ml' => 'ml',
+            'l' => 'L',
+            'piece' => __('units.piece'),
+            'bunch' => __('units.bunch'),
+        ];
     @endphp
 
     <div
         x-data="{
             unit: @js((string) ($currentUnit ?? '')),
-            naturalLabels: @js($naturalLabels),
-            get naturalLabel() { return this.naturalLabels[this.unit] ?? ''; },
+            displayUnit: @js((string) ($currentDisplayUnit ?? '')),
+            allowedDisplayMap: @js($allowedDisplayMap),
+            displayLabels: @js($displayLabels),
+            init() {
+                this.$watch('unit', (val) => {
+                    const allowed = this.allowedDisplayMap[val] ?? [];
+                    if (! allowed.includes(this.displayUnit)) {
+                        // Default to the largest (last) allowed display
+                        // unit for the kind (kg / L / piece / bunch).
+                        this.displayUnit = allowed.length ? allowed[allowed.length - 1] : '';
+                    }
+                });
+            },
+            get allowed() { return this.allowedDisplayMap[this.unit] ?? []; },
+            get displaySymbol() { return this.displayLabels[this.displayUnit] ?? this.displayUnit; },
             get hasUnit() { return this.unit !== ''; },
+            get hasDisplay() { return this.displayUnit !== ''; },
         }"
         class="space-y-6"
     >
-        <div>
-            <x-input-label for="unit" :value="__('Unit')" required />
-            <select id="unit" name="unit" x-model="unit" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm sm:w-48" required>
-                <option value="">{{ __('— Select unit —') }}</option>
-                @foreach (\App\Enums\ProductUnit::cases() as $unitCase)
-                    <option value="{{ $unitCase->value }}">
-                        {{ __('units.'.$unitCase->value) }} ({{ $unitCase->value }})
-                    </option>
-                @endforeach
-            </select>
-            <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.unit_hint') }}</p>
-            <x-input-error class="mt-2" :messages="$errors->get('unit')" />
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <x-input-label for="unit" :value="__('Unit')" required />
+                <select id="unit" name="unit" x-model="unit" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
+                    <option value="">{{ __('— Select unit —') }}</option>
+                    @foreach (\App\Enums\ProductUnit::cases() as $unitCase)
+                        <option value="{{ $unitCase->value }}">{{ __('units.'.$unitCase->value) }}</option>
+                    @endforeach
+                </select>
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.unit_hint') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('unit')" />
+            </div>
+
+            <div>
+                <x-input-label for="price_display_unit" :value="__('admin.product_form.price_display_unit_label')" required />
+                <select id="price_display_unit" name="price_display_unit" x-model="displayUnit" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
+                    <option value="">—</option>
+                    <template x-for="opt in allowed" :key="opt">
+                        <option :value="opt" x-text="displayLabels[opt] ?? opt"></option>
+                    </template>
+                </select>
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.price_display_unit_hint') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('price_display_unit')" />
+            </div>
         </div>
 
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
-                <label for="price_per_natural_unit" class="block text-sm font-medium text-gray-700">
-                    <span x-show="!hasUnit">{{ __('admin.product_form.price_label_pick_unit_first') }}</span>
-                    <span x-show="hasUnit" x-cloak>
+                <label for="price" class="block text-sm font-medium text-gray-700">
+                    <span x-show="!hasDisplay">{{ __('admin.product_form.price_label_pick_unit_first') }}</span>
+                    <span x-show="hasDisplay" x-cloak>
                         {{ __('admin.product_form.price_label_per') }}
-                        <span x-text="naturalLabel" class="font-semibold"></span>
+                        <span x-text="displaySymbol" class="font-semibold"></span>
                     </span>
                     <span class="text-rose-500">*</span>
                 </label>
                 <x-text-input
-                    id="price_per_natural_unit"
-                    name="price_per_natural_unit"
+                    id="price"
+                    name="price"
                     type="number"
                     step="0.01"
                     min="0"
                     class="mt-1 block w-full"
-                    :value="$oldNaturalPrice"
-                    x-bind:placeholder="hasUnit ? ('z. B. 21,50 €/' + naturalLabel) : ''"
+                    :value="$oldPrice"
+                    x-bind:placeholder="hasDisplay ? ('z. B. 21,50 €/' + displaySymbol) : ''"
                     required
                 />
-                <p class="mt-1 text-xs text-gray-500" x-show="hasUnit" x-cloak>
+                <p class="mt-1 text-xs text-gray-500" x-show="hasDisplay" x-cloak>
                     {{ __('admin.product_form.price_hint_natural_unit') }}
                 </p>
-                <x-input-error class="mt-2" :messages="$errors->get('price_per_natural_unit')" />
+                <x-input-error class="mt-2" :messages="$errors->get('price')" />
                 <x-input-error class="mt-2" :messages="$errors->get('unit_price')" />
             </div>
             <div>

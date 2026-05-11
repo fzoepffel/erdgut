@@ -2,8 +2,9 @@
     /** @var \App\Models\Product $product */
     /** @var \Illuminate\Support\Collection $schedules */
     $today = \Illuminate\Support\Carbon::now()->startOfWeek(\Illuminate\Support\Carbon::MONDAY);
-    $unitLabel = $product->unit?->label() ?? '—';
-    $unitValue = $product->unit?->value ?? '';
+    $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit() ?? 'piece';
+    $unitLabel = \App\Enums\ProductUnit::displaySymbol($displayUnit);
+    $factor = $product->unit?->canonicalUnitsPerDisplay($displayUnit) ?? 1;
 @endphp
 
 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
@@ -36,7 +37,7 @@
                             @endphp
                             <tr x-data="{ adjusting: false, cancelling: false }">
                                 <td class="py-3 pe-4 tabular-nums">
-                                    {{ rtrim(rtrim(number_format((float) $schedule->planned_quantity, 2, ',', '.'), '0'), ',') }} {{ $unitLabel }}
+                                    {{ rtrim(rtrim(number_format((float) $schedule->planned_quantity / $factor, 2, ',', '.'), '0'), ',') }} {{ $unitLabel }}
                                 </td>
                                 <td class="py-3 pe-4 text-gray-600 tabular-nums">{{ $schedule->starts_on_monday?->translatedFormat('d.m.Y') }}</td>
                                 <td class="py-3 pe-4 text-gray-600 tabular-nums">

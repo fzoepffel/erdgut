@@ -30,6 +30,7 @@ class Product extends Model
         'producer_id',
         'category',
         'unit',
+        'price_display_unit',
         'unit_price',
         'buying_price_cents',
         'is_seasonal',
@@ -53,10 +54,12 @@ class Product extends Model
     {
         return [
             'unit' => ProductUnit::class,
-            // Storage precision widened to 4 decimals in Phase 4 so
-            // sub-natural-unit prices (€/g, €/ml) round-trip cleanly.
-            // Display layers always pipe through `displayPricePerNaturalUnit()`
-            // which formats to 2 decimals.
+            // Storage is per *canonical* unit of the kind (g for mass,
+            // ml for volume, piece, bunch). Decimal precision is 4 so
+            // sub-canonical prices (€/g, €/ml) round-trip without
+            // rounding loss. All display paths go through
+            // `displayPrice()` which renders in the admin's chosen
+            // `price_display_unit` and formats to 2 decimals.
             'unit_price' => 'decimal:4',
             'buying_price_cents' => 'integer',
             'is_seasonal' => 'boolean',
@@ -120,42 +123,49 @@ class Product extends Model
         return $this->translationFor()?->name ?? '';
     }
 
+    /**
+     * Localized label for the *display* unit (what the admin chose):
+     * "kg", "g", "L", "ml", "Stück", "Bund". Used in admin tables and
+     * compact catalog rows.
+     */
     public function localizedUnit(?string $locale = null): string
     {
-        return $this->unit?->label($locale) ?? '';
-    }
-
-    /**
-     * Price per the unit's natural denomination — what customers see.
-     *
-     * Storage price is per `$this->unit`; for sub-natural units (g, ml)
-     * we multiply by the conversion factor so the display says
-     * "21,50 €/kg" instead of "0,0215 €/g". For piece/bunch/kg/l this
-     * is identical to `unit_price`.
-     */
-    public function pricePerNaturalUnit(): float
-    {
-        if ($this->unit === null) {
-            return (float) $this->unit_price;
+        $display = $this->price_display_unit ?? $this->unit?->defaultDisplayUnit();
+        if ($display === null) {
+            return '';
         }
 
-        return round((float) $this->unit_price * $this->unit->storageUnitsPerNaturalUnit(), 4);
+        return ProductUnit::displaySymbol($display);
     }
 
     /**
-     * Localized "X,XX €/kg" string for catalog display. Falls back to
-     * the raw storage-unit string when no unit is set (defensive — the
-     * schema is NOT NULL after Phase 1).
+     * Render the given quantity (in canonical units of `$this->unit`)
+     * adaptively: under 1000 g → "850 g"; ≥ 1000 g → "2,3 kg" (same
+     * for ml / L). Piece + Bunch render as integer counts.
      */
-    public function displayPricePerNaturalUnit(?string $locale = null): string
+    public function displayQuantity(int|float $canonicalQuantity, ?string $locale = null): string
     {
-        $price = $this->pricePerNaturalUnit();
-        $natural = $this->unit?->naturalUnit() ?? ProductUnit::Piece;
-        // Use the compact symbol ("kg", "L", "Stück", "Bund"). The verbose
-        // `label()` ("Kilogramm") is reserved for non-price contexts.
-        $symbol = $natural->naturalDisplaySymbol($locale);
+        if ($this->unit === null) {
+            return (string) $canonicalQuantity;
+        }
 
-        return number_format($price, 2, ',', '.').' €/'.$symbol;
+        return $this->unit->formatQuantity($canonicalQuantity, $locale);
+    }
+
+    /**
+     * Localized "X,XX €/{displayUnit}" string for catalog display.
+     * Uses the admin-chosen `price_display_unit`. Falls back to the
+     * kind's default display unit when unset.
+     */
+    public function displayPrice(?string $locale = null): string
+    {
+        if ($this->unit === null) {
+            return number_format((float) $this->unit_price, 2, ',', '.').' €';
+        }
+
+        $displayUnit = $this->price_display_unit ?? $this->unit->defaultDisplayUnit();
+
+        return $this->unit->formatPrice((float) $this->unit_price, $displayUnit, $locale);
     }
 
     public function localizedOrigin(?string $locale = null): string

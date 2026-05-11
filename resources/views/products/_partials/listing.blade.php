@@ -121,7 +121,7 @@
                                 <p class="font-editorial text-xs italic text-brand-ink/60">{{ $product->producer?->name ?? __('products.producer_unknown') }}</p>
                                 <p class="mt-auto flex items-end justify-between gap-3 pt-2">
                                     <span class="font-display text-base text-brand-ink">
-                                        {{ $product->displayPricePerNaturalUnit() }}
+                                        {{ $product->displayPrice() }}
                                     </span>
                                     <span class="font-editorial text-[11px] italic text-brand-ink/55 group-hover:text-brand-ink">
                                         {{ __('Read') }} <span aria-hidden="true">&rarr;</span>

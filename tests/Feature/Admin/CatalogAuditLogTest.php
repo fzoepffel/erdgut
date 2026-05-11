@@ -34,8 +34,9 @@ class CatalogAuditLogTest extends TestCase
                     'fr' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '1.00',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '1.00',
             ])
             ->assertRedirect();
 
@@ -60,8 +61,9 @@ class CatalogAuditLogTest extends TestCase
                     'fr' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '2.00',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '2.00',
                 'is_available' => '1',
                 'is_published' => '1',
             ])

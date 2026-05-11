@@ -28,7 +28,7 @@ class AdminProductScheduleController extends Controller
         $this->authorize('update', $product);
 
         $validated = $request->validate([
-            'planned_quantity' => ['required', 'numeric', 'min:0.01', 'max:99999.99'],
+            'planned_quantity' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
             'starts_on_monday' => ['required', 'date'],
             'ends_on_monday' => ['nullable', 'date', 'after_or_equal:starts_on_monday'],
             'notes' => ['nullable', 'string', 'max:500'],
@@ -36,7 +36,7 @@ class AdminProductScheduleController extends Controller
 
         $this->recurring->createSchedule(
             product: $product,
-            plannedQuantity: (float) $validated['planned_quantity'],
+            plannedQuantity: $this->canonicalQuantity($product, (float) $validated['planned_quantity']),
             startsOnMonday: Carbon::parse($validated['starts_on_monday']),
             endsOnMonday: ! empty($validated['ends_on_monday']) ? Carbon::parse($validated['ends_on_monday']) : null,
             createdByUserId: (int) $request->user()->id,
@@ -71,18 +71,33 @@ class AdminProductScheduleController extends Controller
 
         $validated = $request->validate([
             'from_monday' => ['required', 'date'],
-            'new_quantity' => ['required', 'numeric', 'min:0.01', 'max:99999.99'],
+            'new_quantity' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
         ]);
 
         $this->recurring->adjustFrom(
             scheduleId: $schedule->id,
             fromMonday: Carbon::parse($validated['from_monday']),
-            newQuantity: (float) $validated['new_quantity'],
+            newQuantity: $this->canonicalQuantity($product, (float) $validated['new_quantity']),
             createdByUserId: (int) $request->user()->id,
         );
 
         return redirect()
             ->route('app.admin.products.edit', $product)
             ->with('status', __('admin.product_schedules.flash_adjusted'));
+    }
+
+    /**
+     * Convert an admin-entered display-unit quantity (e.g. 10 kg) into
+     * the canonical storage units (10000 g) for the product.
+     */
+    private function canonicalQuantity(Product $product, float $displayQuantity): float
+    {
+        if ($product->unit === null) {
+            return $displayQuantity;
+        }
+
+        $displayUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
+
+        return round($displayQuantity * $product->unit->canonicalUnitsPerDisplay($displayUnit), 4);
     }
 }

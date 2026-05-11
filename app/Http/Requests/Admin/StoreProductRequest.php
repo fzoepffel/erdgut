@@ -9,6 +9,7 @@ use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreProductRequest extends FormRequest
 {
@@ -46,10 +47,12 @@ class StoreProductRequest extends FormRequest
             'producer_id' => ['required', 'integer', 'exists:producers,id'],
             'category' => ['required', 'string', Rule::in(ProductCategory::values())],
             'unit' => ['required', 'string', Rule::in(ProductUnit::values())],
-            // Phase 4: admin enters the price per *natural* unit (€/kg, €/L,
-            // €/Stück). The controller converts to per-storage-unit before
-            // persist so the database always carries the per-`unit` price.
-            'price_per_natural_unit' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            // Admin chooses which symbol they're entering the price in
+            // (g / kg / ml / l / piece / bunch). The controller converts
+            // to per-canonical-unit before persisting so storage stays
+            // uniform across products of the same kind.
+            'price_display_unit' => ['required', 'string', Rule::in(['g', 'kg', 'ml', 'l', 'piece', 'bunch'])],
+            'price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'is_seasonal' => ['boolean'],
             'is_available' => ['boolean'],
@@ -81,5 +84,25 @@ class StoreProductRequest extends FormRequest
             'is_egg_addon' => $this->boolean('is_egg_addon'),
             'is_test' => $this->boolean('is_test'),
         ]);
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $v): void {
+            $unit = $this->input('unit');
+            $display = $this->input('price_display_unit');
+            if (! is_string($unit) || ! is_string($display)) {
+                return;
+            }
+
+            $kind = ProductUnit::tryFrom($unit);
+            if ($kind === null) {
+                return;
+            }
+
+            if (! in_array($display, $kind->allowedDisplayUnits(), true)) {
+                $v->errors()->add('price_display_unit', __('admin.products.price_display_unit_invalid'));
+            }
+        });
     }
 }

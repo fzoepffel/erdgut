@@ -38,8 +38,9 @@ class TranslationRequiredValidationTest extends TestCase
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '1.00',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '1.00',
                 'translations' => [
                     'de' => ['name' => 'DE', 'origin' => 'DE', 'variety' => 'DE', 'taste_profile' => 'DE'],
                     'en' => ['name' => 'EN', 'origin' => 'EN', 'variety' => 'EN', 'taste_profile' => 'EN'],
