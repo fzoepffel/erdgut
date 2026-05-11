@@ -135,7 +135,7 @@ class AdminProductTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '2.50',
+                'price_per_natural_unit' => '2.50',
             ])
             ->assertRedirect();
 
@@ -179,7 +179,7 @@ class AdminProductTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '1.00',
+                'price_per_natural_unit' => '1.00',
                 'is_available' => '1',
                 'image' => $file,
             ])
@@ -247,7 +247,7 @@ class AdminProductTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '1.00',
+                'price_per_natural_unit' => '1.00',
             ])
             ->assertForbidden();
 
@@ -261,7 +261,7 @@ class AdminProductTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '9.99',
+                'price_per_natural_unit' => '9.99',
             ])
             ->assertForbidden();
 
@@ -285,7 +285,7 @@ class AdminProductTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '2.50',
+                'price_per_natural_unit' => '2.50',
                 'buying_price' => '1.10',
                 'allergens' => ['gluten', 'nuts'],
                 'dietary_tags' => ['vegan', 'vegetarian'],
@@ -323,7 +323,7 @@ class AdminProductTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '1.00',
+                'price_per_natural_unit' => '1.00',
                 'pairings' => [$partnerB->id],
             ])
             ->assertRedirect();
@@ -349,7 +349,7 @@ class AdminProductTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '1.00',
+                'price_per_natural_unit' => '1.00',
                 'pairings' => [$product->id],
             ])
             ->assertSessionHasErrors('pairings.0');
@@ -374,7 +374,7 @@ class AdminProductTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '1.00',
+                'price_per_natural_unit' => '1.00',
                 'gallery_images' => [$a, $b],
             ])
             ->assertRedirect();
@@ -410,7 +410,7 @@ class AdminProductTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '1.00',
+                'price_per_natural_unit' => '1.00',
                 'gallery_remove' => [$image->id],
             ])
             ->assertRedirect();
@@ -441,7 +441,7 @@ class AdminProductTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '3.25',
+                'price_per_natural_unit' => '3.25',
                 'is_available' => '1',
             ])
             ->assertRedirect(route('app.admin.products.edit', $product));
@@ -449,6 +449,8 @@ class AdminProductTest extends TestCase
         $product->refresh();
         $this->assertSame('New Name', $product->name);
         $this->assertSame('produce', $product->category);
-        $this->assertSame('3.25', $product->unit_price);
+        // unit_price cast was widened to decimal:4 in Phase 4, so the
+        // stringified value carries trailing zeros.
+        $this->assertEquals(3.25, (float) $product->unit_price);
     }
 }

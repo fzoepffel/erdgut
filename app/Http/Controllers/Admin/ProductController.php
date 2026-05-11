@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\Allergen;
 use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
+use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreProductRequest;
@@ -286,11 +287,21 @@ class ProductController extends Controller
      */
     private function buildCoreAttributes(array $validated): array
     {
+        // Convert the admin-entered natural-unit price (€/kg, €/L,
+        // €/piece) into the per-storage-unit price (€/g, €/ml, €/piece)
+        // that the database carries. For piece/kg/l/bunch storage units
+        // the conversion is a no-op (divisor=1).
+        $unitEnum = ProductUnit::from($validated['unit']);
+        $storageUnitPrice = round(
+            ((float) $validated['price_per_natural_unit']) / $unitEnum->storageUnitsPerNaturalUnit(),
+            4,
+        );
+
         $payload = [
             'producer_id' => $validated['producer_id'],
             'category' => $validated['category'],
             'unit' => $validated['unit'],
-            'unit_price' => $validated['unit_price'],
+            'unit_price' => $storageUnitPrice,
             'is_seasonal' => (bool) ($validated['is_seasonal'] ?? false),
             'is_available' => (bool) ($validated['is_available'] ?? false),
             'is_published' => (bool) ($validated['is_published'] ?? false),
