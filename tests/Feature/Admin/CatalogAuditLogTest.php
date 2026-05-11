@@ -35,7 +35,7 @@ class CatalogAuditLogTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '1.00',
+                'price_per_natural_unit' => '1.00',
             ])
             ->assertRedirect();
 
@@ -61,7 +61,7 @@ class CatalogAuditLogTest extends TestCase
                 ],
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '2.00',
+                'price_per_natural_unit' => '2.00',
                 'is_available' => '1',
                 'is_published' => '1',
             ])

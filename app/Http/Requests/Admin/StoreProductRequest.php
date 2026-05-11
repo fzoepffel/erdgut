@@ -46,7 +46,10 @@ class StoreProductRequest extends FormRequest
             'producer_id' => ['required', 'integer', 'exists:producers,id'],
             'category' => ['required', 'string', Rule::in(ProductCategory::values())],
             'unit' => ['required', 'string', Rule::in(ProductUnit::values())],
-            'unit_price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            // Phase 4: admin enters the price per *natural* unit (€/kg, €/L,
+            // €/Stück). The controller converts to per-storage-unit before
+            // persist so the database always carries the per-`unit` price.
+            'price_per_natural_unit' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'is_seasonal' => ['boolean'],
             'is_available' => ['boolean'],

@@ -39,7 +39,7 @@ class TranslationRequiredValidationTest extends TestCase
                 'producer_id' => $producer->id,
                 'category' => 'produce',
                 'unit' => 'kg',
-                'unit_price' => '1.00',
+                'price_per_natural_unit' => '1.00',
                 'translations' => [
                     'de' => ['name' => 'DE', 'origin' => 'DE', 'variety' => 'DE', 'taste_profile' => 'DE'],
                     'en' => ['name' => 'EN', 'origin' => 'EN', 'variety' => 'EN', 'taste_profile' => 'EN'],

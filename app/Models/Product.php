@@ -53,7 +53,11 @@ class Product extends Model
     {
         return [
             'unit' => ProductUnit::class,
-            'unit_price' => 'decimal:2',
+            // Storage precision widened to 4 decimals in Phase 4 so
+            // sub-natural-unit prices (€/g, €/ml) round-trip cleanly.
+            // Display layers always pipe through `displayPricePerNaturalUnit()`
+            // which formats to 2 decimals.
+            'unit_price' => 'decimal:4',
             'buying_price_cents' => 'integer',
             'is_seasonal' => 'boolean',
             'is_available' => 'boolean',
@@ -119,6 +123,39 @@ class Product extends Model
     public function localizedUnit(?string $locale = null): string
     {
         return $this->unit?->label($locale) ?? '';
+    }
+
+    /**
+     * Price per the unit's natural denomination — what customers see.
+     *
+     * Storage price is per `$this->unit`; for sub-natural units (g, ml)
+     * we multiply by the conversion factor so the display says
+     * "21,50 €/kg" instead of "0,0215 €/g". For piece/bunch/kg/l this
+     * is identical to `unit_price`.
+     */
+    public function pricePerNaturalUnit(): float
+    {
+        if ($this->unit === null) {
+            return (float) $this->unit_price;
+        }
+
+        return round((float) $this->unit_price * $this->unit->storageUnitsPerNaturalUnit(), 4);
+    }
+
+    /**
+     * Localized "X,XX €/kg" string for catalog display. Falls back to
+     * the raw storage-unit string when no unit is set (defensive — the
+     * schema is NOT NULL after Phase 1).
+     */
+    public function displayPricePerNaturalUnit(?string $locale = null): string
+    {
+        $price = $this->pricePerNaturalUnit();
+        $natural = $this->unit?->naturalUnit() ?? ProductUnit::Piece;
+        // Use the compact symbol ("kg", "L", "Stück", "Bund"). The verbose
+        // `label()` ("Kilogramm") is reserved for non-price contexts.
+        $symbol = $natural->naturalDisplaySymbol($locale);
+
+        return number_format($price, 2, ',', '.').' €/'.$symbol;
     }
 
     public function localizedOrigin(?string $locale = null): string

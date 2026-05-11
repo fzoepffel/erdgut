@@ -374,41 +374,87 @@
         <x-input-error class="mt-2" :messages="$errors->get('category')" />
     </div>
 
-    {{-- Unit is now product-level (one canonical value per product) — not
-         per-locale — so it lives outside the translation tabs. The enum
-         is locked in code; the dropdown labels are localized via the
-         `units.{value}` translation keys. --}}
-    <div>
-        @php
-            $currentUnit = old('unit', $product?->unit?->value);
-        @endphp
-        <x-input-label for="unit" :value="__('Unit')" required />
-        <select id="unit" name="unit" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm sm:w-48" required>
-            <option value="" @selected($currentUnit === null || $currentUnit === '')>
-                {{ __('— Select unit —') }}
-            </option>
-            @foreach (\App\Enums\ProductUnit::cases() as $unitCase)
-                <option value="{{ $unitCase->value }}" @selected($currentUnit === $unitCase->value)>
-                    {{ __('units.'.$unitCase->value) }} ({{ $unitCase->value }})
-                </option>
-            @endforeach
-        </select>
-        <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.unit_hint') }}</p>
-        <x-input-error class="mt-2" :messages="$errors->get('unit')" />
-    </div>
+    {{-- Unit + natural-unit price live in a shared Alpine state because
+         the price input's label depends on the chosen unit's natural
+         denomination (g → "Preis pro kg", ml → "Preis pro L", others →
+         "Preis pro Stück / kg / Bund"). The submitted field is
+         `price_per_natural_unit`; the controller converts to the
+         per-storage-unit price before persist. --}}
+    @php
+        $currentUnit = old('unit', $product?->unit?->value);
+        // Pre-fill the natural-unit price when editing: storage price
+        // (per g / ml / kg / etc.) × storageUnitsPerNaturalUnit. For
+        // first-time-create this stays empty so the placeholder shows.
+        $defaultNaturalPrice = null;
+        if ($product?->unit !== null && $product?->unit_price !== null) {
+            $defaultNaturalPrice = round((float) $product->unit_price * $product->unit->storageUnitsPerNaturalUnit(), 2);
+        }
+        $oldNaturalPrice = old('price_per_natural_unit', $defaultNaturalPrice);
 
-    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        // Pre-build the per-unit-case natural label map so Alpine can
+        // swap the field label live without another lookup.
+        $naturalLabels = [];
+        foreach (\App\Enums\ProductUnit::cases() as $uc) {
+            $naturalLabels[$uc->value] = __('units.'.$uc->naturalUnit()->value);
+        }
+    @endphp
+
+    <div
+        x-data="{
+            unit: @js((string) ($currentUnit ?? '')),
+            naturalLabels: @js($naturalLabels),
+            get naturalLabel() { return this.naturalLabels[this.unit] ?? ''; },
+            get hasUnit() { return this.unit !== ''; },
+        }"
+        class="space-y-6"
+    >
         <div>
-            <x-input-label for="unit_price" :value="__('Unit price')" required />
-            <x-text-input id="unit_price" name="unit_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('unit_price', $product?->unit_price)" required />
-            <p class="mt-1 text-xs text-gray-500">{{ __('Customer-facing selling price per unit.') }}</p>
-            <x-input-error class="mt-2" :messages="$errors->get('unit_price')" />
+            <x-input-label for="unit" :value="__('Unit')" required />
+            <select id="unit" name="unit" x-model="unit" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm sm:w-48" required>
+                <option value="">{{ __('— Select unit —') }}</option>
+                @foreach (\App\Enums\ProductUnit::cases() as $unitCase)
+                    <option value="{{ $unitCase->value }}">
+                        {{ __('units.'.$unitCase->value) }} ({{ $unitCase->value }})
+                    </option>
+                @endforeach
+            </select>
+            <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.unit_hint') }}</p>
+            <x-input-error class="mt-2" :messages="$errors->get('unit')" />
         </div>
-        <div>
-            <x-input-label for="buying_price" :value="__('Buying price')" />
-            <x-text-input id="buying_price" name="buying_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="$buyingPriceValue" />
-            <p class="mt-1 text-xs text-gray-500">{{ __('What we pay the producer. Used for margin reporting.') }}</p>
-            <x-input-error class="mt-2" :messages="$errors->get('buying_price')" />
+
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <label for="price_per_natural_unit" class="block text-sm font-medium text-gray-700">
+                    <span x-show="!hasUnit">{{ __('admin.product_form.price_label_pick_unit_first') }}</span>
+                    <span x-show="hasUnit" x-cloak>
+                        {{ __('admin.product_form.price_label_per') }}
+                        <span x-text="naturalLabel" class="font-semibold"></span>
+                    </span>
+                    <span class="text-rose-500">*</span>
+                </label>
+                <x-text-input
+                    id="price_per_natural_unit"
+                    name="price_per_natural_unit"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="mt-1 block w-full"
+                    :value="$oldNaturalPrice"
+                    x-bind:placeholder="hasUnit ? ('z. B. 21,50 €/' + naturalLabel) : ''"
+                    required
+                />
+                <p class="mt-1 text-xs text-gray-500" x-show="hasUnit" x-cloak>
+                    {{ __('admin.product_form.price_hint_natural_unit') }}
+                </p>
+                <x-input-error class="mt-2" :messages="$errors->get('price_per_natural_unit')" />
+                <x-input-error class="mt-2" :messages="$errors->get('unit_price')" />
+            </div>
+            <div>
+                <x-input-label for="buying_price" :value="__('Buying price')" />
+                <x-text-input id="buying_price" name="buying_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="$buyingPriceValue" />
+                <p class="mt-1 text-xs text-gray-500">{{ __('What we pay the producer. Used for margin reporting.') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('buying_price')" />
+            </div>
         </div>
     </div>
 
