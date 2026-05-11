@@ -13,6 +13,7 @@ use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductTranslation;
+use App\Models\ProductWeekStockSchedule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -268,6 +269,14 @@ class ProductController extends Controller
             'dietaryCases' => DietaryTag::cases(),
             'tasteCases' => TasteProfile::cases(),
             'pairableProducts' => $pairableProducts,
+            // Recurring weekly-stock schedules attached to this product
+            // (Phase 2). Empty for new products since they aren't saved yet.
+            'schedules' => $product?->id !== null
+                ? ProductWeekStockSchedule::query()
+                    ->where('product_id', $product->id)
+                    ->orderByDesc('starts_on_monday')
+                    ->get()
+                : collect(),
         ];
     }
 
