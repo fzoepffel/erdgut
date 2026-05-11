@@ -2,6 +2,7 @@
 
 namespace App\Services\Admin;
 
+use App\Enums\ProductUnit;
 use App\Models\Product;
 use App\Models\ProductTranslation;
 use App\Models\ProductWeekStock;
@@ -89,11 +90,21 @@ final class WeeklyCatalogService
                     $priceCents = (int) ($new['unit_price_cents'] ?? 0);
                     $unitPrice = round($priceCents / 100, 2);
 
+                    // Map the freeform-ish per-week unit input to the new
+                    // ProductUnit enum. If admin typed something unknown
+                    // we default to `piece` rather than blocking the
+                    // inline create; the admin can fix it on the product
+                    // edit page.
+                    $productUnit = in_array($unit, ProductUnit::values(), true)
+                        ? $unit
+                        : ProductUnit::Piece->value;
+
                     $product = Product::create([
                         'producer_id' => isset($new['producer_id']) && $new['producer_id'] !== ''
                             ? (int) $new['producer_id']
                             : null,
                         'category' => (string) ($new['category'] ?? ''),
+                        'unit' => $productUnit,
                         'unit_price' => $unitPrice,
                         'is_seasonal' => false,
                         'is_available' => true,
@@ -103,7 +114,6 @@ final class WeeklyCatalogService
                     ]);
 
                     $name = (string) ($new['name'] ?? '');
-                    $unitText = (string) ($unit ?? '');
                     $defaults = [
                         'origin' => 'regional',
                         'variety' => '-',
@@ -114,7 +124,6 @@ final class WeeklyCatalogService
                             'product_id' => $product->id,
                             'locale' => $locale,
                             'name' => $name,
-                            'unit' => $unitText,
                             'origin' => $defaults['origin'],
                             'variety' => $defaults['variety'],
                             'taste_profile' => $defaults['taste_profile'],

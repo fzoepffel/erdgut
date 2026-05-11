@@ -138,7 +138,6 @@ class ProductController extends Controller
                     ['product_id' => $product->id, 'locale' => $locale],
                     [
                         'name' => $translations[$locale]['name'],
-                        'unit' => $translations[$locale]['unit'],
                         'origin' => $translations[$locale]['origin'],
                         'variety' => $translations[$locale]['variety'],
                         'taste_profile' => $translations[$locale]['taste_profile'],
@@ -202,7 +201,6 @@ class ProductController extends Controller
                     ['product_id' => $product->id, 'locale' => $locale],
                     [
                         'name' => $translations[$locale]['name'],
-                        'unit' => $translations[$locale]['unit'],
                         'origin' => $translations[$locale]['origin'],
                         'variety' => $translations[$locale]['variety'],
                         'taste_profile' => $translations[$locale]['taste_profile'],
@@ -282,6 +280,7 @@ class ProductController extends Controller
         $payload = [
             'producer_id' => $validated['producer_id'],
             'category' => $validated['category'],
+            'unit' => $validated['unit'],
             'unit_price' => $validated['unit_price'],
             'is_seasonal' => (bool) ($validated['is_seasonal'] ?? false),
             'is_available' => (bool) ($validated['is_available'] ?? false),

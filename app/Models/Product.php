@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ProductUnit;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -28,6 +29,7 @@ class Product extends Model
     protected $fillable = [
         'producer_id',
         'category',
+        'unit',
         'unit_price',
         'buying_price_cents',
         'is_seasonal',
@@ -50,6 +52,7 @@ class Product extends Model
     protected function casts(): array
     {
         return [
+            'unit' => ProductUnit::class,
             'unit_price' => 'decimal:2',
             'buying_price_cents' => 'integer',
             'is_seasonal' => 'boolean',
@@ -115,7 +118,7 @@ class Product extends Model
 
     public function localizedUnit(?string $locale = null): string
     {
-        return $this->translationFor($locale)?->unit ?? '';
+        return $this->unit?->label($locale) ?? '';
     }
 
     public function localizedOrigin(?string $locale = null): string

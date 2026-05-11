@@ -96,10 +96,10 @@ class CategoryTaxonomyTest extends TestCase
         // is a plain string we can write the legacy values directly.
         $producer = Producer::factory()->create();
         DB::table('products')->insert([
-            ['producer_id' => $producer->id, 'category' => 'vegetables', 'unit_price' => 1, 'is_seasonal' => 0, 'is_available' => 1, 'is_published' => 1, 'is_test' => 1, 'created_at' => now(), 'updated_at' => now()],
-            ['producer_id' => $producer->id, 'category' => 'fruit', 'unit_price' => 1, 'is_seasonal' => 0, 'is_available' => 1, 'is_published' => 1, 'is_test' => 1, 'created_at' => now(), 'updated_at' => now()],
-            ['producer_id' => $producer->id, 'category' => 'dairy', 'unit_price' => 1, 'is_seasonal' => 0, 'is_available' => 1, 'is_published' => 1, 'is_test' => 1, 'created_at' => now(), 'updated_at' => now()],
-            ['producer_id' => $producer->id, 'category' => 'bakery', 'unit_price' => 1, 'is_seasonal' => 0, 'is_available' => 1, 'is_published' => 1, 'is_test' => 1, 'created_at' => now(), 'updated_at' => now()],
+            ['producer_id' => $producer->id, 'category' => 'vegetables', 'unit' => 'kg', 'unit_price' => 1, 'is_seasonal' => 0, 'is_available' => 1, 'is_published' => 1, 'is_test' => 1, 'created_at' => now(), 'updated_at' => now()],
+            ['producer_id' => $producer->id, 'category' => 'fruit', 'unit' => 'kg', 'unit_price' => 1, 'is_seasonal' => 0, 'is_available' => 1, 'is_published' => 1, 'is_test' => 1, 'created_at' => now(), 'updated_at' => now()],
+            ['producer_id' => $producer->id, 'category' => 'dairy', 'unit' => 'piece', 'unit_price' => 1, 'is_seasonal' => 0, 'is_available' => 1, 'is_published' => 1, 'is_test' => 1, 'created_at' => now(), 'updated_at' => now()],
+            ['producer_id' => $producer->id, 'category' => 'bakery', 'unit' => 'piece', 'unit_price' => 1, 'is_seasonal' => 0, 'is_available' => 1, 'is_published' => 1, 'is_test' => 1, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         DB::table('products')->whereIn('category', ['vegetables', 'fruit'])->update(['category' => 'produce']);

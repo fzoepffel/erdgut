@@ -39,6 +39,8 @@ class TranslationParityTest extends TestCase
         'customer.story.box.this_week_lead_',
         // Producer slug is interpolated into the key (anna|elena|jakob|...).
         'customer.producer.spotlight.',
+        // ProductUnit enum value is interpolated into the key (`units.kg`, etc.).
+        'units.',
     ];
 
     public function test_every_translation_key_used_in_source_exists_in_every_locale(): void
