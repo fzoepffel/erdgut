@@ -31,6 +31,8 @@
                     ])
                 </div>
             </div>
+
+            @include('admin.products._schedules', ['product' => $product, 'schedules' => $schedules])
         </div>
     </div>
 </x-admin-layout>

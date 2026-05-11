@@ -90,11 +90,9 @@ final class WeeklyCatalogService
                     $priceCents = (int) ($new['unit_price_cents'] ?? 0);
                     $unitPrice = round($priceCents / 100, 2);
 
-                    // Map the freeform-ish per-week unit input to the new
-                    // ProductUnit enum. If admin typed something unknown
-                    // we default to `piece` rather than blocking the
-                    // inline create; the admin can fix it on the product
-                    // edit page.
+                    // For mode=new, the row's `unit` is the new Product's
+                    // canonical unit. The form constrains this to the enum
+                    // values; we re-validate defensively before write.
                     $productUnit = in_array($unit, ProductUnit::values(), true)
                         ? $unit
                         : ProductUnit::Piece->value;
@@ -134,7 +132,6 @@ final class WeeklyCatalogService
                         'product_id' => $product->id,
                         'week_start_date' => $date,
                         'planned_quantity' => $quantity,
-                        'unit' => $unit,
                     ]);
 
                     continue;
@@ -151,12 +148,10 @@ final class WeeklyCatalogService
                             'product_id' => (int) $row['product_id'],
                             'week_start_date' => $date,
                             'planned_quantity' => $quantity,
-                            'unit' => $unit,
                         ]);
                     } else {
                         $stock->fill([
                             'planned_quantity' => $quantity,
-                            'unit' => $unit,
                         ])->save();
                     }
                 }

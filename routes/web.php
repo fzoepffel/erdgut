@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\AdminEmailResendController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
+use App\Http\Controllers\Admin\AdminProductScheduleController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
@@ -328,6 +329,16 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:24,1')
                 ->name('products.weekly.save');
             Route::resource('products', ProductController::class)->except(['show']);
+
+            Route::post('products/{product}/schedules', [AdminProductScheduleController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('products.schedules.store');
+            Route::post('products/{product}/schedules/{schedule}/cancel', [AdminProductScheduleController::class, 'cancel'])
+                ->middleware('throttle:30,1')
+                ->name('products.schedules.cancel');
+            Route::post('products/{product}/schedules/{schedule}/adjust', [AdminProductScheduleController::class, 'adjust'])
+                ->middleware('throttle:30,1')
+                ->name('products.schedules.adjust');
 
             Route::get('orders/create', [AdminOrderController::class, 'create'])->name('orders.create');
             Route::post('orders', [AdminOrderController::class, 'store'])

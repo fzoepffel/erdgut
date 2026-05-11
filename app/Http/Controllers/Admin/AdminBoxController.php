@@ -419,7 +419,7 @@ class AdminBoxController extends Controller
             $out[] = [
                 'product_id' => $pid,
                 'name' => (string) $product->name,
-                'unit' => (string) ($row->unit ?? $product->unit?->value ?? $product->metadata['unit'] ?? 'piece'),
+                'unit' => (string) ($product->unit?->value ?? 'piece'),
                 'unit_price' => round((float) $product->unit_price, 2),
                 'planned' => round((float) $row->planned_quantity, 2),
                 'baseline_used' => round((float) ($distributed[$pid] ?? 0), 2),
