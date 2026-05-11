@@ -20,6 +20,7 @@ class ProductModelCrudTest extends TestCase
         $product = Product::create([
             'producer_id' => $producer->id,
             'category' => 'produce',
+            'unit' => 'kg',
             'unit_price' => 3.49,
             'is_seasonal' => true,
             'is_available' => true,
@@ -31,7 +32,6 @@ class ProductModelCrudTest extends TestCase
                 'product_id' => $product->id,
                 'locale' => $locale,
                 'name' => 'Bio Karotten',
-                'unit' => 'kg',
                 'origin' => 'Bayern',
                 'variety' => '—',
                 'taste_profile' => 'Süß und knackig.',

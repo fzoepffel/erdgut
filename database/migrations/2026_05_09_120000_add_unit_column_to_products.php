@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Add a `unit` column to `products`, nullable for now.
+ *
+ * Step 1 of 3 in the freeform-text → enum migration:
+ *  1. (this) add the column nullable so reads can start using it
+ *  2. backfill from `product_translations.unit` (DE preferred)
+ *  3. make NOT NULL + drop `product_translations.unit`
+ *
+ * The split lets us land + verify each step independently and gives
+ * the backfill log a chance to surface unmapped values before the
+ * destructive step 3 runs.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('products', function (Blueprint $table): void {
+            $table->string('unit', 16)->nullable()->after('unit_price');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('products', function (Blueprint $table): void {
+            $table->dropColumn('unit');
+        });
+    }
+};

@@ -17,7 +17,6 @@ class ProductTranslation extends Model
         'product_id',
         'locale',
         'name',
-        'unit',
         'origin',
         'variety',
         'taste_profile',

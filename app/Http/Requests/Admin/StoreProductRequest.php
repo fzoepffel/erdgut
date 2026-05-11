@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Enums\Allergen;
 use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
+use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -35,7 +36,6 @@ class StoreProductRequest extends FormRequest
         foreach ($this->locales() as $locale) {
             $translationRules["translations.$locale"] = ['required', 'array'];
             $translationRules["translations.$locale.name"] = ['required', 'string', 'max:255'];
-            $translationRules["translations.$locale.unit"] = ['required', 'string', 'max:64'];
             $translationRules["translations.$locale.origin"] = ['required', 'string', 'max:128'];
             $translationRules["translations.$locale.variety"] = ['required', 'string', 'max:128'];
             $translationRules["translations.$locale.taste_profile"] = ['required', 'string', 'max:512'];
@@ -45,6 +45,7 @@ class StoreProductRequest extends FormRequest
             ...$translationRules,
             'producer_id' => ['required', 'integer', 'exists:producers,id'],
             'category' => ['required', 'string', Rule::in(ProductCategory::values())],
+            'unit' => ['required', 'string', Rule::in(ProductUnit::values())],
             'unit_price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'is_seasonal' => ['boolean'],

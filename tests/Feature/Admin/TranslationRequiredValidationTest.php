@@ -38,17 +38,17 @@ class TranslationRequiredValidationTest extends TestCase
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '1.00',
                 'translations' => [
-                    'de' => ['name' => 'DE', 'unit' => 'kg', 'origin' => 'DE', 'variety' => 'DE', 'taste_profile' => 'DE'],
-                    'en' => ['name' => 'EN', 'unit' => 'kg', 'origin' => 'EN', 'variety' => 'EN', 'taste_profile' => 'EN'],
+                    'de' => ['name' => 'DE', 'origin' => 'DE', 'variety' => 'DE', 'taste_profile' => 'DE'],
+                    'en' => ['name' => 'EN', 'origin' => 'EN', 'variety' => 'EN', 'taste_profile' => 'EN'],
                     // fr missing
                 ],
             ])
             ->assertRedirect(route('app.admin.products.create'))
             ->assertSessionHasErrors([
                 'translations.fr.name',
-                'translations.fr.unit',
                 'translations.fr.origin',
                 'translations.fr.variety',
                 'translations.fr.taste_profile',
