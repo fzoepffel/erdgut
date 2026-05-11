@@ -134,6 +134,7 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'Légèrement sucrées et croquantes.'],
                 ],
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '2.50',
             ])
             ->assertRedirect();
@@ -177,6 +178,7 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '1.00',
                 'is_available' => '1',
                 'image' => $file,
@@ -244,6 +246,7 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '1.00',
             ])
             ->assertForbidden();
@@ -257,6 +260,7 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '9.99',
             ])
             ->assertForbidden();
@@ -280,6 +284,7 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'Attr Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'sucré'],
                 ],
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '2.50',
                 'buying_price' => '1.10',
                 'allergens' => ['gluten', 'nuts'],
@@ -317,6 +322,7 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '1.00',
                 'pairings' => [$partnerB->id],
             ])
@@ -342,6 +348,7 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '1.00',
                 'pairings' => [$product->id],
             ])
@@ -366,6 +373,7 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'G', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '1.00',
                 'gallery_images' => [$a, $b],
             ])
@@ -401,6 +409,7 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'R', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '1.00',
                 'gallery_remove' => [$image->id],
             ])
@@ -431,6 +440,7 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
+                'unit' => 'kg',
                 'unit_price' => '3.25',
                 'is_available' => '1',
             ])

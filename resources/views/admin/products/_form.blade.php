@@ -303,21 +303,7 @@
                         <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.name')" />
                     </div>
 
-                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
-                        <div>
-                            <x-input-label :for="'translations_'.$locale.'_unit'" :value="__('Unit')" required />
-                            <x-text-input
-                                :id="'translations_'.$locale.'_unit'"
-                                :name="'translations['.$locale.'][unit]'"
-                                type="text"
-                                class="mt-1 block w-full"
-                                :value="old('translations.'.$locale.'.unit', $t?->unit)"
-                                required
-                                x-on:input="recheckTabs()"
-                            />
-                            <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.unit')" />
-                        </div>
-
+                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
                             <x-input-label :for="'translations_'.$locale.'_origin'" :value="__('Origin')" required />
                             <x-text-input
@@ -388,11 +374,34 @@
         <x-input-error class="mt-2" :messages="$errors->get('category')" />
     </div>
 
+    {{-- Unit is now product-level (one canonical value per product) — not
+         per-locale — so it lives outside the translation tabs. The enum
+         is locked in code; the dropdown labels are localized via the
+         `units.{value}` translation keys. --}}
+    <div>
+        @php
+            $currentUnit = old('unit', $product?->unit?->value);
+        @endphp
+        <x-input-label for="unit" :value="__('Unit')" required />
+        <select id="unit" name="unit" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm sm:w-48" required>
+            <option value="" @selected($currentUnit === null || $currentUnit === '')>
+                {{ __('— Select unit —') }}
+            </option>
+            @foreach (\App\Enums\ProductUnit::cases() as $unitCase)
+                <option value="{{ $unitCase->value }}" @selected($currentUnit === $unitCase->value)>
+                    {{ __('units.'.$unitCase->value) }} ({{ $unitCase->value }})
+                </option>
+            @endforeach
+        </select>
+        <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.unit_hint') }}</p>
+        <x-input-error class="mt-2" :messages="$errors->get('unit')" />
+    </div>
+
     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
             <x-input-label for="unit_price" :value="__('Unit price')" required />
             <x-text-input id="unit_price" name="unit_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('unit_price', $product?->unit_price)" required />
-            <p class="mt-1 text-xs text-gray-500">{{ __('Customer-facing selling price.') }}</p>
+            <p class="mt-1 text-xs text-gray-500">{{ __('Customer-facing selling price per unit.') }}</p>
             <x-input-error class="mt-2" :messages="$errors->get('unit_price')" />
         </div>
         <div>

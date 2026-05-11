@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ProductUnit;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductTranslation;
@@ -22,7 +23,6 @@ class ProductFactory extends Factory
                     'product_id' => $product->id,
                     'locale' => $locale,
                     'name' => fake()->words(2, true).' ('.$locale.')',
-                    'unit' => fake()->randomElement(['kg', 'bundle', 'piece']),
                     'origin' => fake()->city(),
                     'variety' => fake()->word(),
                     'taste_profile' => fake()->sentence(),
@@ -42,6 +42,7 @@ class ProductFactory extends Factory
             'producer_id' => Producer::factory(),
             // Chapter taxonomy (D6/D7/F8 in UX-review notes).
             'category' => fake()->randomElement(['produce', 'eggs_and_dairy', 'bread']),
+            'unit' => fake()->randomElement([ProductUnit::Kilogram->value, ProductUnit::Piece->value, ProductUnit::Bunch->value]),
             'unit_price' => fake()->randomFloat(2, 1, 30),
             'is_seasonal' => fake()->boolean(),
             'is_available' => true,

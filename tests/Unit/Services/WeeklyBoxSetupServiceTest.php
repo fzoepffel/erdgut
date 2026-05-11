@@ -69,6 +69,7 @@ class WeeklyBoxSetupServiceTest extends TestCase
         $resolvedName = $name ?? 'Prod-'.uniqid();
         $product = Product::factory()->create([
             'category' => $category,
+            'unit' => $unit,
             'unit_price' => $unitPrice,
             'is_available' => true,
             'is_published' => true,
@@ -79,7 +80,6 @@ class WeeklyBoxSetupServiceTest extends TestCase
                 ->where('locale', $locale)
                 ->update([
                     'name' => $resolvedName,
-                    'unit' => $unit,
                     'origin' => 'regional',
                     'variety' => '-',
                     'taste_profile' => '-',
