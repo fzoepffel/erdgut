@@ -185,7 +185,7 @@
                                                 @php $catEnum = \App\Enums\ProductCategory::tryFrom($product->category); @endphp
                                                 {{ $catEnum ? __('admin.category.'.$catEnum->value) : $product->category }}
                                             </td>
-                                            <td class="py-3 pe-4 text-gray-600">{{ $product->displayPricePerNaturalUnit() }}</td>
+                                            <td class="py-3 pe-4 text-gray-600">{{ $product->displayPrice() }}</td>
                                             @php
                                                 $marginPct = $product->grossMarginPercent();
                                                 $marginEur = $product->grossMargin();

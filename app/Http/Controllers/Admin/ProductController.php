@@ -287,13 +287,14 @@ class ProductController extends Controller
      */
     private function buildCoreAttributes(array $validated): array
     {
-        // Convert the admin-entered natural-unit price (€/kg, €/L,
-        // €/piece) into the per-storage-unit price (€/g, €/ml, €/piece)
-        // that the database carries. For piece/kg/l/bunch storage units
-        // the conversion is a no-op (divisor=1).
+        // The admin enters a price in their chosen `price_display_unit`
+        // (€/g, €/kg, €/ml, €/L, €/piece, €/bunch). Storage is always
+        // per *canonical* unit of the kind, so divide by the factor
+        // (1000 for kg/L, 1 for g/ml/piece/bunch).
         $unitEnum = ProductUnit::from($validated['unit']);
-        $storageUnitPrice = round(
-            ((float) $validated['price_per_natural_unit']) / $unitEnum->storageUnitsPerNaturalUnit(),
+        $displayUnit = $validated['price_display_unit'];
+        $canonicalUnitPrice = round(
+            ((float) $validated['price']) / $unitEnum->canonicalUnitsPerDisplay($displayUnit),
             4,
         );
 
@@ -301,7 +302,8 @@ class ProductController extends Controller
             'producer_id' => $validated['producer_id'],
             'category' => $validated['category'],
             'unit' => $validated['unit'],
-            'unit_price' => $storageUnitPrice,
+            'price_display_unit' => $displayUnit,
+            'unit_price' => $canonicalUnitPrice,
             'is_seasonal' => (bool) ($validated['is_seasonal'] ?? false),
             'is_available' => (bool) ($validated['is_available'] ?? false),
             'is_published' => (bool) ($validated['is_published'] ?? false),

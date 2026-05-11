@@ -134,8 +134,9 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'Légèrement sucrées et croquantes.'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '2.50',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '2.50',
             ])
             ->assertRedirect();
 
@@ -148,7 +149,10 @@ class AdminProductTest extends TestCase
             'id' => $product->id,
             'producer_id' => $producer->id,
             'category' => 'produce',
-            'unit_price' => 2.5,
+            // Admin entered €2.50/kg; storage canonical is €/g, so 0.0025.
+            'unit_price' => 0.0025,
+            'price_display_unit' => 'kg',
+            'unit' => 'mass',
             'is_available' => false,
             'is_published' => true,
             'is_seasonal' => false,
@@ -178,8 +182,9 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '1.00',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '1.00',
                 'is_available' => '1',
                 'image' => $file,
             ])
@@ -246,8 +251,9 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '1.00',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '1.00',
             ])
             ->assertForbidden();
 
@@ -260,8 +266,9 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '9.99',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '9.99',
             ])
             ->assertForbidden();
 
@@ -284,8 +291,9 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'Attr Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'sucré'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '2.50',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '2.50',
                 'buying_price' => '1.10',
                 'allergens' => ['gluten', 'nuts'],
                 'dietary_tags' => ['vegan', 'vegetarian'],
@@ -322,8 +330,9 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '1.00',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '1.00',
                 'pairings' => [$partnerB->id],
             ])
             ->assertRedirect();
@@ -348,8 +357,9 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '1.00',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '1.00',
                 'pairings' => [$product->id],
             ])
             ->assertSessionHasErrors('pairings.0');
@@ -373,8 +383,9 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'G', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '1.00',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '1.00',
                 'gallery_images' => [$a, $b],
             ])
             ->assertRedirect();
@@ -409,8 +420,9 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'R', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '1.00',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '1.00',
                 'gallery_remove' => [$image->id],
             ])
             ->assertRedirect();
@@ -440,8 +452,9 @@ class AdminProductTest extends TestCase
                     'fr' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
                 ],
                 'category' => 'produce',
-                'unit' => 'kg',
-                'price_per_natural_unit' => '3.25',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '3.25',
                 'is_available' => '1',
             ])
             ->assertRedirect(route('app.admin.products.edit', $product));
@@ -449,8 +462,9 @@ class AdminProductTest extends TestCase
         $product->refresh();
         $this->assertSame('New Name', $product->name);
         $this->assertSame('produce', $product->category);
-        // unit_price cast was widened to decimal:4 in Phase 4, so the
-        // stringified value carries trailing zeros.
-        $this->assertEquals(3.25, (float) $product->unit_price);
+        // Admin entered €3.25/kg → canonical storage is €/g. Cast is
+        // `decimal:4` so 0.00325 rounds to 0.0033.
+        $this->assertEqualsWithDelta(0.00325, (float) $product->unit_price, 0.0001);
+        $this->assertSame('kg', $product->price_display_unit);
     }
 }

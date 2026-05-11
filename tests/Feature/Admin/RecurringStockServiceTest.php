@@ -30,7 +30,7 @@ class RecurringStockServiceTest extends TestCase
 
     public function test_create_indefinite_schedule_materializes_default_horizon(): void
     {
-        $product = Product::factory()->create(['unit' => 'kg']);
+        $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
 
         $schedule = $this->service->createSchedule(
             product: $product,
@@ -52,7 +52,7 @@ class RecurringStockServiceTest extends TestCase
 
     public function test_create_bounded_schedule_only_writes_in_window(): void
     {
-        $product = Product::factory()->create(['unit' => 'kg']);
+        $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
 
         $this->service->createSchedule(
             product: $product,
@@ -67,7 +67,7 @@ class RecurringStockServiceTest extends TestCase
 
     public function test_cancel_from_deletes_future_unmodified_rows_only(): void
     {
-        $product = Product::factory()->create(['unit' => 'kg']);
+        $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
 
         $schedule = $this->service->createSchedule(
             product: $product,
@@ -101,7 +101,7 @@ class RecurringStockServiceTest extends TestCase
 
     public function test_adjust_from_ends_old_creates_new(): void
     {
-        $product = Product::factory()->create(['unit' => 'kg']);
+        $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
 
         $old = $this->service->createSchedule(
             product: $product,
@@ -133,7 +133,7 @@ class RecurringStockServiceTest extends TestCase
 
     public function test_materialize_window_idempotent(): void
     {
-        $product = Product::factory()->create(['unit' => 'kg']);
+        $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
 
         $this->service->createSchedule(
             product: $product,

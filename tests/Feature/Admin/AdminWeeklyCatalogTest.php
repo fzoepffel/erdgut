@@ -97,7 +97,7 @@ class AdminWeeklyCatalogTest extends TestCase
     public function test_save_creates_weekly_stock_for_existing_product(): void
     {
         $admin = User::factory()->admin()->create();
-        $product = Product::factory()->create(['unit' => 'kg']);
+        $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
         $monday = Carbon::parse('2026-04-06')->toDateString();
 
         $this->actingAs($admin)
@@ -120,15 +120,17 @@ class AdminWeeklyCatalogTest extends TestCase
             ->first();
 
         $this->assertNotNull($stock);
-        $this->assertEqualsWithDelta(42.5, (float) $stock->planned_quantity, 0.001);
-        // Unit is now derived from the product, not stored per week.
-        $this->assertSame('kg', $product->fresh()->unit->value);
+        // Admin entered 42.5 in display unit (kg); storage is canonical (g).
+        $this->assertEqualsWithDelta(42500.0, (float) $stock->planned_quantity, 0.001);
+        // Unit is the kind (mass); display unit is per the product.
+        $this->assertSame('mass', $product->fresh()->unit->value);
+        $this->assertSame('kg', $product->fresh()->price_display_unit);
     }
 
     public function test_save_upserts_existing_stock_row(): void
     {
         $admin = User::factory()->admin()->create();
-        $product = Product::factory()->create(['unit' => 'kg']);
+        $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
         $monday = Carbon::parse('2026-04-06')->toDateString();
 
         $existing = ProductWeekStock::create([
@@ -152,7 +154,8 @@ class AdminWeeklyCatalogTest extends TestCase
             ->assertRedirect();
 
         $existing->refresh();
-        $this->assertEqualsWithDelta(22.0, (float) $existing->planned_quantity, 0.001);
+        // Admin entered 22 in display unit (kg); storage is canonical (g).
+        $this->assertEqualsWithDelta(22000.0, (float) $existing->planned_quantity, 0.001);
     }
 
     public function test_save_creates_new_product_inline(): void

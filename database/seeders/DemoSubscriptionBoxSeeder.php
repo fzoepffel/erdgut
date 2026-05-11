@@ -189,6 +189,8 @@ class DemoSubscriptionBoxSeeder extends Seeder
                 ],
                 [
                     'quantity' => $quantity,
+                    // BoxItem.unit is a freeform string snapshot — keep
+                    // the human-readable symbol the way customers see it.
                     'unit' => 'kg',
                     'is_extra' => false,
                     'is_test' => true,

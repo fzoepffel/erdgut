@@ -22,8 +22,8 @@ class BoxValueRecalculationServiceTest extends TestCase
         Address::factory()->create(['user_id' => $user->id, 'is_primary' => true]);
         $box = Box::factory()->create(['user_id' => $user->id, 'estimated_value' => 0]);
         $producer = Producer::factory()->create();
-        $product1 = Product::factory()->create(['producer_id' => $producer->id, 'unit_price' => 5.00]);
-        $product2 = Product::factory()->create(['producer_id' => $producer->id, 'unit_price' => 3.00]);
+        $product1 = Product::factory()->create(['producer_id' => $producer->id, 'unit' => 'piece', 'price_display_unit' => 'piece', 'unit_price' => 5.00]);
+        $product2 = Product::factory()->create(['producer_id' => $producer->id, 'unit' => 'piece', 'price_display_unit' => 'piece', 'unit_price' => 3.00]);
 
         BoxItem::factory()->create([
             'box_id' => $box->id,
@@ -66,7 +66,7 @@ class BoxValueRecalculationServiceTest extends TestCase
         Address::factory()->create(['user_id' => $user->id, 'is_primary' => true]);
         $box = Box::factory()->create(['user_id' => $user->id, 'estimated_value' => 0]);
         $producer = Producer::factory()->create();
-        $product = Product::factory()->create(['producer_id' => $producer->id, 'unit_price' => 7.50]);
+        $product = Product::factory()->create(['producer_id' => $producer->id, 'unit' => 'piece', 'price_display_unit' => 'piece', 'unit_price' => 7.50]);
 
         BoxItem::factory()->create([
             'box_id' => $box->id,
