@@ -13,17 +13,19 @@ use Illuminate\Support\Facades\DB;
  * query availability for any date within the week still find it.
  *
  * Each `product_week_stock_schedules` row becomes a
- * `product_stock_inflow_schedules` row with `weekday = 0` (Monday),
- * `starts_on = starts_on_monday`, `ends_on = ends_on_monday`,
- * `freshness_window_days = 7`.
+ * `product_stock_inflow_schedules` row with `weekday = 1` (Monday in
+ * Carbon's dayOfWeek convention), `starts_on = starts_on_monday`,
+ * `ends_on = ends_on_monday`, `freshness_window_days = 7`.
  *
  * The inflow.source_schedule_id back-pointer is remapped from the
  * old schedule id to the new one via an in-memory lookup built
  * while migrating schedules.
  *
- * Idempotent: a `[migrated:wsid=<old_id>]` marker on the inflow's
- * `notes` column lets reruns skip already-migrated rows. Same
- * marker on schedule notes for the schedule side.
+ * Idempotent: a `[migrated:wsid=<old_id>]` marker on each inflow's
+ * `notes` and a `[migrated:wssid=<old_id>]` marker on each schedule's
+ * `notes` let reruns skip already-migrated rows. Distinct prefixes
+ * so a search for one source's marker can't accidentally match the
+ * other.
  *
  * The legacy tables are NOT dropped here — Phase 6 will drop them
  * once Phases 1–5 are stable on prod.
@@ -45,11 +47,11 @@ return new class extends Migration
     {
         DB::transaction(function (): void {
             DB::table('product_stock_inflows')
-                ->where('notes', 'like', '[migrated:wsid=%]')
+                ->where('notes', 'like', '%[migrated:wsid=%')
                 ->delete();
 
             DB::table('product_stock_inflow_schedules')
-                ->where('notes', 'like', '[migrated:wsid=%]')
+                ->where('notes', 'like', '%[migrated:wssid=%')
                 ->delete();
         });
     }
@@ -68,7 +70,7 @@ return new class extends Migration
 
         $rows = DB::table('product_week_stock_schedules')->orderBy('id')->get();
         foreach ($rows as $row) {
-            $marker = '[migrated:wsid='.$row->id.']';
+            $marker = '[migrated:wssid='.$row->id.']';
             $existing = DB::table('product_stock_inflow_schedules')
                 ->where('notes', 'like', '%'.$marker.'%')
                 ->value('id');
@@ -80,7 +82,8 @@ return new class extends Migration
 
             $newId = DB::table('product_stock_inflow_schedules')->insertGetId([
                 'product_id' => $row->product_id,
-                'weekday' => 0, // Monday
+                // Monday in Carbon dayOfWeek convention.
+                'weekday' => 1,
                 'planned_quantity' => $row->planned_quantity,
                 'freshness_window_days' => 7,
                 'starts_on' => $row->starts_on_monday,
