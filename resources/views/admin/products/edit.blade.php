@@ -32,7 +32,10 @@
                 </div>
             </div>
 
-            @include('admin.products._schedules', ['product' => $product, 'schedules' => $schedules])
+            <p class="text-xs text-gray-500">
+                {{ __('admin.product_schedules.moved_to_weekly_catalog_hint') }}
+                <a href="{{ route('app.admin.products.weekly.show') }}" class="font-medium text-emerald-700 hover:underline">{{ __('admin.weekly_catalog.nav_label') }}</a>.
+            </p>
         </div>
     </div>
 </x-admin-layout>

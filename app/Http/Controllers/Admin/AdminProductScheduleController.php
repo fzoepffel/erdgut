@@ -13,11 +13,11 @@ use Illuminate\Support\Carbon;
 /**
  * Admin CRUD for recurring weekly-stock schedules attached to a Product.
  *
- * Renders inside the product edit page. Three POSTs: create a new
- * schedule, cancel an existing schedule from a chosen Monday, adjust
- * an existing schedule's quantity from a chosen Monday. All operations
- * delegate to {@see RecurringStockService} which handles materialization
- * and manual-override preservation.
+ * The forms render inside the weekly catalog view (one expandable panel
+ * per row). Three POSTs: create, cancel from a Monday, adjust from a
+ * Monday. All operations delegate to {@see RecurringStockService}; we
+ * redirect back to the page that posted the form so the admin lands
+ * back on the weekly catalog (or product edit if they came from there).
  */
 class AdminProductScheduleController extends Controller
 {
@@ -43,9 +43,7 @@ class AdminProductScheduleController extends Controller
             notes: $validated['notes'] ?? null,
         );
 
-        return redirect()
-            ->route('app.admin.products.edit', $product)
-            ->with('status', __('admin.product_schedules.flash_created'));
+        return $this->redirectBack($request, $product, __('admin.product_schedules.flash_created'));
     }
 
     public function cancel(Request $request, Product $product, ProductWeekStockSchedule $schedule): RedirectResponse
@@ -59,9 +57,7 @@ class AdminProductScheduleController extends Controller
 
         $this->recurring->cancelFrom($schedule->id, Carbon::parse($validated['from_monday']));
 
-        return redirect()
-            ->route('app.admin.products.edit', $product)
-            ->with('status', __('admin.product_schedules.flash_cancelled'));
+        return $this->redirectBack($request, $product, __('admin.product_schedules.flash_cancelled'));
     }
 
     public function adjust(Request $request, Product $product, ProductWeekStockSchedule $schedule): RedirectResponse
@@ -81,9 +77,7 @@ class AdminProductScheduleController extends Controller
             createdByUserId: (int) $request->user()->id,
         );
 
-        return redirect()
-            ->route('app.admin.products.edit', $product)
-            ->with('status', __('admin.product_schedules.flash_adjusted'));
+        return $this->redirectBack($request, $product, __('admin.product_schedules.flash_adjusted'));
     }
 
     /**
@@ -99,5 +93,20 @@ class AdminProductScheduleController extends Controller
         $displayUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
 
         return round($displayQuantity * $product->unit->canonicalUnitsPerDisplay($displayUnit), 4);
+    }
+
+    /**
+     * Send the admin back to whichever surface posted the form. The
+     * preferred path is a `_redirect` hidden field on the form; fallback
+     * is the HTTP referer; final fallback is the product edit page.
+     */
+    private function redirectBack(Request $request, Product $product, string $status): RedirectResponse
+    {
+        $target = $request->input('_redirect');
+        if (! is_string($target) || $target === '') {
+            $target = $request->headers->get('referer') ?: route('app.admin.products.edit', $product);
+        }
+
+        return redirect($target)->with('status', $status);
     }
 }

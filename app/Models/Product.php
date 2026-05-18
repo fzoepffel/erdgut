@@ -294,6 +294,14 @@ class Product extends Model
     }
 
     /**
+     * Recurring weekly-stock schedules attached to this product.
+     */
+    public function weekStockSchedules(): HasMany
+    {
+        return $this->hasMany(ProductWeekStockSchedule::class);
+    }
+
+    /**
      * Products with a positive planned quantity for the given Monday.
      */
     public function scopeAvailableForWeek(Builder $query, Carbon $week): void

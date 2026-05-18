@@ -164,6 +164,14 @@
                                                 {{ rtrim(rtrim(number_format($row['display_distributed'], 2, ',', '.'), '0'), ',') }}
                                                 {{ \App\Enums\ProductUnit::displaySymbol($row['display_unit']) }}
                                             </div>
+                                            @if ($product?->id !== null)
+                                                <a
+                                                    href="#product-schedule-{{ $product->id }}"
+                                                    class="mt-1 inline-flex text-xs font-medium text-emerald-700 hover:underline"
+                                                >
+                                                    {{ __('admin.weekly_catalog.manage_recurring_link') }} →
+                                                </a>
+                                            @endif
                                         </td>
                                         <td class="px-3 py-2 align-top">
                                             <input
@@ -329,6 +337,51 @@
                     </x-primary-button>
                 </div>
             </form>
+
+            {{-- Recurring weekly-stock schedules. Lives outside the catalog
+                 save form because each panel hosts its own POST forms
+                 (create / cancel / adjust) and HTML disallows nested forms. --}}
+            @php
+                // Dedup rows to one panel per product so multi-stock-row
+                // edge cases (shouldn't happen in practice, but defensive)
+                // don't render duplicate panels.
+                $schedulePanelRows = collect($rows)
+                    ->filter(fn ($r) => ($r['product'] ?? null) !== null)
+                    ->unique(fn ($r) => $r['product']->id)
+                    ->values();
+            @endphp
+            @if ($schedulePanelRows->isNotEmpty())
+                <div class="space-y-4">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900">{{ __('admin.product_schedules.heading') }}</h2>
+                        <p class="mt-1 text-sm text-gray-600">{{ __('admin.product_schedules.intro') }}</p>
+                    </div>
+                    <div class="space-y-3">
+                        @foreach ($schedulePanelRows as $scheduleRow)
+                            @php
+                                /** @var \App\Models\Product $scheduleProduct */
+                                $scheduleProduct = $scheduleRow['product'];
+                                $scheduleCollection = $scheduleRow['schedules'] ?? collect();
+                                $anchorId = 'product-schedule-'.$scheduleProduct->id;
+                            @endphp
+                            <details id="{{ $anchorId }}" class="rounded-lg border border-gray-200 bg-white shadow-sm">
+                                <summary class="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50">
+                                    <span>{{ $scheduleProduct->name }}</span>
+                                    <span class="text-xs font-medium uppercase tracking-wide text-gray-500">
+                                        {{ trans_choice('admin.product_schedules.summary_count', $scheduleCollection->count(), ['count' => $scheduleCollection->count()]) }}
+                                    </span>
+                                </summary>
+                                <div class="border-t border-gray-100">
+                                    @include('admin.products._schedules', [
+                                        'product' => $scheduleProduct,
+                                        'schedules' => $scheduleCollection,
+                                    ])
+                                </div>
+                            </details>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 </x-admin-layout>
