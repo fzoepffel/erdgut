@@ -99,6 +99,16 @@
             expectedDeliveryDate: {{ json_encode((string) old('expected_delivery_date', '')) }},
             remainingByMonday: @js($availableWeeks->mapWithKeys(fn ($w) => [$w['monday']->toDateString() => ['white' => (int) $w['remaining_white_g'], 'green' => (int) $w['remaining_green_g']]])->all()),
             quantityStep: {{ (int) $quantityStepGrams }},
+            // Filled in when a week-change forces a quantity down to fit
+            // the per-week cap. Customer can dismiss; auto-clears when
+            // the next clamp-less week is picked.
+            stockClampNotice: '',
+            stockClampLabels: @js([
+                'intro' => __('spargel.stock_clamp_notice_intro'),
+                'green' => __('spargel.stock_clamp_notice_green'),
+                'white' => __('spargel.stock_clamp_notice_white'),
+                'dismiss' => __('spargel.stock_clamp_notice_dismiss'),
+            ]),
             pricePerKg: {{ (float) $pricePerKgEur }},
             deliveryFee: {{ (float) $deliveryFeeEur }},
             deliveryMin: {{ (int) $deliveryMinGrams }},
@@ -131,12 +141,22 @@
             // When the picked week changes, clamp any over-cap quantity
             // down to the largest valid step ≤ remaining stock so the
             // form can't submit something the per-week cap will reject.
+            // A user-visible notice describes what was changed so the
+            // jump in the dropdown isn't silent.
             $watch('expectedDeliveryDate', () => {
                 const clamp = (v) => Math.floor(v / quantityStep) * quantityStep;
                 const maxG = maxFor('green');
                 const maxW = maxFor('white');
-                if (maxG !== null && green > maxG) green = Math.max(0, clamp(maxG));
-                if (maxW !== null && white > maxW) white = Math.max(0, clamp(maxW));
+                const parts = [];
+                if (maxG !== null && green > maxG) {
+                    green = Math.max(0, clamp(maxG));
+                    parts.push(stockClampLabels.green.replace(':max', green));
+                }
+                if (maxW !== null && white > maxW) {
+                    white = Math.max(0, clamp(maxW));
+                    parts.push(stockClampLabels.white.replace(':max', white));
+                }
+                stockClampNotice = parts.length ? (stockClampLabels.intro + ' ' + parts.join(', ') + '.') : '';
             });
         "
     >
@@ -275,6 +295,22 @@
                         </option>
                     @endforeach
                 </select>
+                <div
+                    x-show="stockClampNotice"
+                    x-cloak
+                    x-transition.opacity
+                    class="flex items-start justify-between gap-3 border border-chapter-meat/40 bg-chapter-meat/[0.06] p-3 text-sm leading-relaxed text-brand-ink"
+                    role="status"
+                    data-testid="spargel-stock-clamp-notice"
+                >
+                    <p x-text="stockClampNotice"></p>
+                    <button
+                        type="button"
+                        x-on:click="stockClampNotice = ''"
+                        class="shrink-0 text-brand-ink/55 hover:text-brand-ink focus:outline-none focus:text-brand-ink"
+                        :aria-label="stockClampLabels.dismiss"
+                    >&times;</button>
+                </div>
                 <p class="text-xs text-brand-ink/55">{{ __('spargel.week_picker_hint') }}</p>
             @endif
             <x-input-error :messages="$errors->get('expected_delivery_date')" class="mt-2" />
