@@ -70,6 +70,7 @@
                                                 class="flex flex-wrap items-end gap-2 rounded border border-emerald-200 bg-emerald-50/40 p-3 text-left"
                                             >
                                                 @csrf
+                                                <input type="hidden" name="_redirect" value="{{ url()->current() }}#product-schedule-{{ $product->id }}" />
                                                 <label class="text-xs text-gray-700">
                                                     {{ __('admin.product_schedules.field_from_monday') }}
                                                     <input type="date" name="from_monday" required class="mt-1 block rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
@@ -90,6 +91,7 @@
                                                 onsubmit="return confirm('{{ __('admin.product_schedules.confirm_cancel') }}');"
                                             >
                                                 @csrf
+                                                <input type="hidden" name="_redirect" value="{{ url()->current() }}#product-schedule-{{ $product->id }}" />
                                                 <label class="text-xs text-gray-700">
                                                     {{ __('admin.product_schedules.field_cancel_from_monday') }}
                                                     <input type="date" name="from_monday" required class="mt-1 block rounded border-gray-300 text-sm shadow-sm focus:border-rose-600 focus:ring-rose-600" />
@@ -112,6 +114,7 @@
             <summary class="cursor-pointer text-sm font-semibold text-gray-900">{{ __('admin.product_schedules.create_heading') }}</summary>
             <form method="POST" action="{{ route('app.admin.products.schedules.store', $product) }}" class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @csrf
+                <input type="hidden" name="_redirect" value="{{ url()->current() }}#product-schedule-{{ $product->id }}" />
                 <label class="text-xs text-gray-700">
                     {{ __('admin.product_schedules.field_quantity') }} ({{ $unitLabel }})
                     <input type="number" name="planned_quantity" step="0.01" min="0.01" required class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />

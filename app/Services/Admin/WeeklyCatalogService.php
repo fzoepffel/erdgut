@@ -30,6 +30,7 @@ final class WeeklyCatalogService
      *     display_distributed: float,
      *     display_remaining: float,
      *     conversion_factor: int,
+     *     schedules: Collection,
      * }>
      */
     public function rowsForWeek(Carbon $week): Collection
@@ -39,7 +40,9 @@ final class WeeklyCatalogService
         /** @var Collection<int, ProductWeekStock> $stocks */
         $stocks = ProductWeekStock::query()
             ->whereDate('week_start_date', $date)
-            ->with('product.translations')
+            ->with(['product.translations', 'product.weekStockSchedules' => function ($q): void {
+                $q->orderByDesc('starts_on_monday');
+            }])
             ->get()
             ->sortBy(fn (ProductWeekStock $s) => $s->product?->name ?? '')
             ->values();
@@ -73,6 +76,7 @@ final class WeeklyCatalogService
                     'display_distributed' => round($distributed / $factor, 4),
                     'display_remaining' => round($remaining / $factor, 4),
                     'conversion_factor' => $factor,
+                    'schedules' => $product?->weekStockSchedules ?? collect(),
                 ];
             })
             ->values();
