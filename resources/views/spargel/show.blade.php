@@ -96,6 +96,9 @@
             mode: {{ json_encode(old('fulfillment_mode', 'pickup')) }},
             payment: {{ json_encode(old('payment_method', 'online')) }},
             pickupLocation: {{ json_encode(old('pickup_location', '')) }},
+            expectedDeliveryDate: {{ json_encode((string) old('expected_delivery_date', '')) }},
+            remainingByMonday: @js($availableWeeks->mapWithKeys(fn ($w) => [$w['monday']->toDateString() => ['white' => (int) $w['remaining_white_g'], 'green' => (int) $w['remaining_green_g']]])->all()),
+            quantityStep: {{ (int) $quantityStepGrams }},
             pricePerKg: {{ (float) $pricePerKgEur }},
             deliveryFee: {{ (float) $deliveryFeeEur }},
             deliveryMin: {{ (int) $deliveryMinGrams }},
@@ -108,6 +111,15 @@
             get lineTotal() { return Math.round((this.totalGrams / 1000) * this.pricePerKg * 100) / 100; },
             get total() { return Math.round((this.lineTotal + this.effectiveDeliveryFee) * 100) / 100; },
             money(v) { return v.toFixed(2).replace('.', ',') + ' €'; },
+            // Per-variety remaining grams for the currently-picked week.
+            // Returns null when no week is selected — callers treat that
+            // as 'no cap yet, leave all options enabled'.
+            maxFor(variety) {
+                if (!this.expectedDeliveryDate) return null;
+                const r = this.remainingByMonday[this.expectedDeliveryDate];
+                if (!r) return null;
+                return variety === 'green' ? r.green : r.white;
+            },
         }"
         x-init="
             if (!deliveryAllowed) mode = 'pickup';
@@ -116,6 +128,16 @@
             $watch('mode', value => { if (value === 'delivery') payment = 'online'; });
             $watch('green', () => { if (!deliveryAllowed) mode = 'pickup'; });
             $watch('white', () => { if (!deliveryAllowed) mode = 'pickup'; });
+            // When the picked week changes, clamp any over-cap quantity
+            // down to the largest valid step ≤ remaining stock so the
+            // form can't submit something the per-week cap will reject.
+            $watch('expectedDeliveryDate', () => {
+                const clamp = (v) => Math.floor(v / quantityStep) * quantityStep;
+                const maxG = maxFor('green');
+                const maxW = maxFor('white');
+                if (maxG !== null && green > maxG) green = Math.max(0, clamp(maxG));
+                if (maxW !== null && white > maxW) white = Math.max(0, clamp(maxW));
+            });
         "
     >
         @csrf
@@ -192,7 +214,11 @@
                                     data-testid="spargel-{{ $v['key'] }}-grams"
                                 >
                                     @foreach ($quantityOptions as $g)
-                                        <option value="{{ $g }}" @selected($current === $g)>
+                                        <option
+                                            value="{{ $g }}"
+                                            :disabled="maxFor('{{ $stateVar }}') !== null && {{ $g }} > maxFor('{{ $stateVar }}')"
+                                            @selected($current === $g)
+                                        >
                                             {{ $g === 0 ? '0 '.__('spargel.unit_grams_short').' — '.__('spargel.quantity_none') : $g.' '.__('spargel.unit_grams_short') }}
                                         </option>
                                     @endforeach
@@ -230,6 +256,7 @@
                 <select
                     id="spargel-expected-delivery-date"
                     name="expected_delivery_date"
+                    x-model="expectedDeliveryDate"
                     class="block w-full border border-brand-ink/30 bg-white py-2.5 pl-3 pr-8 text-base text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0 sm:w-auto"
                     required
                     data-testid="spargel-week-picker"
