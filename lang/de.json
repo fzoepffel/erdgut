@@ -2036,7 +2036,7 @@
     "spargel.week_picker_intro": "Wähle den Montag, an dem dein Spargel ankommen soll. Es erscheinen nur Wochen, für die noch Spargel verfügbar ist.",
     "spargel.week_picker_placeholder": "— Woche wählen —",
     "spargel.week_picker_empty": "Aktuell ist kein Spargel verfügbar. Schau in den nächsten Tagen noch einmal vorbei.",
-    "spargel.week_picker_hint": "Der Spargel wird am gewählten Montag oder am Tag davor geerntet und am gleichen Tag oder am Tag danach geliefert.",
+    "spargel.week_picker_hint": "Der Spargel wird am gewählten Montag oder am Tag davor geerntet und am gleichen Tag geliefert.",
     "spargel.week_option_limited_badge": "nur noch wenig übrig",
     "spargel.errors.week_cap_white": "Für diese Woche sind nur noch :remaining g weißer Spargel verfügbar.",
     "spargel.errors.week_cap_green": "Für diese Woche sind nur noch :remaining g grüner Spargel verfügbar.",
