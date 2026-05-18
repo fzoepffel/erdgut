@@ -29,8 +29,10 @@ class ProductSeeder extends Seeder
         $products = [
             [
                 'category' => 'produce',
-                'unit' => 'kg',
-                'unit_price' => 2.49,
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                // €2.49/kg → store €/g.
+                'unit_price' => 0.00249,
                 'is_seasonal' => false,
                 'translations' => [
                     'de' => ['name' => 'Bio-Karotten', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'Süß, knackig und ideal für Salate oder zum Rösten.'],
@@ -40,8 +42,9 @@ class ProductSeeder extends Seeder
             ],
             [
                 'category' => 'produce',
-                'unit' => 'kg',
-                'unit_price' => 3.20,
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'unit_price' => 0.00320,
                 'is_seasonal' => false,
                 'translations' => [
                     'de' => ['name' => 'Äpfel Elstar', 'origin' => 'regional', 'variety' => 'Elstar', 'taste_profile' => 'Saftig, ausgewogen süß-säuerlich und sehr aromatisch.'],
@@ -52,6 +55,7 @@ class ProductSeeder extends Seeder
             [
                 'category' => 'eggs_and_dairy',
                 'unit' => 'piece',
+                'price_display_unit' => 'piece',
                 'unit_price' => 4.20,
                 'is_seasonal' => false,
                 'translations' => [
@@ -63,6 +67,7 @@ class ProductSeeder extends Seeder
             [
                 'category' => 'bread',
                 'unit' => 'piece',
+                'price_display_unit' => 'piece',
                 'unit_price' => 4.80,
                 'is_seasonal' => false,
                 'translations' => [
@@ -81,6 +86,7 @@ class ProductSeeder extends Seeder
                 'producer_id' => $producer->id,
                 'category' => $row['category'],
                 'unit' => $row['unit'],
+                'price_display_unit' => $row['price_display_unit'],
                 'unit_price' => $row['unit_price'],
                 'is_seasonal' => $row['is_seasonal'],
                 'is_available' => true,

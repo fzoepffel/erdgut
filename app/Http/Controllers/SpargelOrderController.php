@@ -31,14 +31,14 @@ class SpargelOrderController extends Controller
 
     public function show(): View
     {
-        // Both possible delivery Mondays — the form's banner switches
-        // between them based on the variety mix the customer picks. With
-        // the white-only flag we always get the closest Monday (Sunday
-        // cutoff is so late it never triggers a week-shift); with the
-        // green flag we may shift forward by a week if today is past
-        // Thursday.
-        $whiteOnlyMonday = $this->service->nextDeliveryMonday(null, 0, 1);
-        $greenInCartMonday = $this->service->nextDeliveryMonday(null, 1, 0);
+        // Phase 3 (2026-05-09): the form's old time-cutoff banner is
+        // replaced by an explicit week-picker. Admin sets the weekly
+        // stock via the Wochenkatalog / recurring-schedule UI; only
+        // weeks with non-zero remaining grams appear here, and the
+        // submit handler validates that the picked Monday is still on
+        // the menu at the moment of order create.
+        $availableWeeks = $this->service->availableWeeks();
+        $lowStockThreshold = (int) config('spargel.low_stock_badge_threshold_grams', 500);
 
         return view('spargel.show', [
             'pricePerKgEur' => SpargelOrderService::PRICE_PER_KG_EUR,
@@ -48,8 +48,8 @@ class SpargelOrderController extends Controller
             'quantityOptions' => SpargelOrderService::quantityOptions(),
             'pickupLocations' => SpargelOrderService::PICKUP_LOCATIONS,
             'vatRatePercent' => SpargelOrderService::VAT_RATE_PERCENT,
-            'whiteOnlyMonday' => $whiteOnlyMonday,
-            'greenInCartMonday' => $greenInCartMonday,
+            'availableWeeks' => $availableWeeks,
+            'lowStockThreshold' => $lowStockThreshold,
         ]);
     }
 

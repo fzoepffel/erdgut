@@ -943,7 +943,7 @@ final class WeeklyBoxSetupService
                 'planned' => $planned,
                 'distributed' => round($used, 2),
                 'available' => max(0.0, round($planned - $used, 2)),
-                'unit' => (string) ($row->unit ?? $product->unit?->value ?? $product->metadata['unit'] ?? 'piece'),
+                'unit' => (string) ($product->unit?->value ?? 'piece'),
             ];
         }
 

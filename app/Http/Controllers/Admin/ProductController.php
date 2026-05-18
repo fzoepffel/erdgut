@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\Allergen;
 use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
+use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreProductRequest;
@@ -13,6 +14,7 @@ use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductTranslation;
+use App\Models\ProductWeekStockSchedule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -268,6 +270,14 @@ class ProductController extends Controller
             'dietaryCases' => DietaryTag::cases(),
             'tasteCases' => TasteProfile::cases(),
             'pairableProducts' => $pairableProducts,
+            // Recurring weekly-stock schedules attached to this product
+            // (Phase 2). Empty for new products since they aren't saved yet.
+            'schedules' => $product?->id !== null
+                ? ProductWeekStockSchedule::query()
+                    ->where('product_id', $product->id)
+                    ->orderByDesc('starts_on_monday')
+                    ->get()
+                : collect(),
         ];
     }
 
@@ -277,11 +287,23 @@ class ProductController extends Controller
      */
     private function buildCoreAttributes(array $validated): array
     {
+        // The admin enters a price in their chosen `price_display_unit`
+        // (€/g, €/kg, €/ml, €/L, €/piece, €/bunch). Storage is always
+        // per *canonical* unit of the kind, so divide by the factor
+        // (1000 for kg/L, 1 for g/ml/piece/bunch).
+        $unitEnum = ProductUnit::from($validated['unit']);
+        $displayUnit = $validated['price_display_unit'];
+        $canonicalUnitPrice = round(
+            ((float) $validated['price']) / $unitEnum->canonicalUnitsPerDisplay($displayUnit),
+            4,
+        );
+
         $payload = [
             'producer_id' => $validated['producer_id'],
             'category' => $validated['category'],
             'unit' => $validated['unit'],
-            'unit_price' => $validated['unit_price'],
+            'price_display_unit' => $displayUnit,
+            'unit_price' => $canonicalUnitPrice,
             'is_seasonal' => (bool) ($validated['is_seasonal'] ?? false),
             'is_available' => (bool) ($validated['is_available'] ?? false),
             'is_published' => (bool) ($validated['is_published'] ?? false),

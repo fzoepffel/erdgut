@@ -38,11 +38,17 @@ class ProductFactory extends Factory
      */
     public function definition(): array
     {
+        // Default to piece so factory products have factor=1 between
+        // canonical storage and display — keeps existing tests that
+        // assume `quantity × unit_price = € total` valid without
+        // needing per-test setup. Mass/volume/bunch are still
+        // available by passing `unit` explicitly.
         return [
             'producer_id' => Producer::factory(),
             // Chapter taxonomy (D6/D7/F8 in UX-review notes).
             'category' => fake()->randomElement(['produce', 'eggs_and_dairy', 'bread']),
-            'unit' => fake()->randomElement([ProductUnit::Kilogram->value, ProductUnit::Piece->value, ProductUnit::Bunch->value]),
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
             'unit_price' => fake()->randomFloat(2, 1, 30),
             'is_seasonal' => fake()->boolean(),
             'is_available' => true,

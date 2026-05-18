@@ -60,7 +60,7 @@
             <tr>
                 <td style="{{ $detailRowStyle }} {{ $detailLabelStyle }}">White spargel</td>
                 <td style="{{ $detailRowStyle }} {{ $detailValueStyle }}">
-                    {{ number_format($whiteG, 0, '.', ',') }} g
+                    {{ \App\Enums\ProductUnit::Mass->formatQuantity($whiteG, 'en') }}
                     <span style="color: #6b5b4c;">·
                         {{ $eur(($whiteG / 1000) * $unitEur) }}
                         ({{ $eur($unitEur) }}/kg)
@@ -72,7 +72,7 @@
             <tr>
                 <td style="{{ $detailRowStyle }} {{ $detailLabelStyle }}">Green spargel</td>
                 <td style="{{ $detailRowStyle }} {{ $detailValueStyle }}">
-                    {{ number_format($greenG, 0, '.', ',') }} g
+                    {{ \App\Enums\ProductUnit::Mass->formatQuantity($greenG, 'en') }}
                     <span style="color: #6b5b4c;">·
                         {{ $eur(($greenG / 1000) * $unitEur) }}
                         ({{ $eur($unitEur) }}/kg)

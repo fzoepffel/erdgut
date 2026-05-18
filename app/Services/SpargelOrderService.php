@@ -3,11 +3,13 @@
 namespace App\Services;
 
 use App\Enums\SpargelOrderStatus;
+use App\Models\ProductWeekStock;
 use App\Models\SpargelOrder;
 use App\Services\Onboarding\TrialOrderService;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -153,72 +155,133 @@ class SpargelOrderService
     }
 
     /**
-     * Per-variety order cutoff (ISO weekday: Mon=1, …, Sun=7). Anything
-     * ordered up to and including the cutoff day ships the coming Monday;
-     * anything ordered later shifts to the Monday after.
+     * Weeks available for spargel orders.
      *
-     * Green needs more lead time in the field, so it cuts off on
-     * Thursday. White can be picked at very short notice — Max harvests
-     * Sunday for Monday — so we accept white right up to Sunday.
+     * A Monday is "available" iff BOTH spargel products (white + green)
+     * have a `ProductWeekStock` row for that week with non-zero remaining
+     * grams (= planned − already-booked). Mondays already in the past
+     * are excluded; same for the current Monday after morning cutoff
+     * (kept until the day before by querying `>= today + 1 day`).
+     *
+     * Returns Mondays in ascending order. Empty when spargel config is
+     * unset or the products aren't found — the form then renders the
+     * empty-state hint and disables the submit button.
+     *
+     * @return Collection<int, array{monday: Carbon, remaining_white_g: int, remaining_green_g: int}>
      */
-    public const CUTOFF_ISO_GREEN = 4; // Thursday
+    public function availableWeeks(): Collection
+    {
+        $whiteId = config('spargel.white_product_id');
+        $greenId = config('spargel.green_product_id');
 
-    public const CUTOFF_ISO_WHITE = 7; // Sunday
-
-    /**
-     * The Monday on which an order placed at $now will be delivered.
-     *
-     * The cutoff depends on the varieties in the cart: green-only or
-     * mixed orders use the green (Thursday) cutoff because the same
-     * delivery day has to wait for the slower-to-prepare variety.
-     * White-only orders may use the Sunday cutoff. With nothing
-     * selected we fall back to the green cutoff (the safe default for
-     * the form's initial banner before the customer picks a variety).
-     *
-     * Always returns a Carbon at start-of-day in the app timezone so the
-     * date is formatter-friendly.
-     */
-    public function nextDeliveryMonday(
-        ?Carbon $now = null,
-        int $greenGrams = 0,
-        int $whiteGrams = 0,
-    ): Carbon {
-        $now = $now ?? Carbon::now();
-
-        $cutoffIso = $this->cutoffIsoForCart($greenGrams, $whiteGrams);
-
-        // dayOfWeekIso: 1 = Mon, …, 7 = Sun.
-        $iso = (int) $now->dayOfWeekIso;
-
-        // Carbon's next() always returns a *future* date, never today —
-        // exactly what we want (we can't deliver same-day).
-        $monday = $now->copy()->next(Carbon::MONDAY);
-
-        // Past the cutoff for the varieties in the cart → shift one more
-        // week so Max has enough lead time to prepare.
-        if ($iso > $cutoffIso) {
-            $monday = $monday->copy()->addWeek();
+        if ($whiteId === null || $greenId === null) {
+            return collect();
         }
 
-        return $monday->startOfDay();
+        // Tomorrow's date — keeps today's Monday in the list if today *is*
+        // a Monday and there's still stock; excludes Mondays already gone.
+        $earliestMonday = Carbon::tomorrow()->startOfWeek(Carbon::MONDAY);
+
+        // Pull planned quantities + already-booked for both products in
+        // one shot per side. ProductWeekStock is indexed by week_start_date.
+        $whiteStocks = ProductWeekStock::query()
+            ->where('product_id', (int) $whiteId)
+            ->whereDate('week_start_date', '>=', $earliestMonday->toDateString())
+            ->where('planned_quantity', '>', 0)
+            ->orderBy('week_start_date')
+            ->get(['week_start_date', 'planned_quantity']);
+
+        $greenStocks = ProductWeekStock::query()
+            ->where('product_id', (int) $greenId)
+            ->whereDate('week_start_date', '>=', $earliestMonday->toDateString())
+            ->where('planned_quantity', '>', 0)
+            ->orderBy('week_start_date')
+            ->get(['week_start_date', 'planned_quantity']);
+
+        $whiteByMonday = $whiteStocks->keyBy(fn ($r) => $r->week_start_date->toDateString());
+        $greenByMonday = $greenStocks->keyBy(fn ($r) => $r->week_start_date->toDateString());
+
+        $mondays = $whiteByMonday->keys()->merge($greenByMonday->keys())->unique()->sort()->values();
+
+        // Bulk-load existing booked grams per Monday so we don't N+1 in the
+        // loop below.
+        $bookedWhite = SpargelOrder::query()
+            ->whereIn('expected_delivery_date', $mondays->all())
+            ->whereNotIn('status', [SpargelOrderStatus::Cancelled, SpargelOrderStatus::Refunded])
+            ->groupBy('expected_delivery_date')
+            ->selectRaw('expected_delivery_date, SUM(quantity_white_grams) AS sum_white')
+            ->get()
+            ->keyBy(fn ($r) => Carbon::parse((string) $r->expected_delivery_date)->toDateString());
+
+        $bookedGreen = SpargelOrder::query()
+            ->whereIn('expected_delivery_date', $mondays->all())
+            ->whereNotIn('status', [SpargelOrderStatus::Cancelled, SpargelOrderStatus::Refunded])
+            ->groupBy('expected_delivery_date')
+            ->selectRaw('expected_delivery_date, SUM(quantity_green_grams) AS sum_green')
+            ->get()
+            ->keyBy(fn ($r) => Carbon::parse((string) $r->expected_delivery_date)->toDateString());
+
+        return $mondays
+            ->map(function (string $monday) use ($whiteByMonday, $greenByMonday, $bookedWhite, $bookedGreen): array {
+                $plannedWhite = (int) round((float) ($whiteByMonday[$monday]?->planned_quantity ?? 0));
+                $plannedGreen = (int) round((float) ($greenByMonday[$monday]?->planned_quantity ?? 0));
+                $usedWhite = (int) ($bookedWhite[$monday]?->sum_white ?? 0);
+                $usedGreen = (int) ($bookedGreen[$monday]?->sum_green ?? 0);
+
+                return [
+                    'monday' => Carbon::parse($monday)->startOfDay(),
+                    'remaining_white_g' => max(0, $plannedWhite - $usedWhite),
+                    'remaining_green_g' => max(0, $plannedGreen - $usedGreen),
+                ];
+            })
+            ->filter(fn (array $row): bool => $row['remaining_white_g'] > 0 || $row['remaining_green_g'] > 0)
+            ->values();
     }
 
     /**
-     * Pick the strictest cutoff that applies to the varieties in the cart.
-     * Green wins over white when both are present; an empty cart defaults
-     * to the green cutoff so the form's initial banner stays conservative.
+     * Remaining grams for the given Monday, per variety. Used by the
+     * order-create validation to reject overbookings race-tightly: the
+     * Request layer calls this just before persisting. Returns `null`
+     * for either side if no plan exists.
+     *
+     * @return array{white: ?int, green: ?int}
      */
-    private function cutoffIsoForCart(int $greenGrams, int $whiteGrams): int
+    public function remainingForWeek(Carbon $monday): array
     {
-        if ($greenGrams > 0) {
-            return self::CUTOFF_ISO_GREEN;
+        $whiteId = config('spargel.white_product_id');
+        $greenId = config('spargel.green_product_id');
+
+        $remaining = fn (?int $productId): ?int => $productId === null
+            ? null
+            : $this->remainingForProductWeek($productId, $monday);
+
+        return [
+            'white' => $remaining($whiteId !== null ? (int) $whiteId : null),
+            'green' => $remaining($greenId !== null ? (int) $greenId : null),
+        ];
+    }
+
+    private function remainingForProductWeek(int $productId, Carbon $monday): ?int
+    {
+        $stock = ProductWeekStock::query()
+            ->where('product_id', $productId)
+            ->whereDate('week_start_date', $monday->toDateString())
+            ->first(['planned_quantity']);
+
+        if ($stock === null) {
+            return null;
         }
 
-        if ($whiteGrams > 0) {
-            return self::CUTOFF_ISO_WHITE;
-        }
+        $column = ($productId === (int) config('spargel.white_product_id'))
+            ? 'quantity_white_grams'
+            : 'quantity_green_grams';
 
-        return self::CUTOFF_ISO_GREEN;
+        $used = (int) SpargelOrder::query()
+            ->whereDate('expected_delivery_date', $monday->toDateString())
+            ->whereNotIn('status', [SpargelOrderStatus::Cancelled, SpargelOrderStatus::Refunded])
+            ->sum($column);
+
+        return max(0, (int) round((float) $stock->planned_quantity) - $used);
     }
 
     /**
@@ -232,6 +295,16 @@ class SpargelOrderService
             (string) ($payload['fulfillment_mode'] ?? 'pickup')
         );
 
+        // Customer-picked delivery Monday (Phase 3, 2026-05-09). The
+        // form constrains the picker to weeks with stock; the Request
+        // layer re-validates the chosen date against availableWeeks()
+        // immediately before this call so we never persist a Monday
+        // that's no longer in the menu.
+        $expectedDeliveryDate = $payload['expected_delivery_date'] ?? null;
+        if ($expectedDeliveryDate === null) {
+            throw new \InvalidArgumentException('expected_delivery_date is required.');
+        }
+
         return DB::transaction(fn () => SpargelOrder::create([
             'name' => $payload['name'],
             'email' => $payload['email'],
@@ -243,11 +316,7 @@ class SpargelOrderService
             'delivery_fee_eur' => $quote['delivery_fee_eur'],
             'total_amount_eur' => $quote['total_amount_eur'],
             'payment_method' => $payload['payment_method'] ?? 'online',
-            'expected_delivery_date' => $this->nextDeliveryMonday(
-                null,
-                $quote['quantity_green_grams'],
-                $quote['quantity_white_grams'],
-            )->toDateString(),
+            'expected_delivery_date' => Carbon::parse((string) $expectedDeliveryDate)->toDateString(),
             'delivery_street' => $payload['delivery_street'] ?? null,
             'delivery_postal_code' => $payload['delivery_postal_code'] ?? null,
             'delivery_city' => $payload['delivery_city'] ?? null,

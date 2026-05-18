@@ -71,7 +71,7 @@
                                 @if ((int) $order->quantity_white_grams > 0)
                                     <tr>
                                         <td style="padding: 6px 16px; font-size: 14px; color: rgba(44, 36, 28, 0.8);">
-                                            {{ (int) $order->quantity_white_grams }} g · {{ __('spargel.type_white') }}
+                                            {{ \App\Enums\ProductUnit::Mass->formatQuantity((int) $order->quantity_white_grams) }} · {{ __('spargel.type_white') }}
                                         </td>
                                         <td align="right" style="padding: 6px 16px; font-size: 14px; color: #2c241c;">
                                             {{ number_format(((int) $order->quantity_white_grams / 1000) * (float) $order->unit_price_eur, 2, ',', '.') }} €
@@ -81,7 +81,7 @@
                                 @if ((int) $order->quantity_green_grams > 0)
                                     <tr>
                                         <td style="padding: 6px 16px; font-size: 14px; color: rgba(44, 36, 28, 0.8);">
-                                            {{ (int) $order->quantity_green_grams }} g · {{ __('spargel.type_green') }}
+                                            {{ \App\Enums\ProductUnit::Mass->formatQuantity((int) $order->quantity_green_grams) }} · {{ __('spargel.type_green') }}
                                         </td>
                                         <td align="right" style="padding: 6px 16px; font-size: 14px; color: #2c241c;">
                                             {{ number_format(((int) $order->quantity_green_grams / 1000) * (float) $order->unit_price_eur, 2, ',', '.') }} €

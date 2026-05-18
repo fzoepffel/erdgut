@@ -161,33 +161,33 @@
                                             <div class="font-medium text-gray-900">{{ $product?->name ?? '—' }}</div>
                                             <div class="text-xs text-gray-500">
                                                 {{ __('admin.weekly_catalog.distributed_label') }}
-                                                {{ rtrim(rtrim(number_format($row['distributed'], 2, ',', '.'), '0'), ',') }}
+                                                {{ rtrim(rtrim(number_format($row['display_distributed'], 2, ',', '.'), '0'), ',') }}
+                                                {{ \App\Enums\ProductUnit::displaySymbol($row['display_unit']) }}
                                             </div>
                                         </td>
                                         <td class="px-3 py-2 align-top">
                                             <input
                                                 type="number"
                                                 name="rows[{{ $rowIndexKey }}][quantity]"
-                                                value="{{ old('rows.'.$rowIndexKey.'.quantity', (float) $stock->planned_quantity) }}"
+                                                value="{{ old('rows.'.$rowIndexKey.'.quantity', $row['display_quantity']) }}"
                                                 step="0.01"
                                                 min="0"
-                                                max="5000"
+                                                max="50000"
                                                 class="w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                             />
                                         </td>
                                         <td class="px-3 py-2 align-top">
-                                            <input
-                                                type="text"
-                                                name="rows[{{ $rowIndexKey }}][unit]"
-                                                value="{{ old('rows.'.$rowIndexKey.'.unit', $stock->unit) }}"
-                                                maxlength="32"
-                                                class="w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                                placeholder="{{ __('admin.weekly_catalog.unit_placeholder') }}"
-                                            />
+                                            {{-- Unit is the product's chosen display unit (g/kg/ml/L/
+                                                 piece/bunch). Read-only here so the weekly amount
+                                                 can't drift relative to the price scale. To change
+                                                 the unit, edit the product. --}}
+                                            <span class="inline-flex items-center rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700" data-testid="weekly-row-unit-{{ $rowIndexKey }}">
+                                                {{ \App\Enums\ProductUnit::displaySymbol($row['display_unit']) }}
+                                            </span>
                                         </td>
                                         <td class="px-3 py-2 align-top">
                                             <span class="tabular-nums {{ $row['over'] ? 'font-semibold text-rose-700' : 'text-gray-700' }}">
-                                                {{ rtrim(rtrim(number_format($row['remaining'], 2, ',', '.'), '0'), ',') }}
+                                                {{ rtrim(rtrim(number_format($row['display_remaining'], 2, ',', '.'), '0'), ',') }}
                                             </span>
                                         </td>
                                         <td class="px-3 py-2 align-top">
@@ -298,14 +298,20 @@
                                             />
                                         </td>
                                         <td class="px-3 py-2 align-top">
-                                            <input
-                                                type="text"
+                                            {{-- Only meaningful when mode=new (inline product creation):
+                                                 the new Product's canonical unit. For mode=existing the
+                                                 product's stored unit wins; this select is ignored. --}}
+                                            <select
                                                 name="rows[{{ $rowIndexKey }}][unit]"
-                                                value=""
-                                                maxlength="32"
                                                 class="w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                                placeholder="{{ __('admin.weekly_catalog.unit_placeholder') }}"
-                                            />
+                                                title="{{ __('admin.weekly_catalog.unit_select_hint') }}"
+                                            >
+                                                @foreach (\App\Enums\ProductUnit::cases() as $unitCase)
+                                                    <option value="{{ $unitCase->value }}" @selected($unitCase === \App\Enums\ProductUnit::Piece)>
+                                                        {{ $unitCase->value }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
                                         </td>
                                         <td class="px-3 py-2 align-top text-xs text-gray-400">—</td>
                                         <td class="px-3 py-2 align-top text-xs text-gray-400">—</td>

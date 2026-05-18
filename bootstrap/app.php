@@ -29,6 +29,10 @@ use Illuminate\Foundation\Configuration\Middleware;
 return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule) {
         $schedule->command('boxes:prepare')->dailyAt('00:00')->withoutOverlapping();
+        // Tops up the materialization window for recurring weekly-stock
+        // schedules so the admin always sees ≥4 weeks of buffered rows
+        // ahead. See {@see RecurringStockService::CRON_MATERIALIZE_WEEKS_AHEAD}.
+        $schedule->command('stock:materialize-schedules')->weeklyOn(1, '03:00')->withoutOverlapping();
         $schedule->command('boxes:lock')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('subscriptions:charge')->dailyAt('06:00')->withoutOverlapping();
         $schedule->command('payments:retry')->dailyAt('08:00')->withoutOverlapping();

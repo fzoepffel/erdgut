@@ -97,7 +97,7 @@ class AdminWeeklyCatalogTest extends TestCase
     public function test_save_creates_weekly_stock_for_existing_product(): void
     {
         $admin = User::factory()->admin()->create();
-        $product = Product::factory()->create();
+        $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
         $monday = Carbon::parse('2026-04-06')->toDateString();
 
         $this->actingAs($admin)
@@ -108,7 +108,6 @@ class AdminWeeklyCatalogTest extends TestCase
                         'mode' => 'existing',
                         'product_id' => $product->id,
                         'quantity' => 42.5,
-                        'unit' => 'kg',
                     ],
                 ],
             ])
@@ -121,21 +120,23 @@ class AdminWeeklyCatalogTest extends TestCase
             ->first();
 
         $this->assertNotNull($stock);
-        $this->assertEqualsWithDelta(42.5, (float) $stock->planned_quantity, 0.001);
-        $this->assertSame('kg', $stock->unit);
+        // Admin entered 42.5 in display unit (kg); storage is canonical (g).
+        $this->assertEqualsWithDelta(42500.0, (float) $stock->planned_quantity, 0.001);
+        // Unit is the kind (mass); display unit is per the product.
+        $this->assertSame('mass', $product->fresh()->unit->value);
+        $this->assertSame('kg', $product->fresh()->price_display_unit);
     }
 
     public function test_save_upserts_existing_stock_row(): void
     {
         $admin = User::factory()->admin()->create();
-        $product = Product::factory()->create();
+        $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
         $monday = Carbon::parse('2026-04-06')->toDateString();
 
         $existing = ProductWeekStock::create([
             'product_id' => $product->id,
             'week_start_date' => $monday,
             'planned_quantity' => 10,
-            'unit' => 'piece',
         ]);
 
         $this->actingAs($admin)
@@ -147,15 +148,14 @@ class AdminWeeklyCatalogTest extends TestCase
                         'stock_id' => $existing->id,
                         'product_id' => $product->id,
                         'quantity' => 22,
-                        'unit' => 'kg',
                     ],
                 ],
             ])
             ->assertRedirect();
 
         $existing->refresh();
-        $this->assertEqualsWithDelta(22.0, (float) $existing->planned_quantity, 0.001);
-        $this->assertSame('kg', $existing->unit);
+        // Admin entered 22 in display unit (kg); storage is canonical (g).
+        $this->assertEqualsWithDelta(22000.0, (float) $existing->planned_quantity, 0.001);
     }
 
     public function test_save_creates_new_product_inline(): void

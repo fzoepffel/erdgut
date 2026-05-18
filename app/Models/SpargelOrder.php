@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ProductUnit;
 use App\Enums\SpargelOrderStatus;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -170,10 +171,10 @@ class SpargelOrder extends Model
         return Attribute::get(function (): string {
             $parts = [];
             if ($this->quantity_green_grams > 0) {
-                $parts[] = sprintf('%d g grüner Spargel', $this->quantity_green_grams);
+                $parts[] = ProductUnit::Mass->formatQuantity((int) $this->quantity_green_grams).' grüner Spargel';
             }
             if ($this->quantity_white_grams > 0) {
-                $parts[] = sprintf('%d g weißer Spargel', $this->quantity_white_grams);
+                $parts[] = ProductUnit::Mass->formatQuantity((int) $this->quantity_white_grams).' weißer Spargel';
             }
 
             return $parts === [] ? '0 g' : implode(' + ', $parts);

@@ -17,8 +17,8 @@ class ProductWeekStock extends Model
         'product_id',
         'week_start_date',
         'planned_quantity',
-        'unit',
         'notes',
+        'source_schedule_id',
     ];
 
     /**

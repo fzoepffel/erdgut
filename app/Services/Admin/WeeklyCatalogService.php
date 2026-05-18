@@ -25,6 +25,11 @@ final class WeeklyCatalogService
      *     distributed: float,
      *     remaining: float,
      *     over: bool,
+     *     display_unit: string,
+     *     display_quantity: float,
+     *     display_distributed: float,
+     *     display_remaining: float,
+     *     conversion_factor: int,
      * }>
      */
     public function rowsForWeek(Carbon $week): Collection
@@ -48,12 +53,26 @@ final class WeeklyCatalogService
                 $planned = (float) $stock->planned_quantity;
                 $remaining = round($planned - $distributed, 2);
 
+                // The input/display side works in the product's chosen
+                // display unit. Convert canonical-stored quantities to
+                // display units for both the input pre-fill and the
+                // remaining-quantity column.
+                $displayUnit = $product?->price_display_unit
+                    ?? $product?->unit?->defaultDisplayUnit()
+                    ?? 'piece';
+                $factor = $product?->unit?->canonicalUnitsPerDisplay($displayUnit) ?? 1;
+
                 return [
                     'stock' => $stock,
                     'product' => $product,
                     'distributed' => $distributed,
                     'remaining' => $remaining,
                     'over' => $remaining < 0,
+                    'display_unit' => $displayUnit,
+                    'display_quantity' => round($planned / $factor, 4),
+                    'display_distributed' => round($distributed / $factor, 4),
+                    'display_remaining' => round($remaining / $factor, 4),
+                    'conversion_factor' => $factor,
                 ];
             })
             ->values();
@@ -83,21 +102,27 @@ final class WeeklyCatalogService
                 }
 
                 $unit = isset($row['unit']) && $row['unit'] !== '' ? (string) $row['unit'] : null;
-                $quantity = round((float) ($row['quantity'] ?? 0), 2);
+                $rawQuantity = round((float) ($row['quantity'] ?? 0), 4);
 
                 if ($mode === 'new') {
                     $new = is_array($row['new'] ?? null) ? $row['new'] : [];
                     $priceCents = (int) ($new['unit_price_cents'] ?? 0);
-                    $unitPrice = round($priceCents / 100, 2);
 
-                    // Map the freeform-ish per-week unit input to the new
-                    // ProductUnit enum. If admin typed something unknown
-                    // we default to `piece` rather than blocking the
-                    // inline create; the admin can fix it on the product
-                    // edit page.
+                    // For mode=new, the row's `unit` is the new Product's
+                    // kind (mass/volume/piece/bunch). Fall back to piece
+                    // when something invalid sneaks through.
                     $productUnit = in_array($unit, ProductUnit::values(), true)
                         ? $unit
                         : ProductUnit::Piece->value;
+                    $unitEnum = ProductUnit::from($productUnit);
+                    $displayUnit = $unitEnum->defaultDisplayUnit();
+                    $factor = $unitEnum->canonicalUnitsPerDisplay($displayUnit);
+
+                    // The cents field is admin-entered in the display unit
+                    // (cents per kg / per L / per piece / per bunch). Store
+                    // canonical (cents per g / per ml / per piece / per bunch).
+                    $unitPrice = round(($priceCents / 100) / $factor, 4);
+                    $canonicalQuantity = round($rawQuantity * $factor, 4);
 
                     $product = Product::create([
                         'producer_id' => isset($new['producer_id']) && $new['producer_id'] !== ''
@@ -105,6 +130,7 @@ final class WeeklyCatalogService
                             : null,
                         'category' => (string) ($new['category'] ?? ''),
                         'unit' => $productUnit,
+                        'price_display_unit' => $displayUnit,
                         'unit_price' => $unitPrice,
                         'is_seasonal' => false,
                         'is_available' => true,
@@ -133,14 +159,22 @@ final class WeeklyCatalogService
                     ProductWeekStock::create([
                         'product_id' => $product->id,
                         'week_start_date' => $date,
-                        'planned_quantity' => $quantity,
-                        'unit' => $unit,
+                        'planned_quantity' => $canonicalQuantity,
                     ]);
 
                     continue;
                 }
 
                 if ($mode === 'existing' && ! empty($row['product_id'])) {
+                    $product = Product::find((int) $row['product_id']);
+                    $unitEnum = $product?->unit;
+                    $factor = 1;
+                    if ($unitEnum !== null) {
+                        $displayUnit = $product->price_display_unit ?? $unitEnum->defaultDisplayUnit();
+                        $factor = $unitEnum->canonicalUnitsPerDisplay($displayUnit);
+                    }
+                    $canonicalQuantity = round($rawQuantity * $factor, 4);
+
                     $stock = ProductWeekStock::query()
                         ->where('product_id', (int) $row['product_id'])
                         ->whereDate('week_start_date', $date)
@@ -150,13 +184,11 @@ final class WeeklyCatalogService
                         ProductWeekStock::create([
                             'product_id' => (int) $row['product_id'],
                             'week_start_date' => $date,
-                            'planned_quantity' => $quantity,
-                            'unit' => $unit,
+                            'planned_quantity' => $canonicalQuantity,
                         ]);
                     } else {
                         $stock->fill([
-                            'planned_quantity' => $quantity,
-                            'unit' => $unit,
+                            'planned_quantity' => $canonicalQuantity,
                         ])->save();
                     }
                 }
