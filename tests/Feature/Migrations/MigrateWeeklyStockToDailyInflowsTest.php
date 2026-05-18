@@ -70,7 +70,7 @@ class MigrateWeeklyStockToDailyInflowsTest extends TestCase
 
         $this->assertDatabaseHas('product_stock_inflow_schedules', [
             'product_id' => $product->id,
-            'weekday' => 0, // Monday
+            'weekday' => 1, // Monday in Carbon dayOfWeek convention
             'planned_quantity' => 10000.0,
             'freshness_window_days' => 7,
             'starts_on' => '2026-05-04',

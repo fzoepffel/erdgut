@@ -27,8 +27,11 @@ return new class extends Migration
         Schema::create('product_stock_inflow_schedules', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
-            // ISO weekday 0–6 (Monday=0, Sunday=6) to align with Carbon's
-            // dayOfWeekIso minus 1 — kept consistent with the form select.
+            // Carbon `dayOfWeek` convention: 0=Sunday, 1=Monday, …,
+            // 6=Saturday. Matches `Subscription.delivery_weekday` and
+            // `config('delivery.zones.*.allowed_weekdays')` so Phase 5's
+            // box-delivery-date resolution can compare these numbers
+            // directly without translation.
             $table->unsignedTinyInteger('weekday');
             $table->decimal('planned_quantity', 12, 4);
             $table->unsignedTinyInteger('freshness_window_days')->default(1);
