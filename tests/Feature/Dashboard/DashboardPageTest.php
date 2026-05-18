@@ -11,11 +11,19 @@ use App\Models\Delivery;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class DashboardPageTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow(null);
+
+        parent::tearDown();
+    }
 
     public function test_authenticated_user_can_view_dashboard_page(): void
     {
@@ -172,6 +180,12 @@ class DashboardPageTest extends TestCase
 
     public function test_dashboard_uses_effective_weekly_override_delivery_values_without_duplicates(): void
     {
+        // Pin to a calendar week whose producer-of-the-week rotation
+        // doesn't land on Jakob — his bio mentions "Berlin" and would
+        // collide with the assertDontSee('Berlin') below. ISO week 4 ↦
+        // index (4-1) % 6 = 3 = Marcus.
+        Carbon::setTestNow(Carbon::parse('2026-01-21 09:00:00'));
+
         $user = User::factory()->create();
         $this->subscribeUserFully($user);
         $baseAddress = Address::factory()->create([
