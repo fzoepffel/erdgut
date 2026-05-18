@@ -178,9 +178,12 @@ class SpargelOrderService
             return collect();
         }
 
-        // Tomorrow's date — keeps today's Monday in the list if today *is*
-        // a Monday and there's still stock; excludes Mondays already gone.
-        $earliestMonday = Carbon::tomorrow()->startOfWeek(Carbon::MONDAY);
+        // The earliest Monday a customer can pick is the *next* Monday
+        // strictly after today. Carbon's `next(MONDAY)` returns next
+        // week's Monday when today is a Monday, otherwise the upcoming
+        // Monday. Same-day orders are intentionally excluded — we can't
+        // cut and deliver in a few hours.
+        $earliestMonday = Carbon::today()->next(Carbon::MONDAY);
 
         // Pull planned quantities + already-booked for both products in
         // one shot per side. ProductWeekStock is indexed by week_start_date.

@@ -2035,7 +2035,7 @@
     "spargel.week_picker_intro": "Choisissez le lundi auquel vos asperges doivent arriver. Seules les semaines avec du stock disponible apparaissent ici.",
     "spargel.week_picker_placeholder": "— Choisir une semaine —",
     "spargel.week_picker_empty": "Pas d'asperges disponibles pour le moment. Revenez dans quelques jours.",
-    "spargel.week_picker_hint": "Les asperges sont coupées le lundi choisi ou la veille, et livrées le même jour ou le lendemain.",
+    "spargel.week_picker_hint": "Les asperges sont coupées le lundi choisi ou la veille, et livrées le même jour.",
     "spargel.week_option_limited_badge": "stock limité",
     "spargel.errors.week_cap_white": "Il ne reste que :remaining g d'asperges blanches pour cette semaine.",
     "spargel.errors.week_cap_green": "Il ne reste que :remaining g d'asperges vertes pour cette semaine.",
