@@ -47,13 +47,14 @@ class SpargelOrderRequest extends FormRequest
             'multiple_of:'.SpargelOrderService::QUANTITY_STEP_GRAMS,
         ];
 
-        // Phase 3: customer picks the delivery Monday explicitly. Whitelist
-        // the value against what `availableWeeks()` currently returns so a
-        // stale form submitted after the menu changed never persists a
-        // Monday that isn't really on offer.
-        $availableMondays = app(SpargelOrderService::class)
-            ->availableWeeks()
-            ->map(fn (array $row): string => $row['monday']->toDateString())
+        // Whitelist the customer-picked date against what
+        // `availableDates()` currently returns so a stale form submitted
+        // after the menu changed never persists a date that isn't really
+        // on offer. No hardcoded weekday filter — Mon, Wed, or anything
+        // else appears purely because admin entered inflows there.
+        $availableDates = app(SpargelOrderService::class)
+            ->availableDates()
+            ->map(fn (array $row): string => $row['date']->toDateString())
             ->all();
 
         return [
@@ -64,7 +65,7 @@ class SpargelOrderRequest extends FormRequest
             'phone' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:40'],
             'quantity_green_grams' => $perVarietyRule,
             'quantity_white_grams' => $perVarietyRule,
-            'expected_delivery_date' => ['required', 'date', Rule::in($availableMondays)],
+            'expected_delivery_date' => ['required', 'date', Rule::in($availableDates)],
             'fulfillment_mode' => ['required', Rule::in(['pickup', 'delivery'])],
             'payment_method' => ['required', Rule::in(['online', 'in_person'])],
             'delivery_street' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:160'],
@@ -124,26 +125,26 @@ class SpargelOrderRequest extends FormRequest
                 );
             }
 
-            // Per-week capacity cap (Phase 3). If the picked Monday is
-            // still on the available list at form-submit time, compare
-            // the cart against current remaining grams. We do this in
-            // `after()` so the date-format validation above runs first;
-            // otherwise we'd parse a junk date.
+            // Per-date capacity cap. If the picked date is still on the
+            // available list at form-submit time, compare the cart
+            // against current remaining grams. Runs in `after()` so the
+            // date-format validation above runs first; otherwise we'd
+            // parse a junk date.
             $deliveryDate = (string) $this->input('expected_delivery_date');
             if ($deliveryDate !== '' && ! $v->errors()->has('expected_delivery_date')) {
                 $remaining = app(SpargelOrderService::class)
-                    ->remainingForWeek(Carbon::parse($deliveryDate));
+                    ->remainingForDate(Carbon::parse($deliveryDate));
 
                 if ($remaining['white'] !== null && $white > $remaining['white']) {
                     $v->errors()->add(
                         'quantity_white_grams',
-                        __('spargel.errors.week_cap_white', ['remaining' => $remaining['white']])
+                        __('spargel.errors.date_cap_white', ['remaining' => $remaining['white']])
                     );
                 }
                 if ($remaining['green'] !== null && $green > $remaining['green']) {
                     $v->errors()->add(
                         'quantity_green_grams',
-                        __('spargel.errors.week_cap_green', ['remaining' => $remaining['green']])
+                        __('spargel.errors.date_cap_green', ['remaining' => $remaining['green']])
                     );
                 }
             }

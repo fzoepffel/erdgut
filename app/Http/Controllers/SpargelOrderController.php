@@ -37,7 +37,7 @@ class SpargelOrderController extends Controller
         // weeks with non-zero remaining grams appear here, and the
         // submit handler validates that the picked Monday is still on
         // the menu at the moment of order create.
-        $availableWeeks = $this->service->availableWeeks();
+        $availableDates = $this->service->availableDates();
         $lowStockThreshold = (int) config('spargel.low_stock_badge_threshold_grams', 500);
 
         return view('spargel.show', [
@@ -48,7 +48,7 @@ class SpargelOrderController extends Controller
             'quantityOptions' => SpargelOrderService::quantityOptions(),
             'pickupLocations' => SpargelOrderService::PICKUP_LOCATIONS,
             'vatRatePercent' => SpargelOrderService::VAT_RATE_PERCENT,
-            'availableWeeks' => $availableWeeks,
+            'availableDates' => $availableDates,
             'lowStockThreshold' => $lowStockThreshold,
         ]);
     }
