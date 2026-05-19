@@ -10,9 +10,24 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
+/**
+ * @group legacy
+ *
+ * The Wochenkatalog page is retired in Phase 3 of the daily-inventory
+ * rebuild — `products.weekly.show` is now a 302 to the new Inventar
+ * page and `products.weekly.save` returns 410 Gone. The whole file is
+ * deleted in Phase 5; until then the tests are skipped so the suite
+ * stays green during the transition.
+ */
 class AdminWeeklyCatalogTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->markTestSkipped('Wochenkatalog routes retired in Phase 3; file deleted in Phase 5.');
+    }
 
     protected function tearDown(): void
     {
