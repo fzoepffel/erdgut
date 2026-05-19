@@ -1,8 +1,12 @@
 # Inventory rebuild — end-to-end testing plan
 
 This document walks through every test for the daily-inventory rebuild
-(Phases 1–5). Run it on staging first; once green, repeat on prod
+(Phases 1–6). Run it on staging first; once green, repeat on prod
 after the corresponding merge.
+
+**Phase 6 ships ≥ 1 week after Phase 5 lands on prod** — it drops the
+legacy tables irrevocably. Don't run section 8 until Phases 1–5 have
+been stable on prod for at least one full week.
 
 Each section ends with a clear pass/fail. If anything fails, stop and
 report — don't continue further down.
@@ -267,7 +271,7 @@ that date.
 
 Pick a date where remaining_white_grams = 5000 (5 kg). Order 4 kg → 
 accepted. Order another 2 kg for the **same date** → rejected with
-the "Für diese Woche sind nur noch X g..." error message.
+the "Für diesen Tag sind nur noch X g..." error message.
 
 ### 4.4 Same-day exclusion still holds
 
@@ -358,7 +362,7 @@ Pull the `staging` branch locally and run the full suite:
 php artisan test
 ```
 
-Expect ~1080 tests pass, 0 failures, 0 skipped (the legacy-skipped
+Expect 1060 tests pass, 0 failures, 0 skipped (the legacy-skipped
 tests are deleted in Phase 5).
 
 **Pass criteria:** box-setup uses daily inventory, old routes/commands
@@ -404,6 +408,71 @@ If we're already past Phase 6 (legacy tables dropped):
 - Then revert and redeploy.
 
 This is why Section 0 demands a fresh backup before Phase 1.
+
+---
+
+## 8. After deploying Phase 6 (drop legacy tables) — ≥ 1 week after Phase 5
+
+**Manual deploy step:** `php artisan migrate --force` (1 migration).
+
+Phase 6 is irreversible at the data level — `down()` only recreates
+empty shells; the original data is gone. Do not run this until
+Phases 1–5 have been stable on prod for at least one week.
+
+### 8.1 Pre-flight: re-verify daily-inventory state
+
+```bash
+php artisan tinker --execute="
+echo 'inflows: ' . DB::table('product_stock_inflows')->count() . PHP_EOL;
+echo 'inflow schedules: ' . DB::table('product_stock_inflow_schedules')->count() . PHP_EOL;
+"
+```
+
+Both should be ≥ the counts captured in section 1.2. Inflows likely
+grew (cron + admin entries); the schedule count should match or
+exceed Phase 1's snapshot. **Stop if inflows is 0** — the rebuild
+isn't fully active yet.
+
+### 8.2 Take a fresh DB backup
+
+Same as section 0. If anything goes wrong post-migration, this is
+your only recovery path.
+
+### 8.3 Run the migration
+
+```bash
+php artisan migrate --force
+```
+
+Output should show one new migration applied:
+`2026_05_19_120000_drop_legacy_weekly_stock_tables`.
+
+### 8.4 Verify tables are gone
+
+```bash
+php artisan tinker --execute="
+echo 'product_week_stocks exists: ' . (Schema::hasTable('product_week_stocks') ? 'YES' : 'no') . PHP_EOL;
+echo 'product_week_stock_schedules exists: ' . (Schema::hasTable('product_week_stock_schedules') ? 'YES' : 'no') . PHP_EOL;
+"
+```
+
+Both should print `no`.
+
+### 8.5 Re-test the customer happy path
+
+After dropping the legacy tables, place one full spargel order on
+`/spargel` (with delivery + SumUp payment). Verify the confirmation
+email arrives, the order shows in `/app/spargel-admin`, and the
+admin Inventar matrix reflects the new commitment.
+
+### 8.6 Re-test the admin happy path
+
+Open `/app/admin/inventory`, create a one-off manual inflow, and
+confirm it appears. Open `/app/admin/boxes/setup/<next-monday>` and
+confirm the catalog still renders.
+
+**Pass criteria:** legacy tables are dropped, customer + admin
+flows work, no 500s in the log.
 
 ---
 
