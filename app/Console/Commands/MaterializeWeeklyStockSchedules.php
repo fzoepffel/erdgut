@@ -2,34 +2,26 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Admin\RecurringStockService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
 
 /**
- * Extend the materialization window for recurring weekly-stock schedules.
+ * Legacy shim — the materializer was renamed in Phase 2 of the
+ * daily-inventory rebuild. Production cron servers may still trigger
+ * the old signature during the deploy window; this shim dispatches to
+ * the new command so no inflow rows are missed during the rollover.
  *
- * Indefinite schedules ("10 kg/week forever") only materialize 26 weeks
- * ahead at creation time. This command (scheduled weekly on Monday at
- * 03:00) tops the window up to 30 weeks ahead so admins always have at
- * least a 4-week buffer of materialized rows visible in the weekly
- * catalog UI.
- *
- * Idempotent — safe to run as often as you like.
+ * Deleted in Phase 5 once the prod cron config has been updated.
  */
 class MaterializeWeeklyStockSchedules extends Command
 {
     protected $signature = 'stock:materialize-schedules';
 
-    protected $description = 'Materialize ProductWeekStock rows from active recurring schedules up to the cron horizon.';
+    protected $description = '[Deprecated] Forwards to stock:materialize-inflow-schedules.';
 
-    public function handle(RecurringStockService $service): int
+    public function handle(): int
     {
-        $horizon = Carbon::now()->copy()->addWeeks(RecurringStockService::CRON_MATERIALIZE_WEEKS_AHEAD);
-        $written = $service->materializeWindow($horizon);
+        $this->warn('stock:materialize-schedules is deprecated; forwarding to stock:materialize-inflow-schedules.');
 
-        $this->info("Materialized {$written} ProductWeekStock rows through {$horizon->startOfWeek(Carbon::MONDAY)->toDateString()}.");
-
-        return self::SUCCESS;
+        return $this->call('stock:materialize-inflow-schedules');
     }
 }
