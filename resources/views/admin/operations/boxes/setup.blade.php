@@ -68,7 +68,7 @@
             @elseif (empty($data['stock']))
                 <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
                     {{ __('admin.box_setup.no_stock_warning') }}
-                    <a href="{{ route('app.admin.products.weekly.show', ['week' => $week->toDateString()]) }}" class="font-medium underline">
+                    <a href="{{ route('app.admin.inventory.index', ['from' => $week->toDateString()]) }}" class="font-medium underline">
                         {{ __('admin.box_setup.goto_weekly_catalog') }}
                     </a>
                 </div>

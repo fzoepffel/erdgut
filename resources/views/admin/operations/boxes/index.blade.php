@@ -4,7 +4,7 @@
             <h1 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('admin.box_setup.title') }}
             </h2>
-            <a href="{{ route('app.admin.products.weekly.show') }}" class="text-sm font-medium text-emerald-700 hover:underline">
+            <a href="{{ route('app.admin.inventory.index') }}" class="text-sm font-medium text-emerald-700 hover:underline">
                 {{ __('admin.box_setup.link_weekly_catalog') }}
             </a>
         </div>
