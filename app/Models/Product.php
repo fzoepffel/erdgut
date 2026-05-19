@@ -289,24 +289,8 @@ class Product extends Model
     }
 
     /**
-     * Weekly planned stock rows for this product.
-     */
-    public function weekStocks(): HasMany
-    {
-        return $this->hasMany(ProductWeekStock::class);
-    }
-
-    /**
-     * Recurring weekly-stock schedules attached to this product.
-     */
-    public function weekStockSchedules(): HasMany
-    {
-        return $this->hasMany(ProductWeekStockSchedule::class);
-    }
-
-    /**
-     * Daily inflow rows for this product (Phase 2+). One row per
-     * physical receipt; aggregated by {@see InventoryService}.
+     * Daily inflow rows for this product. One row per physical
+     * receipt; aggregated by {@see InventoryService}.
      */
     public function stockInflows(): HasMany
     {
@@ -345,60 +329,11 @@ class Product extends Model
     /**
      * Convenience: `availableOnDate` minus `committedOnDate` exposed
      * as a single read. Identical to `availableOnDate` since the
-     * service already subtracts committed, but kept symmetric with
-     * the legacy `remainingForWeek()` API for readability.
+     * service already subtracts committed, kept as its own method
+     * for readability at call sites.
      */
     public function remainingOnDate(Carbon $date): float
     {
         return $this->availableOnDate($date);
-    }
-
-    /**
-     * Products with a positive planned quantity for the given Monday.
-     */
-    public function scopeAvailableForWeek(Builder $query, Carbon $week): void
-    {
-        $date = $week->copy()->startOfDay()->toDateString();
-        $query->visibleInCatalog()->whereHas(
-            'weekStocks',
-            fn ($q) => $q->whereDate('week_start_date', $date)->where('planned_quantity', '>', 0)
-        );
-    }
-
-    /**
-     * Planned quantity in the weekly catalog for this product (0.0 if no row).
-     */
-    public function plannedQuantityForWeek(Carbon $week): float
-    {
-        $date = $week->copy()->startOfDay()->toDateString();
-        $stock = $this->weekStocks()
-            ->whereDate('week_start_date', $date)
-            ->first();
-
-        return $stock !== null ? (float) $stock->planned_quantity : 0.0;
-    }
-
-    /**
-     * Sum of box item quantities already assigned to boxes that start on the given Monday.
-     */
-    public function distributedQuantityForWeek(Carbon $week): float
-    {
-        $date = $week->copy()->startOfDay()->toDateString();
-
-        $sum = DB::table('box_items')
-            ->join('boxes', 'boxes.id', '=', 'box_items.box_id')
-            ->where('box_items.product_id', $this->id)
-            ->whereDate('boxes.week_start_date', $date)
-            ->sum('box_items.quantity');
-
-        return (float) $sum;
-    }
-
-    /**
-     * Remaining = planned − distributed (may be negative → over-allocated).
-     */
-    public function remainingForWeek(Carbon $week): float
-    {
-        return round($this->plannedQuantityForWeek($week) - $this->distributedQuantityForWeek($week), 2);
     }
 }

@@ -14,7 +14,6 @@ use App\Http\Controllers\Admin\AdminInventoryController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
-use App\Http\Controllers\Admin\AdminProductScheduleController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
@@ -324,10 +323,7 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:30,1')
                 ->name('boxes.override-edit');
             Route::resource('producers', ProducerController::class)->except(['show']);
-            // Inventar — daily-inventory admin surface (Phase 3 of the
-            // rebuild). Old `products.weekly.*` routes survive as
-            // deprecation redirects so bookmarks keep working until
-            // Phase 5 deletes them.
+            // Inventar — daily-inventory admin surface.
             Route::get('inventory', [AdminInventoryController::class, 'index'])
                 ->name('inventory.index');
             Route::post('inventory/inflows', [AdminInventoryController::class, 'storeInflow'])
@@ -347,24 +343,7 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:30,1')
                 ->name('inflow-schedules.adjust');
 
-            Route::get('products/weekly/{week?}', function ($week = null) {
-                return redirect()->route('app.admin.inventory.index', $week !== null ? ['from' => $week] : []);
-            })->name('products.weekly.show');
-            Route::post('products/weekly/{week}', function () {
-                abort(410, 'The weekly catalog save endpoint has been retired. Use /app/admin/inventory.');
-            })->middleware('throttle:24,1')->name('products.weekly.save');
-
             Route::resource('products', ProductController::class)->except(['show']);
-
-            Route::post('products/{product}/schedules', [AdminProductScheduleController::class, 'store'])
-                ->middleware('throttle:30,1')
-                ->name('products.schedules.store');
-            Route::post('products/{product}/schedules/{schedule}/cancel', [AdminProductScheduleController::class, 'cancel'])
-                ->middleware('throttle:30,1')
-                ->name('products.schedules.cancel');
-            Route::post('products/{product}/schedules/{schedule}/adjust', [AdminProductScheduleController::class, 'adjust'])
-                ->middleware('throttle:30,1')
-                ->name('products.schedules.adjust');
 
             Route::get('orders/create', [AdminOrderController::class, 'create'])->name('orders.create');
             Route::post('orders', [AdminOrderController::class, 'store'])

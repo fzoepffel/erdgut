@@ -3,7 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\Product;
-use App\Models\ProductWeekStock;
+use App\Support\BoxDeliveryDateResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Validator;
@@ -99,11 +99,13 @@ class AdminBoxSetupApplyRequest extends FormRequest
 
                 continue;
             }
-            $hasStock = ProductWeekStock::query()
-                ->where('product_id', $pid)
-                ->whereDate('week_start_date', $week->toDateString())
-                ->where('planned_quantity', '>', 0)
-                ->exists();
+            // Daily-inventory check: is the product available on the
+            // box's actual delivery date? Today the zone enforces Wed,
+            // so this reduces to "active inflow on Wed of this week"
+            // — exactly what the box-setup admin will save against.
+            $deliveryDate = BoxDeliveryDateResolver::deliveryDateForWeek($week);
+            $product = Product::query()->find($pid);
+            $hasStock = $product !== null && $product->availableOnDate($deliveryDate) > 0;
             if (! $hasStock) {
                 $validator->errors()->add(
                     "{$prefix}.{$i}.product_id",

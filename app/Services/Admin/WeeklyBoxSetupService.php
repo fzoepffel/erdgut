@@ -10,8 +10,8 @@ use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\ProductWeekStock;
 use App\Models\Subscription;
+use App\Support\BoxDeliveryDateResolver;
 use App\Support\BoxValueRecalculationService;
 use App\Support\DeliveryProjector;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Log;
  * Box setup flow (ERD-NEW): 4-week calendar, weekly auto-distribution and apply.
  *
  * Target per size = TTC × (1 − admin_planning_margin_rate); hard max = TTC.
- * Auto-distribution pulls only products that have a positive ProductWeekStock for the week.
+ * Auto-distribution pulls only products with an active inflow on the box's delivery date.
  */
 final class WeeklyBoxSetupService
 {
@@ -918,29 +918,31 @@ final class WeeklyBoxSetupService
     private function loadStockRows(Carbon $week): array
     {
         $week = $week->copy()->startOfDay();
+        // Daily-inventory rebuild: "stock for the week" is now "stock
+        // on the box's resolved delivery date". With the current zone
+        // (`allowed_weekdays = [3]`) that's Wednesday; once zones
+        // widen, per-subscription days override via BoxDeliveryDateResolver.
+        $deliveryDate = BoxDeliveryDateResolver::deliveryDateForWeek($week);
         $distributed = $this->loadDistributedQuantities($week);
 
-        $rows = ProductWeekStock::query()
-            ->whereDate('week_start_date', $week->toDateString())
-            ->where('planned_quantity', '>', 0)
-            ->with('product')
+        $inventory = app(InventoryService::class);
+
+        $products = Product::query()
+            ->visibleInCatalog()
+            ->whereHas('stockInflows', fn ($q) => $q->activeOn($deliveryDate))
+            ->with('producer')
             ->get();
 
         $out = [];
-        foreach ($rows as $row) {
-            /** @var Product|null $product */
-            $product = $row->product;
-            if ($product === null) {
+        foreach ($products as $product) {
+            $planned = $inventory->grossInflowOnDate($product, $deliveryDate);
+            if ($planned <= 0) {
                 continue;
             }
-            if (! (bool) $product->is_available || ! (bool) $product->is_published) {
-                continue;
-            }
-            $planned = (float) $row->planned_quantity;
             $used = (float) ($distributed[(int) $product->id] ?? 0.0);
             $out[(int) $product->id] = [
                 'product' => $product,
-                'planned' => $planned,
+                'planned' => round($planned, 2),
                 'distributed' => round($used, 2),
                 'available' => max(0.0, round($planned - $used, 2)),
                 'unit' => (string) ($product->unit?->value ?? 'piece'),
@@ -951,29 +953,20 @@ final class WeeklyBoxSetupService
     }
 
     /**
-     * All `is_egg_addon=true` products with weekly stock for the given week.
-     * Used by the per-customer eggs panel (separate from the size template).
+     * All `is_egg_addon=true` products with active stock on the box
+     * delivery date of `$week`. Used by the per-customer eggs panel
+     * (separate from the size template).
      *
      * @return Collection<int, Product>
      */
     public function availableEggAddOnProducts(Carbon $week): Collection
     {
-        $week = $week->copy()->startOfDay();
-
-        $stockedIds = ProductWeekStock::query()
-            ->whereDate('week_start_date', $week->toDateString())
-            ->where('planned_quantity', '>', 0)
-            ->pluck('product_id')
-            ->all();
-
-        if ($stockedIds === []) {
-            return collect();
-        }
+        $deliveryDate = BoxDeliveryDateResolver::deliveryDateForWeek($week->copy()->startOfDay());
 
         return Product::query()
             ->visibleInCatalog()
             ->eggAddOns()
-            ->whereIn('id', $stockedIds)
+            ->whereHas('stockInflows', fn ($q) => $q->activeOn($deliveryDate))
             ->with('producer')
             ->get();
     }
@@ -1259,19 +1252,23 @@ final class WeeklyBoxSetupService
             }
         }
 
+        $deliveryDate = BoxDeliveryDateResolver::deliveryDateForWeek($week);
+        $inventory = app(InventoryService::class);
+
         foreach ($totalsByProduct as $pid => $needed) {
-            $stock = ProductWeekStock::query()
-                ->where('product_id', $pid)
-                ->whereDate('week_start_date', $week->toDateString())
-                ->first();
-            $planned = $stock !== null ? (float) $stock->planned_quantity : null;
+            $product = Product::query()->find((int) $pid);
+            if ($product === null) {
+                continue;
+            }
+            $planned = $inventory->grossInflowOnDate($product, $deliveryDate);
             $already = (float) ($baselineDistributed[(int) $pid] ?? 0.0);
             $total = $already + $needed;
-            if ($planned !== null && $total > $planned + 0.005) {
+            if ($planned > 0 && $total > $planned + 0.005) {
                 Log::warning('admin_box_setup.over_planned', [
                     'week_start_date' => $week->toDateString(),
+                    'delivery_date' => $deliveryDate->toDateString(),
                     'product_id' => $pid,
-                    'planned' => $planned,
+                    'planned' => round($planned, 2),
                     'already_distributed' => round($already, 2),
                     'needed' => round($needed, 2),
                     'total_after_apply' => round($total, 2),

@@ -14,11 +14,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Daily inventory: inflows, outflows, and per-product freshness.
  *
- * Replaces {@see RecurringStockService} (which only handled the
- * Monday-anchored weekly model). Read paths ask
- * `availableOnDate(Product, Carbon)`; write paths record one-off
- * inflows or recurring schedules; a weekly cron extends the
- * materialized window.
+ * Read paths ask `availableOnDate(Product, Carbon)`; write paths
+ * record one-off inflows or recurring schedules; a weekly cron
+ * extends the materialized window.
  *
  * Outflow is not stored as rows for v1 — it's computed on the fly
  * from `SpargelOrder` (when the product is one of the configured

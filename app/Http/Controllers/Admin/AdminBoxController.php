@@ -9,12 +9,13 @@ use App\Http\Requests\Admin\AdminBoxUpdateRequest;
 use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Product;
-use App\Models\ProductWeekStock;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Admin\EggsUnfulfilledHandler;
+use App\Services\Admin\InventoryService;
 use App\Services\Admin\WeeklyBoxSetupService;
 use App\Support\AuditLogger;
+use App\Support\BoxDeliveryDateResolver;
 use App\Support\BoxValueRecalculationService;
 use App\Support\DeliveryProjector;
 use App\Support\WeeklyDistributionService;
@@ -317,15 +318,20 @@ class AdminBoxController extends Controller
     {
         $weeklyPlannedByPid = [];
         if ($box->week_start_date !== null) {
-            $week = $box->week_start_date instanceof Carbon
-                ? $box->week_start_date
-                : Carbon::parse((string) $box->week_start_date);
-            $rows = ProductWeekStock::query()
-                ->whereDate('week_start_date', $week->toDateString())
-                ->where('planned_quantity', '>', 0)
-                ->get(['product_id', 'planned_quantity']);
-            foreach ($rows as $row) {
-                $weeklyPlannedByPid[(int) $row->product_id] = (float) $row->planned_quantity;
+            // Use the box's resolved delivery date so inventory checks
+            // are accurate even when subscriptions span multiple
+            // weekdays — see {@see BoxDeliveryDateResolver}.
+            $deliveryDate = BoxDeliveryDateResolver::deliveryDate($box);
+            $inventory = app(InventoryService::class);
+            $products = Product::query()
+                ->visibleInCatalog()
+                ->whereHas('stockInflows', fn ($q) => $q->activeOn($deliveryDate))
+                ->get(['products.id']);
+            foreach ($products as $p) {
+                $planned = $inventory->grossInflowOnDate($p, $deliveryDate);
+                if ($planned > 0) {
+                    $weeklyPlannedByPid[(int) $p->id] = $planned;
+                }
             }
         }
 
@@ -385,11 +391,13 @@ class AdminBoxController extends Controller
         $week = $box->week_start_date instanceof Carbon
             ? $box->week_start_date
             : Carbon::parse((string) $box->week_start_date);
+        $deliveryDate = BoxDeliveryDateResolver::deliveryDate($box);
+        $inventory = app(InventoryService::class);
 
-        $stockRows = ProductWeekStock::query()
-            ->whereDate('week_start_date', $week->toDateString())
-            ->where('planned_quantity', '>', 0)
-            ->with('product')
+        $products = Product::query()
+            ->visibleInCatalog()
+            ->whereHas('stockInflows', fn ($q) => $q->activeOn($deliveryDate))
+            ->with('translations')
             ->get();
 
         // Sum-of-quantities across every box for this week, minus this box's
@@ -406,13 +414,9 @@ class AdminBoxController extends Controller
             ->all();
 
         $out = [];
-        foreach ($stockRows as $row) {
-            /** @var Product|null $product */
-            $product = $row->product;
-            if ($product === null) {
-                continue;
-            }
-            if (! (bool) $product->is_available || ! (bool) $product->is_published) {
+        foreach ($products as $product) {
+            $planned = $inventory->grossInflowOnDate($product, $deliveryDate);
+            if ($planned <= 0) {
                 continue;
             }
             $pid = (int) $product->id;
@@ -421,7 +425,7 @@ class AdminBoxController extends Controller
                 'name' => (string) $product->name,
                 'unit' => (string) ($product->unit?->value ?? 'piece'),
                 'unit_price' => round((float) $product->unit_price, 2),
-                'planned' => round((float) $row->planned_quantity, 2),
+                'planned' => round($planned, 2),
                 'baseline_used' => round((float) ($distributed[$pid] ?? 0), 2),
             ];
         }

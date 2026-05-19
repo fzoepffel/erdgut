@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\Box;
 use App\Models\Product;
+use App\Support\BoxDeliveryDateResolver;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AdminAddBoxItemRequest extends FormRequest
@@ -34,8 +35,8 @@ class AdminAddBoxItemRequest extends FormRequest
                     return;
                 }
                 if ($box instanceof Box && $box->week_start_date !== null) {
-                    $planned = $product->plannedQuantityForWeek($box->week_start_date);
-                    if ($planned <= 0) {
+                    $deliveryDate = BoxDeliveryDateResolver::deliveryDate($box);
+                    if ($product->availableOnDate($deliveryDate) <= 0) {
                         $fail(__('admin.box_items.product_unavailable_this_week'));
                     }
                 }

@@ -52,7 +52,7 @@
         >
             {{ __('Products') }}
         </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.inventory.index')" matches="app.admin.inventory.*|app.admin.products.weekly.*">
+        <x-admin.nav-link :href="route('app.admin.inventory.index')" matches="app.admin.inventory.*">
             {{ __('admin.weekly_catalog.nav_label') }}
         </x-admin.nav-link>
 
