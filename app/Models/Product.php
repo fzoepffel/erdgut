@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ProductUnit;
+use App\Services\Admin\InventoryService;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -32,6 +33,7 @@ class Product extends Model
         'unit',
         'price_display_unit',
         'unit_price',
+        'default_freshness_window_days',
         'buying_price_cents',
         'is_seasonal',
         'is_available',
@@ -61,6 +63,7 @@ class Product extends Model
             // `displayPrice()` which renders in the admin's chosen
             // `price_display_unit` and formats to 2 decimals.
             'unit_price' => 'decimal:4',
+            'default_freshness_window_days' => 'integer',
             'buying_price_cents' => 'integer',
             'is_seasonal' => 'boolean',
             'is_available' => 'boolean',
@@ -299,6 +302,55 @@ class Product extends Model
     public function weekStockSchedules(): HasMany
     {
         return $this->hasMany(ProductWeekStockSchedule::class);
+    }
+
+    /**
+     * Daily inflow rows for this product (Phase 2+). One row per
+     * physical receipt; aggregated by {@see InventoryService}.
+     */
+    public function stockInflows(): HasMany
+    {
+        return $this->hasMany(ProductStockInflow::class);
+    }
+
+    /**
+     * Recurring per-weekday inflow schedules attached to this product
+     * (Phase 2+). Materialized into `stockInflows()` rows by
+     * {@see InventoryService::materializeWindow()}.
+     */
+    public function stockInflowSchedules(): HasMany
+    {
+        return $this->hasMany(ProductStockInflowSchedule::class);
+    }
+
+    /**
+     * Gross active inflow minus committed outflow for `$date`.
+     * Delegates to {@see InventoryService} so the math stays in one
+     * place.
+     */
+    public function availableOnDate(Carbon $date): float
+    {
+        return app(InventoryService::class)->availableOnDate($this, $date);
+    }
+
+    /**
+     * Committed outflow for `$date` (spargel-order grams + box-item
+     * quantities aggregated by computed delivery date).
+     */
+    public function committedOnDate(Carbon $date): float
+    {
+        return app(InventoryService::class)->committedOnDate($this, $date);
+    }
+
+    /**
+     * Convenience: `availableOnDate` minus `committedOnDate` exposed
+     * as a single read. Identical to `availableOnDate` since the
+     * service already subtracts committed, but kept symmetric with
+     * the legacy `remainingForWeek()` API for readability.
+     */
+    public function remainingOnDate(Carbon $date): float
+    {
+        return $this->availableOnDate($date);
     }
 
     /**
