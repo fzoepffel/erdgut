@@ -19,19 +19,8 @@ class CronRunController extends Controller
         $expected = config('cron.key');
 
         if ($expected === null || $key !== $expected) {
-            // TEMPORARY DIAGNOSTIC (debug/cron-key-byte-diff) — logs
-            // byte-level details of both keys so we can spot encoding
-            // or invisible-character mismatches. Revert this commit
-            // once the root cause is found; the bin2hex of the
-            // expected key WILL leak the secret to anyone with log
-            // access.
             Log::warning('Cron trigger rejected: invalid or missing key.', [
                 'has_expected' => $expected !== null,
-                'expected_length' => $expected === null ? null : strlen((string) $expected),
-                'expected_hex' => $expected === null ? null : bin2hex((string) $expected),
-                'received_length' => $key === null ? null : strlen((string) $key),
-                'received_hex' => $key === null ? null : bin2hex((string) $key),
-                'raw_query_string' => request()->getQueryString(),
                 'ip' => request()->ip(),
                 'user_agent' => substr((string) request()->userAgent(), 0, 120),
             ]);
