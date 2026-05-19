@@ -1,7 +1,7 @@
 <x-spargel-layout :title="__('spargel.page_title')">
     {{-- Phase 3 (2026-05-09): the old time-cutoff date math is gone.
          The form now uses an explicit week picker driven by
-         `$availableWeeks` (set in SpargelOrderController::show()). --}}
+         `$availableDates` (set in SpargelOrderController::show()). --}}
 
     {{-- Hero block: editorial heading on the brand-cream page bg. The
          intro line stays focused on the variety choice — the freshness /
@@ -97,11 +97,11 @@
             payment: {{ json_encode(old('payment_method', 'online')) }},
             pickupLocation: {{ json_encode(old('pickup_location', '')) }},
             expectedDeliveryDate: {{ json_encode((string) old('expected_delivery_date', '')) }},
-            remainingByMonday: @js($availableWeeks->mapWithKeys(fn ($w) => [$w['monday']->toDateString() => ['white' => (int) $w['remaining_white_g'], 'green' => (int) $w['remaining_green_g']]])->all()),
+            remainingByDate: @js($availableDates->mapWithKeys(fn ($w) => [$w['date']->toDateString() => ['white' => (int) $w['remaining_white_g'], 'green' => (int) $w['remaining_green_g']]])->all()),
             quantityStep: {{ (int) $quantityStepGrams }},
-            // Filled in when a week-change forces a quantity down to fit
-            // the per-week cap. Customer can dismiss; auto-clears when
-            // the next clamp-less week is picked.
+            // Filled in when a date-change forces a quantity down to
+            // fit the per-date cap. Customer can dismiss; auto-clears
+            // when the next clamp-less date is picked.
             stockClampNotice: '',
             stockClampLabels: @js([
                 'intro' => __('spargel.stock_clamp_notice_intro'),
@@ -122,11 +122,11 @@
             get total() { return Math.round((this.lineTotal + this.effectiveDeliveryFee) * 100) / 100; },
             money(v) { return v.toFixed(2).replace('.', ',') + ' €'; },
             // Per-variety remaining grams for the currently-picked week.
-            // Returns null when no week is selected — callers treat that
-            // as 'no cap yet, leave all options enabled'.
+            // Returns null when no date is selected — callers treat
+            // that as 'no cap yet, leave all options enabled'.
             maxFor(variety) {
                 if (!this.expectedDeliveryDate) return null;
-                const r = this.remainingByMonday[this.expectedDeliveryDate];
+                const r = this.remainingByDate[this.expectedDeliveryDate];
                 if (!r) return null;
                 return variety === 'green' ? r.green : r.white;
             },
@@ -267,7 +267,7 @@
              gamifying the cart). --}}
         <fieldset class="space-y-3" data-testid="spargel-week-picker-fieldset">
             <legend class="eyebrow text-chapter-produce">{{ __('spargel.week_picker_label') }}</legend>
-            @if ($availableWeeks->isEmpty())
+            @if ($availableDates->isEmpty())
                 <div class="border border-chapter-meat/40 bg-chapter-meat/[0.06] p-4 text-sm leading-relaxed text-brand-ink" role="status" data-testid="spargel-week-picker-empty">
                     <p>{{ __('spargel.week_picker_empty') }}</p>
                 </div>
@@ -282,12 +282,12 @@
                     data-testid="spargel-week-picker"
                 >
                     <option value="" @selected(old('expected_delivery_date', '') === '')>{{ __('spargel.week_picker_placeholder') }}</option>
-                    @foreach ($availableWeeks as $week)
+                    @foreach ($availableDates as $week)
                         @php
-                            $iso = $week['monday']->toDateString();
+                            $iso = $week['date']->toDateString();
                             $minRemaining = max(0, min($week['remaining_white_g'], $week['remaining_green_g']));
                             $isLowStock = $minRemaining > 0 && $minRemaining < (int) $lowStockThreshold;
-                            $dateLabel = $week['monday']->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
+                            $dateLabel = $week['date']->locale(app()->getLocale())->isoFormat('dddd, D. MMMM');
                             $suffix = $isLowStock ? ' · '.__('spargel.week_option_limited_badge') : '';
                         @endphp
                         <option value="{{ $iso }}" @selected(old('expected_delivery_date') === $iso)>

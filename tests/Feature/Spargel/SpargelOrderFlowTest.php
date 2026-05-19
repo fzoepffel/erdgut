@@ -6,7 +6,7 @@ use App\Enums\SpargelOrderStatus;
 use App\Mail\SpargelOrderConfirmationMail;
 use App\Models\Producer;
 use App\Models\Product;
-use App\Models\ProductWeekStock;
+use App\Models\ProductStockInflow;
 use App\Models\SpargelOrder;
 use App\Services\SpargelOrderService;
 use App\Support\SumUpService;
@@ -81,18 +81,22 @@ class SpargelOrderFlowTest extends TestCase
         ]);
 
         // 5 kg each for 3 future Mondays — plenty for every default-payload
-        // order in this suite. Individual tests that exercise the per-week
-        // cap shrink these on demand.
+        // order in this suite. Freshness=7 so a single Monday inflow
+        // covers the whole week (matches the legacy weekly-stock semantics
+        // before the daily-inventory rebuild). Individual tests that
+        // exercise the per-date cap shrink these on demand.
         foreach ([self::DEFAULT_DELIVERY_MONDAY, '2026-05-11', '2026-05-18'] as $monday) {
-            ProductWeekStock::create([
+            ProductStockInflow::create([
                 'product_id' => $white->id,
-                'week_start_date' => $monday,
-                'planned_quantity' => 5000,
+                'received_on' => $monday,
+                'quantity' => 5000,
+                'freshness_window_days' => 7,
             ]);
-            ProductWeekStock::create([
+            ProductStockInflow::create([
                 'product_id' => $green->id,
-                'week_start_date' => $monday,
-                'planned_quantity' => 5000,
+                'received_on' => $monday,
+                'quantity' => 5000,
+                'freshness_window_days' => 7,
             ]);
         }
     }
@@ -141,13 +145,92 @@ class SpargelOrderFlowTest extends TestCase
         }
     }
 
+    public function test_wednesday_inflow_surfaces_wednesday_in_picker_and_excludes_monday(): void
+    {
+        // Wipe every Monday inflow from setUp; replace with a single
+        // Wednesday inflow per variety, freshness=1 (same-day only).
+        // The picker must surface ONLY that Wednesday — no Mondays,
+        // no Thursdays — purely from the inflow data.
+        ProductStockInflow::query()->delete();
+
+        $wed = '2026-05-06'; // Wed
+        $whiteId = (int) config('spargel.white_product_id');
+        $greenId = (int) config('spargel.green_product_id');
+
+        foreach ([$whiteId, $greenId] as $productId) {
+            ProductStockInflow::create([
+                'product_id' => $productId,
+                'received_on' => $wed,
+                'quantity' => 3000,
+                'freshness_window_days' => 1,
+            ]);
+        }
+
+        Carbon::setTestNow(Carbon::parse('2026-05-04 10:00:00')); // Mon
+        try {
+            $response = $this->get(route('public.spargel.show'))->assertOk();
+            $response->assertSee('value="'.$wed.'"', false);
+            // No Monday should appear as a picker option.
+            $response->assertDontSee('value="2026-05-04"', false);
+            $response->assertDontSee('value="2026-05-11"', false);
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
+    public function test_freshness_window_extends_availability_into_following_days(): void
+    {
+        // Single Wednesday inflow with freshness=3 should make Wed,
+        // Thu, and Fri all bookable; freshness=1 should keep only Wed.
+        ProductStockInflow::query()->delete();
+
+        $wed = '2026-05-06';
+        $whiteId = (int) config('spargel.white_product_id');
+        $greenId = (int) config('spargel.green_product_id');
+
+        foreach ([$whiteId, $greenId] as $productId) {
+            ProductStockInflow::create([
+                'product_id' => $productId,
+                'received_on' => $wed,
+                'quantity' => 3000,
+                'freshness_window_days' => 3,
+            ]);
+        }
+
+        Carbon::setTestNow(Carbon::parse('2026-05-04 10:00:00'));
+        try {
+            $response = $this->get(route('public.spargel.show'))->assertOk();
+            $response->assertSee('value="2026-05-06"', false); // Wed
+            $response->assertSee('value="2026-05-07"', false); // Thu
+            $response->assertSee('value="2026-05-08"', false); // Fri
+            // Saturday (Wed + 3) should not appear (freshness window
+            // closes after Fri).
+            $response->assertDontSee('value="2026-05-09"', false);
+        } finally {
+            Carbon::setTestNow(null);
+        }
+
+        // Now tighten freshness to 1 — only Wed should surface.
+        ProductStockInflow::query()->update(['freshness_window_days' => 1]);
+
+        Carbon::setTestNow(Carbon::parse('2026-05-04 10:00:00'));
+        try {
+            $response = $this->get(route('public.spargel.show'))->assertOk();
+            $response->assertSee('value="2026-05-06"', false);
+            $response->assertDontSee('value="2026-05-07"', false);
+            $response->assertDontSee('value="2026-05-08"', false);
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
     public function test_overbooking_a_week_is_rejected_per_variety(): void
     {
         // Shrink white stock for 2026-05-04 to 200 g.
-        ProductWeekStock::query()
+        ProductStockInflow::query()
             ->where('product_id', config('spargel.white_product_id'))
-            ->whereDate('week_start_date', self::DEFAULT_DELIVERY_MONDAY)
-            ->update(['planned_quantity' => 200]);
+            ->whereDate('received_on', self::DEFAULT_DELIVERY_MONDAY)
+            ->update(['quantity' => 200]);
 
         $this->from(route('public.spargel.show'))
             ->post(route('public.spargel.store'), [
