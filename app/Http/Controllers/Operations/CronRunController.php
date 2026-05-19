@@ -31,6 +31,19 @@ class CronRunController extends Controller
         Artisan::call('schedule:run');
         $output = Artisan::output();
 
+        // Heartbeat: log one INFO line per successful cron tick so we
+        // can detect outages quickly (e.g. silent opcache-stale CRON_KEY
+        // rejections like the 2026-05-19 incident). Grep
+        // `cron:heartbeat` over the last 30 min — if the count is < 4,
+        // something is wrong with IONOS → /cron/run → schedule:run.
+        // Output preview lets us also see at-a-glance whether any
+        // scheduled commands actually fired on that tick.
+        Log::info('cron:heartbeat', [
+            'ran_commands' => ! str_contains($output, 'No scheduled commands are ready to run'),
+            'output_length' => strlen($output),
+            'output_preview' => trim(substr($output, 0, 200)),
+        ]);
+
         return response($output, 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',
         ]);
