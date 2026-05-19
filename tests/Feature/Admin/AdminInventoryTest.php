@@ -7,6 +7,7 @@ use App\Models\ProductStockInflow;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class AdminInventoryTest extends TestCase
@@ -89,21 +90,9 @@ class AdminInventoryTest extends TestCase
         $this->assertDatabaseMissing('product_stock_inflows', ['id' => $inflow->id]);
     }
 
-    public function test_weekly_catalog_route_redirects_to_inventory(): void
+    public function test_legacy_weekly_catalog_route_no_longer_exists(): void
     {
-        $admin = User::factory()->admin()->create();
-
-        $this->actingAs($admin)
-            ->get(route('app.admin.products.weekly.show'))
-            ->assertRedirect(route('app.admin.inventory.index'));
-    }
-
-    public function test_weekly_catalog_save_returns_410(): void
-    {
-        $admin = User::factory()->admin()->create();
-
-        $this->actingAs($admin)
-            ->post(route('app.admin.products.weekly.save', ['week' => '2026-05-25']))
-            ->assertStatus(410);
+        $this->assertFalse(Route::has('app.admin.products.weekly.show'));
+        $this->assertFalse(Route::has('app.admin.products.weekly.save'));
     }
 }

@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\BoxItem;
 use App\Models\Producer;
 use App\Models\Product;
-use App\Models\ProductWeekStock;
+use App\Models\ProductStockInflow;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -50,7 +50,7 @@ class CatalogPurge extends Command
 
         $counts = [
             'box_items' => $productIds->isEmpty() ? 0 : BoxItem::query()->whereIn('product_id', $productIds)->count(),
-            'product_week_stocks' => $productIds->isEmpty() ? 0 : ProductWeekStock::query()->whereIn('product_id', $productIds)->count(),
+            'product_stock_inflows' => $productIds->isEmpty() ? 0 : ProductStockInflow::query()->whereIn('product_id', $productIds)->count(),
             'products' => $productIds->count(),
             'producers' => $producerIds->count(),
         ];
@@ -77,7 +77,7 @@ class CatalogPurge extends Command
         DB::transaction(function () use ($productIds, $producerIds): void {
             if ($productIds->isNotEmpty()) {
                 BoxItem::query()->whereIn('product_id', $productIds)->delete();
-                ProductWeekStock::query()->whereIn('product_id', $productIds)->delete();
+                ProductStockInflow::query()->whereIn('product_id', $productIds)->delete();
                 Product::query()->whereIn('id', $productIds)->delete();
             }
 

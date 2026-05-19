@@ -11,10 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 /**
- * Recurring inflow schedules — the daily-inventory replacement for
- * `AdminProductScheduleController`. Three POSTs (store / cancel /
- * adjust) mirror the legacy controller's shape so the Blade forms
- * already in the codebase can be retargeted with minimal change.
+ * Recurring inflow schedules.
+ *
+ * Three POSTs (store / cancel / adjust) drive the per-product
+ * recurring-receipt rules surfaced on the admin Inventar page.
  */
 class AdminInflowScheduleController extends Controller
 {

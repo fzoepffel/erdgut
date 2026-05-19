@@ -8,7 +8,7 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Product;
-use App\Models\ProductWeekStock;
+use App\Models\ProductStockInflow;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Admin\WeeklyBoxSetupService;
@@ -85,10 +85,11 @@ class WeeklyBoxSetupServiceTest extends TestCase
                     'taste_profile' => '-',
                 ]);
         }
-        ProductWeekStock::create([
+        ProductStockInflow::create([
             'product_id' => $product->id,
-            'week_start_date' => $monday->toDateString(),
-            'planned_quantity' => $plannedQty,
+            'received_on' => $monday->toDateString(),
+            'quantity' => $plannedQty,
+            'freshness_window_days' => 7,
             'unit' => $unit,
         ]);
 
