@@ -53,6 +53,11 @@ class StoreProductRequest extends FormRequest
             // uniform across products of the same kind.
             'price_display_unit' => ['required', 'string', Rule::in(['g', 'kg', 'ml', 'l', 'piece', 'bunch'])],
             'price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            // Days a fresh inflow remains sellable, starting at the
+            // receipt day inclusive. Default 1 (same-day-only) matches
+            // today's no-storage farm reality. Admin can raise this
+            // per product if storage allows.
+            'default_freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'is_seasonal' => ['boolean'],
             'is_available' => ['boolean'],

@@ -497,6 +497,30 @@
                 <x-input-error class="mt-2" :messages="$errors->get('buying_price')" />
             </div>
         </div>
+
+        @php
+            $freshnessValue = old(
+                'default_freshness_window_days',
+                $product?->default_freshness_window_days ?? 1
+            );
+        @endphp
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <x-input-label for="default_freshness_window_days" :value="__('admin.product_form.freshness_label')" />
+                <x-text-input
+                    id="default_freshness_window_days"
+                    name="default_freshness_window_days"
+                    type="number"
+                    min="1"
+                    max="60"
+                    step="1"
+                    class="mt-1 block w-full sm:w-40"
+                    :value="$freshnessValue"
+                />
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.freshness_hint') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('default_freshness_window_days')" />
+            </div>
+        </div>
     </div>
 
     <div class="rounded border border-gray-200 bg-white p-4 space-y-4">
