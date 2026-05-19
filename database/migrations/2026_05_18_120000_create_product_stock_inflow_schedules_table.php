@@ -41,8 +41,13 @@ return new class extends Migration
             $table->foreignId('created_by_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
-            $table->index(['product_id', 'weekday', 'starts_on']);
-            $table->index('ends_on');
+            // Explicit short names: the auto-generated
+            // `product_stock_inflow_schedules_product_id_weekday_starts_on_index`
+            // is 65 chars and exceeds MySQL's 64-char identifier limit.
+            // The ends_on single-column index is fine but we name it
+            // too for consistency.
+            $table->index(['product_id', 'weekday', 'starts_on'], 'inflow_schedules_product_weekday_starts_idx');
+            $table->index('ends_on', 'inflow_schedules_ends_on_idx');
         });
     }
 
