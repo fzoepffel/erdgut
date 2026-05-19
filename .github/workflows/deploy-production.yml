@@ -139,24 +139,32 @@ jobs:
             php artisan config:cache
             php artisan view:cache
 
-            # Invalidate PHP-FPM's opcache view of the freshly-rebuilt
-            # bootstrap/cache/config.php. IONOS shared hosting runs
-            # opcache with `validate_timestamps=0` (or a long revalidate
-            # window) for performance — without an explicit nudge,
-            # PHP-FPM workers keep serving the previous compiled
-            # bytecode for `bootstrap/cache/config.php`, so any value
-            # changed via this deploy (e.g. CRON_KEY) won't take
-            # effect at request time even though `php artisan` sees
-            # the new value. Touching `public/index.php` forces an
-            # opcache hash mismatch on the next request that goes
-            # through index.php — Laravel re-bootstraps and reads the
-            # new compiled config.
+            # Invalidate PHP-FPM's opcache for every changed PHP file.
+            # IONOS shared hosting runs opcache with
+            # `validate_timestamps=0` (or a long revalidate window) for
+            # performance — without an explicit nudge, PHP-FPM workers
+            # keep serving previously compiled bytecode, so changes
+            # made by this deploy (config cache, controllers, services,
+            # …) won't take effect at request time even though `php
+            # artisan` (which runs CLI-side and bypasses FPM opcache)
+            # sees the new code.
             #
-            # Symptom (2026-05-19): the IONOS HTTP cron was rejecting
-            # `/cron/run?key=…` calls for days because PHP-FPM's
-            # opcache held a stale CRON_KEY value even after several
-            # successful deploys.
-            touch public/index.php
+            # Touching every project PHP file is the cheapest sweep on
+            # shared hosting where we can't call `opcache_reset()` from
+            # CLI. Vendor + node_modules excluded — composer install
+            # already extracted those at the right mtimes.
+            #
+            # Symptoms that forced this in (2026-05-19):
+            #   - IONOS HTTP cron rejected /cron/run for days because
+            #     the bootstrap config cache held a stale CRON_KEY.
+            #   - The cron heartbeat log line didn't appear after deploy
+            #     because the controller class bytecode was still the
+            #     pre-heartbeat version.
+            find . -name '*.php' \
+                -not -path './vendor/*' \
+                -not -path './node_modules/*' \
+                -not -path './storage/framework/*' \
+                -exec touch {} +
 
       - name: Public URL health check
         run: |
