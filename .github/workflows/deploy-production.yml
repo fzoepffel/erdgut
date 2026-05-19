@@ -139,6 +139,25 @@ jobs:
             php artisan config:cache
             php artisan view:cache
 
+            # Invalidate PHP-FPM's opcache view of the freshly-rebuilt
+            # bootstrap/cache/config.php. IONOS shared hosting runs
+            # opcache with `validate_timestamps=0` (or a long revalidate
+            # window) for performance — without an explicit nudge,
+            # PHP-FPM workers keep serving the previous compiled
+            # bytecode for `bootstrap/cache/config.php`, so any value
+            # changed via this deploy (e.g. CRON_KEY) won't take
+            # effect at request time even though `php artisan` sees
+            # the new value. Touching `public/index.php` forces an
+            # opcache hash mismatch on the next request that goes
+            # through index.php — Laravel re-bootstraps and reads the
+            # new compiled config.
+            #
+            # Symptom (2026-05-19): the IONOS HTTP cron was rejecting
+            # `/cron/run?key=…` calls for days because PHP-FPM's
+            # opcache held a stale CRON_KEY value even after several
+            # successful deploys.
+            touch public/index.php
+
       - name: Public URL health check
         run: |
           # Hit the public /up endpoint from outside so a CDN / DNS /

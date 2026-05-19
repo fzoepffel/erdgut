@@ -123,6 +123,11 @@ jobs:
             php artisan config:cache
             php artisan view:cache
 
+            # Invalidate PHP-FPM's opcache view of the freshly-rebuilt
+            # bootstrap/cache/config.php. See deploy-production.yml
+            # for the full rationale.
+            touch public/index.php
+
       - name: Public URL health check
         run: |
           for i in 1 2 3; do
