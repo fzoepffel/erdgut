@@ -3,8 +3,9 @@
 namespace App\Services;
 
 use App\Enums\SpargelOrderStatus;
-use App\Models\ProductWeekStock;
+use App\Models\Product;
 use App\Models\SpargelOrder;
+use App\Services\Admin\InventoryService;
 use App\Services\Onboarding\TrialOrderService;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
@@ -155,21 +156,22 @@ class SpargelOrderService
     }
 
     /**
-     * Weeks available for spargel orders.
+     * Dates available for spargel orders.
      *
-     * A Monday is "available" iff BOTH spargel products (white + green)
-     * have a `ProductWeekStock` row for that week with non-zero remaining
-     * grams (= planned − already-booked). Mondays already in the past
-     * are excluded; same for the current Monday after morning cutoff
-     * (kept until the day before by querying `>= today + 1 day`).
+     * A date `D` is available iff BOTH spargel products have positive
+     * `availableOnDate(D)` (= active inflows whose freshness window
+     * covers `D`, minus already-booked grams). Dates in the past and
+     * today are excluded — same-day orders aren't possible. Picker
+     * walks `[today+1, today + $horizonWeeks weeks]`.
      *
-     * Returns Mondays in ascending order. Empty when spargel config is
-     * unset or the products aren't found — the form then renders the
-     * empty-state hint and disables the submit button.
+     * No hardcoded weekday list — Mondays, Wednesdays, or any other
+     * weekday appears purely because admin entered an inflow there
+     * (directly or via a recurring schedule). Empty when spargel
+     * config is unset.
      *
-     * @return Collection<int, array{monday: Carbon, remaining_white_g: int, remaining_green_g: int}>
+     * @return Collection<int, array{date: Carbon, remaining_white_g: int, remaining_green_g: int}>
      */
-    public function availableWeeks(): Collection
+    public function availableDates(int $horizonWeeks = 8): Collection
     {
         $whiteId = config('spargel.white_product_id');
         $greenId = config('spargel.green_product_id');
@@ -178,113 +180,73 @@ class SpargelOrderService
             return collect();
         }
 
-        // The earliest Monday a customer can pick is the *next* Monday
-        // strictly after today. Carbon's `next(MONDAY)` returns next
-        // week's Monday when today is a Monday, otherwise the upcoming
-        // Monday. Same-day orders are intentionally excluded — we can't
-        // cut and deliver in a few hours.
-        $earliestMonday = Carbon::today()->next(Carbon::MONDAY);
+        $white = Product::query()->find((int) $whiteId);
+        $green = Product::query()->find((int) $greenId);
 
-        // Pull planned quantities + already-booked for both products in
-        // one shot per side. ProductWeekStock is indexed by week_start_date.
-        $whiteStocks = ProductWeekStock::query()
-            ->where('product_id', (int) $whiteId)
-            ->whereDate('week_start_date', '>=', $earliestMonday->toDateString())
-            ->where('planned_quantity', '>', 0)
-            ->orderBy('week_start_date')
-            ->get(['week_start_date', 'planned_quantity']);
+        if ($white === null || $green === null) {
+            return collect();
+        }
 
-        $greenStocks = ProductWeekStock::query()
-            ->where('product_id', (int) $greenId)
-            ->whereDate('week_start_date', '>=', $earliestMonday->toDateString())
-            ->where('planned_quantity', '>', 0)
-            ->orderBy('week_start_date')
-            ->get(['week_start_date', 'planned_quantity']);
+        $inventory = app(InventoryService::class);
+        $start = Carbon::today()->addDay();
+        $end = Carbon::today()->addDays(7 * $horizonWeeks);
 
-        $whiteByMonday = $whiteStocks->keyBy(fn ($r) => $r->week_start_date->toDateString());
-        $greenByMonday = $greenStocks->keyBy(fn ($r) => $r->week_start_date->toDateString());
+        $whiteWindow = $inventory->availabilityWindow($white, $start, $end);
+        $greenWindow = $inventory->availabilityWindow($green, $start, $end);
 
-        $mondays = $whiteByMonday->keys()->merge($greenByMonday->keys())->unique()->sort()->values();
+        $rows = collect();
+        foreach ($whiteWindow as $iso => $remainingWhite) {
+            $remainingGreen = $greenWindow[$iso] ?? 0.0;
+            if ($remainingWhite <= 0 && $remainingGreen <= 0) {
+                continue;
+            }
+            // Both varieties must be available — order form requires
+            // submitting a date that supports either one *and* lets
+            // single-variety orders go through. Surface a date so long
+            // as at least one variety is non-empty; the per-date cap
+            // re-validates per variety at submit.
+            $rows->push([
+                'date' => Carbon::parse($iso)->startOfDay(),
+                'remaining_white_g' => (int) round($remainingWhite),
+                'remaining_green_g' => (int) round($remainingGreen),
+            ]);
+        }
 
-        // Bulk-load existing booked grams per Monday so we don't N+1 in the
-        // loop below.
-        $bookedWhite = SpargelOrder::query()
-            ->whereIn('expected_delivery_date', $mondays->all())
-            ->whereNotIn('status', [SpargelOrderStatus::Cancelled, SpargelOrderStatus::Refunded])
-            ->groupBy('expected_delivery_date')
-            ->selectRaw('expected_delivery_date, SUM(quantity_white_grams) AS sum_white')
-            ->get()
-            ->keyBy(fn ($r) => Carbon::parse((string) $r->expected_delivery_date)->toDateString());
-
-        $bookedGreen = SpargelOrder::query()
-            ->whereIn('expected_delivery_date', $mondays->all())
-            ->whereNotIn('status', [SpargelOrderStatus::Cancelled, SpargelOrderStatus::Refunded])
-            ->groupBy('expected_delivery_date')
-            ->selectRaw('expected_delivery_date, SUM(quantity_green_grams) AS sum_green')
-            ->get()
-            ->keyBy(fn ($r) => Carbon::parse((string) $r->expected_delivery_date)->toDateString());
-
-        return $mondays
-            ->map(function (string $monday) use ($whiteByMonday, $greenByMonday, $bookedWhite, $bookedGreen): array {
-                $plannedWhite = (int) round((float) ($whiteByMonday[$monday]?->planned_quantity ?? 0));
-                $plannedGreen = (int) round((float) ($greenByMonday[$monday]?->planned_quantity ?? 0));
-                $usedWhite = (int) ($bookedWhite[$monday]?->sum_white ?? 0);
-                $usedGreen = (int) ($bookedGreen[$monday]?->sum_green ?? 0);
-
-                return [
-                    'monday' => Carbon::parse($monday)->startOfDay(),
-                    'remaining_white_g' => max(0, $plannedWhite - $usedWhite),
-                    'remaining_green_g' => max(0, $plannedGreen - $usedGreen),
-                ];
-            })
-            ->filter(fn (array $row): bool => $row['remaining_white_g'] > 0 || $row['remaining_green_g'] > 0)
-            ->values();
+        return $rows->values();
     }
 
     /**
-     * Remaining grams for the given Monday, per variety. Used by the
-     * order-create validation to reject overbookings race-tightly: the
-     * Request layer calls this just before persisting. Returns `null`
-     * for either side if no plan exists.
+     * Remaining grams for the given date, per variety. Used by the
+     * order-create validation to reject overbookings race-tightly:
+     * the Request layer calls this just before persisting. Returns
+     * `null` for either side when the corresponding spargel product
+     * isn't configured.
      *
      * @return array{white: ?int, green: ?int}
      */
-    public function remainingForWeek(Carbon $monday): array
+    public function remainingForDate(Carbon $date): array
     {
         $whiteId = config('spargel.white_product_id');
         $greenId = config('spargel.green_product_id');
 
-        $remaining = fn (?int $productId): ?int => $productId === null
-            ? null
-            : $this->remainingForProductWeek($productId, $monday);
-
         return [
-            'white' => $remaining($whiteId !== null ? (int) $whiteId : null),
-            'green' => $remaining($greenId !== null ? (int) $greenId : null),
+            'white' => $this->remainingForProductDate($whiteId !== null ? (int) $whiteId : null, $date),
+            'green' => $this->remainingForProductDate($greenId !== null ? (int) $greenId : null, $date),
         ];
     }
 
-    private function remainingForProductWeek(int $productId, Carbon $monday): ?int
+    private function remainingForProductDate(?int $productId, Carbon $date): ?int
     {
-        $stock = ProductWeekStock::query()
-            ->where('product_id', $productId)
-            ->whereDate('week_start_date', $monday->toDateString())
-            ->first(['planned_quantity']);
-
-        if ($stock === null) {
+        if ($productId === null) {
             return null;
         }
 
-        $column = ($productId === (int) config('spargel.white_product_id'))
-            ? 'quantity_white_grams'
-            : 'quantity_green_grams';
+        $product = Product::query()->find($productId);
+        if ($product === null) {
+            return null;
+        }
 
-        $used = (int) SpargelOrder::query()
-            ->whereDate('expected_delivery_date', $monday->toDateString())
-            ->whereNotIn('status', [SpargelOrderStatus::Cancelled, SpargelOrderStatus::Refunded])
-            ->sum($column);
-
-        return max(0, (int) round((float) $stock->planned_quantity) - $used);
+        return (int) round(app(InventoryService::class)->availableOnDate($product, $date));
     }
 
     /**

@@ -14,7 +14,7 @@ use App\Models\BoxItem;
 use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\ProductWeekStock;
+use App\Models\ProductStockInflow;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Admin\WeeklyBoxSetupService;
@@ -157,10 +157,11 @@ class AdminBoxSetupTest extends TestCase
             'metadata' => null,
         ]);
         $product->translations()->where('locale', 'en')->update(['name' => 'Setup Dialog Carrot']);
-        ProductWeekStock::create([
+        ProductStockInflow::create([
             'product_id' => $product->id,
-            'week_start_date' => $monday->toDateString(),
-            'planned_quantity' => 20,
+            'received_on' => $monday->toDateString(),
+            'quantity' => 20,
+            'freshness_window_days' => 7,
             'unit' => 'bundle',
         ]);
 
@@ -226,10 +227,11 @@ class AdminBoxSetupTest extends TestCase
             'is_published' => true,
             'metadata' => ['unit' => 'piece'],
         ]);
-        ProductWeekStock::create([
+        ProductStockInflow::create([
             'product_id' => $product->id,
-            'week_start_date' => $monday->toDateString(),
-            'planned_quantity' => 10,
+            'received_on' => $monday->toDateString(),
+            'quantity' => 10,
+            'freshness_window_days' => 7,
             'unit' => 'piece',
         ]);
 
@@ -287,10 +289,11 @@ class AdminBoxSetupTest extends TestCase
             'is_published' => true,
             'metadata' => ['unit' => 'piece'],
         ]);
-        ProductWeekStock::create([
+        ProductStockInflow::create([
             'product_id' => $product->id,
-            'week_start_date' => $monday->toDateString(),
-            'planned_quantity' => 10,
+            'received_on' => $monday->toDateString(),
+            'quantity' => 10,
+            'freshness_window_days' => 7,
             'unit' => 'piece',
         ]);
 
@@ -371,10 +374,11 @@ class AdminBoxSetupTest extends TestCase
             'is_published' => true,
             'metadata' => ['unit' => 'piece'],
         ]);
-        ProductWeekStock::create([
+        ProductStockInflow::create([
             'product_id' => $newProduct->id,
-            'week_start_date' => $monday->toDateString(),
-            'planned_quantity' => 10,
+            'received_on' => $monday->toDateString(),
+            'quantity' => 10,
+            'freshness_window_days' => 7,
             'unit' => 'piece',
         ]);
 
@@ -437,10 +441,11 @@ class AdminBoxSetupTest extends TestCase
             'is_published' => true,
             'metadata' => ['unit' => 'piece'],
         ]);
-        ProductWeekStock::create([
+        ProductStockInflow::create([
             'product_id' => $product->id,
-            'week_start_date' => $monday->toDateString(),
-            'planned_quantity' => 10,
+            'received_on' => $monday->toDateString(),
+            'quantity' => 10,
+            'freshness_window_days' => 7,
             'unit' => 'piece',
         ]);
 
@@ -581,10 +586,11 @@ class AdminBoxSetupTest extends TestCase
             'is_published' => true,
             'metadata' => ['unit' => 'piece'],
         ]);
-        ProductWeekStock::create([
+        ProductStockInflow::create([
             'product_id' => $product->id,
-            'week_start_date' => $monday->toDateString(),
-            'planned_quantity' => 5,
+            'received_on' => $monday->toDateString(),
+            'quantity' => 5,
+            'freshness_window_days' => 7,
             'unit' => 'piece',
         ]);
 

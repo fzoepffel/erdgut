@@ -8,7 +8,7 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Product;
-use App\Models\ProductWeekStock;
+use App\Models\ProductStockInflow;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -80,10 +80,11 @@ class AdminBoxItemTest extends TestCase
             'is_published' => true,
         ]);
         $product->translations()->where('locale', 'en')->update(['name' => 'Admin Catalog Apple']);
-        ProductWeekStock::create([
+        ProductStockInflow::create([
             'product_id' => $product->id,
-            'week_start_date' => $weekStart->toDateString(),
-            'planned_quantity' => 10,
+            'received_on' => $weekStart->toDateString(),
+            'quantity' => 10,
+            'freshness_window_days' => 7,
             'unit' => 'kg',
         ]);
 
@@ -159,10 +160,11 @@ class AdminBoxItemTest extends TestCase
             'is_available' => true,
             'is_published' => true,
         ]);
-        ProductWeekStock::create([
+        ProductStockInflow::create([
             'product_id' => $product->id,
-            'week_start_date' => $weekStart->toDateString(),
-            'planned_quantity' => 5,
+            'received_on' => $weekStart->toDateString(),
+            'quantity' => 5,
+            'freshness_window_days' => 7,
             'unit' => 'piece',
         ]);
 
@@ -225,10 +227,11 @@ class AdminBoxItemTest extends TestCase
             'is_published' => true,
         ]);
         $available->translations()->where('locale', 'en')->update(['name' => 'Available-Week-Product']);
-        ProductWeekStock::create([
+        ProductStockInflow::create([
             'product_id' => $available->id,
-            'week_start_date' => $weekStart->toDateString(),
-            'planned_quantity' => 10,
+            'received_on' => $weekStart->toDateString(),
+            'quantity' => 10,
+            'freshness_window_days' => 7,
             'unit' => 'piece',
         ]);
 

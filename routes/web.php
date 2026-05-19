@@ -9,15 +9,15 @@ use App\Http\Controllers\Admin\AdminBoxSetupController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
 use App\Http\Controllers\Admin\AdminEmailResendController;
+use App\Http\Controllers\Admin\AdminInflowScheduleController;
+use App\Http\Controllers\Admin\AdminInventoryController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
-use App\Http\Controllers\Admin\AdminProductScheduleController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
 use App\Http\Controllers\Admin\AdminUserController;
-use App\Http\Controllers\Admin\AdminWeeklyCatalogController;
 use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoxController;
@@ -323,22 +323,27 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:30,1')
                 ->name('boxes.override-edit');
             Route::resource('producers', ProducerController::class)->except(['show']);
-            Route::get('products/weekly/{week?}', [AdminWeeklyCatalogController::class, 'show'])
-                ->name('products.weekly.show');
-            Route::post('products/weekly/{week}', [AdminWeeklyCatalogController::class, 'save'])
-                ->middleware('throttle:24,1')
-                ->name('products.weekly.save');
-            Route::resource('products', ProductController::class)->except(['show']);
+            // Inventar — daily-inventory admin surface.
+            Route::get('inventory', [AdminInventoryController::class, 'index'])
+                ->name('inventory.index');
+            Route::post('inventory/inflows', [AdminInventoryController::class, 'storeInflow'])
+                ->middleware('throttle:30,1')
+                ->name('inventory.inflows.store');
+            Route::delete('inventory/inflows/{inflow}', [AdminInventoryController::class, 'destroyInflow'])
+                ->middleware('throttle:30,1')
+                ->name('inventory.inflows.destroy');
 
-            Route::post('products/{product}/schedules', [AdminProductScheduleController::class, 'store'])
+            Route::post('inflow-schedules/{product}', [AdminInflowScheduleController::class, 'store'])
                 ->middleware('throttle:30,1')
-                ->name('products.schedules.store');
-            Route::post('products/{product}/schedules/{schedule}/cancel', [AdminProductScheduleController::class, 'cancel'])
+                ->name('inflow-schedules.store');
+            Route::post('inflow-schedules/{product}/{schedule}/cancel', [AdminInflowScheduleController::class, 'cancel'])
                 ->middleware('throttle:30,1')
-                ->name('products.schedules.cancel');
-            Route::post('products/{product}/schedules/{schedule}/adjust', [AdminProductScheduleController::class, 'adjust'])
+                ->name('inflow-schedules.cancel');
+            Route::post('inflow-schedules/{product}/{schedule}/adjust', [AdminInflowScheduleController::class, 'adjust'])
                 ->middleware('throttle:30,1')
-                ->name('products.schedules.adjust');
+                ->name('inflow-schedules.adjust');
+
+            Route::resource('products', ProductController::class)->except(['show']);
 
             Route::get('orders/create', [AdminOrderController::class, 'create'])->name('orders.create');
             Route::post('orders', [AdminOrderController::class, 'store'])

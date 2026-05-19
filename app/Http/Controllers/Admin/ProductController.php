@@ -295,6 +295,9 @@ class ProductController extends Controller
             'unit' => $validated['unit'],
             'price_display_unit' => $displayUnit,
             'unit_price' => $canonicalUnitPrice,
+            'default_freshness_window_days' => isset($validated['default_freshness_window_days'])
+                ? max(1, (int) $validated['default_freshness_window_days'])
+                : 1,
             'is_seasonal' => (bool) ($validated['is_seasonal'] ?? false),
             'is_available' => (bool) ($validated['is_available'] ?? false),
             'is_published' => (bool) ($validated['is_published'] ?? false),

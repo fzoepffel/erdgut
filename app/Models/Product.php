@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ProductUnit;
+use App\Services\Admin\InventoryService;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -32,6 +33,7 @@ class Product extends Model
         'unit',
         'price_display_unit',
         'unit_price',
+        'default_freshness_window_days',
         'buying_price_cents',
         'is_seasonal',
         'is_available',
@@ -61,6 +63,7 @@ class Product extends Model
             // `displayPrice()` which renders in the admin's chosen
             // `price_display_unit` and formats to 2 decimals.
             'unit_price' => 'decimal:4',
+            'default_freshness_window_days' => 'integer',
             'buying_price_cents' => 'integer',
             'is_seasonal' => 'boolean',
             'is_available' => 'boolean',
@@ -286,67 +289,51 @@ class Product extends Model
     }
 
     /**
-     * Weekly planned stock rows for this product.
+     * Daily inflow rows for this product. One row per physical
+     * receipt; aggregated by {@see InventoryService}.
      */
-    public function weekStocks(): HasMany
+    public function stockInflows(): HasMany
     {
-        return $this->hasMany(ProductWeekStock::class);
+        return $this->hasMany(ProductStockInflow::class);
     }
 
     /**
-     * Recurring weekly-stock schedules attached to this product.
+     * Recurring per-weekday inflow schedules attached to this product
+     * (Phase 2+). Materialized into `stockInflows()` rows by
+     * {@see InventoryService::materializeWindow()}.
      */
-    public function weekStockSchedules(): HasMany
+    public function stockInflowSchedules(): HasMany
     {
-        return $this->hasMany(ProductWeekStockSchedule::class);
+        return $this->hasMany(ProductStockInflowSchedule::class);
     }
 
     /**
-     * Products with a positive planned quantity for the given Monday.
+     * Gross active inflow minus committed outflow for `$date`.
+     * Delegates to {@see InventoryService} so the math stays in one
+     * place.
      */
-    public function scopeAvailableForWeek(Builder $query, Carbon $week): void
+    public function availableOnDate(Carbon $date): float
     {
-        $date = $week->copy()->startOfDay()->toDateString();
-        $query->visibleInCatalog()->whereHas(
-            'weekStocks',
-            fn ($q) => $q->whereDate('week_start_date', $date)->where('planned_quantity', '>', 0)
-        );
+        return app(InventoryService::class)->availableOnDate($this, $date);
     }
 
     /**
-     * Planned quantity in the weekly catalog for this product (0.0 if no row).
+     * Committed outflow for `$date` (spargel-order grams + box-item
+     * quantities aggregated by computed delivery date).
      */
-    public function plannedQuantityForWeek(Carbon $week): float
+    public function committedOnDate(Carbon $date): float
     {
-        $date = $week->copy()->startOfDay()->toDateString();
-        $stock = $this->weekStocks()
-            ->whereDate('week_start_date', $date)
-            ->first();
-
-        return $stock !== null ? (float) $stock->planned_quantity : 0.0;
+        return app(InventoryService::class)->committedOnDate($this, $date);
     }
 
     /**
-     * Sum of box item quantities already assigned to boxes that start on the given Monday.
+     * Convenience: `availableOnDate` minus `committedOnDate` exposed
+     * as a single read. Identical to `availableOnDate` since the
+     * service already subtracts committed, kept as its own method
+     * for readability at call sites.
      */
-    public function distributedQuantityForWeek(Carbon $week): float
+    public function remainingOnDate(Carbon $date): float
     {
-        $date = $week->copy()->startOfDay()->toDateString();
-
-        $sum = DB::table('box_items')
-            ->join('boxes', 'boxes.id', '=', 'box_items.box_id')
-            ->where('box_items.product_id', $this->id)
-            ->whereDate('boxes.week_start_date', $date)
-            ->sum('box_items.quantity');
-
-        return (float) $sum;
-    }
-
-    /**
-     * Remaining = planned − distributed (may be negative → over-allocated).
-     */
-    public function remainingForWeek(Carbon $week): float
-    {
-        return round($this->plannedQuantityForWeek($week) - $this->distributedQuantityForWeek($week), 2);
+        return $this->availableOnDate($date);
     }
 }
