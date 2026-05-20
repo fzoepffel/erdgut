@@ -120,9 +120,12 @@ class InventoryService
         $freshness = $freshnessWindowDays
             ?? (int) ($product->default_freshness_window_days ?? 1);
 
+        $iso = $receivedOn->copy()->startOfDay()->toDateString();
+
         return ProductStockInflow::create([
             'product_id' => $product->id,
-            'received_on' => $receivedOn->copy()->startOfDay()->toDateString(),
+            'received_on' => $iso,
+            'original_received_on' => $iso,
             'quantity' => round($quantity, 4),
             'freshness_window_days' => max(1, $freshness),
             'source_schedule_id' => $sourceScheduleId,
@@ -282,15 +285,19 @@ class InventoryService
 
         $written = 0;
         while ($cursor->lte($end)) {
+            // Match on `original_received_on` so admin-edited dates
+            // don't trick the materializer into recreating the
+            // originally-scheduled day. New rows set both fields equal.
             $exists = ProductStockInflow::query()
                 ->where('source_schedule_id', $schedule->id)
-                ->whereDate('received_on', $cursor->toDateString())
+                ->whereDate('original_received_on', $cursor->toDateString())
                 ->exists();
 
             if (! $exists) {
                 ProductStockInflow::create([
                     'product_id' => $schedule->product_id,
                     'received_on' => $cursor->toDateString(),
+                    'original_received_on' => $cursor->toDateString(),
                     'quantity' => $schedule->planned_quantity,
                     'freshness_window_days' => $schedule->freshness_window_days,
                     'source_schedule_id' => $schedule->id,
