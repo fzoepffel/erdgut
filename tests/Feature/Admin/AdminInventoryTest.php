@@ -4,7 +4,9 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Product;
 use App\Models\ProductStockInflow;
+use App\Models\ProductStockInflowSchedule;
 use App\Models\User;
+use App\Services\Admin\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
@@ -88,6 +90,85 @@ class AdminInventoryTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseMissing('product_stock_inflows', ['id' => $inflow->id]);
+    }
+
+    public function test_admin_can_edit_an_inflow_quantity_and_date(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create([
+            'unit' => 'mass',
+            'price_display_unit' => 'kg',
+        ]);
+        $inflow = ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => '2026-05-25',
+            'quantity' => 10000.0, // 10 kg
+            'freshness_window_days' => 1,
+        ]);
+
+        // Admin enters 7.5 in the display unit (kg) — controller should
+        // multiply by the kg→g factor (1000) to get 7500 grams stored.
+        $this->actingAs($admin)
+            ->patch(route('app.admin.inventory.inflows.update', $inflow), [
+                'received_on' => '2026-05-26',
+                'quantity' => 7.5,
+                'freshness_window_days' => 2,
+                'notes' => 'Moved to Tuesday — Monday was a holiday',
+            ])
+            ->assertRedirect();
+
+        $inflow->refresh();
+        $this->assertSame('2026-05-26', $inflow->received_on->toDateString());
+        $this->assertEqualsWithDelta(7500.0, (float) $inflow->quantity, 0.001);
+        $this->assertSame(2, $inflow->freshness_window_days);
+        $this->assertSame('Moved to Tuesday — Monday was a holiday', $inflow->notes);
+        // original_received_on stays at the originally-stored date for
+        // one-offs (which equals the original received_on at creation).
+        $this->assertSame('2026-05-25', $inflow->original_received_on->toDateString());
+    }
+
+    public function test_materializer_respects_admin_edited_dates(): void
+    {
+        // Setup: a Monday-weekday schedule materialises an inflow for
+        // 2026-06-01. Admin shifts that row to Tuesday 2026-06-02
+        // (Monday was a holiday). The next cron run must NOT recreate
+        // a row for 2026-06-01.
+        $product = Product::factory()->create();
+        $schedule = ProductStockInflowSchedule::create([
+            'product_id' => $product->id,
+            'weekday' => 1, // Carbon Monday
+            'planned_quantity' => 5000,
+            'freshness_window_days' => 1,
+            'starts_on' => '2026-06-01',
+        ]);
+
+        // First materialisation creates the Monday row.
+        app(InventoryService::class)
+            ->materializeSchedule($schedule, Carbon::parse('2026-06-01'));
+
+        $row = ProductStockInflow::query()
+            ->where('source_schedule_id', $schedule->id)
+            ->whereDate('original_received_on', '2026-06-01')
+            ->first();
+        $this->assertNotNull($row);
+        $this->assertSame('2026-06-01', $row->received_on->toDateString());
+
+        // Admin shifts the row to Tuesday — only `received_on` changes.
+        $row->update(['received_on' => '2026-06-02']);
+
+        // Re-run the materializer for the same horizon. It must see
+        // that the 2026-06-01 occurrence is already accounted for
+        // (via original_received_on) and skip it.
+        $written = app(InventoryService::class)
+            ->materializeSchedule($schedule->fresh(), Carbon::parse('2026-06-01'));
+
+        $this->assertSame(0, $written);
+        $this->assertSame(
+            1,
+            ProductStockInflow::query()
+                ->where('source_schedule_id', $schedule->id)
+                ->count(),
+        );
     }
 
     public function test_legacy_weekly_catalog_route_no_longer_exists(): void
