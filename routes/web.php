@@ -329,6 +329,9 @@ Route::middleware(['auth', 'verified'])
             Route::post('inventory/inflows', [AdminInventoryController::class, 'storeInflow'])
                 ->middleware('throttle:30,1')
                 ->name('inventory.inflows.store');
+            Route::match(['put', 'patch'], 'inventory/inflows/{inflow}', [AdminInventoryController::class, 'updateInflow'])
+                ->middleware('throttle:30,1')
+                ->name('inventory.inflows.update');
             Route::delete('inventory/inflows/{inflow}', [AdminInventoryController::class, 'destroyInflow'])
                 ->middleware('throttle:30,1')
                 ->name('inventory.inflows.destroy');

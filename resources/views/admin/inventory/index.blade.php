@@ -297,19 +297,37 @@
                                                 @endif
                                             </td>
                                             <td class="px-3 py-2">
-                                                <form
-                                                    method="POST"
-                                                    action="{{ route('app.admin.inventory.inflows.destroy', $inflow) }}"
-                                                    onsubmit="return confirm('{{ __('admin.inventory.confirm_delete_inflow') }}');"
-                                                    class="inline"
-                                                >
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <input type="hidden" name="_redirect" value="{{ url()->full() }}" />
-                                                    <button type="submit" class="text-xs font-semibold text-rose-700 hover:underline">
-                                                        {{ __('admin.inventory.delete_inflow') }}
+                                                <div class="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        x-on:click="open('inflow-edit', {
+                                                            id: {{ $inflow->id }},
+                                                            product_name: @js((string) ($product?->name ?? '')),
+                                                            display_unit_symbol: @js(\App\Enums\ProductUnit::displaySymbol($displayUnit)),
+                                                            received_on: @js((string) ($inflow->received_on?->toDateString() ?? '')),
+                                                            quantity: {{ $displayQty }},
+                                                            freshness_window_days: {{ (int) $inflow->freshness_window_days }},
+                                                            notes: @js((string) ($inflow->notes ?? '')),
+                                                            update_url: @js(route('app.admin.inventory.inflows.update', $inflow)),
+                                                        })"
+                                                        class="text-xs font-semibold text-emerald-700 hover:underline"
+                                                    >
+                                                        {{ __('admin.inventory.edit_inflow') }}
                                                     </button>
-                                                </form>
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route('app.admin.inventory.inflows.destroy', $inflow) }}"
+                                                        onsubmit="return confirm('{{ __('admin.inventory.confirm_delete_inflow') }}');"
+                                                        class="inline"
+                                                    >
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <input type="hidden" name="_redirect" value="{{ url()->full() }}" />
+                                                        <button type="submit" class="text-xs font-semibold text-rose-700 hover:underline">
+                                                            {{ __('admin.inventory.delete_inflow') }}
+                                                        </button>
+                                                    </form>
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -366,6 +384,60 @@
                                 {{ __('admin.inventory.modal_cancel') }}
                             </button>
                             <x-primary-button size="sm">{{ __('admin.inventory.manual_submit') }}</x-primary-button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {{-- MODAL: Edit an existing inflow row --}}
+            <div
+                x-show="modal === 'inflow-edit'"
+                x-cloak
+                x-transition.opacity
+                class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                x-on:click.self="close()"
+            >
+                <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl" x-on:click.stop>
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">
+                                <span>{{ __('admin.inventory.modal_inflow_edit_title') }}</span>
+                                <span x-show="ctx?.product_name" x-cloak>:&nbsp;<span x-text="ctx?.product_name"></span></span>
+                            </h3>
+                            <p class="mt-1 text-xs text-gray-500">{{ __('admin.inventory.modal_inflow_edit_hint') }}</p>
+                        </div>
+                        <button type="button" x-on:click="close()" class="text-gray-400 hover:text-gray-600">&times;</button>
+                    </div>
+                    <form
+                        method="POST"
+                        :action="ctx?.update_url"
+                        class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2"
+                    >
+                        @csrf
+                        @method('PATCH')
+                        <input type="hidden" name="_redirect" value="{{ url()->full() }}" />
+                        <label class="text-xs text-gray-700">
+                            {{ __('admin.inventory.manual_received_on') }}
+                            <input type="date" name="received_on" required :value="ctx?.received_on" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                        </label>
+                        <label class="text-xs text-gray-700">
+                            <span x-text="'{{ __('admin.inventory.manual_quantity') }}' + (ctx?.display_unit_symbol ? ' (' + ctx.display_unit_symbol + ')' : '')"></span>
+                            <input type="number" name="quantity" required step="0.01" min="0.01" :value="ctx?.quantity" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                        </label>
+                        <label class="text-xs text-gray-700 sm:col-span-2">
+                            {{ __('admin.inventory.manual_freshness') }}
+                            <input type="number" name="freshness_window_days" min="1" max="60" :value="ctx?.freshness_window_days" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                            <span class="mt-1 block text-[11px] text-gray-500">{{ __('admin.inventory.manual_freshness_hint') }}</span>
+                        </label>
+                        <label class="text-xs text-gray-700 sm:col-span-2">
+                            {{ __('admin.inventory.manual_notes') }}
+                            <textarea name="notes" rows="2" maxlength="500" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" x-text="ctx?.notes ?? ''"></textarea>
+                        </label>
+                        <div class="sm:col-span-2 flex justify-end gap-2">
+                            <button type="button" x-on:click="close()" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                {{ __('admin.inventory.modal_cancel') }}
+                            </button>
+                            <x-primary-button size="sm">{{ __('admin.inventory.edit_submit') }}</x-primary-button>
                         </div>
                     </form>
                 </div>

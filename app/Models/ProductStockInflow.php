@@ -29,6 +29,7 @@ class ProductStockInflow extends Model
     protected $fillable = [
         'product_id',
         'received_on',
+        'original_received_on',
         'quantity',
         'freshness_window_days',
         'source_schedule_id',
@@ -40,9 +41,29 @@ class ProductStockInflow extends Model
     {
         return [
             'received_on' => 'date:Y-m-d',
+            // The originally-scheduled date for this row. For one-off
+            // inflows it equals received_on; for schedule-materialized
+            // rows it sticks even when admin edits the received_on,
+            // so the materializer can dedup on its intent rather than
+            // the latest physical date.
+            'original_received_on' => 'date:Y-m-d',
             'quantity' => 'decimal:4',
             'freshness_window_days' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Default `original_received_on` to `received_on` when the
+        // caller doesn't supply it. Keeps every existing
+        // `ProductStockInflow::create([...])` call (including the ones
+        // in the data migration and in tests) working without having
+        // to thread the column through every fixture.
+        static::creating(function (self $inflow): void {
+            if ($inflow->original_received_on === null && $inflow->received_on !== null) {
+                $inflow->original_received_on = $inflow->received_on;
+            }
+        });
     }
 
     public function product(): BelongsTo

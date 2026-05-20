@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminInventoryInflowStoreRequest;
+use App\Http\Requests\Admin\AdminInventoryInflowUpdateRequest;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Services\Admin\InventoryService;
@@ -102,6 +103,39 @@ class AdminInventoryController extends Controller
         );
 
         return $this->redirectToInventory($request, $validated['received_on'], __('admin.inventory.flash_inflow_created'));
+    }
+
+    public function updateInflow(AdminInventoryInflowUpdateRequest $request, ProductStockInflow $inflow): RedirectResponse
+    {
+        $this->authorize('update', $inflow->product);
+
+        $product = $inflow->product;
+        $unit = $product?->unit;
+        $displayUnit = $product?->price_display_unit ?? $unit?->defaultDisplayUnit();
+        $factor = ($unit !== null && $displayUnit !== null)
+            ? $unit->canonicalUnitsPerDisplay($displayUnit)
+            : 1;
+
+        $validated = $request->validated();
+
+        // `original_received_on` is intentionally NOT touched here —
+        // it stays at whatever the materializer (or the recordInflow
+        // path for one-offs) set, so the cron continues to recognise
+        // this row as fulfilling its scheduled occurrence even after
+        // an admin moves it to a different day.
+        $inflow->fill([
+            'received_on' => Carbon::parse($validated['received_on'])->startOfDay()->toDateString(),
+            'quantity' => round((float) $validated['quantity'] * $factor, 4),
+            'freshness_window_days' => max(1, (int) (
+                $validated['freshness_window_days']
+                ?? $inflow->freshness_window_days
+                ?? $product?->default_freshness_window_days
+                ?? 1
+            )),
+            'notes' => $validated['notes'] ?? null,
+        ])->save();
+
+        return $this->redirectToInventory($request, $validated['received_on'], __('admin.inventory.flash_inflow_updated'));
     }
 
     public function destroyInflow(Request $request, ProductStockInflow $inflow): RedirectResponse
