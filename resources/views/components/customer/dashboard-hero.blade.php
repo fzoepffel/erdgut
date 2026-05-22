@@ -138,7 +138,9 @@
 >
     <div class="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
         {{-- ─── Left column: greeting + lead + actions ─────────────────── --}}
-        <div class="order-2 lg:order-1">
+        {{-- On <lg the greeting reads first (natural document order); the
+             illustration follows. On lg+ the two columns sit side-by-side. --}}
+        <div>
             <p class="eyebrow text-chapter-produce">{{ $chapterEyebrow }}</p>
 
             <h1 id="dashboard-hero-headline" class="mt-6 font-display font-semibold leading-[1.05] text-brand-ink text-4xl sm:text-5xl lg:text-6xl">
@@ -222,8 +224,11 @@
         </div>
 
         {{-- ─── Right column: meta-framed illustration ──────────────────── --}}
-        <div class="order-1 lg:order-2">
-            <div class="relative aspect-[4/5] w-full overflow-hidden bg-brand-paper">
+        <div>
+            {{-- aspect-[4/3] on small screens keeps the illustration block
+                 from eating an entire mobile viewport; lg+ goes back to the
+                 prototype's portrait 4:5 framing. --}}
+            <div class="relative aspect-[4/3] w-full overflow-hidden bg-brand-paper lg:aspect-[4/5]">
                 {{-- Top corners --}}
                 <div class="absolute inset-x-4 top-4 flex items-start justify-between gap-4 sm:inset-x-6 sm:top-6">
                     @if ($boxLabel)
