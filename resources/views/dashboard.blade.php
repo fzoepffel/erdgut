@@ -7,6 +7,16 @@
     $founderNote = \App\Support\EditorialContent::founderNote();
 
     $kind = $dashboardKind ?? DashboardKind::NewVisitor;
+
+    // ERD-351: the new editorial dashboard-hero takes over for the steady-state
+    // subscriber path (active with or without composed box, plus paused).
+    // Other states (new visitor / trial / resume-setup / cancelled) keep the
+    // older marketing-style hero-band until later phases re-skin them.
+    $usesNewHero = in_array($kind, [
+        DashboardKind::SubscriptionActive,
+        DashboardKind::SubscriptionFirstWeek,
+        DashboardKind::SubscriptionPaused,
+    ], true);
 @endphp
 
 <x-app-layout>
@@ -16,15 +26,23 @@
          so action items reach the fold sooner. --}}
     <div class="pb-8 sm:pb-12">
         <div class="mx-auto max-w-6xl space-y-6 px-4 pt-6 sm:px-6 sm:pt-8 lg:px-8">
-            <x-customer.hero-band
-                chapter="produce"
-                density="compact"
-                :image="asset('images/mock/hero/hero-farm.jpg')"
-                :eyebrow="__('Dashboard')"
-                :title="__('customer.story.dashboard.greeting', ['name' => Auth::user()->name])"
-                :lead="$weeklyIntro"
-                :caption="now()->locale(app()->getLocale())->isoFormat('MMMM YYYY')"
-            />
+            @if ($usesNewHero)
+                <x-customer.dashboard-hero
+                    :user="Auth::user()"
+                    :subscription="$primarySubscription"
+                    :currentBox="$currentBox"
+                />
+            @else
+                <x-customer.hero-band
+                    chapter="produce"
+                    density="compact"
+                    :image="asset('images/mock/hero/hero-farm.jpg')"
+                    :eyebrow="__('Dashboard')"
+                    :title="__('customer.story.dashboard.greeting', ['name' => Auth::user()->name])"
+                    :lead="$weeklyIntro"
+                    :caption="now()->locale(app()->getLocale())->isoFormat('MMMM YYYY')"
+                />
+            @endif
 
             {{-- Status flash banners (same regardless of state) --}}
             @if (session('status') === 'current-box-missing')
@@ -39,7 +57,10 @@
                 </p>
             @endif
 
-            @if ($primarySubscription && $primarySubscription->isWithinPauseWindow(now()))
+            {{-- ERD-351: the new hero conveys the pause state in its headline + action row,
+                 so the separate active-pause banner becomes redundant. Keep it only for
+                 paths still on the old hero (i.e. shouldn't fire anyway, but explicit). --}}
+            @if (! $usesNewHero && $primarySubscription && $primarySubscription->isWithinPauseWindow(now()))
                 <div class="flex flex-col gap-3 border border-chapter-produce/40 bg-chapter-produce/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" role="status">
                     <p class="text-sm text-brand-ink">
                         <span class="font-semibold">{{ __('subscriptions.active_skip_banner') }}</span>
@@ -205,7 +226,10 @@
                  when a real Delivery row exists — otherwise it shows the
                  softer "we are planning" copy so the customer is not
                  told a date that has no record behind it. --}}
-            @if ($kind === DashboardKind::SubscriptionFirstWeek)
+            {{-- ERD-351: the SubscriptionFirstWeek welcome card duplicates what the
+                 new dashboard-hero already says (greeting + planned/composed delivery
+                 line + lead). Suppressed when the new hero is in use. --}}
+            @if ($kind === DashboardKind::SubscriptionFirstWeek && ! $usesNewHero)
                 @php
                     $actualNextDelivery = $firstDeliveryCard['delivery']?->scheduled_for_date ?? null;
                 @endphp
