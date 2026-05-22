@@ -91,11 +91,26 @@ Most of this phase is **done** on [`feature/phase-4-customer-flexibility`](https
 - ERD-343 — Accessibility baseline
 - ERD-344 — Performance audit on 12-week planner
 
-## Status (2026-05-03)
+## Phase 9 — Dashboard rebuild (editorial-led)
 
-**All 50 redesign-plan tickets are Done.** ERD-350 (per-user email history) was the last Backlog row; shipped via the LogSentMail listener that writes `mail.sent` AuditEvent rows surfaced on the per-user admin page.
+Reorders the logged-in dashboard to match the editorial Lovable prototype while staying inside the existing Fraunces + Inter / cream-ink-moss visual system. Full plan and section specs in [`erdgut-dashboard-rebuild-plan.md`](./erdgut-dashboard-rebuild-plan.md). v1 is editorial-only (no admin UI for producer/recipe curation — those live in the follow-up tickets at the bottom).
 
-Open follow-up work now lives in the post-redesign docs (`walkthrough-2-design-alignment.md`, `customer-ux-walkthrough-followups.md`, `admin-ux-walkthrough-followups.md`, `data-flow-walkthrough-followups.md`) — none of those rows live in this CSV.
+- ERD-351 — §1 Hero band (two-column greeting + meta-framed illustration)
+- ERD-352 — §2 Manifest grid + reusable `<x-customer.item-card>`
+- ERD-353 — §3 Producer feature (landscape)
+- ERD-354 — §4 Recipe feature (editorial-only)
+- ERD-355 — §5 Almanac rows (replaces vertical card list)
+- ERD-356 — §6 Editorial footer band
+- **Follow-up**: ERD-357 — Admin UI for producer of the week
+- **Follow-up**: ERD-358 — Admin UI for recipe of the week
+
+## Status (2026-05-22)
+
+**ERD-300 through ERD-350 are Done.** ERD-350 (per-user email history) was the last Backlog row of the original 50; shipped via the LogSentMail listener that writes `mail.sent` AuditEvent rows surfaced on the per-user admin page.
+
+ERD-351 through ERD-358 are the dashboard-rebuild phase — currently **Backlog**. Pick them up in order; ERD-352…ERD-356 each depend on ERD-351 (the hero ships first and anchors the page).
+
+Other open follow-up work lives in the post-redesign docs (`walkthrough-2-design-alignment.md`, `customer-ux-walkthrough-followups.md`, `admin-ux-walkthrough-followups.md`, `data-flow-walkthrough-followups.md`) — none of those rows live in this CSV.
 
 ## Marking tickets done
 
