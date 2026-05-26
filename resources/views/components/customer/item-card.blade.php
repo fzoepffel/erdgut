@@ -44,17 +44,19 @@
 @endphp
 
 <article
-    {{ $attributes->class(['flex flex-col']) }}
+    {{ $attributes->class(['group flex flex-col']) }}
     data-testid="customer-item-card"
 >
-    {{-- Photo with optional №-chip and Extra pill --}}
-    <div class="relative aspect-[4/3] w-full overflow-hidden bg-brand-paper">
+    {{-- Photo with optional №-chip and Extra pill. Square aspect per the
+         design spec; image gently scales on hover (1.03 over 700ms — the
+         only motion on the page besides scroll-reveals). --}}
+    <div class="relative aspect-square w-full overflow-hidden bg-brand-paper">
         @if ($imageUrl)
             <img
                 src="{{ $imageUrl }}"
                 alt=""
                 role="presentation"
-                class="h-full w-full object-cover"
+                class="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                 loading="lazy"
                 decoding="async"
             />
@@ -62,7 +64,7 @@
 
         @if ($number !== null)
             <span
-                class="absolute left-3 top-3 inline-flex items-center bg-brand-cream/95 px-2 py-1 text-[11px] font-semibold tracking-eyebrow text-brand-ink shadow-[0_1px_0_rgba(0,0,0,0.04)]"
+                class="absolute left-3 top-3 inline-flex items-center bg-brand-cream/90 px-2 py-1 eyebrow text-[0.65rem] text-brand-ink"
                 aria-hidden="true"
             >
                 № {{ str_pad((string) $number, 2, '0', STR_PAD_LEFT) }}
@@ -70,7 +72,7 @@
         @endif
 
         @if ($isExtra)
-            <span class="absolute right-3 top-3 inline-flex items-center border border-brand-ink/40 bg-brand-cream/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-eyebrow text-brand-ink">
+            <span class="absolute right-3 top-3 inline-flex items-center border border-brand-ink/40 bg-brand-cream/90 px-2 py-1 eyebrow text-[0.65rem] text-brand-ink">
                 {{ __('Extra add-on') }}
             </span>
         @endif
@@ -89,7 +91,7 @@
 
     {{-- Producer line + 1-liner description --}}
     @if ($producerLine !== '')
-        <p class="mt-3 text-[11px] font-semibold tracking-eyebrow text-chapter-producers">{{ $producerLine }}</p>
+        <p class="mt-3 eyebrow text-[0.7rem] text-chapter-produce">{{ $producerLine }}</p>
     @endif
 
     @if ($description !== null && $description !== '')

@@ -67,7 +67,7 @@
             @if ($slug)
                 <a
                     href="{{ route('public.recipes.show', ['slug' => $slug]) }}"
-                    class="mt-7 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
+                    class="mt-7 inline-flex items-center gap-2 self-start border-b border-chapter-produce pb-0.5 eyebrow text-[0.7rem] text-chapter-produce hover:text-chapter-produce/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
                     data-testid="customer-recipe-feature-link"
                     data-track-section="recipe_feature.open"
                     data-track-destination="public.recipes.show"
@@ -78,10 +78,11 @@
             @endif
         </div>
 
-        {{-- Photo column — lg+ on the right, stacks above text on mobile. --}}
+        {{-- Photo column — lg+ on the right, stacks above text on mobile.
+             5:4 aspect per the design spec. --}}
         <div class="lg:order-2 lg:col-span-7">
             @if ($photo)
-                <div class="aspect-[4/3] w-full overflow-hidden bg-brand-paper">
+                <div class="aspect-[5/4] w-full overflow-hidden bg-brand-paper">
                     <img
                         src="{{ $photo }}"
                         alt=""

@@ -11,7 +11,7 @@
 
             <div class="mt-10 grid gap-10 lg:grid-cols-12 lg:gap-12">
                 <div class="lg:col-span-7">
-                    <div class="aspect-[4/3] w-full overflow-hidden bg-brand-paper">
+                    <div class="aspect-[5/4] w-full overflow-hidden bg-brand-paper">
                         <img
                             src="{{ $recipe['photo'] }}"
                             alt=""
