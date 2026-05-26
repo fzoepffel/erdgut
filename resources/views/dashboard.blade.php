@@ -204,7 +204,7 @@
     }
 @endphp
 
-<x-app-layout>
+<x-app-layout :hide-app-footer="$usesNewHero">
     {{-- D9 (UX notes): tighter overall vertical rhythm. The previous
          space-y-8 / pb-16 / pt-10 wasted multiple viewport heights of
          empty cream between cards. Trimmed to space-y-6 / pb-12 / pt-8
@@ -502,171 +502,12 @@
                 <x-customer.almanac-rows :rows="$almanacRows->all()" />
             @endif
 
-            {{-- This week at a glance — adapts per state.
-                 D9 (UX notes): card-header padding tightened from
-                 py-6 to py-5 and inner grid from gap-8/p-6 to
-                 gap-6/p-5 so the three glance cards land in one
-                 viewport on desktop. --}}
-            <section class="border border-brand-ink/15" aria-labelledby="dashboard-this-week-heading">
-                <div class="border-b border-brand-ink/15 px-6 py-5">
-                    <p class="eyebrow text-chapter-produce">{{ __('At a glance') }}</p>
-                    <h2 id="dashboard-this-week-heading" class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
-                        {{ __('This week at a glance') }}
-                    </h2>
-                    <p class="mt-1 text-sm text-brand-ink/70">
-                        {{ __('Next delivery, box deadlines, and your subscription status.') }}
-                    </p>
-                </div>
-                <div class="grid gap-6 p-5 sm:grid-cols-2 lg:grid-cols-3 sm:p-6">
-                    {{-- Card 1: Next delivery (only meaningful for active/paused subs) --}}
-                    <div>
-                        <p class="eyebrow text-chapter-produce">{{ __('Next delivery') }}</p>
-                        @if ($firstDeliveryCard)
-                            @php
-                                // Use the full block form rather than the
-                                // single-line shorthand: the latter breaks
-                                // subsequent block compilation. See
-                                // docs/feedback_blade_php_shorthand.md.
-                                $delivery = $firstDeliveryCard['delivery'];
-                            @endphp
-                            <p class="mt-3 font-display text-2xl text-brand-ink">{{ $delivery->scheduled_for_date->locale(app()->getLocale())->isoFormat('dd, D. MMM YYYY') }}</p>
-                            <p class="mt-1 text-sm text-brand-ink/70">{{ $delivery->timeslot }}</p>
-                            <p class="text-sm text-brand-ink/70">
-                                {{ $delivery->address?->city ? __('To :city', ['city' => $delivery->address->city]) : __('Address not set') }}
-                            </p>
-                            <a href="{{ route('app.deliveries.index') }}"
-                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                               data-track-section="glance.next_delivery"
-                               data-track-destination="app.deliveries.index">
-                                {{ __('Manage deliveries') }} <span aria-hidden="true">&rarr;</span>
-                            </a>
-                        @elseif ($kind === DashboardKind::SubscriptionFirstWeek)
-                            {{-- D1 (UX notes): the cadence-only estimate
-                                 used to render here even when no Delivery
-                                 row existed — fooling the customer into
-                                 expecting a date that wasn't backed by a
-                                 record. Soft-pending message instead. --}}
-                            <p class="mt-3 text-sm text-brand-ink/70" data-testid="dashboard-glance-first-delivery-pending">
-                                {{ __('We are planning your first delivery — we will confirm here as soon as it is scheduled.') }}
-                            </p>
-                            <a href="{{ route('app.deliveries.preferences.edit') }}"
-                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                               data-track-section="glance.next_delivery"
-                               data-track-destination="app.deliveries.preferences.edit">
-                                {{ __('Set delivery preferences') }} <span aria-hidden="true">&rarr;</span>
-                            </a>
-                        @elseif ($kind === DashboardKind::SubscriptionPaused)
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('Your subscription is currently paused — deliveries resume after the pause window.') }}</p>
-                            <a href="{{ route('app.subscriptions.show') }}"
-                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                               data-track-section="glance.next_delivery"
-                               data-track-destination="app.subscriptions.show">
-                                {{ __('Manage subscription') }} <span aria-hidden="true">&rarr;</span>
-                            </a>
-                        @elseif ($kind->showsTrialBlock())
-                            <p class="mt-3 text-sm text-brand-ink/70">
-                                {{ __('Your trial box is a one-off — no recurring deliveries are scheduled yet.') }}
-                            </p>
-                        @elseif ($kind->showsResumeSubscriptionSetup())
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('No deliveries scheduled — finish payment setup to schedule your first box.') }}</p>
-                        @else
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('No subscription yet — we will plan deliveries once you subscribe.') }}</p>
-                        @endif
-                    </div>
-
-                    {{-- Card 2: Your box (subscription box only — trial box has its own block above) --}}
-                    <div>
-                        <p class="eyebrow text-chapter-fish">{{ __('Your box') }}</p>
-                        @if ($currentBox)
-                            <p class="mt-3 font-display text-2xl text-brand-ink">
-                                {{ __('Week of :date', ['date' => $currentBox->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}
-                            </p>
-                            <a href="{{ route('app.boxes.current') }}"
-                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                               data-track-section="glance.current_box"
-                               data-track-destination="app.boxes.current">
-                                {{ __('View current box') }} <span aria-hidden="true">&rarr;</span>
-                            </a>
-                        @elseif ($kind === DashboardKind::SubscriptionFirstWeek)
-                            {{-- D2 (UX notes): mention reality of Wed-only
-                                 delivery, not the older Mon copy. --}}
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('We compose your box before each Wednesday delivery — your first box will appear here once it is composed.') }}</p>
-                        @elseif ($kind->showsTrialBlock())
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('See the trial-box block above for this week\'s details.') }}</p>
-                        @elseif ($kind->showsResumeSubscriptionSetup())
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('Your box will appear here once your subscription is fully set up.') }}</p>
-                        @else
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('Start a subscription to receive a weekly box.') }}</p>
-                        @endif
-                    </div>
-
-                    {{-- Card 3: Subscription status --}}
-                    <div class="sm:col-span-2 lg:col-span-1">
-                        <p class="eyebrow text-chapter-meat">{{ __('Subscription') }}</p>
-                        @if ($primarySubscription)
-                            @php
-                                /* K16: Subscription.status stays Active until "today" enters
-                                   the pause window. Expose pause_from explicitly so the card
-                                   can flag a pending pause while the sub is still nominally
-                                   Active, and a back-on-date once the pause is running. */
-                                $pauseFrom = $primarySubscription->pause_from;
-                                $pauseUntil = $primarySubscription->pause_until;
-                                $todayDate = now()->toDateString();
-                                $isCurrentlyPaused = $pauseFrom !== null
-                                    && $pauseUntil !== null
-                                    && $primarySubscription->isWithinPauseWindow();
-                                $isPausePending = $pauseFrom !== null
-                                    && $pauseFrom->toDateString() > $todayDate;
-                                $resumeDate = $pauseUntil?->copy()->addDay();
-                            @endphp
-                            <p class="mt-3 font-display text-2xl text-brand-ink">
-                                {{ __('status.'.$primarySubscription->status->value) }}
-                            </p>
-                            @if ($isCurrentlyPaused && $resumeDate)
-                                <p class="mt-1 text-sm text-brand-ink/70" data-testid="dashboard-subscription-pause-active">
-                                    {{ __('Back on :date', ['date' => $resumeDate->translatedFormat('d.m.Y')]) }}
-                                </p>
-                            @elseif ($isPausePending)
-                                <p class="mt-1 text-sm text-brand-ink/70" data-testid="dashboard-subscription-pause-pending">
-                                    {{ __('Pause from :date', ['date' => $pauseFrom->translatedFormat('d.m.Y')]) }}
-                                </p>
-                            @endif
-                            {{-- Only show the recurring price for real subscriptions, not for
-                                 the half-finished setup that hasn't committed to billing yet. --}}
-                            @if (! $kind->showsResumeSubscriptionSetup())
-                                <p class="mt-1 text-sm text-brand-ink/70">
-                                    {{ __('EUR :amount / delivery', ['amount' => number_format($primarySubscription->expectedChargeAmount(), 2, ',', '.')]) }}
-                                </p>
-                            @endif
-                            <a href="{{ route('app.subscriptions.show') }}"
-                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                               data-track-section="glance.subscription"
-                               data-track-destination="app.subscriptions.show">
-                                {{ __('Manage subscription') }} <span aria-hidden="true">&rarr;</span>
-                            </a>
-                        @else
-                            <p class="mt-3 text-sm text-brand-ink/70">{{ __('No subscription yet') }}</p>
-                            <a href="{{ route('app.onboarding.start', ['intent' => 'subscription']) }}"
-                               class="mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                               data-track-section="glance.subscription"
-                               data-track-destination="app.onboarding.start">
-                                {{ __('Start a subscription') }} <span aria-hidden="true">&rarr;</span>
-                            </a>
-                        @endif
-                    </div>
-                </div>
-
-                {{-- ERD-353: when the new landscape producer-feature is already
-                     rendering for this state, the small spotlight inside the
-                     glance card is redundant. Keep it for out-of-scope kinds
-                     (trial / new visitor / cancelled) and for the paused state
-                     where the landscape feature is hidden. --}}
-                @if (! $usesNewHero || $kind === DashboardKind::SubscriptionPaused)
-                    <div class="border-t border-brand-ink/15 px-6 py-5">
-                        <x-customer.producer-spotlight :producer="$producerOfWeek" />
-                    </div>
-                @endif
-            </section>
+            {{-- Dashboard cleanup: the "Diese Woche auf einen Blick" 3-card
+                 section (Next delivery / Your box / Subscription) is removed.
+                 Its information is now surfaced by the new editorial sections:
+                 hero (next delivery + box meta), manifest grid (box items),
+                 almanac rows (upcoming weeks), and the hero's actions row
+                 (Skip / Pause / Manage subscription). --}}
 
             <x-customer.story-block
                 chapter="bread"
@@ -698,9 +539,7 @@
                  only expose it when modifying the pause is possible (active
                  + non-cancelled subscriptions). --}}
             @if ($usesNewHero)
-                <x-customer.editorial-footer-band
-                    :can-pause="$primarySubscription !== null && $primarySubscription->status !== \App\Enums\SubscriptionStatus::Cancelled"
-                />
+                <x-customer.editorial-footer-band />
             @endif
         </div>
     </div>

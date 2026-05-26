@@ -38,7 +38,9 @@
                 {{ $slot }}
             </main>
 
-            <x-app-footer />
+            @unless ($hideAppFooter)
+                <x-app-footer />
+            @endunless
         </div>
 
         @stack('scripts')

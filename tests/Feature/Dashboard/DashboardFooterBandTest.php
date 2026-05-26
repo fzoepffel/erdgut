@@ -28,12 +28,11 @@ class DashboardFooterBandTest extends TestCase
             ->assertOk()
             ->assertSee('customer-editorial-footer-band', false)
             ->assertSee(__('customer.dashboard.footer_band.statement'))
-            // Standard nav links — Hilfe / Bauern / Konto / Pausieren / Abmelden
-            // (referral link omitted in v1 — no route exists yet).
-            ->assertSee(__('customer.dashboard.footer_band.nav_help'))
-            ->assertSee(__('customer.dashboard.footer_band.nav_producers'))
-            ->assertSee(__('customer.dashboard.footer_band.nav_account'))
-            ->assertSee(__('customer.dashboard.footer_band.nav_pause'))
+            // Nav mirrors the standard <x-app-footer>'s "Das Buch" column —
+            // Über uns / Produzenten / Kontakt — plus a logout button.
+            ->assertSee(__('About'))
+            ->assertSee(__('Producers'))
+            ->assertSee(__('Contact'))
             ->assertSee(__('customer.dashboard.footer_band.nav_logout'));
     }
 
