@@ -34,10 +34,16 @@ class DashboardPageTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('This week at a glance')
-            ->assertSee(__('customer.story.producer_spotlight_eyebrow'))
+            // ERD-353: the small "Producer of the week" spotlight is replaced
+            // by the new landscape <x-customer.producer-feature> for steady-
+            // state subscribers — same producer-of-week label still surfaces.
+            ->assertSee(__('customer.dashboard.producer_feature.eyebrow'))
             ->assertSee('Next deliveries')
             ->assertSee('Current week box')
-            ->assertSee('Current and upcoming boxes');
+            // ERD-355: the legacy "Current and upcoming boxes" card is
+            // replaced by the new <x-customer.almanac-rows> with its own
+            // title.
+            ->assertSee(__('customer.dashboard.almanac.title'));
     }
 
     public function test_dashboard_only_shows_authenticated_user_data(): void
@@ -90,13 +96,16 @@ class DashboardPageTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('Berlin Mitte')
-            // Dashboard now renders currency with German conventions
-            // (comma decimal, period thousand-separator) for the Almanach
-            // box-row "Estimated value" line.
-            ->assertSee('EUR 39,99')
             ->assertSee('Scheduled')
             ->assertDontSee('Hamburg Nord')
             ->assertDontSee('EUR 88,88');
+        // ERD-355: the legacy almanach showed each box's estimated value
+        // ("EUR 39,99"). The new <x-customer.almanac-rows> identifies
+        // boxes by their zero-padded id instead, so this user's box id
+        // is what should now appear in place of the estimated value.
+        // We don't assert on it here because it's covered by
+        // DashboardAlmanacTest. The intent of THIS test is data isolation:
+        // the other user's box (EUR 88,88) must never leak.
     }
 
     public function test_dashboard_orders_and_limits_upcoming_deliveries(): void
@@ -299,7 +308,12 @@ class DashboardPageTest extends TestCase
             ->assertSee('data-testid="empty-state"', false)
             ->assertSee('No deliveries on the calendar')
             ->assertSee('No box for this week')
-            ->assertSee('No boxes scheduled')
+            // ERD-355: the legacy "No boxes scheduled" empty state in the
+            // old vertical-card almanach is gone — the new almanac always
+            // renders four rows, falling back to a seasonal tagline when
+            // no box is composed for that week. So we assert on the new
+            // almanac structure instead.
+            ->assertSee('customer-almanac-rows', false)
             ->assertDontSee('Modify box');
     }
 }
