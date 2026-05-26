@@ -1,9 +1,13 @@
 /* Fonts served via Bunny Fonts (GDPR-friendly, Google-Fonts-compatible).
-   Fraunces — display + editorial (warm serif with optical sizing; one family
-              carries headlines, long-form quotes, and brand wordmark)
-   Inter    — body + UI (clean humanist sans that sits quietly under a serif) */
+   Fraunces       — display + editorial (warm serif with optical sizing; one
+                    family carries headlines, long-form quotes, and brand wordmark)
+   Inter          — body + UI (clean humanist sans that sits quietly under a serif)
+   JetBrains Mono — eyebrow + metadata labels (Box №, KW 21, ZEIT, weekday
+                    stamps). Mono at 0.18em tracking lands the printed-almanac
+                    voice the redesign asks for. */
 @import url('https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap');
 @import url('https://fonts.bunny.net/css?family=fraunces:300,400,500,600,700,800,900&display=swap');
+@import url('https://fonts.bunny.net/css?family=jetbrains-mono:400,500,600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -78,9 +82,12 @@
         }
     }
 
-    /* Editorial eyebrow shared style */
+    /* Editorial eyebrow shared style.
+       JetBrains Mono at 0.18em letter-spacing lands the printed-almanac
+       voice across every metadata label on the redesigned dashboard
+       (Box № 0214, KW 22, ZEIT, BAUER DER WOCHE, etc.). */
     .eyebrow {
-        @apply font-sans text-xs font-semibold uppercase tracking-eyebrow;
+        @apply font-mono text-xs font-medium uppercase tracking-eyebrow;
     }
 
     /* Ghost (outlined) button base used by x-ghost-button / x-secondary-button */

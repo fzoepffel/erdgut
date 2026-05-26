@@ -30,19 +30,19 @@
                  Translation keys are shared with the standard footer so
                  copy stays consistent and we don't carry parallel translations. --}}
             <nav class="sm:col-span-5 sm:text-right" aria-label="{{ __('customer.dashboard.footer_band.statement') }}">
-                <ul class="grid grid-cols-2 gap-x-6 gap-y-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream/85 sm:justify-end">
+                <ul class="grid grid-cols-2 gap-x-6 gap-y-2 eyebrow text-brand-cream/85 sm:justify-end">
                     <li>
-                        <a href="{{ route('public.about') }}" class="uppercase tracking-eyebrow underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cream/60">
+                        <a href="{{ route('public.about') }}" class="underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cream/60">
                             {{ __('About') }}
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('public.producers') }}" class="uppercase tracking-eyebrow underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cream/60">
+                        <a href="{{ route('public.producers') }}" class="underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cream/60">
                             {{ __('Producers') }}
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('public.contact') }}" class="uppercase tracking-eyebrow underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cream/60">
+                        <a href="{{ route('public.contact') }}" class="underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cream/60">
                             {{ __('Contact') }}
                         </a>
                     </li>
@@ -51,7 +51,7 @@
                             @csrf
                             <button
                                 type="submit"
-                                class="uppercase tracking-eyebrow underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cream/60"
+                                class="underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cream/60"
                                 data-testid="customer-footer-band-logout"
                             >
                                 {{ __('customer.dashboard.footer_band.nav_logout') }}
@@ -60,6 +60,14 @@
                     </li>
                 </ul>
             </nav>
+        </div>
+
+        {{-- Thin baseline strip per the design spec: brand mark on the left,
+             current month + year on the right, mono at text-[0.65rem] /
+             70% opacity so it reads as a printed colophon. --}}
+        <div class="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-brand-cream/15 pt-6 eyebrow text-[0.65rem] text-brand-cream/70">
+            <span>Erdgut · Berlin</span>
+            <span>{{ mb_strtoupper(now()->locale(app()->getLocale())->translatedFormat('M')) }} · {{ now()->format('Y') }}</span>
         </div>
     </div>
 </section>
