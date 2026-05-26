@@ -817,6 +817,19 @@
                     @endunless
                 </div>
             @endif
+
+            {{-- ERD-356: editorial green footer band. Renders for the same
+                 steady-state subscriber path as the rest of §1-5 so the new
+                 dashboard reads as one cohesive editorial spread. The
+                 "Pausieren" link dispatches the confirm-subscription-pause
+                 modal already hosted by <x-customer.dashboard-hero>, so we
+                 only expose it when modifying the pause is possible (active
+                 + non-cancelled subscriptions). --}}
+            @if ($usesNewHero)
+                <x-customer.editorial-footer-band
+                    :can-pause="$primarySubscription !== null && $primarySubscription->status !== \App\Enums\SubscriptionStatus::Cancelled"
+                />
+            @endif
         </div>
     </div>
 
