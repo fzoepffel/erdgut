@@ -307,7 +307,11 @@ class DashboardStateTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('feed.current_box', $html);
-        $this->assertStringContainsString('feed.almanach.box_row', $html);
+        // ERD-355: the legacy vertical-card almanach (feed.almanach.box_row)
+        // is suppressed for the new-hero state; the new top-level
+        // <x-customer.almanac-rows> renders instead.
+        $this->assertStringContainsString('customer-almanac-rows', $html);
+        $this->assertStringNotContainsString('feed.almanach.box_row', $html);
         $this->assertStringNotContainsString('data-testid="dashboard-trial-block"', $html);
         $this->assertStringNotContainsString('data-testid="dashboard-resume-subscription-setup"', $html);
     }

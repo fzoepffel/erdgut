@@ -139,6 +139,69 @@
             }
         }
     }
+
+    // ERD-355: 4-row almanac payload. Walks the next 4 weeks starting from
+    // this ISO week's Monday, derives status (UNTERWEGS / EINGEPLANT /
+    // ÜBERSPRUNGEN) and a label (Box №id / seasonal tagline / In deiner
+    // Auszeit / Zurück ab KW :n). Skip-week lookup is preloaded as a Set
+    // so each row is a constant-time check.
+    $almanacRows = collect();
+    if ($usesNewHero && $primarySubscription) {
+        $today = now()->startOfDay();
+        $firstWeekStart = $today->copy()->startOfWeek(\Carbon\Carbon::MONDAY);
+        $horizonEnd = $firstWeekStart->copy()->addWeeks(4);
+
+        $almanacBoxes = \App\Models\Box::query()
+            ->where('user_id', $primarySubscription->user_id)
+            ->whereNotNull('subscription_id')
+            ->whereBetween('week_start_date', [$firstWeekStart->toDateString(), $horizonEnd->toDateString()])
+            ->get()
+            ->keyBy(fn ($b) => $b->week_start_date->toDateString());
+
+        $skippedSet = $primarySubscription->skipWeeks()
+            ->whereBetween('week_start_date', [$firstWeekStart->toDateString(), $horizonEnd->toDateString()])
+            ->pluck('week_start_date')
+            ->map(fn ($d) => \Carbon\Carbon::parse($d)->toDateString())
+            ->flip();
+
+        for ($i = 0; $i < 4; $i++) {
+            $weekStart = $firstWeekStart->copy()->addWeeks($i);
+            $weekKey = $weekStart->toDateString();
+            $deliveryDate = $weekStart->copy()->addDays(2);
+            $isoWeek = (int) $weekStart->isoWeek();
+            $box = $almanacBoxes->get($weekKey);
+            $isSkipped = $skippedSet->has($weekKey)
+                || $primarySubscription->isWithinPauseWindow($weekStart);
+
+            if ($isSkipped) {
+                // Use "Zurück ab KW :n" when the very next week IS available,
+                // otherwise just say "In deiner Auszeit" (no concrete return date).
+                $resumeWeekStart = $weekStart->copy()->addWeek();
+                $resumeKey = $resumeWeekStart->toDateString();
+                $nextIsActive = ! $skippedSet->has($resumeKey)
+                    && ! $primarySubscription->isWithinPauseWindow($resumeWeekStart);
+                $label = $nextIsActive
+                    ? __('customer.dashboard.almanac.label_back_in_week', ['n' => (int) $resumeWeekStart->isoWeek()])
+                    : __('customer.dashboard.almanac.label_in_pause');
+                $status = 'skipped';
+            } elseif ($box) {
+                $label = __('customer.dashboard.almanac.box_label', ['id' => str_pad((string) $box->id, 4, '0', STR_PAD_LEFT)]);
+                // Mark the first composed-and-not-skipped row as UNTERWEGS;
+                // everything else (composed or otherwise) is scheduled.
+                $status = $i === 0 ? 'on_its_way' : 'scheduled';
+            } else {
+                $label = \App\Support\EditorialContent::weekTagline($weekStart);
+                $status = 'scheduled';
+            }
+
+            $almanacRows->push([
+                'iso_week' => $isoWeek,
+                'delivery_date' => $deliveryDate,
+                'label' => $label,
+                'status' => $status,
+            ]);
+        }
+    }
 @endphp
 
 <x-app-layout>
@@ -431,6 +494,14 @@
                 />
             @endif
 
+            {{-- ERD-355: almanac rows. Renders for the steady-state subscriber
+                 path including paused (so the customer can see their break
+                 coverage). The legacy vertical-card "Almanach" panel inside
+                 the bottom rail is suppressed when this section renders. --}}
+            @if ($usesNewHero && $almanacRows->isNotEmpty())
+                <x-customer.almanac-rows :rows="$almanacRows->all()" />
+            @endif
+
             {{-- This week at a glance — adapts per state.
                  D9 (UX notes): card-header padding tightened from
                  py-6 to py-5 and inner grid from gap-8/p-6 to
@@ -699,44 +770,51 @@
                         </div>
                     </section>
 
-                    <section class="border border-brand-ink/15 lg:order-3">
-                        <div class="border-b border-brand-ink/15 px-6 py-5">
-                            <p class="eyebrow text-chapter-almanach">{{ __('Almanach') }}</p>
-                            <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current and upcoming boxes') }}</h3>
-                        </div>
-                        <div class="p-5 sm:p-6">
-                            @if ($upcomingBoxes->isEmpty())
-                                <x-empty-state
-                                    :title="__('No boxes scheduled')"
-                                    :description="__('Upcoming box weeks will be listed here as your plan rolls forward.')"
-                                    variant="inset"
-                                />
-                            @else
-                                <ul class="space-y-3">
-                                    @foreach ($upcomingBoxes as $box)
-                                        <li>
-                                            <a href="{{ route('app.boxes.show', $box) }}"
-                                               class="block border border-brand-ink/15 p-4 transition hover:border-brand-ink/40 hover:bg-brand-ink/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
-                                               data-track-section="feed.almanach.box_row"
-                                               data-track-destination="app.boxes.show">
-                                                <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
-                                                @php
-                                                    $customerStatusKey = 'box_status_customer.'.$box->status->value;
-                                                    $customerStatusLabel = __($customerStatusKey);
-                                                @endphp
-                                                @if ($customerStatusLabel !== $customerStatusKey)
-                                                    <p class="mt-1 text-sm text-brand-ink/70">{{ $customerStatusLabel }}</p>
-                                                @endif
-                                                <p class="text-sm text-brand-ink/70">
-                                                    {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($box->estimated_value)]) }}
-                                                </p>
-                                            </a>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @endif
-                        </div>
-                    </section>
+                    {{-- ERD-355: legacy vertical-card almanach. Suppressed
+                         when the new top-level <x-customer.almanac-rows>
+                         renders, so steady-state subscribers don't see
+                         upcoming boxes listed twice. Kept available for
+                         out-of-scope kinds that don't reach the new layout. --}}
+                    @unless ($usesNewHero)
+                        <section class="border border-brand-ink/15 lg:order-3">
+                            <div class="border-b border-brand-ink/15 px-6 py-5">
+                                <p class="eyebrow text-chapter-almanach">{{ __('Almanach') }}</p>
+                                <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current and upcoming boxes') }}</h3>
+                            </div>
+                            <div class="p-5 sm:p-6">
+                                @if ($upcomingBoxes->isEmpty())
+                                    <x-empty-state
+                                        :title="__('No boxes scheduled')"
+                                        :description="__('Upcoming box weeks will be listed here as your plan rolls forward.')"
+                                        variant="inset"
+                                    />
+                                @else
+                                    <ul class="space-y-3">
+                                        @foreach ($upcomingBoxes as $box)
+                                            <li>
+                                                <a href="{{ route('app.boxes.show', $box) }}"
+                                                   class="block border border-brand-ink/15 p-4 transition hover:border-brand-ink/40 hover:bg-brand-ink/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
+                                                   data-track-section="feed.almanach.box_row"
+                                                   data-track-destination="app.boxes.show">
+                                                    <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
+                                                    @php
+                                                        $customerStatusKey = 'box_status_customer.'.$box->status->value;
+                                                        $customerStatusLabel = __($customerStatusKey);
+                                                    @endphp
+                                                    @if ($customerStatusLabel !== $customerStatusKey)
+                                                        <p class="mt-1 text-sm text-brand-ink/70">{{ $customerStatusLabel }}</p>
+                                                    @endif
+                                                    <p class="text-sm text-brand-ink/70">
+                                                        {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($box->estimated_value)]) }}
+                                                    </p>
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        </section>
+                    @endunless
                 </div>
             @endif
         </div>

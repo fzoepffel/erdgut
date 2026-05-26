@@ -132,6 +132,25 @@ final class EditorialContent
     }
 
     /**
+     * Short seasonal tagline for the dashboard almanac row when no
+     * specific event (composed box, skip, pause) applies. Keyed by
+     * calendar month (1-12) so the hint tracks real seasonality.
+     *
+     * Use the Monday of the week being labelled; the month of that
+     * Monday determines the bank entry. Returns an empty string when
+     * the lang key is missing so the call site can render nothing
+     * rather than a stale stub.
+     */
+    public static function weekTagline(?CarbonInterface $weekStart = null): string
+    {
+        $month = ($weekStart ?? Carbon::now())->month;
+        $key = 'customer.dashboard.almanac.tagline_month_'.$month;
+        $value = __($key);
+
+        return $value === $key ? '' : $value;
+    }
+
+    /**
      * Recipe pick for the dashboard's "kitchen suggestion" section.
      * Rotates by ISO week through {@see RECIPE_BANK}.
      *
