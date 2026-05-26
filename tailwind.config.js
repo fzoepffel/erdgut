@@ -19,6 +19,10 @@ export default {
                 // "farmer's almanac / groundedness" rather than fashion editorial.
                 display: ['Fraunces', ...defaultTheme.fontFamily.serif],
                 editorial: ['Fraunces', ...defaultTheme.fontFamily.serif],
+                // Mono — eyebrow + every piece of metadata (Box №, KW 22, ZEIT,
+                // weekday stamps, status pills). JetBrains Mono at 0.18em tracking
+                // is the "printed almanac" voice from the design spec.
+                mono: ['JetBrains Mono', ...defaultTheme.fontFamily.mono],
             },
             colors: {
                 // Primary brand tokens
@@ -46,8 +50,10 @@ export default {
                 },
             },
             letterSpacing: {
-                // Tighter than before — catalogue labels are compact, not wide
-                eyebrow: '0.08em',
+                // Matches the spec: mono eyebrows + metadata labels read as
+                // typeset annotations, not UI labels. 0.18em is wide enough
+                // to make the spacing intentional without going caps-locked.
+                eyebrow: '0.18em',
             },
         },
     },

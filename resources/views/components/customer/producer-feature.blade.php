@@ -70,7 +70,7 @@
 
             <a
                 href="{{ $href }}"
-                class="mt-6 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
+                class="mt-6 inline-flex items-center gap-2 self-start border-b border-chapter-produce pb-0.5 eyebrow text-[0.7rem] text-chapter-produce hover:text-chapter-produce/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
                 data-testid="customer-producer-feature-link"
                 data-track-section="producer_feature.read_more"
                 data-track-destination="public.producers"

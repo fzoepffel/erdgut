@@ -129,6 +129,13 @@
     $canEndBreak = $canModifyPause && ($isPaused || $subscription->hasPauseWindow());
 
     $illustrationUrl = asset('images/box-growth/box-contents-illustration.png');
+
+    // Tiny date stamp pinned to the top-right of the hero on lg+ — the
+    // printed-almanac voice from the design spec. Month abbreviation +
+    // year + ISO week, separated by middle dots. Locale-aware so DE shows
+    // "MAI" while EN shows "MAY".
+    $monthAbbrev = now()->locale(app()->getLocale())->translatedFormat('M');
+    $heroDateStamp = mb_strtoupper($monthAbbrev).' · '.now()->format('Y').' · KW '.now()->isoWeek();
 @endphp
 
 <section
@@ -136,6 +143,12 @@
     data-testid="customer-dashboard-hero"
     aria-labelledby="dashboard-hero-headline"
 >
+    {{-- Date stamp pinned top-right of the hero on lg+. Hidden on mobile
+         where it would collide with the illustration panel's BOX № label. --}}
+    <p class="absolute right-0 top-0 hidden text-[0.65rem] eyebrow text-chapter-produce lg:block" data-testid="dashboard-hero-date-stamp">
+        {{ $heroDateStamp }}
+    </p>
+
     <div class="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
         {{-- ─── Left column: greeting + lead + actions ─────────────────── --}}
         {{-- On <lg the greeting reads first (natural document order); the
@@ -229,15 +242,15 @@
                  from eating an entire mobile viewport; lg+ goes back to the
                  prototype's portrait 4:5 framing. --}}
             <div class="relative aspect-[4/3] w-full overflow-hidden bg-brand-paper lg:aspect-[4/5]">
-                {{-- Top corners --}}
+                {{-- Top corners — primary green per spec, mono via .eyebrow. --}}
                 <div class="absolute inset-x-4 top-4 flex items-start justify-between gap-4 sm:inset-x-6 sm:top-6">
                     @if ($boxLabel)
-                        <p class="eyebrow text-brand-ink/70">{{ $boxLabel }}</p>
+                        <p class="eyebrow text-[0.65rem] text-chapter-produce">{{ $boxLabel }}</p>
                     @else
                         <span aria-hidden="true"></span>
                     @endif
                     @if ($sizeLabel && $peopleLabel)
-                        <p class="eyebrow text-right text-brand-ink/70">{{ $sizeLabel }} · {{ $peopleLabel }}</p>
+                        <p class="eyebrow text-right text-[0.65rem] text-chapter-produce">{{ $sizeLabel }} · {{ $peopleLabel }}</p>
                     @endif
                 </div>
 
@@ -251,11 +264,11 @@
                     decoding="async"
                 />
 
-                {{-- Bottom corners --}}
+                {{-- Bottom corners — same green at 70% opacity per spec. --}}
                 <div class="absolute inset-x-4 bottom-4 flex items-end justify-between gap-4 sm:inset-x-6 sm:bottom-6">
-                    <p class="eyebrow text-brand-ink/70">{{ __('customer.dashboard.hero.meta.harvest_caption') }}</p>
+                    <p class="eyebrow text-[0.65rem] text-chapter-produce/70">{{ __('customer.dashboard.hero.meta.harvest_caption') }}</p>
                     @unless ($isPaused)
-                        <p class="eyebrow text-right text-brand-ink/70">{{ __('customer.dashboard.hero.meta.photo_pending', ['weekday' => $photoDayShort]) }}</p>
+                        <p class="eyebrow text-right text-[0.65rem] text-chapter-produce/70">{{ __('customer.dashboard.hero.meta.photo_pending', ['weekday' => $photoDayShort]) }}</p>
                     @endunless
                 </div>
             </div>
