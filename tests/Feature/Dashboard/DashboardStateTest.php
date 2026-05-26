@@ -306,11 +306,15 @@ class DashboardStateTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('feed.current_box', $html);
-        // ERD-355: the legacy vertical-card almanach (feed.almanach.box_row)
-        // is suppressed for the new-hero state; the new top-level
-        // <x-customer.almanac-rows> renders instead.
+        // Bottom-rail cleanup: the legacy "Current week box" card (and its
+        // feed.current_box link) is gone — the manifest grid covers items
+        // and the almanac covers upcoming weeks. The manifest can be empty
+        // when there are no box items AND no portfolio products to fall
+        // back on (this test seeds neither), so we only assert on the
+        // almanac which always renders four rows for steady-state users.
         $this->assertStringContainsString('customer-almanac-rows', $html);
+        $this->assertStringContainsString('customer-dashboard-hero', $html);
+        $this->assertStringNotContainsString('feed.current_box', $html);
         $this->assertStringNotContainsString('feed.almanach.box_row', $html);
         $this->assertStringNotContainsString('data-testid="dashboard-trial-block"', $html);
         $this->assertStringNotContainsString('data-testid="dashboard-resume-subscription-setup"', $html);
