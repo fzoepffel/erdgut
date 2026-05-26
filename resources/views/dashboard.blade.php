@@ -205,12 +205,13 @@
 @endphp
 
 <x-app-layout :hide-app-footer="$usesNewHero">
-    {{-- D9 (UX notes): tighter overall vertical rhythm. The previous
-         space-y-8 / pb-16 / pt-10 wasted multiple viewport heights of
-         empty cream between cards. Trimmed to space-y-6 / pb-12 / pt-8
-         so action items reach the fold sooner. --}}
-    <div class="pb-8 sm:pb-12">
-        <div class="mx-auto max-w-6xl space-y-6 px-4 pt-6 sm:px-6 sm:pt-8 lg:px-8">
+    {{-- Spec-aligned layout: max content width 1400px, horizontal padding
+         24px mobile → 48px desktop, no global space-y-* (each section
+         carries its own py-* + hairline divider so the page reads as a
+         printed almanac with chapters). --}}
+    <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
+        {{-- Hero — py-16 lg:py-24, hairline bottom border. --}}
+        <section class="border-b border-brand-ink/10 py-16 lg:py-24">
             @if ($usesNewHero)
                 <x-customer.dashboard-hero
                     :user="Auth::user()"
@@ -228,6 +229,7 @@
                     :caption="now()->locale(app()->getLocale())->isoFormat('MMMM YYYY')"
                 />
             @endif
+        </section>
 
             {{-- Status flash banners (same regardless of state) --}}
             @if (session('status') === 'current-box-missing')
@@ -444,10 +446,9 @@
                 </section>
             @endif
 
-            {{-- ERD-352: manifest grid. Renders this week's box items
-                 (composed state) or 6 stably-rotated portfolio products
-                 (uncomposed state). Hidden when paused or out of scope. --}}
-            @if ($manifestState !== null && $manifestItems->isNotEmpty())
+        {{-- Manifest — py-20 lg:py-28, hairline divider. --}}
+        @if ($manifestState !== null && $manifestItems->isNotEmpty())
+            <section class="border-b border-brand-ink/10 py-20 lg:py-28">
                 <x-customer.manifest-grid
                     :eyebrow="$manifestState === 'composed'
                         ? __('customer.dashboard.manifest.eyebrow_composed')
@@ -471,44 +472,45 @@
                         />
                     @endforeach
                 </x-customer.manifest-grid>
-            @endif
+            </section>
+        @endif
 
-            {{-- ERD-353: landscape producer feature. Renders for the same
-                 gated states as the manifest (active steady-state and
-                 first-week), hidden when paused. Producer pick prefers an
-                 anchor from this week's box; falls back to the ISO-week
-                 rotation. --}}
-            @if ($usesNewHero && $kind !== DashboardKind::SubscriptionPaused)
-                <x-customer.producer-feature :producer="$producerOfWeek" />
-            @endif
+        {{-- Producer feature — full-bleed paper-tinted band per spec.
+             Breaks out of the max-w-[1400px] wrapper via w-screen +
+             left-1/2 -translate-x-1/2 so the darker cream colour
+             reaches the viewport edges, then re-applies the same
+             max-width container internally so the feature itself
+             stays aligned with the rest of the page. --}}
+        @if ($usesNewHero && $kind !== DashboardKind::SubscriptionPaused)
+            <section class="relative left-1/2 w-screen -translate-x-1/2 border-y border-brand-ink/10 bg-brand-paper py-20 lg:py-28">
+                <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
+                    <x-customer.producer-feature :producer="$producerOfWeek" />
+                </div>
+            </section>
+        @endif
 
-            {{-- ERD-354: recipe feature (editorial-only). Same gated states
-                 as the producer feature. The from-box overlap metric is only
-                 rendered when a composed box exists (computed in the top
-                 dashboard block). --}}
-            @if ($usesNewHero && $kind !== DashboardKind::SubscriptionPaused && ! empty($recipeOfWeek['slug']))
+        {{-- Recipe — py-20 lg:py-28, hairline divider. --}}
+        @if ($usesNewHero && $kind !== DashboardKind::SubscriptionPaused && ! empty($recipeOfWeek['slug']))
+            <section class="border-b border-brand-ink/10 py-20 lg:py-28">
                 <x-customer.recipe-feature
                     :recipe="$recipeOfWeek"
                     :matched-count="$recipeMatchedCount"
                     :total-count="$recipeTotalCount"
                 />
-            @endif
+            </section>
+        @endif
 
-            {{-- ERD-355: almanac rows. Renders for the steady-state subscriber
-                 path including paused (so the customer can see their break
-                 coverage). The legacy vertical-card "Almanach" panel inside
-                 the bottom rail is suppressed when this section renders. --}}
-            @if ($usesNewHero && $almanacRows->isNotEmpty())
+        {{-- Almanac — py-20 lg:py-24, hairline divider. --}}
+        @if ($usesNewHero && $almanacRows->isNotEmpty())
+            <section class="border-b border-brand-ink/10 py-20 lg:py-24">
                 <x-customer.almanac-rows :rows="$almanacRows->all()" />
-            @endif
+            </section>
+        @endif
 
-            {{-- Dashboard cleanup: the "Diese Woche auf einen Blick" 3-card
-                 section (Next delivery / Your box / Subscription) is removed.
-                 Its information is now surfaced by the new editorial sections:
-                 hero (next delivery + box meta), manifest grid (box items),
-                 almanac rows (upcoming weeks), and the hero's actions row
-                 (Skip / Pause / Manage subscription). --}}
-
+        {{-- Story block — only for non-new-hero paths (the spec doesn't
+             include a story block; the steady-state dashboard's editorial
+             tone is carried by the producer-feature and recipe-feature). --}}
+        @unless ($usesNewHero)
             <x-customer.story-block
                 chapter="bread"
                 :image="asset('images/mock/stalls/produce/scene.jpg')"
@@ -516,6 +518,7 @@
                 :quote="$founderNote"
                 :signature="__('customer.story.dashboard.founder_signature')"
             />
+        @endunless
 
             {{-- ─── Bottom rail removed in the dashboard rebuild ───────────
                  The legacy 3-column rail (Next deliveries / Current week box /
@@ -538,10 +541,9 @@
                  modal already hosted by <x-customer.dashboard-hero>, so we
                  only expose it when modifying the pause is possible (active
                  + non-cancelled subscriptions). --}}
-            @if ($usesNewHero)
-                <x-customer.editorial-footer-band />
-            @endif
-        </div>
+        @if ($usesNewHero)
+            <x-customer.editorial-footer-band />
+        @endif
     </div>
 
     @push('scripts')

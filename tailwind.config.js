@@ -14,15 +14,16 @@ export default {
             fontFamily: {
                 // Body + UI: clean humanist sans that sits quietly under a serif
                 sans: ['Inter', ...defaultTheme.fontFamily.sans],
-                // Display + editorial: Fraunces carries headlines, long-form quotes,
-                // and the brand wordmark. Warm serif with optical sizing — lands on
-                // "farmer's almanac / groundedness" rather than fashion editorial.
-                display: ['Fraunces', ...defaultTheme.fontFamily.serif],
-                editorial: ['Fraunces', ...defaultTheme.fontFamily.serif],
+                // Display + editorial: Instrument Serif carries every headline,
+                // pull quote, recipe title and the italicised first name in the
+                // hero. Single weight (400) regular + italic per spec — the
+                // page never goes bold.
+                display: ['"Instrument Serif"', ...defaultTheme.fontFamily.serif],
+                editorial: ['"Instrument Serif"', ...defaultTheme.fontFamily.serif],
                 // Mono — eyebrow + every piece of metadata (Box №, KW 22, ZEIT,
                 // weekday stamps, status pills). JetBrains Mono at 0.18em tracking
                 // is the "printed almanac" voice from the design spec.
-                mono: ['JetBrains Mono', ...defaultTheme.fontFamily.mono],
+                mono: ['"JetBrains Mono"', ...defaultTheme.fontFamily.mono],
             },
             colors: {
                 // Primary brand tokens
