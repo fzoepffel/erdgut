@@ -12,19 +12,19 @@ class DashboardHubTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dashboard_includes_payments_nav_link_and_producer_spotlight(): void
+    public function test_dashboard_includes_payments_nav_link_and_producer_feature(): void
     {
-        // The old "Quick actions" footer that linked to Payments / Producers /
-        // Address was replaced by a producer spotlight card; payments stays
-        // reachable via the user-dropdown nav link rendered for subscribers.
+        // Dashboard cleanup: the legacy "This week at a glance" 3-card section
+        // and small producer-spotlight inside it are gone. Payments stays
+        // reachable via the user-dropdown nav link; the producer of the week
+        // now surfaces through the landscape <x-customer.producer-feature>.
         $user = User::factory()->create();
         $this->subscribeUserFully($user);
 
         $html = $this->actingAs($user)
             ->get(route('app.dashboard'))
             ->assertOk()
-            ->assertSee('This week at a glance', false)
-            ->assertSee(__('customer.story.producer_spotlight_eyebrow'), false)
+            ->assertSee(__('customer.dashboard.producer_feature.eyebrow'), false)
             ->getContent();
 
         $this->assertStringContainsString(route('app.payments.history', [], false), $html);

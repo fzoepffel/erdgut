@@ -28,15 +28,16 @@ class DashboardPageTest extends TestCase
         $user = User::factory()->create();
         $this->subscribeUserFully($user);
 
-        // Bottom-rail cleanup: the legacy "Next deliveries" and "Current week
-        // box" cards are removed for steady-state subscribers — their content
-        // is now covered by the new hero, manifest grid, and almanac rows.
+        // Dashboard cleanup: the legacy "Diese Woche auf einen Blick"
+        // 3-card section, "Next deliveries", and "Current week box" cards
+        // are removed for steady-state subscribers — their content is now
+        // covered by the new hero, manifest grid, and almanac rows.
         $this->actingAs($user)
             ->get(route('app.dashboard'))
             ->assertOk()
-            ->assertSee('This week at a glance')
             ->assertSee(__('customer.dashboard.producer_feature.eyebrow'))
             ->assertSee(__('customer.dashboard.almanac.title'))
+            ->assertDontSee('This week at a glance')
             ->assertDontSee('Next deliveries')
             ->assertDontSee('Current week box');
     }
