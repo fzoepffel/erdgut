@@ -49,6 +49,7 @@ use App\Http\Controllers\PaymentHistoryController;
 use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Controllers\SpargelOrderController;
 use App\Http\Controllers\SubscriptionController;
@@ -74,6 +75,13 @@ Route::name('public.')->group(function () {
     // (e.g. the homepage chapter tiles) without forcing signup first.
     Route::get('/products', [CustomerProductController::class, 'index'])->name('products.index');
     Route::get('/products/{product}', [CustomerProductController::class, 'show'])->name('products.show');
+
+    // ERD-354: editorial-only recipe surface keyed by slug. The dashboard
+    // recipe-feature links here; a real Recipe model + admin CRUD lands
+    // in ERD-358.
+    Route::get('/recipes/{slug}', [RecipeController::class, 'show'])
+        ->where('slug', '[a-z0-9-]+')
+        ->name('recipes.show');
 
     Route::get('/contact', [ContactController::class, 'create'])->name('contact');
     Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:contact')->name('contact.store');
