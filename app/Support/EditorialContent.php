@@ -79,7 +79,7 @@ final class EditorialContent
     }
 
     /**
-     * @return array{slug:string,name:string,role:string,bio:string,photo:string}
+     * @return array{slug:string,name:string,role:string,bio:string,quote:string,photo:string}
      */
     public static function producer(string $slug): array
     {
@@ -88,6 +88,10 @@ final class EditorialContent
             'name' => __('customer.producer.spotlight.'.$slug.'.name'),
             'role' => __('customer.producer.spotlight.'.$slug.'.role'),
             'bio' => __('customer.producer.spotlight.'.$slug.'.bio'),
+            // Short editorial quote used by the landscape <x-customer.producer-feature>
+            // on the dashboard. Falls back to the bio when no quote key is configured
+            // (e.g. for any new slug added before its quote translation lands).
+            'quote' => __('customer.producer.spotlight.'.$slug.'.quote'),
             'photo' => asset('images/mock/producers/'.$slug.'.jpg'),
         ];
     }

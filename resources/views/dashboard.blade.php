@@ -3,9 +3,22 @@
     use App\Support\Dashboard\DashboardKind;
 
     $firstDeliveryCard = $deliveryCards->first();
-    $producerOfWeek = \App\Support\EditorialContent::producerOfTheWeek();
     $weeklyIntro = \App\Support\EditorialContent::weeklyIntro();
     $founderNote = \App\Support\EditorialContent::founderNote();
+
+    // ERD-353: producer pick — prefer a producer whose product appears in
+    // this week's composed box (anchors the quote to a real item), otherwise
+    // fall back to the ISO-week rotation. Mirrors the rule already in use
+    // on resources/views/boxes/show.blade.php so the dashboard and the box
+    // detail page surface the same producer for the same week.
+    $producerOfWeekSlug = $currentBox?->items
+        ?->pluck('product.producer.name')
+        ?->filter()
+        ?->map(fn ($name) => strtolower(explode(' ', (string) $name)[0] ?? ''))
+        ?->first(fn ($slug) => in_array($slug, \App\Support\EditorialContent::PRODUCER_SLUGS, true));
+    $producerOfWeek = is_string($producerOfWeekSlug) && $producerOfWeekSlug !== ''
+        ? \App\Support\EditorialContent::producer($producerOfWeekSlug)
+        : \App\Support\EditorialContent::producerOfTheWeek();
 
     $kind = $dashboardKind ?? DashboardKind::NewVisitor;
 
@@ -367,6 +380,15 @@
                 </x-customer.manifest-grid>
             @endif
 
+            {{-- ERD-353: landscape producer feature. Renders for the same
+                 gated states as the manifest (active steady-state and
+                 first-week), hidden when paused. Producer pick prefers an
+                 anchor from this week's box; falls back to the ISO-week
+                 rotation. --}}
+            @if ($usesNewHero && $kind !== DashboardKind::SubscriptionPaused)
+                <x-customer.producer-feature :producer="$producerOfWeek" />
+            @endif
+
             {{-- This week at a glance — adapts per state.
                  D9 (UX notes): card-header padding tightened from
                  py-6 to py-5 and inner grid from gap-8/p-6 to
@@ -521,9 +543,16 @@
                     </div>
                 </div>
 
-                <div class="border-t border-brand-ink/15 px-6 py-5">
-                    <x-customer.producer-spotlight :producer="$producerOfWeek" />
-                </div>
+                {{-- ERD-353: when the new landscape producer-feature is already
+                     rendering for this state, the small spotlight inside the
+                     glance card is redundant. Keep it for out-of-scope kinds
+                     (trial / new visitor / cancelled) and for the paused state
+                     where the landscape feature is hidden. --}}
+                @if (! $usesNewHero || $kind === DashboardKind::SubscriptionPaused)
+                    <div class="border-t border-brand-ink/15 px-6 py-5">
+                        <x-customer.producer-spotlight :producer="$producerOfWeek" />
+                    </div>
+                @endif
             </section>
 
             <x-customer.story-block
