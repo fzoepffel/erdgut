@@ -1,12 +1,14 @@
 /* Fonts served via Bunny Fonts (GDPR-friendly, Google-Fonts-compatible).
-   Fraunces       — display + editorial (warm serif with optical sizing; one
-                    family carries headlines, long-form quotes, and brand wordmark)
-   Inter          — body + UI (clean humanist sans that sits quietly under a serif)
-   JetBrains Mono — eyebrow + metadata labels (Box №, KW 21, ZEIT, weekday
-                    stamps). Mono at 0.18em tracking lands the printed-almanac
-                    voice the redesign asks for. */
+   Instrument Serif — display + editorial. Warm transitional serif at 400
+                      regular + italic; carries every headline, pull quote
+                      and the italicised first name in the hero.
+   Inter            — body + UI (clean humanist sans that sits quietly under
+                      a serif).
+   JetBrains Mono   — eyebrow + metadata labels (Box №, KW 21, ZEIT, weekday
+                      stamps). Mono at 0.18em tracking lands the printed-
+                      almanac voice the redesign asks for. */
 @import url('https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap');
-@import url('https://fonts.bunny.net/css?family=fraunces:300,400,500,600,700,800,900&display=swap');
+@import url('https://fonts.bunny.net/css?family=instrument-serif:400,400i&display=swap');
 @import url('https://fonts.bunny.net/css?family=jetbrains-mono:400,500,600&display=swap');
 
 @tailwind base;
@@ -95,8 +97,11 @@
         @apply inline-flex items-center justify-center border border-brand-ink bg-transparent px-6 py-3 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink transition duration-200 hover:bg-brand-ink hover:text-brand-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cream;
     }
 
+    /* Spec-aligned primary CTA: bg primary (deep moss green), 28px / 12px
+       padding, barely-rounded so it reads as typeset on cream rather than
+       a glossy web button. Mono caps for the label. */
     .btn-solid {
-        @apply inline-flex items-center justify-center bg-brand-ink px-6 py-3 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream transition duration-200 hover:bg-brand-ink/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cream;
+        @apply inline-flex items-center justify-center rounded-sm bg-chapter-produce px-7 py-3 font-mono text-[0.7rem] uppercase tracking-eyebrow text-brand-cream transition duration-200 hover:bg-chapter-produce/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-moss focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cream;
     }
 
     .btn-danger {

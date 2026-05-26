@@ -156,7 +156,10 @@
         <div>
             <p class="eyebrow text-chapter-produce">{{ $chapterEyebrow }}</p>
 
-            <h1 id="dashboard-hero-headline" class="mt-6 font-display font-semibold leading-[1.05] text-brand-ink text-4xl sm:text-5xl lg:text-6xl">
+            {{-- Spec H1: text-5xl → md:text-7xl → lg:text-[5.5rem] (~88px),
+                 leading 1.02, never bold. Instrument Serif at weight 400 + italic
+                 emphasis on the name. text-balance keeps line breaks editorial. --}}
+            <h1 id="dashboard-hero-headline" class="mt-6 font-display font-normal text-balance leading-[1.02] text-brand-ink text-5xl md:text-7xl lg:text-[5.5rem]">
                 <span class="block">{{ $greeting }},</span>
                 @if ($firstName !== '')
                     <em class="block font-display italic text-chapter-produce">{{ $firstName }}.</em>
@@ -164,11 +167,11 @@
                 <span class="block">{{ $deliveryLine }}</span>
             </h1>
 
-            <p class="mt-8 max-w-xl text-base leading-relaxed text-brand-ink/75 sm:text-lg">
+            <p class="mt-8 max-w-md text-base leading-relaxed text-brand-ink/65">
                 {{ $lead }}
             </p>
 
-            <div class="mt-10 flex flex-wrap items-center gap-x-6 gap-y-4">
+            <div class="mt-12 flex flex-wrap items-center gap-x-6 gap-y-4">
                 @if ($canViewBox)
                     <a
                         href="{{ route('app.boxes.current') }}"

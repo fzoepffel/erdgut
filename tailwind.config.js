@@ -14,21 +14,29 @@ export default {
             fontFamily: {
                 // Body + UI: clean humanist sans that sits quietly under a serif
                 sans: ['Inter', ...defaultTheme.fontFamily.sans],
-                // Display + editorial: Fraunces carries headlines, long-form quotes,
-                // and the brand wordmark. Warm serif with optical sizing — lands on
-                // "farmer's almanac / groundedness" rather than fashion editorial.
-                display: ['Fraunces', ...defaultTheme.fontFamily.serif],
-                editorial: ['Fraunces', ...defaultTheme.fontFamily.serif],
+                // Display + editorial: Instrument Serif carries every headline,
+                // pull quote, recipe title and the italicised first name in the
+                // hero. Single weight (400) regular + italic per spec — the
+                // page never goes bold.
+                display: ['"Instrument Serif"', ...defaultTheme.fontFamily.serif],
+                editorial: ['"Instrument Serif"', ...defaultTheme.fontFamily.serif],
                 // Mono — eyebrow + every piece of metadata (Box №, KW 22, ZEIT,
                 // weekday stamps, status pills). JetBrains Mono at 0.18em tracking
                 // is the "printed almanac" voice from the design spec.
-                mono: ['JetBrains Mono', ...defaultTheme.fontFamily.mono],
+                mono: ['"JetBrains Mono"', ...defaultTheme.fontFamily.mono],
             },
             colors: {
                 // Primary brand tokens
                 brand: {
-                    cream: '#f1e7d6', // primary page background
-                    paper: '#faf5ec', // lighter surface for cards
+                    // Bright cream — primary page background. Reads as warm
+                    // off-white printed paper.
+                    cream: '#faf4e1',
+                    // Slightly darker tinted cream — used for the producer-
+                    // of-the-week paper band so it visually steps forward as
+                    // a "special sideinfo" inside the otherwise cream page,
+                    // and for image placeholder rectangles so empty product/
+                    // recipe slots blend with the editorial palette.
+                    paper: '#f2ead5',
                     ink: '#2c241c', // deep warm near-black
                     'ink-soft': '#6b5b4c',
                     moss: '#21341d', // primary brand green (= chapter.produce.DEFAULT)
