@@ -676,147 +676,19 @@
                 :signature="__('customer.story.dashboard.founder_signature')"
             />
 
-            {{-- ─── Bottom rail: subscription boxes + deliveries ───────────
-                 Only renders for states where the customer actually has a
-                 real subscription whose boxes belong to them. Trial-only
-                 customers see their trial info above — they shouldn't see
-                 a "current week box" panel that pretends a subscription
-                 exists. --}}
-            @if ($kind->showsSubscriptionBoxes())
-                {{-- D9 (UX notes): grid gap tightened from 8 to 6 and
-                     inner card padding from p-6 to p-5 so the three
-                     bottom-rail panels share more horizontal real estate
-                     and less vertical air. --}}
-                <div class="grid gap-6 lg:grid-cols-3">
-                    <section class="border border-brand-ink/15 lg:order-1">
-                        <div class="border-b border-brand-ink/15 px-6 py-5">
-                            <div class="flex items-center justify-between gap-3">
-                                <div class="flex flex-col gap-1">
-                                    <p class="eyebrow text-chapter-produce">{{ __('Deliveries') }}</p>
-                                    <h3 class="font-display text-xl text-brand-ink">{{ __('Next deliveries') }}</h3>
-                                </div>
-                                <a href="{{ route('app.deliveries.index') }}"
-                                   class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                                   data-track-section="feed.deliveries"
-                                   data-track-destination="app.deliveries.index">
-                                    {{ __('Manage all') }}
-                                </a>
-                            </div>
-                        </div>
-                        <div class="p-5 sm:p-6">
-                            <x-order-timeline
-                                :cards="$deliveryCards"
-                                :empty-description="__('Your delivery days will show up here once we compose your first box.')"
-                            >
-                                <x-slot name="emptyAction">
-                                    <a href="{{ route('app.deliveries.preferences.edit') }}"
-                                       class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                                       data-track-section="feed.deliveries.empty"
-                                       data-track-destination="app.deliveries.preferences.edit">
-                                        {{ __('Review delivery preferences') }}
-                                    </a>
-                                </x-slot>
-                            </x-order-timeline>
-                        </div>
-                    </section>
-
-                    <section class="border border-brand-ink/15 lg:order-2">
-                        <div class="border-b border-brand-ink/15 px-6 py-5">
-                            <p class="eyebrow text-chapter-fish">{{ __('This week') }}</p>
-                            <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current week box') }}</h3>
-                        </div>
-                        <div class="p-5 sm:p-6">
-                            @if ($currentBox)
-                                <p class="text-sm text-brand-ink/70">
-                                    {{ __('Week of :date', ['date' => $currentBox->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}
-                                </p>
-                                <p class="mt-2">
-                                    <a href="{{ route('app.boxes.current') }}"
-                                       class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                                       data-track-section="feed.current_box"
-                                       data-track-destination="app.boxes.current">
-                                        {{ __('View current box') }}
-                                    </a>
-                                </p>
-                                <ul class="mt-5 space-y-2 border-t border-brand-ink/10 pt-4">
-                                    @forelse ($currentBox->items as $item)
-                                        <li class="flex items-center justify-between gap-3 text-sm">
-                                            <span class="text-brand-ink">{{ $item->product?->name ?? __('Unknown product') }}</span>
-                                            <span class="text-brand-ink/60">{{ number_format((float) $item->quantity, 2) }} {{ $item->unit }}</span>
-                                        </li>
-                                    @empty
-                                        <li class="text-sm text-brand-ink/60">{{ __('No items in the current box yet.') }}</li>
-                                    @endforelse
-                                </ul>
-                                <p class="mt-5 border-t border-brand-ink/10 pt-4 text-sm font-semibold text-brand-ink">
-                                    {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($currentBox->estimated_value)]) }}
-                                </p>
-                            @else
-                                <x-empty-state
-                                    :title="__('No box for this week')"
-                                    :description="__('Your weekly box will appear here once it is generated for your delivery week.')"
-                                    variant="inset"
-                                >
-                                    <x-slot name="action">
-                                        <a href="{{ route('app.subscriptions.show') }}"
-                                           class="inline-block text-sm font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                                           data-track-section="feed.current_box.empty"
-                                           data-track-destination="app.subscriptions.show">
-                                            {{ __('Check subscription') }}
-                                        </a>
-                                    </x-slot>
-                                </x-empty-state>
-                            @endif
-                        </div>
-                    </section>
-
-                    {{-- ERD-355: legacy vertical-card almanach. Suppressed
-                         when the new top-level <x-customer.almanac-rows>
-                         renders, so steady-state subscribers don't see
-                         upcoming boxes listed twice. Kept available for
-                         out-of-scope kinds that don't reach the new layout. --}}
-                    @unless ($usesNewHero)
-                        <section class="border border-brand-ink/15 lg:order-3">
-                            <div class="border-b border-brand-ink/15 px-6 py-5">
-                                <p class="eyebrow text-chapter-almanach">{{ __('Almanach') }}</p>
-                                <h3 class="mt-1 font-display text-xl text-brand-ink">{{ __('Current and upcoming boxes') }}</h3>
-                            </div>
-                            <div class="p-5 sm:p-6">
-                                @if ($upcomingBoxes->isEmpty())
-                                    <x-empty-state
-                                        :title="__('No boxes scheduled')"
-                                        :description="__('Upcoming box weeks will be listed here as your plan rolls forward.')"
-                                        variant="inset"
-                                    />
-                                @else
-                                    <ul class="space-y-3">
-                                        @foreach ($upcomingBoxes as $box)
-                                            <li>
-                                                <a href="{{ route('app.boxes.show', $box) }}"
-                                                   class="block border border-brand-ink/15 p-4 transition hover:border-brand-ink/40 hover:bg-brand-ink/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
-                                                   data-track-section="feed.almanach.box_row"
-                                                   data-track-destination="app.boxes.show">
-                                                    <p class="font-display text-lg text-brand-ink">{{ __('Week of :date', ['date' => $box->week_start_date->locale(app()->getLocale())->isoFormat('D. MMM YYYY')]) }}</p>
-                                                    @php
-                                                        $customerStatusKey = 'box_status_customer.'.$box->status->value;
-                                                        $customerStatusLabel = __($customerStatusKey);
-                                                    @endphp
-                                                    @if ($customerStatusLabel !== $customerStatusKey)
-                                                        <p class="mt-1 text-sm text-brand-ink/70">{{ $customerStatusLabel }}</p>
-                                                    @endif
-                                                    <p class="text-sm text-brand-ink/70">
-                                                        {{ __('Estimated value: EUR :amount', ['amount' => \App\Support\Money::format($box->estimated_value)]) }}
-                                                    </p>
-                                                </a>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @endif
-                            </div>
-                        </section>
-                    @endunless
-                </div>
-            @endif
+            {{-- ─── Bottom rail removed in the dashboard rebuild ───────────
+                 The legacy 3-column rail (Next deliveries / Current week box /
+                 Almanach) only ever rendered for states whose
+                 `showsSubscriptionBoxes()` was true — exactly the steady-state
+                 path the new editorial dashboard fully covers:
+                   - "Next deliveries" timeline → hero next-delivery line +
+                     almanac's 4-week table with "Vollen Kalender öffnen →".
+                   - "Current week box" item list → manifest grid (richer per
+                     item: photo, producer, descriptor).
+                   - "Almanach" upcoming boxes card → <x-customer.almanac-rows>.
+                 Trial / new-visitor / resume-setup / cancelled paths never
+                 satisfied `showsSubscriptionBoxes()`, so removing the rail
+                 changes nothing for them either. --}}
 
             {{-- ERD-356: editorial green footer band. Renders for the same
                  steady-state subscriber path as the rest of §1-5 so the new
