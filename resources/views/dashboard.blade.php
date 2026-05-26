@@ -20,6 +20,36 @@
         ? \App\Support\EditorialContent::producer($producerOfWeekSlug)
         : \App\Support\EditorialContent::producerOfTheWeek();
 
+    // ERD-354: recipe pick + from-box overlap. Recipe rotates by ISO week
+    // (editorial-only for v1; admin curation lands in ERD-358). Overlap
+    // counts how many of the recipe's ingredient slugs appear as substrings
+    // of this week's composed-box product names (lowercased), so the third
+    // metric "Aus der Box X / Y" reflects how much of the recipe you can
+    // actually cook from your current delivery. Hidden when no box is
+    // composed yet.
+    $recipeOfWeek = \App\Support\EditorialContent::recipeOfTheWeek();
+    $recipeMatchedCount = null;
+    $recipeTotalCount = null;
+    if ($currentBox && $currentBox->items->isNotEmpty() && ! empty($recipeOfWeek['ingredient_slugs'])) {
+        $boxNames = $currentBox->items
+            ->pluck('product.name')
+            ->filter()
+            ->map(fn ($name) => mb_strtolower((string) $name))
+            ->all();
+        $recipeTotalCount = count($recipeOfWeek['ingredient_slugs']);
+        $recipeMatchedCount = collect($recipeOfWeek['ingredient_slugs'])
+            ->filter(function (string $needle) use ($boxNames) {
+                $needle = mb_strtolower($needle);
+                foreach ($boxNames as $name) {
+                    if ($needle !== '' && mb_strpos($name, $needle) !== false) {
+                        return true;
+                    }
+                }
+                return false;
+            })
+            ->count();
+    }
+
     $kind = $dashboardKind ?? DashboardKind::NewVisitor;
 
     // ERD-351: the new editorial dashboard-hero takes over for the steady-state
@@ -387,6 +417,18 @@
                  rotation. --}}
             @if ($usesNewHero && $kind !== DashboardKind::SubscriptionPaused)
                 <x-customer.producer-feature :producer="$producerOfWeek" />
+            @endif
+
+            {{-- ERD-354: recipe feature (editorial-only). Same gated states
+                 as the producer feature. The from-box overlap metric is only
+                 rendered when a composed box exists (computed in the top
+                 dashboard block). --}}
+            @if ($usesNewHero && $kind !== DashboardKind::SubscriptionPaused && ! empty($recipeOfWeek['slug']))
+                <x-customer.recipe-feature
+                    :recipe="$recipeOfWeek"
+                    :matched-count="$recipeMatchedCount"
+                    :total-count="$recipeTotalCount"
+                />
             @endif
 
             {{-- This week at a glance — adapts per state.
