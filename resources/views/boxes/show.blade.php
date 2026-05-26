@@ -154,7 +154,13 @@
                                 'other' => __('Other'),
                             ];
                         @endphp
-                        <div class="space-y-10">
+                        @php
+                            // ERD-352: numbering spans the whole box, not just the current stall —
+                            // matches the prototype's "№ 01 … № 06" continuous sequence so item
+                            // numbers stay unique across the manifest.
+                            $itemNumber = 0;
+                        @endphp
+                        <div class="space-y-12">
                             @foreach ($stallOrder as $stall)
                                 @if (isset($grouped[$stall]))
                                     <div>
@@ -164,50 +170,39 @@
                                             @endif
                                             <p class="eyebrow {{ $stallColor[$stall] }}">{{ $stallLabel[$stall] }}</p>
                                         </div>
-                                        <ul class="mt-4 divide-y divide-brand-ink/10 border-t border-brand-ink/15">
+                                        <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
                                             @foreach ($grouped[$stall] as $item)
                                                 @php
-                                                    $itemCat = $item->product?->category;
+                                                    $itemNumber++;
+                                                    $product = $item->product;
+                                                    $itemCat = $product?->category;
                                                     $itemPlaceholder = $categoryPlaceholders[$itemCat] ?? $categoryPlaceholders['produce'];
-                                                    $itemImage = $item->product?->images->first()?->url()
-                                                        ?? $item->product?->imageUrl()
+                                                    $itemImage = $product?->images->first()?->url()
+                                                        ?? $product?->imageUrl()
                                                         ?? $itemPlaceholder;
-                                                    $itemAllergens = array_values(array_filter((array) ($item->product?->allergens ?? []), fn ($v) => isset($allergenLabels[$v])));
+                                                    $itemAllergens = collect((array) ($product?->allergens ?? []))
+                                                        ->filter(fn ($v) => isset($allergenLabels[$v]))
+                                                        ->map(fn ($v) => $allergenLabels[$v])
+                                                        ->values()
+                                                        ->all();
+                                                    // Use the BoxItem's own quantity + unit string so the
+                                                    // historical display (e.g. "1.50 kg") is preserved verbatim,
+                                                    // independent of the product's canonical-unit conversions.
+                                                    $qtyLabel = trim(number_format((float) $item->quantity, 2).' '.($item->unit ?? ''));
                                                 @endphp
-                                                <li class="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                                                    <div class="flex items-start gap-4">
-                                                        <div class="relative h-16 w-16 shrink-0 overflow-hidden bg-brand-ink/5">
-                                                            <img src="{{ $itemImage }}" alt="{{ $item->product?->name ?? '' }}" class="h-full w-full object-cover" loading="lazy" />
-                                                        </div>
-                                                        <div class="min-w-0">
-                                                            <div class="flex flex-wrap items-center gap-2">
-                                                                <span class="font-medium text-brand-ink">{{ $item->product?->name ?? __('Unknown product') }}</span>
-                                                                @if ($item->is_extra)
-                                                                    <span class="inline-flex border border-brand-ink/30 px-2 py-0.5 text-xs font-semibold uppercase tracking-eyebrow text-brand-ink">
-                                                                        {{ __('Extra add-on') }}
-                                                                    </span>
-                                                                @endif
-                                                            </div>
-                                                            @if ($item->product?->producer?->name)
-                                                                <p class="mt-0.5 font-editorial text-xs italic text-brand-ink/60">{{ $item->product->producer->name }}</p>
-                                                            @endif
-                                                            @if ($itemAllergens !== [])
-                                                                <div class="mt-1.5 flex flex-wrap gap-1">
-                                                                    @foreach ($itemAllergens as $a)
-                                                                        <span class="inline-flex items-center border border-amber-700/30 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-eyebrow text-amber-900">
-                                                                            {{ $allergenLabels[$a] }}
-                                                                        </span>
-                                                                    @endforeach
-                                                                </div>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                    <span class="text-sm tabular-nums text-brand-ink/70 sm:shrink-0">
-                                                        {{ number_format((float) $item->quantity, 2) }} {{ $item->unit }}
-                                                    </span>
-                                                </li>
+                                                <x-customer.item-card
+                                                    :number="$itemNumber"
+                                                    :name="$product?->name ?? __('Unknown product')"
+                                                    :quantity-label="$qtyLabel"
+                                                    :producer-name="$product?->producer?->name"
+                                                    :producer-region="$product?->producer?->region"
+                                                    :image-url="$itemImage"
+                                                    :description="$product?->localizedTasteProfile()"
+                                                    :allergens="$itemAllergens"
+                                                    :is-extra="(bool) $item->is_extra"
+                                                />
                                             @endforeach
-                                        </ul>
+                                        </div>
                                     </div>
                                 @endif
                             @endforeach

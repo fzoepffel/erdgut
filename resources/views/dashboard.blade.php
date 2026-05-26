@@ -1,4 +1,5 @@
 @php
+    use App\Enums\Allergen;
     use App\Support\Dashboard\DashboardKind;
 
     $firstDeliveryCard = $deliveryCards->first();
@@ -17,6 +18,84 @@
         DashboardKind::SubscriptionFirstWeek,
         DashboardKind::SubscriptionPaused,
     ], true);
+
+    // ERD-352: manifest section state. 'composed' renders this week's actual
+    // box items with numbering + quantities; 'uncomposed' shows 6 portfolio
+    // products stably picked per ISO week. Hidden entirely for paused or
+    // out-of-scope kinds.
+    $manifestState = null;
+    $manifestItems = collect();
+    if ($usesNewHero && $kind !== DashboardKind::SubscriptionPaused) {
+        // Allergen value → translated label lookup, shared by both render paths.
+        $allergenLabels = collect(Allergen::cases())
+            ->mapWithKeys(fn ($case) => [$case->value => __('allergens.'.$case->value)])
+            ->all();
+
+        $normalizeAllergens = fn (?array $values) => collect($values ?? [])
+            ->filter(fn ($v) => isset($allergenLabels[$v]))
+            ->map(fn ($v) => $allergenLabels[$v])
+            ->values()
+            ->all();
+
+        if ($currentBox && $currentBox->items->isNotEmpty()) {
+            $manifestState = 'composed';
+            $manifestItems = $currentBox->items->values()->map(function ($item, $i) use ($normalizeAllergens) {
+                $product = $item->product;
+                $qty = (float) $item->quantity;
+                // Use the BoxItem's own quantity + unit so the manifest mirrors
+                // what was saved at composition time, independent of
+                // product-canonical-unit conversions.
+                $quantityLabel = trim(number_format($qty, 2).' '.($item->unit ?? ''));
+                return [
+                    'number' => $i + 1,
+                    'name' => $product?->name ?? __('Unknown product'),
+                    'quantityLabel' => $quantityLabel,
+                    'producerName' => $product?->producer?->name,
+                    'producerRegion' => $product?->producer?->region,
+                    'imageUrl' => $product?->images->first()?->url() ?? $product?->imageUrl(),
+                    'description' => $product?->localizedTasteProfile(),
+                    'allergens' => $normalizeAllergens($product?->allergens),
+                    'isExtra' => (bool) $item->is_extra,
+                ];
+            });
+        } else {
+            $manifestState = 'uncomposed';
+            // Stable per ISO week: walk the catalog ordered by id and offset
+            // by (week × 6) so the set rotates but stays identical for the
+            // whole week. Wraps around at the end of the catalog.
+            $portfolioBase = \App\Models\Product::query()
+                ->visibleInCatalog()
+                ->where('is_egg_addon', false)
+                ->orderBy('id');
+            $portfolioCount = (clone $portfolioBase)->count();
+            if ($portfolioCount > 0) {
+                $offset = $portfolioCount > 0 ? (((int) now()->isoWeek() - 1) * 6) % $portfolioCount : 0;
+                $portfolio = (clone $portfolioBase)
+                    ->with(['producer.translations', 'images', 'translations'])
+                    ->offset($offset)
+                    ->limit(6)
+                    ->get();
+                if ($portfolio->count() < 6) {
+                    $wrap = (clone $portfolioBase)
+                        ->with(['producer.translations', 'images', 'translations'])
+                        ->limit(6 - $portfolio->count())
+                        ->get();
+                    $portfolio = $portfolio->concat($wrap);
+                }
+                $manifestItems = $portfolio->take(6)->values()->map(fn ($product) => [
+                    'number' => null,
+                    'name' => $product->name,
+                    'quantityLabel' => null,
+                    'producerName' => $product->producer?->name,
+                    'producerRegion' => $product->producer?->region,
+                    'imageUrl' => $product->images->first()?->url() ?? $product->imageUrl(),
+                    'description' => $product->localizedTasteProfile(),
+                    'allergens' => [],
+                    'isExtra' => false,
+                ]);
+            }
+        }
+    }
 @endphp
 
 <x-app-layout>
@@ -257,6 +336,35 @@
                         @endif
                     </div>
                 </section>
+            @endif
+
+            {{-- ERD-352: manifest grid. Renders this week's box items
+                 (composed state) or 6 stably-rotated portfolio products
+                 (uncomposed state). Hidden when paused or out of scope. --}}
+            @if ($manifestState !== null && $manifestItems->isNotEmpty())
+                <x-customer.manifest-grid
+                    :eyebrow="$manifestState === 'composed'
+                        ? __('customer.dashboard.manifest.eyebrow_composed')
+                        : __('customer.dashboard.manifest.eyebrow_uncomposed')"
+                    :title="__('customer.dashboard.manifest.title')"
+                    :subtitle="$manifestState === 'composed'
+                        ? __('customer.dashboard.manifest.subtitle_composed')
+                        : __('customer.dashboard.manifest.subtitle_uncomposed')"
+                >
+                    @foreach ($manifestItems as $item)
+                        <x-customer.item-card
+                            :number="$item['number']"
+                            :name="$item['name']"
+                            :quantity-label="$item['quantityLabel']"
+                            :producer-name="$item['producerName']"
+                            :producer-region="$item['producerRegion']"
+                            :image-url="$item['imageUrl']"
+                            :description="$item['description']"
+                            :allergens="$item['allergens']"
+                            :is-extra="$item['isExtra']"
+                        />
+                    @endforeach
+                </x-customer.manifest-grid>
             @endif
 
             {{-- This week at a glance — adapts per state.
