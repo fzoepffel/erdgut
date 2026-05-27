@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Onboarding;
 
+use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Billing\BoxPriceCalculator;
@@ -65,9 +66,17 @@ class PricingConsistencyTest extends TestCase
         $this->assertSame($expected, $calc->subscriptionPerDelivery($size, $eggs));
 
         // Subscription model resolves to the same number.
+        // Status is pinned to PendingPayment with no SumUp token so the
+        // dashboard deterministically renders the resume-setup panel — that
+        // panel is the surface the dashboard uses to show the price today.
+        // (Subscription::factory() defaults to Active + optional token, which
+        // randomly lands in either the resume-setup branch or the active
+        // branch and made this test flaky across combos.)
         $user = User::factory()->create();
         $subscription = Subscription::factory()->for($user)->create([
             'box_size' => $size,
+            'status' => SubscriptionStatus::PendingPayment,
+            'sumup_token' => null,
             'preferences' => [
                 'veg_only' => true,
                 'meat_add_on' => false,

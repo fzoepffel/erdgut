@@ -173,7 +173,7 @@ class StateCoherenceTest extends TestCase
         $this->assertStringContainsString('Week of :date is paused', $template);
     }
 
-    public function test_k16_dashboard_subscription_card_surfaces_pending_pause_window(): void
+    public function test_k16_dashboard_surfaces_pending_pause_window(): void
     {
         Carbon::setTestNow('2026-04-29');
 
@@ -199,6 +199,13 @@ class StateCoherenceTest extends TestCase
         $response->assertOk();
 
         $body = $response->getContent();
-        $this->assertStringContainsString('data-testid="dashboard-subscription-pause-pending"', $body);
+
+        // ERD-351: the editorial dashboard surfaces a pending pause via the
+        // hero's "End break" CTA (only rendered when hasPauseWindow() is
+        // true) instead of the old subscription card's
+        // dashboard-subscription-pause-pending block. The presence of
+        // dashboard-hero-action-end-break is the new canonical signal that
+        // the dashboard is acknowledging a pending pause.
+        $this->assertStringContainsString('data-testid="dashboard-hero-action-end-break"', $body);
     }
 }

@@ -214,9 +214,14 @@ class TrustCoherenceTest extends TestCase
         ]);
 
         // No Delivery row at all → hero must not promise a date.
+        // ERD-351: the editorial dashboard-hero replaced the old
+        // dashboard-first-box-pending panel. The new hero conveys the same
+        // pending state via the "We're planning your next box." line in the
+        // headline — and crucially, never says "Your first box arrives [date]"
+        // until a real delivery is scheduled.
         $response = $this->actingAs($user)->get(route('app.dashboard'));
         $response->assertOk();
-        $response->assertSee('dashboard-first-box-pending', false);
+        $response->assertSee(__('customer.dashboard.hero.delivery_line.planned'));
         $response->assertDontSee('Your first box arrives');
     }
 

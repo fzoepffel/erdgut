@@ -84,8 +84,11 @@ class DemoSubscriptionBoxSeederTest extends TestCase
             ->get(route('app.dashboard'))
             ->assertOk()
             ->assertSee('Berlin')
-            ->assertSee('View box')
-            ->assertSee('View current box');
+            // The dashboard hero's primary CTA on a subscribed user with a
+            // current box. Replaced the older at-a-glance "View box" /
+            // "View current box" links when the editorial dashboard
+            // (ERD-351) landed.
+            ->assertSee(__('customer.dashboard.hero.action.view_box'));
     }
 
     public function test_demo_boxes_have_box_items(): void
