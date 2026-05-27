@@ -59,7 +59,7 @@
                         src="{{ asset('images/chapters/cabbage.png') }}"
                         alt=""
                         aria-hidden="true"
-                        class="absolute inset-0 h-full w-full select-none object-contain object-left"
+                        class="absolute inset-0 h-full w-full select-none object-cover object-left"
                     />
                 </div>
 
