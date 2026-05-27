@@ -17,7 +17,10 @@ class HomepageTest extends TestCase
         $response->assertOk();
         $response->assertSee('data-testid="coming-soon"', false);
         // Translated strings (test suite runs with APP_LOCALE=en).
-        $response->assertSee('Fresh produce is on its way.', false);
+        // The headline is split: "Fresh produce is" + <span italic> "on its way."
+        // so we assert both parts independently.
+        $response->assertSee('Fresh produce is', false);
+        $response->assertSee('on its way.', false);
         $response->assertSee('producer', false);
         $response->assertSee('kontakt@erd-gut.de', false);
 
