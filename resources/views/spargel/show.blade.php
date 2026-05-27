@@ -9,8 +9,8 @@
          panel right below, so we don't restate it here. --}}
     <header class="mb-10 sm:mb-12">
         <p class="eyebrow text-chapter-produce">{{ __('spargel.eyebrow_trial_shop') }}</p>
-        <h1 class="mt-3 max-w-2xl font-display text-4xl font-semibold leading-tight text-brand-ink sm:text-5xl">
-            {{ __('spargel.heading') }}
+        <h1 class="mt-3 max-w-2xl font-display text-4xl font-normal leading-[0.95] text-brand-ink sm:text-5xl">
+            {{ __('spargel.heading_main') }} <span class="italic">{{ __('spargel.heading_italic') }}</span>
         </h1>
         <p class="mt-4 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75 sm:text-lg">
             {{ __('spargel.intro') }}
@@ -214,10 +214,10 @@
                                 <p class="eyebrow text-brand-ink/55">{{ __('spargel.type_'.$v['key']) }}</p>
                                 <span aria-hidden="true" class="font-display text-sm font-semibold text-brand-ink/45">{{ $v['index'] }}</span>
                             </div>
-                            <p class="font-display text-2xl font-semibold leading-tight text-brand-ink">
+                            <p class="font-display text-2xl font-normal leading-tight text-brand-ink">
                                 {{ __('spargel.type_'.$v['key']) }}
                             </p>
-                            <p class="font-editorial text-sm italic leading-relaxed text-brand-ink/70">
+                            <p class="text-sm leading-relaxed text-brand-ink/70">
                                 {{ __('spargel.type_'.$v['key'].'_hint') }}
                             </p>
 
@@ -339,7 +339,7 @@
                     >
                     <span class="flex flex-col gap-1">
                         <span class="eyebrow text-brand-ink/55">{{ __('spargel.fulfillment_pickup_eyebrow') }}</span>
-                        <span class="font-display text-lg font-semibold">{{ __('spargel.fulfillment_pickup') }}</span>
+                        <span class="font-display text-xl font-normal">{{ __('spargel.fulfillment_pickup') }}</span>
                         <span class="text-xs leading-relaxed text-brand-ink/65">{{ __('spargel.fulfillment_pickup_hint') }}</span>
                     </span>
                 </label>
@@ -365,7 +365,7 @@
                             class="eyebrow"
                             :class="!deliveryAllowed ? 'text-brand-ink/45' : 'text-brand-ink/55'"
                         >{{ __('spargel.fulfillment_delivery_eyebrow') }}</span>
-                        <span class="font-display text-lg font-semibold">{{ __('spargel.fulfillment_delivery') }}</span>
+                        <span class="font-display text-xl font-normal">{{ __('spargel.fulfillment_delivery') }}</span>
                         <span
                             class="text-xs leading-relaxed"
                             x-text="!deliveryAllowed
@@ -404,7 +404,7 @@
                         >
                         <span class="flex flex-col gap-1">
                             <span class="eyebrow text-brand-ink/55">{{ __('spargel.pickup_location_eyebrow', ['index' => $loop->iteration]) }}</span>
-                            <span class="font-display text-base font-semibold leading-snug">{{ $loc['street'] }}</span>
+                            <span class="font-display text-xl font-normal leading-snug">{{ $loc['street'] }}</span>
                             <span class="text-xs leading-relaxed text-brand-ink/65">{{ $loc['postal_code'] }} {{ $loc['city'] }}</span>
                         </span>
                     </label>
@@ -434,7 +434,7 @@
                     >
                     <span class="flex flex-col gap-1">
                         <span class="eyebrow text-brand-ink/55">{{ __('spargel.payment_online_eyebrow') }}</span>
-                        <span class="font-display text-lg font-semibold">{{ __('spargel.payment_online') }}</span>
+                        <span class="font-display text-xl font-normal">{{ __('spargel.payment_online') }}</span>
                         <span class="text-xs leading-relaxed text-brand-ink/65">{{ __('spargel.payment_online_hint') }}</span>
                     </span>
                 </label>
@@ -454,7 +454,7 @@
                     >
                     <span class="flex flex-col gap-1">
                         <span class="eyebrow text-brand-ink/55">{{ __('spargel.payment_in_person_eyebrow') }}</span>
-                        <span class="font-display text-lg font-semibold">{{ __('spargel.payment_in_person') }}</span>
+                        <span class="font-display text-xl font-normal">{{ __('spargel.payment_in_person') }}</span>
                         <span class="text-xs leading-relaxed text-brand-ink/65">{{ __('spargel.payment_in_person_hint') }}</span>
                     </span>
                 </label>
@@ -670,7 +670,7 @@
                 class="relative mx-4 mb-4 w-full max-w-lg border border-brand-ink/20 bg-brand-cream p-6 shadow-xl sm:mb-0 sm:p-8"
             >
                 <p class="eyebrow text-chapter-meat">{{ __('spargel.confirm_modal_eyebrow') }}</p>
-                <h2 id="spargel-confirm-heading" class="mt-2 font-display text-2xl font-semibold text-brand-ink sm:text-3xl">
+                <h2 id="spargel-confirm-heading" class="mt-2 font-display text-2xl font-normal text-brand-ink sm:text-3xl">
                     {{ __('spargel.confirm_modal_heading') }}
                 </h2>
                 <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/75">
