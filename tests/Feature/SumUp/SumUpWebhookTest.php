@@ -32,7 +32,7 @@ class SumUpWebhookTest extends TestCase
 
     private function postSignedWebhook(array $payload, string $secret = 'whsec_test'): TestResponse
     {
-        Config::set('sumup.webhook_secret', $secret);
+        Config::set('sumup.subscription.webhook_secret', $secret);
 
         $signature = $this->signPayload($payload, $secret);
 
@@ -42,7 +42,7 @@ class SumUpWebhookTest extends TestCase
 
     public function test_webhook_rejects_missing_signature(): void
     {
-        Config::set('sumup.webhook_secret', 'whsec_test');
+        Config::set('sumup.subscription.webhook_secret', 'whsec_test');
 
         $this->postJson(route('sumup.webhook'), [
             'event_type' => 'CHECKOUT_STATUS_CHANGED',
@@ -52,7 +52,7 @@ class SumUpWebhookTest extends TestCase
 
     public function test_webhook_rejects_invalid_signature(): void
     {
-        Config::set('sumup.webhook_secret', 'whsec_test');
+        Config::set('sumup.subscription.webhook_secret', 'whsec_test');
 
         $this->withHeaders([
             'x-payload-signature' => 'invalid-signature',
@@ -76,7 +76,7 @@ class SumUpWebhookTest extends TestCase
 
     public function test_webhook_allows_when_secret_is_missing(): void
     {
-        Config::set('sumup.webhook_secret', '');
+        Config::set('sumup.subscription.webhook_secret', '');
 
         $this->withHeaders([
             'x-payload-signature' => hash_hmac('sha256', '{}', 'different'),
@@ -387,7 +387,7 @@ class SumUpWebhookTest extends TestCase
     public function test_webhook_rejects_stale_date_header(): void
     {
         $secret = 'whsec_test';
-        Config::set('sumup.webhook_secret', $secret);
+        Config::set('sumup.subscription.webhook_secret', $secret);
 
         $payload = ['event_type' => 'CHECKOUT_STATUS_CHANGED', 'id' => 'checkout_stale'];
         $signature = $this->signPayload($payload, $secret);

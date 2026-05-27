@@ -599,7 +599,7 @@ class SpargelOrderFlowTest extends TestCase
                     && str_contains($extras['redirect_url'], '/spargel/'.$order->id.'/return');
             })
             ->andReturn((object) ['id' => 'co_test_spargel_abc']);
-        $this->app->instance(SumUpService::class, $sumUp);
+        $this->app->instance('sumup.spargel', $sumUp);
 
         $this->get(route('public.spargel.pay', ['spargelOrder' => $order->id]))
             ->assertOk()
@@ -632,7 +632,7 @@ class SpargelOrderFlowTest extends TestCase
                 'status' => 'PAID',
                 'transactions' => [(object) ['id' => 'pay_test_xyz']],
             ]);
-        $this->app->instance(SumUpService::class, $sumUp);
+        $this->app->instance('sumup.spargel', $sumUp);
 
         $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
             ->assertOk()
@@ -655,7 +655,7 @@ class SpargelOrderFlowTest extends TestCase
         $sumUp->shouldReceive('getCheckout')
             ->with('co_pending_xyz')
             ->andReturn((object) ['status' => 'PENDING', 'transactions' => []]);
-        $this->app->instance(SumUpService::class, $sumUp);
+        $this->app->instance('sumup.spargel', $sumUp);
 
         $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
             ->assertOk()
@@ -677,7 +677,7 @@ class SpargelOrderFlowTest extends TestCase
         $sumUp->shouldReceive('getCheckout')
             ->with('co_dead_xyz')
             ->andReturn((object) ['status' => 'FAILED', 'transactions' => []]);
-        $this->app->instance(SumUpService::class, $sumUp);
+        $this->app->instance('sumup.spargel', $sumUp);
 
         $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
             ->assertOk()
@@ -705,7 +705,7 @@ class SpargelOrderFlowTest extends TestCase
                 'status' => 'PENDING',
                 'transactions' => [(object) ['status' => 'FAILED', 'id' => 'tx_dead']],
             ]);
-        $this->app->instance(SumUpService::class, $sumUp);
+        $this->app->instance('sumup.spargel', $sumUp);
 
         $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
             ->assertOk()
@@ -727,7 +727,7 @@ class SpargelOrderFlowTest extends TestCase
         $sumUp->shouldReceive('createOneTimeCheckout')
             ->once()
             ->andReturn((object) ['id' => 'co_fresh_retry']);
-        $this->app->instance(SumUpService::class, $sumUp);
+        $this->app->instance('sumup.spargel', $sumUp);
 
         $this->get(route('public.spargel.pay', ['spargelOrder' => $order->id]))
             ->assertOk();
@@ -862,7 +862,7 @@ class SpargelOrderFlowTest extends TestCase
                 'status' => 'PAID',
                 'transactions' => [(object) ['id' => 'pay_xyz']],
             ]);
-        $this->app->instance(SumUpService::class, $sumUp);
+        $this->app->instance('sumup.spargel', $sumUp);
 
         $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
             ->assertOk();
@@ -886,7 +886,7 @@ class SpargelOrderFlowTest extends TestCase
         $sumUp->shouldReceive('getCheckout')
             ->with('co_still_pending')
             ->andReturn((object) ['status' => 'PENDING', 'transactions' => []]);
-        $this->app->instance(SumUpService::class, $sumUp);
+        $this->app->instance('sumup.spargel', $sumUp);
 
         $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
             ->assertOk();

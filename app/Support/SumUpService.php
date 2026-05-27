@@ -14,21 +14,25 @@ class SumUpService
 
     private string $currency;
 
-    public function __construct()
+    private string $profile;
+
+    public function __construct(string $profile = 'subscription')
     {
-        $apiKey = (string) config('sumup.api_key', '');
-        $merchantCode = (string) config('sumup.merchant_code', '');
+        $this->profile = $profile;
+
+        $apiKey = (string) config("sumup.{$profile}.api_key", '');
+        $merchantCode = (string) config("sumup.{$profile}.merchant_code", '');
 
         if (trim($apiKey) === '') {
-            throw new RuntimeException('Missing SumUp configuration: sumup.api_key');
+            throw new RuntimeException("Missing SumUp configuration: sumup.{$profile}.api_key");
         }
 
         if (trim($merchantCode) === '') {
-            throw new RuntimeException('Missing SumUp configuration: sumup.merchant_code');
+            throw new RuntimeException("Missing SumUp configuration: sumup.{$profile}.merchant_code");
         }
 
         $this->merchantCode = $merchantCode;
-        $this->currency = (string) config('sumup.currency', 'EUR');
+        $this->currency = (string) config("sumup.{$profile}.currency", 'EUR');
 
         $this->client = new SumUp([
             'api_key' => $apiKey,
@@ -100,7 +104,7 @@ class SumUpService
      */
     private function webhookUrl(): string
     {
-        $configured = trim((string) config('sumup.webhook_url', ''));
+        $configured = trim((string) config("sumup.{$this->profile}.webhook_url", ''));
         if ($configured !== '') {
             return $configured;
         }
@@ -115,7 +119,7 @@ class SumUpService
      */
     private function browserRedirectUrl(): string
     {
-        $configured = trim((string) config('sumup.checkout_return_url', ''));
+        $configured = trim((string) config("sumup.{$this->profile}.checkout_return_url", ''));
         if ($configured !== '') {
             return $configured;
         }
