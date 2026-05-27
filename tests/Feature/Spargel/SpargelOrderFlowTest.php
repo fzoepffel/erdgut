@@ -105,7 +105,7 @@ class SpargelOrderFlowTest extends TestCase
     {
         $this->get(route('public.spargel.show'))
             ->assertOk()
-            ->assertSee(__('spargel.heading'))
+            ->assertSee(__('spargel.heading_main'))
             ->assertSee(__('spargel.section_contact'))
             ->assertSee(__('spargel.section_product'))
             ->assertSee('data-testid="spargel-form"', false);
