@@ -17,8 +17,14 @@ class HomePageAlignedRedesignTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dashboard_renders_hero_band_story_block_and_producer_spotlight(): void
+    public function test_dashboard_renders_editorial_chrome_for_subscribed_users(): void
     {
+        // ERD-351..355: subscribed dashboards moved off the generic
+        // hero-band / story-block / producer-spotlight components and onto
+        // a bespoke editorial chrome — dashboard-hero + producer-feature +
+        // recipe-feature (+ manifest-grid when there's any product data,
+        // which this test doesn't seed). Lock against accidental removal
+        // of the always-on editorial sections.
         $user = User::factory()->create(['name' => 'Maria Müller']);
         $this->subscribeUserFully($user);
 
@@ -27,14 +33,12 @@ class HomePageAlignedRedesignTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
-        $this->assertStringContainsString('data-testid="customer-story-block"', $html);
-        $this->assertStringContainsString('data-testid="customer-producer-spotlight"', $html);
+        $this->assertStringContainsString('data-testid="customer-dashboard-hero"', $html);
+        $this->assertStringContainsString('data-testid="customer-producer-feature"', $html);
+        $this->assertStringContainsString('data-testid="customer-recipe-feature"', $html);
 
-        // Hero band carries the dashboard greeting personalised with the user's name.
+        // Hero still personalises the greeting with the user's first name.
         $this->assertStringContainsString('Maria', $html);
-        // Producer spotlight CTA copy is present.
-        $this->assertStringContainsString(__('customer.story.box.read_more_producers'), $html);
     }
 
     public function test_box_show_renders_hero_band_and_producer_spotlight(): void

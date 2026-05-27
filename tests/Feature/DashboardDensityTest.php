@@ -53,44 +53,15 @@ class DashboardDensityTest extends TestCase
         $this->assertStringNotContainsString('Sabine Subscriber', $buttonChunk);
     }
 
-    public function test_d9_dashboard_outer_wrapper_uses_tighter_vertical_rhythm(): void
-    {
-        $user = User::factory()->create(['email_verified_at' => now()]);
-        $this->subscribeUserFully($user);
-
-        $html = $this->actingAs($user)->get(route('app.dashboard'))->assertOk()->getContent();
-
-        // The wrapper now uses `space-y-6` / `pb-12` — the older
-        // `space-y-8` / `pb-16` should be gone.
-        $this->assertStringContainsString('space-y-6 px-4 pt-6 sm:px-6 sm:pt-8', $html);
-        $this->assertStringContainsString('pb-8 sm:pb-12', $html);
-        $this->assertStringNotContainsString('space-y-8 px-4 pt-8 sm:px-6 sm:pt-10', $html);
-    }
-
-    public function test_d9_at_a_glance_card_uses_tighter_grid_gap(): void
-    {
-        $user = User::factory()->create(['email_verified_at' => now()]);
-        $this->subscribeUserFully($user);
-
-        $html = $this->actingAs($user)->get(route('app.dashboard'))->assertOk()->getContent();
-
-        // The at-a-glance card grid moved from gap-8/p-6 to gap-6/p-5.
-        $this->assertStringContainsString('grid gap-6 p-5 sm:grid-cols-2 lg:grid-cols-3', $html);
-        $this->assertStringNotContainsString('grid gap-8 p-6 sm:grid-cols-2 lg:grid-cols-3', $html);
-    }
-
-    public function test_d9_hero_band_renders_with_compact_density_on_dashboard(): void
-    {
-        $user = User::factory()->create(['email_verified_at' => now()]);
-        $this->subscribeUserFully($user);
-
-        $html = $this->actingAs($user)->get(route('app.dashboard'))->assertOk()->getContent();
-
-        // Compact hero uses py-8/sm:py-10/lg:py-12 (vs spacious's
-        // py-12/sm:py-16/lg:py-20). Check the compact set is rendered.
-        $this->assertStringContainsString('py-8 sm:px-10 sm:py-10 lg:py-12', $html);
-        $this->assertStringNotContainsString('py-12 sm:px-10 sm:py-16 lg:py-20', $html);
-    }
+    // The three D9 dashboard-page density assertions (outer wrapper class
+    // string, at-a-glance card grid, hero-band compact density on the
+    // dashboard) were superseded by ERD-351..355: the wrapper became
+    // `mx-auto max-w-[1400px] px-6 lg:px-12` with per-section py-*,
+    // the at-a-glance card was removed in the dashboard cleanup, and
+    // subscribed dashboards swapped <x-customer.hero-band> for
+    // <x-customer.dashboard-hero>. The component-level compact-density
+    // contract is still locked by test_d9_hero_band_component_compact_prop_changes_padding
+    // below.
 
     public function test_d9_hero_band_component_compact_prop_changes_padding(): void
     {

@@ -39,6 +39,9 @@ class TranslationParityTest extends TestCase
         'customer.story.box.this_week_lead_',
         // Producer slug is interpolated into the key (anna|elena|jakob|...).
         'customer.producer.spotlight.',
+        // Recipe slug is interpolated into the key (`customer.recipe.spargel-erdbeer.title`, etc.).
+        // EditorialContent rotates through concrete recipe keys that all live in lang/{de,en,fr}.json.
+        'customer.recipe.',
         // ProductUnit enum value is interpolated into the key (`units.kg`, etc.).
         'units.',
     ];
