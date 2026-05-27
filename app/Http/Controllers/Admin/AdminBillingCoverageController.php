@@ -36,7 +36,7 @@ class AdminBillingCoverageController extends Controller
         $validated = $request->validated();
         $subscription = Subscription::query()->findOrFail($validated['subscription_id']);
         $week = Carbon::parse($validated['week_start_date'])->startOfDay();
-        $currency = (string) config('sumup.currency', 'EUR');
+        $currency = (string) config('sumup.subscription.currency', 'EUR');
 
         try {
             $recurringChargeService->initiate(

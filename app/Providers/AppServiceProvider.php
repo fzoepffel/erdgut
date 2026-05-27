@@ -13,8 +13,11 @@ use App\Observers\SpargelOrderObserver;
 use App\Policies\ProducerPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\UserPolicy;
+use App\Http\Controllers\SpargelAdminController;
+use App\Services\SpargelOrderService;
 use App\Support\RequiredSecretValidator;
 use App\Support\SubscriberAccess;
+use App\Support\SumUpService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSending;
@@ -35,7 +38,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Default SumUpService binding → sandbox credentials for subscriptions/trials.
+        $this->app->singleton(SumUpService::class, fn () => new SumUpService('subscription'));
+
+        // Named live instance for the spargel shop.
+        $this->app->singleton('sumup.spargel', fn () => new SumUpService('spargel'));
+
+        // Contextual bindings: spargel classes receive the live service automatically.
+        $this->app->when([SpargelOrderService::class, SpargelAdminController::class])
+            ->needs(SumUpService::class)
+            ->give(fn ($app) => $app->make('sumup.spargel'));
     }
 
     /**

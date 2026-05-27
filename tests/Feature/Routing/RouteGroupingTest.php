@@ -132,7 +132,7 @@ class RouteGroupingTest extends TestCase
 
         $sumUpWebhookRoute = RouteFacade::getRoutes()->getByName('sumup.webhook');
         $this->assertNotNull($sumUpWebhookRoute);
-        $this->assertContains('sumup.webhook.verify', $sumUpWebhookRoute->gatherMiddleware());
+        $this->assertContains('sumup.webhook.verify:subscription', $sumUpWebhookRoute->gatherMiddleware());
         $this->assertNotContains('auth', $sumUpWebhookRoute->gatherMiddleware());
 
         $adminDashboardRoute = RouteFacade::getRoutes()->getByName('app.admin.dashboard');

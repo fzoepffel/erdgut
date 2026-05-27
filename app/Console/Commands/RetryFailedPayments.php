@@ -52,7 +52,7 @@ class RetryFailedPayments extends Command
             return self::SUCCESS;
         }
 
-        $currency = (string) config('sumup.currency', 'EUR');
+        $currency = (string) config('sumup.subscription.currency', 'EUR');
         $retried = 0;
         $failed = 0;
 

@@ -12,9 +12,9 @@ class VerifySumUpWebhookSignature
 {
     private const MAX_AGE_SECONDS = 300;
 
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, string $profile = 'subscription'): Response
     {
-        $secret = (string) config('sumup.webhook_secret', '');
+        $secret = (string) config("sumup.{$profile}.webhook_secret", '');
         $signature = (string) $request->header('x-payload-signature', '');
 
         if (trim($secret) === '') {

@@ -55,7 +55,7 @@ class ChargeSubscriptions extends Command
             return self::SUCCESS;
         }
 
-        $currency = (string) config('sumup.currency', 'EUR');
+        $currency = (string) config('sumup.subscription.currency', 'EUR');
         $charged = 0;
         $failed = 0;
 
