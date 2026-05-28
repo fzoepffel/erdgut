@@ -101,6 +101,7 @@ jobs:
           host: ${{ env.SSH_HOST }}
           username: ${{ env.SSH_USERNAME }}
           password: ${{ env.SSH_PASSWORD }}
+          command_timeout: 10m
           script: |
             set -e
             cd "${{ env.APP_DIR }}"
