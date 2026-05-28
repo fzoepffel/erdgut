@@ -105,6 +105,48 @@ class AbandonedPaymentSubscriptionTest extends TestCase
         $this->assertFalse(SubscriberAccess::hasFullSubscriberExperience($user));
     }
 
+    public function test_pending_payment_user_can_re_enter_onboarding_wizard(): void
+    {
+        // Regression: RedirectIfOnboardingComplete used to treat PendingPayment
+        // as "onboarding complete" and bounce the user back to the dashboard.
+        // That created an infinite loop for the dashboard's "Resume payment
+        // setup" CTA — the wizard's payment step could never be reached. A
+        // pending-payment user MUST be allowed back into /onboard/* to finish.
+        $user = User::factory()->create();
+
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::PendingPayment,
+            'sumup_token' => null,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('app.onboarding.step.address'));
+
+        // Must NOT be bounced to the dashboard by RedirectIfOnboardingComplete.
+        $this->assertNotSame(
+            route('app.dashboard'),
+            $response->headers->get('Location'),
+            'Pending-payment user was wrongly bounced out of the onboarding wizard.'
+        );
+    }
+
+    public function test_active_subscriber_is_still_redirected_out_of_onboarding_wizard(): void
+    {
+        // The wizard remains single-shot for genuinely finalised subscriptions:
+        // an active subscriber typing an /onboard/* URL is sent to the dashboard.
+        $user = User::factory()->create();
+
+        Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_test_active',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.onboarding.step.address'))
+            ->assertRedirect(route('app.dashboard'));
+    }
+
     public function test_existing_active_no_token_subscription_was_backfilled_to_pending_payment(): void
     {
         // Sanity check the migration ran on the test DB. RefreshDatabase
