@@ -74,7 +74,7 @@ class HomePageAlignedRedesignTest extends TestCase
         $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
     }
 
-    public function test_subscription_show_renders_hero_band_and_story_block(): void
+    public function test_subscription_show_renders_editorial_hero(): void
     {
         $user = User::factory()->create();
         $this->subscribeUserFully($user);
@@ -84,8 +84,9 @@ class HomePageAlignedRedesignTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
-        $this->assertStringContainsString('data-testid="customer-story-block"', $html);
+        $this->assertStringNotContainsString('data-testid="customer-hero-band"', $html);
+        $this->assertStringContainsString('data-testid="customer-editorial-footer-band"', $html);
+        $this->assertStringContainsString('Subscription', $html);
     }
 
     public function test_payments_history_renders_editorial_hero(): void

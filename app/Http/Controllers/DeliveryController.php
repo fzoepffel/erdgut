@@ -27,7 +27,7 @@ class DeliveryController extends Controller
                 'overrideDeliveries.address',
             ])
             ->orderBy('scheduled_for_date')
-            ->limit(4)
+            ->limit(6)
             ->get();
 
         $weeklyDeliveries = $baseDeliveries->map(function (Delivery $baseDelivery): array {
@@ -41,9 +41,24 @@ class DeliveryController extends Controller
             ];
         });
 
+        $pastDeliveries = Delivery::query()
+            ->where('user_id', $user->id)
+            ->where('is_weekly_override', false)
+            ->where('scheduled_for_date', '<', $today)
+            ->with('address')
+            ->orderByDesc('scheduled_for_date')
+            ->limit(5)
+            ->get();
+
+        $addresses = $user->addresses()->orderByDesc('is_primary')->orderBy('created_at')->get();
+        $preferences = $user->deliveryPreference;
+
         return view('deliveries.index', [
             'weeklyDeliveries' => $weeklyDeliveries,
             'focusedDeliveryId' => (int) $request->integer('focus'),
+            'pastDeliveries' => $pastDeliveries,
+            'addresses' => $addresses,
+            'preferences' => $preferences,
         ]);
     }
 

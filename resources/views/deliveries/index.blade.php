@@ -2,6 +2,27 @@
     $nextRow       = $weeklyDeliveries->first();
     $nextBase      = $nextRow ? $nextRow['base']      : null;
     $nextEffective = $nextRow ? $nextRow['effective']  : null;
+    $primary       = $addresses->firstWhere('is_primary', true);
+
+    // Localized delivery day name, derived from the next scheduled date
+    $deliveryDayName = $nextBase
+        ? $nextBase->scheduled_for_date->locale(app()->getLocale())->dayName
+        : null;
+
+    // Plural form: DE appends 'e' (Donnerstag→Donnerstage), EN/FR append 's'
+    $deliveryDayPlural = match(app()->getLocale()) {
+        'de'    => $deliveryDayName ? $deliveryDayName . 'e'  : null,
+        default => $deliveryDayName ? $deliveryDayName . 's' : null,
+    };
+
+    // Addresses heading varies by count
+    $addrCount  = $addresses->count();
+    $addressesH2 = match(true) {
+        $addrCount === 0 => __('customer.deliveries.addresses_h2_zero'),
+        $addrCount === 1 => __('customer.deliveries.addresses_h2_one'),
+        $addrCount === 2 => __('customer.deliveries.addresses_h2_two'),
+        default          => __('customer.deliveries.addresses_h2_many'),
+    };
 
     $chapterRotation = ['produce', 'eggdairy', 'bread', 'fish', 'meat', 'producers', 'almanach'];
 @endphp
@@ -24,220 +45,391 @@
     {{-- § 1 — Hero --}}
     <section class="border-b border-brand-ink/10 py-16 lg:py-24">
         <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
-            <div class="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+            <div class="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
 
-                {{-- Left: heading + lead + action --}}
-                <div class="flex flex-col justify-between">
+                {{-- Left --}}
+                <div class="flex flex-col justify-between gap-10">
                     <div>
-                        <p class="eyebrow text-chapter-produce">{{ __('Deliveries') }}</p>
-                        <h1 class="mt-4 font-display text-5xl leading-[1.05] tracking-tight text-balance text-brand-ink md:text-6xl lg:text-7xl">
+                        <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.eyebrow') }}</p>
+                        <h1 class="mt-5 font-display text-5xl leading-[1.05] tracking-tight text-brand-ink md:text-6xl lg:text-7xl">
                             {{ __('customer.deliveries.hero_h1_line1') }}<br>
-                            <em class="font-normal italic text-chapter-produce">{{ __('customer.deliveries.hero_h1_line2') }}</em>
+                            <em class="font-normal italic text-chapter-produce">{{ __('customer.deliveries.hero_h1_line2') }}</em><br>
+                            {{ __('customer.deliveries.hero_h1_line3', ['day' => $deliveryDayName ?? __('Thursday')]) }}
                         </h1>
-                        <p class="mt-6 max-w-md text-base leading-relaxed text-brand-ink/60">
+                        <p class="mt-6 max-w-sm text-sm leading-relaxed text-brand-ink/55">
                             {{ __('customer.story.deliveries.opening') }}
                         </p>
                     </div>
-                    <div class="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+                    <div class="flex flex-wrap items-center gap-x-7 gap-y-3">
                         <a href="{{ route('app.deliveries.preferences.edit') }}"
-                           class="rounded-sm bg-chapter-produce px-7 py-3 font-sans text-brand-cream transition hover:bg-chapter-produce/90">
-                            {{ __('Default delivery settings') }}
+                           class="rounded-sm bg-chapter-produce px-7 py-3 text-sm font-sans text-brand-cream transition hover:bg-chapter-produce/90">
+                            {{ __('Edit default delivery') }}
+                        </a>
+                        <a href="{{ route('app.deliveries.preferences.edit') }}"
+                           class="text-sm text-brand-ink/60 underline-offset-2 hover:text-brand-ink transition">
+                            {{ __('Add a one-time address') }}
+                        </a>
+                        <a href="{{ route('app.subscriptions.show') }}"
+                           class="text-sm text-brand-ink/60 underline-offset-2 hover:text-brand-ink transition">
+                            {{ __('Pause deliveries') }}
                         </a>
                     </div>
                 </div>
 
-                {{-- Right: next delivery panel --}}
-                @if ($nextBase)
-                    <div class="bg-brand-paper p-8 lg:p-10">
-                        <div class="flex items-start justify-between">
-                            <span class="eyebrow text-chapter-produce">{{ __('Next delivery') }}</span>
-                            <x-status-badge :value="$nextEffective->status" type="delivery" />
-                        </div>
-                        <p class="mt-6 font-display text-4xl leading-tight text-brand-ink">
-                            {{ $nextBase->scheduled_for_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM') }}
+                {{-- Right: at a glance --}}
+                <div class="bg-brand-paper p-8 lg:p-10">
+                    <p class="eyebrow text-chapter-produce">{{ __('At a glance') }}</p>
+
+                    @if ($nextBase)
+                        <p class="mt-5 font-display text-3xl leading-tight text-brand-ink">
+                            {{ $nextBase->scheduled_for_date->locale(app()->getLocale())->isoFormat('ddd, D. MMM') }}
+                            @if ($nextEffective?->timeslot)
+                                <span class="text-brand-ink/40 text-xl"> · {{ $nextEffective->timeslot }}</span>
+                            @endif
                         </p>
-                        <dl class="mt-8 grid grid-cols-2 gap-x-8 gap-y-6 border-t border-brand-ink/10 pt-6">
-                            <div class="col-span-2">
-                                <dt class="eyebrow text-brand-ink/55">{{ __('Address') }}</dt>
-                                <dd class="mt-2 text-sm leading-relaxed text-brand-ink/80">
-                                    {{ $nextEffective->address?->recipient_name ?? '—' }},
-                                    {{ $nextEffective->address?->street_line_1 ?? '—' }},
-                                    {{ $nextEffective->address?->city ?? '—' }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt class="eyebrow text-brand-ink/55">{{ __('Timeslot') }}</dt>
-                                <dd class="mt-2 text-sm text-brand-ink/80">{{ $nextEffective->timeslot ?: '—' }}</dd>
-                            </div>
-                            <div>
-                                <dt class="eyebrow text-brand-ink/55">{{ __('Special instructions') }}</dt>
-                                <dd class="mt-2 text-sm text-brand-ink/80">{{ $nextEffective->special_instructions ?: '—' }}</dd>
-                            </div>
-                        </dl>
-                    </div>
-                @endif
+                    @else
+                        <p class="mt-5 font-display text-2xl text-brand-ink/35">{{ __('No upcoming deliveries') }}</p>
+                    @endif
+
+                    <dl class="mt-6 space-y-4 border-t border-brand-ink/10 pt-5 text-sm">
+                        <div class="grid grid-cols-[7rem_1fr] gap-2">
+                            <dt class="eyebrow text-brand-ink/45 pt-px">{{ __('Next delivery') }}</dt>
+                            <dd class="text-brand-ink/80">
+                                @if ($nextBase)
+                                    {{ $nextBase->scheduled_for_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY') }}
+                                @else
+                                    —
+                                @endif
+                            </dd>
+                        </div>
+                        <div class="grid grid-cols-[7rem_1fr] gap-2">
+                            <dt class="eyebrow text-brand-ink/45 pt-px">{{ __('Status') }}</dt>
+                            <dd>
+                                @if ($nextEffective)
+                                    <x-status-badge :value="$nextEffective->status" type="delivery" />
+                                @else
+                                    <span class="text-brand-ink/35">—</span>
+                                @endif
+                            </dd>
+                        </div>
+                        <div class="grid grid-cols-[7rem_1fr] gap-2">
+                            <dt class="eyebrow text-brand-ink/45 pt-px">{{ __('Address') }}</dt>
+                            <dd class="text-brand-ink/80">
+                                @php $glanceAddr = $nextEffective?->address ?? $primary; @endphp
+                                @if ($glanceAddr)
+                                    {{ $glanceAddr->recipient_name }}<br>
+                                    <span class="text-brand-ink/50">{{ $glanceAddr->street_line_1 }}, {{ $glanceAddr->city }}</span>
+                                @else
+                                    —
+                                @endif
+                            </dd>
+                        </div>
+                        <div class="grid grid-cols-[7rem_1fr] gap-2">
+                            <dt class="eyebrow text-brand-ink/45 pt-px">{{ __('Doorbell') }}</dt>
+                            <dd class="text-brand-ink/80">
+                                @php $instrAddr = $nextEffective?->address ?? $primary; @endphp
+                                {{ $instrAddr?->delivery_instructions ?: ($nextEffective?->special_instructions ?: '—') }}
+                            </dd>
+                        </div>
+                        <div class="grid grid-cols-[7rem_1fr] gap-2">
+                            <dt class="eyebrow text-brand-ink/45 pt-px">{{ __('Upcoming') }}</dt>
+                            <dd class="font-mono text-xs tabular-nums text-brand-ink/70">
+                                {{ str_pad((string) $weeklyDeliveries->count(), 2, '0', STR_PAD_LEFT) }} {{ __('weeks') }}
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
 
             </div>
         </div>
     </section>
 
-    {{-- § 2 — Timeline --}}
+    {{-- § 2 — Defaults ("The Standing Order") --}}
+    <section class="border-b border-brand-ink/10 bg-brand-paper py-16 lg:py-24">
+        <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
+
+            <div class="grid gap-6 lg:grid-cols-[1fr_auto]">
+                <div>
+                    <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.defaults_eyebrow') }}</p>
+                    <h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
+                        {{ __('Default delivery settings.') }}
+                    </h2>
+                </div>
+                <p class="max-w-xs self-end text-sm leading-relaxed text-brand-ink/50 lg:text-right">
+                    {{ __('customer.deliveries.defaults_helper') }}
+                </p>
+            </div>
+
+            <dl class="mt-10 grid gap-8 border-t border-brand-ink/10 pt-8 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                    <dt class="eyebrow text-brand-ink/45">{{ __('Timeslot') }}</dt>
+                    <dd class="mt-2 font-display text-xl text-brand-ink">{{ $preferences?->preferred_timeslot ?: '—' }}</dd>
+                    <p class="mt-1 text-xs text-brand-ink/40">{{ __('weekly') }}</p>
+                </div>
+                <div>
+                    <dt class="eyebrow text-brand-ink/45">{{ __('Phone') }}</dt>
+                    <dd class="mt-2 font-display text-xl text-brand-ink">{{ $preferences?->phone ?: '—' }}</dd>
+                    <p class="mt-1 text-xs text-brand-ink/40">{{ __('for the driver') }}</p>
+                </div>
+                <div>
+                    <dt class="eyebrow text-brand-ink/45">{{ __('Address') }}</dt>
+                    <dd class="mt-2 font-display text-xl text-brand-ink">{{ $primary?->street_line_1 ?: '—' }}</dd>
+                    <p class="mt-1 text-xs text-brand-ink/40">{{ $primary ? ($primary->postal_code.' '.$primary->city) : '—' }}</p>
+                </div>
+                <div>
+                    <dt class="eyebrow text-brand-ink/45">{{ __('At the door') }}</dt>
+                    <dd class="mt-2 font-display text-xl leading-tight text-brand-ink">{{ $preferences?->instructions ?: ($primary?->delivery_instructions ?: '—') }}</dd>
+                    <p class="mt-1 text-xs text-brand-ink/40">{{ __('delivery note') }}</p>
+                </div>
+            </dl>
+
+            <div class="mt-10 flex flex-wrap items-center gap-x-7 gap-y-3">
+                <a href="{{ route('app.deliveries.preferences.edit') }}"
+                   class="rounded-sm bg-chapter-produce px-7 py-3 text-sm font-sans text-brand-cream transition hover:bg-chapter-produce/90">
+                    {{ __('Edit default delivery') }}
+                </a>
+            </div>
+
+        </div>
+    </section>
+
+    {{-- § 3 — Timeline ("The Route Ahead") --}}
     @if ($weeklyDeliveries->isEmpty())
         <section class="py-20 lg:py-24">
             <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
-                <x-empty-state
-                    :title="__('No upcoming deliveries')"
-                    :description="__('Your delivery weeks will appear here as soon as we plan them. You can still set defaults for the next cycle.')"
-                    variant="card"
-                >
-                    <x-slot name="action">
-                        <div class="flex flex-wrap gap-3">
-                            <x-solid-link :href="route('app.subscriptions.show')">
-                                {{ __('View subscription') }}
-                            </x-solid-link>
-                            <x-ghost-link :href="route('app.deliveries.preferences.edit')">
-                                {{ __('Open default delivery settings') }}
-                            </x-ghost-link>
-                        </div>
-                    </x-slot>
-                </x-empty-state>
+                <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.timeline_eyebrow') }}</p>
+                <h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
+                    {{ __('customer.deliveries.timeline_h2', ['days' => $deliveryDayPlural ?? __('Thursdays')]) }}
+                </h2>
+                <div class="mt-12">
+                    <x-empty-state
+                        :title="__('No upcoming deliveries')"
+                        :description="__('Your delivery weeks will appear here as soon as we plan them. You can still set defaults for the next cycle.')"
+                        variant="card"
+                    >
+                        <x-slot name="action">
+                            <div class="flex flex-wrap gap-3">
+                                <x-solid-link :href="route('app.subscriptions.show')">
+                                    {{ __('View subscription') }}
+                                </x-solid-link>
+                                <x-ghost-link :href="route('app.deliveries.preferences.edit')">
+                                    {{ __('Open default delivery settings') }}
+                                </x-ghost-link>
+                            </div>
+                        </x-slot>
+                    </x-empty-state>
+                </div>
             </div>
         </section>
     @else
-        <section class="border-b border-brand-ink/10 py-20 lg:py-24">
+        <section class="border-b border-brand-ink/10 py-16 lg:py-24" data-testid="deliveries-timeline">
             <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
 
-                <p class="eyebrow text-chapter-produce">{{ __('Upcoming.') }}</p>
+                <div class="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.timeline_eyebrow') }}</p>
+                        <h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
+                            {{ __('customer.deliveries.timeline_h2', ['days' => $deliveryDayPlural ?? __('Thursdays')]) }}
+                        </h2>
+                    </div>
+                </div>
 
-                <ol class="mt-12 space-y-8" data-testid="deliveries-timeline">
-                    @foreach ($weeklyDeliveries as $row)
-                        @php
-                            $baseDelivery     = $row['base'];
-                            $effectiveDelivery = $row['effective'];
-                            $isFocused        = $focusedDeliveryId === $baseDelivery->id;
-                            $slotDate         = $baseDelivery->scheduled_for_date->copy()->startOfDay();
-                            $thisWeekStart    = now()->copy()->startOfWeek();
-                            $thisWeekEnd      = now()->copy()->endOfWeek();
-                            $nextWeekStart    = $thisWeekStart->copy()->addWeek();
-                            $nextWeekEnd      = $thisWeekEnd->copy()->addWeek();
-                            if ($slotDate->betweenIncluded($thisWeekStart, $thisWeekEnd)) {
-                                $relativeWeekLabel = __('This week');
-                            } elseif ($slotDate->betweenIncluded($nextWeekStart, $nextWeekEnd)) {
-                                $relativeWeekLabel = __('Next week');
-                            } else {
-                                $relativeWeekLabel = null;
-                            }
-
-                            $rowChapter = $chapterRotation[($loop->iteration - 1) % count($chapterRotation)];
-                            $rowEyebrowClass = [
-                                'produce'   => 'text-chapter-produce',
-                                'eggdairy'  => 'text-chapter-eggdairy',
-                                'bread'     => 'text-chapter-bread',
-                                'fish'      => 'text-chapter-fish',
-                                'meat'      => 'text-chapter-meat',
-                                'producers' => 'text-chapter-producers',
-                                'almanach'  => 'text-chapter-almanach',
-                            ][$rowChapter];
-                            $rowBorderNum = [
-                                'produce'   => 'border-chapter-produce',
-                                'eggdairy'  => 'border-chapter-eggdairy',
-                                'bread'     => 'border-chapter-bread',
-                                'fish'      => 'border-chapter-fish',
-                                'meat'      => 'border-chapter-meat',
-                                'producers' => 'border-chapter-producers',
-                                'almanach'  => 'border-chapter-almanach',
-                            ][$rowChapter];
-                            $rowBorderSoft = [
-                                'produce'   => 'border-chapter-produce/40',
-                                'eggdairy'  => 'border-chapter-eggdairy/40',
-                                'bread'     => 'border-chapter-bread/40',
-                                'fish'      => 'border-chapter-fish/40',
-                                'meat'      => 'border-chapter-meat/40',
-                                'producers' => 'border-chapter-producers/40',
-                                'almanach'  => 'border-chapter-almanach/40',
-                            ][$rowChapter];
-                            $rowRingClass = [
-                                'produce'   => 'ring-chapter-produce',
-                                'eggdairy'  => 'ring-chapter-eggdairy',
-                                'bread'     => 'ring-chapter-bread',
-                                'fish'      => 'ring-chapter-fish',
-                                'meat'      => 'ring-chapter-meat',
-                                'producers' => 'ring-chapter-producers',
-                                'almanach'  => 'ring-chapter-almanach',
-                            ][$rowChapter];
-                        @endphp
-
-                        <x-reveal as="li" variant="fade-up" class="flex gap-6">
-                            <div class="flex shrink-0 flex-col items-center">
-                                <span class="flex h-12 w-12 items-center justify-center border {{ $rowBorderNum }} font-display text-base font-semibold text-brand-ink">
-                                    {{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}
-                                </span>
-                                @unless ($loop->last)
-                                    <span class="mt-2 min-h-[2rem] w-px grow bg-brand-ink/20" aria-hidden="true"></span>
-                                @endunless
-                            </div>
-
-                            <div class="min-w-0 flex-1 pb-4">
-                                <section
-                                    id="delivery-{{ $baseDelivery->id }}"
+                <div class="mt-10 overflow-x-auto">
+                    <table class="w-full min-w-[640px] border-collapse">
+                        <thead>
+                            <tr class="border-b border-brand-ink/10">
+                                <th class="pb-3 pr-6 text-left font-mono text-[0.65rem] uppercase tracking-[0.2em] text-brand-ink/40">{{ __('Wk') }}</th>
+                                <th class="pb-3 pr-6 text-left font-mono text-[0.65rem] uppercase tracking-[0.2em] text-brand-ink/40">{{ __('Date') }}</th>
+                                <th class="pb-3 pr-6 text-left font-mono text-[0.65rem] uppercase tracking-[0.2em] text-brand-ink/40">{{ __('Timeslot') }}</th>
+                                <th class="pb-3 pr-6 text-left font-mono text-[0.65rem] uppercase tracking-[0.2em] text-brand-ink/40 lg:table-cell hidden">{{ __('Address') }}</th>
+                                <th class="pb-3 pr-6 text-left font-mono text-[0.65rem] uppercase tracking-[0.2em] text-brand-ink/40 lg:table-cell hidden">{{ __('Note') }}</th>
+                                <th class="pb-3 text-right font-mono text-[0.65rem] uppercase tracking-[0.2em] text-brand-ink/40">{{ __('Status') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($weeklyDeliveries as $row)
+                                @php
+                                    $base      = $row['base'];
+                                    $effective = $row['effective'];
+                                    $isFocused = $focusedDeliveryId === $base->id;
+                                    $rowChapter = $chapterRotation[($loop->index) % count($chapterRotation)];
+                                    $eyebrowClass = [
+                                        'produce'   => 'text-chapter-produce',
+                                        'eggdairy'  => 'text-chapter-eggdairy',
+                                        'bread'     => 'text-chapter-bread',
+                                        'fish'      => 'text-chapter-fish',
+                                        'meat'      => 'text-chapter-meat',
+                                        'producers' => 'text-chapter-producers',
+                                        'almanach'  => 'text-chapter-almanach',
+                                    ][$rowChapter];
+                                @endphp
+                                <tr id="delivery-{{ $base->id }}"
                                     @class([
-                                        'border bg-brand-paper p-6 sm:p-8',
-                                        $rowBorderNum.' ring-1 '.$rowRingClass => $isFocused,
-                                        $rowBorderSoft => ! $isFocused,
-                                    ])
-                                    aria-labelledby="delivery-heading-{{ $baseDelivery->id }}"
-                                >
-                                    <div class="flex flex-wrap items-start justify-between gap-3">
-                                        <div>
-                                            <p class="eyebrow {{ $rowEyebrowClass }}">{{ $relativeWeekLabel ?? __('Upcoming') }}</p>
-                                            <h3 id="delivery-heading-{{ $baseDelivery->id }}" class="mt-2 font-display text-2xl text-brand-ink">
-                                                {{ $baseDelivery->scheduled_for_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY') }}
-                                            </h3>
-                                            <p class="mt-1 text-xs uppercase tracking-eyebrow text-brand-ink/55">{{ __('Delivery date') }}</p>
-                                        </div>
-                                        <x-status-badge :value="$effectiveDelivery->status" type="delivery" />
-                                    </div>
-
-                                    <dl class="mt-6 grid gap-5 border-t border-brand-ink/10 pt-5 text-sm sm:grid-cols-2">
-                                        <div>
-                                            <dt class="eyebrow text-brand-ink/60">{{ __('Address') }}</dt>
-                                            <dd class="mt-2 text-brand-ink/80">
-                                                {{ $effectiveDelivery->address?->recipient_name ?? __('No recipient set') }},
-                                                {{ $effectiveDelivery->address?->street_line_1 ?? __('No street set') }},
-                                                {{ $effectiveDelivery->address?->city ?? __('No city set') }}
-                                            </dd>
-                                        </div>
-                                        <div>
-                                            <dt class="eyebrow text-brand-ink/60">{{ __('Timeslot') }}</dt>
-                                            <dd class="mt-2 text-brand-ink/80">{{ $effectiveDelivery->timeslot }}</dd>
-                                        </div>
-                                        <div class="sm:col-span-2">
-                                            <dt class="eyebrow text-brand-ink/60">{{ __('Special instructions') }}</dt>
-                                            <dd class="mt-2 text-brand-ink/80">{{ $effectiveDelivery->special_instructions ?: __('No special instructions.') }}</dd>
-                                        </div>
-                                    </dl>
-
-                                    <div class="mt-6 flex flex-wrap gap-2">
-                                        <a href="{{ route('app.deliveries.gift', $effectiveDelivery) }}" class="btn-ghost text-xs">
-                                            {{ __('Gift box') }}
-                                        </a>
-                                    </div>
-                                </section>
-                            </div>
-                        </x-reveal>
-                    @endforeach
-                </ol>
-
-                <div class="mt-20 flex flex-col items-center gap-3">
-                    <x-triple-star class="opacity-70" />
-                    <p class="font-editorial text-sm italic text-brand-ink/60">
-                        {{ __('One week at a time, in the rhythm of the harvest.') }}
-                    </p>
+                                        'border-b border-brand-ink/8 transition',
+                                        'bg-brand-cream/50' => $isFocused,
+                                    ])>
+                                    <td class="py-4 pr-6">
+                                        <span class="font-mono text-xs tabular-nums {{ $eyebrowClass }}">
+                                            W{{ $base->scheduled_for_date->weekOfYear }}
+                                        </span>
+                                    </td>
+                                    <td class="py-4 pr-6">
+                                        <span class="font-display text-base text-brand-ink">
+                                            {{ $base->scheduled_for_date->locale(app()->getLocale())->isoFormat('ddd, D. MMM') }}
+                                        </span>
+                                    </td>
+                                    <td class="py-4 pr-6 text-sm text-brand-ink/60">
+                                        {{ $effective->timeslot ?: '—' }}
+                                    </td>
+                                    <td class="py-4 pr-6 text-sm text-brand-ink/60 lg:table-cell hidden">
+                                        @if ($effective->address)
+                                            {{ $effective->address->street_line_1 }}, {{ $effective->address->city }}
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+                                    <td class="py-4 pr-6 text-sm text-brand-ink/45 lg:table-cell hidden" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        {{ $effective->special_instructions ?: '—' }}
+                                    </td>
+                                    <td class="py-4 text-right">
+                                        <x-status-badge :value="$effective->status" type="delivery" />
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
 
             </div>
         </section>
     @endif
+
+    {{-- § 4 — Addresses ("The Address Book") --}}
+    <section class="border-b border-brand-ink/10 py-16 lg:py-24"
+             x-data="{ primaryId: {{ $addresses->firstWhere('is_primary', true)?->id ?? 'null' }} }">
+        <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
+
+            <div class="grid gap-10 lg:grid-cols-[1fr_2fr] lg:gap-16">
+
+                {{-- Left: intro + CTA --}}
+                <div class="flex flex-col justify-between gap-8">
+                    <div>
+                        <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.addresses_eyebrow') }}</p>
+                        <h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
+                            {{ $addressesH2 }}
+                        </h2>
+                        <p class="mt-5 text-sm leading-relaxed text-brand-ink/55">
+                            {{ __('customer.deliveries.addresses_body') }}
+                        </p>
+                    </div>
+                    <div>
+                        <a href="{{ route('app.deliveries.preferences.edit') }}"
+                           class="inline-block rounded-sm border border-brand-ink/20 px-6 py-3 text-sm text-brand-ink/70 transition hover:border-brand-ink/40 hover:text-brand-ink">
+                            {{ __('Add another address') }} →
+                        </a>
+                    </div>
+                </div>
+
+                {{-- Right: address cards --}}
+                <div class="grid gap-5 sm:grid-cols-2">
+                    @forelse ($addresses as $address)
+                        <div
+                            class="relative border p-6 transition"
+                            :class="primaryId === {{ $address->id }}
+                                ? 'border-chapter-produce bg-brand-paper'
+                                : 'border-brand-ink/15'"
+                        >
+                            {{-- labels row --}}
+                            <div class="flex items-center gap-2 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-brand-ink/40">
+                                @if ($address->label)
+                                    <span>{{ $address->label }}</span>
+                                    <span>·</span>
+                                @endif
+                                <span x-show="primaryId !== {{ $address->id }}">{{ __('Default') }}</span>
+                                <span
+                                    x-show="primaryId === {{ $address->id }}"
+                                    class="text-chapter-produce"
+                                >● {{ __('Primary') }}</span>
+                            </div>
+
+                            {{-- name --}}
+                            <p class="mt-3 font-display text-xl text-brand-ink">{{ $address->recipient_name }}</p>
+
+                            {{-- address block --}}
+                            <address class="mt-3 not-italic text-sm leading-relaxed text-brand-ink/65">
+                                {{ $address->street_line_1 }}@if ($address->street_line_2), {{ $address->street_line_2 }}@endif<br>
+                                {{ $address->postal_code }} {{ $address->city }}@if ($address->country_code), {{ strtoupper($address->country_code) }}@endif
+                            </address>
+
+                            @if ($address->delivery_instructions)
+                                <p class="mt-3 text-xs italic text-brand-ink/45">{{ $address->delivery_instructions }}</p>
+                            @endif
+                        </div>
+                    @empty
+                        <div class="border border-dashed border-brand-ink/20 p-6">
+                            <p class="text-sm text-brand-ink/40">{{ __('No addresses saved yet.') }}</p>
+                        </div>
+                    @endforelse
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    {{-- § 5 — History ("The Ledger") --}}
+    <section class="border-b border-brand-ink/10 py-16 lg:py-24">
+        <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
+
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.history_eyebrow') }}</p>
+                    <h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
+                        {{ __('Past deliveries.') }}
+                    </h2>
+                </div>
+            </div>
+
+            @if ($pastDeliveries->isEmpty())
+                <p class="mt-10 text-sm text-brand-ink/40">{{ __('No past deliveries yet.') }}</p>
+            @else
+                <div class="mt-10 overflow-x-auto">
+                    <table class="w-full min-w-[480px] border-collapse">
+                        <thead>
+                            <tr class="border-b border-brand-ink/10">
+                                <th class="pb-3 pr-6 text-left font-mono text-[0.65rem] uppercase tracking-[0.2em] text-brand-ink/40">{{ __('Wk') }}</th>
+                                <th class="pb-3 pr-6 text-left font-mono text-[0.65rem] uppercase tracking-[0.2em] text-brand-ink/40">{{ __('Date') }}</th>
+                                <th class="pb-3 pr-6 text-left font-mono text-[0.65rem] uppercase tracking-[0.2em] text-brand-ink/40 sm:table-cell hidden">{{ __('Note') }}</th>
+                                <th class="pb-3 text-right font-mono text-[0.65rem] uppercase tracking-[0.2em] text-brand-ink/40">{{ __('Status') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($pastDeliveries as $past)
+                                <tr class="group border-b border-brand-ink/8">
+                                    <td class="py-4 pr-6">
+                                        <span class="font-mono text-xs tabular-nums text-brand-ink/40">
+                                            W{{ $past->scheduled_for_date->weekOfYear }}
+                                        </span>
+                                    </td>
+                                    <td class="py-4 pr-6">
+                                        <span class="font-display text-base text-brand-ink/70">
+                                            {{ $past->scheduled_for_date->locale(app()->getLocale())->isoFormat('ddd, D. MMM YYYY') }}
+                                        </span>
+                                    </td>
+                                    <td class="py-4 pr-6 text-sm text-brand-ink/45 sm:table-cell hidden">
+                                        {{ $past->special_instructions ?: '—' }}
+                                    </td>
+                                    <td class="py-4 text-right">
+                                        <x-status-badge :value="$past->status" type="delivery" />
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+        </div>
+    </section>
 
     <x-customer.editorial-footer-band />
 
