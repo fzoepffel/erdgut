@@ -101,7 +101,7 @@
        padding, barely-rounded so it reads as typeset on cream rather than
        a glossy web button. Mono caps for the label. */
     .btn-solid {
-        @apply inline-flex items-center justify-center rounded-sm bg-chapter-produce px-7 py-3 font-work text-[0.7rem] uppercase tracking-eyebrow text-brand-cream transition duration-200 hover:bg-chapter-produce/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-moss focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cream;
+        @apply inline-flex items-center justify-center rounded-sm bg-chapter-produce px-7 py-3 font-mono text-[0.7rem] uppercase tracking-eyebrow text-brand-cream transition duration-200 hover:bg-chapter-produce/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-moss focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cream;
     }
 
     .btn-danger {
