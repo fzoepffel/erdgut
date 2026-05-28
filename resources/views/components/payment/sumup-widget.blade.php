@@ -221,6 +221,28 @@
                     },
                     onResponse: function(type, body) {
                         try { console.log('[SumUp widget]', type, body); } catch (_) {}
+
+                        // SumUp fires onResponse multiple times in one flow.
+                        // Intermediate signals (e.g. type === 'sent', emitted
+                        // right after submit and before the 3-D Secure challenge)
+                        // are NOT terminal. Only 'success' and the failure types
+                        // below conclude the flow. For any other (intermediate)
+                        // type we keep the processing overlay up and leave the
+                        // stall detector running, so the 3-D Secure round-trip is
+                        // not interrupted by a premature failure message.
+                        // Root-caused 2026-05-28: a defensive catch-all here used
+                        // to flash a payment-failed error during 3-D Secure even
+                        // though the payment then succeeded.
+                        var isFailure = (type === 'error' || type === 'fail' || type === 'invalid');
+
+                        if (type !== 'success' && !isFailure) {
+                            self.beacon('response_intermediate', {
+                                response_type: typeof type === 'string' ? type.slice(0, 40) : null,
+                            });
+                            return;
+                        }
+
+                        // Terminal response — stop the stall detector.
                         if (self.stallTimeoutId) { clearTimeout(self.stallTimeoutId); self.stallTimeoutId = null; }
                         if (self.heartbeatId) { clearInterval(self.heartbeatId); self.heartbeatId = null; }
                         if (type === 'success') {
@@ -241,45 +263,30 @@
                             @endif
                             return;
                         }
-                        // 'invalid' is SumUp's response when the submitted card
-                        // fails validation (bad/declined card, incomplete field,
-                        // unsupported card for this checkout). It MUST be handled
-                        // alongside error/fail — otherwise the widget stays stuck
-                        // on the 'processing' overlay forever (the stall timer
-                        // fires but state is never reset). Root-caused 2026-05-28.
-                        if (type === 'error' || type === 'fail' || type === 'invalid') {
-                            self.state = 'ready';
-                            const code = body?.error_code || body?.errorCode || body?.code || null;
-                            self.beacon('response_' + type, {
-                                error_code: code,
-                                message: typeof body?.message === 'string' ? body.message.slice(0, 200) : null,
-                            });
-                            const sumupMsg = body?.message || body?.detail || '';
-                            if (typeof sumupMsg === 'string' && sumupMsg.includes('form.mandate.errors')) {
-                                self.widgetError = mandateInvalid;
-                                return;
-                            }
-                            const mapped = code && widgetErrorMap[code] ? widgetErrorMap[code] : null;
-                            if (mapped) { self.widgetError = mapped; return; }
-                            const raw = body?.message;
-                            if (typeof raw === 'string' && raw.length > 0 && raw.length < 120 && /^[\w\s.,'\-]+$/.test(raw)) {
-                                self.widgetError = raw;
-                            } else {
-                                self.widgetError = genericFail;
-                            }
+                        // Terminal failure: error / fail / invalid. 'invalid' is
+                        // SumUp's response when the submitted card fails
+                        // validation (bad/declined card, incomplete field,
+                        // unsupported card). Resetting to 'ready' here releases
+                        // the processing overlay so the widget never hangs and the
+                        // customer can correct and retry.
+                        self.state = 'ready';
+                        const code = body?.error_code || body?.errorCode || body?.code || null;
+                        self.beacon('response_' + type, {
+                            error_code: code,
+                            message: typeof body?.message === 'string' ? body.message.slice(0, 200) : null,
+                        });
+                        const sumupMsg = body?.message || body?.detail || '';
+                        if (typeof sumupMsg === 'string' && sumupMsg.includes('form.mandate.errors')) {
+                            self.widgetError = mandateInvalid;
                             return;
                         }
-
-                        // Defensive catch-all: any other (unexpected) response type
-                        // must still release the processing overlay so the widget
-                        // can never hang indefinitely. Reset to 'ready', surface a
-                        // generic error, and record the unhandled type for triage.
-                        if (type !== 'success') {
-                            self.state = 'ready';
+                        const mapped = code && widgetErrorMap[code] ? widgetErrorMap[code] : null;
+                        if (mapped) { self.widgetError = mapped; return; }
+                        const raw = body?.message;
+                        if (typeof raw === 'string' && raw.length > 0 && raw.length < 120 && /^[\w\s.,'\-]+$/.test(raw)) {
+                            self.widgetError = raw;
+                        } else {
                             self.widgetError = genericFail;
-                            self.beacon('response_unhandled', {
-                                response_type: typeof type === 'string' ? type.slice(0, 40) : null,
-                            });
                         }
                     }
                 });
