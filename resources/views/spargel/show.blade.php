@@ -593,8 +593,8 @@
                     <dd class="tabular-nums" x-text="money(effectiveDeliveryFee)"></dd>
                 </div>
                 <div class="mt-3 flex items-center justify-between gap-3 border-t border-brand-ink/10 pt-3 font-semibold text-brand-ink">
-                    <dt class="font-display text-base">{{ __('spargel.summary_line_total') }}</dt>
-                    <dd class="font-display text-2xl tabular-nums text-brand-ink" x-text="money(total)"></dd>
+                    <dt class="text-base">{{ __('spargel.summary_line_total') }}</dt>
+                    <dd class="text-2xl tabular-nums text-brand-ink" x-text="money(total)"></dd>
                 </div>
             </dl>
             <p class="mt-3 text-xs text-brand-ink/60">
