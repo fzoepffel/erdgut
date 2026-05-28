@@ -111,7 +111,7 @@
                         </p>
 
                         {{-- 5. Feature headline — fully italic --}}
-                        <p class="font-display mb-6 text-[1.65rem] italic font-normal md:text-[2.1rem]"
+                        <p class="font-display mb-6 text-[1.65rem] font-normal md:text-[2.1rem]"
                            style="color: #1A1F12;">
                             {{ __('spargel.coming_soon_eyebrow') }}
                         </p>
