@@ -8,18 +8,32 @@ use SumUp\SumUp;
 
 class SumUpService
 {
-    private SumUp $client;
+    private ?SumUp $client = null;
 
-    private string $merchantCode;
+    private string $merchantCode = '';
 
-    private string $currency;
+    private string $currency = 'EUR';
 
     private string $profile;
 
     public function __construct(string $profile = 'subscription')
     {
         $this->profile = $profile;
+    }
 
+    /**
+     * Lazily initialise the SumUp SDK client and validate config.
+     * Deferred so the service can be bound in the container without
+     * requiring all SumUp env vars to be set at boot time (e.g. when
+     * artisan commands run on servers where a profile is not yet live).
+     */
+    private function boot(): void
+    {
+        if ($this->client !== null) {
+            return;
+        }
+
+        $profile = $this->profile;
         $apiKey = (string) config("sumup.{$profile}.api_key", '');
         $merchantCode = (string) config("sumup.{$profile}.merchant_code", '');
 
@@ -44,6 +58,8 @@ class SumUpService
      */
     public function createCustomer(array $data): object
     {
+        $this->boot();
+
         return $this->client->customers()->create($data);
     }
 
@@ -52,6 +68,8 @@ class SumUpService
      */
     public function createCheckout(array $params): object
     {
+        $this->boot();
+
         $payload = array_merge($params, [
             'merchant_code' => $this->merchantCode,
         ]);
@@ -144,6 +162,8 @@ class SumUpService
 
     public function getCheckout(string $id): object
     {
+        $this->boot();
+
         return $this->client->checkouts()->get($id);
     }
 
@@ -195,6 +215,8 @@ class SumUpService
 
     public function processCheckout(string $checkoutId, string $token, string $customerId): object
     {
+        $this->boot();
+
         try {
             $result = $this->client->checkouts()->process($checkoutId, [
                 'payment_type' => 'card',
@@ -234,6 +256,8 @@ class SumUpService
      */
     public function listPaymentInstruments(string $customerId): array
     {
+        $this->boot();
+
         return $this->client->customers()->listPaymentInstruments($customerId);
     }
 
@@ -249,6 +273,8 @@ class SumUpService
      */
     public function refund(string $transactionId, ?float $amount = null): bool
     {
+        $this->boot();
+
         $payload = $amount !== null ? ['amount' => $amount] : [];
 
         try {
