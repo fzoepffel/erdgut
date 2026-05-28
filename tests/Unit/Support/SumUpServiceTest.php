@@ -9,26 +9,46 @@ use Tests\TestCase;
 
 class SumUpServiceTest extends TestCase
 {
-    public function test_constructor_throws_when_api_key_missing(): void
+    // SumUpService now lazily validates config on first API call, not in the
+    // constructor. These tests verify that instantiation succeeds even with
+    // missing config, and that validation fires when the service is used.
+
+    public function test_constructor_succeeds_even_when_api_key_missing(): void
+    {
+        Config::set('sumup.subscription.api_key', '');
+        Config::set('sumup.subscription.merchant_code', '');
+
+        // Should not throw — boot() is deferred until first API call
+        $service = new SumUpService('subscription');
+
+        $this->assertInstanceOf(SumUpService::class, $service);
+    }
+
+    public function test_boot_throws_when_api_key_missing(): void
     {
         Config::set('sumup.subscription.api_key', '');
         Config::set('sumup.subscription.merchant_code', 'MK01A8C2');
 
+        $service = new SumUpService('subscription');
+
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Missing SumUp configuration: sumup.subscription.api_key');
 
-        new SumUpService('subscription');
+        // Trigger boot via a public method
+        $service->getCheckout('any-id');
     }
 
-    public function test_constructor_throws_when_merchant_code_missing(): void
+    public function test_boot_throws_when_merchant_code_missing(): void
     {
         Config::set('sumup.subscription.api_key', 'sk_test_example');
         Config::set('sumup.subscription.merchant_code', '');
 
+        $service = new SumUpService('subscription');
+
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Missing SumUp configuration: sumup.subscription.merchant_code');
 
-        new SumUpService('subscription');
+        $service->getCheckout('any-id');
     }
 
     public function test_constructor_creates_service_when_required_config_is_present(): void
@@ -56,9 +76,11 @@ class SumUpServiceTest extends TestCase
         Config::set('sumup.spargel.api_key', '');
         Config::set('sumup.spargel.merchant_code', 'LIVE_MERCHANT');
 
+        $service = new SumUpService('spargel');
+
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Missing SumUp configuration: sumup.spargel.api_key');
 
-        new SumUpService('spargel');
+        $service->getCheckout('any-id');
     }
 }
