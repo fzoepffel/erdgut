@@ -111,7 +111,7 @@
                         </p>
 
                         {{-- 5. Feature headline — fully italic --}}
-                        <p class="font-display mb-6 text-3xl italic font-normal md:text-4xl"
+                        <p class="font-display mb-6 text-2xl italic font-normal md:text-3xl"
                            style="color: #1A1F12;">
                             {{ __('spargel.coming_soon_eyebrow') }}
                         </p>
@@ -137,7 +137,7 @@
                         </p>
 
                         {{-- 9. Contact headline — not italic --}}
-                        <h2 class="font-display mb-12 text-3xl font-normal md:text-4xl"
+                        <h2 class="font-display mb-12 text-2xl font-normal md:text-3xl"
                             style="color: #1A1F12;">
                             {{ __('Schreib uns gern.') }}
                         </h2>
