@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Controllers\SpargelAdminController;
 use App\Listeners\AddListUnsubscribeHeader;
 use App\Listeners\LogSentMail;
 use App\Models\Producer;
@@ -13,7 +14,6 @@ use App\Observers\SpargelOrderObserver;
 use App\Policies\ProducerPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\UserPolicy;
-use App\Http\Controllers\SpargelAdminController;
 use App\Services\SpargelOrderService;
 use App\Support\RequiredSecretValidator;
 use App\Support\SubscriberAccess;
