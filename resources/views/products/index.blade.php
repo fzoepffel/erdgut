@@ -23,22 +23,13 @@
         'bread'     => 'bg-chapter-bread',
     ];
 
-    // Status strip background per chapter.
+    // Status strip background per chapter (used in product cards).
     $chapterStripBg = [
         'produce'   => 'bg-chapter-produce',
         'meat'      => 'bg-chapter-meat',
         'fish'      => 'bg-chapter-fish',
         'eggdairy'  => 'bg-chapter-eggdairy',
         'bread'     => 'bg-chapter-bread',
-    ];
-
-    // Catalogue-strip illustration images (same assets as homepage).
-    $chapterImage = [
-        'produce'   => 'catalog-strip-cabbage.png',
-        'meat'      => 'catalog-strip-waguy.png',
-        'fish'      => 'catalog-strip-sardines.png',
-        'eggdairy'  => 'catalog-strip-eggs.png',
-        'bread'     => 'catalog-strip-wheat.png',
     ];
 
     // Category enum → display label.
@@ -48,6 +39,24 @@
         'fish'      => __('Fish & Seafood'),
         'eggdairy'  => __('Eggs & Dairy'),
         'bread'     => __('Bread'),
+    ];
+
+    // Chapter card subtitles.
+    $chapterSubtitle = [
+        'produce'  => __('products.chapter_subtitle_produce'),
+        'meat'     => __('products.chapter_subtitle_meat'),
+        'fish'     => __('products.chapter_subtitle_fish'),
+        'eggdairy' => __('products.chapter_subtitle_eggdairy'),
+        'bread'    => __('products.chapter_subtitle_bread'),
+    ];
+
+    // Catalogue-strip illustration images for the left spine (same assets as homepage).
+    $chapterImage = [
+        'produce'  => 'catalog-strip-cabbage.png',
+        'meat'     => 'catalog-strip-waguy.png',
+        'fish'     => 'catalog-strip-sardines.png',
+        'eggdairy' => 'catalog-strip-eggs.png',
+        'bread'    => 'catalog-strip-wheat.png',
     ];
 
     // Active category chapter key.
@@ -108,87 +117,92 @@
     <section class="border-b border-brand-ink/10 bg-brand-paper py-12 lg:py-16">
         <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
 
-            <div class="flex items-baseline justify-between">
+            {{-- Header: eyebrow + "All chapters" button + active label --}}
+            <div class="flex flex-wrap items-center justify-between gap-4">
                 <p class="eyebrow text-chapter-produce">{{ __('Stalls') }}</p>
-                <p class="font-mono text-[0.65rem] uppercase tracking-widest text-brand-ink/50">
-                    @if ($activeCategory)
-                        {{ $categoryLabel[$activeChapter] ?? $activeCategory->value }}
-                    @else
-                        {{ __('All five') }}
-                    @endif
-                </p>
+                <div class="flex items-center gap-5">
+                    <a href="{{ route('app.products.index') }}"
+                       class="inline-flex items-center px-4 py-2 font-mono text-[0.6rem] uppercase tracking-[0.2em] transition
+                              @if(! $activeCategory) bg-brand-ink text-brand-cream @else border border-brand-ink/20 text-brand-ink/60 hover:border-brand-ink/50 hover:text-brand-ink @endif"
+                       aria-current="{{ ! $activeCategory ? 'true' : 'false' }}"
+                       data-testid="products-chapter-tile-all">
+                        {{ __('All chapters') }}
+                    </a>
+                    <span class="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-brand-ink/50">
+                        @if ($activeCategory)
+                            {{ $categoryLabel[$activeChapter] ?? $activeCategory->value }}
+                        @else
+                            {{ __('Showing every stall') }}
+                        @endif
+                    </span>
+                </div>
             </div>
 
-            <div class="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-
-                {{-- All tile --}}
-                <a href="{{ route('app.products.index') }}"
-                   class="group flex min-h-[180px] flex-col overflow-hidden border transition
-                          @if(! $activeCategory) border-brand-ink ring-2 ring-brand-ink ring-offset-2 bg-brand-cream @else border-brand-ink/20 bg-brand-cream/40 hover:bg-brand-cream @endif"
-                   aria-current="{{ ! $activeCategory ? 'true' : 'false' }}"
-                   data-testid="products-chapter-tile-all">
-                    <div class="flex flex-1 flex-col justify-between p-5">
-                        <div class="grid h-16 w-full place-items-center">
-                            <span class="font-display text-4xl text-chapter-produce" aria-hidden="true">∗</span>
-                        </div>
-                        <div class="h-px w-full bg-brand-ink/10"></div>
-                        <div class="flex items-baseline justify-between">
-                            <span class="font-mono text-[0.65rem] uppercase tracking-widest @if(! $activeCategory) text-chapter-produce @else text-brand-ink/70 @endif">
-                                {{ __('All') }}
-                            </span>
-                            <span class="font-mono text-[0.65rem] tabular-nums text-brand-ink/50">
-                                {{ str_pad((string) $totalCount, 2, '0', STR_PAD_LEFT) }}
-                            </span>
-                        </div>
-                    </div>
-                </a>
-
-                {{-- Category tiles — homepage chapter-panel style --}}
+            {{-- Chapter cards — portrait book-cover style --}}
+            <div class="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
                 @foreach ($categories as $cat)
                     @php
                         $catStyle  = ProductCategoryStyle::for($cat);
                         $chapter   = $catStyle['chapter'];
                         $isActive  = $activeCategory && $activeCategory->value === $cat->value;
                         $catCount  = $categoryCounts[$cat->value] ?? 0;
-                        $img       = $chapterImage[$chapter] ?? null;
                         $bgClass   = $chapterPanelBg[$chapter] ?? 'bg-chapter-produce';
                         $label     = $categoryLabel[$chapter] ?? __('admin.category.' . $cat->value);
+                        $subtitle  = $chapterSubtitle[$chapter] ?? '';
+                        $img       = $chapterImage[$chapter] ?? null;
+                        $idx       = str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT);
                     @endphp
                     <a href="{{ route('app.products.index', ['category' => $cat->value]) }}"
-                       class="group flex min-h-[180px] overflow-hidden transition
-                              @if($isActive) ring-2 ring-brand-ink ring-offset-2 @endif
-                              {{ $bgClass }} text-brand-cream"
+                       class="group relative flex aspect-[3/4] flex-col overflow-hidden {{ $bgClass }} text-brand-cream transition duration-150 hover:-translate-y-1
+                              @if($isActive) ring-2 ring-offset-2 ring-brand-ink @endif"
                        aria-current="{{ $isActive ? 'true' : 'false' }}"
                        data-testid="products-chapter-tile-{{ $chapter }}">
-                        {{-- Illustration strip --}}
+
+                        {{-- Left spine strip — PNG illustration, inverted to white ink.
+                             Width set inline so it works regardless of the CSS build.
+                             scale(1.1) crops the ~3.3% transparent margins baked into the
+                             PNGs so the ink bleeds to the top/bottom/left card edges. --}}
                         @if ($img)
-                            <div class="relative flex w-14 shrink-0 items-stretch overflow-hidden lg:w-16">
+                            <div class="pointer-events-none absolute inset-y-0 left-0 overflow-hidden" style="width: 22%">
                                 <img
                                     src="{{ asset('images/chapters/' . $img) }}"
                                     alt=""
                                     aria-hidden="true"
-                                    class="h-full w-full select-none object-contain object-center"
-                                    style="filter: brightness(0) invert(1);"
+                                    class="h-full w-full select-none object-cover object-center"
+                                    style="filter: brightness(0) invert(1); opacity: 0.9; transform: scale(1.1);"
                                 />
                             </div>
                         @endif
-                        {{-- Text --}}
-                        <div class="flex flex-1 flex-col justify-between p-4 lg:p-5">
-                            <div></div>{{-- top spacer --}}
-                            <h3 class="font-display text-base leading-tight text-brand-cream lg:text-lg">{{ $label }}</h3>
-                            <div class="flex items-baseline justify-between">
-                                <span class="font-mono text-[0.65rem] uppercase tracking-widest text-brand-cream/75">
-                                    {{ __('Chapter') }}
+
+                        {{-- Top bar: chapter index + "· Chapter" label --}}
+                        <div class="relative flex items-center justify-end gap-3 px-5 pt-5">
+                            <span class="font-mono text-[0.7rem] tabular-nums tracking-widest text-brand-cream/90">{{ $idx }}</span>
+                            <span class="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-brand-cream/90">· {{ __('Chapter') }}</span>
+                        </div>
+
+                        {{-- Title block pinned to bottom — indent clears the spine; bottom + right
+                             padding set inline so the text never sits flush against the card edge. --}}
+                        <div class="relative mt-auto flex flex-col" style="padding-left: 32%; padding-right: 1.5rem; padding-bottom: 1.5rem;">
+                            <h3 class="font-display text-xl leading-[1.05] text-brand-cream lg:text-2xl">{{ $label }}</h3>
+                            <p class="mt-1 font-display text-[0.8rem] italic text-brand-cream/85 lg:text-sm">{{ $subtitle }}</p>
+                            <div class="mt-3 h-px w-full bg-brand-cream/30"></div>
+                            <div class="mt-3 flex items-baseline justify-between gap-2">
+                                <span class="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-brand-cream/90 transition duration-150 group-hover:translate-x-1">
+                                    @if ($catCount > 0)
+                                        {{ __('Open chapter') }} →
+                                    @else
+                                        {{ __('Coming soon') }}
+                                    @endif
                                 </span>
-                                <span class="font-mono text-[0.65rem] tabular-nums text-brand-cream/70">
-                                    {{ str_pad((string) $catCount, 2, '0', STR_PAD_LEFT) }}
+                                <span class="font-mono text-[0.6rem] tabular-nums text-brand-cream/70">
+                                    {{ str_pad((string) $catCount, 2, '0', STR_PAD_LEFT) }} {{ __('entries') }}
                                 </span>
                             </div>
                         </div>
                     </a>
                 @endforeach
-
             </div>
+
         </div>
     </section>
 
