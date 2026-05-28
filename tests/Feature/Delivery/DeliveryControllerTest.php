@@ -34,7 +34,7 @@ class DeliveryControllerTest extends TestCase
         $response = $this->actingAs($user)
             ->get(route('app.deliveries.index'))
             ->assertOk()
-            ->assertSee('Deliveries timeline')
+            ->assertSee('deliveries.')
             ->assertSee('08:00-12:00')
             ->assertSee('Gift box');
 
