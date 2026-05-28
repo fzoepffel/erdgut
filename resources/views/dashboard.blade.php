@@ -62,6 +62,10 @@
         DashboardKind::SubscriptionPaused,
     ], true);
 
+    // Pending-payment users get the editorial footer band (same green band as
+    // active subscribers) even though they keep the old hero-band above.
+    $usesEditorialFooter = $usesNewHero || $kind->showsResumeSubscriptionSetup();
+
     // ERD-352: manifest section state. 'composed' renders this week's actual
     // box items with numbering + quantities; 'uncomposed' shows 6 portfolio
     // products stably picked per ISO week. Hidden entirely for paused or
@@ -204,7 +208,7 @@
     }
 @endphp
 
-<x-app-layout :hide-app-footer="$usesNewHero">
+<x-app-layout :hide-app-footer="$usesEditorialFooter">
     {{-- Spec-aligned layout: max content width 1400px, horizontal padding
          24px mobile → 48px desktop, no global space-y-* (each section
          carries its own py-* + hairline divider so the page reads as a
@@ -564,7 +568,7 @@
                  modal already hosted by <x-customer.dashboard-hero>, so we
                  only expose it when modifying the pause is possible (active
                  + non-cancelled subscriptions). --}}
-        @if ($usesNewHero)
+        @if ($usesEditorialFooter)
             <x-customer.editorial-footer-band />
         @endif
     </div>
