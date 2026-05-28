@@ -233,10 +233,16 @@
                             @endif
                             return;
                         }
-                        if (type === 'error' || type === 'fail') {
+                        // 'invalid' is SumUp's response when the submitted card
+                        // fails validation (bad/declined card, incomplete field,
+                        // unsupported card for this checkout). It MUST be handled
+                        // alongside error/fail — otherwise the widget stays stuck
+                        // on the 'processing' overlay forever (the stall timer
+                        // fires but state is never reset). Root-caused 2026-05-28.
+                        if (type === 'error' || type === 'fail' || type === 'invalid') {
                             self.state = 'ready';
                             const code = body?.error_code || body?.errorCode || body?.code || null;
-                            self.beacon(type === 'fail' ? 'response_fail' : 'response_error', {
+                            self.beacon('response_' + type, {
                                 error_code: code,
                                 message: typeof body?.message === 'string' ? body.message.slice(0, 200) : null,
                             });
@@ -253,6 +259,19 @@
                             } else {
                                 self.widgetError = genericFail;
                             }
+                            return;
+                        }
+
+                        // Defensive catch-all: any other (unexpected) response type
+                        // must still release the processing overlay so the widget
+                        // can never hang indefinitely. Reset to 'ready', surface a
+                        // generic error, and record the unhandled type for triage.
+                        if (type !== 'success') {
+                            self.state = 'ready';
+                            self.widgetError = genericFail;
+                            self.beacon('response_unhandled', {
+                                response_type: typeof type === 'string' ? type.slice(0, 40) : null,
+                            });
                         }
                     }
                 });

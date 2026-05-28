@@ -8,13 +8,18 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * The wizard is single-shot: once a customer has an active or pending-payment
- * Subscription, /onboard/* should not be accessible. Without this gate an
- * authenticated-but-unverified user (e.g. just bounced to /auth/email/verify)
- * could re-enter the wizard by typing the URL.
+ * The wizard is single-shot once a customer has a *finalised* subscription
+ * (active or paused): /onboard/* should not re-create or duplicate it. Those
+ * users are bounced — verified ones to the dashboard, unverified ones back to
+ * the verify-email page.
  *
- * Verified users go to the dashboard. Unverified users go back to the
- * verify-email page they were bounced to.
+ * PendingPayment is the exception. That status means the customer picked a box
+ * but never completed the card setup, and the dashboard's "Resume payment
+ * setup" CTA sends them straight back into /onboard/subscription/payment to
+ * finish. Bouncing *verified* pending-payment users here created an infinite
+ * redirect to the dashboard (the wizard could never be reached), so they must
+ * be allowed back in. Unverified pending-payment users still have to verify
+ * their email before continuing, so they are sent to the verify-email page.
  */
 class RedirectIfOnboardingComplete
 {
@@ -28,17 +33,30 @@ class RedirectIfOnboardingComplete
         $hasFinalisedSubscription = $user->subscriptions()
             ->whereIn('status', [
                 SubscriptionStatus::Active->value,
-                SubscriptionStatus::PendingPayment->value,
                 SubscriptionStatus::Paused->value,
             ])
             ->exists();
 
-        if (! $hasFinalisedSubscription) {
-            return $next($request);
+        // Finalised subscription → wizard is closed.
+        if ($hasFinalisedSubscription) {
+            return $user->hasVerifiedEmail()
+                ? redirect()->route('app.dashboard')
+                : redirect()->route('verification.notice');
         }
 
-        return $user->hasVerifiedEmail()
-            ? redirect()->route('app.dashboard')
-            : redirect()->route('verification.notice');
+        // Verified pending-payment users are allowed back into the wizard to
+        // finish paying. Unverified users (pending-payment or otherwise) must
+        // verify their email first.
+        if (! $user->hasVerifiedEmail()) {
+            $hasPendingPayment = $user->subscriptions()
+                ->where('status', SubscriptionStatus::PendingPayment->value)
+                ->exists();
+
+            if ($hasPendingPayment) {
+                return redirect()->route('verification.notice');
+            }
+        }
+
+        return $next($request);
     }
 }
