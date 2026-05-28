@@ -281,55 +281,78 @@
                     $hasEggsAddon = $sub && (bool) data_get($sub->preferences, 'eggs_dairy_add_on', false);
                 @endphp
                 <section
-                    class="border border-chapter-meat/40 bg-chapter-meat/[0.04] p-6 sm:p-8"
+                    class="py-12 lg:py-16"
                     aria-labelledby="dashboard-resume-setup-heading"
                     data-testid="dashboard-resume-subscription-setup"
                 >
-                    <p class="eyebrow text-chapter-meat">{{ __('status.pending_payment') }}</p>
-                    <h2 id="dashboard-resume-setup-heading" class="mt-2 font-display text-3xl text-brand-ink sm:text-4xl">
-                        {{ __('Finish setting up your subscription') }}
-                    </h2>
-                    <p class="mt-3 max-w-2xl text-sm leading-relaxed text-brand-ink/75">
-                        {{ __('You picked your box and preferences but did not complete the payment step. Your subscription is not active yet — no charge has been made and no box will be delivered until payment is set up.') }}
-                    </p>
+                    <div class="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
 
-                    @if ($sub)
-                        <dl class="mt-6 grid gap-4 border-t border-chapter-meat/20 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+                        {{-- Left: eyebrow + headline + lead + actions --}}
+                        <div class="flex flex-col justify-between">
                             <div>
-                                <dt class="eyebrow text-brand-ink/60">{{ __('Box size') }}</dt>
-                                <dd class="mt-2 font-display text-base text-brand-ink">{{ $sizeLabel }}</dd>
+                                <p class="eyebrow text-chapter-produce">{{ __('status.pending_payment') }}</p>
+                                <h2 id="dashboard-resume-setup-heading" class="mt-4 font-display text-4xl leading-[1.05] tracking-tight text-balance text-brand-ink md:text-5xl">
+                                    {{ __('customer.dashboard.pending.h2_line1') }}<br>
+                                    <em class="font-normal italic text-chapter-produce">{{ __('customer.dashboard.pending.h2_line2') }}</em>
+                                </h2>
+                                <p class="mt-6 max-w-md text-base leading-relaxed text-brand-ink/60">
+                                    {{ __('You picked your box and preferences but have not yet completed the payment step. No charge has been made — your first box will ship once payment is set up.') }}
+                                </p>
                             </div>
-                            <div>
-                                <dt class="eyebrow text-brand-ink/60">{{ __('Cadence') }}</dt>
-                                <dd class="mt-2 font-display text-base text-brand-ink">
-                                    {{ $sub->plan === \App\Enums\SubscriptionPlan::Weekly ? __('Every week') : __('Every two weeks') }}
-                                </dd>
+                            <div class="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+                                <a href="{{ route('app.subscriptions.onboard.payment') }}"
+                                   class="rounded-sm bg-chapter-produce px-7 py-3 font-sans text-brand-cream transition hover:bg-chapter-produce/90"
+                                   data-track-section="resume_setup.payment"
+                                   data-track-destination="app.subscriptions.onboard.payment">
+                                    {{ __('Resume payment setup') }}
+                                </a>
+                                <a href="{{ route('app.onboarding.start', ['intent' => 'subscription']) }}"
+                                   class="border-b border-brand-ink/30 pb-0.5 text-brand-ink/70 hover:text-brand-ink"
+                                   data-track-section="resume_setup.restart"
+                                   data-track-destination="app.onboarding.start">
+                                    {{ __('Or restart and change your selections') }}
+                                </a>
                             </div>
-                            <div>
-                                <dt class="eyebrow text-brand-ink/60">{{ __('Eggs add-on') }}</dt>
-                                <dd class="mt-2 font-display text-base text-brand-ink">{{ $hasEggsAddon ? __('Yes') : __('No') }}</dd>
-                            </div>
-                            <div>
-                                <dt class="eyebrow text-brand-ink/60">{{ __('Total per delivery') }}</dt>
-                                <dd class="mt-2 font-display text-base text-brand-ink tabular-nums">
-                                    @money($sub->expectedChargeAmount()) €
-                                </dd>
-                            </div>
-                        </dl>
-                    @endif
+                        </div>
 
-                    <div class="mt-6 flex flex-wrap items-center gap-3">
-                        <x-solid-link :href="route('app.subscriptions.onboard.payment')"
-                                      data-track-section="resume_setup.payment"
-                                      data-track-destination="app.subscriptions.onboard.payment">
-                            {{ __('Resume payment setup') }}
-                        </x-solid-link>
-                        <a href="{{ route('app.onboarding.start', ['intent' => 'subscription']) }}"
-                           class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline"
-                           data-track-section="resume_setup.restart"
-                           data-track-destination="app.onboarding.start">
-                            {{ __('Or restart and change your selections') }}
-                        </a>
+                        {{-- Right: At a glance panel --}}
+                        @if ($sub)
+                            <div class="bg-brand-paper p-8 lg:p-10">
+                                <div class="flex items-start justify-between">
+                                    <span class="eyebrow text-chapter-produce">{{ __('At a glance') }}</span>
+                                    <span class="eyebrow text-brand-ink/40">{{ __('Draft') }}</span>
+                                </div>
+                                <dl class="mt-8 grid grid-cols-2 gap-x-8 gap-y-8">
+                                    <div>
+                                        <dt class="eyebrow text-brand-ink/55">{{ __('Box size') }}</dt>
+                                        <dd class="mt-2 font-display text-2xl text-brand-ink">{{ $sizeLabel ?? '—' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="eyebrow text-brand-ink/55">{{ __('Cadence') }}</dt>
+                                        <dd class="mt-2 font-display text-2xl text-brand-ink">
+                                            {{ $sub->plan === \App\Enums\SubscriptionPlan::Weekly ? __('Every week') : __('Every two weeks') }}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt class="eyebrow text-brand-ink/55">{{ __('Eggs add-on') }}</dt>
+                                        <dd class="mt-2 font-display text-2xl text-brand-ink">{{ $hasEggsAddon ? __('Yes') : __('No') }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="eyebrow text-brand-ink/55">{{ __('Status') }}</dt>
+                                        <dd class="mt-2">
+                                            <x-status-badge :value="\App\Enums\SubscriptionStatus::PendingPayment" type="subscription" />
+                                        </dd>
+                                    </div>
+                                </dl>
+                                <div class="mt-8 flex items-baseline justify-between border-t border-brand-ink/10 pt-6">
+                                    <span class="eyebrow text-chapter-produce">{{ __('Per delivery') }}</span>
+                                    <span class="font-display text-4xl text-brand-ink tabular-nums">
+                                        EUR {{ number_format($sub->expectedChargeAmount(), 2, ',', '.') }}
+                                    </span>
+                                </div>
+                            </div>
+                        @endif
+
                     </div>
                 </section>
             @endif
