@@ -28,8 +28,8 @@ class PaymentHistoryControllerTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.payments.history'))
             ->assertOk()
-            ->assertSee('Payments and billing', false)
-            ->assertSee('Payment method status', false)
+            ->assertSee('billing.', false)
+            ->assertSee('Payment method', false)
             ->assertSee('Charge history', false);
     }
 
@@ -58,7 +58,7 @@ class PaymentHistoryControllerTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.payments.history'))
             ->assertOk()
-            ->assertSee('A payment method is saved for your subscription.', false);
+            ->assertSee('Card on file', false);
     }
 
     public function test_payment_history_lists_payment_rows(): void

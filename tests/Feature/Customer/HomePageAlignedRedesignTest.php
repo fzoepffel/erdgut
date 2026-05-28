@@ -88,7 +88,7 @@ class HomePageAlignedRedesignTest extends TestCase
         $this->assertStringContainsString('data-testid="customer-story-block"', $html);
     }
 
-    public function test_payments_history_renders_hero_band_and_story_block(): void
+    public function test_payments_history_renders_editorial_hero(): void
     {
         $user = User::factory()->create();
         $this->subscribeUserFully($user);
@@ -98,8 +98,11 @@ class HomePageAlignedRedesignTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
-        $this->assertStringContainsString('data-testid="customer-story-block"', $html);
+        // Payments page rebuilt to editorial style — no hero-band/story-block,
+        // instead text-only hero with payment method panel + editorial footer.
+        $this->assertStringNotContainsString('data-testid="customer-hero-band"', $html);
+        $this->assertStringNotContainsString('data-testid="customer-story-block"', $html);
+        $this->assertStringContainsString('data-testid="customer-editorial-footer-band"', $html);
     }
 
     public function test_profile_edit_renders_hero_band_and_story_block(): void
