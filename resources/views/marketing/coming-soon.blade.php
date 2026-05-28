@@ -94,7 +94,7 @@
                         </h1>
 
                         {{-- 3. Hero paragraph --}}
-                        <p class="font-work max-w-xl text-lg leading-relaxed md:text-xl"
+                        <p class="font-work max-w-xl text-base leading-relaxed"
                            style="color: rgba(26, 31, 18, 0.8);">
                             {{ __('Noch sind wir auf dem Feld und ernten das Beste der Saison. In Kürze kannst du dich hier selbst davon überzeugen und in ganz Berlin beliefert werden.') }}
                         </p>
@@ -172,7 +172,7 @@
                         <div class="mt-10">
                             <a
                                 href="mailto:kontakt@erd-gut.de"
-                                class="font-display inline-block pb-2 text-3xl font-normal transition-colors md:text-5xl"
+                                class="font-display inline-block pb-2 text-3xl font-normal transition-colors md:text-4xl"
                                 style="color: #1A1F12; border-bottom: 1px solid rgba(26, 31, 18, 0.4);"
                                 onmouseover="this.style.borderBottomColor='#E85D3A'"
                                 onmouseout="this.style.borderBottomColor='rgba(26, 31, 18, 0.4)'"
