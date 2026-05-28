@@ -214,7 +214,10 @@
          carries its own py-* + hairline divider so the page reads as a
          printed almanac with chapters). --}}
     <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
-        {{-- Hero — py-16 lg:py-24, hairline bottom border. --}}
+        {{-- Hero — py-16 lg:py-24, hairline bottom border.
+             Skipped for pending-payment: the two-column resume-setup card
+             that follows immediately is the de-facto page intro for that state. --}}
+        @unless ($kind->showsResumeSubscriptionSetup())
         <section class="border-b border-brand-ink/10 py-16 lg:py-24">
             @if ($usesNewHero)
                 <x-customer.dashboard-hero
@@ -234,6 +237,7 @@
                 />
             @endif
         </section>
+        @endunless
 
             {{-- Status flash banners (same regardless of state) --}}
             @if (session('status') === 'current-box-missing')
@@ -534,10 +538,9 @@
             </section>
         @endif
 
-        {{-- Story block — only for non-new-hero paths (the spec doesn't
-             include a story block; the steady-state dashboard's editorial
-             tone is carried by the producer-feature and recipe-feature). --}}
-        @unless ($usesNewHero)
+        {{-- Story block — only for non-new-hero paths that are NOT the
+             pending-payment state (which gets its own editorial quote below). --}}
+        @unless ($usesNewHero || $kind->showsResumeSubscriptionSetup())
             <x-customer.story-block
                 chapter="bread"
                 :image="asset('images/mock/stalls/produce/scene.jpg')"
@@ -546,6 +549,27 @@
                 :signature="__('customer.story.dashboard.founder_signature')"
             />
         @endunless
+
+        {{-- Founder quote — editorial style for the pending-payment state.
+             Mirrors the producer-feature typography: eyebrow + display italic
+             blockquote + attribution with em-dash separator. The border-b
+             provides the visual gap before the editorial footer band. --}}
+        @if ($kind->showsResumeSubscriptionSetup())
+            <section class="border-b border-brand-ink/10 py-20 lg:py-24">
+                <div class="mx-auto max-w-2xl text-center">
+                    <p class="eyebrow text-chapter-produce">{{ __('A word from the founders') }}</p>
+                    <blockquote class="mt-8 font-display text-3xl italic leading-[1.15] text-chapter-produce sm:text-4xl lg:text-[2.5rem]">
+                        <span aria-hidden="true">"</span>{{ $founderNote }}<span aria-hidden="true">"</span>
+                    </blockquote>
+                    <div class="mt-8 flex items-center justify-center gap-3">
+                        <span class="block h-px w-10 shrink-0 bg-brand-ink/40" aria-hidden="true"></span>
+                        <p class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink/80">
+                            {{ __('customer.story.dashboard.founder_signature') }}
+                        </p>
+                    </div>
+                </div>
+            </section>
+        @endif
 
             {{-- ─── Bottom rail removed in the dashboard rebuild ───────────
                  The legacy 3-column rail (Next deliveries / Current week box /
