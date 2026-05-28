@@ -167,21 +167,29 @@
                         self.beacon('widget_ready');
                         @if ($autoEnableSaveCard)
                         // B14 (UX notes): for setup_recurring the save-card
-                        // option is mandatory — if SumUp ignores the
-                        // `showSaveCardOption: false` flag and renders the
-                        // toggle anyway, we tick it AND disable it so the
-                        // customer can't untick (and accidentally end up
-                        // with no mandate). Skip our own consent checkbox
-                        // (#preferences-eggs-addon etc.) which is a real
-                        // Erdgut-owned input — only the SumUp-injected
-                        // sibling is a save-card toggle candidate.
+                        // option (SumUp's `hasConsentToStoreCard` checkbox) is
+                        // mandatory — without it there is no mandate to charge.
+                        // SumUp ignores our `showSaveCardOption: false` flag and
+                        // renders the toggle anyway, so we tick it on the
+                        // customer's behalf.
+                        //
+                        // IMPORTANT: do NOT set `disabled = true` on this
+                        // checkbox. A disabled checkbox is excluded from the
+                        // form data SumUp validates on submit, so the required
+                        // consent reads as missing and Save fails with a
+                        // required-field error (DE: Dies ist ein Pflichtfeld)
+                        // even though it looks ticked. (Root-caused 2026-05-28.)
+                        // Instead we keep it enabled and re-tick it if the
+                        // customer tries to turn it off, so it is always present
+                        // AND checked in the submitted data.
                         const sumupHost = document.getElementById('sumup-card');
                         const poll = setInterval(function() {
                             const cb = sumupHost && sumupHost.querySelector('input[type=checkbox]');
                             if (cb) {
                                 if (!cb.checked) { cb.click(); }
-                                cb.disabled = true;
-                                cb.setAttribute('aria-readonly', 'true');
+                                cb.addEventListener('change', function() {
+                                    if (!cb.checked) { cb.checked = true; }
+                                });
                                 clearInterval(poll);
                             }
                         }, 100);
