@@ -34,20 +34,9 @@
         <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('images/logo/erdgut-favicon-512.png') }}">
         <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo/erdgut-favicon-180.png') }}">
 
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        {{-- Work Sans: used as the body/UI typeface on this page.
-             Inter (the main app's sans) is purpose-built for software UIs;
-             Work Sans has more craft warmth — a better companion to
-             Instrument Serif for this editorial-brand surface. --}}
-        <link rel="stylesheet" href="https://fonts.bunny.net/css?family=work-sans:400,600&display=swap">
-
-        <style>
-            .font-work { font-family: 'Work Sans', sans-serif; }
-        </style>
-
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-work antialiased" style="background-color: #709452;">
+    <body class="font-sans antialiased" style="background-color: #709452;">
         <div
             data-testid="coming-soon"
             class="min-h-screen w-full"
@@ -82,7 +71,7 @@
                     {{-- ── Hero ──────────────────────────────────────────────────── --}}
                     <div class="mt-10 sm:mt-14 md:mt-16">
                         {{-- 1. Hero kicker --}}
-                        <p class="font-work mb-4 inline-block text-[11px] font-semibold uppercase tracking-[0.2em]"
+                        <p class="mb-4 inline-block text-[11px] font-semibold uppercase tracking-[0.2em]"
                            style="color: rgba(61, 79, 42, 0.7);">
                             {{ __('Bald geht\'s los') }}
                         </p>
@@ -94,7 +83,7 @@
                         </h1>
 
                         {{-- 3. Hero paragraph --}}
-                        <p class="font-work max-w-xl text-base leading-relaxed"
+                        <p class="max-w-xl text-base leading-relaxed"
                            style="color: rgba(26, 31, 18, 0.8);">
                             {{ __('Noch sind wir auf dem Feld und ernten das Beste der Saison. In Kürze kannst du dich hier selbst davon überzeugen und in ganz Berlin beliefert werden.') }}
                         </p>
@@ -105,7 +94,7 @@
                          style="border-color: rgba(26, 31, 18, 0.15);">
 
                         {{-- 4. Feature kicker --}}
-                        <p class="font-work mb-6 inline-block text-[11px] font-semibold uppercase tracking-[0.2em]"
+                        <p class="mb-6 inline-block text-[11px] font-semibold uppercase tracking-[0.2em]"
                            style="color: rgba(61, 79, 42, 0.7);">
                             {{ __('spargel.coming_soon_eyebrow_kicker') }}
                         </p>
@@ -131,7 +120,7 @@
                          style="border-color: rgba(26, 31, 18, 0.15);">
 
                         {{-- 8. Contact kicker --}}
-                        <p class="font-work mb-6 inline-block text-[11px] font-semibold uppercase tracking-[0.2em]"
+                        <p class="mb-6 inline-block text-[11px] font-semibold uppercase tracking-[0.2em]"
                            style="color: rgba(61, 79, 42, 0.7);">
                             {{ __('footer.contact_heading') }}
                         </p>
@@ -145,11 +134,11 @@
                         <div class="space-y-8">
                             {{-- 10 + 11. Sub-label + paragraph: Erzeuger --}}
                             <div>
-                                <p class="font-work mb-2 text-[11px] font-semibold uppercase tracking-widest"
+                                <p class="mb-2 text-[11px] font-semibold uppercase tracking-widest"
                                    style="color: rgba(26, 31, 18, 0.5);">
                                     {{ __('Für Erzeuger') }}
                                 </p>
-                                <p class="font-work text-base leading-relaxed"
+                                <p class="text-base leading-relaxed"
                                    style="color: #1A1F12;">
                                     {{ __('Du bist Produzent:in und möchtest deine Erzeugnisse über uns anbieten?') }}
                                 </p>
@@ -157,11 +146,11 @@
 
                             {{-- 10 + 11. Sub-label + paragraph: Genießer --}}
                             <div>
-                                <p class="font-work mb-2 text-[11px] font-semibold uppercase tracking-widest"
+                                <p class="mb-2 text-[11px] font-semibold uppercase tracking-widest"
                                    style="color: rgba(26, 31, 18, 0.5);">
                                     {{ __('Für Genießer') }}
                                 </p>
-                                <p class="font-work text-base leading-relaxed"
+                                <p class="text-base leading-relaxed"
                                    style="color: #1A1F12;">
                                     {{ __('Oder möchtest du als Kund:in dabei sein, sobald es losgeht?') }}
                                 </p>

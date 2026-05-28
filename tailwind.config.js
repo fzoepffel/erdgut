@@ -24,8 +24,6 @@ export default {
                 // weekday stamps, status pills). JetBrains Mono at 0.18em tracking
                 // is the "printed almanac" voice from the design spec.
                 mono: ['"JetBrains Mono"', ...defaultTheme.fontFamily.mono],
-                // Work Sans — used on the coming-soon marketing page
-                work: ['"Work Sans"', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 // Primary brand tokens
