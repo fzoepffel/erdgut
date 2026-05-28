@@ -59,4 +59,40 @@ class ProductCatalogTest extends TestCase
             ->assertOk()
             ->assertSee('Organic Spinach');
     }
+
+    public function test_products_index_renders_editorial_layout(): void
+    {
+        $user = User::factory()->create();
+        Product::factory()->create(['is_available' => true, 'is_published' => true]);
+
+        $html = $this->actingAs($user)
+            ->get(route('app.products.index'))
+            ->assertOk()
+            ->getContent();
+
+        // Editorial redesign landmarks
+        $this->assertStringNotContainsString('data-testid="customer-hero-band"', $html);
+        $this->assertStringContainsString('data-testid="customer-editorial-footer-band"', $html);
+        $this->assertStringContainsString('data-testid="products-grid"', $html);
+    }
+
+    public function test_products_index_shows_category_rail(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.products.index'))
+            ->assertOk()
+            ->assertSee('data-testid="products-chapter-tile-all"', false);
+    }
+
+    public function test_products_index_empty_catalogue_shows_editorial_state(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.products.index'))
+            ->assertOk()
+            ->assertSee('data-testid="empty-state"', false);
+    }
 }
