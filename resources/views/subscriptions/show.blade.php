@@ -398,17 +398,10 @@
         {{-- ═══════════════════════════════════════════════════════════════ --}}
         @if (! $isCancelled && ! empty($skipPickerWeeks))
             <section id="sub-skip" class="scroll-mt-20 border-b border-brand-ink/10 bg-brand-paper py-20 lg:py-24" aria-labelledby="sub-section-pause">
-                @once
-                <script>
-                    window.__skipPickerData = {
-                        skipped: @json(array_values($userSkippedWeeks)),
-                        weeks:   @json($weekCells)
-                    };
-                </script>
-                @endonce
                 <div class="mx-auto max-w-[1400px] px-6 lg:px-12"
-                     x-data="skipPicker()"
-                     x-init="init(window.__skipPickerData)"
+                     x-data="{ skipped: new Set(), toggle(iso) { const s = new Set(this.skipped); s.has(iso) ? s.delete(iso) : s.add(iso); this.skipped = s; }, isSkipped(iso) { return this.skipped.has(iso); }, countPaused() { return this.skipped.size; } }"
+                     x-init="skipped = new Set(JSON.parse($el.dataset.skipped))"
+                     data-skipped="{{ e(json_encode(array_values($userSkippedWeeks))) }}"
                 >
 
                     {{-- Header --}}
@@ -654,24 +647,3 @@
 
 </x-app-layout>
 
-@push('scripts')
-<script>
-    function skipPicker() {
-        return {
-            skipped: new Set(),
-            weeks:   [],
-            init(data) {
-                this.skipped = new Set(data.skipped);
-                this.weeks   = data.weeks;
-            },
-            toggle(iso) {
-                const s = new Set(this.skipped);
-                s.has(iso) ? s.delete(iso) : s.add(iso);
-                this.skipped = s;
-            },
-            isSkipped(iso) { return this.skipped.has(iso); },
-            countPaused()  { return this.skipped.size; }
-        };
-    }
-</script>
-@endpush
