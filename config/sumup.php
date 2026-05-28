@@ -12,14 +12,14 @@ return [
     |
     */
     'spargel' => [
-        'api_key'             => env('SUMUP_SPARGEL_API_KEY'),
-        'merchant_code'       => env('SUMUP_SPARGEL_MERCHANT_CODE'),
-        'base_url'            => env('SUMUP_BASE_URL', 'https://api.sumup.com'),
-        'currency'            => env('SUMUP_CURRENCY', 'EUR'),
+        'api_key' => env('SUMUP_SPARGEL_API_KEY'),
+        'merchant_code' => env('SUMUP_SPARGEL_MERCHANT_CODE'),
+        'base_url' => env('SUMUP_BASE_URL', 'https://api.sumup.com'),
+        'currency' => env('SUMUP_CURRENCY', 'EUR'),
         'checkout_return_url' => env('SUMUP_SPARGEL_CHECKOUT_RETURN_URL'),
         // Spargel uses return-URL verification, not server-side webhooks.
-        'webhook_secret'      => null,
-        'webhook_url'         => null,
+        'webhook_secret' => null,
+        'webhook_url' => null,
     ],
 
     /*
@@ -33,14 +33,14 @@ return [
     |
     */
     'subscription' => [
-        'api_key'             => env('SUMUP_API_KEY'),
-        'merchant_code'       => env('SUMUP_MERCHANT_CODE'),
-        'base_url'            => env('SUMUP_BASE_URL', 'https://api.sumup.com'),
-        'currency'            => env('SUMUP_CURRENCY', 'EUR'),
-        'webhook_secret'      => env('SUMUP_WEBHOOK_SECRET'),
-        'webhook_url'         => env('SUMUP_WEBHOOK_URL'),
+        'api_key' => env('SUMUP_API_KEY'),
+        'merchant_code' => env('SUMUP_MERCHANT_CODE'),
+        'base_url' => env('SUMUP_BASE_URL', 'https://api.sumup.com'),
+        'currency' => env('SUMUP_CURRENCY', 'EUR'),
+        'webhook_secret' => env('SUMUP_WEBHOOK_SECRET'),
+        'webhook_url' => env('SUMUP_WEBHOOK_URL'),
         'checkout_return_url' => env('SUMUP_CHECKOUT_RETURN_URL'),
-        'mode'                => env('SUMUP_MODE', 'sandbox'),
+        'mode' => env('SUMUP_MODE', 'sandbox'),
     ],
 
 ];
