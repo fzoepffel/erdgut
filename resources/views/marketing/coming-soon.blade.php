@@ -88,7 +88,7 @@
                         </p>
 
                         {{-- 2. Hero headline — "unterwegs." is italic --}}
-                        <h1 class="font-display mb-8 text-6xl font-normal leading-[0.9] text-balance md:text-8xl"
+                        <h1 class="font-display mb-8 text-5xl font-normal leading-[0.9] text-balance md:text-7xl"
                             style="color: #1A1F12;">
                             {{ __('Frisches Gemüse ist') }} <span class="italic">{{ __('unterwegs.') }}</span>
                         </h1>
@@ -116,13 +116,7 @@
                             {{ __('spargel.coming_soon_eyebrow') }}
                         </p>
 
-                        {{-- 6. Feature paragraph — bespoke spargel copy --}}
-                        <p class="font-work mb-8 max-w-md text-base leading-relaxed"
-                           style="color: rgba(26, 31, 18, 0.8);">
-                            {{ __('spargel.coming_soon_feature_paragraph') }}
-                        </p>
-
-                        {{-- 7. CTA — btn-solid matches logged-in dashboard --}}
+                        {{-- 6. CTA — btn-solid matches logged-in dashboard --}}
                         <a
                             href="{{ route('public.spargel.show') }}"
                             class="btn-solid"

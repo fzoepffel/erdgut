@@ -729,17 +729,17 @@
         id="spargel-story"
         class="mt-16 scroll-mt-8 -mx-4 overflow-hidden bg-brand-moss text-brand-cream sm:-mx-6"
     >
-        <div class="mx-auto grid max-w-4xl gap-10 px-4 py-12 sm:grid-cols-[1fr_minmax(0,260px)] sm:items-start sm:px-6 sm:py-16">
+        <div class="mx-auto grid max-w-4xl gap-10 px-4 py-12 sm:grid-cols-[1fr_minmax(0,260px)] sm:items-center sm:px-6 sm:py-16">
             <div class="space-y-4">
                 <p class="eyebrow text-brand-cream/75">{{ __('spargel.story_eyebrow') }}</p>
                 <p class="font-display text-2xl leading-tight sm:text-3xl">{{ __('spargel.story_heading') }}</p>
-                <p class="font-editorial text-sm italic leading-relaxed text-brand-cream/85 sm:text-base">
+                <p class="text-sm italic leading-relaxed text-brand-cream/85 sm:text-base">
                     {{ __('spargel.story_p1') }}
                 </p>
-                <p class="font-editorial text-sm italic leading-relaxed text-brand-cream/85 sm:text-base">
+                <p class="text-sm italic leading-relaxed text-brand-cream/85 sm:text-base">
                     {{ __('spargel.story_p2') }}
                 </p>
-                <p class="font-editorial text-sm italic leading-relaxed text-brand-cream/85 sm:text-base">
+                <p class="text-sm italic leading-relaxed text-brand-cream/85 sm:text-base">
                     {{ __('spargel.story_p3') }}
                 </p>
             </div>
