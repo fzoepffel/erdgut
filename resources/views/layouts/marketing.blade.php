@@ -42,7 +42,11 @@
                 @yield('content')
             </main>
 
-            <x-marketing-footer />
+            @hasSection('footer')
+                @yield('footer')
+            @else
+                <x-marketing-footer />
+            @endif
         </div>
 
         @stack('scripts')

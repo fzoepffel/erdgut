@@ -46,6 +46,7 @@
                             {{ __('Contact') }}
                         </a>
                     </li>
+                    @auth
                     <li>
                         <form method="POST" action="{{ route('auth.logout') }}" class="inline">
                             @csrf
@@ -58,6 +59,7 @@
                             </button>
                         </form>
                     </li>
+                    @endauth
                 </ul>
             </nav>
         </div>
