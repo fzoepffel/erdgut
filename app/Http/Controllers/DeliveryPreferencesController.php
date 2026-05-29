@@ -6,6 +6,7 @@ use App\Enums\DeliveryStatus;
 use App\Http\Requests\DeliveryPreferencesUpdateRequest;
 use App\Models\Address;
 use App\Models\Delivery;
+use App\Models\Subscription;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,10 +27,15 @@ class DeliveryPreferencesController extends Controller
             ->whereDate('scheduled_for_date', '>=', now()->toDateString())
             ->count();
 
+        $subscription = Subscription::billingSubscriptionForUser($user);
+        $onFileSince = $address?->created_at;
+
         return view('deliveries.preferences', [
             'address' => $address,
             'deliveryPreference' => $deliveryPreference,
             'upcomingDeliveryCount' => $upcomingDeliveryCount,
+            'subscription' => $subscription,
+            'onFileSince' => $onFileSince,
         ]);
     }
 
@@ -40,7 +46,7 @@ class DeliveryPreferencesController extends Controller
 
         DB::transaction(function () use ($user, $validated): void {
             $addressPayload = [
-                'label' => 'Primary',
+                'label' => ! empty($validated['doorbell']) ? $validated['doorbell'] : 'Primary',
                 'recipient_name' => $validated['recipient_name'],
                 'street_line_1' => $validated['street_line_1'],
                 'street_line_2' => $validated['street_line_2'] ?? null,

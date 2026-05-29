@@ -32,22 +32,22 @@ class PaymentHistoryController extends Controller
             ->get();
 
         $currentYear = now()->year;
-        $ytdPaid    = $payments->where('status', Payment::STATUS_PAID)->filter(fn ($p) => $p->created_at->year === $currentYear)->sum('amount');
+        $ytdPaid = $payments->where('status', Payment::STATUS_PAID)->filter(fn ($p) => $p->created_at->year === $currentYear)->sum('amount');
         $ytdRefunded = $payments->where('status', Payment::STATUS_REFUNDED)->filter(fn ($p) => $p->created_at->year === $currentYear)->sum('refund_amount');
-        $ytdCount   = $payments->where('status', Payment::STATUS_PAID)->filter(fn ($p) => $p->created_at->year === $currentYear)->count();
-        $ytdAvg     = $ytdCount > 0 ? $ytdPaid / $ytdCount : null;
+        $ytdCount = $payments->where('status', Payment::STATUS_PAID)->filter(fn ($p) => $p->created_at->year === $currentYear)->count();
+        $ytdAvg = $ytdCount > 0 ? $ytdPaid / $ytdCount : null;
 
         return view('payments.history', [
-            'payments'         => $payments,
-            'subscription'     => $subscription,
+            'payments' => $payments,
+            'subscription' => $subscription,
             'hasPaymentMethod' => $hasPaymentMethod,
-            'canSetupPayment'  => $canSetupPayment,
+            'canSetupPayment' => $canSetupPayment,
             'canUpdatePayment' => $canUpdatePayment,
-            'user'             => $user,
-            'ytdPaid'          => $ytdPaid,
-            'ytdRefunded'      => $ytdRefunded,
-            'ytdCount'         => $ytdCount,
-            'ytdAvg'           => $ytdAvg,
+            'user' => $user,
+            'ytdPaid' => $ytdPaid,
+            'ytdRefunded' => $ytdRefunded,
+            'ytdCount' => $ytdCount,
+            'ytdAvg' => $ytdAvg,
         ]);
     }
 }
