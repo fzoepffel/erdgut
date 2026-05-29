@@ -106,8 +106,10 @@ class HomePageAlignedRedesignTest extends TestCase
         $this->assertStringContainsString('data-testid="customer-editorial-footer-band"', $html);
     }
 
-    public function test_profile_edit_renders_hero_band_and_story_block(): void
+    public function test_profile_edit_renders_editorial_hero(): void
     {
+        // Profile/account page rebuilt to editorial style — no hero-band/story-block,
+        // instead a text-only hero with editorial footer band.
         $user = User::factory()->create();
 
         $html = $this->actingAs($user)
@@ -115,8 +117,9 @@ class HomePageAlignedRedesignTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
-        $this->assertStringContainsString('data-testid="customer-story-block"', $html);
+        $this->assertStringNotContainsString('data-testid="customer-hero-band"', $html);
+        $this->assertStringNotContainsString('data-testid="customer-story-block"', $html);
+        $this->assertStringContainsString('data-testid="customer-editorial-footer-band"', $html);
     }
 
     public function test_deliveries_index_renders_editorial_hero(): void
