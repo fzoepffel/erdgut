@@ -41,7 +41,7 @@ class DeliveryPreferencesTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.deliveries.preferences.edit'))
             ->assertOk()
-            ->assertSee('Delivery preferences')
+            ->assertSee('THE STANDING ORDER', false)
             // Window picker: the Alpine initial state embeds the resolved key
             ->assertSee("selectedWindow: 'midday'", false)
             ->assertSee('A1');

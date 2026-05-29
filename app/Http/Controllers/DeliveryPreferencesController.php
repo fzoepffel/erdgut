@@ -29,6 +29,19 @@ class DeliveryPreferencesController extends Controller
 
         $subscription = Subscription::billingSubscriptionForUser($user);
         $onFileSince = $address?->created_at;
+        $lastChange = $address?->updated_at;
+
+        // Panel: resolve current preferred window display (e.g. "12:00 – 16:00")
+        $windowDisplayMap = [
+            '08:00-12:00' => '08:00 – 12:00',
+            '12:00-16:00' => '12:00 – 16:00',
+            '16:00-20:00' => '16:00 – 20:00',
+        ];
+        $panelWindowDisplay = $windowDisplayMap[$deliveryPreference?->preferred_timeslot ?? ''] ?? '—';
+
+        // Panel: resolve delivery day name from subscription weekday (Carbon ISO: 2=Tue, 4=Thu, 6=Sat)
+        $weekdayNames = [2 => 'Tuesday', 4 => 'Thursday', 6 => 'Saturday'];
+        $panelDayName = $weekdayNames[$subscription?->delivery_weekday ?? 0] ?? '—';
 
         return view('deliveries.preferences', [
             'address' => $address,
@@ -36,6 +49,9 @@ class DeliveryPreferencesController extends Controller
             'upcomingDeliveryCount' => $upcomingDeliveryCount,
             'subscription' => $subscription,
             'onFileSince' => $onFileSince,
+            'lastChange' => $lastChange,
+            'panelWindowDisplay' => $panelWindowDisplay,
+            'panelDayName' => $panelDayName,
         ]);
     }
 
