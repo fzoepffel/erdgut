@@ -28,7 +28,7 @@
                     <p class="eyebrow text-brand-cream/85">{{ __('An Erdgut for Berlin') }}</p>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="200">
-                    <h1 id="home-hero-heading" class="mt-4 max-w-4xl font-display text-5xl font-semibold leading-[1.05] tracking-tight text-brand-cream sm:text-6xl lg:text-7xl">
+                    <h1 id="home-hero-heading" class="mt-4 max-w-4xl font-display text-5xl leading-[1.05] tracking-tight text-brand-cream sm:text-6xl lg:text-7xl">
                         {{ __('Weekly from small farms, in the rhythm of the seasons.') }}
                     </h1>
                 </x-reveal>
@@ -104,7 +104,7 @@
                 <p class="eyebrow text-chapter-produce">{{ __('A word from the founders') }}</p>
             </x-reveal>
             <x-reveal variant="fade-up" delay="100">
-                <h2 id="home-letter-heading" class="mt-6 font-display text-3xl font-semibold leading-tight text-brand-moss sm:text-4xl">
+                <h2 id="home-letter-heading" class="mt-6 font-display text-3xl leading-tight text-brand-moss sm:text-4xl">
                     {{ __('Why we started Erdgut.') }}
                 </h2>
             </x-reveal>
@@ -213,7 +213,7 @@
         <div class="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 sm:py-20 md:grid-cols-[1fr_auto] md:items-center lg:px-8">
             <div>
                 <p class="eyebrow text-chapter-produce">{{ __('No commitment') }}</p>
-                <h2 id="home-trial-heading" class="mt-3 font-display text-3xl font-semibold leading-tight text-brand-moss sm:text-4xl">
+                <h2 id="home-trial-heading" class="mt-3 font-display text-3xl leading-tight text-brand-moss sm:text-4xl">
                     {{ __('Try one box before you commit.') }}
                 </h2>
                 <p class="mt-4 max-w-2xl font-editorial text-base leading-relaxed text-brand-ink/80 sm:text-lg">
@@ -243,22 +243,22 @@
             />
             <ol class="mt-16 grid gap-12 reveal-stagger md:grid-cols-2 lg:grid-cols-4" data-testid="home-how-it-works">
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:0">
-                    <span class="font-display text-6xl font-semibold text-chapter-produce/40">01</span>
+                    <span class="font-display text-6xl text-chapter-produce/40">01</span>
                     <h3 class="font-display text-2xl text-brand-ink">{{ __('Create your account') }}</h3>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Register and verify your email to get started.') }}</p>
                 </x-reveal>
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:1">
-                    <span class="font-display text-6xl font-semibold text-chapter-fish/40">02</span>
+                    <span class="font-display text-6xl text-chapter-fish/40">02</span>
                     <h3 class="font-display text-2xl text-brand-ink">{{ __('Choose your plan') }}</h3>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Pick box size and set preferences and dietary notes.') }}</p>
                 </x-reveal>
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:2">
-                    <span class="font-display text-6xl font-semibold text-chapter-eggdairy/40">03</span>
+                    <span class="font-display text-6xl text-chapter-eggdairy/40">03</span>
                     <h3 class="font-display text-2xl text-brand-ink">{{ __('We build your week') }}</h3>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Your box is composed from seasonal, regional produce.') }}</p>
                 </x-reveal>
                 <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:3">
-                    <span class="font-display text-6xl font-semibold text-chapter-meat/40">04</span>
+                    <span class="font-display text-6xl text-chapter-meat/40">04</span>
                     <h3 class="font-display text-2xl text-brand-ink">{{ __('You stay in control') }}</h3>
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Change delivery, skip a week, or add extras before the deadline.') }}</p>
                 </x-reveal>
@@ -324,7 +324,7 @@
                 <p class="eyebrow text-chapter-produce">{{ __('Join the table') }}</p>
             </x-reveal>
             <x-reveal variant="fade-up" delay="150">
-                <h2 id="home-bottom-cta-heading" class="mt-6 font-display text-4xl font-semibold leading-tight text-brand-moss sm:text-5xl lg:text-6xl">
+                <h2 id="home-bottom-cta-heading" class="mt-6 font-display text-4xl leading-tight text-brand-moss sm:text-5xl lg:text-6xl">
                     {{ __('Ready to eat better and support Berlin\'s producers?') }}
                 </h2>
             </x-reveal>
