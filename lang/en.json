@@ -2137,7 +2137,6 @@
     "Add another address": "Add another address",
     "No addresses saved yet.": "No addresses saved yet.",
     "No past deliveries yet.": "No past deliveries yet.",
-    "Next delivery": "Next delivery",
     "Doorbell": "Doorbell",
     "for the driver": "for the driver",
     "weekly": "weekly",
@@ -2161,7 +2160,6 @@
     "customer.story.payments.ledger_intro": "We charge the Monday before each delivery. Every line you see here went out, on box-composition day, to the five to eight farms whose work fills your box.",
     "customer.story.payments.why_weekly": "We charge weekly because our farms deliver weekly. Every amount you see here went out, on box-composition day, to the five to eight farms whose work fills your box.",
     "Drawn": "Drawn",
-    "Scheduled": "Scheduled",
     "Refunded": "Refunded",
     "Failed": "Failed",
     "drawn 06:00 CET": "drawn 06:00 CET",
@@ -2194,7 +2192,6 @@
     "Billing email": "Billing email",
     "Save email": "Save email",
     "Format": "Format",
-    "Language": "Language",
     "VAT ID on receipt": "VAT ID on receipt",
     "Archive": "Archive",
     "Deutsch / English": "Deutsch / English",
@@ -2680,5 +2677,13 @@
     "customer.preferences.status_saved": "Kept on file",
     "customer.preferences.status_unsaved": "Unsaved change",
     "customer.preferences.status_just_now": "Kept · just now",
-    "customer.preferences.upcoming_notice": ":count upcoming delivery will use the new address|:count upcoming deliveries will use the new address"
+    "customer.preferences.upcoming_notice": ":count upcoming delivery will use the new address|:count upcoming deliveries will use the new address",
+    "Note": "Note",
+    "Download all receipts": "Download all receipts",
+    "deliveries": "deliveries",
+    "Pending setup": "Pending setup",
+    "Pending": "Pending",
+    "Skipped weeks updated.": "Skipped weeks updated.",
+    "Abo": "Abo",
+    "View all invoices": "View all invoices"
 }

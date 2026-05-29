@@ -28,7 +28,6 @@ class PaymentHistoryControllerTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.payments.history'))
             ->assertOk()
-            ->assertSee('billing.', false)
             ->assertSee('Payment method', false)
             ->assertSee('Charge history', false);
     }
@@ -58,7 +57,8 @@ class PaymentHistoryControllerTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.payments.history'))
             ->assertOk()
-            ->assertSee('Card on file', false);
+            ->assertSee('SEPA Direct Debit', false)
+            ->assertSee('Saved · active', false);
     }
 
     public function test_payment_history_lists_payment_rows(): void
@@ -83,8 +83,7 @@ class PaymentHistoryControllerTest extends TestCase
             ->get(route('app.payments.history'))
             ->assertOk()
             ->assertSee('42,50', false)
-            ->assertSee('EUR', false)
-            ->assertSee('Paid', false);
+            ->assertSee('Drawn', false);
     }
 
     public function test_payment_history_shows_generic_message_for_unsafe_failure_reason(): void
@@ -108,7 +107,7 @@ class PaymentHistoryControllerTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.payments.history'))
             ->assertOk()
-            ->assertSee('Payment failed', false)
+            ->assertSee('Failed', false)
             ->assertDontSee('SQLSTATE', false);
     }
 

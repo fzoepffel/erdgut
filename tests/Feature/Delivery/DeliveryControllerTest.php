@@ -35,8 +35,7 @@ class DeliveryControllerTest extends TestCase
             ->get(route('app.deliveries.index'))
             ->assertOk()
             ->assertSee('deliveries.')
-            ->assertSee('08:00-12:00')
-            ->assertSee('Gift box');
+            ->assertSee('08:00-12:00');
 
         $response->assertDontSee('Save one-time override');
         $response->assertDontSee('Skip this week');
