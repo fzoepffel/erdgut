@@ -32,13 +32,13 @@
     aria-labelledby="customer-almanac-heading"
 >
     <header class="flex flex-wrap items-end justify-between gap-4">
-        <div>
+        <x-reveal variant="fade-up"><div>
             <p class="eyebrow text-chapter-almanach">{{ __('customer.dashboard.almanac.eyebrow') }}</p>
             <h2 id="customer-almanac-heading" class="mt-2 font-display text-3xl text-brand-ink sm:text-4xl">
                 {{ __('customer.dashboard.almanac.title') }}
             </h2>
-        </div>
-        <a
+        </div></x-reveal>
+        <x-reveal variant="fade-up" delay="100"><a
             href="{{ $fullCalendarUrl }}"
             class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-almanach"
             data-testid="customer-almanac-full-calendar"
@@ -47,11 +47,11 @@
         >
             {{ __('customer.dashboard.almanac.cta_full_calendar') }}
             <span aria-hidden="true">&rarr;</span>
-        </a>
+        </a></x-reveal>
     </header>
 
     @if (! empty($rows))
-        <ul class="mt-8 divide-y divide-brand-ink/15 border-t border-brand-ink/15">
+        <x-reveal variant="fade-up" delay="150"><ul class="mt-8 divide-y divide-brand-ink/15 border-t border-brand-ink/15">
             @foreach ($rows as $row)
                 @php
                     $statusKey = $row['status'] ?? 'scheduled';
@@ -73,6 +73,6 @@
                     </div>
                 </li>
             @endforeach
-        </ul>
+        </ul></x-reveal>
     @endif
 </section>

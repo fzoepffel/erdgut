@@ -154,11 +154,12 @@
         {{-- On <lg the greeting reads first (natural document order); the
              illustration follows. On lg+ the two columns sit side-by-side. --}}
         <div>
-            <p class="eyebrow text-chapter-produce">{{ $chapterEyebrow }}</p>
+            <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ $chapterEyebrow }}</p></x-reveal>
 
             {{-- Spec H1: text-5xl → md:text-7xl → lg:text-[5.5rem] (~88px),
                  leading 1.02, never bold. Instrument Serif at weight 400 + italic
                  emphasis on the name. text-balance keeps line breaks editorial. --}}
+            <x-reveal variant="fade-up" delay="100">
             <h1 id="dashboard-hero-headline" class="mt-6 font-display font-normal text-balance leading-[1.02] text-brand-ink text-5xl md:text-7xl lg:text-[5.5rem]">
                 <span class="block">{{ $greeting }},</span>
                 @if ($firstName !== '')
@@ -166,12 +167,13 @@
                 @endif
                 <span class="block">{{ $deliveryLine }}</span>
             </h1>
+            </x-reveal>
 
-            <p class="mt-8 max-w-md text-base leading-relaxed text-brand-ink/65">
+            <x-reveal variant="fade-up" delay="200"><p class="mt-8 max-w-md text-base leading-relaxed text-brand-ink/65">
                 {{ $lead }}
-            </p>
+            </p></x-reveal>
 
-            <div class="mt-12 flex flex-wrap items-center gap-x-6 gap-y-4">
+            <x-reveal variant="fade-up" delay="300"><div class="mt-12 flex flex-wrap items-center gap-x-6 gap-y-4">
                 @if ($canViewBox)
                     <a
                         href="{{ route('app.boxes.current') }}"
@@ -236,11 +238,11 @@
                         {{ __('customer.dashboard.hero.action.manage_subscription') }}
                     </a>
                 @endif
-            </div>
+            </div></x-reveal>
         </div>
 
         {{-- ─── Right column: meta-framed illustration ──────────────────── --}}
-        <div>
+        <x-reveal variant="fade" delay="150"><div>
             {{-- aspect-[4/3] on small screens keeps the illustration block
                  from eating an entire mobile viewport; lg+ goes back to the
                  prototype's portrait 4:5 framing. --}}
@@ -275,7 +277,7 @@
                     @endunless
                 </div>
             </div>
-        </div>
+        </div></x-reveal>
     </div>
 
     {{-- ─── Action modals (hosted on the dashboard so the action row works) ───
