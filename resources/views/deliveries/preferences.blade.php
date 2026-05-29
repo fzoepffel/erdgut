@@ -96,7 +96,7 @@
                         <p class="eyebrow text-chapter-produce mb-4">
                             {{ __('customer.preferences.hero_eyebrow') }}
                         </p>
-                        <h1 class="font-display font-semibold text-brand-ink leading-tight" style="font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.05;">
+                        <h1 class="font-display text-brand-ink leading-tight" style="font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.05;">
                             {{ __('customer.preferences.hero_h1_line1') }}<br>
                             <em class="not-italic italic">{{ __('customer.preferences.hero_h1_line2') }}</em>
                         </h1>
@@ -144,7 +144,7 @@
                     {{-- Section intro --}}
                     <div class="lg:w-64 shrink-0">
                         <p class="eyebrow text-brand-ink/40 mb-3">{{ __('customer.preferences.section_address_eyebrow') }}</p>
-                        <h2 class="font-display font-semibold text-brand-ink text-3xl lg:text-4xl leading-tight mb-4">
+                        <h2 class="font-display text-brand-ink text-3xl lg:text-4xl leading-tight mb-4">
                             {{ __('customer.preferences.section_address_h2') }}
                         </h2>
                         <p class="text-sm text-brand-ink/60 leading-relaxed">
@@ -303,7 +303,7 @@
                     {{-- Section intro --}}
                     <div class="lg:w-64 shrink-0">
                         <p class="eyebrow text-brand-ink/40 mb-3">{{ __('customer.preferences.section_window_eyebrow') }}</p>
-                        <h2 class="font-display font-semibold text-brand-ink text-3xl lg:text-4xl leading-tight mb-4">
+                        <h2 class="font-display text-brand-ink text-3xl lg:text-4xl leading-tight mb-4">
                             {{ __('customer.preferences.section_window_h2') }}
                         </h2>
                         <p class="text-sm text-brand-ink/60 leading-relaxed">
@@ -382,7 +382,7 @@
                     {{-- Section intro --}}
                     <div class="lg:w-64 shrink-0">
                         <p class="eyebrow text-brand-ink/40 mb-3">{{ __('customer.preferences.section_courier_eyebrow') }}</p>
-                        <h2 class="font-display font-semibold text-brand-ink text-3xl lg:text-4xl leading-tight mb-4">
+                        <h2 class="font-display text-brand-ink text-3xl lg:text-4xl leading-tight mb-4">
                             {{ __('customer.preferences.section_courier_h2') }}
                         </h2>
                         <p class="text-sm text-brand-ink/60 leading-relaxed">
