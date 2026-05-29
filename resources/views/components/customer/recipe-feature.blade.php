@@ -31,19 +31,19 @@
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
         {{-- Text column — lg+ takes leading 5 cols (≈ 40%), photo gets the rest. --}}
         <div class="flex flex-col justify-center lg:order-1 lg:col-span-5">
-            <p class="eyebrow text-chapter-produce">{{ __('customer.dashboard.recipe_feature.eyebrow') }}</p>
+            <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ __('customer.dashboard.recipe_feature.eyebrow') }}</p></x-reveal>
 
-            <h2 id="recipe-feature-title-{{ $slug ?? 'x' }}" class="mt-5 font-display text-3xl leading-tight text-brand-ink sm:text-4xl lg:text-[2.5rem]">
+            <x-reveal variant="fade-up" delay="100"><h2 id="recipe-feature-title-{{ $slug ?? 'x' }}" class="mt-5 font-display text-3xl leading-tight text-brand-ink sm:text-4xl lg:text-[2.5rem]">
                 {{ $title }}
-            </h2>
+            </h2></x-reveal>
 
             @if ($description)
-                <p class="mt-5 max-w-md text-base leading-relaxed text-brand-ink/75">
+                <x-reveal variant="fade-up" delay="200"><p class="mt-5 max-w-md text-base leading-relaxed text-brand-ink/75">
                     {{ $description }}
-                </p>
+                </p></x-reveal>
             @endif
 
-            <dl class="mt-7 grid grid-cols-3 gap-x-4 gap-y-2 max-w-md">
+            <x-reveal variant="fade-up" delay="250"><dl class="mt-7 grid grid-cols-3 gap-x-4 gap-y-2 max-w-md">
                 <div>
                     <dt class="eyebrow text-brand-ink/60">{{ __('customer.dashboard.recipe_feature.metric_time') }}</dt>
                     <dd class="mt-2 font-display text-xl text-brand-ink">
@@ -62,10 +62,10 @@
                         </dd>
                     </div>
                 @endif
-            </dl>
+            </dl></x-reveal>
 
             @if ($slug)
-                <a
+                <x-reveal variant="fade-up" delay="300"><a
                     href="{{ route('public.recipes.show', ['slug' => $slug]) }}"
                     class="mt-7 inline-flex items-center gap-2 self-start border-b border-chapter-produce pb-0.5 eyebrow text-[0.7rem] text-chapter-produce hover:text-chapter-produce/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-chapter-produce"
                     data-testid="customer-recipe-feature-link"
@@ -74,13 +74,13 @@
                 >
                     {{ __('customer.dashboard.recipe_feature.cta') }}
                     <span aria-hidden="true">&rarr;</span>
-                </a>
+                </a></x-reveal>
             @endif
         </div>
 
         {{-- Photo column — lg+ on the right, stacks above text on mobile.
              5:4 aspect per the design spec. --}}
-        <div class="lg:order-2 lg:col-span-7">
+        <x-reveal variant="scale" delay="100" class="lg:order-2 lg:col-span-7">
             @if ($photo)
                 <div class="aspect-[5/4] w-full overflow-hidden bg-brand-paper">
                     <img
@@ -93,6 +93,6 @@
                     />
                 </div>
             @endif
-        </div>
+        </x-reveal>
     </div>
 </section>
