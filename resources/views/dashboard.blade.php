@@ -298,14 +298,14 @@
                         {{-- Left: eyebrow + headline + lead + actions --}}
                         <div class="flex flex-col justify-between">
                             <div>
-                                <p class="eyebrow text-chapter-produce">{{ __('status.pending_payment') }}</p>
-                                <h2 id="dashboard-resume-setup-heading" class="mt-4 font-display text-4xl leading-[1.05] tracking-tight text-balance text-brand-ink md:text-5xl">
+                                <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ __('status.pending_payment') }}</p></x-reveal>
+                                <x-reveal variant="fade-up" delay="100"><h2 id="dashboard-resume-setup-heading" class="mt-4 font-display text-4xl leading-[1.05] tracking-tight text-balance text-brand-ink md:text-5xl">
                                     {{ __('customer.dashboard.pending.h2_line1') }}<br>
                                     <em class="font-normal italic text-chapter-produce">{{ __('customer.dashboard.pending.h2_line2') }}</em>
-                                </h2>
-                                <p class="mt-6 max-w-md text-base leading-relaxed text-brand-ink/60">
+                                </h2></x-reveal>
+                                <x-reveal variant="fade-up" delay="200"><p class="mt-6 max-w-md text-base leading-relaxed text-brand-ink/60">
                                     {{ __('You picked your box and preferences but have not yet completed the payment step. No charge has been made — your first box will ship once payment is set up.') }}
-                                </p>
+                                </p></x-reveal>
                             </div>
                             <div class="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
                                 <a href="{{ route('app.subscriptions.onboard.payment') }}"
@@ -557,10 +557,10 @@
         @if ($kind->showsResumeSubscriptionSetup())
             <section class="border-b border-brand-ink/10 py-20 lg:py-24">
                 <div class="mx-auto max-w-2xl text-center">
-                    <p class="eyebrow text-chapter-produce">{{ __('A word from the founders') }}</p>
-                    <blockquote class="mt-8 font-display text-3xl italic leading-[1.15] text-chapter-produce sm:text-4xl lg:text-[2.5rem]">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ __('A word from the founders') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><blockquote class="mt-8 font-display text-3xl italic leading-[1.15] text-chapter-produce sm:text-4xl lg:text-[2.5rem]">
                         <span aria-hidden="true">"</span>{{ $founderNote }}<span aria-hidden="true">"</span>
-                    </blockquote>
+                    </blockquote></x-reveal>
                     <div class="mt-8 flex items-center justify-center gap-3">
                         <span class="block h-px w-10 shrink-0 bg-brand-ink/40" aria-hidden="true"></span>
                         <p class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink/80">

@@ -21,13 +21,13 @@
 
             <section class="border border-brand-ink/15" data-testid="welcome-subscription-card">
                 <div class="border-b border-brand-ink/15 px-8 py-6">
-                    <p class="eyebrow text-chapter-produce">{{ __('Two simple steps') }}</p>
-                    <h2 class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ __('Two simple steps') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h2 class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl">
                         {{ __('Start your subscription') }}
-                    </h2>
-                    <p class="mt-3 text-sm leading-relaxed text-brand-ink/75">
+                    </h2></x-reveal>
+                    <x-reveal variant="fade-up" delay="200"><p class="mt-3 text-sm leading-relaxed text-brand-ink/75">
                         {{ __('Start your subscription in two steps: choose your box and preferences, then add a payment method. After that, deliveries, your box, and billing will unlock in the app.') }}
-                    </p>
+                    </p></x-reveal>
                 </div>
                 <div class="space-y-6 px-8 py-8">
                     <div class="flex gap-5">
@@ -66,16 +66,16 @@
                     aria-labelledby="welcome-trial-heading"
                 >
                     <div class="px-8 py-6">
-                        <p class="eyebrow text-chapter-produce">{{ __('No commitment') }}</p>
-                        <h2
+                        <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ __('No commitment') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h2
                             id="welcome-trial-heading"
                             class="mt-2 font-display text-2xl text-brand-ink sm:text-3xl"
                         >
                             {{ __('Try a box first') }}
-                        </h2>
-                        <p class="mt-3 text-sm leading-relaxed text-brand-ink/75">
+                        </h2></x-reveal>
+                        <x-reveal variant="fade-up" delay="200"><p class="mt-3 text-sm leading-relaxed text-brand-ink/75">
                             {{ __('EUR :amount for a single Erdgut box — one delivery, no subscription, no stored card. You pick the date; we handle the rest.', ['amount' => $trialPrice]) }}
-                        </p>
+                        </p></x-reveal>
                         <div class="mt-5">
                             <a
                                 href="{{ route('app.onboarding.start', ['intent' => 'trial']) }}"

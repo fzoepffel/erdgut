@@ -66,15 +66,15 @@
                 {{-- Left --}}
                 <div class="flex flex-col justify-between gap-10">
                     <div>
-                        <p class="eyebrow text-brand-ink/40">{{ __('customer.payments.hero_eyebrow') }}</p>
-                        <h1 class="mt-5 font-display text-5xl leading-[1.02] tracking-tight text-balance text-brand-ink md:text-6xl lg:text-[5rem]">
+                        <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.payments.hero_eyebrow') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h1 class="mt-5 font-display text-5xl leading-[1.02] tracking-tight text-balance text-brand-ink md:text-6xl lg:text-[5rem]">
                             {{ __('customer.payments.hero_h1_line1') }}<br>
                             <em class="font-normal italic text-chapter-produce">{{ __('customer.payments.hero_h1_line2') }}</em><br>
                             {{ __('customer.payments.hero_h1_line3') }}
-                        </h1>
-                        <p class="mt-6 max-w-md text-sm leading-relaxed text-brand-ink/55">
+                        </h1></x-reveal>
+                        <x-reveal variant="fade-up" delay="200"><p class="mt-6 max-w-md text-sm leading-relaxed text-brand-ink/55">
                             {{ __('customer.story.payments.ledger_intro') }}
-                        </p>
+                        </p></x-reveal>
                     </div>
                     <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
                         @if ($canUpdatePayment)
@@ -100,7 +100,7 @@
                 </div>
 
                 {{-- Right: at a glance --}}
-                <div class="bg-brand-paper p-8 lg:p-10">
+                <x-reveal variant="fade-up" delay="150"><div class="bg-brand-paper p-8 lg:p-10">
                     <p class="eyebrow text-chapter-produce">{{ __('At a glance') }}</p>
 
                     <dl class="mt-6 divide-y divide-brand-ink/10">
@@ -147,7 +147,7 @@
                             </dd>
                         </div>
                     </dl>
-                </div>
+                </div></x-reveal>
 
             </div>
         </div>
@@ -157,9 +157,9 @@
     <section class="border-b border-brand-ink/10 bg-brand-paper py-20 lg:py-24">
         <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
             <div class="mx-auto max-w-3xl text-center">
-                <blockquote class="font-display text-3xl italic leading-snug text-balance text-brand-ink/80 md:text-4xl">
+                <x-reveal variant="fade-up" delay="100"><blockquote class="font-display text-3xl italic leading-snug text-balance text-brand-ink/80 md:text-4xl">
                     <span class="mr-1 font-display text-6xl leading-none text-chapter-produce" style="vertical-align: -0.15em;" aria-hidden="true">"</span>{{ __('customer.story.payments.why_weekly') }}
-                </blockquote>
+                </blockquote></x-reveal>
                 <div class="mt-8 flex items-center justify-center gap-4">
                     <span class="h-px w-10 shrink-0 bg-chapter-produce" aria-hidden="true"></span>
                     <p class="font-mono text-xs uppercase tracking-widest text-chapter-produce">
@@ -178,10 +178,10 @@
             {{-- Header --}}
             <div class="mb-12 flex flex-wrap items-end justify-between gap-6">
                 <div>
-                    <p class="eyebrow text-brand-ink/40">{{ __('customer.payments.method_eyebrow') }}</p>
-                    <h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.payments.method_eyebrow') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
                         {{ __('Payment method.') }}
-                    </h2>
+                    </h2></x-reveal>
                 </div>
                 <span class="inline-flex items-center gap-2 border px-3 py-1 font-mono text-[0.65rem] uppercase tracking-widest"
                       style="border-color: {{ $hasPaymentMethod ? 'rgb(var(--color-chapter-produce, 37 62 36))' : 'rgba(0,0,0,0.15)' }}; color: {{ $hasPaymentMethod ? 'rgb(var(--color-chapter-produce, 37 62 36))' : 'rgba(0,0,0,0.4)' }};">
@@ -276,10 +276,10 @@
             {{-- Header --}}
             <div class="mb-10 flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <p class="eyebrow text-brand-ink/40">{{ __('customer.payments.ledger_eyebrow') }}</p>
-                    <h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.payments.ledger_eyebrow') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
                         {{ __('Charge history.') }}
-                    </h2>
+                    </h2></x-reveal>
                 </div>
             </div>
 
@@ -368,17 +368,17 @@
 
                 {{-- Left --}}
                 <div class="flex flex-col">
-                    <p class="eyebrow text-brand-ink/40">{{ __('customer.payments.allocation_eyebrow') }}</p>
-                    <h2 class="mt-4 font-display text-4xl leading-tight text-balance text-brand-ink md:text-5xl">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.payments.allocation_eyebrow') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl leading-tight text-balance text-brand-ink md:text-5xl">
                         @if ($chargeAmount)
                             {{ __('Out of every') }} @money($chargeAmount).
                         @else
                             {{ __('customer.payments.allocation_h2') }}
                         @endif
-                    </h2>
-                    <p class="mt-6 max-w-md text-sm leading-relaxed text-brand-ink/55">
+                    </h2></x-reveal>
+                    <x-reveal variant="fade-up" delay="200"><p class="mt-6 max-w-md text-sm leading-relaxed text-brand-ink/55">
                         {{ __('customer.payments.allocation_body') }}
-                    </p>
+                    </p></x-reveal>
                     <a href="{{ route('app.subscriptions.show') }}"
                        class="mt-8 inline-flex items-center gap-2 self-start border-b border-chapter-produce pb-1 text-sm text-chapter-produce transition hover:text-chapter-produce/70">
                         {{ __('Read the long version') }} →
@@ -414,13 +414,13 @@
 
                 {{-- Left --}}
                 <div>
-                    <p class="eyebrow text-brand-ink/40">{{ __('customer.payments.receipts_eyebrow') }}</p>
-                    <h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.payments.receipts_eyebrow') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
                         {{ __('Receipts & invoices.') }}
-                    </h2>
-                    <p class="mt-6 text-sm leading-relaxed text-brand-ink/55">
+                    </h2></x-reveal>
+                    <x-reveal variant="fade-up" delay="200"><p class="mt-6 text-sm leading-relaxed text-brand-ink/55">
                         {{ __('customer.payments.receipts_body') }}
-                    </p>
+                    </p></x-reveal>
                 </div>
 
                 {{-- Right --}}

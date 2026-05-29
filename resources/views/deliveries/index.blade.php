@@ -50,15 +50,15 @@
                 {{-- Left --}}
                 <div class="flex flex-col justify-between gap-10">
                     <div>
-                        <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.eyebrow') }}</p>
-                        <h1 class="mt-5 font-display text-5xl leading-[1.05] tracking-tight text-brand-ink md:text-6xl lg:text-7xl">
+                        <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.eyebrow') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h1 class="mt-5 font-display text-5xl leading-[1.05] tracking-tight text-brand-ink md:text-6xl lg:text-7xl">
                             {{ __('customer.deliveries.hero_h1_line1') }}<br>
                             <em class="font-normal italic text-chapter-produce">{{ __('customer.deliveries.hero_h1_line2') }}</em><br>
                             {{ __('customer.deliveries.hero_h1_line3', ['day' => $deliveryDayName ?? __('Thursday')]) }}
-                        </h1>
-                        <p class="mt-6 max-w-sm text-sm leading-relaxed text-brand-ink/55">
+                        </h1></x-reveal>
+                        <x-reveal variant="fade-up" delay="200"><p class="mt-6 max-w-sm text-sm leading-relaxed text-brand-ink/55">
                             {{ __('customer.story.deliveries.opening') }}
-                        </p>
+                        </p></x-reveal>
                     </div>
                     <div class="flex flex-wrap items-center gap-x-7 gap-y-3">
                         <a href="{{ route('app.deliveries.preferences.edit') }}"
@@ -77,7 +77,7 @@
                 </div>
 
                 {{-- Right: at a glance --}}
-                <div class="bg-brand-paper p-8 lg:p-10">
+                <x-reveal variant="fade-up" delay="150"><div class="bg-brand-paper p-8 lg:p-10">
                     <p class="eyebrow text-chapter-produce">{{ __('At a glance') }}</p>
 
                     @if ($nextBase)
@@ -138,7 +138,7 @@
                             </dd>
                         </div>
                     </dl>
-                </div>
+                </div></x-reveal>
 
             </div>
         </div>
@@ -150,14 +150,14 @@
 
             <div class="grid gap-6 lg:grid-cols-[1fr_auto]">
                 <div>
-                    <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.defaults_eyebrow') }}</p>
-                    <h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.defaults_eyebrow') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
                         {{ __('Default delivery settings.') }}
-                    </h2>
+                    </h2></x-reveal>
                 </div>
-                <p class="max-w-xs self-end text-sm leading-relaxed text-brand-ink/50 lg:text-right">
+                <x-reveal variant="fade-up" delay="200"><p class="max-w-xs self-end text-sm leading-relaxed text-brand-ink/50 lg:text-right">
                     {{ __('customer.deliveries.defaults_helper') }}
-                </p>
+                </p></x-reveal>
             </div>
 
             <dl class="mt-10 grid gap-8 border-t border-brand-ink/10 pt-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -227,10 +227,10 @@
 
                 <div class="flex flex-wrap items-end justify-between gap-4">
                     <div>
-                        <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.timeline_eyebrow') }}</p>
-                        <h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
+                        <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.timeline_eyebrow') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
                             {{ __('customer.deliveries.timeline_h2', ['days' => $deliveryDayPlural ?? __('Thursdays')]) }}
-                        </h2>
+                        </h2></x-reveal>
                     </div>
                 </div>
 
@@ -314,13 +314,13 @@
                 {{-- Left: intro + CTA --}}
                 <div class="flex flex-col justify-between gap-8">
                     <div>
-                        <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.addresses_eyebrow') }}</p>
-                        <h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
+                        <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.addresses_eyebrow') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
                             {{ $addressesH2 }}
-                        </h2>
-                        <p class="mt-5 text-sm leading-relaxed text-brand-ink/55">
+                        </h2></x-reveal>
+                        <x-reveal variant="fade-up" delay="200"><p class="mt-5 text-sm leading-relaxed text-brand-ink/55">
                             {{ __('customer.deliveries.addresses_body') }}
-                        </p>
+                        </p></x-reveal>
                     </div>
                     <div>
                         <a href="{{ route('app.deliveries.preferences.edit') }}"
@@ -382,10 +382,10 @@
 
             <div class="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.history_eyebrow') }}</p>
-                    <h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.deliveries.history_eyebrow') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl leading-[1.05] text-brand-ink lg:text-5xl">
                         {{ __('Past deliveries.') }}
-                    </h2>
+                    </h2></x-reveal>
                 </div>
             </div>
 

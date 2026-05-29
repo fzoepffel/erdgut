@@ -23,17 +23,17 @@
 
                 {{-- Left --}}
                 <div>
-                    <p class="eyebrow text-brand-ink/40">{{ __('customer.account.hero_eyebrow') }}</p>
-                    <h1 class="mt-6 font-display text-5xl leading-[1.02] tracking-tight text-balance text-brand-ink md:text-6xl lg:text-[5.5rem]">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.account.hero_eyebrow') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h1 class="mt-6 font-display text-5xl leading-[1.02] tracking-tight text-balance text-brand-ink md:text-6xl lg:text-[5.5rem]">
                         {{ __('customer.account.hero_h1_pre') }}<em class="font-normal italic text-chapter-produce">{{ __('customer.account.hero_h1_em') }}</em>{{ __('customer.account.hero_h1_suf') }}
-                    </h1>
-                    <p class="mt-8 max-w-xl text-base leading-relaxed text-brand-ink/55">
+                    </h1></x-reveal>
+                    <x-reveal variant="fade-up" delay="200"><p class="mt-8 max-w-xl text-base leading-relaxed text-brand-ink/55">
                         {{ __('customer.account.hero_body') }}
-                    </p>
+                    </p></x-reveal>
                 </div>
 
                 {{-- Right: "On the slip" panel --}}
-                <div class="border border-brand-ink/10 bg-brand-paper p-8 lg:p-10">
+                <x-reveal variant="fade-up" delay="150"><div class="border border-brand-ink/10 bg-brand-paper p-8 lg:p-10">
                     <p class="eyebrow text-chapter-produce text-[0.7rem] tracking-widest">{{ __('customer.account.panel_label') }}</p>
                     <p class="mt-2 font-display text-3xl text-brand-ink">{{ $user->name }}</p>
 
@@ -57,7 +57,7 @@
                             <dd class="font-display text-lg text-brand-ink text-right">{{ $user->primaryAddress()?->first()?->city ?? 'Berlin' }}</dd>
                         </div>
                     </dl>
-                </div>
+                </div></x-reveal>
 
             </div>
         </div>
@@ -79,14 +79,14 @@
             <div class="mb-14 grid gap-6 md:grid-cols-[auto_1fr_1fr] md:items-end md:gap-12">
                 <span class="font-mono text-xs uppercase tracking-widest text-chapter-produce">01</span>
                 <div>
-                    <p class="eyebrow text-brand-ink/35">{{ __('customer.account.profile_eyebrow') }}</p>
-                    <h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/35">{{ __('customer.account.profile_eyebrow') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
                         {{ __('customer.account.profile_h2') }}
-                    </h2>
+                    </h2></x-reveal>
                 </div>
-                <p class="max-w-sm text-sm leading-relaxed text-brand-ink/50 md:text-right md:justify-self-end">
+                <x-reveal variant="fade-up" delay="200"><p class="max-w-sm text-sm leading-relaxed text-brand-ink/50 md:text-right md:justify-self-end">
                     {{ __('customer.account.profile_lede') }}
-                </p>
+                </p></x-reveal>
             </div>
 
             <form method="POST" action="{{ route('account.profile.update') }}">
@@ -150,7 +150,7 @@
                 </div>
 
                 {{-- Save row --}}
-                <div class="mt-14 flex items-center gap-6">
+                <x-reveal variant="fade-up" delay="300"><div class="mt-14 flex items-center gap-6">
                     <span
                         aria-live="polite"
                         class="font-mono text-[0.65rem] uppercase tracking-widest text-chapter-produce transition-opacity duration-300"
@@ -164,7 +164,7 @@
                             class="rounded-sm bg-brand-ink px-7 py-3 text-sm text-brand-paper hover:bg-brand-ink/85 transition-colors">
                         {{ __('customer.account.save_button') }}
                     </button>
-                </div>
+                </div></x-reveal>
 
             </form>
         </div>
@@ -186,26 +186,26 @@
             <div class="mb-14 grid gap-6 md:grid-cols-[auto_1fr_1fr] md:items-end md:gap-12">
                 <span class="font-mono text-xs uppercase tracking-widest text-chapter-produce">02</span>
                 <div>
-                    <p class="eyebrow text-brand-ink/35">{{ __('customer.account.security_eyebrow') }}</p>
-                    <h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/35">{{ __('customer.account.security_eyebrow') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
                         {{ __('customer.account.security_h2') }}
-                    </h2>
+                    </h2></x-reveal>
                 </div>
-                <p class="max-w-sm text-sm leading-relaxed text-brand-ink/50 md:text-right md:justify-self-end">
+                <x-reveal variant="fade-up" delay="200"><p class="max-w-sm text-sm leading-relaxed text-brand-ink/50 md:text-right md:justify-self-end">
                     {{ __('customer.account.security_lede') }}
-                </p>
+                </p></x-reveal>
             </div>
 
             <div class="grid gap-12 lg:grid-cols-[1fr_1.4fr] lg:gap-20">
 
                 {{-- Left: pull-quote + stats --}}
                 <div>
-                    <div class="border-l-2 border-chapter-produce pl-5">
+                    <x-reveal variant="fade-up" delay="100"><div class="border-l-2 border-chapter-produce pl-5">
                         <p class="eyebrow text-chapter-produce text-[0.65rem] tracking-widest">{{ __('customer.account.password_quote_label') }}</p>
                         <blockquote class="mt-3 font-display text-xl italic leading-snug text-brand-ink/80">
                             "{{ __('customer.account.password_quote') }}"
                         </blockquote>
-                    </div>
+                    </div></x-reveal>
 
                     <dl class="mt-10 space-y-5 text-sm">
                         <div class="flex items-baseline justify-between gap-6 border-b border-brand-ink/10 pb-3">
@@ -279,7 +279,7 @@
                         </div>
 
                         {{-- Save row --}}
-                        <div class="flex items-center gap-6 pt-4">
+                        <x-reveal variant="fade-up" delay="300"><div class="flex items-center gap-6 pt-4">
                             <span
                                 aria-live="polite"
                                 class="font-mono text-[0.65rem] uppercase tracking-widest text-chapter-produce transition-opacity duration-300"
@@ -293,7 +293,7 @@
                                     class="rounded-sm bg-brand-ink px-7 py-3 text-sm text-brand-paper hover:bg-brand-ink/85 transition-colors">
                                 {{ __('customer.account.save_button') }}
                             </button>
-                        </div>
+                        </div></x-reveal>
 
                     </form>
                 </div>
@@ -313,21 +313,21 @@
             <div class="mb-14 grid gap-6 md:grid-cols-[auto_1fr_1fr] md:items-end md:gap-12">
                 <span class="font-mono text-xs uppercase tracking-widest text-chapter-produce">03</span>
                 <div>
-                    <p class="eyebrow text-brand-ink/35">{{ __('customer.account.danger_eyebrow') }}</p>
-                    <h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
+                    <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/35">{{ __('customer.account.danger_eyebrow') }}</p></x-reveal>
+                    <x-reveal variant="fade-up" delay="100"><h2 class="mt-4 font-display text-4xl text-balance text-brand-ink md:text-5xl">
                         {{ __('customer.account.danger_h2') }}
-                    </h2>
+                    </h2></x-reveal>
                 </div>
-                <p class="max-w-sm text-sm leading-relaxed text-brand-ink/50 md:text-right md:justify-self-end">
+                <x-reveal variant="fade-up" delay="200"><p class="max-w-sm text-sm leading-relaxed text-brand-ink/50 md:text-right md:justify-self-end">
                     {{ __('customer.account.danger_lede') }}
-                </p>
+                </p></x-reveal>
             </div>
 
             <div class="grid gap-10 lg:grid-cols-2 lg:gap-16">
 
                 {{-- Card A: Pause (subscriber only — admins have no subscription) --}}
                 @unless($user->is_admin)
-                <div class="border border-brand-ink/15 bg-brand-paper p-8 lg:p-10">
+                <x-reveal variant="fade-up" delay="100"><div class="border border-brand-ink/15 bg-brand-paper p-8 lg:p-10">
                     <p class="eyebrow text-chapter-produce text-[0.65rem] tracking-widest">{{ __('customer.account.pause_label') }}</p>
                     <h3 class="mt-3 font-display text-3xl text-brand-ink">{{ __('customer.account.pause_h3') }}</h3>
                     <p class="mt-4 max-w-md text-sm leading-relaxed text-brand-ink/55">
@@ -340,11 +340,11 @@
                             {{ __('customer.account.pause_button') }}
                         </button>
                     </form>
-                </div>
+                </div></x-reveal>
                 @endunless
 
                 {{-- Card B: Delete account --}}
-                <div class="border border-chapter-meat/40 bg-chapter-meat/5 p-8 lg:p-10"
+                <x-reveal variant="fade-up" delay="150"><div class="border border-chapter-meat/40 bg-chapter-meat/5 p-8 lg:p-10"
                      x-data="{ confirming: false }">
                     <p class="eyebrow text-chapter-meat text-[0.65rem] tracking-widest">{{ __('customer.account.delete_label') }}</p>
                     <h3 class="mt-3 font-display text-3xl text-brand-ink">{{ __('customer.account.delete_h3') }}</h3>
@@ -395,7 +395,7 @@
                             </button>
                         </div>
                     </form>
-                </div>
+                </div></x-reveal>
 
             </div>
         </div>

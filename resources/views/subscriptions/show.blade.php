@@ -150,16 +150,16 @@
                     {{-- Left: eyebrow + H1 + lead + actions --}}
                     <div class="flex flex-col justify-between">
                         <div>
-                            <p class="eyebrow text-chapter-produce">{{ __('Subscription') }} · {{ __('Abo') }} {{ $subNumber }}</p>
+                            <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ __('Subscription') }} · {{ __('Abo') }} {{ $subNumber }}</p></x-reveal>
 
-                            <h1 class="mt-6 font-display text-5xl leading-[1.02] tracking-tight text-balance text-brand-ink md:text-6xl lg:text-[5rem]">
+                            <x-reveal variant="fade-up" delay="100"><h1 class="mt-6 font-display text-5xl leading-[1.02] tracking-tight text-balance text-brand-ink md:text-6xl lg:text-[5rem]">
                                 {{ __('customer.subscription.hero_h1_line1') }}<br>
                                 <em class="font-normal italic text-chapter-produce">{{ __('customer.subscription.hero_h1_line2') }}</em>
-                            </h1>
+                            </h1></x-reveal>
 
-                            <p class="mt-8 max-w-md text-base leading-relaxed text-brand-ink/60">
+                            <x-reveal variant="fade-up" delay="200"><p class="mt-8 max-w-md text-base leading-relaxed text-brand-ink/60">
                                 {{ __('customer.subscription.hero_lead') }}
-                            </p>
+                            </p></x-reveal>
                         </div>
 
                         {{-- Action row --}}
@@ -212,7 +212,7 @@
                     </div>
 
                     {{-- Right: At a glance panel --}}
-                    <div class="bg-brand-paper p-8 lg:p-10">
+                    <x-reveal variant="fade-up" delay="150"><div class="bg-brand-paper p-8 lg:p-10">
                         <div class="flex items-start justify-between">
                             <span class="eyebrow text-chapter-produce">{{ __('At a glance') }}</span>
                             <span class="eyebrow text-chapter-produce">{{ __('Abo') }} № {{ $subNumber }}</span>
@@ -245,7 +245,7 @@
                                 EUR {{ number_format($subscription->expectedChargeAmount(), 2, ',', '.') }}
                             </span>
                         </div>
-                    </div>
+                    </div></x-reveal>
 
                 </div>
             </div>
@@ -257,7 +257,7 @@
         <section class="border-b border-brand-ink/10 bg-brand-paper py-20 lg:py-24">
             <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
                 <div class="mx-auto max-w-3xl text-center">
-                    <blockquote>
+                    <x-reveal variant="fade-up" delay="100"><blockquote>
                         <p class="font-display text-3xl italic leading-snug text-balance text-brand-ink md:text-4xl">
                             <span class="align-[-0.15em] font-display text-6xl leading-none text-chapter-produce" aria-hidden="true">"</span>{{ __('customer.story.subscription.rhythm') }}"
                         </p>
@@ -266,7 +266,7 @@
                             <cite class="eyebrow not-italic text-chapter-produce">{{ __('customer.story.dashboard.founder_signature') }}</cite>
                             <span class="h-px w-10 bg-chapter-produce"></span>
                         </footer>
-                    </blockquote>
+                    </blockquote></x-reveal>
                 </div>
             </div>
         </section>
@@ -280,8 +280,8 @@
                 {{-- Header row --}}
                 <div class="mb-14 flex flex-wrap items-end justify-between gap-6">
                     <div>
-                        <p class="eyebrow text-chapter-produce">{{ __('Tariff') }}</p>
-                        <h2 id="sub-section-plan" class="mt-2 font-display text-4xl text-balance text-brand-ink md:text-5xl">{{ __('Plan & box.') }}</h2>
+                        <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ __('Tariff') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h2 id="sub-section-plan" class="mt-2 font-display text-4xl text-balance text-brand-ink md:text-5xl">{{ __('Plan & box.') }}</h2></x-reveal>
                     </div>
                     <div class="flex items-center gap-2 border border-chapter-produce px-3 py-1">
                         <span class="h-1.5 w-1.5 rounded-full bg-chapter-produce"></span>
@@ -339,11 +339,11 @@
 
                     {{-- Left: intro --}}
                     <div>
-                        <p class="eyebrow text-chapter-produce">{{ __('Preferences') }}</p>
-                        <h2 id="sub-section-diet" class="mt-2 font-display text-4xl text-balance text-brand-ink md:text-5xl">{{ __('Diet & allergies.') }}</h2>
-                        <p class="mt-8 max-w-sm text-base leading-relaxed text-brand-ink/60">
+                        <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ __('Preferences') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h2 id="sub-section-diet" class="mt-2 font-display text-4xl text-balance text-brand-ink md:text-5xl">{{ __('Diet & allergies.') }}</h2></x-reveal>
+                        <x-reveal variant="fade-up" delay="200"><p class="mt-8 max-w-sm text-base leading-relaxed text-brand-ink/60">
                             {{ __('Tell us about dietary restrictions so we can tailor your box. Changes take effect from the next open delivery cycle.') }}
-                        </p>
+                        </p></x-reveal>
                         <a href="{{ route('app.subscriptions.edit') }}"
                            class="mt-6 inline-block border-b border-chapter-produce pb-1 text-sm text-chapter-produce hover:text-chapter-produce/80">
                             {{ __('Edit preferences') }} →
@@ -407,12 +407,12 @@
                     {{-- Header --}}
                     <div class="mb-12 grid gap-10 lg:grid-cols-[1fr_1.6fr]">
                         <div>
-                            <p class="eyebrow text-chapter-produce">{{ __('Quiet weeks') }}</p>
-                            <h2 id="sub-section-pause" class="mt-2 font-display text-4xl text-balance text-brand-ink md:text-5xl">{{ __('A pause, when you need one.') }}</h2>
+                            <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ __('Quiet weeks') }}</p></x-reveal>
+                            <x-reveal variant="fade-up" delay="100"><h2 id="sub-section-pause" class="mt-2 font-display text-4xl text-balance text-brand-ink md:text-5xl">{{ __('A pause, when you need one.') }}</h2></x-reveal>
                         </div>
-                        <p class="self-end text-base leading-relaxed text-brand-ink/60">
+                        <x-reveal variant="fade-up" delay="200"><p class="self-end text-base leading-relaxed text-brand-ink/60">
                             {{ __('Tick any weeks in the next twelve you want to skip. Uncheck to bring a week back. No delivery, no charge.') }}
-                        </p>
+                        </p></x-reveal>
                     </div>
 
                     {{-- Current pause window note --}}
@@ -499,11 +499,11 @@
 
                     {{-- Left: intro --}}
                     <div>
-                        <p class="eyebrow text-chapter-produce">{{ __('Billing') }}</p>
-                        <h2 id="sub-section-billing" class="mt-2 font-display text-4xl text-balance text-brand-ink md:text-5xl">{{ __('Payments & receipts.') }}</h2>
-                        <p class="mt-8 max-w-sm text-base leading-relaxed text-brand-ink/60">
+                        <x-reveal variant="fade-up"><p class="eyebrow text-chapter-produce">{{ __('Billing') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h2 id="sub-section-billing" class="mt-2 font-display text-4xl text-balance text-brand-ink md:text-5xl">{{ __('Payments & receipts.') }}</h2></x-reveal>
+                        <x-reveal variant="fade-up" delay="200"><p class="mt-8 max-w-sm text-base leading-relaxed text-brand-ink/60">
                             {{ __('Manage your payment method and review past charges for your subscription deliveries.') }}
-                        </p>
+                        </p></x-reveal>
                     </div>
 
                     {{-- Right: billing dl + actions --}}
