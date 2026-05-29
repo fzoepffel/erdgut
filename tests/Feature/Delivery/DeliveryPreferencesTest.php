@@ -33,7 +33,7 @@ class DeliveryPreferencesTest extends TestCase
         ]);
         DeliveryPreference::query()->create([
             'user_id' => $user->id,
-            'preferred_timeslot' => 'Monday 18:00-20:00',
+            'preferred_timeslot' => '12:00-16:00',
             'phone' => '+491111111',
             'instructions' => 'Ring once.',
         ]);
@@ -42,7 +42,8 @@ class DeliveryPreferencesTest extends TestCase
             ->get(route('app.deliveries.preferences.edit'))
             ->assertOk()
             ->assertSee('Delivery preferences')
-            ->assertSee('Monday 18:00-20:00')
+            // Window picker: the Alpine initial state embeds the resolved key
+            ->assertSee("selectedWindow: 'midday'", false)
             ->assertSee('A1');
     }
 

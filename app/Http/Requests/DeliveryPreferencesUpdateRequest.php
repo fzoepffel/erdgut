@@ -32,6 +32,7 @@ class DeliveryPreferencesUpdateRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:50'],
             'building_code' => ['nullable', 'string', 'max:255'],
             'floor' => ['nullable', 'string', 'max:255'],
+            'doorbell' => ['nullable', 'string', 'max:255'],
             'instructions' => ['nullable', 'string', 'max:2000'],
             'preferred_timeslot' => ['required', 'string', 'max:100'],
         ];
