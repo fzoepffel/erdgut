@@ -36,16 +36,16 @@ class DashboardFooterBandTest extends TestCase
             ->assertSee(__('customer.dashboard.footer_band.nav_logout'));
     }
 
-    public function test_new_visitor_does_not_see_editorial_footer_band(): void
+    public function test_new_visitor_sees_editorial_footer_band_on_welcome_page(): void
     {
-        // No subscription, no trial → NewVisitor state. The editorial band
-        // is part of the redesigned dashboard for steady-state subscribers;
-        // out-of-scope kinds keep the standard <x-app-footer> only.
+        // No subscription, no trial → NewVisitor state → welcome dashboard.
+        // The redesigned welcome page includes the same editorial footer band
+        // used throughout the authenticated experience.
         $user = User::factory()->create(['locale' => 'de']);
 
         $this->actingAs($user)
             ->get(route('app.dashboard'))
             ->assertOk()
-            ->assertDontSee('customer-editorial-footer-band', false);
+            ->assertSee('customer-editorial-footer-band', false);
     }
 }
