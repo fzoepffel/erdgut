@@ -75,6 +75,7 @@ class DashboardTrialVariantTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('Your Erdgut trial box');
-        $response->assertSee('Start your subscription');
+        // The welcome dashboard shows the subscription card with its CTA.
+        $response->assertSee('welcome-subscription-card', false);
     }
 }

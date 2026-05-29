@@ -27,13 +27,17 @@ class VerifyEmailLogoutTest extends TestCase
 
         $html = $page->getContent();
 
-        // Both forms on this page (resend-verification + log-out) should
-        // render with type="submit" buttons.
-        $this->assertSame(
-            2,
-            preg_match_all('/<button\b[^>]*type="submit"[^>]*>/', $html),
-            'expected both verify-email forms to render submit buttons'
-        );
+        // Both the resend-verification and log-out forms must render their
+        // buttons as type="submit". We pin to data-testid so the assertion
+        // is not thrown off by other submit buttons on the page (e.g. the
+        // editorial footer's newsletter form).
+        foreach (['verify-email-resend', 'verify-email-signout'] as $testId) {
+            $this->assertMatchesRegularExpression(
+                '/<button[^>]*type="submit"[^>]*data-testid="' . $testId . '"/',
+                $html,
+                "expected {$testId} button to be type=\"submit\""
+            );
+        }
 
         // And the logout submission actually logs the user out.
         $logout = $this->actingAs($user)->post(route('auth.logout'));
