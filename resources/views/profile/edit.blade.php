@@ -161,7 +161,7 @@
                         {{ __('customer.account.discard_button') }}
                     </a>
                     <button type="submit"
-                            class="rounded-sm bg-brand-ink px-7 py-3 text-sm text-brand-paper hover:bg-brand-ink/85 transition-colors">
+                            class="rounded-sm bg-chapter-produce px-7 py-3 text-sm text-brand-cream hover:bg-chapter-produce/90 transition-colors">
                         {{ __('customer.account.save_button') }}
                     </button>
                 </div></x-reveal>
@@ -290,7 +290,7 @@
                                 {{ __('customer.account.discard_button') }}
                             </a>
                             <button type="submit"
-                                    class="rounded-sm bg-brand-ink px-7 py-3 text-sm text-brand-paper hover:bg-brand-ink/85 transition-colors">
+                                    class="rounded-sm bg-chapter-produce px-7 py-3 text-sm text-brand-cream hover:bg-chapter-produce/90 transition-colors">
                                 {{ __('customer.account.save_button') }}
                             </button>
                         </div></x-reveal>

@@ -173,7 +173,7 @@
                             @csrf
                             <button
                                 type="submit"
-                                class="w-full rounded-sm bg-brand-ink px-6 py-3 text-center text-sm text-brand-cream hover:bg-brand-ink/85 transition-colors"
+                                class="w-full rounded-sm bg-chapter-produce px-6 py-3 text-center text-sm text-brand-cream hover:bg-chapter-produce/90 transition-colors"
                                 data-testid="verify-email-resend"
                             >
                                 {{ __('auth.verify_resend') }}

@@ -526,7 +526,7 @@
                     <button
                         type="submit"
                         form="preferences-form"
-                        class="bg-brand-ink text-brand-paper text-sm font-medium px-7 py-3 hover:bg-brand-ink/85 transition-colors"
+                        class="rounded-sm bg-chapter-produce text-brand-cream text-sm font-medium px-7 py-3 hover:bg-chapter-produce/90 transition-colors"
                     >
                         {{ __('customer.preferences.save_button') }}
                     </button>
