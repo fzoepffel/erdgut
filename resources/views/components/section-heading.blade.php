@@ -20,7 +20,7 @@
     @endif
 
     <x-reveal variant="fade-up" delay="80">
-        <{{ $tag }} class="mt-3 font-display text-4xl font-semibold leading-tight tracking-tight text-brand-ink sm:text-5xl md:text-6xl">
+        <{{ $tag }} class="mt-3 font-display text-4xl leading-tight tracking-tight text-brand-ink sm:text-5xl md:text-6xl">
             {{ $title }}
         </{{ $tag }}>
     </x-reveal>
