@@ -103,17 +103,17 @@
 
                     {{-- Left: editorial heading --}}
                     <div>
-                        <p class="eyebrow text-brand-ink/40">{{ __('customer.preferences.hero_eyebrow') }}</p>
-                        <h1 class="mt-5 font-display text-5xl leading-[1.02] tracking-tight text-balance text-brand-ink md:text-6xl lg:text-[5rem]">
+                        <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/40">{{ __('customer.preferences.hero_eyebrow') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h1 class="mt-5 font-display text-5xl leading-[1.02] tracking-tight text-balance text-brand-ink md:text-6xl lg:text-[5rem]">
                             {{ __('customer.preferences.hero_h1_a') }}<em class="italic">{{ __('customer.preferences.hero_h1_em') }}</em>{{ __('customer.preferences.hero_h1_b') }}
-                        </h1>
-                        <p class="mt-6 max-w-lg text-sm leading-relaxed text-brand-ink/55">
+                        </h1></x-reveal>
+                        <x-reveal variant="fade-up" delay="200"><p class="mt-6 max-w-lg text-sm leading-relaxed text-brand-ink/55">
                             {{ __('customer.preferences.hero_body') }}
-                        </p>
+                        </p></x-reveal>
                     </div>
 
                     {{-- Right: on-file panel --}}
-                    <div class="shrink-0 border border-brand-ink/10 bg-brand-paper p-7 lg:p-8" style="min-width: 240px;">
+                    <x-reveal variant="fade-up" delay="150"><div class="shrink-0 border border-brand-ink/10 bg-brand-paper p-7 lg:p-8" style="min-width: 240px;">
 
                         {{-- Saved since --}}
                         <p class="eyebrow text-[0.6rem] tracking-widest text-brand-ink/35">{{ __('customer.preferences.panel_since_label') }}</p>
@@ -155,7 +155,7 @@
                                 {{ trans_choice('customer.preferences.upcoming_notice', $upcomingDeliveryCount, ['count' => $upcomingDeliveryCount]) }}
                             </div>
                         @endif
-                    </div>
+                    </div></x-reveal>
 
                 </div>
 
@@ -181,15 +181,15 @@
                 {{-- Section header --}}
                 <div class="grid gap-8 lg:grid-cols-2 lg:gap-16 mb-14">
                     <div>
-                        <p class="eyebrow text-brand-ink/35 mb-5">{{ __('customer.preferences.section_address_eyebrow') }}</p>
-                        <h2 class="font-display text-brand-ink leading-tight" style="font-size: clamp(2rem, 4vw, 3rem);">
+                        <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/35 mb-5">{{ __('customer.preferences.section_address_eyebrow') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h2 class="font-display text-brand-ink leading-tight" style="font-size: clamp(2rem, 4vw, 3rem);">
                             <span class="mr-3 font-mono text-sm text-brand-ink/20">01</span>{{ __('customer.preferences.section_address_h2') }}
-                        </h2>
+                        </h2></x-reveal>
                     </div>
                     <div class="flex items-end">
-                        <p class="text-sm leading-relaxed text-brand-ink/50">
+                        <x-reveal variant="fade-up" delay="200"><p class="text-sm leading-relaxed text-brand-ink/50">
                             {{ __('customer.preferences.section_address_body') }}
-                        </p>
+                        </p></x-reveal>
                     </div>
                 </div>
 
@@ -334,28 +334,28 @@
                 {{-- Section header --}}
                 <div class="grid gap-8 lg:grid-cols-2 lg:gap-16 mb-14">
                     <div>
-                        <p class="eyebrow text-brand-ink/35 mb-5">{{ __('customer.preferences.section_window_eyebrow') }}</p>
-                        <h2 class="font-display text-brand-ink leading-tight" style="font-size: clamp(2rem, 4vw, 3rem);">
+                        <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/35 mb-5">{{ __('customer.preferences.section_window_eyebrow') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h2 class="font-display text-brand-ink leading-tight" style="font-size: clamp(2rem, 4vw, 3rem);">
                             <span class="mr-3 font-mono text-sm text-brand-ink/20">02</span>{{ __('customer.preferences.section_window_h2') }}
-                        </h2>
+                        </h2></x-reveal>
                     </div>
                     <div class="flex items-end">
-                        <p class="text-sm leading-relaxed text-brand-ink/50">
+                        <x-reveal variant="fade-up" delay="200"><p class="text-sm leading-relaxed text-brand-ink/50">
                             {{ __('customer.preferences.section_window_body') }}
-                        </p>
+                        </p></x-reveal>
                     </div>
                 </div>
 
                 {{-- Day picker --}}
                 <div class="mb-12">
                     <p class="eyebrow text-[0.65rem] tracking-widest text-brand-ink/35 mb-6">{{ __('customer.preferences.day_label') }}</p>
-                    <div class="grid grid-cols-3 gap-4 max-w-2xl">
+                    <div class="grid grid-cols-3 gap-4 max-w-2xl reveal-stagger">
                         @foreach ([
                             'tuesday'  => ['TUE', __('customer.preferences.day_tuesday'),  __('customer.preferences.day_tuesday_sub')],
                             'thursday' => ['THU', __('customer.preferences.day_thursday'), __('customer.preferences.day_thursday_sub')],
                             'saturday' => ['SAT', __('customer.preferences.day_saturday'), __('customer.preferences.day_saturday_sub')],
                         ] as $dayKey => [$dayAbbr, $dayLabel, $daySub])
-                            <button
+                            <button style="--i:{{ $loop->index }}"
                                 type="button"
                                 @click="selectedDay = '{{ $dayKey }}'; markDirty();"
                                 :class="selectedDay === '{{ $dayKey }}'
@@ -377,7 +377,7 @@
                 </div>
 
                 {{-- Window picker — vertical radio list --}}
-                <div>
+                <x-reveal variant="fade-up" delay="150"><div>
                     <p class="eyebrow text-[0.65rem] tracking-widest text-brand-ink/35 mb-6">{{ __('customer.preferences.window_label') }}</p>
                     <div class="divide-y divide-brand-ink/10 border-y border-brand-ink/10 max-w-2xl">
                         @foreach ([
@@ -412,7 +412,7 @@
                             </button>
                         @endforeach
                     </div>
-                </div>
+                </div></x-reveal>
 
             </div>
         </section>
@@ -427,15 +427,15 @@
                 {{-- Section header --}}
                 <div class="grid gap-8 lg:grid-cols-2 lg:gap-16 mb-14">
                     <div>
-                        <p class="eyebrow text-brand-ink/35 mb-5">{{ __('customer.preferences.section_courier_eyebrow') }}</p>
-                        <h2 class="font-display text-brand-ink leading-tight" style="font-size: clamp(2rem, 4vw, 3rem);">
+                        <x-reveal variant="fade-up"><p class="eyebrow text-brand-ink/35 mb-5">{{ __('customer.preferences.section_courier_eyebrow') }}</p></x-reveal>
+                        <x-reveal variant="fade-up" delay="100"><h2 class="font-display text-brand-ink leading-tight" style="font-size: clamp(2rem, 4vw, 3rem);">
                             <span class="mr-3 font-mono text-sm text-brand-ink/20">03</span>{{ __('customer.preferences.section_courier_h2') }}
-                        </h2>
+                        </h2></x-reveal>
                     </div>
                     <div class="flex items-end">
-                        <p class="text-sm leading-relaxed text-brand-ink/50">
+                        <x-reveal variant="fade-up" delay="200"><p class="text-sm leading-relaxed text-brand-ink/50">
                             {{ __('customer.preferences.section_courier_body') }}
-                        </p>
+                        </p></x-reveal>
                     </div>
                 </div>
 
@@ -487,12 +487,12 @@
                 </div>
 
                 {{-- Pull-quote --}}
-                <div class="mt-10 border border-brand-ink/10 p-7 lg:p-8">
+                <x-reveal variant="fade-up" delay="100"><div class="mt-10 border border-brand-ink/10 p-7 lg:p-8">
                     <p class="eyebrow text-[0.6rem] tracking-widest text-brand-ink/35 mb-4">{{ __('customer.preferences.courier_quote_eyebrow') }}</p>
                     <blockquote class="font-display italic text-xl leading-snug text-brand-ink/70">
                         {{ __('customer.preferences.courier_quote') }}
                     </blockquote>
-                </div>
+                </div></x-reveal>
 
             </div>
         </section>
