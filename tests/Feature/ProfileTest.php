@@ -19,9 +19,9 @@ class ProfileTest extends TestCase
             ->get(route('account.profile.edit'));
 
         $response->assertOk()
-            ->assertSee('Account settings', false)
-            ->assertSee('Profile and contact', false)
-            ->assertSee('If you change your email, we will reset email verification.', false);
+            ->assertSee('THE SLIP IN THE DRAWER', false)
+            ->assertSee('PROFILE', false)
+            ->assertSee('The name on the door', false);
     }
 
     public function test_profile_information_can_be_updated(): void
