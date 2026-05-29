@@ -1,6 +1,6 @@
 @php
     $trialEnabled = (bool) config('features.trial_orders_enabled', true);
-    $trialPrice = \App\Support\Money::format(config('box.trial_price_oneoff_ttc', 35), 0);
+    $trialFromPrice = \App\Support\Money::format(\App\Services\Billing\BoxPricing::sizeBaseTtc('small'), 0) . ' €';
     $user = auth()->user();
     $firstName = str($user->name)->before(' ')->toString() ?: $user->name;
     $deliveryMin = config('delivery.zones.0.postal_code_min', 10115);
@@ -107,7 +107,7 @@
 
                 {{-- Subscription card --}}
                 <x-reveal variant="fade-up" delay="50">
-                <div class="border border-brand-ink/10 bg-brand-cream p-8 lg:p-10" data-testid="welcome-subscription-card">
+                <div class="h-full border border-brand-ink/10 bg-brand-cream p-8 lg:p-10" data-testid="welcome-subscription-card">
                     <p class="eyebrow text-[0.65rem] tracking-widest text-chapter-produce">{{ __('welcome.sub_eyebrow') }}</p>
                     <h3 class="mt-3 font-display text-4xl text-brand-ink">{{ __('welcome.sub_h3') }}</h3>
                     <p class="mt-4 text-sm leading-relaxed text-brand-ink/60">
@@ -149,11 +149,11 @@
                 {{-- Trial card --}}
                 @if ($trialEnabled)
                 <x-reveal variant="fade-up" delay="100">
-                <div class="border border-brand-ink/10 bg-brand-cream p-8 lg:p-10" data-testid="welcome-trial-card">
+                <div class="h-full border border-brand-ink/10 bg-brand-cream p-8 lg:p-10" data-testid="welcome-trial-card">
                     <p class="eyebrow text-[0.65rem] tracking-widest text-chapter-meat">{{ __('welcome.trial_eyebrow') }}</p>
                     <h3 id="welcome-trial-heading" class="mt-3 font-display text-4xl text-brand-ink">{{ __('welcome.trial_h3') }}</h3>
                     <p class="mt-4 text-sm leading-relaxed text-brand-ink/60">
-                        {{ __('welcome.trial_body', ['amount' => $trialPrice]) }}
+                        {{ __('welcome.trial_body') }}
                     </p>
 
                     <div class="mt-8 h-px bg-brand-ink/10"></div>
@@ -161,7 +161,7 @@
                     <dl class="mt-6 space-y-4 text-sm">
                         <div class="flex items-baseline justify-between gap-4 border-b border-brand-ink/10 pb-4">
                             <dt class="font-mono text-[0.65rem] uppercase tracking-wider text-brand-ink/45">{{ __('welcome.trial_price_label') }}</dt>
-                            <dd class="font-display text-lg text-brand-ink">{{ __('welcome.trial_price_value', ['amount' => $trialPrice]) }}</dd>
+                            <dd class="font-display text-lg text-brand-ink">{{ __('welcome.trial_price_value', ['amount' => $trialFromPrice]) }}</dd>
                         </div>
                         <div class="flex items-baseline justify-between gap-4 border-b border-brand-ink/10 pb-4">
                             <dt class="font-mono text-[0.65rem] uppercase tracking-wider text-brand-ink/45">{{ __('welcome.trial_includes_label') }}</dt>
