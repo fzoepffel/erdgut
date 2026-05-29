@@ -35,14 +35,14 @@
     ═══════════════════════════════════════════ --}}
     <section class="py-20 lg:py-28">
         <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
-            <div class="grid gap-16 lg:grid-cols-[1fr_360px] lg:gap-20 lg:items-start">
+            <div class="grid gap-16 lg:grid-cols-[1.4fr_1fr] lg:gap-20 lg:items-start">
 
                 {{-- Left: form --}}
                 <div>
 
-                    {{-- Section header --}}
+                    {{-- Section header — lede lives in the right column above the aside --}}
                     <x-reveal variant="fade-up">
-                    <div class="mb-14 grid gap-6 md:grid-cols-[auto_1fr_1fr] md:items-end md:gap-12">
+                    <div class="mb-14 grid gap-6 md:grid-cols-[auto_1fr] md:items-end md:gap-12">
                         <span class="font-mono text-xs uppercase tracking-widest text-chapter-produce">01</span>
                         <div>
                             <p class="eyebrow text-brand-ink/35">{{ __('auth.register_section_eyebrow') }}</p>
@@ -50,87 +50,75 @@
                                 {{ __('auth.register_section_h2') }}
                             </h2>
                         </div>
-                        <p class="max-w-sm text-sm leading-relaxed text-brand-ink/50 md:text-right md:justify-self-end">
-                            {{ __('auth.register_section_lede') }}
-                        </p>
                     </div>
                     </x-reveal>
 
                     <form method="POST" action="{{ route('auth.register.store') }}">
                         @csrf
 
-                        <div class="space-y-0 divide-y divide-brand-ink/10 border-t border-brand-ink/10">
+                        {{-- Hairline-input stack: Name + Email full-width, PW pair side-by-side --}}
+                        <div class="grid gap-y-10">
 
                             {{-- NAME --}}
                             <x-reveal variant="fade-up" delay="50">
-                            <div class="py-7">
-                                <label for="name" class="block font-mono text-[0.65rem] uppercase tracking-widest text-brand-ink/35 mb-2">
-                                    {{ __('Name') }}
-                                </label>
+                            <label class="flex flex-col">
+                                <span class="font-mono text-[0.65rem] uppercase tracking-widest text-brand-ink/35">{{ __('Name') }}</span>
                                 <input
                                     id="name" type="text" name="name"
                                     value="{{ old('name') }}"
                                     placeholder="{{ __('auth.register_name_placeholder') }}"
                                     required autofocus autocomplete="name"
-                                    class="block w-full bg-transparent py-1 font-display text-2xl text-brand-ink placeholder:text-brand-ink/25 focus:outline-none border-0 border-b border-transparent focus:border-brand-ink/30 transition-colors"
+                                    class="mt-3 w-full border-b border-brand-ink/15 bg-transparent pb-2 font-display text-2xl text-brand-ink placeholder:text-brand-ink/25 focus:border-chapter-produce focus:outline-none transition-colors"
                                 >
                                 @error('name')
                                     <p class="mt-2 text-xs text-chapter-meat">{{ $message }}</p>
                                 @enderror
-                            </div>
+                            </label>
                             </x-reveal>
 
                             {{-- EMAIL --}}
                             <x-reveal variant="fade-up" delay="100">
-                            <div class="py-7">
-                                <label for="email" class="block font-mono text-[0.65rem] uppercase tracking-widest text-brand-ink/35 mb-2">
-                                    {{ __('Email') }}
-                                </label>
+                            <label class="flex flex-col">
+                                <span class="font-mono text-[0.65rem] uppercase tracking-widest text-brand-ink/35">{{ __('Email') }}</span>
                                 <input
                                     id="email" type="email" name="email"
                                     value="{{ old('email') }}"
                                     placeholder="{{ __('auth.register_email_placeholder') }}"
                                     required autocomplete="username"
-                                    class="block w-full bg-transparent py-1 font-display text-2xl text-brand-ink placeholder:text-brand-ink/25 focus:outline-none border-0 border-b border-transparent focus:border-brand-ink/30 transition-colors"
+                                    class="mt-3 w-full border-b border-brand-ink/15 bg-transparent pb-2 font-display text-2xl text-brand-ink placeholder:text-brand-ink/25 focus:border-chapter-produce focus:outline-none transition-colors"
                                 >
                                 <p class="mt-3 text-xs leading-relaxed text-brand-ink/45">{{ __('auth.register_email_help') }}</p>
                                 @error('email')
                                     <p class="mt-1 text-xs text-chapter-meat">{{ $message }}</p>
                                 @enderror
-                            </div>
+                            </label>
                             </x-reveal>
 
-                            {{-- PASSWORD + CONFIRM --}}
+                            {{-- PASSWORD + CONFIRM side by side --}}
                             <x-reveal variant="fade-up" delay="150">
-                            <div class="py-7">
-                                <div class="grid grid-cols-1 gap-8 sm:grid-cols-2">
-                                    <div>
-                                        <label for="password" class="block font-mono text-[0.65rem] uppercase tracking-widest text-brand-ink/35 mb-2">
-                                            {{ __('Password') }}
-                                        </label>
-                                        <input
-                                            id="password" type="password" name="password"
-                                            placeholder="{{ __('auth.register_password_placeholder') }}"
-                                            required autocomplete="new-password"
-                                            class="block w-full bg-transparent py-1 font-display text-2xl text-brand-ink placeholder:text-brand-ink/25 focus:outline-none border-0 border-b border-transparent focus:border-brand-ink/30 transition-colors"
-                                        >
-                                        @error('password')
-                                            <p class="mt-2 text-xs text-chapter-meat">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                    <div>
-                                        <label for="password_confirmation" class="block font-mono text-[0.65rem] uppercase tracking-widest text-brand-ink/35 mb-2">
-                                            {{ __('Confirm Password') }}
-                                        </label>
-                                        <input
-                                            id="password_confirmation" type="password" name="password_confirmation"
-                                            placeholder="{{ __('auth.register_confirm_placeholder') }}"
-                                            required autocomplete="new-password"
-                                            class="block w-full bg-transparent py-1 font-display text-2xl text-brand-ink placeholder:text-brand-ink/25 focus:outline-none border-0 border-b border-transparent focus:border-brand-ink/30 transition-colors"
-                                        >
-                                    </div>
-                                </div>
-                                <p class="mt-3 text-xs leading-relaxed text-brand-ink/45">{{ __('auth.register_password_help') }}</p>
+                            <div class="grid grid-cols-2 gap-x-12">
+                                <label class="flex flex-col">
+                                    <span class="font-mono text-[0.65rem] uppercase tracking-widest text-brand-ink/35">{{ __('Password') }}</span>
+                                    <input
+                                        id="password" type="password" name="password"
+                                        placeholder="{{ __('auth.register_password_placeholder') }}"
+                                        required autocomplete="new-password"
+                                        class="mt-3 w-full border-b border-brand-ink/15 bg-transparent pb-2 font-display text-2xl text-brand-ink placeholder:text-brand-ink/25 focus:border-chapter-produce focus:outline-none transition-colors"
+                                    >
+                                    <p class="mt-3 text-xs leading-relaxed text-brand-ink/45">{{ __('auth.register_password_help') }}</p>
+                                    @error('password')
+                                        <p class="mt-2 text-xs text-chapter-meat">{{ $message }}</p>
+                                    @enderror
+                                </label>
+                                <label class="flex flex-col">
+                                    <span class="font-mono text-[0.65rem] uppercase tracking-widest text-brand-ink/35">{{ __('Confirm Password') }}</span>
+                                    <input
+                                        id="password_confirmation" type="password" name="password_confirmation"
+                                        placeholder="{{ __('auth.register_confirm_placeholder') }}"
+                                        required autocomplete="new-password"
+                                        class="mt-3 w-full border-b border-brand-ink/15 bg-transparent pb-2 font-display text-2xl text-brand-ink placeholder:text-brand-ink/25 focus:border-chapter-produce focus:outline-none transition-colors"
+                                    >
+                                </label>
                             </div>
                             </x-reveal>
 
@@ -141,7 +129,7 @@
                         <div class="mt-10 flex flex-wrap items-center gap-6">
                             <button
                                 type="submit"
-                                class="rounded-sm bg-brand-ink px-8 py-3 text-sm text-brand-paper hover:bg-brand-ink/85 transition-colors"
+                                class="rounded-sm bg-chapter-produce px-8 py-3 text-sm text-brand-cream hover:bg-chapter-produce/90 transition-colors"
                             >
                                 {{ __('auth.register_submit') }}
                             </button>
@@ -157,7 +145,15 @@
                     </form>
                 </div>
 
-                {{-- Right: "What we keep" panel --}}
+                {{-- Right: lede above, then "What we keep" panel --}}
+                <div class="flex flex-col gap-8 lg:gap-10">
+
+                <x-reveal variant="fade" delay="100">
+                <p class="text-sm leading-relaxed text-brand-ink/50">
+                    {{ __('auth.register_section_lede') }}
+                </p>
+                </x-reveal>
+
                 <x-reveal variant="fade" delay="150">
                 <div class="border border-brand-ink/10 bg-brand-paper p-8 lg:p-10">
                     <p class="eyebrow text-[0.65rem] tracking-widest text-brand-ink/35">{{ __('auth.register_panel_label') }}</p>
@@ -185,6 +181,8 @@
                     </dl>
                 </div>
                 </x-reveal>
+
+                </div>{{-- end right flex column --}}
 
             </div>
         </div>
