@@ -2903,5 +2903,16 @@
     "onboarding.val.pci": "PCI-DSS",
     "onboarding.summary.kicker": "Sur le bon de livraison",
     "A box every week.": "Une box chaque semaine.",
-    "Every other week — half the volume, same care.": "Une semaine sur deux — moitié moins, même soin."
+    "Every other week — half the volume, same care.": "Une semaine sur deux — moitié moins, même soin.",
+    "onboarding.hero.trial_delivery.eyebrow": "Votre première livraison",
+    "onboarding.hero.trial_delivery.title_pre": "Votre première ",
+    "onboarding.hero.trial_delivery.title_em": "livraison",
+    "onboarding.hero.trial_delivery.title_post": ".",
+    "onboarding.hero.trial_delivery.lede": "Nous planifions les livraisons d’essai à la main et confirmons votre date exacte par e-mail.",
+    "onboarding.hero.trial_payment.eyebrow": "Paiement",
+    "onboarding.hero.trial_payment.title_pre": "Réservez votre ",
+    "onboarding.hero.trial_payment.title_em": "box d’essai",
+    "onboarding.hero.trial_payment.title_post": ".",
+    "onboarding.hero.trial_payment.lede": "Un paiement unique — sans abonnement ni carte enregistrée.",
+    "onboarding.val.one_off": "Unique"
 }

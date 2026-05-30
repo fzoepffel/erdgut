@@ -276,6 +276,29 @@ class WizardPolishTest extends TestCase
     }
 
     // ---------------------------------------------------------------------
+    // Trial path uses the same editorial hero as the subscription path.
+    // ---------------------------------------------------------------------
+
+    public function test_trial_delivery_step_renders_editorial_hero_with_trial_copy(): void
+    {
+        $user = User::factory()->create(['email_verified_at' => now()]);
+        $this->makeTrialDraft($user);
+
+        $response = $this->actingAs($user)->get(route('app.onboarding.step.trial_delivery'))->assertOk();
+
+        // The editorial hero (shared layout) now fronts the trial steps with
+        // trial-specific copy — not the subscription "rhythm" wording.
+        $response->assertSee(__('onboarding.hero.trial_delivery.eyebrow'));
+        $response->assertSee(__('onboarding.hero.trial_delivery.lede'));
+        // Step rail names step 3 "Lieferung" for the trial path.
+        $response->assertSee(__('onboarding.step.delivery'));
+        // The old in-content heading is gone (hero owns it now).
+        $response->assertDontSee(__('When would you like us to come by?'));
+        // Forward CTA uses the shared taxonomy key.
+        $response->assertSee(__('onboarding.cta.to_payment'));
+    }
+
+    // ---------------------------------------------------------------------
     // C4 — Wunschwoche free-text replaced with bounded date input.
     // ---------------------------------------------------------------------
 

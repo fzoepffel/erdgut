@@ -2903,5 +2903,16 @@
     "onboarding.val.pci": "PCI-DSS",
     "onboarding.summary.kicker": "On the delivery slip",
     "A box every week.": "A box every week.",
-    "Every other week — half the volume, same care.": "Every other week — half the volume, same care."
+    "Every other week — half the volume, same care.": "Every other week — half the volume, same care.",
+    "onboarding.hero.trial_delivery.eyebrow": "Your first delivery",
+    "onboarding.hero.trial_delivery.title_pre": "Your first ",
+    "onboarding.hero.trial_delivery.title_em": "delivery",
+    "onboarding.hero.trial_delivery.title_post": ".",
+    "onboarding.hero.trial_delivery.lede": "We schedule trial deliveries by hand and confirm your exact date by email.",
+    "onboarding.hero.trial_payment.eyebrow": "Payment",
+    "onboarding.hero.trial_payment.title_pre": "Secure your ",
+    "onboarding.hero.trial_payment.title_em": "trial box",
+    "onboarding.hero.trial_payment.title_post": ".",
+    "onboarding.hero.trial_payment.lede": "A single one-time charge — no subscription and no stored card.",
+    "onboarding.val.one_off": "One-off"
 }
