@@ -1,16 +1,10 @@
 @extends('layouts.onboarding', ['step' => 'trial_delivery', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-fish">{{ __('Your first delivery') }}</p>
-    <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('When would you like us to come by?') }}</h1>
-    <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
-        {{ __('We schedule trial deliveries manually. We will confirm your exact date within :days days.', ['days' => $promiseDays]) }}
-    </p>
-
     {{-- C3 (UX notes): only the slots the fleet currently runs are
          shown. Today that's a single Wed 12-16 slot; once the
          delivery zones expand the picker auto-grows. --}}
-    <p class="mt-4 border border-brand-ink/15 bg-brand-cream/40 px-4 py-3 text-sm text-brand-ink/85" data-testid="trial-delivery-zone-hint">
+    <p class="border-l-2 border-chapter-produce bg-brand-paper px-4 py-3 text-sm leading-relaxed text-brand-ink/70" data-testid="trial-delivery-zone-hint">
         {{ __('We currently deliver only Wednesdays 12–16 in Berlin. We try to honour your preferred date as closely as possible.') }}
     </p>
 
@@ -49,8 +43,11 @@
                       class="mt-2 w-full rounded-none border-0 border-b border-brand-ink/30 bg-transparent px-0 py-2 text-brand-ink placeholder:text-brand-ink/40 focus:border-brand-ink focus:ring-0">{{ old('special_instructions', $data['special_instructions'] ?? '') }}</textarea>
         </div>
 
-        <div class="flex justify-end pt-4">
-            <x-primary-button>{{ __('Continue to payment') }}</x-primary-button>
+        <div class="flex flex-wrap items-center justify-between gap-4 border-t border-brand-ink/10 pt-8">
+            <a href="{{ route('app.onboarding.step.preferences') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
+                ← {{ __('onboarding.cta.back') }}
+            </a>
+            <x-primary-button>{{ __('onboarding.cta.to_payment') }}</x-primary-button>
         </div>
     </form>
 @endsection

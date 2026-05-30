@@ -1,13 +1,7 @@
 @extends('layouts.onboarding', ['step' => 'trial_payment', 'intent' => $draft->intent, 'draft' => $draft])
 
 @section('content')
-    <p class="eyebrow text-chapter-meat">{{ __('Last step — your payment') }}</p>
-    <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">{{ __('Secure your trial box') }}</h1>
-    <p class="mt-3 font-editorial text-base italic leading-relaxed text-brand-ink/70">
-        {{ __('One-time charge of EUR :amount. No subscription, no stored card.', ['amount' => \App\Support\Money::format($order->amount)]) }}
-    </p>
-
-    <dl class="mt-6 border border-brand-ink/15 bg-brand-ink/[0.02] p-5 text-sm text-brand-ink/80">
+    <dl class="border border-brand-ink/15 bg-brand-ink/[0.02] p-5 text-sm text-brand-ink/80">
         <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
             <dt class="eyebrow text-brand-ink/60">{{ __('Order #') }}</dt>
             <dd class="font-mono text-brand-ink">{{ $order->id }}</dd>
@@ -38,7 +32,7 @@
 
             <div class="mt-6">
                 <a href="{{ route('app.onboarding.step.trial_delivery') }}" class="text-sm text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
-                    ← {{ __('Back to :step', ['step' => __('Delivery')]) }}
+                    ← {{ __('onboarding.cta.back') }}
                 </a>
             </div>
         </div>

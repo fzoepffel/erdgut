@@ -30,11 +30,12 @@
             $intentProp = $intent ?? 'subscription';
             $isTrial = $intentProp === \App\Services\Onboarding\OnboardingDraftManager::INTENT_TRIAL;
 
-            // The editorial hero only fronts the four redesigned subscription
-            // steps. The remaining steps (Konto, Commitment, trial sub-steps)
-            // keep their own in-content heading and render inside the same
-            // shell without a hero.
-            $showHero = in_array($stepProp, ['address', 'preferences', 'subscription_schedule', 'subscription_payment'], true);
+            // The editorial hero fronts the four redesigned subscription steps
+            // plus the two trial sub-steps (delivery + payment), so the trial
+            // path gets the same editorial treatment end to end. The remaining
+            // steps (Konto, Commitment) keep their own in-content heading and
+            // render inside the same shell without a hero.
+            $showHero = in_array($stepProp, ['address', 'preferences', 'subscription_schedule', 'subscription_payment', 'trial_delivery', 'trial_payment'], true);
 
             $heroKey = match ($stepProp) {
                 'address' => 'address',
@@ -42,6 +43,15 @@
                 'subscription_schedule', 'trial_delivery' => 'schedule',
                 'subscription_payment', 'trial_payment' => 'payment',
                 default => 'address',
+            };
+
+            // The schedule + payment heroes carry subscription-specific copy
+            // (recurring rhythm, stored card). The trial path reuses the same
+            // hero chrome but with one-off, no-stored-card wording.
+            $heroCopyKey = match ($stepProp) {
+                'trial_delivery' => 'trial_delivery',
+                'trial_payment' => 'trial_payment',
+                default => $heroKey,
             };
 
             $stepNumber = match ($heroKey) {
@@ -104,7 +114,7 @@
                     'rows' => [
                         [__('onboarding.lbl.provider'), 'SumUp'],
                         [__('onboarding.lbl.security'), __('onboarding.val.pci')],
-                        [__('onboarding.lbl.billing'), __('onboarding.val.per_delivery')],
+                        [__('onboarding.lbl.billing'), $isTrial ? __('onboarding.val.one_off') : __('onboarding.val.per_delivery')],
                     ],
                 ],
             };
@@ -125,12 +135,12 @@
 
                         <div class="grid gap-12 lg:grid-cols-[1.15fr_1fr] lg:items-start lg:gap-16">
                             <div>
-                                <p class="eyebrow {{ $eyebrowChapter }}">{{ __('onboarding.hero.'.$heroKey.'.eyebrow') }}</p>
+                                <p class="eyebrow {{ $eyebrowChapter }}">{{ __('onboarding.hero.'.$heroCopyKey.'.eyebrow') }}</p>
                                 <h1 class="mt-6 font-display text-4xl leading-[1.05] tracking-tight text-brand-ink md:text-5xl lg:text-[4.5rem]">
-                                    {{ __('onboarding.hero.'.$heroKey.'.title_pre') }}<em class="font-normal italic text-chapter-produce">{{ __('onboarding.hero.'.$heroKey.'.title_em') }}</em>{{ __('onboarding.hero.'.$heroKey.'.title_post') }}
+                                    {{ __('onboarding.hero.'.$heroCopyKey.'.title_pre') }}<em class="font-normal italic text-chapter-produce">{{ __('onboarding.hero.'.$heroCopyKey.'.title_em') }}</em>{{ __('onboarding.hero.'.$heroCopyKey.'.title_post') }}
                                 </h1>
                                 <p class="mt-8 max-w-xl text-base leading-relaxed text-brand-ink/60">
-                                    {{ __('onboarding.hero.'.$heroKey.'.lede') }}
+                                    {{ __('onboarding.hero.'.$heroCopyKey.'.lede') }}
                                 </p>
                             </div>
 

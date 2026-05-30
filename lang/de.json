@@ -2903,5 +2903,16 @@
     "onboarding.val.pci": "PCI-DSS",
     "onboarding.summary.kicker": "Auf dem Lieferschein",
     "A box every week.": "Eine Box jede Woche.",
-    "Every other week — half the volume, same care.": "Jede zweite Woche — halbe Menge, gleiche Sorgfalt."
+    "Every other week — half the volume, same care.": "Jede zweite Woche — halbe Menge, gleiche Sorgfalt.",
+    "onboarding.hero.trial_delivery.eyebrow": "Deine erste Lieferung",
+    "onboarding.hero.trial_delivery.title_pre": "Deine erste ",
+    "onboarding.hero.trial_delivery.title_em": "Lieferung",
+    "onboarding.hero.trial_delivery.title_post": ".",
+    "onboarding.hero.trial_delivery.lede": "Wir planen Probe-Lieferungen von Hand und bestätigen dein genaues Datum per E-Mail.",
+    "onboarding.hero.trial_payment.eyebrow": "Zahlung",
+    "onboarding.hero.trial_payment.title_pre": "Sichere deine ",
+    "onboarding.hero.trial_payment.title_em": "Probierbox",
+    "onboarding.hero.trial_payment.title_post": ".",
+    "onboarding.hero.trial_payment.lede": "Eine einmalige Zahlung — kein Abo und keine gespeicherte Karte.",
+    "onboarding.val.one_off": "Einmalig"
 }
