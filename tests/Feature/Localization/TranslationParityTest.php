@@ -44,6 +44,9 @@ class TranslationParityTest extends TestCase
         'customer.recipe.',
         // ProductUnit enum value is interpolated into the key (`units.kg`, etc.).
         'units.',
+        // Onboarding layout builds hero keys like 'onboarding.hero.'.$heroKey.'.eyebrow'
+        // (address|box|schedule|payment). Concrete variants live in lang/{de,en,fr}.json.
+        'onboarding.hero.',
     ];
 
     public function test_every_translation_key_used_in_source_exists_in_every_locale(): void

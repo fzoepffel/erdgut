@@ -214,8 +214,8 @@ class WizardPolishTest extends TestCase
         $this->makeDraftWithAccount($user);
 
         $response = $this->actingAs($user)->get(route('app.onboarding.step.address'))->assertOk();
-        // The bar pill is "Box"; the forward button now matches.
-        $response->assertSee(__('Continue to :step', ['step' => __('Box')]));
+        // The bar segment is "Box"; the forward button names that next step.
+        $response->assertSee(__('onboarding.cta.to_box'));
         $response->assertDontSee(__('Continue to :step', ['step' => __('Preferences')]));
     }
 

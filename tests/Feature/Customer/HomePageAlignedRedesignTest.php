@@ -138,7 +138,7 @@ class HomePageAlignedRedesignTest extends TestCase
         $this->assertStringContainsString('data-testid="customer-editorial-footer-band"', $html);
     }
 
-    public function test_onboarding_preferences_step_renders_chapter_style_box_size_cards(): void
+    public function test_onboarding_preferences_step_renders_editorial_box_size_tiles(): void
     {
         $user = User::factory()->create();
 
@@ -151,10 +151,11 @@ class HomePageAlignedRedesignTest extends TestCase
         $this->assertStringContainsString('data-testid="onboarding-box-size-card-medium"', $html);
         $this->assertStringContainsString('data-testid="onboarding-box-size-card-large"', $html);
 
-        // Chapter-coloured backgrounds (one per size). The cards are now
-        // pure typography over the chapter colour — no illustration.
-        $this->assertStringContainsString('bg-chapter-bread', $html);
-        $this->assertStringContainsString('bg-chapter-produce', $html);
-        $this->assertStringContainsString('bg-chapter-meat', $html);
+        // Redesigned choice tiles: monochrome cream surface, moss outline +
+        // paper fill on selection, and a "chosen" marker — no chapter colour.
+        $this->assertStringContainsString('bg-brand-cream', $html);
+        $this->assertStringContainsString('has-[:checked]:border-chapter-produce', $html);
+        $this->assertStringContainsString('has-[:checked]:bg-brand-paper', $html);
+        $this->assertStringContainsString(__('onboarding.chosen'), $html);
     }
 }
