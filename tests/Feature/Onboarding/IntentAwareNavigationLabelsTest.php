@@ -9,18 +9,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Step-bar / forward-button taxonomy regression test.
+ * Wizard navigation taxonomy regression test (editorial redesign).
  *
- * Earlier the preferences-step forward button labelled itself with
- * the *next inner* step name (Schedule / Delivery / Commitment) which
- * contradicted the wizard's progress bar (where preferences /
- * commitment / schedule / delivery all live inside the single "Box"
- * pill). The button now reads a generic "Continue" regardless of
- * intent — this test pins that taxonomy alignment (B11 in UX notes).
- *
- * The schedule-step back-link logic IS still intent-aware: subscribers
- * who skipped Commitment land back on Preferences. That contract is
- * still tested below.
+ * The preferences-step forward button names the *next visible segment*:
+ * "Continue to schedule" for subscription/undecided, "Continue to delivery"
+ * for trial. The schedule-step back link uses a generic "Back" label, but its
+ * href is still intent-aware — subscribers who skipped Commitment land back on
+ * Preferences, while the undecided path returns to Commitment. This test pins
+ * both contracts.
  */
 class IntentAwareNavigationLabelsTest extends TestCase
 {
@@ -40,7 +36,7 @@ class IntentAwareNavigationLabelsTest extends TestCase
         ]);
     }
 
-    public function test_preferences_forward_button_uses_generic_continue_for_subscription(): void
+    public function test_preferences_forward_button_points_to_schedule_for_subscription(): void
     {
         $user = User::factory()->create();
         $this->draftFor($user, OnboardingDraftManager::INTENT_SUBSCRIPTION, OnboardingDraftManager::STEP_PREFERENCES);
@@ -50,22 +46,11 @@ class IntentAwareNavigationLabelsTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString(
-            __('Continue'),
-            $html,
-            'subscription intent should render a generic "Continue" — the bar pill stays "Box".'
-        );
-        $this->assertStringNotContainsString(
-            __('Continue to :step', ['step' => __('Schedule')]),
-            $html,
-        );
-        $this->assertStringNotContainsString(
-            __('Continue to :step', ['step' => __('Commitment')]),
-            $html,
-        );
+        $this->assertStringContainsString(__('onboarding.cta.to_schedule'), $html);
+        $this->assertStringNotContainsString(__('onboarding.cta.to_delivery'), $html);
     }
 
-    public function test_preferences_forward_button_uses_generic_continue_for_trial(): void
+    public function test_preferences_forward_button_points_to_delivery_for_trial(): void
     {
         $user = User::factory()->create();
         $this->draftFor($user, OnboardingDraftManager::INTENT_TRIAL, OnboardingDraftManager::STEP_PREFERENCES);
@@ -75,14 +60,11 @@ class IntentAwareNavigationLabelsTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString(__('Continue'), $html);
-        $this->assertStringNotContainsString(
-            __('Continue to :step', ['step' => __('Delivery')]),
-            $html,
-        );
+        $this->assertStringContainsString(__('onboarding.cta.to_delivery'), $html);
+        $this->assertStringNotContainsString(__('onboarding.cta.to_schedule'), $html);
     }
 
-    public function test_preferences_forward_button_uses_generic_continue_when_intent_undecided(): void
+    public function test_preferences_forward_button_points_to_schedule_when_intent_undecided(): void
     {
         $user = User::factory()->create();
         $this->draftFor($user, OnboardingDraftManager::INTENT_UNDECIDED, OnboardingDraftManager::STEP_PREFERENCES);
@@ -92,14 +74,10 @@ class IntentAwareNavigationLabelsTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString(__('Continue'), $html);
-        $this->assertStringNotContainsString(
-            __('Continue to :step', ['step' => __('Commitment')]),
-            $html,
-        );
+        $this->assertStringContainsString(__('onboarding.cta.to_schedule'), $html);
     }
 
-    public function test_schedule_back_link_points_to_preferences_for_subscription_intent(): void
+    public function test_schedule_back_link_targets_preferences_for_subscription_intent(): void
     {
         $user = User::factory()->create();
         $this->draftFor(
@@ -114,15 +92,9 @@ class IntentAwareNavigationLabelsTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString(
-            __('Back to :step', ['step' => __('Preferences')]),
-            $html,
-            'subscription intent skipped Commitment, so the back link should land on Preferences instead.'
-        );
-        $this->assertStringNotContainsString(
-            __('Back to :step', ['step' => __('Commitment')]),
-            $html,
-            'subscription intent should not link back to the skipped Commitment step.'
-        );
+        // Generic label, intent-aware href: subscription skipped Commitment so
+        // the back link should land on Preferences, not Commitment.
+        $this->assertStringContainsString('href="'.route('app.onboarding.step.preferences').'"', $html);
+        $this->assertStringNotContainsString('href="'.route('app.onboarding.step.commitment').'"', $html);
     }
 }

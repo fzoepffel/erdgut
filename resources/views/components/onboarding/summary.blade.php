@@ -66,8 +66,9 @@
     $anyFilled = $accountFilled || $addressFilled || $boxFilled || $scheduleFilled;
 @endphp
 
-<div class="border-t-2 border-chapter-produce bg-white/70 p-5 sticky top-6 space-y-5 text-sm text-brand-ink/80">
-    <p class="eyebrow text-chapter-produce">{{ __('Your details') }}</p>
+<div class="sticky top-6 space-y-5 bg-brand-paper p-6 text-sm text-brand-ink/80">
+    <p class="font-mono text-[0.65rem] uppercase tracking-widest text-chapter-produce">{{ __('onboarding.summary.kicker') }}</p>
+    <p class="-mt-3 font-display text-2xl text-brand-ink">{{ __('Your details') }}</p>
 
     @if (! $anyFilled)
         <p class="text-xs text-brand-ink/60">{{ __('We will keep a running summary of everything you tell us as you go.') }}</p>
