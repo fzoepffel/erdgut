@@ -99,6 +99,9 @@ class ProducerController extends Controller
             }
         });
 
+        // Derive the public slug from the freshly-saved German name.
+        $producer->load('translations')->ensureSlug();
+
         // Redirect to the index so the admin gets explicit "X created" feedback
         // plus a list view confirming the row exists (instead of landing back on
         // an edit page that looks identical to a fresh create form).
@@ -152,6 +155,10 @@ class ProducerController extends Controller
                 );
             }
         });
+
+        // Backfill the slug if this producer predates the slug column (no-op
+        // when it already has one — a live URL never silently changes).
+        $producer->load('translations')->ensureSlug();
 
         return redirect()
             ->route('app.admin.producers.edit', $producer)

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasMany as HasManyRelation;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Producer extends Model
 {
@@ -21,6 +22,7 @@ class Producer extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'slug',
         'image_url',
         'image_path',
         'is_test',
@@ -95,6 +97,43 @@ class Producer extends Model
     public function getDescriptionAttribute(): ?string
     {
         return $this->translationFor()?->description;
+    }
+
+    /**
+     * Use the slug for route-model binding so /producers/{producer} resolves
+     * by the URL-safe slug rather than the numeric id.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    /**
+     * Ensure this producer has a slug derived from its German name (falling
+     * back to en/fr, then producer-{id}), deduped against every other row so
+     * the unique index never collides. Idempotent: only writes when the slug
+     * is currently empty, so admin edits don't silently change a live URL.
+     */
+    public function ensureSlug(): void
+    {
+        if ($this->slug !== null && $this->slug !== '') {
+            return;
+        }
+
+        $name = $this->translationFor('de')?->name
+            ?? $this->translationFor('en')?->name
+            ?? $this->translationFor('fr')?->name
+            ?? '';
+
+        $base = Str::slug($name) ?: 'producer-'.$this->id;
+        $slug = $base;
+        $n = 2;
+        while (static::query()->where('slug', $slug)->where('id', '!=', $this->id)->exists()) {
+            $slug = $base.'-'.$n;
+            $n++;
+        }
+
+        $this->forceFill(['slug' => $slug])->save();
     }
 
     /**

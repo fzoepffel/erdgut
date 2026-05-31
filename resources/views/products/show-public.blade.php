@@ -1,9 +1,11 @@
 @extends('layouts.marketing')
 
 @section('content')
-    @include('products._partials.detail', [
+    @include('products._partials.public-detail', [
         'product' => $product,
-        'listRouteName' => 'public.products.index',
-        'detailRouteName' => 'public.products.show',
+        'indexUrl' => route('public.products.index'),
+        'indexLabel' => __('Products'),
+        'productRouteName' => 'public.products.show',
+        'producerRouteName' => 'public.producers.show',
     ])
 @endsection

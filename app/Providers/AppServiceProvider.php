@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Controllers\Admin\AdminShopOrderController;
 use App\Http\Controllers\SpargelAdminController;
 use App\Listeners\AddListUnsubscribeHeader;
 use App\Listeners\LogSentMail;
@@ -14,6 +15,7 @@ use App\Observers\SpargelOrderObserver;
 use App\Policies\ProducerPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\UserPolicy;
+use App\Services\Shop\ShopOrderService;
 use App\Services\SpargelOrderService;
 use App\Support\RequiredSecretValidator;
 use App\Support\SubscriberAccess;
@@ -44,8 +46,15 @@ class AppServiceProvider extends ServiceProvider
         // Named live instance for the spargel shop.
         $this->app->singleton('sumup.spargel', fn () => new SumUpService('spargel'));
 
-        // Contextual bindings: spargel classes receive the live service automatically.
-        $this->app->when([SpargelOrderService::class, SpargelAdminController::class])
+        // Contextual bindings: spargel + shop classes receive the live
+        // service automatically. The shop sells through the same live
+        // SumUp merchant as the spargel trial channel.
+        $this->app->when([
+            SpargelOrderService::class,
+            SpargelAdminController::class,
+            ShopOrderService::class,
+            AdminShopOrderController::class,
+        ])
             ->needs(SumUpService::class)
             ->give(fn ($app) => $app->make('sumup.spargel'));
     }

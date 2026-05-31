@@ -68,6 +68,9 @@
         <x-admin.nav-link :href="route('app.admin.orders.index', ['product_type' => 'trial_box'])" matches="app.admin.orders.*">
             {{ __('Trial orders') }}
         </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.shop-orders.index')" matches="app.admin.shop-orders.*">
+            {{ __('shop.admin.nav_label') }}
+        </x-admin.nav-link>
         <x-admin.nav-link :href="route('app.admin.deliveries.index')" matches="app.admin.deliveries.*">
             {{ __('admin.operations.nav_deliveries') }}
         </x-admin.nav-link>

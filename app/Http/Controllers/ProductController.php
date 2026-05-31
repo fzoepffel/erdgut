@@ -58,6 +58,11 @@ class ProductController extends Controller
 
         $template = $request->user() !== null ? 'products.show' : 'products.show-public';
 
-        return view($template, ['product' => $product]);
+        return view($template, [
+            'product' => $product,
+            // Public-shell head meta (ignored by the auth app layout).
+            'title' => $product->name.' · '.__('product.detail.eyebrow').' · '.config('app.name', 'Erdgut'),
+            'description' => __('product.detail.meta_description'),
+        ]);
     }
 }

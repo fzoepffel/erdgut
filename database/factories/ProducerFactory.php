@@ -25,6 +25,11 @@ class ProducerFactory extends Factory
                     'description' => fake()->sentence(),
                 ]);
             }
+
+            // Derive the public slug from the freshly created translations so
+            // route-model binding (/producers/{producer:slug}) resolves in tests
+            // and seeds, mirroring the admin create/update flow.
+            $producer->load('translations')->ensureSlug();
         });
     }
 

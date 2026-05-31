@@ -2,10 +2,12 @@
 
 namespace App\Services\Admin;
 
+use App\Enums\ShopOrderStatus;
 use App\Enums\SpargelOrderStatus;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ProductStockInflowSchedule;
+use App\Models\ShopOrderItem;
 use App\Models\SpargelOrder;
 use App\Support\BoxDeliveryDateResolver;
 use Illuminate\Support\Carbon;
@@ -100,6 +102,7 @@ class InventoryService
 
         $committed += $this->spargelCommittedOnDate($product, $iso);
         $committed += $this->boxCommittedOnDate($product, $iso);
+        $committed += $this->shopCommittedOnDate($product, $iso);
 
         return round($committed, 4);
     }
@@ -357,6 +360,23 @@ class InventoryService
                 SpargelOrderStatus::Refunded,
             ])
             ->sum($column);
+    }
+
+    private function shopCommittedOnDate(Product $product, string $iso): float
+    {
+        // `shop_order_items.quantity` is in canonical product units (same
+        // as inflows), so it aggregates directly. Only orders still on the
+        // hook for fulfilment commit stock — cancelled/refunded release it.
+        return (float) ShopOrderItem::query()
+            ->where('shop_order_items.product_id', $product->id)
+            ->whereHas('shopOrder', function ($q) use ($iso): void {
+                $q->whereDate('expected_delivery_date', $iso)
+                    ->whereNotIn('status', [
+                        ShopOrderStatus::Cancelled,
+                        ShopOrderStatus::Refunded,
+                    ]);
+            })
+            ->sum('shop_order_items.quantity');
     }
 
     private function boxCommittedOnDate(Product $product, string $iso): float

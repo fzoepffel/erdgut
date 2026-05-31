@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Marketing;
 
 use App\Http\Controllers\Controller;
 use App\Models\Producer;
+use App\Models\Product;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -84,6 +85,29 @@ class ProducerController extends Controller
             ],
             'hasAnyProducers' => $hasAnyProducers,
             'filtersActive' => $filtersActive,
+        ]);
+    }
+
+    /**
+     * Show a single producer's public detail page, built entirely from the
+     * admin-entered fields (name, region, description, photo) plus the
+     * producer's catalog products. Bound by slug via getRouteKeyName().
+     */
+    public function show(Producer $producer): View
+    {
+        $producer->load(['translations', 'products.translations']);
+
+        // Only surface catalog-visible products, rendered as full cards
+        // (image, name, price, note) just like the public catalogue.
+        $products = $producer->products
+            ->filter(fn (Product $p): bool => $p->is_available && $p->is_published)
+            ->filter(fn (Product $p): bool => $p->name !== '')
+            ->values();
+
+        return view('marketing.producer-show', [
+            'producer' => $producer,
+            'products' => $products,
+            'title' => $producer->name.' · '.__('producer.detail.eyebrow').' · '.config('app.name', 'Erdgut'),
         ]);
     }
 }

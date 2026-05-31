@@ -66,6 +66,7 @@
                 <a href="{{ route('public.about') }}" @if (request()->routeIs('public.about')) aria-current="page" @endif class="transition {{ request()->routeIs('public.about') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.about') ? $ink : $inkSubtle }};">{{ __('About') }}</a>
                 <a href="{{ route('public.producers') }}" @if (request()->routeIs('public.producers')) aria-current="page" @endif class="transition {{ request()->routeIs('public.producers') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.producers') ? $ink : $inkSubtle }};">{{ __('Producers') }}</a>
                 <a href="{{ route('public.products.index') }}" @if (request()->routeIs('public.products.*')) aria-current="page" @endif class="transition {{ request()->routeIs('public.products.*') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.products.*') ? $ink : $inkSubtle }};">{{ __('Products') }}</a>
+                <a href="{{ route('public.shop.index') }}" @if (request()->routeIs('public.shop.*')) aria-current="page" @endif class="transition {{ request()->routeIs('public.shop.*') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.shop.*') ? $ink : $inkSubtle }};">{{ __('Shop') }}</a>
                 <a href="{{ route('public.contact') }}" @if (request()->routeIs('public.contact')) aria-current="page" @endif class="transition {{ request()->routeIs('public.contact') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.contact') ? $ink : $inkSubtle }};">{{ __('Contact') }}</a>
             </nav>
         @endif
@@ -123,6 +124,7 @@
                 <a href="{{ route('public.about') }}" @if (request()->routeIs('public.about')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.about') ? $ink : $inkSubtle }};">{{ __('About') }}</a>
                 <a href="{{ route('public.producers') }}" @if (request()->routeIs('public.producers')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.producers') ? $ink : $inkSubtle }};">{{ __('Producers') }}</a>
                 <a href="{{ route('public.products.index') }}" @if (request()->routeIs('public.products.*')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.products.*') ? $ink : $inkSubtle }};">{{ __('Products') }}</a>
+                <a href="{{ route('public.shop.index') }}" @if (request()->routeIs('public.shop.*')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.shop.*') ? $ink : $inkSubtle }};">{{ __('Shop') }}</a>
                 <a href="{{ route('public.contact') }}" @if (request()->routeIs('public.contact')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.contact') ? $ink : $inkSubtle }};">{{ __('Contact') }}</a>
             </div>
             <div class="mt-5 border-t pt-5" style="border-color: rgba(33, 52, 29, 0.15);">

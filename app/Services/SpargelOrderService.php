@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\SpargelOrder;
 use App\Services\Admin\InventoryService;
 use App\Services\Onboarding\TrialOrderService;
+use App\Support\PickupLocations;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Support\Carbon;
@@ -46,9 +47,11 @@ class SpargelOrderService
     public const VAT_RATE_PERCENT = 7;
 
     /**
-     * The two pickup locations a customer can choose from. Each entry's
-     * key is what we persist in `pickup_location`; the rest is the
-     * surface info (name + address) shown on the confirmation screen,
+     * The pickup locations a customer can choose from. Sourced from the
+     * shared {@see PickupLocations} registry so the spargel flow and the
+     * general shop can never drift to different location lists. Each
+     * entry's key is what we persist in `pickup_location`; the rest is
+     * the surface info (name + address) shown on the confirmation screen,
      * the email, and the admin list.
      *
      * The order page (form) intentionally shows only the address — the
@@ -57,20 +60,7 @@ class SpargelOrderService
      *
      * @var array<string, array{name:string, street:string, postal_code:string, city:string}>
      */
-    public const PICKUP_LOCATIONS = [
-        'karl_kunger' => [
-            'name' => 'Arthur Hamcha',
-            'street' => 'Karl-Kunger-Straße 9',
-            'postal_code' => '12435',
-            'city' => 'Berlin',
-        ],
-        'gotenstrasse' => [
-            'name' => 'Milan Ross',
-            'street' => 'Gotenstraße 19',
-            'postal_code' => '10829',
-            'city' => 'Berlin',
-        ],
-    ];
+    public const PICKUP_LOCATIONS = PickupLocations::LOCATIONS;
 
     /**
      * Look up a pickup location by its key. Returns null if the key
@@ -80,11 +70,7 @@ class SpargelOrderService
      */
     public static function pickupLocation(?string $key): ?array
     {
-        if ($key === null || ! isset(self::PICKUP_LOCATIONS[$key])) {
-            return null;
-        }
-
-        return self::PICKUP_LOCATIONS[$key];
+        return PickupLocations::find($key);
     }
 
     /** Customers buy in 50 g increments. Same constant guards the form

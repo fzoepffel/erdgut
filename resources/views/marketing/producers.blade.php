@@ -119,7 +119,11 @@
                         data-producer-id="{{ $producer->id }}"
                         style="--i:{{ $index % 6 }}"
                     >
-                        <div class="relative aspect-[4/5] overflow-hidden bg-chapter-producers-soft/40">
+                        <a
+                            href="{{ route('public.producers.show', $producer) }}"
+                            class="relative block aspect-[4/5] overflow-hidden bg-chapter-producers-soft/40"
+                            data-testid="producer-card-profile-image-link"
+                        >
                             <img
                                 src="{{ $producer->primaryImageUrl() ?? $fallback }}"
                                 alt=""
@@ -127,10 +131,12 @@
                                 loading="lazy"
                             >
                             <span class="absolute left-0 top-0 bg-chapter-producers px-3 py-2 font-display text-xs font-bold uppercase tracking-eyebrow text-brand-cream">{{ $number }}</span>
-                        </div>
+                        </a>
                         <div class="flex flex-1 flex-col gap-3">
                             <p class="eyebrow text-chapter-producers">{{ $producer->region }}</p>
-                            <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ $producer->name }}</h3>
+                            <h3 class="font-display text-2xl leading-snug text-brand-ink">
+                                <a href="{{ route('public.producers.show', $producer) }}" class="underline-offset-4 hover:underline" data-testid="producer-card-profile-link">{{ $producer->name }}</a>
+                            </h3>
                             @php
                                 $desc = $producer->description ?? '';
                                 $descLong = mb_strlen($desc) > 180;

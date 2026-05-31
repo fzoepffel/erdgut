@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
 use App\Http\Controllers\Admin\AdminSearchController;
+use App\Http\Controllers\Admin\AdminShopOrderController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
 use App\Http\Controllers\Admin\AdminUserController;
@@ -50,6 +51,8 @@ use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\Shop\ShopCatalogController;
+use App\Http\Controllers\Shop\ShopController;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Controllers\SpargelOrderController;
 use App\Http\Controllers\SubscriptionController;
@@ -67,6 +70,7 @@ Route::name('public.')->group(function () {
     Route::get('/home', [HomeController::class, 'index'])->name('marketing-home');
     Route::get('/about', [AboutController::class, 'index'])->name('about');
     Route::get('/producers', [MarketingProducerController::class, 'index'])->name('producers');
+    Route::get('/producers/{producer:slug}', [MarketingProducerController::class, 'show'])->name('producers.show');
 
     // Public catalogue: same controller as the auth-shell list/show under
     // /app/products. The controller renders the marketing-shell template
@@ -108,6 +112,27 @@ Route::name('public.')->group(function () {
         ->name('spargel.store');
     Route::get('/spargel/{spargelOrder}/pay', [SpargelOrderController::class, 'pay'])->name('spargel.pay');
     Route::get('/spargel/{spargelOrder}/return', [SpargelOrderController::class, 'return'])->name('spargel.return');
+
+    // General shop: the admin-managed, multi-product successor to the
+    // spargel channel. Same anonymous one-off-purchase model (no auth,
+    // no User / Order linkage) but the cart spans the whole catalog and
+    // the date picker is driven by live admin inventory. Spargel stays
+    // live alongside it, untouched.
+    Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
+    Route::post('/shop', [ShopController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('shop.store');
+    Route::get('/shop/{shopOrder}/pay', [ShopController::class, 'pay'])->name('shop.pay');
+    Route::get('/shop/{shopOrder}/return', [ShopController::class, 'return'])->name('shop.return');
+
+    // Isolated catalog detail pages for the preview shop. Same body as the
+    // public /products/{product} and /producers/{slug} pages but wrapped in
+    // the self-contained shop chrome (no marketing header/footer, no links
+    // out into the rest of the hidden project). The static `products` /
+    // `producers` prefixes are declared before the `{shopOrder}` wildcard
+    // routes above only in name, not in URL — these own distinct paths.
+    Route::get('/shop/products/{product}', [ShopCatalogController::class, 'product'])->name('shop.products.show');
+    Route::get('/shop/producers/{producer:slug}', [ShopCatalogController::class, 'producer'])->name('shop.producers.show');
 
     // Minimal privacy notice — exists so the spargel-form consent text
     // can link to a real page (Datenschutzhinweis is required for any
@@ -371,6 +396,20 @@ Route::middleware(['auth', 'verified'])
             Route::post('orders/{order}/mark-delivered', [AdminOrderController::class, 'markDelivered'])
                 ->middleware('throttle:30,1')
                 ->name('orders.mark-delivered');
+
+            // Anonymous multi-product shop orders (the proper admin surface,
+            // unlike the disposable /spargel-admin page).
+            Route::get('shop-orders', [AdminShopOrderController::class, 'index'])->name('shop-orders.index');
+            Route::get('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'show'])->name('shop-orders.show');
+            Route::post('shop-orders/{shopOrder}/mark-paid', [AdminShopOrderController::class, 'markPaid'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.mark-paid');
+            Route::post('shop-orders/{shopOrder}/mark-completed', [AdminShopOrderController::class, 'markCompleted'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.mark-completed');
+            Route::post('shop-orders/{shopOrder}/refund', [AdminShopOrderController::class, 'refund'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.refund');
         });
     });
 
