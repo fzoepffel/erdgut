@@ -100,9 +100,10 @@ class ShopOrderFlowTest extends TestCase
             ->assertSee($this->product->name);
     }
 
-    public function test_storefront_shows_only_products_available_on_selected_date(): void
+    public function test_storefront_omits_products_with_no_stock_in_the_week(): void
     {
-        // A second product with NO stock on the delivery date must be absent.
+        // A second product with NO stock anywhere in the week must be absent
+        // entirely (not even greyed-out).
         $hidden = Product::factory()->create([
             'category' => 'produce',
             'unit' => ProductUnit::Piece->value,
@@ -115,6 +116,100 @@ class ShopOrderFlowTest extends TestCase
             ->assertOk()
             ->assertSee($this->product->name)
             ->assertDontSee($hidden->name);
+    }
+
+    public function test_storefront_shows_week_products_greyed_when_unavailable_on_selected_day(): void
+    {
+        // DELIVERY_DATE 2026-06-05 (Fri) sits in the Mon 06-01 .. Sun 06-07
+        // week. A product stocked only on Wed 06-03 of that week must appear,
+        // but greyed-out (disabled picker) with a note pointing at 06-03 —
+        // not orderable for the Friday, yet discoverable.
+        $weekOther = Product::factory()->create([
+            'category' => 'produce',
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 3.00,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $weekOther->id,
+            'received_on' => '2026-06-03',
+            'quantity' => 5,
+            'freshness_window_days' => 1,
+        ]);
+
+        $html = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->assertSee($weekOther->name)
+            ->assertSee(__('shop.weekly_unavailable_label'))
+            ->getContent();
+
+        // It is shown as an unavailable card with a disabled picker — there
+        // must be no active quantity field bound to its id.
+        $this->assertStringContainsString('data-testid="shop-product-card-unavailable"', $html);
+        $this->assertStringNotContainsString('name="quantities['.$weekOther->id.']"', $html);
+
+        // The orderable product still has an active <select> picker.
+        $this->assertStringContainsString('name="quantities['.$this->product->id.']"', $html);
+        $this->assertStringContainsString('data-testid="shop-qty-select"', $html);
+    }
+
+    public function test_mass_product_quantity_picker_steps_by_50_grams(): void
+    {
+        $mass = Product::factory()->create([
+            'category' => 'produce',
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.01, // per gram
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $mass->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 300, // 300 g in stock
+            'freshness_window_days' => 1,
+        ]);
+
+        $html = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->getContent();
+
+        // 50 g steps: 50 and 100 present; 75 (off-step) absent.
+        $this->assertStringContainsString('<option value="50"', $html);
+        $this->assertStringContainsString('<option value="100"', $html);
+        $this->assertStringNotContainsString('<option value="75"', $html);
+        // Capped at remaining stock (300 g) — 350 not offered.
+        $this->assertStringNotContainsString('<option value="350"', $html);
+    }
+
+    public function test_off_step_mass_quantity_is_rejected(): void
+    {
+        $mass = Product::factory()->create([
+            'category' => 'produce',
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.01,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $mass->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 1000,
+            'freshness_window_days' => 1,
+        ]);
+
+        // 75 g is not a multiple of the 50 g step → rejected.
+        $this->post(route('public.shop.store'), $this->pickupPayload([
+            'quantities' => [$mass->id => 75],
+        ]))->assertSessionHasErrors('items.0.quantity');
+
+        // 100 g is a clean multiple → accepted.
+        $this->post(route('public.shop.store'), $this->pickupPayload([
+            'quantities' => [$mass->id => 100],
+        ]))->assertSessionHasNoErrors();
     }
 
     public function test_guest_checkout_creates_order_with_items_and_correct_totals(): void

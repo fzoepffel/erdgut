@@ -130,6 +130,78 @@ class ShopOrderService
     }
 
     /**
+     * Products available *anywhere in the ISO week* containing `$date`,
+     * each annotated with its availability on the selected day plus the
+     * concrete in-week dates it can be ordered for.
+     *
+     * The storefront shows the whole week's catalog so a guest isn't
+     * surprised by produce disappearing day-to-day. A product in stock on
+     * the selected day gets an active quantity picker (`available_on_selected`
+     * = true, `remaining` > 0); one in stock only on *other* days of the
+     * week is surfaced greyed-out with its concrete `available_dates`, so the
+     * guest can switch the delivery date instead of wondering where it went.
+     * Products with no stock anywhere in the week are omitted entirely.
+     *
+     * The week is Monday–Sunday around `$date`, clamped so past days are
+     * never offered. `remaining` is in canonical units; the UI caps the
+     * per-product picker at this value.
+     *
+     * @return Collection<int, array{
+     *     product: Product,
+     *     remaining: float,
+     *     available_on_selected: bool,
+     *     available_dates: array<int, array{date: Carbon, remaining: float}>
+     * }>
+     */
+    public function weeklyProductsForDate(Carbon $date): Collection
+    {
+        $inventory = app(InventoryService::class);
+
+        $selectedIso = $date->copy()->startOfDay()->toDateString();
+        $weekStart = $date->copy()->startOfWeek(Carbon::MONDAY);
+        $weekEnd = $date->copy()->endOfWeek(Carbon::SUNDAY);
+
+        // Never offer past days — clamp the window's start to tomorrow.
+        $earliest = Carbon::today()->addDay();
+        $from = $weekStart->lt($earliest) ? $earliest : $weekStart;
+
+        if ($from->gt($weekEnd)) {
+            return collect();
+        }
+
+        return Product::query()
+            ->visibleInCatalog()
+            ->with(['translations', 'producer.translations', 'images'])
+            ->get()
+            ->map(function (Product $product) use ($inventory, $from, $weekEnd, $selectedIso): array {
+                $window = $inventory->availabilityWindow($product, $from, $weekEnd);
+
+                $dates = [];
+                foreach ($window as $iso => $remaining) {
+                    if ($remaining > 0) {
+                        $dates[] = [
+                            'date' => Carbon::parse($iso)->startOfDay(),
+                            'remaining' => $remaining,
+                        ];
+                    }
+                }
+
+                $selectedRemaining = (float) ($window[$selectedIso] ?? 0.0);
+
+                return [
+                    'product' => $product,
+                    'remaining' => $selectedRemaining,
+                    'available_on_selected' => $selectedRemaining > 0,
+                    'available_dates' => $dates,
+                ];
+            })
+            ->filter(fn (array $row): bool => $row['available_dates'] !== [])
+            // Orderable-today products first; everything else keeps catalog order.
+            ->sortByDesc(fn (array $row): bool => $row['available_on_selected'])
+            ->values();
+    }
+
+    /**
      * Price a cart. Each line is `['product_id' => int, 'quantity' =>
      * float]` (quantity in canonical units). Resolves each product,
      * snapshots its unit + per-canonical-unit price, computes the line

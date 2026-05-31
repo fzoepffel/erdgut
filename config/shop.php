@@ -27,9 +27,9 @@ return [
     'vat_rate_percent' => env('SHOP_VAT_RATE_PERCENT', 7),
 
     // Quantity step (in canonical units) offered for mass/volume products
-    // in the per-product picker — e.g. 250 g / 250 ml increments. Piece +
-    // bunch products always step by 1.
-    'quantity_step' => env('SHOP_QUANTITY_STEP', 250),
+    // in the per-product picker — 50 g / 50 ml increments. Piece + bunch
+    // products always step by 1 (whole counts).
+    'quantity_step' => env('SHOP_QUANTITY_STEP', 50),
 
     // Largest amount (canonical units) the picker will offer for a single
     // mass/volume product line, capped further by remaining stock.

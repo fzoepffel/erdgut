@@ -3,23 +3,27 @@
         $inputClass = 'mt-2 block w-full border border-brand-ink/30 bg-white px-3 py-2.5 text-base text-brand-ink placeholder:text-brand-ink/40 focus:border-chapter-produce focus:outline-none focus:ring-0';
 
         // Build the Alpine product registry: per-product canonical price,
-        // step, remaining stock, and a localized display price. Quantities
-        // live in canonical units; the cart total is computed client-side
-        // and re-verified server-side on submit.
-        $alpineProducts = $products->map(function ($row) use ($quantityStep) {
-            $product = $row['product'];
-            $isCount = in_array($product->unit?->value, ['piece', 'bunch'], true);
-            $step = $isCount ? 1 : (int) $quantityStep;
+        // step, remaining stock. Only products in stock on the *selected*
+        // day are orderable, so only those go into the live cart; the
+        // greyed week-only products carry no quantity. Quantities live in
+        // canonical units; the cart total is computed client-side and
+        // re-verified server-side on submit.
+        $alpineProducts = $products
+            ->filter(fn ($row) => $row['available_on_selected'])
+            ->map(function ($row) use ($quantityStep) {
+                $product = $row['product'];
+                $isCount = in_array($product->unit?->value, ['piece', 'bunch'], true);
+                $step = $isCount ? 1 : (int) $quantityStep;
 
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'unitPrice' => (float) $product->unit_price,
-                'step' => $step,
-                'remaining' => (int) floor($row['remaining']),
-                'isCount' => $isCount,
-            ];
-        })->values();
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'unitPrice' => (float) $product->unit_price,
+                    'step' => $step,
+                    'remaining' => (int) floor($row['remaining']),
+                    'isCount' => $isCount,
+                ];
+            })->values();
     @endphp
 
     <div
@@ -87,9 +91,14 @@
                 @csrf
                 <input type="hidden" name="expected_delivery_date" value="{{ $selectedDate?->toDateString() }}">
 
-                {{-- Product grid for the selected date --}}
+                {{-- Product grid: everything in stock somewhere this week.
+                     Products available on the selected day get an active
+                     quantity picker; products only available on *other* days
+                     of the week are greyed out with a note listing those days
+                     so the guest can switch the delivery date above. --}}
                 <fieldset class="space-y-4">
                     <legend class="eyebrow text-chapter-produce">{{ __('shop.section_products') }}</legend>
+                    <p class="text-sm text-brand-ink/70">{{ __('shop.weekly_intro') }}</p>
 
                     @if ($products->isEmpty())
                         <div class="border border-brand-ink/15 bg-brand-paper p-6 text-sm text-brand-ink/70" data-testid="shop-no-products">
@@ -100,11 +109,24 @@
                             @foreach ($products as $row)
                                 @php
                                     $product = $row['product'];
+                                    $availableToday = $row['available_on_selected'];
                                     $remaining = (int) floor($row['remaining']);
                                     $isCount = in_array($product->unit?->value, ['piece', 'bunch'], true);
                                     $step = $isCount ? 1 : (int) $quantityStep;
+                                    // Largest selectable amount: remaining stock,
+                                    // floored to the step and capped by config.
+                                    $cap = $isCount
+                                        ? min($remaining, (int) $maxCount)
+                                        : min((int) (floor($remaining / $step) * $step), (int) $maxQuantity);
                                     $imageUrl = $product->imageUrl();
+                                    // In-week dates this product can be ordered for
+                                    // (drives the greyed-out card's note).
+                                    $dateList = collect($row['available_dates'])
+                                        ->map(fn ($d) => $d['date']->locale(app()->getLocale())->isoFormat('dd, D. MMM'))
+                                        ->implode(' · ');
+                                    $oldQty = (int) old('quantities.'.$product->id, 0);
                                 @endphp
+                                @if ($availableToday)
                                 <div
                                     class="group relative flex flex-col overflow-hidden border bg-brand-cream transition"
                                     :class="(quantities[{{ $product->id }}] || 0) > 0
@@ -112,7 +134,13 @@
                                         : 'border-brand-ink/15 hover:border-brand-ink/40'"
                                     data-testid="shop-product-card"
                                 >
-                                    <a href="{{ route('public.shop.products.show', $product) }}" class="block aspect-[5/3] w-full overflow-hidden bg-brand-ink/5" target="_blank" rel="noopener">
+                                @else
+                                <div
+                                    class="group relative flex flex-col overflow-hidden border border-brand-ink/15 bg-brand-cream opacity-90 transition"
+                                    data-testid="shop-product-card-unavailable"
+                                >
+                                @endif
+                                    <a href="{{ route('public.shop.products.show', $product) }}" class="block aspect-[5/3] w-full overflow-hidden bg-brand-ink/5 {{ $availableToday ? '' : 'grayscale' }}" target="_blank" rel="noopener">
                                         @if ($imageUrl)
                                             <img src="{{ $imageUrl }}" alt="{{ $product->name }}" class="h-full w-full object-cover" loading="lazy" />
                                         @else
@@ -133,31 +161,40 @@
                                         <p class="text-sm tabular-nums text-brand-ink/70">{{ $product->displayPrice() }}</p>
 
                                         <div class="mt-auto pt-4">
-                                            <label for="shop-qty-{{ $product->id }}" class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink/65">
+                                            <label @if ($availableToday) for="shop-qty-{{ $product->id }}" @endif class="text-xs font-semibold uppercase tracking-eyebrow text-brand-ink/65">
                                                 {{ __('shop.quantity_label') }}
                                             </label>
-                                            <div class="mt-2 flex items-center gap-2">
-                                                <input
+
+                                            @if ($availableToday)
+                                                <select
                                                     id="shop-qty-{{ $product->id }}"
-                                                    type="number"
                                                     name="quantities[{{ $product->id }}]"
-                                                    inputmode="numeric"
-                                                    min="0"
-                                                    step="{{ $step }}"
-                                                    max="{{ $remaining }}"
-                                                    value="{{ (int) old('quantities.'.$product->id, 0) }}"
                                                     x-model.number="quantities[{{ $product->id }}]"
-                                                    class="w-24 border border-brand-ink/30 bg-white px-3 py-2 text-sm text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
-                                                    data-testid="shop-qty-input"
-                                                />
-                                                <span class="text-xs text-brand-ink/55">
-                                                    {{ $isCount ? '' : \App\Enums\ProductUnit::displaySymbol($product->unit->canonicalSymbol()) }}
-                                                    · {{ __('shop.remaining_short', ['qty' => $product->displayQuantity($remaining)]) }}
-                                                </span>
-                                            </div>
-                                            <p class="mt-2 text-xs tabular-nums text-brand-ink/60" x-show="(quantities[{{ $product->id }}] || 0) > 0" x-cloak>
-                                                <span x-text="money(lineTotal({{ $product->id }}))"></span>
-                                            </p>
+                                                    class="mt-2 block w-full border border-brand-ink/30 bg-white py-2 pl-3 pr-8 text-sm text-brand-ink focus:border-chapter-produce focus:outline-none focus:ring-0"
+                                                    data-testid="shop-qty-select"
+                                                >
+                                                    <option value="0">{{ __('shop.quantity_none') }}</option>
+                                                    @for ($q = $step; $q <= $cap; $q += $step)
+                                                        <option value="{{ $q }}" @selected($oldQty === $q)>{{ $product->displayQuantity($q) }}</option>
+                                                    @endfor
+                                                </select>
+                                                <p class="mt-2 text-xs tabular-nums text-brand-ink/60" x-show="(quantities[{{ $product->id }}] || 0) > 0" x-cloak>
+                                                    <span x-text="money(lineTotal({{ $product->id }}))"></span>
+                                                </p>
+                                            @else
+                                                <select
+                                                    disabled
+                                                    aria-disabled="true"
+                                                    class="mt-2 block w-full cursor-not-allowed border border-brand-ink/20 bg-brand-ink/[0.04] py-2 pl-3 pr-8 text-sm text-brand-ink/40"
+                                                    data-testid="shop-qty-disabled"
+                                                >
+                                                    <option>{{ __('shop.quantity_none') }}</option>
+                                                </select>
+                                                <p class="mt-2 text-xs leading-relaxed text-brand-ink/65" data-testid="shop-weekly-note">
+                                                    <span class="font-semibold text-chapter-meat">{{ __('shop.weekly_unavailable_label') }}</span><br>
+                                                    {{ __('shop.weekly_available_on', ['dates' => $dateList]) }}
+                                                </p>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
