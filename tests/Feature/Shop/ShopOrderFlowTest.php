@@ -397,6 +397,42 @@ class ShopOrderFlowTest extends TestCase
         Mail::assertQueued(ShopOrderConfirmationMail::class, fn ($mail) => $mail->hasTo('paid@example.com'));
     }
 
+    public function test_return_marks_order_paid_when_transaction_succeeded_but_checkout_status_lags(): void
+    {
+        Mail::fake();
+
+        // Regression: SumUp redirected the customer back while the checkout
+        // `status` still read PENDING, even though the payment had already
+        // settled (a SUCCESSFUL transaction is present). The order must be
+        // marked paid instead of leaving the customer stuck on "verifying".
+        $order = ShopOrder::factory()->create([
+            'email' => 'lagging@example.com',
+            'sumup_checkout_id' => 'co_lagging_status',
+            'payment_method' => 'online',
+            'status' => ShopOrderStatus::PendingPayment,
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldReceive('getCheckout')
+            ->with('co_lagging_status')
+            ->andReturn((object) [
+                'status' => 'PENDING',
+                'transactions' => [(object) ['id' => 'pay_lagging_xyz', 'status' => 'SUCCESSFUL']],
+            ]);
+        $this->app->instance('sumup.spargel', $sumUp);
+
+        $this->get(route('public.shop.return', ['shopOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee(__('shop.return_paid_heading'));
+
+        $order->refresh();
+        $this->assertSame(ShopOrderStatus::Paid, $order->status);
+        $this->assertNotNull($order->paid_at);
+        $this->assertSame('pay_lagging_xyz', $order->sumup_payment_id);
+
+        Mail::assertQueued(ShopOrderConfirmationMail::class, fn ($mail) => $mail->hasTo('lagging@example.com'));
+    }
+
     public function test_return_marks_order_failed_when_sumup_reports_failure(): void
     {
         Mail::fake();
