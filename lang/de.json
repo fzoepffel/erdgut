@@ -2620,6 +2620,8 @@
     "shop.email_heading": "Danke, :name!",
     "shop.email_order_ref": "Bestellung Nr. :id",
     "shop.email_signoff": "Bis bald und guten Appetit,",
+    "shop.email_subject_in_person": "Deine Erdgut Shop-Bestellung",
+    "shop.email_subject_paid": "Deine Erdgut Shop-Bestellung — bestätigt",
     "shop.empty_body": "Sobald unsere Höfe wieder ernten, erscheinen hier verfügbare Tage. Schau in ein paar Tagen noch einmal vorbei.",
     "shop.empty_eyebrow": "Bald wieder",
     "shop.empty_heading": "Gerade ist nichts vorrätig",

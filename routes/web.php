@@ -119,8 +119,13 @@ Route::name('public.')->group(function () {
     // the date picker is driven by live admin inventory. Spargel stays
     // live alongside it, untouched.
     Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
+    // 20/min per IP: this endpoint only creates a *pending* order (the
+    // SumUp charge happens later at /pay), and the multi-field cart form
+    // means a guest can legitimately resubmit several times after
+    // validation bounces — 6/min was too tight and surfaced "Too many
+    // requests" mid-checkout. Still ample headroom against abuse.
     Route::post('/shop', [ShopController::class, 'store'])
-        ->middleware('throttle:6,1')
+        ->middleware('throttle:20,1')
         ->name('shop.store');
     Route::get('/shop/{shopOrder}/pay', [ShopController::class, 'pay'])->name('shop.pay');
     Route::get('/shop/{shopOrder}/return', [ShopController::class, 'return'])->name('shop.return');
