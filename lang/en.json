@@ -2620,6 +2620,8 @@
     "shop.email_heading": "Thank you, :name!",
     "shop.email_order_ref": "Order no. :id",
     "shop.email_signoff": "See you soon, and enjoy,",
+    "shop.email_subject_in_person": "Your Erdgut shop order",
+    "shop.email_subject_paid": "Your Erdgut shop order — confirmed",
     "shop.empty_body": "As soon as our farms harvest again, available days will appear here. Check back in a few days.",
     "shop.empty_eyebrow": "Back soon",
     "shop.empty_heading": "Nothing in stock right now",

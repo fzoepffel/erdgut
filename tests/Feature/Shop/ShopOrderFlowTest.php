@@ -458,6 +458,21 @@ class ShopOrderFlowTest extends TestCase
         Mail::assertQueued(ShopOrderConfirmationMail::class, fn ($mail) => $mail->hasTo('inperson@example.com'));
     }
 
+    public function test_confirmation_email_subject_is_localized_not_a_raw_key(): void
+    {
+        $inPerson = ShopOrder::factory()->create(['payment_method' => 'in_person']);
+        $paid = ShopOrder::factory()->create(['payment_method' => 'online']);
+
+        $inPersonSubject = (new ShopOrderConfirmationMail($inPerson))->envelope()->subject;
+        $paidSubject = (new ShopOrderConfirmationMail($paid))->envelope()->subject;
+
+        // Regression: the keys were missing, so __() echoed the raw key.
+        $this->assertStringNotContainsString('shop.email_subject', (string) $inPersonSubject);
+        $this->assertStringNotContainsString('shop.email_subject', (string) $paidSubject);
+        $this->assertSame(__('shop.email_subject_in_person'), $inPersonSubject);
+        $this->assertSame(__('shop.email_subject_paid'), $paidSubject);
+    }
+
     public function test_pay_in_person_with_delivery_is_rejected(): void
     {
         $this->from(route('public.shop.index'))
