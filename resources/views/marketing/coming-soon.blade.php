@@ -96,22 +96,22 @@
                         {{-- 4. Feature kicker --}}
                         <p class="mb-6 inline-block text-[11px] font-semibold uppercase tracking-[0.2em]"
                            style="color: rgba(61, 79, 42, 0.7);">
-                            {{ __('spargel.coming_soon_eyebrow_kicker') }}
+                            {{ __('shop.coming_soon_eyebrow_kicker') }}
                         </p>
 
                         {{-- 5. Feature headline — fully italic --}}
                         <p class="font-display mb-6 text-3xl font-normal md:text-4xl"
                            style="color: #1A1F12;">
-                            {{ __('spargel.coming_soon_eyebrow') }}
+                            {{ __('shop.coming_soon_eyebrow') }}
                         </p>
 
                         {{-- 6. CTA — btn-solid matches logged-in dashboard --}}
                         <a
-                            href="{{ route('public.spargel.show') }}"
+                            href="{{ route('public.shop.index') }}"
                             class="btn-solid"
-                            data-testid="coming-soon-spargel-cta"
+                            data-testid="coming-soon-shop-cta"
                         >
-                            {{ __('spargel.coming_soon_cta') }}
+                            {{ __('shop.coming_soon_cta') }}
                         </a>
                     </div>
 
