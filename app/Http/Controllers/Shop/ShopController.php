@@ -52,7 +52,7 @@ class ShopController extends Controller
         }
 
         $products = $selectedDate !== null
-            ? $this->service->availableProductsForDate($selectedDate)
+            ? $this->service->weeklyProductsForDate($selectedDate)
             : collect();
 
         return view('shop.index', [
@@ -62,7 +62,9 @@ class ShopController extends Controller
             'pickupLocations' => PickupLocations::all(),
             'deliveryFeeEur' => $this->service->deliveryFee(),
             'vatRatePercent' => (int) config('shop.vat_rate_percent', 7),
-            'quantityStep' => (int) config('shop.quantity_step', 250),
+            'quantityStep' => (int) config('shop.quantity_step', 50),
+            'maxQuantity' => (int) config('shop.max_quantity', 3000),
+            'maxCount' => (int) config('shop.max_count', 12),
         ]);
     }
 
