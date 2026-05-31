@@ -119,6 +119,34 @@ class AdminShopOrderController extends Controller
     }
 
     /**
+     * Permanently delete a shop order (cascading to its items). Mirrors
+     * {@see SpargelAdminController::destroy()} but writes an audit row first
+     * — once the order row is gone, the audit log is its only trace. Deleted
+     * orders no longer commit stock, so inventory is released automatically.
+     */
+    public function destroy(Request $request, ShopOrder $shopOrder): RedirectResponse
+    {
+        $id = $shopOrder->id;
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: $id,
+            action: 'delete',
+            fromState: $shopOrder->status->value,
+            toState: null,
+            reason: null,
+            metadata: ['channel' => 'admin'],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        $shopOrder->delete();
+
+        return redirect()
+            ->route('app.admin.shop-orders.index')
+            ->with('status', __('shop.admin.flash_deleted', ['id' => $id]));
+    }
+
+    /**
      * Refund a paid shop order. Asks SumUp first — only flip local status to
      * Refunded once SumUp confirms. Externally-paid orders (no transaction id)
      * are recorded as a manual refund without a provider call. Mirrors

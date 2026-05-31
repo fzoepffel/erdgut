@@ -5,10 +5,12 @@ namespace Tests\Feature\Shop;
 use App\Enums\ProductUnit;
 use App\Enums\ShopOrderStatus;
 use App\Mail\ShopOrderConfirmationMail;
+use App\Mail\ShopOrderFinalizedAdminNotification;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ShopOrder;
+use App\Models\User;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\ShopOrderService;
 use App\Support\SumUpService;
@@ -471,6 +473,80 @@ class ShopOrderFlowTest extends TestCase
         $this->assertStringNotContainsString('shop.email_subject', (string) $paidSubject);
         $this->assertSame(__('shop.email_subject_in_person'), $inPersonSubject);
         $this->assertSame(__('shop.email_subject_paid'), $paidSubject);
+    }
+
+    public function test_in_person_order_notifies_admins_on_checkout(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->admin()->create(['email' => 'admin@erdgut.test']);
+
+        $this->post(route('public.shop.store'), $this->pickupPayload([
+            'payment_method' => 'in_person',
+        ]))->assertRedirect();
+
+        // In-person checkout is a confirmed sale → admins are pinged right away.
+        Mail::assertSent(
+            ShopOrderFinalizedAdminNotification::class,
+            fn ($mail) => $mail->hasTo('admin@erdgut.test'),
+        );
+    }
+
+    public function test_online_payment_confirmation_notifies_admins(): void
+    {
+        Mail::fake();
+        User::factory()->admin()->create(['email' => 'admin@erdgut.test']);
+
+        $order = ShopOrder::factory()->create([
+            'sumup_checkout_id' => 'co_pending_admin',
+            'payment_method' => 'online',
+            'status' => ShopOrderStatus::PendingPayment,
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldReceive('getCheckout')
+            ->with('co_pending_admin')
+            ->andReturn((object) [
+                'status' => 'PAID',
+                'transactions' => [(object) ['id' => 'pay_admin_xyz']],
+            ]);
+        $this->app->instance('sumup.spargel', $sumUp);
+
+        $this->get(route('public.shop.return', ['shopOrder' => $order->id]))->assertOk();
+
+        Mail::assertSent(
+            ShopOrderFinalizedAdminNotification::class,
+            fn ($mail) => $mail->hasTo('admin@erdgut.test'),
+        );
+    }
+
+    public function test_abandoned_online_checkout_does_not_notify_admins(): void
+    {
+        Mail::fake();
+        User::factory()->admin()->create(['email' => 'admin@erdgut.test']);
+
+        // Guest finishes the form and is sent to SumUp, but never pays — the
+        // order sits PendingPayment + online. Admins must NOT be pinged.
+        $this->post(route('public.shop.store'), $this->pickupPayload([
+            'payment_method' => 'online',
+        ]))->assertRedirect();
+
+        Mail::assertNotSent(ShopOrderFinalizedAdminNotification::class);
+    }
+
+    public function test_finalized_notification_targets_admins_only(): void
+    {
+        Mail::fake();
+        User::factory()->admin()->create(['email' => 'admin@erdgut.test']);
+        User::factory()->create(['is_admin' => false, 'email' => 'customer@erdgut.test']);
+
+        $this->post(route('public.shop.store'), $this->pickupPayload([
+            'payment_method' => 'in_person',
+        ]))->assertRedirect();
+
+        Mail::assertNotSent(
+            ShopOrderFinalizedAdminNotification::class,
+            fn ($mail) => $mail->hasTo('customer@erdgut.test'),
+        );
     }
 
     public function test_pay_in_person_with_delivery_is_rejected(): void

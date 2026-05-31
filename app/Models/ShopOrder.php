@@ -122,6 +122,31 @@ class ShopOrder extends Model
     }
 
     /**
+     * A *complete* order awaiting payment at pickup. The guest finished
+     * checkout and chose to pay cash/card on collection — it is a confirmed
+     * sale that just hasn't been settled yet. Distinct in the admin from an
+     * unfinished online checkout (see {@see isAwaitingOnlinePayment}), even
+     * though both sit on {@see ShopOrderStatus::PendingPayment}.
+     */
+    public function isAwaitingInPersonPayment(): bool
+    {
+        return $this->status === ShopOrderStatus::PendingPayment
+            && $this->payment_method === 'in_person';
+    }
+
+    /**
+     * An *unfinished* order: the guest was sent to SumUp for online payment
+     * but never completed it (closed the tab, abandoned the checkout, …).
+     * It is not yet a confirmed sale and may never become one — the admin
+     * must be able to tell it apart from a ready in-person order at a glance.
+     */
+    public function isAwaitingOnlinePayment(): bool
+    {
+        return $this->status === ShopOrderStatus::PendingPayment
+            && $this->payment_method === 'online';
+    }
+
+    /**
      * Mark this order as refunded — call AFTER SumUp confirmed the refund
      * (or for a manual external refund). Flips status to Refunded and
      * records who/when/why. Mirrors {@see SpargelOrder::recordRefund()}.

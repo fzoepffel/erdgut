@@ -71,6 +71,30 @@ class AdminShopOrderTest extends TestCase
             ->assertDontSee('data-testid="shop-admin-row-'.$pending->id.'"', false);
     }
 
+    public function test_index_distinguishes_in_person_pending_from_unfinished_online_pending(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $inPerson = ShopOrder::factory()->create([
+            'name' => 'Pickup Payer',
+            'payment_method' => 'in_person',
+            'status' => ShopOrderStatus::PendingPayment,
+        ]);
+        $online = ShopOrder::factory()->create([
+            'name' => 'Abandoned Checkout',
+            'payment_method' => 'online',
+            'status' => ShopOrderStatus::PendingPayment,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.index'))
+            ->assertOk()
+            ->assertSee('data-testid="shop-order-status-pending-in-person"', false)
+            ->assertSee('data-testid="shop-order-status-pending-online"', false)
+            ->assertSee(__('shop.admin.status_pending_in_person'))
+            ->assertSee(__('shop.admin.status_pending_online'))
+            ->assertSee(__('shop.admin.pending_online_note'));
+    }
+
     public function test_admin_can_open_order_detail(): void
     {
         $admin = User::factory()->admin()->create();
@@ -234,6 +258,56 @@ class AdminShopOrderTest extends TestCase
         $order->refresh();
         $this->assertSame(ShopOrderStatus::PendingPayment, $order->status);
         $this->assertNull($order->refunded_at);
+    }
+
+    public function test_admin_can_delete_an_order_and_it_is_audited(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $order = ShopOrder::factory()->create([
+            'status' => ShopOrderStatus::PendingPayment,
+        ]);
+        $orderId = $order->id;
+
+        $this->actingAs($admin)
+            ->delete(route('app.admin.shop-orders.destroy', $order))
+            ->assertRedirect(route('app.admin.shop-orders.index'))
+            ->assertSessionHas('status');
+
+        $this->assertDatabaseMissing('shop_orders', ['id' => $orderId]);
+
+        $this->assertDatabaseHas('audit_events', [
+            'entity_type' => 'shop_order',
+            'entity_id' => $orderId,
+            'action' => 'delete',
+            'from_state' => 'pending_payment',
+        ]);
+    }
+
+    public function test_deleting_an_order_cascades_to_its_items(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $order = ShopOrder::factory()->hasItems(2)->create();
+        $orderId = $order->id;
+
+        $this->assertDatabaseHas('shop_order_items', ['shop_order_id' => $orderId]);
+
+        $this->actingAs($admin)
+            ->delete(route('app.admin.shop-orders.destroy', $order))
+            ->assertRedirect(route('app.admin.shop-orders.index'));
+
+        $this->assertDatabaseMissing('shop_order_items', ['shop_order_id' => $orderId]);
+    }
+
+    public function test_non_admin_cannot_delete_an_order(): void
+    {
+        $user = User::factory()->create(['is_admin' => false]);
+        $order = ShopOrder::factory()->create();
+
+        $this->actingAs($user)
+            ->delete(route('app.admin.shop-orders.destroy', $order))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('shop_orders', ['id' => $order->id]);
     }
 
     public function test_non_admin_cannot_mark_paid(): void

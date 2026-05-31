@@ -67,7 +67,7 @@
                                     @eur($order->total_amount_eur)
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-2">
-                                    <x-status-badge :value="$order->status" type="shop_order" />
+                                    <x-shop-order-status :order="$order" />
                                     @if ((int) $order->payment_attempts > 0 && $order->status !== \App\Enums\ShopOrderStatus::Paid && $order->status !== \App\Enums\ShopOrderStatus::Fulfilled)
                                         <div class="mt-1 text-[11px] font-semibold text-chapter-meat">
                                             {{ trans_choice('shop.admin.failed_attempts', (int) $order->payment_attempts, ['count' => (int) $order->payment_attempts]) }}

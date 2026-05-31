@@ -415,6 +415,9 @@ Route::middleware(['auth', 'verified'])
             Route::post('shop-orders/{shopOrder}/refund', [AdminShopOrderController::class, 'refund'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.refund');
+            Route::delete('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'destroy'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.destroy');
         });
     });
 
