@@ -273,12 +273,12 @@ class SpargelOrderFlowTest extends TestCase
         }
     }
 
-    public function test_coming_soon_renders_link_to_form(): void
+    public function test_coming_soon_renders_link_to_shop(): void
     {
         $this->get(route('public.home'))
             ->assertOk()
-            ->assertSee('data-testid="coming-soon-spargel-cta"', false)
-            ->assertSee(route('public.spargel.show'));
+            ->assertSee('data-testid="coming-soon-shop-cta"', false)
+            ->assertSee(route('public.shop.index'));
     }
 
     public function test_submitting_valid_green_only_pickup_creates_order(): void
