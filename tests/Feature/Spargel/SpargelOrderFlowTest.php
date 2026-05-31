@@ -644,6 +644,36 @@ class SpargelOrderFlowTest extends TestCase
         $this->assertSame('pay_test_xyz', $order->sumup_payment_id);
     }
 
+    public function test_return_marks_order_paid_when_transaction_succeeded_but_checkout_status_lags(): void
+    {
+        // Regression: SumUp redirected the customer back while the checkout
+        // `status` still read PENDING, even though the payment had already
+        // settled (a SUCCESSFUL transaction is present). The order must be
+        // marked paid instead of leaving the customer stuck on "verifying".
+        $order = SpargelOrder::factory()->create([
+            'sumup_checkout_id' => 'co_lagging_status',
+            'status' => SpargelOrderStatus::PendingPayment,
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldReceive('getCheckout')
+            ->with('co_lagging_status')
+            ->andReturn((object) [
+                'status' => 'PENDING',
+                'transactions' => [(object) ['id' => 'pay_lagging_xyz', 'status' => 'SUCCESSFUL']],
+            ]);
+        $this->app->instance('sumup.spargel', $sumUp);
+
+        $this->get(route('public.spargel.return', ['spargelOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee(__('spargel.return_paid_heading'));
+
+        $order->refresh();
+        $this->assertSame(SpargelOrderStatus::Paid, $order->status);
+        $this->assertNotNull($order->paid_at);
+        $this->assertSame('pay_lagging_xyz', $order->sumup_payment_id);
+    }
+
     public function test_return_keeps_order_pending_when_sumup_says_pending(): void
     {
         $order = SpargelOrder::factory()->create([

@@ -360,8 +360,25 @@ class SpargelOrderService
         $checkoutStatus = strtoupper((string) data_get($checkout, 'status', ''));
         $transactions = (array) (data_get($checkout, 'transactions', []) ?? []);
 
-        if ($checkoutStatus === 'PAID') {
-            $paymentId = (string) (data_get($transactions, '0.id') ?? '');
+        $transactionStatuses = array_map(
+            fn ($tx) => strtoupper((string) data_get($tx, 'status', '')),
+            $transactions,
+        );
+
+        // SumUp's checkout `status` can still read PENDING for a short window
+        // after the browser is redirected back, even though the payment has
+        // already settled — the authoritative "money moved" signal is a
+        // SUCCESSFUL transaction in the checkout's `transactions[]`. Treat
+        // either as paid so customers aren't stuck on "verifying" while the
+        // SumUp dashboard already shows the payment.
+        $hasSuccessfulTransaction = in_array('SUCCESSFUL', $transactionStatuses, true);
+
+        if ($checkoutStatus === 'PAID' || $hasSuccessfulTransaction) {
+            $paymentId = (string) (
+                data_get($transactions, '0.id')
+                ?? data_get($transactions, '0.transaction_id')
+                ?? ''
+            );
 
             $order->forceFill([
                 'status' => SpargelOrderStatus::Paid,
@@ -384,10 +401,6 @@ class SpargelOrderService
         // transaction to FAILED. Treat both as "this attempt failed" — the
         // customer can retry, which spawns a fresh checkout (see
         // SpargelOrderController::pay).
-        $transactionStatuses = array_map(
-            fn ($tx) => strtoupper((string) data_get($tx, 'status', '')),
-            $transactions,
-        );
         $hasFailedTransaction = in_array('FAILED', $transactionStatuses, true);
         $checkoutFailed = in_array($checkoutStatus, ['FAILED', 'EXPIRED'], true);
 
