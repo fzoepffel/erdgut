@@ -100,24 +100,31 @@ class SpargelOrderController extends Controller
 
         $checkoutId = null;
         $checkoutError = null;
-        try {
-            $checkout = $this->service->initiateCheckout($spargelOrder, $returnUrl);
-            $checkoutId = (string) (data_get($checkout, 'id') ?? '') ?: null;
 
-            if ($checkoutId === null) {
-                $checkoutError = 'no_checkout_id';
-                SumUpCheckoutLogger::warning('Spargel pay: SumUp returned no checkout id.', [
+        // Reuse an existing checkout on page reloads / back-navigation so we
+        // never orphan the checkout the SumUp widget already loaded.
+        if ($spargelOrder->sumup_checkout_id !== null) {
+            $checkoutId = $spargelOrder->sumup_checkout_id;
+        } else {
+            try {
+                $checkout = $this->service->initiateCheckout($spargelOrder, $returnUrl);
+                $checkoutId = (string) (data_get($checkout, 'id') ?? '') ?: null;
+
+                if ($checkoutId === null) {
+                    $checkoutError = 'no_checkout_id';
+                    SumUpCheckoutLogger::warning('Spargel pay: SumUp returned no checkout id.', [
+                        'spargel_order_id' => $spargelOrder->id,
+                    ]);
+                }
+            } catch (Throwable $e) {
+                report($e);
+                $checkoutError = 'checkout_creation_failed';
+                SumUpCheckoutLogger::warning('Spargel pay: SumUp checkout creation failed.', [
                     'spargel_order_id' => $spargelOrder->id,
+                    'exception_class' => $e::class,
+                    'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
                 ]);
             }
-        } catch (Throwable $e) {
-            report($e);
-            $checkoutError = 'checkout_creation_failed';
-            SumUpCheckoutLogger::warning('Spargel pay: SumUp checkout creation failed.', [
-                'spargel_order_id' => $spargelOrder->id,
-                'exception_class' => $e::class,
-                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
-            ]);
         }
 
         return view('spargel.pay', [

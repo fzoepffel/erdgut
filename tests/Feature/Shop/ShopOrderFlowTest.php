@@ -602,6 +602,31 @@ class ShopOrderFlowTest extends TestCase
         $this->assertSame(0, ShopOrder::query()->count());
     }
 
+    public function test_pay_reuses_existing_checkout_on_reload(): void
+    {
+        // Regression: hitting /pay a second time (reload, back-navigation)
+        // used to create a brand-new SumUp checkout and overwrite the DB,
+        // orphaning the checkout the widget already loaded. Now /pay reuses
+        // the stored checkout ID when one is already present.
+        $order = ShopOrder::factory()->create([
+            'sumup_checkout_id' => 'co_already_exists',
+            'payment_method' => 'online',
+            'status' => ShopOrderStatus::PendingPayment,
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        // createOneTimeCheckout must NOT be called — we reuse the existing ID.
+        $sumUp->shouldNotReceive('createOneTimeCheckout');
+        $this->app->instance('sumup.spargel', $sumUp);
+
+        $this->get(route('public.shop.pay', ['shopOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee('co_already_exists');
+
+        // The stored checkout ID must remain unchanged.
+        $this->assertSame('co_already_exists', $order->fresh()->sumup_checkout_id);
+    }
+
     public function test_marketing_header_renders_shop_link(): void
     {
         // The shop link lives in the shared marketing customer-header,
