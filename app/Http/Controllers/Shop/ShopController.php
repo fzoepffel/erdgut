@@ -120,24 +120,31 @@ class ShopController extends Controller
 
         $checkoutId = null;
         $checkoutError = null;
-        try {
-            $checkout = $this->service->initiateCheckout($shopOrder, $returnUrl);
-            $checkoutId = (string) (data_get($checkout, 'id') ?? '') ?: null;
 
-            if ($checkoutId === null) {
-                $checkoutError = 'no_checkout_id';
-                SumUpCheckoutLogger::warning('Shop pay: SumUp returned no checkout id.', [
+        // Reuse an existing checkout on page reloads / back-navigation so we
+        // never orphan the checkout the SumUp widget already loaded.
+        if ($shopOrder->sumup_checkout_id !== null) {
+            $checkoutId = $shopOrder->sumup_checkout_id;
+        } else {
+            try {
+                $checkout = $this->service->initiateCheckout($shopOrder, $returnUrl);
+                $checkoutId = (string) (data_get($checkout, 'id') ?? '') ?: null;
+
+                if ($checkoutId === null) {
+                    $checkoutError = 'no_checkout_id';
+                    SumUpCheckoutLogger::warning('Shop pay: SumUp returned no checkout id.', [
+                        'shop_order_id' => $shopOrder->id,
+                    ]);
+                }
+            } catch (Throwable $e) {
+                report($e);
+                $checkoutError = 'checkout_creation_failed';
+                SumUpCheckoutLogger::warning('Shop pay: SumUp checkout creation failed.', [
                     'shop_order_id' => $shopOrder->id,
+                    'exception_class' => $e::class,
+                    'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
                 ]);
             }
-        } catch (Throwable $e) {
-            report($e);
-            $checkoutError = 'checkout_creation_failed';
-            SumUpCheckoutLogger::warning('Shop pay: SumUp checkout creation failed.', [
-                'shop_order_id' => $shopOrder->id,
-                'exception_class' => $e::class,
-                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
-            ]);
         }
 
         return view('shop.pay', [

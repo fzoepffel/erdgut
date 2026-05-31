@@ -1082,6 +1082,28 @@ class SpargelOrderFlowTest extends TestCase
             ->assertSee('12435 Berlin');
     }
 
+    public function test_pay_reuses_existing_checkout_on_reload(): void
+    {
+        // Regression: hitting /pay a second time used to create a new SumUp
+        // checkout and overwrite the DB, orphaning the checkout the widget
+        // already loaded. Now /pay reuses the stored checkout ID.
+        $order = SpargelOrder::factory()->create([
+            'sumup_checkout_id' => 'co_already_exists',
+            'status' => SpargelOrderStatus::PendingPayment,
+            'payment_method' => 'online',
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldNotReceive('createOneTimeCheckout');
+        $this->app->instance('sumup.spargel', $sumUp);
+
+        $this->get(route('public.spargel.pay', ['spargelOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee('co_already_exists');
+
+        $this->assertSame('co_already_exists', $order->fresh()->sumup_checkout_id);
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();
