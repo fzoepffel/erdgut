@@ -54,6 +54,9 @@ class SubscriberFullMiddlewareTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.dashboard'))
             ->assertOk()
-            ->assertSee('Welcome to Erdgut', false);
+            // Welcome dashboard hero copy is split across markup
+            // ("Welcome to <em>Erdgut</em>"), so assert the stable
+            // welcome surface marker instead of a contiguous string.
+            ->assertSee('data-testid="welcome-subscription-card"', false);
     }
 }

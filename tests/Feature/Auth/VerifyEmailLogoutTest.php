@@ -33,7 +33,7 @@ class VerifyEmailLogoutTest extends TestCase
         // editorial footer's newsletter form).
         foreach (['verify-email-resend', 'verify-email-signout'] as $testId) {
             $this->assertMatchesRegularExpression(
-                '/<button[^>]*type="submit"[^>]*data-testid="' . $testId . '"/',
+                '/<button[^>]*type="submit"[^>]*data-testid="'.$testId.'"/',
                 $html,
                 "expected {$testId} button to be type=\"submit\""
             );

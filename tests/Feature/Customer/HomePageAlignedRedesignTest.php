@@ -61,9 +61,12 @@ class HomePageAlignedRedesignTest extends TestCase
         $this->assertStringContainsString('data-testid="customer-producer-spotlight"', $html);
     }
 
-    public function test_dashboard_welcome_renders_hero_band(): void
+    public function test_dashboard_welcome_renders_editorial_hero(): void
     {
         // dashboard-welcome is shown to authenticated users without a subscription.
+        // It was rebuilt onto a bespoke editorial hero (no shared hero-band
+        // component) with the two-ways subscription/trial cards. Lock against
+        // accidental removal of the always-on welcome surface.
         $user = User::factory()->create();
 
         $html = $this->actingAs($user)
@@ -71,7 +74,9 @@ class HomePageAlignedRedesignTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('data-testid="customer-hero-band"', $html);
+        $this->assertStringNotContainsString('data-testid="customer-hero-band"', $html);
+        $this->assertStringContainsString('data-testid="welcome-subscription-card"', $html);
+        $this->assertStringContainsString('data-testid="customer-editorial-footer-band"', $html);
     }
 
     public function test_subscription_show_renders_editorial_hero(): void
