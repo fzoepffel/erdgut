@@ -10,6 +10,7 @@ use App\Models\ShopOrder;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\ShopOrderService;
 use App\Support\PickupLocations;
+use App\Support\ShopOrderAdminNotifier;
 use App\Support\SumUpCheckoutLogger;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -84,6 +85,9 @@ class ShopController extends Controller
 
         if ($order->payment_method === 'in_person') {
             $this->queueConfirmationMail($order);
+            // In-person checkout is a confirmed sale right away — notify admins
+            // now (the online half fires from the observer once SumUp confirms).
+            ShopOrderAdminNotifier::finalized($order);
 
             return redirect()->route('public.shop.return', ['shopOrder' => $order->id]);
         }
