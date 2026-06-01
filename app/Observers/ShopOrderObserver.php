@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Shop\ShopController;
 use App\Models\ShopOrder;
+use App\Services\Shop\CouponService;
 use App\Support\ShopOrderAdminNotifier;
 
 /**
@@ -37,11 +38,24 @@ class ShopOrderObserver
         $previousValue = $previous instanceof ShopOrderStatus ? $previous->value : (string) $previous;
         $currentValue = $order->status instanceof ShopOrderStatus ? $order->status->value : (string) $order->status;
 
+        // Refund / cancel of a previously-paid order: release the coupon
+        // slot back to its caps so a voided sale doesn't burn a redemption.
+        if ($previousValue === ShopOrderStatus::Paid->value
+            && in_array($currentValue, [ShopOrderStatus::Refunded->value, ShopOrderStatus::Cancelled->value], true)) {
+            app(CouponService::class)->voidRedemption($order);
+
+            return;
+        }
+
         if ($currentValue !== ShopOrderStatus::Paid->value
             || $previousValue === ShopOrderStatus::Paid->value
             || $order->payment_method !== 'online') {
             return;
         }
+
+        // Online order is now a confirmed sale — record the coupon redemption
+        // (abandoned online checkouts never reach Paid, so never burn a slot).
+        app(CouponService::class)->finalizeRedemption($order);
 
         ShopOrderAdminNotifier::finalized($order);
     }

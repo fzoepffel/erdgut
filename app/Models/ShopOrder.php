@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ShopOrderStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -29,6 +30,9 @@ use Illuminate\Support\Carbon;
  * @property numeric $items_total_eur
  * @property numeric $delivery_fee_eur
  * @property numeric $total_amount_eur
+ * @property int|null $coupon_id
+ * @property string|null $coupon_code
+ * @property numeric $discount_eur
  * @property 'online'|'in_person' $payment_method
  * @property ShopOrderStatus $status
  * @property Carbon|null $paid_at
@@ -61,6 +65,9 @@ class ShopOrder extends Model
         'items_total_eur',
         'delivery_fee_eur',
         'total_amount_eur',
+        'coupon_id',
+        'coupon_code',
+        'discount_eur',
         'payment_method',
         'status',
         'paid_at',
@@ -99,6 +106,7 @@ class ShopOrder extends Model
             'items_total_eur' => 'decimal:2',
             'delivery_fee_eur' => 'decimal:2',
             'total_amount_eur' => 'decimal:2',
+            'discount_eur' => 'decimal:2',
             'paid_at' => 'datetime',
             'marked_paid_by_admin_at' => 'datetime',
             'fulfilled_at' => 'datetime',
@@ -119,6 +127,14 @@ class ShopOrder extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ShopOrderItem::class);
+    }
+
+    /**
+     * @return BelongsTo<Coupon, $this>
+     */
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class);
     }
 
     /**
