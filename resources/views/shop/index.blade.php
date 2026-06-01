@@ -5,6 +5,9 @@
         $eyebrow = 'font-mono text-xs font-medium uppercase tracking-widest text-shop-primary';
         // Underline contact input — prototype style.
         $inputClass = 'mt-2 w-full border-b border-shop-border bg-transparent py-2 text-base text-shop-foreground placeholder:text-[oklch(45%_0.03_110_/_0.6)] focus:border-shop-primary focus:outline-none';
+        // Form-field label. Mono micro-caps are too small to read here, so the
+        // contact + address labels step up to the readable sans (Inter) voice.
+        $fieldLabel = 'font-sans text-sm font-medium text-shop-foreground';
 
         // Build the Alpine product registry. Each orderable product carries
         // its precomputed `steps` (canonical value + server-formatted label)
@@ -368,18 +371,18 @@
                         </header>
                         <div class="grid gap-6 sm:grid-cols-2">
                             <label class="block sm:col-span-2">
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('Name') }}</span>
+                                <span class="{{ $fieldLabel }}">{{ __('Name') }}</span>
                                 <input type="text" name="name" value="{{ old('name') }}" required autocomplete="name" class="{{ $inputClass }}" />
                                 <x-input-error :messages="$errors->get('name')" class="mt-2" />
                             </label>
                             <label class="block">
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('Email') }}</span>
+                                <span class="{{ $fieldLabel }}">{{ __('Email') }}</span>
                                 <input type="email" name="email" value="{{ old('email') }}" required autocomplete="email" class="{{ $inputClass }}" />
                                 <x-input-error :messages="$errors->get('email')" class="mt-2" />
                             </label>
                             <label class="block">
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">
-                                    {{ __('Phone') }}<span class="ml-2 normal-case tracking-normal text-shop-muted" x-cloak><span x-show="mode === 'delivery'">{{ __('required') }}</span><span x-show="mode !== 'delivery'">({{ __('optional') }})</span></span>
+                                <span class="{{ $fieldLabel }}">
+                                    {{ __('Phone') }}<span class="ml-2 text-sm font-normal text-shop-muted" x-cloak><span x-show="mode === 'delivery'">{{ __('required') }}</span><span x-show="mode !== 'delivery'">({{ __('optional') }})</span></span>
                                 </span>
                                 <input type="tel" name="phone" value="{{ old('phone') }}" autocomplete="tel" class="{{ $inputClass }}" />
                                 <x-input-error :messages="$errors->get('phone')" class="mt-2" />
@@ -396,22 +399,22 @@
                         </header>
                         <div class="grid gap-6 sm:grid-cols-2">
                             <label class="block sm:col-span-2">
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.delivery_street') }}</span>
+                                <span class="{{ $fieldLabel }}">{{ __('shop.delivery_street') }}</span>
                                 <input type="text" name="delivery_street" value="{{ old('delivery_street') }}" autocomplete="street-address" class="{{ $inputClass }}" />
                                 <x-input-error :messages="$errors->get('delivery_street')" class="mt-2" />
                             </label>
                             <label class="block">
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.delivery_postal_code') }}</span>
+                                <span class="{{ $fieldLabel }}">{{ __('shop.delivery_postal_code') }}</span>
                                 <input type="text" name="delivery_postal_code" value="{{ old('delivery_postal_code') }}" autocomplete="postal-code" class="{{ $inputClass }}" />
                                 <x-input-error :messages="$errors->get('delivery_postal_code')" class="mt-2" />
                             </label>
                             <label class="block">
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.delivery_city') }}</span>
+                                <span class="{{ $fieldLabel }}">{{ __('shop.delivery_city') }}</span>
                                 <input type="text" name="delivery_city" value="{{ old('delivery_city') }}" autocomplete="address-level2" class="{{ $inputClass }}" />
                                 <x-input-error :messages="$errors->get('delivery_city')" class="mt-2" />
                             </label>
                             <label class="block sm:col-span-2">
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.delivery_notes') }} <span class="normal-case tracking-normal">({{ __('optional') }})</span></span>
+                                <span class="{{ $fieldLabel }}">{{ __('shop.delivery_notes') }} <span class="font-normal text-shop-muted">({{ __('optional') }})</span></span>
                                 <textarea name="delivery_notes" rows="2" class="{{ $inputClass }}">{{ old('delivery_notes') }}</textarea>
                                 <x-input-error :messages="$errors->get('delivery_notes')" class="mt-2" />
                             </label>
