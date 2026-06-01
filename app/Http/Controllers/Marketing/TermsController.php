@@ -30,4 +30,13 @@ class TermsController extends Controller
     {
         return view('shop.terms');
     }
+
+    /**
+     * Impressum (§ 5 DDG) — mandatory provider identification for the
+     * commercial shop. Rendered in the self-contained shop chrome.
+     */
+    public function imprint(): View
+    {
+        return view('shop.imprint');
+    }
 }
