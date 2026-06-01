@@ -513,6 +513,30 @@ class ShopOrderFlowTest extends TestCase
         $this->assertSame(__('shop.email_subject_paid'), $paidSubject);
     }
 
+    public function test_admin_notification_shows_coupon_discount_line(): void
+    {
+        // Regression: the admin email listed the full delivery fee but no
+        // discount line, so the rows didn't reconcile to the total when a
+        // free-delivery (or any) coupon was applied.
+        $order = ShopOrder::factory()->create([
+            'fulfillment_mode' => 'delivery',
+            'payment_method' => 'online',
+            'status' => ShopOrderStatus::Paid,
+            'paid_at' => now(),
+            'items_total_eur' => 1.95,
+            'delivery_fee_eur' => 2.90,
+            'discount_eur' => 2.90,
+            'coupon_code' => 'FREESHIP',
+            'total_amount_eur' => 1.95,
+        ]);
+
+        $html = (new ShopOrderFinalizedAdminNotification($order))->render();
+
+        $this->assertStringContainsString('Discount', $html);
+        $this->assertStringContainsString('FREESHIP', $html);
+        $this->assertStringContainsString('− €2.90', $html);
+    }
+
     public function test_in_person_order_notifies_admins_on_checkout(): void
     {
         Mail::fake();
