@@ -143,6 +143,7 @@ class ShopController extends Controller
         return response()->json([
             'applied' => $applied,
             'code' => $quote['coupon_code'],
+            'type' => $quote['coupon']?->type->value,
             'items_total_eur' => $quote['items_total_eur'],
             'delivery_fee_eur' => $quote['delivery_fee_eur'],
             'discount_eur' => $quote['discount_eur'],

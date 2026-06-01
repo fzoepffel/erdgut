@@ -3102,6 +3102,9 @@
     "coupon.discount_line": "Discount",
     "coupon.type_percent": "Percentage",
     "coupon.type_fixed": "Fixed amount",
+    "coupon.type_free_delivery": "Free delivery",
+    "coupon.admin.free_delivery_note": "No value needed — this coupon waives the delivery fee.",
+    "coupon.admin.free_delivery_short": "Free shipping",
     "coupon.admin.nav_label": "Coupons",
     "coupon.admin.heading": "Coupons",
     "coupon.admin.create": "New coupon",
@@ -3150,6 +3153,7 @@
     "coupon.admin.flash_activated": "Coupon :code is now active.",
     "coupon.admin.flash_deactivated": "Coupon :code is now inactive.",
     "coupon.admin.flash_deleted": "Coupon :code was deleted.",
+    "coupon.admin.errors.value_required": "Please enter a value.",
     "coupon.admin.errors.percent_too_high": "The discount may be at most :max%.",
     "coupon.admin.errors.fixed_needs_min": "Fixed-amount coupons require a minimum order value.",
     "coupon.admin.errors.min_below_value": "The minimum order value must be at least the coupon value."

@@ -39,6 +39,8 @@
                                 <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-800">
                                     @if ($coupon->type === \App\Enums\CouponType::Percent)
                                         {{ rtrim(rtrim(number_format((float) $coupon->value, 2, ',', '.'), '0'), ',') }} %
+                                    @elseif ($coupon->type === \App\Enums\CouponType::FreeDelivery)
+                                        <span class="text-gray-500">{{ __('coupon.admin.free_delivery_short') }}</span>
                                     @else
                                         @eur($coupon->value)
                                     @endif

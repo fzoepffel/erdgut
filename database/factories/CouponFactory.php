@@ -50,6 +50,16 @@ class CouponFactory extends Factory
         ]);
     }
 
+    public function freeDelivery(?float $minOrder = null): static
+    {
+        return $this->state(fn () => [
+            'type' => CouponType::FreeDelivery,
+            'value' => 0,
+            'max_discount_eur' => null,
+            'min_order_eur' => $minOrder,
+        ]);
+    }
+
     public function inactive(): static
     {
         return $this->state(fn () => ['is_active' => false]);

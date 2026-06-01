@@ -117,6 +117,27 @@ class AdminCouponTest extends TestCase
             ->assertSessionHasErrors('min_order_eur');
     }
 
+    public function test_admin_can_create_free_delivery_coupon_without_a_value(): void
+    {
+        $this->actingAs($this->admin())
+            ->post(route('app.admin.coupons.store'), [
+                'code' => 'FREESHIP',
+                'type' => 'free_delivery',
+                // no value submitted
+                'per_email_limit' => '1',
+                'starts_at' => '2026-06-01T00:00',
+                'expires_at' => '2026-12-31T23:59',
+                'is_active' => '1',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $coupon = Coupon::query()->where('code', 'FREESHIP')->first();
+        $this->assertNotNull($coupon);
+        $this->assertSame('free_delivery', $coupon->type->value);
+        $this->assertSame('0.00', (string) $coupon->value);
+    }
+
     public function test_duplicate_code_is_rejected(): void
     {
         Coupon::factory()->create(['code' => 'TAKEN']);
@@ -240,6 +261,46 @@ class AdminCouponTest extends TestCase
             'discount_eur' => 3.00,
             'total_amount_eur' => 27.00,
         ]);
+
+        Carbon::setTestNow(null);
+    }
+
+    public function test_preview_free_delivery_waives_delivery_fee_on_delivery_order(): void
+    {
+        Carbon::setTestNow('2026-05-30 10:00:00');
+        $product = $this->seedProduct('2026-06-05');
+        Coupon::factory()->freeDelivery()->create(['code' => 'FREESHIP']);
+
+        $this->postJson(route('public.shop.coupon.preview'), [
+            'coupon_code' => 'FREESHIP',
+            'email' => 'a@example.com',
+            'fulfillment_mode' => 'delivery',
+            'quantities' => [$product->id => 3], // 30.00 subtotal + 2.90 delivery
+        ])->assertOk()->assertJson([
+            'applied' => true,
+            'code' => 'FREESHIP',
+            'type' => 'free_delivery',
+            'items_total_eur' => 30.00,
+            'delivery_fee_eur' => 2.90,
+            'discount_eur' => 2.90,
+            'total_amount_eur' => 30.00,
+        ]);
+
+        Carbon::setTestNow(null);
+    }
+
+    public function test_preview_free_delivery_is_not_applied_on_pickup(): void
+    {
+        Carbon::setTestNow('2026-05-30 10:00:00');
+        $product = $this->seedProduct('2026-06-05');
+        Coupon::factory()->freeDelivery()->create(['code' => 'FREESHIP']);
+
+        $this->postJson(route('public.shop.coupon.preview'), [
+            'coupon_code' => 'FREESHIP',
+            'email' => 'a@example.com',
+            'fulfillment_mode' => 'pickup',
+            'quantities' => [$product->id => 3],
+        ])->assertOk()->assertJson(['applied' => false]);
 
         Carbon::setTestNow(null);
     }

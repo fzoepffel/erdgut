@@ -59,6 +59,42 @@ class CouponServiceTest extends TestCase
         $this->assertSame(15.00, $result->discountEur);
     }
 
+    public function test_free_delivery_coupon_waives_the_delivery_fee(): void
+    {
+        Coupon::factory()->freeDelivery()->create(['code' => 'FREESHIP']);
+
+        // On a delivery order the discount equals the delivery fee, leaving
+        // the product subtotal charged in full.
+        $result = $this->service()->validateForCheckout('FREESHIP', 'a@example.com', 30.00, 2.90);
+
+        $this->assertTrue($result->accepted);
+        $this->assertSame(2.90, $result->discountEur);
+    }
+
+    public function test_free_delivery_coupon_is_not_applicable_on_pickup(): void
+    {
+        Coupon::factory()->freeDelivery()->create(['code' => 'FREESHIP']);
+
+        // Pickup has no delivery fee → nothing to waive → rejected.
+        $result = $this->service()->validateForCheckout('FREESHIP', 'a@example.com', 30.00, 0.0);
+
+        $this->assertFalse($result->accepted);
+        $this->assertSame(CouponService::REASON_INVALID, $result->reason);
+    }
+
+    public function test_free_delivery_coupon_respects_minimum_order(): void
+    {
+        Coupon::factory()->freeDelivery(minOrder: 40.00)->create(['code' => 'FREE40']);
+
+        $below = $this->service()->validateForCheckout('FREE40', 'a@example.com', 30.00, 2.90);
+        $this->assertFalse($below->accepted);
+        $this->assertSame(CouponService::REASON_MIN_ORDER, $below->reason);
+
+        $atOrAbove = $this->service()->validateForCheckout('FREE40', 'a@example.com', 45.00, 2.90);
+        $this->assertTrue($atOrAbove->accepted);
+        $this->assertSame(2.90, $atOrAbove->discountEur);
+    }
+
     public function test_code_lookup_is_case_insensitive(): void
     {
         Coupon::factory()->percent(10)->create(['code' => 'SUMMER']);

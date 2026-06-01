@@ -3102,6 +3102,9 @@
     "coupon.discount_line": "Remise",
     "coupon.type_percent": "Pourcentage",
     "coupon.type_fixed": "Montant fixe",
+    "coupon.type_free_delivery": "Livraison gratuite",
+    "coupon.admin.free_delivery_note": "Aucune valeur requise — ce code annule les frais de livraison.",
+    "coupon.admin.free_delivery_short": "Livraison offerte",
     "coupon.admin.nav_label": "Codes promo",
     "coupon.admin.heading": "Codes promo",
     "coupon.admin.create": "Nouveau code",
@@ -3150,6 +3153,7 @@
     "coupon.admin.flash_activated": "Le code :code est maintenant actif.",
     "coupon.admin.flash_deactivated": "Le code :code est maintenant inactif.",
     "coupon.admin.flash_deleted": "Le code :code a été supprimé.",
+    "coupon.admin.errors.value_required": "Veuillez saisir une valeur.",
     "coupon.admin.errors.percent_too_high": "La remise ne peut pas dépasser :max %.",
     "coupon.admin.errors.fixed_needs_min": "Les codes à montant fixe nécessitent un montant minimum de commande.",
     "coupon.admin.errors.min_below_value": "Le montant minimum doit être au moins égal à la valeur du code."
