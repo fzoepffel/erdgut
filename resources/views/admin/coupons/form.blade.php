@@ -75,15 +75,15 @@
 
     <label class="block">
         <span class="mb-1 block text-xs font-medium text-gray-600">{{ __('coupon.admin.field_starts_at') }}</span>
-        <input type="datetime-local" name="starts_at" value="{{ old('starts_at', $dt($c?->starts_at)) }}"
-            class="w-full rounded-md border-gray-300 text-sm" />
+        <input type="datetime-local" name="starts_at" value="{{ old('starts_at', $dt($c?->starts_at)) }}" required
+            class="w-full rounded-md border-gray-300 text-sm" data-testid="coupon-field-starts-at" />
         <x-input-error :messages="$errors->get('starts_at')" class="mt-1" />
     </label>
 
     <label class="block">
         <span class="mb-1 block text-xs font-medium text-gray-600">{{ __('coupon.admin.field_expires_at') }}</span>
-        <input type="datetime-local" name="expires_at" value="{{ old('expires_at', $dt($c?->expires_at)) }}"
-            class="w-full rounded-md border-gray-300 text-sm" />
+        <input type="datetime-local" name="expires_at" value="{{ old('expires_at', $dt($c?->expires_at)) }}" required
+            class="w-full rounded-md border-gray-300 text-sm" data-testid="coupon-field-expires-at" />
         <x-input-error :messages="$errors->get('expires_at')" class="mt-1" />
     </label>
 

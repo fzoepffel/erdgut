@@ -38,7 +38,7 @@ class CouponRequest extends FormRequest
 
         // Blank optional numerics arrive as '' from the form — null them so
         // the "nullable" rules and DB columns behave.
-        foreach (['max_discount_eur', 'min_order_eur', 'max_redemptions', 'starts_at', 'expires_at', 'label'] as $field) {
+        foreach (['max_discount_eur', 'min_order_eur', 'max_redemptions', 'label'] as $field) {
             if ($this->input($field) === '') {
                 $merge[$field] = null;
             }
@@ -68,8 +68,10 @@ class CouponRequest extends FormRequest
             'min_order_eur' => ['nullable', 'numeric', 'gt:0'],
             'max_redemptions' => ['nullable', 'integer', 'min:1'],
             'per_email_limit' => ['required', 'integer', 'min:1', 'max:1000'],
-            'starts_at' => ['nullable', 'date'],
-            'expires_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            // A coupon must always carry a validity window — no coupon that is
+            // usable forever.
+            'starts_at' => ['required', 'date'],
+            'expires_at' => ['required', 'date', 'after_or_equal:starts_at'],
             'is_active' => ['boolean'],
         ];
     }
