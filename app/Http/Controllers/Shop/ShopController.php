@@ -7,12 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ShopOrderRequest;
 use App\Mail\ShopOrderConfirmationMail;
 use App\Models\ShopOrder;
+use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\ShopOrderService;
 use App\Support\PickupLocations;
 use App\Support\ShopOrderAdminNotifier;
 use App\Support\SumUpCheckoutLogger;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -33,7 +35,10 @@ use Throwable;
  */
 class ShopController extends Controller
 {
-    public function __construct(private readonly ShopOrderService $service) {}
+    public function __construct(
+        private readonly ShopOrderService $service,
+        private readonly CouponService $coupons,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -85,14 +90,65 @@ class ShopController extends Controller
 
         if ($order->payment_method === 'in_person') {
             $this->queueConfirmationMail($order);
-            // In-person checkout is a confirmed sale right away — notify admins
-            // now (the online half fires from the observer once SumUp confirms).
+            // In-person checkout is a confirmed sale right away — record the
+            // coupon redemption and notify admins now (the online half fires
+            // from the observer once SumUp confirms).
+            $this->coupons->finalizeRedemption($order);
             ShopOrderAdminNotifier::finalized($order);
 
             return redirect()->route('public.shop.return', ['shopOrder' => $order->id]);
         }
 
         return redirect()->route('public.shop.pay', ['shopOrder' => $order->id]);
+    }
+
+    /**
+     * Re-price the cart server-side with a typed coupon code and return the
+     * authoritative discount + new total as JSON for the live preview. Never
+     * trusts a client-computed discount; runs the same
+     * {@see ShopOrderService::quote()} the order create + SumUp charge use.
+     * Rejection reasons are mapped to deliberately-coarse localized messages
+     * so the endpoint can't be used to enumerate which codes exist.
+     */
+    public function couponPreview(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'coupon_code' => ['nullable', 'string', 'max:64'],
+            'email' => ['nullable', 'email:rfc', 'max:190'],
+            'fulfillment_mode' => ['required', 'in:pickup,delivery'],
+        ]);
+
+        // Normalize the storefront's quantity map into clean cart lines.
+        $items = [];
+        foreach ((array) $request->input('quantities', []) as $productId => $quantity) {
+            $qty = (float) $quantity;
+            if ($qty > 0) {
+                $items[] = ['product_id' => (int) $productId, 'quantity' => $qty];
+            }
+        }
+
+        $quote = $this->service->quote(
+            $items,
+            (string) $data['fulfillment_mode'],
+            $data['coupon_code'] ?? null,
+            $data['email'] ?? null,
+        );
+
+        $applied = $quote['coupon'] !== null;
+        $message = null;
+        if (! $applied && $quote['coupon_error'] !== null) {
+            $message = __('coupon.errors.'.$quote['coupon_error'], $quote['coupon_error_params']);
+        }
+
+        return response()->json([
+            'applied' => $applied,
+            'code' => $quote['coupon_code'],
+            'items_total_eur' => $quote['items_total_eur'],
+            'delivery_fee_eur' => $quote['delivery_fee_eur'],
+            'discount_eur' => $quote['discount_eur'],
+            'total_amount_eur' => $quote['total_amount_eur'],
+            'message' => $message,
+        ]);
     }
 
     public function pay(Request $request, ShopOrder $shopOrder): RedirectResponse|View

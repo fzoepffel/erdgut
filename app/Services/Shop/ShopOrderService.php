@@ -3,6 +3,7 @@
 namespace App\Services\Shop;
 
 use App\Enums\ShopOrderStatus;
+use App\Models\Coupon;
 use App\Models\Product;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
@@ -36,7 +37,10 @@ use Throwable;
  */
 class ShopOrderService
 {
-    public function __construct(private readonly SumUpService $sumUpService) {}
+    public function __construct(
+        private readonly SumUpService $sumUpService,
+        private readonly CouponService $couponService,
+    ) {}
 
     /**
      * The delivery fee (EUR), added once per order for delivery orders.
@@ -214,16 +218,33 @@ class ShopOrderService
      * dropped — the Request layer rejects those before this is trusted
      * for persistence, but quote() stays defensive for the live preview.
      *
+     * A coupon code may be supplied to apply a discount to the *product
+     * subtotal only* (never the delivery fee). The coupon is validated
+     * against the resolved subtotal and the customer email; the resolved
+     * coupon, granted discount, and any rejection reason are returned
+     * alongside the totals so the preview, validation, and persist paths
+     * all agree. An invalid coupon simply yields a zero discount plus a
+     * `coupon_error` reason — it never blocks the quote.
+     *
      * @param  array<int, array{product_id: int|string, quantity: int|float}>  $cartLines
      * @return array{
      *     lines: array<int, array{product: Product, quantity: float, unit: string, unit_price_eur: float, line_total_eur: float}>,
      *     items_total_eur: float,
      *     delivery_fee_eur: float,
+     *     discount_eur: float,
+     *     coupon: Coupon|null,
+     *     coupon_code: string|null,
+     *     coupon_error: string|null,
+     *     coupon_error_params: array<string, scalar>,
      *     total_amount_eur: float
      * }
      */
-    public function quote(array $cartLines, string $fulfillmentMode): array
-    {
+    public function quote(
+        array $cartLines,
+        string $fulfillmentMode,
+        ?string $couponCode = null,
+        ?string $email = null,
+    ): array {
         $productIds = collect($cartLines)
             ->pluck('product_id')
             ->map(fn ($id): int => (int) $id)
@@ -263,11 +284,43 @@ class ShopOrderService
         $itemsTotal = round($itemsTotal, 2);
         $deliveryFee = $fulfillmentMode === 'delivery' ? $this->deliveryFee() : 0.0;
 
+        // Resolve an optional coupon against the gross product subtotal.
+        // Discount applies to the subtotal only — the delivery fee is never
+        // discounted. An invalid coupon yields zero discount + a reason.
+        $discount = 0.0;
+        $coupon = null;
+        $couponError = null;
+        $couponErrorParams = [];
+        $normalizedCode = $couponCode !== null ? trim($couponCode) : '';
+
+        if ($normalizedCode !== '') {
+            $result = $this->couponService->validateForCheckout(
+                $normalizedCode,
+                (string) ($email ?? ''),
+                $itemsTotal,
+            );
+
+            if ($result->accepted) {
+                $discount = $result->discountEur;
+                $coupon = $result->coupon;
+            } else {
+                $couponError = $result->reason;
+                $couponErrorParams = $result->params;
+            }
+        }
+
+        $total = round($itemsTotal - $discount + $deliveryFee, 2);
+
         return [
             'lines' => $lines,
             'items_total_eur' => $itemsTotal,
             'delivery_fee_eur' => $deliveryFee,
-            'total_amount_eur' => round($itemsTotal + $deliveryFee, 2),
+            'discount_eur' => round($discount, 2),
+            'coupon' => $coupon,
+            'coupon_code' => $coupon?->code,
+            'coupon_error' => $couponError,
+            'coupon_error_params' => $couponErrorParams,
+            'total_amount_eur' => $total,
         ];
     }
 
@@ -295,7 +348,14 @@ class ShopOrderService
         }
         $deliveryDate = Carbon::parse((string) $expectedDeliveryDate)->startOfDay();
 
-        $quote = $this->quote($cartLines, $fulfillmentMode);
+        // Re-resolve the coupon at persist time against the live subtotal +
+        // email so a stale preview can't lock in a bigger discount.
+        $quote = $this->quote(
+            $cartLines,
+            $fulfillmentMode,
+            isset($payload['coupon_code']) ? (string) $payload['coupon_code'] : null,
+            isset($payload['email']) ? (string) $payload['email'] : null,
+        );
         if ($quote['lines'] === []) {
             throw new \InvalidArgumentException('Cart is empty.');
         }
@@ -337,6 +397,9 @@ class ShopOrderService
                 'items_total_eur' => $quote['items_total_eur'],
                 'delivery_fee_eur' => $quote['delivery_fee_eur'],
                 'total_amount_eur' => $quote['total_amount_eur'],
+                'coupon_id' => $quote['coupon']?->id,
+                'coupon_code' => $quote['coupon_code'],
+                'discount_eur' => $quote['discount_eur'],
                 'payment_method' => $payload['payment_method'] ?? 'online',
                 'status' => ShopOrderStatus::PendingPayment,
             ]);

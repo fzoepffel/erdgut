@@ -34,6 +34,13 @@ class TranslationParityTest extends TestCase
         // /app/admin/shop-orders builds status labels via
         // 'shop.admin.status_'.$status->value. Concrete variants exist.
         'shop.admin.status_',
+        // Admin coupons + storefront build keys like 'coupon.type_'.$type->value
+        // (percent|fixed). Concrete variants live in lang/{de,en,fr}.json.
+        'coupon.type_',
+        // Coupon preview maps service rejection reasons via
+        // 'coupon.errors.'.$reason (invalid|min_order|limit_reached). Concrete
+        // variants exist.
+        'coupon.errors.',
         // EditorialContent helper picks rotation indexes at runtime; concrete
         // variants (_1.._6 etc.) live in lang/{de,en,fr}.json and the helper's
         // own unit test asserts every ISO week resolves.

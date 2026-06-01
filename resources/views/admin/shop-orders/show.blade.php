@@ -136,6 +136,12 @@
                             <td colspan="2" class="px-4 py-2 text-right text-gray-600">{{ __('shop.summary_line_items') }}</td>
                             <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($order->items_total_eur)</td>
                         </tr>
+                        @if ((float) $order->discount_eur > 0)
+                            <tr>
+                                <td colspan="2" class="px-4 py-2 text-right text-gray-600">{{ __('coupon.discount_line') }} {{ $order->coupon_code }}</td>
+                                <td class="px-4 py-2 text-right tabular-nums text-emerald-700">− @eur($order->discount_eur)</td>
+                            </tr>
+                        @endif
                         @if ($order->fulfillment_mode === 'delivery')
                             <tr>
                                 <td colspan="2" class="px-4 py-2 text-right text-gray-600">{{ __('shop.summary_line_delivery') }}</td>

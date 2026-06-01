@@ -6,6 +6,7 @@ use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Models\ShopOrder;
+use App\Services\Shop\CouponService;
 use App\Support\AuditLogger;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
@@ -138,6 +139,10 @@ class AdminShopOrderController extends Controller
             metadata: ['channel' => 'admin'],
             actorUserId: (int) $request->user()->id,
         );
+
+        // Release any finalized coupon slot before the row (and its FK) is
+        // gone — voidRedemption looks the redemption up by shop_order_id.
+        app(CouponService::class)->voidRedemption($shopOrder);
 
         $shopOrder->delete();
 

@@ -93,6 +93,12 @@ class ShopOrderRequest extends FormRequest
             'delivery_city' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:120'],
             'delivery_notes' => ['nullable', 'string', 'max:500'],
 
+            // Optional coupon code — re-validated server-side at order create
+            // against the live subtotal + email (the typed value here is just
+            // shape-checked; an invalid code is silently dropped, never blocks
+            // checkout).
+            'coupon_code' => ['nullable', 'string', 'max:64'],
+
             'pickup_location' => [
                 'nullable',
                 'required_if:fulfillment_mode,pickup',
