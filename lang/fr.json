@@ -2569,6 +2569,7 @@
     "shop.admin.col_quantity": "Quantité",
     "shop.admin.col_status": "Statut",
     "shop.admin.col_total": "Total",
+    "shop.admin.col_coupon": "Bon",
     "shop.admin.col_when": "Quand",
     "shop.admin.confirm_delete": "Vraiment supprimer la commande n° :id ? Cette action est irréversible.",
     "shop.admin.confirm_refund": "Vraiment rembourser la commande n° :id de :amount ?",

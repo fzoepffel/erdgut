@@ -55,6 +55,22 @@ class AdminShopOrderTest extends TestCase
             ->assertSee('data-testid="shop-admin-row-'.$order->id.'"', false);
     }
 
+    public function test_index_shows_applied_coupon_column(): void
+    {
+        $admin = User::factory()->admin()->create();
+        ShopOrder::factory()->create([
+            'name' => 'Coupon Customer',
+            'coupon_code' => 'SAVE10',
+            'discount_eur' => 3.00,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.index'))
+            ->assertOk()
+            ->assertSee(__('shop.admin.col_coupon'))
+            ->assertSee('SAVE10');
+    }
+
     public function test_index_filters_by_status(): void
     {
         $admin = User::factory()->admin()->create();
