@@ -17,6 +17,9 @@
         <h2 class="font-display text-lg font-semibold text-brand-ink">{{ __('privacy.section_third_parties_heading') }}</h2>
         <p>{{ __('privacy.section_third_parties_body') }}</p>
 
+        <h2 class="font-display text-lg font-semibold text-brand-ink">{{ __('privacy.section_cookies_heading') }}</h2>
+        <p>{{ __('privacy.section_cookies_body') }}</p>
+
         <h2 class="font-display text-lg font-semibold text-brand-ink">{{ __('privacy.section_retention_heading') }}</h2>
         <p>{{ __('privacy.section_retention_body') }}</p>
 
