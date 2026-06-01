@@ -102,6 +102,22 @@ class ShopOrderFlowTest extends TestCase
             ->assertSee($this->product->name);
     }
 
+    public function test_shop_terms_page_renders(): void
+    {
+        $this->get(route('public.shop.terms'))
+            ->assertOk()
+            ->assertSee(__('shop_terms.heading'))
+            ->assertSee(__('shop_terms.section_withdrawal_heading'));
+    }
+
+    public function test_storefront_consent_links_to_shop_terms_not_box_terms(): void
+    {
+        $this->get(route('public.shop.index'))
+            ->assertOk()
+            ->assertSee('href="'.route('public.shop.terms').'"', false)
+            ->assertDontSee('href="'.route('public.terms').'"', false);
+    }
+
     public function test_storefront_omits_products_with_no_stock_in_the_week(): void
     {
         // A second product with NO stock anywhere in the week must be absent
