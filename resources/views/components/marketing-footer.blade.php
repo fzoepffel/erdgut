@@ -36,6 +36,8 @@
             <div class="flex flex-wrap gap-4">
                 <a href="{{ route('public.about') }}" class="hover:text-brand-ink">{{ __('About') }}</a>
                 <a href="{{ route('public.contact') }}" class="hover:text-brand-ink">{{ __('Contact') }}</a>
+                <a href="{{ route('public.imprint') }}" class="hover:text-brand-ink">{{ __('imprint.footer_link') }}</a>
+                <a href="{{ route('public.privacy') }}" class="hover:text-brand-ink">{{ __('privacy.footer_link') }}</a>
             </div>
         </div>
     </div>

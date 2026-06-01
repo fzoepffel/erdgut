@@ -147,6 +147,14 @@ Route::name('public.')->group(function () {
     Route::get('/shop/products/{product}', [ShopCatalogController::class, 'product'])->name('shop.products.show');
     Route::get('/shop/producers/{producer:slug}', [ShopCatalogController::class, 'producer'])->name('shop.producers.show');
 
+    // Shop-specific AGB — the storefront consent checkbox and footer link
+    // here, not at the box/subscription /agb document.
+    Route::get('/shop/agb', [TermsController::class, 'shopShow'])->name('shop.terms');
+
+    // Impressum (§ 5 DDG) — mandatory provider identification, linked from
+    // the shop footer.
+    Route::get('/impressum', [TermsController::class, 'imprint'])->name('imprint');
+
     // Minimal privacy notice — exists so the spargel-form consent text
     // can link to a real page (Datenschutzhinweis is required for any
     // German B2C purchase). Replace with a full notice once the rest

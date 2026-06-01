@@ -19,4 +19,24 @@ class TermsController extends Controller
     {
         return view('marketing.terms');
     }
+
+    /**
+     * Shop-specific AGB. The shop is a one-time anonymous guest-checkout
+     * channel (delivery/pickup, vouchers, perishable produce) and needs
+     * terms distinct from the box/subscription document above. Rendered in
+     * the self-contained shop chrome.
+     */
+    public function shopShow(): View
+    {
+        return view('shop.terms');
+    }
+
+    /**
+     * Impressum (§ 5 DDG) — mandatory provider identification for the
+     * commercial shop. Rendered in the self-contained shop chrome.
+     */
+    public function imprint(): View
+    {
+        return view('shop.imprint');
+    }
 }

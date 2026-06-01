@@ -30,7 +30,10 @@
 
         <div class="mt-10 flex flex-col gap-3 border-t border-brand-ink/10 pt-6 text-xs text-brand-ink/60 sm:flex-row sm:items-center sm:justify-between">
             <p>&copy; {{ date('Y') }} Erdgut</p>
-            <p class="font-editorial italic">{{ __('In the rhythm of the seasons.') }}</p>
+            <div class="flex flex-wrap gap-4">
+                <a href="{{ route('public.imprint') }}" class="hover:text-brand-ink">{{ __('imprint.footer_link') }}</a>
+                <a href="{{ route('public.privacy') }}" class="hover:text-brand-ink">{{ __('privacy.footer_link') }}</a>
+            </div>
         </div>
     </div>
 </footer>
