@@ -36,6 +36,8 @@ class AdminCouponTest extends TestCase
             'type' => 'percent',
             'value' => '10',
             'per_email_limit' => '1',
+            'starts_at' => '2026-06-01T00:00',
+            'expires_at' => '2026-12-31T23:59',
             'is_active' => '1',
         ], $overrides);
     }
@@ -123,6 +125,31 @@ class AdminCouponTest extends TestCase
             ->from(route('app.admin.coupons.create'))
             ->post(route('app.admin.coupons.store'), $this->validPercentPayload(['code' => 'TAKEN']))
             ->assertSessionHasErrors('code');
+    }
+
+    public function test_validity_window_is_required(): void
+    {
+        // No coupon may be usable forever — both dates must be supplied.
+        $this->actingAs($this->admin())
+            ->from(route('app.admin.coupons.create'))
+            ->post(route('app.admin.coupons.store'), $this->validPercentPayload([
+                'starts_at' => '',
+                'expires_at' => '',
+            ]))
+            ->assertSessionHasErrors(['starts_at', 'expires_at']);
+
+        $this->assertSame(0, Coupon::query()->count());
+    }
+
+    public function test_expiry_must_not_predate_start(): void
+    {
+        $this->actingAs($this->admin())
+            ->from(route('app.admin.coupons.create'))
+            ->post(route('app.admin.coupons.store'), $this->validPercentPayload([
+                'starts_at' => '2026-12-31T00:00',
+                'expires_at' => '2026-06-01T00:00',
+            ]))
+            ->assertSessionHasErrors('expires_at');
     }
 
     public function test_admin_can_update_coupon(): void
