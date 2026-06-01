@@ -53,6 +53,7 @@
 
     <footer class="border-t border-brand-ink/10 py-6 text-center text-xs text-brand-ink/60">
         <nav class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2" aria-label="{{ __('Site links') }}">
+            <a href="{{ route('public.imprint') }}" class="underline-offset-4 hover:text-brand-ink hover:underline">{{ __('imprint.footer_link') }}</a>
             <a href="{{ route('public.privacy') }}" class="underline-offset-4 hover:text-brand-ink hover:underline">{{ __('privacy.footer_link') }}</a>
             <a href="mailto:kontakt@erd-gut.de" class="underline-offset-4 hover:text-brand-ink hover:underline">kontakt@erd-gut.de</a>
         </nav>
