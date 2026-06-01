@@ -545,6 +545,7 @@
                 appliedCode: '',
                 couponApplied: false,
                 couponDiscount: 0,
+                couponType: '',
                 couponMessage: '',
                 applyingCoupon: false,
                 _couponTimer: null,
@@ -589,11 +590,13 @@
                                 this.couponApplied = true;
                                 this.appliedCode = d.code;
                                 this.couponDiscount = d.discount_eur;
+                                this.couponType = d.type || '';
                                 this.couponMessage = '';
                             } else {
                                 this.couponApplied = false;
                                 this.appliedCode = '';
                                 this.couponDiscount = 0;
+                                this.couponType = '';
                                 this.couponMessage = d.message || this.couponErrorGeneric;
                             }
                         })
@@ -604,6 +607,7 @@
                     this.couponApplied = false;
                     this.appliedCode = '';
                     this.couponDiscount = 0;
+                    this.couponType = '';
                     this.couponCode = '';
                     this.couponMessage = '';
                 },
@@ -666,8 +670,17 @@
                     return this.products.reduce((n, p) => n + ((this.quantities[p.id] || 0) > 0 ? 1 : 0), 0);
                 },
                 get effectiveDeliveryFee() { return this.mode === 'delivery' ? this.deliveryFee : 0; },
-                get appliedDiscount() { return this.couponApplied ? Math.min(this.couponDiscount, this.itemsTotal) : 0; },
-                get total() { return Math.round((Math.max(0, this.itemsTotal - this.appliedDiscount) + this.effectiveDeliveryFee) * 100) / 100; },
+                // Free-delivery coupons waive the fee; all others cut the subtotal.
+                get isFreeDelivery() { return this.couponApplied && this.couponType === 'free_delivery'; },
+                get appliedDiscount() {
+                    if (!this.couponApplied) return 0;
+                    if (this.isFreeDelivery) return this.effectiveDeliveryFee;
+                    return Math.min(this.couponDiscount, this.itemsTotal);
+                },
+                get total() {
+                    if (this.isFreeDelivery) return Math.round(this.itemsTotal * 100) / 100;
+                    return Math.round((Math.max(0, this.itemsTotal - this.appliedDiscount) + this.effectiveDeliveryFee) * 100) / 100;
+                },
                 money(v) { return v.toFixed(2).replace('.', ',') + ' €'; },
             };
         }

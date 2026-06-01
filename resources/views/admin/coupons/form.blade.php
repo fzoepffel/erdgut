@@ -32,15 +32,21 @@
         </select>
     </label>
 
-    <label class="block">
+    {{-- Free delivery carries no value — its discount is the delivery fee. --}}
+    <label class="block" x-show="type !== 'free_delivery'">
         <span class="mb-1 block text-xs font-medium text-gray-600">
             <span x-show="type === 'percent'">{{ __('coupon.admin.field_value_percent') }}</span>
             <span x-show="type === 'fixed'" x-cloak>{{ __('coupon.admin.field_value_fixed') }}</span>
         </span>
-        <input type="number" step="0.01" min="0" name="value" value="{{ old('value', $fmt($c?->value)) }}" required
+        <input type="number" step="0.01" min="0" name="value" value="{{ old('value', $fmt($c?->value)) }}" :required="type !== 'free_delivery'"
             class="w-full rounded-md border-gray-300 text-sm" data-testid="coupon-field-value" />
         <x-input-error :messages="$errors->get('value')" class="mt-1" />
     </label>
+
+    {{-- A note in place of the value field for free-delivery coupons. --}}
+    <div class="block self-end text-xs text-gray-500" x-show="type === 'free_delivery'" x-cloak>
+        {{ __('coupon.admin.free_delivery_note') }}
+    </div>
 
     <label class="block" x-show="type === 'percent'" x-cloak>
         <span class="mb-1 block text-xs font-medium text-gray-600">{{ __('coupon.admin.field_max_discount') }}</span>

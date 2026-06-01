@@ -284,9 +284,9 @@ class ShopOrderService
         $itemsTotal = round($itemsTotal, 2);
         $deliveryFee = $fulfillmentMode === 'delivery' ? $this->deliveryFee() : 0.0;
 
-        // Resolve an optional coupon against the gross product subtotal.
-        // Discount applies to the subtotal only — the delivery fee is never
-        // discounted. An invalid coupon yields zero discount + a reason.
+        // Resolve an optional coupon against the gross product subtotal (and
+        // the delivery fee, which only a free-delivery coupon touches). An
+        // invalid coupon yields zero discount + a reason.
         $discount = 0.0;
         $coupon = null;
         $couponError = null;
@@ -298,6 +298,7 @@ class ShopOrderService
                 $normalizedCode,
                 (string) ($email ?? ''),
                 $itemsTotal,
+                $deliveryFee,
             );
 
             if ($result->accepted) {

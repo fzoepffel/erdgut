@@ -44,6 +44,14 @@ class CouponRequest extends FormRequest
             }
         }
 
+        // A free-delivery coupon carries no value or max-discount — its
+        // discount is the delivery fee. Persist a concrete 0 (the column is
+        // NOT NULL) and drop any stray max-discount.
+        if ($this->input('type') === CouponType::FreeDelivery->value) {
+            $merge['value'] = 0;
+            $merge['max_discount_eur'] = null;
+        }
+
         $this->merge($merge);
     }
 
@@ -63,7 +71,9 @@ class CouponRequest extends FormRequest
             ],
             'label' => ['nullable', 'string', 'max:120'],
             'type' => ['required', Rule::enum(CouponType::class)],
-            'value' => ['required', 'numeric', 'gt:0'],
+            // Required for percent/fixed (enforced in withValidator); a
+            // free-delivery coupon needs no value (coerced to 0 above).
+            'value' => ['nullable', 'numeric', 'min:0'],
             'max_discount_eur' => ['nullable', 'numeric', 'gt:0'],
             'min_order_eur' => ['nullable', 'numeric', 'gt:0'],
             'max_redemptions' => ['nullable', 'integer', 'min:1'],
@@ -82,6 +92,13 @@ class CouponRequest extends FormRequest
             $type = $this->input('type');
             $value = (float) $this->input('value');
             $maxPercent = (float) config('coupon.max_percent', 90);
+
+            // Percent and fixed coupons need a positive value; free delivery
+            // does not (its discount is the delivery fee).
+            if (in_array($type, [CouponType::Percent->value, CouponType::Fixed->value], true)
+                && ($this->input('value') === null || $this->input('value') === '' || $value <= 0)) {
+                $v->errors()->add('value', __('coupon.admin.errors.value_required'));
+            }
 
             if ($type === CouponType::Percent->value) {
                 // No 100%-off — a percentage discount can never zero an order.
