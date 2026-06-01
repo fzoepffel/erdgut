@@ -56,6 +56,21 @@ export default {
                 accent: {
                     star: '#c53a2b', // triple-star ✱✱✱ red
                 },
+                // Shop storefront palette — exact OKLCH tokens from the
+                // approved shop prototype. Kept as a dedicated namespace so the
+                // storefront matches the prototype 1:1 without disturbing the
+                // brand tokens the rest of the site relies on.
+                shop: {
+                    background: 'oklch(96.5% 0.025 90)', // --cream / --background
+                    foreground: 'oklch(22% 0.04 140)', // --ink / --foreground
+                    primary: 'oklch(32% 0.08 140)', // --primary (deep moss)
+                    'primary-hover': 'oklch(27% 0.08 140)', // hover:bg-primary/90 equiv
+                    'primary-foreground': 'oklch(96.5% 0.025 90)', // cream on green
+                    border: 'oklch(85% 0.025 90)', // --border / --input
+                    muted: 'oklch(45% 0.03 110)', // --muted-foreground
+                    paper: 'oklch(94% 0.03 88)', // --paper
+                    card: 'oklch(98.5% 0.012 90)', // --card
+                },
             },
             letterSpacing: {
                 // Matches the spec: mono eyebrows + metadata labels read as
