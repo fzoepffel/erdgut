@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\AdminBillingCoverageController;
 use App\Http\Controllers\Admin\AdminBoxController;
 use App\Http\Controllers\Admin\AdminBoxItemController;
 use App\Http\Controllers\Admin\AdminBoxSetupController;
+use App\Http\Controllers\Admin\AdminCouponController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDeliveryController;
 use App\Http\Controllers\Admin\AdminEmailResendController;
@@ -127,6 +128,13 @@ Route::name('public.')->group(function () {
     Route::post('/shop', [ShopController::class, 'store'])
         ->middleware('throttle:20,1')
         ->name('shop.store');
+    // Live coupon preview: re-prices the cart server-side with a typed code
+    // so the discount shown is the authoritative one (the same quote() the
+    // order create + SumUp charge use). Throttled — it's an unauthenticated
+    // endpoint that could otherwise be used to brute-force codes.
+    Route::post('/shop/coupon/preview', [ShopController::class, 'couponPreview'])
+        ->middleware('throttle:20,1')
+        ->name('shop.coupon.preview');
     Route::get('/shop/{shopOrder}/pay', [ShopController::class, 'pay'])->name('shop.pay');
     Route::get('/shop/{shopOrder}/return', [ShopController::class, 'return'])->name('shop.return');
 
@@ -418,6 +426,24 @@ Route::middleware(['auth', 'verified'])
             Route::delete('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'destroy'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.destroy');
+
+            // Shop discount coupons (admin-managed): percentage or fixed,
+            // with per-email + global redemption caps. See CouponService.
+            Route::get('coupons', [AdminCouponController::class, 'index'])->name('coupons.index');
+            Route::get('coupons/create', [AdminCouponController::class, 'create'])->name('coupons.create');
+            Route::post('coupons', [AdminCouponController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('coupons.store');
+            Route::get('coupons/{coupon}', [AdminCouponController::class, 'show'])->name('coupons.show');
+            Route::put('coupons/{coupon}', [AdminCouponController::class, 'update'])
+                ->middleware('throttle:30,1')
+                ->name('coupons.update');
+            Route::post('coupons/{coupon}/toggle', [AdminCouponController::class, 'toggle'])
+                ->middleware('throttle:30,1')
+                ->name('coupons.toggle');
+            Route::delete('coupons/{coupon}', [AdminCouponController::class, 'destroy'])
+                ->middleware('throttle:30,1')
+                ->name('coupons.destroy');
         });
     });
 

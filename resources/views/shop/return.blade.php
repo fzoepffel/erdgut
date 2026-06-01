@@ -85,6 +85,12 @@
                     {{ $order->payment_method === 'in_person' ? __('shop.payment_in_person') : __('shop.payment_online') }}
                 </dd>
             </div>
+            @if ((float) $order->discount_eur > 0)
+                <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
+                    <dt class="eyebrow text-brand-ink/60">{{ __('coupon.discount_line') }} {{ $order->coupon_code }}</dt>
+                    <dd class="tabular-nums text-brand-ink">− @eur($order->discount_eur)</dd>
+                </div>
+            @endif
             <div class="flex items-center justify-between gap-4 py-2">
                 <dt class="eyebrow text-brand-ink/60">{{ __('shop.summary_line_total') }}</dt>
                 <dd class="font-display text-lg tabular-nums text-brand-ink">@eur($order->total_amount_eur)</dd>

@@ -78,6 +78,14 @@
                                         </td>
                                     </tr>
                                 @endforeach
+                                @if ((float) $order->discount_eur > 0)
+                                    <tr>
+                                        <td style="padding: 6px 16px; font-size: 14px; color: rgba(44, 36, 28, 0.8);">{{ __('coupon.discount_line') }} {{ $order->coupon_code }}</td>
+                                        <td align="right" style="padding: 6px 16px; font-size: 14px; color: #2c241c;">
+                                            − {{ number_format((float) $order->discount_eur, 2, ',', '.') }} €
+                                        </td>
+                                    </tr>
+                                @endif
                                 @if ($order->fulfillment_mode === 'delivery')
                                     <tr>
                                         <td style="padding: 6px 16px; font-size: 14px; color: rgba(44, 36, 28, 0.8);">{{ __('shop.summary_line_delivery') }}</td>

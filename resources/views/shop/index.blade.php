@@ -60,6 +60,10 @@
             mode: {{ json_encode(old('fulfillment_mode', 'pickup')) }},
             payment: {{ json_encode(old('payment_method', 'online')) }},
             pickupLocation: {{ json_encode(old('pickup_location', '')) }},
+            email: {{ json_encode(old('email', '')) }},
+            couponPreviewUrl: @js(route('public.shop.coupon.preview')),
+            csrf: @js(csrf_token()),
+            couponErrorGeneric: @js(__('coupon.errors.generic')),
         })"
     >
         {{-- ── Hero ──────────────────────────────────────────────────── --}}
@@ -377,7 +381,7 @@
                             </label>
                             <label class="block">
                                 <span class="{{ $fieldLabel }}">{{ __('Email') }}</span>
-                                <input type="email" name="email" value="{{ old('email') }}" required autocomplete="email" class="{{ $inputClass }}" />
+                                <input type="email" name="email" value="{{ old('email') }}" x-model="email" required autocomplete="email" class="{{ $inputClass }}" />
                                 <x-input-error :messages="$errors->get('email')" class="mt-2" />
                             </label>
                             <label class="block">
@@ -427,7 +431,66 @@
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <p class="{{ $eyebrow }}">{{ __('shop.summary_heading') }}</p>
                         <div class="mt-6 border-y border-shop-border py-6">
-                            <div class="flex items-baseline justify-between gap-4">
+                            {{-- ── Coupon code ─────────────────────────── --}}
+                            <div class="mb-6" data-testid="shop-coupon">
+                                <span class="{{ $fieldLabel }}">{{ __('coupon.field_label') }}</span>
+
+                                {{-- Entry row (hidden once a code is applied) --}}
+                                <div class="mt-2 flex flex-wrap items-stretch gap-3" x-show="!couponApplied">
+                                    <input
+                                        type="text"
+                                        x-model="couponCode"
+                                        @keydown.enter.prevent="applyCoupon()"
+                                        placeholder="{{ __('coupon.field_placeholder') }}"
+                                        autocapitalize="characters"
+                                        class="{{ $inputClass }} flex-1"
+                                        data-testid="shop-coupon-input"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="applyCoupon()"
+                                        :disabled="applyingCoupon || couponCode.trim() === ''"
+                                        class="shrink-0 rounded-sm border border-shop-border px-5 py-2 font-mono text-[0.7rem] uppercase tracking-widest text-shop-foreground transition hover:border-shop-primary hover:text-shop-primary disabled:cursor-not-allowed disabled:opacity-40"
+                                        data-testid="shop-coupon-apply"
+                                    >
+                                        <span x-show="!applyingCoupon">{{ __('coupon.apply') }}</span>
+                                        <span x-show="applyingCoupon" x-cloak>{{ __('coupon.applying') }}</span>
+                                    </button>
+                                </div>
+
+                                {{-- Applied row --}}
+                                <div class="mt-2 flex items-center justify-between gap-3 border border-shop-primary/40 bg-shop-primary/5 px-4 py-3" x-show="couponApplied" x-cloak data-testid="shop-coupon-applied">
+                                    <span class="font-mono text-[0.75rem] uppercase tracking-widest text-shop-primary" x-text="appliedCode"></span>
+                                    <button
+                                        type="button"
+                                        @click="clearCoupon()"
+                                        class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:text-shop-foreground hover:underline"
+                                        data-testid="shop-coupon-remove"
+                                    >{{ __('coupon.remove') }}</button>
+                                </div>
+
+                                <p class="mt-2 text-sm leading-relaxed text-red-600" x-show="couponMessage" x-cloak x-text="couponMessage" data-testid="shop-coupon-message"></p>
+
+                                <input type="hidden" name="coupon_code" :value="couponApplied ? appliedCode : ''">
+                            </div>
+
+                            {{-- ── Breakdown (subtotal / discount / delivery) ── --}}
+                            <div class="space-y-2" x-show="couponApplied || effectiveDeliveryFee > 0" x-cloak>
+                                <div class="flex items-baseline justify-between gap-4 text-sm text-shop-muted">
+                                    <span>{{ __('shop.summary_line_items') }}</span>
+                                    <span class="tabular-nums" x-text="money(itemsTotal)"></span>
+                                </div>
+                                <div class="flex items-baseline justify-between gap-4 text-sm text-shop-primary" x-show="couponApplied" x-cloak data-testid="shop-coupon-discount-line">
+                                    <span x-text="@js(__('coupon.discount_line')) + ' ' + appliedCode"></span>
+                                    <span class="tabular-nums" x-text="'− ' + money(couponDiscount)"></span>
+                                </div>
+                                <div class="flex items-baseline justify-between gap-4 text-sm text-shop-muted" x-show="effectiveDeliveryFee > 0" x-cloak>
+                                    <span>{{ __('shop.summary_line_delivery') }}</span>
+                                    <span class="tabular-nums" x-text="money(effectiveDeliveryFee)"></span>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 flex items-baseline justify-between gap-4">
                                 <span class="font-display text-2xl">{{ __('shop.summary_line_total') }}</span>
                                 <span class="font-display text-4xl text-shop-primary tabular-nums" x-text="money(total)">{{ \App\Support\Money::format(0) }}</span>
                             </div>
@@ -473,6 +536,18 @@
                 payment: config.payment || 'online',
                 pickupLocation: config.pickupLocation || '',
                 quantities: {},
+                email: config.email || '',
+                // Coupon state.
+                couponPreviewUrl: config.couponPreviewUrl,
+                csrf: config.csrf,
+                couponErrorGeneric: config.couponErrorGeneric,
+                couponCode: '',
+                appliedCode: '',
+                couponApplied: false,
+                couponDiscount: 0,
+                couponMessage: '',
+                applyingCoupon: false,
+                _couponTimer: null,
                 init() {
                     // Seed quantities from the rendered hidden inputs so a
                     // validation bounce (old() values) keeps the cart.
@@ -481,7 +556,66 @@
                         this.quantities[p.id] = el ? (parseFloat(el.value) || 0) : 0;
                     });
                     // Delivery is always paid online.
-                    this.$watch('mode', (v) => { if (v === 'delivery') this.payment = 'online'; });
+                    this.$watch('mode', (v) => {
+                        if (v === 'delivery') this.payment = 'online';
+                        // Delivery fee never changes a subtotal-only discount,
+                        // but re-validate so caps/min-order stay authoritative.
+                        this.scheduleCouponRefresh();
+                    });
+                },
+                // ── Coupon ───────────────────────────────────────────────
+                applyCoupon() {
+                    const code = this.couponCode.trim();
+                    if (code === '' || this.applyingCoupon) return;
+                    this.applyingCoupon = true;
+                    this.couponMessage = '';
+                    fetch(this.couponPreviewUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': this.csrf,
+                        },
+                        body: JSON.stringify({
+                            coupon_code: code,
+                            email: this.email,
+                            fulfillment_mode: this.mode,
+                            quantities: this.quantities,
+                        }),
+                    })
+                        .then((r) => r.json())
+                        .then((d) => {
+                            if (d.applied) {
+                                this.couponApplied = true;
+                                this.appliedCode = d.code;
+                                this.couponDiscount = d.discount_eur;
+                                this.couponMessage = '';
+                            } else {
+                                this.couponApplied = false;
+                                this.appliedCode = '';
+                                this.couponDiscount = 0;
+                                this.couponMessage = d.message || this.couponErrorGeneric;
+                            }
+                        })
+                        .catch(() => { this.couponMessage = this.couponErrorGeneric; })
+                        .finally(() => { this.applyingCoupon = false; });
+                },
+                clearCoupon() {
+                    this.couponApplied = false;
+                    this.appliedCode = '';
+                    this.couponDiscount = 0;
+                    this.couponCode = '';
+                    this.couponMessage = '';
+                },
+                // Re-validate an applied coupon after the cart changes so the
+                // preview stays honest (the server re-checks again at submit).
+                scheduleCouponRefresh() {
+                    if (!this.couponApplied || !this.appliedCode) return;
+                    clearTimeout(this._couponTimer);
+                    this._couponTimer = setTimeout(() => {
+                        this.couponCode = this.appliedCode;
+                        this.applyCoupon();
+                    }, 400);
                 },
                 product(id) { return this.products.find((p) => p.id === id); },
                 stepIndex(id) {
@@ -505,13 +639,19 @@
                     const p = this.product(id);
                     if (!p) return;
                     const i = this.stepIndex(id);
-                    if (i < p.steps.length - 1) this.quantities[id] = p.steps[i + 1].v;
+                    if (i < p.steps.length - 1) {
+                        this.quantities[id] = p.steps[i + 1].v;
+                        this.scheduleCouponRefresh();
+                    }
                 },
                 dec(id) {
                     const p = this.product(id);
                     if (!p) return;
                     const i = this.stepIndex(id);
-                    if (i > 0) this.quantities[id] = p.steps[i - 1].v;
+                    if (i > 0) {
+                        this.quantities[id] = p.steps[i - 1].v;
+                        this.scheduleCouponRefresh();
+                    }
                 },
                 lineTotal(id) {
                     const p = this.product(id);
@@ -526,7 +666,8 @@
                     return this.products.reduce((n, p) => n + ((this.quantities[p.id] || 0) > 0 ? 1 : 0), 0);
                 },
                 get effectiveDeliveryFee() { return this.mode === 'delivery' ? this.deliveryFee : 0; },
-                get total() { return Math.round((this.itemsTotal + this.effectiveDeliveryFee) * 100) / 100; },
+                get appliedDiscount() { return this.couponApplied ? Math.min(this.couponDiscount, this.itemsTotal) : 0; },
+                get total() { return Math.round((Math.max(0, this.itemsTotal - this.appliedDiscount) + this.effectiveDeliveryFee) * 100) / 100; },
                 money(v) { return v.toFixed(2).replace('.', ',') + ' €'; },
             };
         }
