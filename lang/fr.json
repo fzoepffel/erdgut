@@ -2538,6 +2538,8 @@
     "privacy.section_rights_body": "Vous pouvez à tout moment demander l'accès, la rectification, la suppression ou la limitation du traitement de vos données, ainsi que vous opposer au traitement et demander la portabilité. Contact : <a href=\"mailto:kontakt@erd-gut.de\" class=\"underline-offset-4 hover:underline\">kontakt@erd-gut.de</a>.",
     "privacy.section_rights_heading": "Vos droits",
     "privacy.section_third_parties_body": "Nous ne partageons pas vos données à des fins marketing. Notre prestataire de paiement est SumUp Limited. L'hébergement est assuré par IONOS en Allemagne.",
+    "privacy.section_cookies_heading": "Cookies",
+    "privacy.section_cookies_body": "Nous utilisons uniquement des cookies strictement nécessaires au processus de commande : un cookie de session (panier, connexion) et un cookie de protection contre la falsification de requête intersite. Ces cookies sont dispensés de consentement en vertu de l'art. 25 al. 2 TTDSG. Nous n'utilisons aucun cookie de suivi ou d'analyse. Lors du paiement, le service de paiement SumUp intégré peut déposer ses propres cookies nécessaires au traitement du paiement.",
     "privacy.section_third_parties_heading": "Partage avec des tiers",
     "producer.detail.breadcrumb_producers": "Producteurs",
     "producer.detail.description_missing": "Aucune description disponible pour le moment.",
