@@ -36,10 +36,12 @@ class CouponService
      * Validate a typed code for a checkout and compute its discount.
      *
      * `$subtotal` is the gross product subtotal in EUR (delivery fee
-     * excluded). `$email` keys the per-email limit. Returns an accepted
-     * result with the EUR discount, or a rejection with a coarse reason.
+     * excluded); `$deliveryFee` is the EUR delivery fee (0 for pickup) and is
+     * only used by free-delivery coupons. `$email` keys the per-email limit.
+     * Returns an accepted result with the EUR discount, or a rejection with a
+     * coarse reason.
      */
-    public function validateForCheckout(string $code, string $email, float $subtotal): CouponValidationResult
+    public function validateForCheckout(string $code, string $email, float $subtotal, float $deliveryFee = 0.0): CouponValidationResult
     {
         $code = trim($code);
         if ($code === '') {
@@ -79,10 +81,11 @@ class CouponService
             }
         }
 
-        $discount = $this->computeDiscount($coupon, $subtotal);
+        $discount = $this->computeDiscount($coupon, $subtotal, $deliveryFee);
         if ($discount <= 0.0) {
-            // Nothing to grant (e.g. subtotal already at the floor) — treat
-            // as invalid rather than show a EUR 0.00 discount line.
+            // Nothing to grant (e.g. subtotal already at the floor, or a
+            // free-delivery coupon on a pickup order with no fee) — treat as
+            // invalid rather than show a EUR 0.00 discount line.
             return CouponValidationResult::reject(self::REASON_INVALID);
         }
 
@@ -90,15 +93,23 @@ class CouponService
     }
 
     /**
-     * EUR discount a coupon grants on `$subtotal` (product subtotal only).
+     * EUR discount a coupon grants.
      *
      * Percent: `value`% of the subtotal, optionally capped by
-     * `max_discount_eur`. Fixed: the flat `value`. Either way the result is
-     * clamped so the post-discount subtotal stays at or above the SumUp
-     * floor — the order can never go free.
+     * `max_discount_eur`. Fixed: the flat `value`. Both reduce the product
+     * subtotal and are clamped so the post-discount subtotal stays at or above
+     * the SumUp floor — the order can never go free. FreeDelivery: waives the
+     * delivery fee (the discount equals `$deliveryFee`, 0 on pickup), leaving
+     * the product subtotal charged in full.
      */
-    public function computeDiscount(Coupon $coupon, float $subtotal): float
+    public function computeDiscount(Coupon $coupon, float $subtotal, float $deliveryFee = 0.0): float
     {
+        // Free delivery is the only type that touches the delivery fee rather
+        // than the subtotal — it simply cancels the fee (nothing on pickup).
+        if ($coupon->type === CouponType::FreeDelivery) {
+            return round(max(0.0, $deliveryFee), 2);
+        }
+
         if ($subtotal <= 0.0) {
             return 0.0;
         }
@@ -106,6 +117,7 @@ class CouponService
         $raw = match ($coupon->type) {
             CouponType::Percent => $subtotal * ((float) $coupon->value / 100.0),
             CouponType::Fixed => (float) $coupon->value,
+            CouponType::FreeDelivery => 0.0,
         };
 
         if ($coupon->type === CouponType::Percent && $coupon->max_discount_eur !== null) {

@@ -3102,6 +3102,9 @@
     "coupon.discount_line": "Rabatt",
     "coupon.type_percent": "Prozent",
     "coupon.type_fixed": "Festbetrag",
+    "coupon.type_free_delivery": "Kostenloser Versand",
+    "coupon.admin.free_delivery_note": "Kein Wert nötig – dieser Gutschein erlässt die Liefergebühr.",
+    "coupon.admin.free_delivery_short": "Versand frei",
     "coupon.admin.nav_label": "Gutscheine",
     "coupon.admin.heading": "Gutscheine",
     "coupon.admin.create": "Gutschein anlegen",
@@ -3150,6 +3153,7 @@
     "coupon.admin.flash_activated": "Gutschein :code ist jetzt aktiv.",
     "coupon.admin.flash_deactivated": "Gutschein :code ist jetzt inaktiv.",
     "coupon.admin.flash_deleted": "Gutschein :code wurde gelöscht.",
+    "coupon.admin.errors.value_required": "Bitte einen Wert angeben.",
     "coupon.admin.errors.percent_too_high": "Der Rabatt darf höchstens :max % betragen.",
     "coupon.admin.errors.fixed_needs_min": "Festbetrag-Gutscheine brauchen einen Mindestbestellwert.",
     "coupon.admin.errors.min_below_value": "Der Mindestbestellwert muss mindestens dem Gutscheinwert entsprechen."
