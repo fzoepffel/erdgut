@@ -60,6 +60,12 @@
                 <td style="{{ $detailRowStyle }} {{ $detailValueStyle }}">{{ $eur($deliveryFee) }}</td>
             </tr>
         @endif
+        @if ((float) $order->discount_eur > 0)
+            <tr>
+                <td style="{{ $detailRowStyle }} {{ $detailLabelStyle }}">Discount{{ $order->coupon_code ? ' (' . $order->coupon_code . ')' : '' }}</td>
+                <td style="{{ $detailRowStyle }} {{ $detailValueStyle }}">− {{ $eur((float) $order->discount_eur) }}</td>
+            </tr>
+        @endif
         <tr>
             <td style="padding: 10px 0 0 0; font-size: 13px; font-weight: 600; color: #2c241c; padding-right: 12px; white-space: nowrap;">Total</td>
             <td style="padding: 10px 0 0 0; font-size: 16px; font-weight: 600; color: #2c241c;">{{ $eur($total) }}</td>
