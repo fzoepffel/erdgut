@@ -500,7 +500,7 @@
                         <label class="mt-10 flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-shop-muted">
                             <input type="checkbox" name="consent" value="1" @checked(old('consent')) required class="mt-1 h-4 w-4 accent-shop-primary">
                             <span>
-                                {!! __('shop.consent_text', ['privacy' => '<a href="'.route('public.privacy').'" class="text-shop-foreground underline-offset-4 hover:underline" target="_blank" rel="noopener">'.e(__('shop.consent_privacy_link')).'</a>', 'terms' => '<a href="'.route('public.terms').'" class="text-shop-foreground underline-offset-4 hover:underline" target="_blank" rel="noopener">'.e(__('shop.consent_terms_link')).'</a>']) !!}
+                                {!! __('shop.consent_text', ['privacy' => '<a href="'.route('public.privacy').'" class="text-shop-foreground underline-offset-4 hover:underline" target="_blank" rel="noopener">'.e(__('shop.consent_privacy_link')).'</a>', 'terms' => '<a href="'.route('public.shop.terms').'" class="text-shop-foreground underline-offset-4 hover:underline" target="_blank" rel="noopener">'.e(__('shop.consent_terms_link')).'</a>']) !!}
                             </span>
                         </label>
                         <x-input-error :messages="$errors->get('consent')" class="mt-2" />
