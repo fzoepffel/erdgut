@@ -2569,6 +2569,7 @@
     "shop.admin.col_quantity": "Quantity",
     "shop.admin.col_status": "Status",
     "shop.admin.col_total": "Total",
+    "shop.admin.col_coupon": "Coupon",
     "shop.admin.col_when": "When",
     "shop.admin.confirm_delete": "Really delete order no. :id? This action cannot be undone.",
     "shop.admin.confirm_refund": "Really refund order no. :id for :amount?",

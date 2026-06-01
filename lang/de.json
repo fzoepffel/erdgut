@@ -2569,6 +2569,7 @@
     "shop.admin.col_quantity": "Menge",
     "shop.admin.col_status": "Status",
     "shop.admin.col_total": "Summe",
+    "shop.admin.col_coupon": "Gutschein",
     "shop.admin.col_when": "Termin",
     "shop.admin.confirm_delete": "Bestellung Nr. :id wirklich löschen? Diese Aktion lässt sich nicht rückgängig machen.",
     "shop.admin.confirm_refund": "Bestellung Nr. :id über :amount wirklich erstatten?",
