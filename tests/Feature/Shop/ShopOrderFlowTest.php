@@ -152,9 +152,9 @@ class ShopOrderFlowTest extends TestCase
         $this->assertStringContainsString('data-testid="shop-product-card-unavailable"', $html);
         $this->assertStringNotContainsString('name="quantities['.$weekOther->id.']"', $html);
 
-        // The orderable product still has an active <select> picker.
+        // The orderable product still has an active quantity stepper.
         $this->assertStringContainsString('name="quantities['.$this->product->id.']"', $html);
-        $this->assertStringContainsString('data-testid="shop-qty-select"', $html);
+        $this->assertStringContainsString('data-testid="shop-qty-stepper"', $html);
     }
 
     public function test_mass_product_quantity_picker_steps_by_50_grams(): void
@@ -178,12 +178,14 @@ class ShopOrderFlowTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        // 50 g steps: 50 and 100 present; 75 (off-step) absent.
-        $this->assertStringContainsString('<option value="50"', $html);
-        $this->assertStringContainsString('<option value="100"', $html);
-        $this->assertStringNotContainsString('<option value="75"', $html);
+        // The stepper ladder (Alpine @js registry) offers 50 g multiples:
+        // 50 and 100 present; 75 (off-step) absent. Blade's @js escapes JSON
+        // quotes to \u0022, so each value pair reads \u0022v\u0022:50.
+        $this->assertStringContainsString('\u0022v\u0022:50', $html);
+        $this->assertStringContainsString('\u0022v\u0022:100', $html);
+        $this->assertStringNotContainsString('\u0022v\u0022:75', $html);
         // Capped at remaining stock (300 g) — 350 not offered.
-        $this->assertStringNotContainsString('<option value="350"', $html);
+        $this->assertStringNotContainsString('\u0022v\u0022:350', $html);
     }
 
     public function test_off_step_mass_quantity_is_rejected(): void
