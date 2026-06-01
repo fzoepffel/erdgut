@@ -42,6 +42,7 @@
                             <th class="px-3 py-2">{{ __('shop.admin.col_fulfillment') }}</th>
                             <th class="px-3 py-2">{{ __('shop.admin.col_when') }}</th>
                             <th class="px-3 py-2 text-right">{{ __('shop.admin.col_total') }}</th>
+                            <th class="px-3 py-2">{{ __('shop.admin.col_coupon') }}</th>
                             <th class="px-3 py-2">{{ __('shop.admin.col_status') }}</th>
                             <th></th>
                         </tr>
@@ -67,6 +68,16 @@
                                     @eur($order->total_amount_eur)
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-2">
+                                    @if ($order->coupon_code)
+                                        <span class="rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-xs font-medium text-emerald-800">{{ $order->coupon_code }}</span>
+                                        @if ((float) $order->discount_eur > 0)
+                                            <div class="mt-0.5 text-[11px] tabular-nums text-gray-500">−@eur($order->discount_eur)</div>
+                                        @endif
+                                    @else
+                                        <span class="text-gray-400">—</span>
+                                    @endif
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-2">
                                     <x-shop-order-status :order="$order" />
                                     @if ((int) $order->payment_attempts > 0 && $order->status !== \App\Enums\ShopOrderStatus::Paid && $order->status !== \App\Enums\ShopOrderStatus::Fulfilled)
                                         <div class="mt-1 text-[11px] font-semibold text-chapter-meat">
@@ -80,7 +91,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-3 py-6 text-center text-gray-500">{{ __('shop.admin.empty') }}</td>
+                                <td colspan="9" class="px-3 py-6 text-center text-gray-500">{{ __('shop.admin.empty') }}</td>
                             </tr>
                         @endforelse
                     </tbody>
