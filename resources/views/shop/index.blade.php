@@ -70,7 +70,7 @@
             <div class="mx-auto max-w-[1100px] px-6 py-16 lg:px-12 lg:py-24">
                 <p class="{{ $eyebrow }}">{{ __('shop.eyebrow') }}</p>
                 <h1 class="mt-6 text-balance text-5xl leading-[1.02] tracking-[-0.025em] md:text-7xl lg:text-[5.25rem]">
-                    {{ __('shop.heading_main') }} <em class="font-normal italic text-shop-primary">{{ __('shop.heading_italic') }}</em> {{ __('shop.heading_tail') }}
+                    {{ __('shop.heading_main') }} <em class="font-normal italic text-shop-primary">{{ __('shop.heading_italic') }}</em>
                 </h1>
                 <p class="mt-8 max-w-xl text-base leading-relaxed text-shop-muted">
                     {{ __('shop.intro') }}
