@@ -2617,6 +2617,8 @@
     "shop.admin.status_cancelled": "Cancelled",
     "shop.admin.status_failed": "Failed",
     "shop.admin.status_fulfilled": "Fulfilled",
+    "shop.admin.status_finalized": "Finalized",
+    "shop.admin.filter_delivery_date": "Date",
     "shop.admin.status_paid": "Paid",
     "shop.admin.status_pending_payment": "Pending payment",
     "shop.admin.status_pending_in_person": "Pay at pickup",

@@ -2617,6 +2617,8 @@
     "shop.admin.status_cancelled": "Annulée",
     "shop.admin.status_failed": "Échouée",
     "shop.admin.status_fulfilled": "Terminée",
+    "shop.admin.status_finalized": "Finalisées",
+    "shop.admin.filter_delivery_date": "Date",
     "shop.admin.status_paid": "Payée",
     "shop.admin.status_pending_payment": "Paiement en attente",
     "shop.admin.status_pending_in_person": "Paiement à l'enlèvement",
