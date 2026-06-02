@@ -143,6 +143,13 @@
                                 {{ __('Read the entry') }} <span aria-hidden="true">&rarr;</span>
                             </span>
                         </a>
+
+                        {{-- Shop availability CTA: only on the shop-shell page ($shopCtas passed). --}}
+                        @isset($shopCtas)
+                            <div class="mt-4">
+                                @include('shop._partials.availability-cta', ['cta' => $shopCtas[$product->id], 'block' => true])
+                            </div>
+                        @endisset
                     </li>
                 @endforeach
             </ul>

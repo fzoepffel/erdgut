@@ -242,6 +242,54 @@ class ShopOrderService
     }
 
     /**
+     * Availability call-to-action for a single catalog product, used on the
+     * shop's product- and producer-detail pages so a guest can jump straight
+     * back into the storefront. Three mutually exclusive states:
+     *
+     *  - `this_week`: orderable somewhere in the current ISO week → link to
+     *    the shop with the earliest in-week date preselected.
+     *  - `future`   : not this week, but a later inflow exists within the
+     *    horizon → "available again from {date}", linking to the shop with
+     *    that date preselected.
+     *  - `none`     : no upcoming inflow within the horizon → not available;
+     *    no date, link falls back to the shop landing.
+     *
+     * Scans day-by-day from tomorrow and returns on the first date with
+     * positive availability, so available products cost only a few day
+     * lookups; only a genuinely unavailable product walks the full horizon.
+     *
+     * @return array{state: string, date: ?Carbon, url: string}
+     */
+    public function productAvailabilityCta(Product $product, ?int $horizonWeeks = null): array
+    {
+        $horizonWeeks ??= (int) config('shop.horizon_weeks', 8);
+
+        $inventory = app(InventoryService::class);
+
+        $cursor = Carbon::today()->addDay();
+        $weekEnd = Carbon::today()->endOfWeek(Carbon::SUNDAY);
+        $horizonEnd = Carbon::today()->addDays(7 * $horizonWeeks);
+
+        while ($cursor->lte($horizonEnd)) {
+            if ($inventory->availableOnDate($product, $cursor) > 0) {
+                return [
+                    'state' => $cursor->lte($weekEnd) ? 'this_week' : 'future',
+                    'date' => $cursor->copy()->startOfDay(),
+                    'url' => route('public.shop.index', ['date' => $cursor->toDateString()]),
+                ];
+            }
+
+            $cursor->addDay();
+        }
+
+        return [
+            'state' => 'none',
+            'date' => null,
+            'url' => route('public.shop.index'),
+        ];
+    }
+
+    /**
      * Price a cart. Each line is `['product_id' => int, 'quantity' =>
      * float]` (quantity in canonical units). Resolves each product,
      * snapshots its unit + per-canonical-unit price, computes the line

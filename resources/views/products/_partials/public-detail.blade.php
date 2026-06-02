@@ -149,6 +149,13 @@
                 <p class="eyebrow text-brand-ink/55">{{ __('Category') }}</p>
                 <p class="mt-2 text-base text-brand-ink">{{ $categoryLabel !== '' ? $categoryLabel : __('products.producer_unknown') }}</p>
             </div>
+
+            {{-- Shop availability CTA: only on the shop-shell pages ($shopCta passed). --}}
+            @isset($shopCta)
+                <div class="mt-8">
+                    @include('shop._partials.availability-cta', ['cta' => $shopCta])
+                </div>
+            @endisset
         </div>
 
         {{-- Right: hero image with floating caption --}}
