@@ -149,6 +149,28 @@ class AdminShopOrderTest extends TestCase
             ->assertDontSee('data-testid="shop-admin-row-'.$failed->id.'"', false);
     }
 
+    public function test_index_shows_addresses_in_fulfillment_column(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $delivery = ShopOrder::factory()->paid()->create([
+            'fulfillment_mode' => 'delivery',
+            'delivery_street' => 'Beispielweg 42',
+            'delivery_postal_code' => '10999',
+        ]);
+        $pickup = ShopOrder::factory()->paid()->create([
+            'fulfillment_mode' => 'pickup',
+            'pickup_location' => 'karl_kunger',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.index'))
+            ->assertOk()
+            ->assertSee('Beispielweg 42')
+            ->assertSee('10999')
+            ->assertSee('Karl-Kunger-Straße 9');
+    }
+
     public function test_index_filters_by_delivery_date(): void
     {
         $admin = User::factory()->admin()->create();

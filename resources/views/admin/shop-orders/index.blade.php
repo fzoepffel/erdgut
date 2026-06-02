@@ -65,6 +65,16 @@
                                 </td>
                                 <td class="px-3 py-2 text-gray-700">
                                     {{ $order->fulfillment_mode === 'delivery' ? __('shop.fulfillment_delivery') : __('shop.fulfillment_pickup') }}
+                                    @if ($order->fulfillment_mode === 'delivery')
+                                        @if ($order->delivery_street)
+                                            <div class="text-xs text-gray-500">{{ $order->delivery_street }}@if ($order->delivery_postal_code), {{ $order->delivery_postal_code }}@endif</div>
+                                        @endif
+                                    @else
+                                        @php($pickup = \App\Support\PickupLocations::find($order->pickup_location))
+                                        @if ($pickup)
+                                            <div class="text-xs text-gray-500">{{ $pickup['street'] }}</div>
+                                        @endif
+                                    @endif
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-2 text-gray-700">
                                     {{ $order->expected_delivery_date?->locale(app()->getLocale())->isoFormat('dd, D. MMM') ?? '—' }}
