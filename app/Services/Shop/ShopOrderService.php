@@ -72,6 +72,32 @@ class ShopOrderService
     }
 
     /**
+     * Customer-facing contact phone, which differs per fulfillment context:
+     * deliveries and Karl-Kunger-Straße pickups share one line, the
+     * Gotenstraße pickup point has its own. Used on the tracking page and
+     * in the confirmation / window-set emails.
+     */
+    public const CONTACT_PHONE_DEFAULT = '+33 6 36 31 55 15';
+
+    /**
+     * @var array<string, string>
+     */
+    private const CONTACT_PHONE_BY_PICKUP = [
+        'karl_kunger' => '+33 6 36 31 55 15',
+        'gotenstrasse' => '+33 7 83 38 85 93',
+    ];
+
+    public static function contactPhone(ShopOrder $order): string
+    {
+        if ($order->fulfillment_mode === 'pickup'
+            && isset(self::CONTACT_PHONE_BY_PICKUP[$order->pickup_location])) {
+            return self::CONTACT_PHONE_BY_PICKUP[$order->pickup_location];
+        }
+
+        return self::CONTACT_PHONE_DEFAULT;
+    }
+
+    /**
      * Dates with stock for *any* catalog product, within the horizon.
      *
      * A date `D` is offered iff at least one `visibleInCatalog()` product

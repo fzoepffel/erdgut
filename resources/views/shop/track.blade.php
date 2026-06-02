@@ -35,7 +35,7 @@
             ? $order->created_at->locale($locale)->isoFormat('DD MMM HH:mm')
             : null;
 
-        $contactPhone = __('shop.contact_phone');
+        $contactPhone = \App\Services\Shop\ShopOrderService::contactPhone($order);
         $contactPhoneHref = 'tel:'.preg_replace('/[^+0-9]/', '', $contactPhone);
         $contactEmail = __('shop.contact_email');
     @endphp

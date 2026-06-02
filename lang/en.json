@@ -2691,7 +2691,6 @@
     "shop.errors.quantity_whole": "Please enter a whole quantity for :name.",
     "shop.errors.stock_vanished": ":name was no longer available when you submitted. Please adjust your order.",
     "shop.contact_email": "kontakt@erd-gut.de",
-    "shop.contact_phone": "+33 783388593",
     "shop.contact_question": "Questions? Get in touch:",
     "shop.track_page_title": "Track your order",
     "shop.track_button": "Track order",

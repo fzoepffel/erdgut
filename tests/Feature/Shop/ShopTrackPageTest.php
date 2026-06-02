@@ -5,6 +5,7 @@ namespace Tests\Feature\Shop;
 use App\Enums\ShopOrderStatus;
 use App\Mail\ShopOrderWindowMail;
 use App\Models\ShopOrder;
+use App\Services\Shop\ShopOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
@@ -40,7 +41,7 @@ class ShopTrackPageTest extends TestCase
         $this->get($this->signedTrackUrl($order))
             ->assertOk()
             ->assertSee('Anna Mustermann')
-            ->assertSee(__('shop.contact_phone'))
+            ->assertSee(ShopOrderService::contactPhone($order))
             ->assertSee(__('shop.contact_email'));
     }
 
@@ -88,6 +89,17 @@ class ShopTrackPageTest extends TestCase
             ->assertOk()
             ->assertSee(__('shop.track_set_eyebrow_pickup'))
             ->assertSee('10:00 – 12:00');
+    }
+
+    public function test_contact_phone_depends_on_fulfillment_context(): void
+    {
+        $delivery = ShopOrder::factory()->paid()->create(['fulfillment_mode' => 'delivery']);
+        $karlKunger = ShopOrder::factory()->paid()->create(['fulfillment_mode' => 'pickup', 'pickup_location' => 'karl_kunger']);
+        $gotenstrasse = ShopOrder::factory()->paid()->create(['fulfillment_mode' => 'pickup', 'pickup_location' => 'gotenstrasse']);
+
+        $this->get($this->signedTrackUrl($delivery))->assertOk()->assertSee('+33 6 36 31 55 15');
+        $this->get($this->signedTrackUrl($karlKunger))->assertOk()->assertSee('+33 6 36 31 55 15');
+        $this->get($this->signedTrackUrl($gotenstrasse))->assertOk()->assertSee('+33 7 83 38 85 93');
     }
 
     public function test_window_email_renders_window_without_leaking_translation_keys(): void

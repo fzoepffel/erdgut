@@ -14,7 +14,7 @@
             ? $order->expected_delivery_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY')
             : null;
         $windowLabel = $order->deliveryWindowLabel();
-        $contactPhone = __('shop.contact_phone');
+        $contactPhone = \App\Services\Shop\ShopOrderService::contactPhone($order);
         $contactPhoneHref = 'tel:'.preg_replace('/[^+0-9]/', '', $contactPhone);
         $contactEmail = __('shop.contact_email');
     @endphp
