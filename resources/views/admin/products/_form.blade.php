@@ -421,6 +421,16 @@
             allowedDisplayMap: @js($allowedDisplayMap),
             displayLabels: @js($displayLabels),
             init() {
+                // x-model on the <select> initializes BEFORE the <template
+                // x-for> renders its <option>s, so on edit the stored value
+                // (e.g. 'kg') has no matching option yet and the browser
+                // coerces the select to the empty default. Re-apply the
+                // value once the options exist so the saved choice sticks.
+                this.$nextTick(() => {
+                    if (this.$refs.displayUnitSelect) {
+                        this.$refs.displayUnitSelect.value = this.displayUnit;
+                    }
+                });
                 this.$watch('unit', (val) => {
                     const allowed = this.allowedDisplayMap[val] ?? [];
                     if (! allowed.includes(this.displayUnit)) {
@@ -452,7 +462,7 @@
 
             <div>
                 <x-input-label for="price_display_unit" :value="__('admin.product_form.price_display_unit_label')" required />
-                <select id="price_display_unit" name="price_display_unit" x-model="displayUnit" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
+                <select id="price_display_unit" name="price_display_unit" x-model="displayUnit" x-ref="displayUnitSelect" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
                     <option value="">—</option>
                     <template x-for="opt in allowed" :key="opt">
                         <option :value="opt" x-text="displayLabels[opt] ?? opt"></option>
