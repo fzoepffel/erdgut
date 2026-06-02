@@ -38,7 +38,7 @@ class ShopOrderWindowMail extends Mailable
         return new Content(
             view: 'shop.emails.window',
             with: [
-                'order' => $this->order,
+                'order' => $this->order->loadMissing('items.product.translations'),
                 'trackUrl' => ShopOrderService::trackUrl($this->order),
             ],
         );
