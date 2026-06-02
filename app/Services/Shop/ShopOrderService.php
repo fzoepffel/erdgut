@@ -15,6 +15,7 @@ use App\Support\SumUpService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Throwable;
 
 /**
@@ -59,6 +60,41 @@ class ShopOrderService
     public static function pickupLocation(?string $key): ?array
     {
         return PickupLocations::find($key);
+    }
+
+    /**
+     * Signed, non-expiring tracking-page URL for an order. Shared by the
+     * confirmation and window-set emails so both link to the same place.
+     */
+    public static function trackUrl(ShopOrder $order): string
+    {
+        return URL::signedRoute('public.shop.track', ['shopOrder' => $order->id]);
+    }
+
+    /**
+     * Customer-facing contact phone, which differs per fulfillment context:
+     * deliveries and Karl-Kunger-Straße pickups share one line, the
+     * Gotenstraße pickup point has its own. Used on the tracking page and
+     * in the confirmation / window-set emails.
+     */
+    public const CONTACT_PHONE_DEFAULT = '+33 6 36 31 55 15';
+
+    /**
+     * @var array<string, string>
+     */
+    private const CONTACT_PHONE_BY_PICKUP = [
+        'karl_kunger' => '+33 6 36 31 55 15',
+        'gotenstrasse' => '+33 7 83 38 85 93',
+    ];
+
+    public static function contactPhone(ShopOrder $order): string
+    {
+        if ($order->fulfillment_mode === 'pickup'
+            && isset(self::CONTACT_PHONE_BY_PICKUP[$order->pickup_location])) {
+            return self::CONTACT_PHONE_BY_PICKUP[$order->pickup_location];
+        }
+
+        return self::CONTACT_PHONE_DEFAULT;
     }
 
     /**
@@ -203,6 +239,54 @@ class ShopOrderService
             // Orderable-today products first; everything else keeps catalog order.
             ->sortByDesc(fn (array $row): bool => $row['available_on_selected'])
             ->values();
+    }
+
+    /**
+     * Availability call-to-action for a single catalog product, used on the
+     * shop's product- and producer-detail pages so a guest can jump straight
+     * back into the storefront. Three mutually exclusive states:
+     *
+     *  - `this_week`: orderable somewhere in the current ISO week → link to
+     *    the shop with the earliest in-week date preselected.
+     *  - `future`   : not this week, but a later inflow exists within the
+     *    horizon → "available again from {date}", linking to the shop with
+     *    that date preselected.
+     *  - `none`     : no upcoming inflow within the horizon → not available;
+     *    no date, link falls back to the shop landing.
+     *
+     * Scans day-by-day from tomorrow and returns on the first date with
+     * positive availability, so available products cost only a few day
+     * lookups; only a genuinely unavailable product walks the full horizon.
+     *
+     * @return array{state: string, date: ?Carbon, url: string}
+     */
+    public function productAvailabilityCta(Product $product, ?int $horizonWeeks = null): array
+    {
+        $horizonWeeks ??= (int) config('shop.horizon_weeks', 8);
+
+        $inventory = app(InventoryService::class);
+
+        $cursor = Carbon::today()->addDay();
+        $weekEnd = Carbon::today()->endOfWeek(Carbon::SUNDAY);
+        $horizonEnd = Carbon::today()->addDays(7 * $horizonWeeks);
+
+        while ($cursor->lte($horizonEnd)) {
+            if ($inventory->availableOnDate($product, $cursor) > 0) {
+                return [
+                    'state' => $cursor->lte($weekEnd) ? 'this_week' : 'future',
+                    'date' => $cursor->copy()->startOfDay(),
+                    'url' => route('public.shop.index', ['date' => $cursor->toDateString()]),
+                ];
+            }
+
+            $cursor->addDay();
+        }
+
+        return [
+            'state' => 'none',
+            'date' => null,
+            'url' => route('public.shop.index'),
+        ];
     }
 
     /**

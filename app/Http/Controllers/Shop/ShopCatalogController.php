@@ -7,6 +7,7 @@ use App\Http\Controllers\Marketing\ProducerController;
 use App\Http\Controllers\ProductController;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Services\Shop\ShopOrderService;
 use Illuminate\Contracts\View\View;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -22,6 +23,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class ShopCatalogController extends Controller
 {
+    public function __construct(private readonly ShopOrderService $service) {}
+
     public function product(Product $product): View
     {
         if (! $product->is_available || ! $product->is_published) {
@@ -37,6 +40,7 @@ class ShopCatalogController extends Controller
 
         return view('shop.product', [
             'product' => $product,
+            'shopCta' => $this->service->productAvailabilityCta($product),
             'title' => $product->name.' · '.__('product.detail.eyebrow').' · '.config('app.name', 'Erdgut').' '.__('shop.eyebrow'),
         ]);
     }
@@ -53,6 +57,9 @@ class ShopCatalogController extends Controller
         return view('shop.producer', [
             'producer' => $producer,
             'products' => $products,
+            'shopCtas' => $products->mapWithKeys(fn (Product $p): array => [
+                $p->id => $this->service->productAvailabilityCta($p),
+            ]),
             'title' => $producer->name.' · '.__('producer.detail.eyebrow').' · '.config('app.name', 'Erdgut').' '.__('shop.eyebrow'),
         ]);
     }

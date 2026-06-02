@@ -208,7 +208,7 @@
                                     @else
                                         <article class="group flex flex-col" data-testid="shop-product-card-unavailable">
                                     @endif
-                                        <a href="{{ route('public.shop.products.show', $product) }}" class="relative block aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}" target="_blank" rel="noopener">
+                                        <a href="{{ route('public.shop.products.show', $product) }}" class="relative block aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}">
                                             @if ($imageUrl)
                                                 <img src="{{ $imageUrl }}" alt="{{ $product->name }}" class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" loading="lazy" />
                                             @else
@@ -220,7 +220,7 @@
                                         </a>
 
                                         <h3 class="mt-4 font-display text-2xl leading-tight">
-                                            <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline" target="_blank" rel="noopener">{{ $product->name }}</a>
+                                            <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline">{{ $product->name }}</a>
                                         </h3>
                                         <div class="mt-2 h-px bg-shop-border"></div>
 

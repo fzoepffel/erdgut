@@ -5,5 +5,6 @@
         'indexLabel' => __('shop.eyebrow'),
         'productRouteName' => 'public.shop.products.show',
         'producerRouteName' => 'public.shop.producers.show',
+        'shopCta' => $shopCta,
     ])
 </x-shop-layout>

@@ -3,10 +3,12 @@
 namespace Tests\Feature\Shop;
 
 use App\Enums\ShopOrderStatus;
+use App\Mail\ShopOrderWindowMail;
 use App\Models\ShopOrder;
 use App\Models\User;
 use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Tests\Feature\Spargel\SpargelAdminTest;
@@ -418,5 +420,90 @@ class AdminShopOrderTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame(ShopOrderStatus::PendingPayment, $order->fresh()->status);
+    }
+
+    public function test_setting_a_window_persists_and_notifies_customer(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->admin()->create();
+        $order = ShopOrder::factory()->paid()->create([
+            'fulfillment_mode' => 'delivery',
+            'delivery_window_from' => null,
+            'delivery_window_to' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.shop-orders.delivery-window', $order), [
+                'window_from' => '14:00',
+                'window_to' => '16:00',
+            ])
+            ->assertRedirect();
+
+        $fresh = $order->fresh();
+        $this->assertSame('14:00 – 16:00', $fresh->deliveryWindowLabel());
+        $this->assertNotNull($fresh->delivery_window_set_at);
+        Mail::assertQueued(ShopOrderWindowMail::class);
+    }
+
+    public function test_saving_the_same_window_does_not_requeue_mail(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->admin()->create();
+        $order = ShopOrder::factory()->paid()->create([
+            'fulfillment_mode' => 'delivery',
+            'delivery_window_from' => '14:00',
+            'delivery_window_to' => '16:00',
+            'delivery_window_set_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.shop-orders.delivery-window', $order), [
+                'window_from' => '14:00',
+                'window_to' => '16:00',
+            ])
+            ->assertRedirect();
+
+        Mail::assertNothingQueued();
+    }
+
+    public function test_window_to_before_from_is_rejected(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $order = ShopOrder::factory()->paid()->create([
+            'delivery_window_from' => null,
+            'delivery_window_to' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.shop-orders.delivery-window', $order), [
+                'window_from' => '16:00',
+                'window_to' => '14:00',
+            ])
+            ->assertSessionHasErrors('window_to');
+
+        $this->assertNull($order->fresh()->delivery_window_from);
+    }
+
+    public function test_clearing_a_window_sends_no_mail(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->admin()->create();
+        $order = ShopOrder::factory()->paid()->create([
+            'delivery_window_from' => '14:00',
+            'delivery_window_to' => '16:00',
+            'delivery_window_set_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.shop-orders.delivery-window', $order), [
+                'window_from' => '',
+                'window_to' => '',
+            ])
+            ->assertRedirect();
+
+        $fresh = $order->fresh();
+        $this->assertNull($fresh->delivery_window_from);
+        $this->assertNull($fresh->delivery_window_set_at);
+        Mail::assertNothingQueued();
     }
 }

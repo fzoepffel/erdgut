@@ -5,5 +5,6 @@
         'indexUrl' => route('public.shop.index'),
         'indexLabel' => __('shop.eyebrow'),
         'productRouteName' => 'public.shop.products.show',
+        'shopCtas' => $shopCtas,
     ])
 </x-shop-layout>

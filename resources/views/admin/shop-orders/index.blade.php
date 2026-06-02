@@ -76,8 +76,24 @@
                                         @endif
                                     @endif
                                 </td>
-                                <td class="whitespace-nowrap px-3 py-2 text-gray-700">
-                                    {{ $order->expected_delivery_date?->locale(app()->getLocale())->isoFormat('dd, D. MMM') ?? '—' }}
+                                <td class="px-3 py-2 text-gray-700">
+                                    <div class="whitespace-nowrap">{{ $order->expected_delivery_date?->locale(app()->getLocale())->isoFormat('dd, D. MMM') ?? '—' }}</div>
+                                    <form method="POST" action="{{ route('app.admin.shop-orders.delivery-window', $order) }}"
+                                          class="mt-1 flex items-center gap-1"
+                                          data-testid="shop-admin-window-form-{{ $order->id }}">
+                                        @csrf
+                                        <input type="time" name="window_from" value="{{ substr((string) $order->delivery_window_from, 0, 5) }}"
+                                               aria-label="{{ __('shop.admin.window_from') }}"
+                                               class="w-[5.5rem] rounded border-gray-300 px-1 py-0.5 text-xs tabular-nums" />
+                                        <span class="text-gray-400">–</span>
+                                        <input type="time" name="window_to" value="{{ substr((string) $order->delivery_window_to, 0, 5) }}"
+                                               aria-label="{{ __('shop.admin.window_to') }}"
+                                               class="w-[5.5rem] rounded border-gray-300 px-1 py-0.5 text-xs tabular-nums" />
+                                        <button type="submit" class="rounded bg-gray-800 px-2 py-0.5 text-xs font-semibold text-white transition hover:bg-gray-700"
+                                                data-testid="shop-admin-window-save-{{ $order->id }}">
+                                            {{ __('shop.admin.window_save') }}
+                                        </button>
+                                    </form>
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums text-gray-800">
                                     @eur($order->total_amount_eur)
