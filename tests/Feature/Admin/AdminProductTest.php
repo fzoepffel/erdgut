@@ -534,4 +534,21 @@ class AdminProductTest extends TestCase
         $this->assertEqualsWithDelta(0.00325, (float) $product->unit_price, 0.0001);
         $this->assertSame('kg', $product->price_display_unit);
     }
+
+    public function test_edit_form_prefills_stored_price_display_unit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create([
+            'unit' => 'mass',
+            'price_display_unit' => 'kg',
+        ]);
+
+        // The Alpine x-data must seed `displayUnit` from the stored value so
+        // the "Preis pro" select keeps its choice across edits instead of
+        // resetting to empty. Regression guard for the option/x-model race.
+        $this->actingAs($admin)
+            ->get(route('app.admin.products.edit', $product))
+            ->assertOk()
+            ->assertSee("displayUnit: 'kg'", escape: false);
+    }
 }
