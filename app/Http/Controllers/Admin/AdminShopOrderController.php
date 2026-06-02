@@ -32,14 +32,36 @@ use Throwable;
  */
 class AdminShopOrderController extends Controller
 {
+    /**
+     * Default filter: only "finalized" orders — confirmed sales the team
+     * actually has to act on. That means paid orders, already-fulfilled
+     * orders, and the in-person ones still awaiting payment at pickup
+     * ("Zahlung bei Abholung"). Abandoned online checkouts, failed,
+     * cancelled and refunded orders are hidden unless explicitly chosen.
+     */
+    private const FILTER_FINALIZED = 'finalized';
+
     public function index(Request $request): View
     {
-        $status = (string) $request->query('status', '');
+        $statusParam = $request->query('status', self::FILTER_FINALIZED);
+        $status = is_string($statusParam) ? $statusParam : self::FILTER_FINALIZED;
         $statusEnum = ShopOrderStatus::tryFrom($status);
+
+        $deliveryDate = (string) $request->query('delivery_date', '');
 
         $orders = ShopOrder::query()
             ->with('items.product.translations')
+            ->when($status === self::FILTER_FINALIZED, fn ($q) => $q->where(function ($inner) {
+                $inner->whereIn('status', [
+                    ShopOrderStatus::Paid->value,
+                    ShopOrderStatus::Fulfilled->value,
+                ])->orWhere(function ($pickup) {
+                    $pickup->where('status', ShopOrderStatus::PendingPayment->value)
+                        ->where('payment_method', 'in_person');
+                });
+            }))
             ->when($statusEnum, fn ($q) => $q->where('status', $statusEnum))
+            ->when($deliveryDate !== '', fn ($q) => $q->whereDate('expected_delivery_date', $deliveryDate))
             ->orderByDesc('id')
             ->paginate(30)
             ->withQueryString();
@@ -47,7 +69,8 @@ class AdminShopOrderController extends Controller
         return view('admin.shop-orders.index', [
             'orders' => $orders,
             'statuses' => ShopOrderStatus::cases(),
-            'status' => $statusEnum?->value ?? '',
+            'status' => $status,
+            'deliveryDate' => $deliveryDate,
         ]);
     }
 

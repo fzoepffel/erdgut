@@ -17,7 +17,8 @@
                     <div>
                         <label for="status" class="mb-1 block text-xs font-medium text-gray-600">{{ __('Status') }}</label>
                         <select id="status" name="status" class="rounded-md border-gray-300 text-sm">
-                            <option value="">{{ __('All') }}</option>
+                            <option value="finalized" @selected($status === 'finalized')>{{ __('shop.admin.status_finalized') }}</option>
+                            <option value="all" @selected($status === 'all')>{{ __('All') }}</option>
                             @foreach ($statuses as $st)
                                 <option value="{{ $st->value }}" @selected($status === $st->value)>
                                     {{ __('shop.admin.status_' . $st->value) }}
@@ -25,8 +26,12 @@
                             @endforeach
                         </select>
                     </div>
+                    <div>
+                        <label for="delivery_date" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_delivery_date') }}</label>
+                        <input type="date" id="delivery_date" name="delivery_date" value="{{ $deliveryDate }}" class="rounded-md border-gray-300 text-sm">
+                    </div>
                     <x-primary-button size="sm">{{ __('Filter') }}</x-primary-button>
-                    @if ($status)
+                    @if ($status !== 'finalized' || $deliveryDate !== '')
                         <a href="{{ route('app.admin.shop-orders.index') }}" class="text-sm text-gray-600 underline">{{ __('Reset') }}</a>
                     @endif
                 </form>

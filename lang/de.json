@@ -2617,6 +2617,8 @@
     "shop.admin.status_cancelled": "Storniert",
     "shop.admin.status_failed": "Fehlgeschlagen",
     "shop.admin.status_fulfilled": "Erledigt",
+    "shop.admin.status_finalized": "Finalisiert",
+    "shop.admin.filter_delivery_date": "Termin",
     "shop.admin.status_paid": "Bezahlt",
     "shop.admin.status_pending_payment": "Zahlung offen",
     "shop.admin.status_pending_in_person": "Zahlung bei Abholung",
