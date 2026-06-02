@@ -113,7 +113,7 @@
 </nav>
 
 {{-- Hero --}}
-<section class="mx-auto max-w-[1400px] px-6 py-16 lg:px-12 lg:py-20" aria-labelledby="product-hero-heading">
+<x-reveal as="section" class="mx-auto max-w-[1400px] px-6 py-16 lg:px-12 lg:py-20" aria-labelledby="product-hero-heading">
     <div class="grid items-start gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
         {{-- Left: copy --}}
         <div>
@@ -164,10 +164,10 @@
             </div>
         </figure>
     </div>
-</section>
+</x-reveal>
 
 {{-- Details: tag blocks + optional gallery, on paper --}}
-<section class="border-y border-brand-ink/15 bg-brand-paper" aria-labelledby="product-details-heading">
+<x-reveal as="section" class="border-y border-brand-ink/15 bg-brand-paper" aria-labelledby="product-details-heading">
     <h2 id="product-details-heading" class="sr-only">{{ __('Details') }}</h2>
     <div class="mx-auto max-w-[1400px] px-6 py-16 lg:px-12 lg:py-20">
         {{-- Tag blocks --}}
@@ -218,11 +218,11 @@
             </div>
         @endif
     </div>
-</section>
+</x-reveal>
 
 {{-- Pairings: hidden when empty --}}
 @if ($product->pairings->isNotEmpty())
-    <section class="mx-auto max-w-[1400px] px-6 py-16 lg:px-12 lg:py-20" aria-labelledby="product-pairings-heading">
+    <x-reveal as="section" class="mx-auto max-w-[1400px] px-6 py-16 lg:px-12 lg:py-20" aria-labelledby="product-pairings-heading">
         <div class="grid gap-12 lg:grid-cols-[1fr_1.2fr] lg:gap-16">
             <div>
                 <p class="eyebrow text-brand-moss">{{ __('product.detail.pairings_eyebrow') }}</p>
@@ -242,5 +242,5 @@
                 @endforeach
             </ul>
         </div>
-    </section>
+    </x-reveal>
 @endif
