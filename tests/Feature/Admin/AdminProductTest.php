@@ -311,6 +311,36 @@ class AdminProductTest extends TestCase
         $this->assertSame(['sweet', 'crisp'], $product->taste_profile_tags);
     }
 
+    public function test_admin_can_save_custom_taste_profile_tags_outside_enum(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x'],
+                    'en' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x'],
+                    'fr' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'x'],
+                ],
+                'category' => 'produce',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '2.50',
+                // Mix a predefined enum value with two free-form custom tags.
+                'taste_profile_tags' => ['sweet', 'Buttery', 'Smoky'],
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $product = Product::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', 'Custom Tags'))
+            ->firstOrFail();
+
+        $this->assertSame(['sweet', 'Buttery', 'Smoky'], $product->taste_profile_tags);
+    }
+
     public function test_admin_update_syncs_pairings(): void
     {
         $admin = User::factory()->admin()->create();
