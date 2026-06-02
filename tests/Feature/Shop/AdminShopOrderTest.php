@@ -58,7 +58,7 @@ class AdminShopOrderTest extends TestCase
     public function test_index_shows_applied_coupon_column(): void
     {
         $admin = User::factory()->admin()->create();
-        ShopOrder::factory()->create([
+        ShopOrder::factory()->paid()->create([
             'name' => 'Coupon Customer',
             'coupon_code' => 'SAVE10',
             'discount_eur' => 3.00,
@@ -101,14 +101,72 @@ class AdminShopOrderTest extends TestCase
             'status' => ShopOrderStatus::PendingPayment,
         ]);
 
+        // Request the "Alle" view so the abandoned online pending order is
+        // also visible (the default finalized view hides it). An empty
+        // status= param (as the form's "Alle" option submits) means "all".
         $this->actingAs($admin)
-            ->get(route('app.admin.shop-orders.index'))
+            ->get(route('app.admin.shop-orders.index', ['status' => 'all']))
             ->assertOk()
             ->assertSee('data-testid="shop-order-status-pending-in-person"', false)
             ->assertSee('data-testid="shop-order-status-pending-online"', false)
             ->assertSee(__('shop.admin.status_pending_in_person'))
             ->assertSee(__('shop.admin.status_pending_online'))
             ->assertSee(__('shop.admin.pending_online_note'));
+    }
+
+    public function test_default_view_shows_only_finalized_orders(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $paid = ShopOrder::factory()->paid()->create(['name' => 'Paid Customer']);
+        $fulfilled = ShopOrder::factory()->paid()->create([
+            'name' => 'Fulfilled Customer',
+            'status' => ShopOrderStatus::Fulfilled,
+            'fulfilled_at' => now(),
+        ]);
+        $inPerson = ShopOrder::factory()->create([
+            'name' => 'Pickup Payer',
+            'payment_method' => 'in_person',
+            'status' => ShopOrderStatus::PendingPayment,
+        ]);
+        $abandonedOnline = ShopOrder::factory()->create([
+            'name' => 'Abandoned Checkout',
+            'payment_method' => 'online',
+            'status' => ShopOrderStatus::PendingPayment,
+        ]);
+        $failed = ShopOrder::factory()->create([
+            'name' => 'Failed Customer',
+            'status' => ShopOrderStatus::Failed,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.index'))
+            ->assertOk()
+            ->assertSee('data-testid="shop-admin-row-'.$paid->id.'"', false)
+            ->assertSee('data-testid="shop-admin-row-'.$fulfilled->id.'"', false)
+            ->assertSee('data-testid="shop-admin-row-'.$inPerson->id.'"', false)
+            ->assertDontSee('data-testid="shop-admin-row-'.$abandonedOnline->id.'"', false)
+            ->assertDontSee('data-testid="shop-admin-row-'.$failed->id.'"', false);
+    }
+
+    public function test_index_filters_by_delivery_date(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $onDate = ShopOrder::factory()->paid()->create([
+            'name' => 'On Date',
+            'expected_delivery_date' => '2026-06-10',
+        ]);
+        $otherDate = ShopOrder::factory()->paid()->create([
+            'name' => 'Other Date',
+            'expected_delivery_date' => '2026-06-17',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.index', ['delivery_date' => '2026-06-10']))
+            ->assertOk()
+            ->assertSee('data-testid="shop-admin-row-'.$onDate->id.'"', false)
+            ->assertDontSee('data-testid="shop-admin-row-'.$otherDate->id.'"', false);
     }
 
     public function test_admin_can_open_order_detail(): void
