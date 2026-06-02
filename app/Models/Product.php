@@ -43,6 +43,7 @@ class Product extends Model
         'allergens',
         'dietary_tags',
         'taste_profile_tags',
+        'custom_taste_tags',
         'image_path',
         'is_test',
     ];
@@ -73,6 +74,7 @@ class Product extends Model
             'allergens' => 'array',
             'dietary_tags' => 'array',
             'taste_profile_tags' => 'array',
+            'custom_taste_tags' => 'array',
             'is_test' => 'boolean',
         ];
     }
@@ -184,6 +186,43 @@ class Product extends Model
     public function localizedTasteProfile(?string $locale = null): string
     {
         return $this->translationFor($locale)?->taste_profile ?? '';
+    }
+
+    /**
+     * Free-form custom taste tags resolved to the requested locale.
+     *
+     * Each stored entry is a `{de, en, fr}` object; this picks the value
+     * for the locale (falling back de → en → fr, then any non-empty value)
+     * so a custom tag renders in the visitor's language just like the
+     * enum-backed tags do. Returns a clean list of non-empty strings.
+     *
+     * @return list<string>
+     */
+    public function localizedCustomTasteTags(?string $locale = null): array
+    {
+        $locale = $locale ?? app()->getLocale();
+        $fallbacks = array_values(array_unique([$locale, 'de', 'en', 'fr']));
+
+        $resolved = [];
+        foreach ((array) $this->custom_taste_tags as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $label = '';
+            foreach ($fallbacks as $l) {
+                if (isset($entry[$l]) && is_string($entry[$l]) && trim($entry[$l]) !== '') {
+                    $label = trim($entry[$l]);
+                    break;
+                }
+            }
+
+            if ($label !== '') {
+                $resolved[] = $label;
+            }
+        }
+
+        return $resolved;
     }
 
     /**

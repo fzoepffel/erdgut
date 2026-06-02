@@ -6,6 +6,7 @@ use App\Enums\Allergen;
 use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
+use App\Enums\TasteProfile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -68,10 +69,15 @@ class StoreProductRequest extends FormRequest
             'allergens.*' => ['string', Rule::in(Allergen::values())],
             'dietary_tags' => ['nullable', 'array'],
             'dietary_tags.*' => ['string', Rule::in(DietaryTag::values())],
-            // Taste tags accept both the predefined enum values and free-form
-            // custom strings the admin types in, so no Rule::in() constraint.
-            'taste_profile_tags' => ['nullable', 'array', 'max:50'],
-            'taste_profile_tags.*' => ['string', 'max:64'],
+            'taste_profile_tags' => ['nullable', 'array'],
+            'taste_profile_tags.*' => ['string', Rule::in(TasteProfile::values())],
+            // Free-form custom tags carry a label in every locale so they
+            // render in the visitor's language. All three are required per
+            // entry — the form's "Add" button enters them together.
+            'custom_taste_tags' => ['nullable', 'array', 'max:50'],
+            'custom_taste_tags.*.de' => ['required', 'string', 'max:64'],
+            'custom_taste_tags.*.en' => ['required', 'string', 'max:64'],
+            'custom_taste_tags.*.fr' => ['required', 'string', 'max:64'],
             'pairings' => ['nullable', 'array'],
             'pairings.*' => ['integer', 'exists:products,id'],
             'gallery_images' => ['nullable', 'array', 'max:12'],

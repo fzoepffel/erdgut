@@ -72,9 +72,13 @@
 
     $dietaryTags = array_values(array_filter((array) $product->dietary_tags, fn ($v) => isset($dietaryLabels[$v])));
     $allergens = array_values(array_filter((array) $product->allergens, fn ($v) => isset($allergenLabels[$v])));
-    // Keep every non-empty tag; predefined ones get a localized label, custom
-    // free-form ones fall back to their raw value (see display below).
-    $tasteTags = array_values(array_filter((array) $product->taste_profile_tags, fn ($v) => is_string($v) && $v !== ''));
+    // Display labels: predefined enum tags resolved to the current locale,
+    // then the trilingual custom tags resolved to the same locale.
+    $tasteTags = array_map(
+        fn ($v) => $tasteLabels[$v],
+        array_values(array_filter((array) $product->taste_profile_tags, fn ($v) => isset($tasteLabels[$v])))
+    );
+    $tasteTags = array_merge($tasteTags, $product->localizedCustomTasteTags());
     $tasteProfile = $product->localizedTasteProfile();
 @endphp
 
@@ -167,7 +171,7 @@
                             <div class="flex flex-wrap gap-2">
                                 @foreach ($tasteTags as $tag)
                                     <span class="inline-flex items-center border border-brand-ink/20 px-3 py-1 text-xs italic text-brand-ink/80">
-                                        {{ $tasteLabels[$tag] ?? $tag }}
+                                        {{ $tag }}
                                     </span>
                                 @endforeach
                             </div>
