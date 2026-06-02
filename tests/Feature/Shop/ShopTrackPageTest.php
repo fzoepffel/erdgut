@@ -3,6 +3,7 @@
 namespace Tests\Feature\Shop;
 
 use App\Enums\ShopOrderStatus;
+use App\Mail\ShopOrderWindowMail;
 use App\Models\ShopOrder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
@@ -87,5 +88,25 @@ class ShopTrackPageTest extends TestCase
             ->assertOk()
             ->assertSee(__('shop.track_set_eyebrow_pickup'))
             ->assertSee('10:00 – 12:00');
+    }
+
+    public function test_window_email_renders_window_without_leaking_translation_keys(): void
+    {
+        foreach (['de', 'en', 'fr'] as $locale) {
+            $this->app->setLocale($locale);
+
+            $order = ShopOrder::factory()->paid()->create([
+                'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
+                'delivery_window_from' => '10:00',
+                'delivery_window_to' => '12:00',
+            ]);
+
+            $html = (new ShopOrderWindowMail($order))->render();
+
+            $this->assertStringContainsString('10:00 – 12:00', $html);
+            $this->assertStringNotContainsString('shop.window_email', $html, "Leaked a translation key in [$locale]");
+            $this->assertStringNotContainsString('shop.track_', $html, "Leaked a translation key in [$locale]");
+        }
     }
 }

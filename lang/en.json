@@ -2716,7 +2716,6 @@
     "shop.window_email_heading_pickup": "Your pickup window is set",
     "shop.window_email_body_delivery": "Your order will be delivered on :date between :window.",
     "shop.window_email_body_pickup": "You can pick up your order on :date between :window.",
-    "shop.window_email_oclock": "",
     "shop.eyebrow": "Farm shop",
     "shop.eyebrow_pay": "Almost there",
     "shop.fulfillment_delivery": "Deliver to me",

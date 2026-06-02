@@ -52,7 +52,11 @@
                                             {{ $isDelivery ? __('shop.track_set_eyebrow_delivery') : __('shop.track_set_eyebrow_pickup') }}
                                         </p>
                                         <p style="margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 18px; color: #2c241c;">
-                                            {{ trim(($deliveryDate ? $deliveryDate.' · ' : '').$windowLabel.' '.__('shop.window_email_oclock')) }}
+                                            @if ($deliveryDate)
+                                                {{ __('shop.track_window_headline', ['date' => $deliveryDate, 'window' => $windowLabel]) }}
+                                            @else
+                                                {{ __('shop.track_band_window', ['window' => $windowLabel]) }}
+                                            @endif
                                         </p>
                                     </td>
                                 </tr>

@@ -2716,7 +2716,6 @@
     "shop.window_email_heading_pickup": "Dein Abholfenster steht fest",
     "shop.window_email_body_delivery": "Deine Bestellung wird am :date zwischen :window Uhr geliefert.",
     "shop.window_email_body_pickup": "Du kannst deine Bestellung am :date zwischen :window Uhr abholen.",
-    "shop.window_email_oclock": "Uhr",
     "shop.eyebrow": "Hofladen",
     "shop.eyebrow_pay": "Fast geschafft",
     "shop.fulfillment_delivery": "Nach Hause liefern",
