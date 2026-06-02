@@ -22,6 +22,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $phone
  * @property 'pickup'|'delivery' $fulfillment_mode
  * @property Carbon $expected_delivery_date
+ * @property string|null $delivery_window_from
+ * @property string|null $delivery_window_to
+ * @property Carbon|null $delivery_window_set_at
  * @property string|null $pickup_location
  * @property string|null $delivery_street
  * @property string|null $delivery_postal_code
@@ -57,6 +60,9 @@ class ShopOrder extends Model
         'phone',
         'fulfillment_mode',
         'expected_delivery_date',
+        'delivery_window_from',
+        'delivery_window_to',
+        'delivery_window_set_at',
         'pickup_location',
         'delivery_street',
         'delivery_postal_code',
@@ -103,6 +109,7 @@ class ShopOrder extends Model
         return [
             'status' => ShopOrderStatus::class,
             'expected_delivery_date' => 'date',
+            'delivery_window_set_at' => 'datetime',
             'items_total_eur' => 'decimal:2',
             'delivery_fee_eur' => 'decimal:2',
             'total_amount_eur' => 'decimal:2',
@@ -127,6 +134,31 @@ class ShopOrder extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ShopOrderItem::class);
+    }
+
+    /**
+     * Whether the admin has published a concrete delivery / pickup window
+     * (both ends set). Drives the tracking page's two LiveStatus states.
+     */
+    public function hasDeliveryWindow(): bool
+    {
+        return $this->delivery_window_from !== null && $this->delivery_window_to !== null;
+    }
+
+    /**
+     * "14:00 – 16:00" for display, or null when no window is set. Time
+     * columns round-trip as "HH:MM:SS" strings; trim to HH:MM.
+     */
+    public function deliveryWindowLabel(): ?string
+    {
+        if (! $this->hasDeliveryWindow()) {
+            return null;
+        }
+
+        $from = substr((string) $this->delivery_window_from, 0, 5);
+        $to = substr((string) $this->delivery_window_to, 0, 5);
+
+        return $from.' – '.$to;
     }
 
     /**

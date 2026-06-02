@@ -137,6 +137,10 @@ Route::name('public.')->group(function () {
         ->name('shop.coupon.preview');
     Route::get('/shop/{shopOrder}/pay', [ShopController::class, 'pay'])->name('shop.pay');
     Route::get('/shop/{shopOrder}/return', [ShopController::class, 'return'])->name('shop.return');
+    // Stable per-order tracking page. Reached only via a signed URL (carried
+    // in the confirmation / window emails) so order details can't be browsed
+    // by incrementing the id. No expiry — the customer reopens it on the day.
+    Route::get('/shop/{shopOrder}/track', [ShopController::class, 'track'])->name('shop.track');
 
     // Isolated catalog detail pages for the preview shop. Same body as the
     // public /products/{product} and /producers/{slug} pages but wrapped in
@@ -431,6 +435,9 @@ Route::middleware(['auth', 'verified'])
             Route::post('shop-orders/{shopOrder}/refund', [AdminShopOrderController::class, 'refund'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.refund');
+            Route::post('shop-orders/{shopOrder}/delivery-window', [AdminShopOrderController::class, 'updateDeliveryWindow'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.delivery-window');
             Route::delete('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'destroy'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.destroy');

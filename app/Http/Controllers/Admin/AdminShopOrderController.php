@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
+use App\Mail\ShopOrderWindowMail;
 use App\Models\ShopOrder;
 use App\Services\Shop\CouponService;
 use App\Support\AuditLogger;
@@ -13,6 +14,7 @@ use App\Support\SumUpService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /**
@@ -140,6 +142,68 @@ class AdminShopOrderController extends Controller
         return redirect()
             ->route('app.admin.shop-orders.show', $shopOrder)
             ->with('status', __('shop.admin.flash_marked_completed', ['id' => $shopOrder->id]));
+    }
+
+    /**
+     * Set / clear the delivery (or pickup) time window straight from the
+     * orders list. When a concrete window is published (and actually
+     * changed) the customer is emailed the new time; clearing it, or saving
+     * the same window again, sends nothing.
+     */
+    public function updateDeliveryWindow(Request $request, ShopOrder $shopOrder): RedirectResponse
+    {
+        $validated = $request->validate([
+            'window_from' => ['nullable', 'date_format:H:i'],
+            'window_to' => ['nullable', 'date_format:H:i', 'after:window_from'],
+        ]);
+
+        $from = $validated['window_from'] ?? null;
+        $to = $validated['window_to'] ?? null;
+        // A window needs both ends; a lone bound is treated as "not set".
+        if ($from === null || $to === null) {
+            $from = $to = null;
+        }
+
+        $previous = $shopOrder->deliveryWindowLabel();
+
+        $shopOrder->forceFill([
+            'delivery_window_from' => $from,
+            'delivery_window_to' => $to,
+            'delivery_window_set_at' => $from !== null ? now() : null,
+        ])->save();
+
+        $changed = $shopOrder->deliveryWindowLabel() !== $previous;
+        $flashKey = 'shop.admin.flash_window_cleared';
+
+        if ($shopOrder->hasDeliveryWindow() && $changed) {
+            $this->queueWindowMail($shopOrder);
+            $flashKey = 'shop.admin.flash_window_saved';
+        } elseif ($shopOrder->hasDeliveryWindow()) {
+            $flashKey = 'shop.admin.flash_window_unchanged';
+        }
+
+        return redirect()
+            ->route('app.admin.shop-orders.index', $request->only('status', 'delivery_date', 'page'))
+            ->with('status', __($flashKey, ['id' => $shopOrder->id]));
+    }
+
+    /**
+     * Queue the "window set" customer email, swallowing mail-driver failures
+     * so a transient outage never blocks the admin save. Mirrors the shop
+     * confirmation-mail try/catch.
+     */
+    private function queueWindowMail(ShopOrder $order): void
+    {
+        try {
+            Mail::to($order->email)->queue(new ShopOrderWindowMail($order));
+        } catch (Throwable $e) {
+            report($e);
+            SumUpCheckoutLogger::warning('Shop order: failed to queue delivery-window email.', [
+                'shop_order_id' => $order->id,
+                'exception_class' => $e::class,
+                'error' => SumUpCheckoutLogger::sanitizeExceptionMessage($e->getMessage()),
+            ]);
+        }
     }
 
     /**

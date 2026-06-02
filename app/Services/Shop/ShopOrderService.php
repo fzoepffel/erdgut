@@ -15,6 +15,7 @@ use App\Support\SumUpService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Throwable;
 
 /**
@@ -59,6 +60,15 @@ class ShopOrderService
     public static function pickupLocation(?string $key): ?array
     {
         return PickupLocations::find($key);
+    }
+
+    /**
+     * Signed, non-expiring tracking-page URL for an order. Shared by the
+     * confirmation and window-set emails so both link to the same place.
+     */
+    public static function trackUrl(ShopOrder $order): string
+    {
+        return URL::signedRoute('public.shop.track', ['shopOrder' => $order->id]);
     }
 
     /**

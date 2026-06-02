@@ -137,7 +137,28 @@
                                 </tr>
                             </table>
 
-                            <p style="margin: 24px 0 0 0; font-size: 13px; line-height: 1.55; color: rgba(44, 36, 28, 0.7);">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0 0 0;">
+                                <tr>
+                                    <td align="center" style="padding: 4px 0;">
+                                        <a href="{{ $trackUrl }}" style="display: inline-block; background-color: #709452; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 4px;">
+                                            {{ __('shop.track_button') }}
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            @php
+                                $contactPhone = __('shop.contact_phone');
+                                $contactPhoneHref = 'tel:'.preg_replace('/[^+0-9]/', '', $contactPhone);
+                                $contactEmail = __('shop.contact_email');
+                            @endphp
+                            <p style="margin: 20px 0 0 0; font-size: 13px; line-height: 1.6; color: rgba(44, 36, 28, 0.7); border-top: 1px solid rgba(44, 36, 28, 0.1); padding-top: 16px;">
+                                {{ __('shop.contact_question') }}<br>
+                                <a href="{{ $contactPhoneHref }}" style="color: #21341d;">{{ $contactPhone }}</a> ·
+                                <a href="mailto:{{ $contactEmail }}" style="color: #21341d;">{{ $contactEmail }}</a>
+                            </p>
+
+                            <p style="margin: 16px 0 0 0; font-size: 13px; line-height: 1.55; color: rgba(44, 36, 28, 0.7);">
                                 {{ __('shop.email_followup') }}
                             </p>
                             <p style="margin: 12px 0 0 0; font-size: 13px; line-height: 1.55; color: rgba(44, 36, 28, 0.7);">

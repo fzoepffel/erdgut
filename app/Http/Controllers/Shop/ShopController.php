@@ -235,6 +235,23 @@ class ShopController extends Controller
     }
 
     /**
+     * Stable per-order tracking page: mirrors the confirmation details and
+     * surfaces the live delivery / pickup window + contact line. Guarded by
+     * a signed URL so the page can't be reached by guessing order ids.
+     */
+    public function track(Request $request, ShopOrder $shopOrder): View
+    {
+        abort_unless($request->hasValidSignature(), 403);
+
+        return view('shop.track', [
+            'order' => $shopOrder->loadMissing([
+                'items.product.translations',
+                'items.product.producer.translations',
+            ]),
+        ]);
+    }
+
+    /**
      * Queue the shop confirmation email. Swallows mail-driver failures so
      * a transient outage never breaks the order flow itself.
      */
