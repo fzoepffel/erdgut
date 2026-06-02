@@ -252,7 +252,30 @@ class Product extends Model
     }
 
     /**
-     * Gross margin in euros: (unit_price − buying_price). Null if buying price not set.
+     * Numeric selling price expressed in the admin-chosen *display* unit
+     * (e.g. €/kg), not the canonical storage unit (€/g). `unit_price` is
+     * stored per canonical unit, so multiply by the canonical-per-display
+     * factor (1000 for kg/L, 1 for g/ml/piece/bunch).
+     */
+    public function displayUnitPrice(): float
+    {
+        if ($this->unit === null) {
+            return (float) $this->unit_price;
+        }
+
+        $displayUnit = $this->price_display_unit ?? $this->unit->defaultDisplayUnit();
+
+        return (float) $this->unit_price * $this->unit->canonicalUnitsPerDisplay($displayUnit);
+    }
+
+    /**
+     * Gross margin in euros per display unit: (selling − buying). Null if
+     * buying price not set.
+     *
+     * Both sides must be in the same unit. The admin enters the buying
+     * price in the display unit (€/kg) and it is stored verbatim in
+     * `buying_price_cents`, whereas `unit_price` is canonical (€/g), so we
+     * compare against `displayUnitPrice()` — never the raw `unit_price`.
      */
     public function grossMargin(): ?float
     {
@@ -260,23 +283,24 @@ class Product extends Model
             return null;
         }
 
-        return round(((float) $this->unit_price) - ($this->buying_price_cents / 100), 2);
+        return round($this->displayUnitPrice() - ($this->buying_price_cents / 100), 2);
     }
 
     /**
-     * Margin as a percentage of the customer-facing unit price. Null if
-     * buying price isn't set or unit price is zero. Used by the admin
+     * Margin as a percentage of the customer-facing display-unit price.
+     * Null if buying price isn't set or price is zero. Used by the admin
      * product list (F6 in UX review notes) so operators can spot
      * pricing/margin issues at a glance.
      */
     public function grossMarginPercent(): ?float
     {
         $margin = $this->grossMargin();
-        if ($margin === null || (float) $this->unit_price <= 0) {
+        $sellingPrice = $this->displayUnitPrice();
+        if ($margin === null || $sellingPrice <= 0) {
             return null;
         }
 
-        return round($margin / ((float) $this->unit_price) * 100, 1);
+        return round($margin / $sellingPrice * 100, 1);
     }
 
     /**

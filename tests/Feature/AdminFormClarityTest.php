@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ProductUnit;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\User;
@@ -272,5 +273,22 @@ class AdminFormClarityTest extends TestCase
             'buying_price_cents' => 700,
         ]);
         $this->assertSame(30.0, $product->grossMarginPercent());
+    }
+
+    public function test_f6_gross_margin_uses_display_unit_not_canonical(): void
+    {
+        // Regression: a mass product priced 19.50 €/kg stores unit_price
+        // canonically as 0.0195 €/g, while the buying price 13.00 €/kg is
+        // stored verbatim (1300 cents). The margin must compare both in the
+        // display unit (€/kg), not subtract €13.00 from €0.0195.
+        $product = new Product([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.0195,
+            'buying_price_cents' => 1300,
+        ]);
+
+        $this->assertSame(6.50, $product->grossMargin());
+        $this->assertSame(33.3, $product->grossMarginPercent());
     }
 }
