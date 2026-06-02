@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\ShopOrder;
+use App\Services\Shop\ShopOrderService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -41,6 +42,7 @@ class ShopOrderConfirmationMail extends Mailable
             view: 'shop.emails.confirmation',
             with: [
                 'order' => $this->order->loadMissing('items.product.translations'),
+                'trackUrl' => ShopOrderService::trackUrl($this->order),
             ],
         );
     }
