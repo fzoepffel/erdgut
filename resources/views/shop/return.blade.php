@@ -1,147 +1,285 @@
-<x-shop-layout :title="__('shop.return_page_title')" :narrow="true">
+<x-shop-layout :title="__('shop.return_page_title')">
     @php
-        $deliveryDateLabel = $order->expected_delivery_date
-            ? $order->expected_delivery_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM')
+        $locale = app()->getLocale();
+        $isDelivery = $order->fulfillment_mode === 'delivery';
+
+        $deliveryDate = $order->expected_delivery_date;
+        $deliveryDateLabel = $deliveryDate
+            ? $deliveryDate->locale($locale)->isoFormat('dddd, D. MMMM')
             : null;
+        $weekNumber = $deliveryDate?->isoWeek();
+        $year = $deliveryDate?->year;
+
         $payInPersonPending = $order->payment_method === 'in_person'
             && $order->status === \App\Enums\ShopOrderStatus::PendingPayment;
         $isHappyState = $payInPersonPending
             || $order->status === \App\Enums\ShopOrderStatus::Paid;
+
+        $pickup = \App\Services\Shop\ShopOrderService::pickupLocation($order->pickup_location);
+        $pickupStreetName = $pickup
+            ? trim(preg_replace('/\s+\d+.*$/u', '', $pickup['street']))
+            : null;
+
+        $vatRate = config('shop.vat_rate_percent', 7);
+        $itemCount = $order->items->count();
+        $discount = (float) $order->discount_eur;
+        $deliveryFee = (float) $order->delivery_fee_eur;
+
+        $producers = $order->items
+            ->map(fn ($item) => $item->product?->producer)
+            ->filter()
+            ->unique('id')
+            ->values();
+
+        $orderRef = $order->created_at
+            ? $order->created_at->locale($locale)->isoFormat('DD MMM HH:mm')
+            : null;
     @endphp
 
     @if ($isHappyState)
-        @if ($payInPersonPending)
-            <p class="eyebrow text-chapter-produce">{{ __('shop.return_pay_in_person_eyebrow') }}</p>
-            <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
-                {{ __('shop.return_pay_in_person_heading') }}
-            </h1>
-            <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
-                {{ __('shop.return_pay_in_person_body', ['email' => $order->email, 'amount' => \App\Support\Money::format($order->total_amount_eur)]) }}
-            </p>
-        @else
-            <p class="eyebrow text-chapter-produce">{{ __('shop.return_paid_eyebrow') }}</p>
-            <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
-                {{ __('shop.return_paid_heading') }}
-            </h1>
-            <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
-                {{ __('shop.return_paid_body', ['email' => $order->email]) }}
-            </p>
-        @endif
-
-        @if ($deliveryDateLabel)
-            <div class="mt-6 max-w-xl border border-chapter-produce/30 bg-chapter-produce/5 p-4 text-sm leading-relaxed text-brand-ink">
+        {{-- ───────────────────────── Hero ───────────────────────── --}}
+        <section class="relative border-b border-shop-border">
+            @if ($orderRef)
+                <div class="absolute right-4 top-6 hidden font-mono text-xs uppercase tracking-eyebrow text-chapter-produce sm:right-6 lg:block lg:px-6">
+                    {{ __('shop.return_order_label') }} · #{{ $order->id }} · {{ $orderRef }}
+                </div>
+            @endif
+            <div class="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
                 <p class="eyebrow text-chapter-produce">
-                    @if ($order->fulfillment_mode === 'delivery')
-                        {{ __('shop.return_paid_delivery_eyebrow') }}
+                    {{ __('shop.return_hero_kicker', ['week' => $weekNumber, 'year' => $year]) }}
+                </p>
+                <h1 class="mt-6 max-w-3xl text-balance font-display text-5xl leading-[1.02] tracking-tight text-brand-ink md:text-7xl">
+                    @if ($isDelivery)
+                        {{ __('shop.return_hero_delivery_prefix') }}
+                        <em class="font-normal italic text-chapter-produce">{{ __('shop.return_hero_delivery_em') }}</em>
                     @else
-                        {{ __('shop.return_paid_pickup_eyebrow') }}
+                        {{ __('shop.return_hero_pickup_prefix') }}
+                        <em class="font-normal italic text-chapter-produce">{{ __('shop.return_hero_pickup_em') }}</em>
+                    @endif
+                </h1>
+                <p class="mt-8 max-w-xl text-base leading-relaxed text-brand-ink/65">
+                    @if ($payInPersonPending)
+                        {{ __('shop.return_pay_in_person_body', ['email' => $order->email, 'amount' => \App\Support\Money::format($order->total_amount_eur)]) }}
+                    @elseif ($isDelivery)
+                        {{ __('shop.return_hero_body_delivery', ['email' => $order->email]) }}
+                    @else
+                        {{ __('shop.return_hero_body_pickup', ['email' => $order->email]) }}
                     @endif
                 </p>
-                <p class="mt-1 font-display text-base text-brand-ink">
-                    {{ __('shop.delivery_window_main', ['date' => $deliveryDateLabel]) }}
-                </p>
             </div>
+        </section>
+
+        {{-- ──────────────────── Fulfillment block ──────────────────── --}}
+        @if ($isDelivery)
+            <section class="border-b border-shop-border bg-brand-paper">
+                <div class="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_1.6fr] lg:gap-16 lg:px-8 lg:py-16">
+                    <div>
+                        <p class="eyebrow text-chapter-produce">{{ __('shop.fulfillment_delivery_eyebrow') }}</p>
+                        <p class="mt-4 max-w-sm text-sm leading-relaxed text-brand-ink/65">
+                            {{ __('shop.return_delivery_desc') }}
+                        </p>
+                    </div>
+                    <dl class="grid grid-cols-1 gap-x-12 gap-y-10 sm:grid-cols-2">
+                        @if ($deliveryDateLabel)
+                            <div>
+                                <dt class="eyebrow text-chapter-produce">{{ __('shop.return_label_date') }}</dt>
+                                <dd class="mt-3 font-display text-3xl leading-tight text-brand-ink">{{ $deliveryDateLabel }}</dd>
+                                <div class="mt-4 h-px bg-shop-border"></div>
+                                <p class="mt-3 text-sm text-brand-ink/60">KW {{ $weekNumber }}</p>
+                            </div>
+                        @endif
+                        <div>
+                            <dt class="eyebrow text-chapter-produce">{{ __('shop.return_label_address') }}</dt>
+                            <dd class="mt-3 font-display text-3xl leading-tight text-brand-ink">{{ $order->name }}</dd>
+                            <div class="mt-4 h-px bg-shop-border"></div>
+                            <p class="mt-3 text-sm text-brand-ink/60">
+                                {{ $order->delivery_street }} · {{ $order->delivery_postal_code }} {{ $order->delivery_city }}
+                            </p>
+                        </div>
+                    </dl>
+                </div>
+            </section>
+        @else
+            <section class="border-b border-shop-border bg-brand-paper">
+                <div class="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_1.4fr] lg:gap-16 lg:px-8 lg:py-16">
+                    <div>
+                        <p class="eyebrow text-chapter-produce">{{ __('shop.return_pickup_eyebrow') }}</p>
+                        @if ($pickupStreetName)
+                            <p class="mt-4 max-w-sm text-sm leading-relaxed text-brand-ink/65">
+                                {{ __('shop.return_pickup_desc', ['street' => $pickupStreetName]) }}
+                            </p>
+                        @endif
+                    </div>
+                    @if ($pickup)
+                        <div>
+                            <p class="eyebrow text-chapter-produce">{{ __('shop.return_label_address') }}</p>
+                            <p class="mt-4 font-display text-5xl leading-[1.05] tracking-tight text-brand-ink md:text-6xl">{{ $pickup['street'] }}</p>
+                            <p class="mt-3 font-display text-2xl text-brand-ink/60 md:text-3xl">{{ $pickup['postal_code'] }} {{ $pickup['city'] }}</p>
+                            <div class="mt-10 grid grid-cols-1 gap-x-12 gap-y-8 border-t border-shop-border pt-8 sm:grid-cols-2">
+                                <div>
+                                    <dt class="eyebrow text-chapter-produce">{{ __('shop.return_label_doorbell') }}</dt>
+                                    <dd class="mt-3 font-display text-3xl leading-tight text-brand-ink">{{ $pickup['name'] }}</dd>
+                                    <p class="mt-3 text-sm text-brand-ink/60">{{ __('shop.return_doorbell_hint') }}</p>
+                                </div>
+                                @if ($deliveryDateLabel)
+                                    <div>
+                                        <dt class="eyebrow text-chapter-produce">{{ __('shop.return_label_date') }}</dt>
+                                        <dd class="mt-3 font-display text-3xl leading-tight text-brand-ink">{{ $deliveryDateLabel }}</dd>
+                                        <p class="mt-3 text-sm text-brand-ink/60">KW {{ $weekNumber }}</p>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </section>
         @endif
 
-        <dl class="mt-6 border border-brand-ink/15 bg-brand-ink/[0.02] p-5 text-sm text-brand-ink/80">
-            @foreach ($order->items as $item)
-                <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
-                    <dt class="eyebrow text-brand-ink/60">
-                        {{ $item->product?->displayQuantity((float) $item->quantity) }} · {{ $item->product?->name }}
-                    </dt>
-                    <dd class="tabular-nums text-brand-ink">@eur($item->line_total_eur)</dd>
-                </div>
-            @endforeach
-            <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
-                <dt class="eyebrow text-brand-ink/60">{{ __('shop.summary_line_fulfillment') }}</dt>
-                <dd class="text-brand-ink">
-                    {{ $order->fulfillment_mode === 'delivery' ? __('shop.fulfillment_delivery') : __('shop.fulfillment_pickup') }}
-                </dd>
-            </div>
-            @if ($order->fulfillment_mode === 'delivery')
-                <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
-                    <dt class="eyebrow text-brand-ink/60">{{ __('shop.summary_line_delivery_to') }}</dt>
-                    <dd class="text-right text-brand-ink">
-                        {{ $order->delivery_street }}<br>
-                        {{ $order->delivery_postal_code }} {{ $order->delivery_city }}
-                    </dd>
-                </div>
-            @else
-                @php $pickup = \App\Services\Shop\ShopOrderService::pickupLocation($order->pickup_location); @endphp
-                @if ($pickup)
-                    <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
-                        <dt class="eyebrow text-brand-ink/60">{{ __('shop.summary_line_pickup_at') }}</dt>
-                        <dd class="text-right text-brand-ink">
-                            {{ $pickup['name'] }}<br>
-                            {{ $pickup['street'] }}<br>
-                            {{ $pickup['postal_code'] }} {{ $pickup['city'] }}
-                        </dd>
+        {{-- ─────────────────────── Order ─────────────────────── --}}
+        <section class="border-b border-shop-border bg-brand-paper">
+            <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+                <div class="mb-12 flex flex-wrap items-end justify-between gap-6">
+                    <div>
+                        <p class="eyebrow text-chapter-produce">{{ __('shop.return_basket_eyebrow') }}</p>
+                        <h2 class="mt-4 text-balance font-display text-4xl text-brand-ink md:text-5xl">{{ __('shop.return_basket_heading') }}</h2>
                     </div>
-                @endif
-            @endif
-            <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
-                <dt class="eyebrow text-brand-ink/60">{{ __('shop.summary_line_payment_method') }}</dt>
-                <dd class="text-brand-ink">
-                    {{ $order->payment_method === 'in_person' ? __('shop.payment_in_person') : __('shop.payment_online') }}
-                </dd>
-            </div>
-            @if ((float) $order->discount_eur > 0)
-                <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
-                    <dt class="eyebrow text-brand-ink/60">{{ __('coupon.discount_line') }} {{ $order->coupon_code }}</dt>
-                    <dd class="tabular-nums text-brand-ink">− @eur($order->discount_eur)</dd>
+                    <span class="font-mono text-xs uppercase tracking-eyebrow text-brand-ink/55">
+                        {{ __('shop.return_basket_count', ['count' => $itemCount, 'week' => $weekNumber]) }}
+                    </span>
                 </div>
-            @endif
-            <div class="flex items-center justify-between gap-4 py-2">
-                <dt class="eyebrow text-brand-ink/60">{{ __('shop.summary_line_total') }}</dt>
-                <dd class="font-display text-lg tabular-nums text-brand-ink">@eur($order->total_amount_eur)</dd>
-            </div>
-        </dl>
 
-        <p class="mt-6 text-sm text-brand-ink/70">
-            {{ __('shop.return_paid_followup') }}
-        </p>
-    @elseif ($order->status === \App\Enums\ShopOrderStatus::Failed)
-        <p class="eyebrow text-chapter-meat">{{ __('shop.return_failed_eyebrow') }}</p>
-        <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
-            {{ __('shop.return_failed_heading') }}
-        </h1>
-        <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
-            {{ __('shop.return_failed_body') }}
-        </p>
-        <div class="mt-6 border border-chapter-meat/40 bg-chapter-meat/5 p-4 text-sm leading-relaxed text-brand-ink">
-            <p>{{ __('shop.return_failed_what_now') }}</p>
-        </div>
-        <div class="mt-6 flex flex-wrap items-center gap-4 text-sm">
-            <a href="{{ route('public.shop.pay', ['shopOrder' => $order->id]) }}" class="btn-solid" data-testid="shop-failed-retry">
-                {{ __('shop.return_failed_retry') }}
-            </a>
-            <a href="mailto:kontakt@erd-gut.de" class="text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
-                kontakt@erd-gut.de
+                <ul class="divide-y divide-shop-border border-y border-shop-border">
+                    @foreach ($order->items as $item)
+                        <li class="grid grid-cols-12 items-baseline gap-x-4 gap-y-2 py-7">
+                            <span class="col-span-3 font-mono text-xs uppercase tracking-eyebrow text-chapter-produce md:col-span-1">
+                                {{ $item->product?->displayQuantity((float) $item->quantity) }}
+                            </span>
+                            <span class="col-span-9 font-display text-2xl text-brand-ink md:col-span-5">{{ $item->product?->name }}</span>
+                            <span class="col-span-6 text-sm text-brand-ink/60 md:col-span-3">{{ $item->product?->producer?->name }}</span>
+                            <span class="col-span-6 justify-self-end font-display text-xl tabular-nums text-brand-ink md:col-span-3">@eur($item->line_total_eur)</span>
+                        </li>
+                    @endforeach
+
+                    @if ($discount > 0 || $deliveryFee > 0)
+                        <li class="grid grid-cols-12 items-baseline gap-x-4 py-5">
+                            <span class="col-span-6 font-mono text-xs uppercase tracking-eyebrow text-brand-ink/55 md:col-start-7 md:col-span-3">{{ __('shop.summary_line_items') }}</span>
+                            <span class="col-span-6 justify-self-end font-mono text-sm tabular-nums text-brand-ink/55 md:col-span-3">@eur($order->items_total_eur)</span>
+                        </li>
+                    @endif
+
+                    @if ($discount > 0)
+                        <li class="grid grid-cols-12 items-baseline gap-x-4 py-5">
+                            <span class="col-span-8 font-mono text-xs uppercase tracking-eyebrow text-chapter-meat md:col-start-7 md:col-span-3">
+                                {{ __('coupon.discount_line') }}@if ($order->coupon_code) · {{ $order->coupon_code }}@endif
+                            </span>
+                            <span class="col-span-4 justify-self-end font-mono text-sm italic tabular-nums text-chapter-meat md:col-span-3">− @eur($order->discount_eur)</span>
+                        </li>
+                    @endif
+
+                    @if ($deliveryFee > 0)
+                        <li class="grid grid-cols-12 items-baseline gap-x-4 py-5">
+                            <span class="col-span-6 font-mono text-xs uppercase tracking-eyebrow text-brand-ink/55 md:col-start-7 md:col-span-3">{{ __('shop.return_line_delivery') }}</span>
+                            <span class="col-span-6 justify-self-end font-mono text-sm tabular-nums text-brand-ink/55 md:col-span-3">@eur($order->delivery_fee_eur)</span>
+                        </li>
+                    @endif
+                </ul>
+
+                <div class="mt-6 grid grid-cols-12 items-baseline gap-x-4">
+                    <div class="col-span-12 md:col-start-7 md:col-span-6">
+                        <div class="flex items-baseline justify-between">
+                            <span class="font-mono text-xs uppercase tracking-eyebrow text-chapter-produce">{{ __('shop.summary_line_total') }}</span>
+                            <span class="font-display text-4xl tabular-nums text-chapter-produce">@eur($order->total_amount_eur)</span>
+                        </div>
+                        <p class="mt-2 text-right font-mono text-[0.65rem] uppercase tracking-eyebrow text-brand-ink/55">
+                            {{ __('shop.summary_vat_inclusive', ['rate' => $vatRate]) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {{-- ─────────────────────── Producers ─────────────────────── --}}
+        @if ($producers->isNotEmpty())
+            <section class="border-b border-shop-border">
+                <div class="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.4fr] lg:gap-16 lg:px-8 lg:py-20">
+                    <div>
+                        <p class="eyebrow text-chapter-produce">{{ __('shop.return_producers_eyebrow') }}</p>
+                        <h2 class="mt-4 text-balance font-display text-4xl leading-tight text-brand-ink md:text-5xl">
+                            {{ __('shop.return_producers_heading_1') }}
+                            <em class="font-normal italic text-chapter-produce">{{ __('shop.return_producers_heading_em') }}</em>
+                            {{ __('shop.return_producers_heading_2') }}
+                        </h2>
+                        <p class="mt-6 max-w-md text-sm leading-relaxed text-brand-ink/65">
+                            {{ __('shop.return_producers_desc') }}
+                        </p>
+                    </div>
+                    <ul class="divide-y divide-shop-border border-y border-shop-border">
+                        @foreach ($producers as $producer)
+                            <li class="grid grid-cols-12 items-center gap-x-4 py-5">
+                                <span class="col-span-12 font-display text-2xl text-brand-ink md:col-span-4">{{ $producer->name }}</span>
+                                <span class="col-span-9 text-sm text-brand-ink/60 md:col-span-6">{{ $producer->region }}</span>
+                                <a href="{{ route('public.shop.producers.show', ['producer' => $producer->slug]) }}"
+                                   class="col-span-3 justify-self-end font-mono text-xs uppercase tracking-eyebrow text-chapter-produce underline underline-offset-4">
+                                    {{ __('shop.return_producers_visit') }} →
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </section>
+        @endif
+
+        {{-- Stay inside the isolated shop surface: link back to the storefront,
+             never to the (hidden) marketing home. --}}
+        <div class="mx-auto max-w-6xl px-4 py-10 text-sm sm:px-6 lg:px-8">
+            <a href="{{ route('public.shop.index') }}" class="text-brand-ink/65 underline-offset-4 hover:text-brand-ink hover:underline">
+                ← {{ __('shop.pay_back') }}
             </a>
         </div>
     @else
-        <p class="eyebrow text-chapter-meat">{{ __('shop.return_pending_eyebrow') }}</p>
-        <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
-            {{ __('shop.return_pending_heading') }}
-        </h1>
-        <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
-            {{ __('shop.return_pending_body') }}
-        </p>
-        <div class="mt-6 flex flex-wrap items-center gap-4 text-sm">
-            <a href="{{ route('public.shop.pay', ['shopOrder' => $order->id]) }}" class="btn-solid">
-                {{ __('Try again') }}
-            </a>
-            <a href="mailto:kontakt@erd-gut.de" class="text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
-                kontakt@erd-gut.de
-            </a>
+        <div class="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
+            @if ($order->status === \App\Enums\ShopOrderStatus::Failed)
+                <p class="eyebrow text-chapter-meat">{{ __('shop.return_failed_eyebrow') }}</p>
+                <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
+                    {{ __('shop.return_failed_heading') }}
+                </h1>
+                <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
+                    {{ __('shop.return_failed_body') }}
+                </p>
+                <div class="mt-6 border border-chapter-meat/40 bg-chapter-meat/5 p-4 text-sm leading-relaxed text-brand-ink">
+                    <p>{{ __('shop.return_failed_what_now') }}</p>
+                </div>
+                <div class="mt-6 flex flex-wrap items-center gap-4 text-sm">
+                    <a href="{{ route('public.shop.pay', ['shopOrder' => $order->id]) }}" class="btn-solid" data-testid="shop-failed-retry">
+                        {{ __('shop.return_failed_retry') }}
+                    </a>
+                    <a href="mailto:kontakt@erd-gut.de" class="text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
+                        kontakt@erd-gut.de
+                    </a>
+                </div>
+            @else
+                <p class="eyebrow text-chapter-meat">{{ __('shop.return_pending_eyebrow') }}</p>
+                <h1 class="mt-2 font-display text-3xl font-semibold text-brand-ink sm:text-4xl">
+                    {{ __('shop.return_pending_heading') }}
+                </h1>
+                <p class="mt-3 max-w-xl font-editorial text-base italic leading-relaxed text-brand-ink/75">
+                    {{ __('shop.return_pending_body') }}
+                </p>
+                <div class="mt-6 flex flex-wrap items-center gap-4 text-sm">
+                    <a href="{{ route('public.shop.pay', ['shopOrder' => $order->id]) }}" class="btn-solid">
+                        {{ __('Try again') }}
+                    </a>
+                    <a href="mailto:kontakt@erd-gut.de" class="text-brand-ink/70 underline-offset-4 hover:text-brand-ink hover:underline">
+                        kontakt@erd-gut.de
+                    </a>
+                </div>
+            @endif
+
+            <div class="mt-12 text-sm">
+                <a href="{{ route('public.shop.index') }}" class="text-brand-ink/65 underline-offset-4 hover:text-brand-ink hover:underline">
+                    ← {{ __('shop.pay_back') }}
+                </a>
+            </div>
         </div>
     @endif
-
-    {{-- Stay inside the isolated shop surface: link back to the storefront,
-         never to the (hidden) marketing home. --}}
-    <div class="mt-12 text-sm">
-        <a href="{{ route('public.shop.index') }}" class="text-brand-ink/65 underline-offset-4 hover:text-brand-ink hover:underline">
-            ← {{ __('shop.pay_back') }}
-        </a>
-    </div>
 </x-shop-layout>

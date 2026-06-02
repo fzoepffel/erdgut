@@ -227,7 +227,10 @@ class ShopController extends Controller
         }
 
         return view('shop.return', [
-            'order' => $shopOrder->loadMissing('items.product.translations'),
+            'order' => $shopOrder->loadMissing([
+                'items.product.translations',
+                'items.product.producer.translations',
+            ]),
         ]);
     }
 
