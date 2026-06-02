@@ -305,6 +305,7 @@ class ProductController extends Controller
             'allergens' => $this->normalizeEnumArray($validated['allergens'] ?? null),
             'dietary_tags' => $this->normalizeEnumArray($validated['dietary_tags'] ?? null),
             'taste_profile_tags' => $this->normalizeEnumArray($validated['taste_profile_tags'] ?? null),
+            'custom_taste_tags' => $this->normalizeCustomTasteTags($validated['custom_taste_tags'] ?? null),
         ];
 
         $buyingPrice = $validated['buying_price'] ?? null;
@@ -330,6 +331,40 @@ class ProductController extends Controller
         )));
 
         return $values === [] ? null : $values;
+    }
+
+    /**
+     * Normalize the trilingual custom taste tags into a clean list of
+     * `{de, en, fr}` rows. Trims each label and drops any entry that lost
+     * one of its three locales. Returns null when nothing usable remains.
+     *
+     * @param  array<int, mixed>|null  $entries
+     * @return list<array{de:string, en:string, fr:string}>|null
+     */
+    private function normalizeCustomTasteTags(?array $entries): ?array
+    {
+        if ($entries === null) {
+            return null;
+        }
+
+        $clean = [];
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $de = trim((string) ($entry['de'] ?? ''));
+            $en = trim((string) ($entry['en'] ?? ''));
+            $fr = trim((string) ($entry['fr'] ?? ''));
+
+            if ($de === '' || $en === '' || $fr === '') {
+                continue;
+            }
+
+            $clean[] = ['de' => $de, 'en' => $en, 'fr' => $fr];
+        }
+
+        return $clean === [] ? null : $clean;
     }
 
     /**

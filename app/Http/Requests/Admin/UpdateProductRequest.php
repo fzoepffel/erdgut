@@ -66,6 +66,13 @@ class UpdateProductRequest extends FormRequest
             'dietary_tags.*' => ['string', Rule::in(DietaryTag::values())],
             'taste_profile_tags' => ['nullable', 'array'],
             'taste_profile_tags.*' => ['string', Rule::in(TasteProfile::values())],
+            // Free-form custom tags carry a label in every locale so they
+            // render in the visitor's language. All three are required per
+            // entry — the form's "Add" button enters them together.
+            'custom_taste_tags' => ['nullable', 'array', 'max:50'],
+            'custom_taste_tags.*.de' => ['required', 'string', 'max:64'],
+            'custom_taste_tags.*.en' => ['required', 'string', 'max:64'],
+            'custom_taste_tags.*.fr' => ['required', 'string', 'max:64'],
             'pairings' => ['nullable', 'array'],
             'pairings.*' => ['integer', 'exists:products,id', Rule::notIn([$selfId])],
             'gallery_images' => ['nullable', 'array', 'max:12'],

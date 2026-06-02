@@ -334,7 +334,7 @@
                     </div>
 
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('Taste profile')" required />
+                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('Description')" required />
                         <textarea
                             id="{{ 'translations_'.$locale.'_taste_profile' }}"
                             name="{{ 'translations['.$locale.'][taste_profile]' }}"
@@ -554,18 +554,102 @@
             <x-input-error class="mt-2" :messages="$errors->get('dietary_tags')" />
         </div>
 
-        <div>
+        @php
+            // The enum tags drive the checkboxes; custom tags are trilingual
+            // `{de,en,fr}` rows stored separately in `custom_taste_tags`.
+            $selectedEnumTaste = array_values(array_intersect($selectedTaste, TasteProfile::values()));
+            $selectedCustomTaste = [];
+            foreach ((array) old('custom_taste_tags', $product?->custom_taste_tags ?? []) as $row) {
+                if (is_array($row)) {
+                    $selectedCustomTaste[] = [
+                        'de' => (string) ($row['de'] ?? ''),
+                        'en' => (string) ($row['en'] ?? ''),
+                        'fr' => (string) ($row['fr'] ?? ''),
+                    ];
+                }
+            }
+        @endphp
+        <div
+            x-data='{
+                enumSelected: {!! json_encode($selectedEnumTaste, JSON_UNESCAPED_UNICODE) !!},
+                custom: {!! json_encode($selectedCustomTaste, JSON_UNESCAPED_UNICODE) !!},
+                draft: { de: "", en: "", fr: "" },
+                add() {
+                    const de = this.draft.de.trim();
+                    const en = this.draft.en.trim();
+                    const fr = this.draft.fr.trim();
+                    if (de === "" || en === "" || fr === "") return;
+                    this.custom.push({ de, en, fr });
+                    this.draft = { de: "", en: "", fr: "" };
+                },
+                remove(i) { this.custom.splice(i, 1); },
+            }'
+        >
             <p class="text-xs font-medium text-gray-700 uppercase tracking-wide">{{ __('Taste profile tags') }}</p>
             <p class="mt-0.5 text-xs text-gray-500">{{ __('Structured tags shown as chips to customers. Separate from the prose above.') }}</p>
+
+            {{-- Predefined enum tags. These carry no name attribute — they
+                 only drive the Alpine `enumSelected` array; the hidden inputs
+                 at the bottom are what actually submit. --}}
             <div class="mt-2 grid grid-cols-2 gap-y-1 sm:grid-cols-3">
                 @foreach ($tasteCases as $taste)
                     <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" name="taste_profile_tags[]" value="{{ $taste->value }}" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600" @checked(in_array($taste->value, $selectedTaste, true))>
+                        <input type="checkbox" value="{{ $taste->value }}" x-model="enumSelected" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600">
                         <span>{{ $tasteLabel($taste) }}</span>
                     </label>
                 @endforeach
             </div>
+
+            {{-- Custom tags: one tag entered in all three languages at once. --}}
+            <div class="mt-4 rounded-md border border-dashed border-gray-300 p-3">
+                <p class="text-xs font-medium text-gray-700">{{ __('admin.product_form.taste_custom_heading') }}</p>
+                <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div>
+                        <label class="block text-[11px] uppercase tracking-wide text-gray-500">DE</label>
+                        <input type="text" x-model="draft.de" x-on:keydown.enter.prevent="add()" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm text-sm" data-testid="taste-custom-de">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] uppercase tracking-wide text-gray-500">EN</label>
+                        <input type="text" x-model="draft.en" x-on:keydown.enter.prevent="add()" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm text-sm" data-testid="taste-custom-en">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] uppercase tracking-wide text-gray-500">FR</label>
+                        <input type="text" x-model="draft.fr" x-on:keydown.enter.prevent="add()" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm text-sm" data-testid="taste-custom-fr">
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    x-on:click="add()"
+                    class="mt-2 inline-flex items-center rounded-md border border-emerald-600 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                    data-testid="taste-custom-add"
+                >{{ __('Add') }}</button>
+                <p class="mt-1 text-[11px] text-gray-500">{{ __('admin.product_form.taste_custom_hint') }}</p>
+
+                <div class="mt-3 flex flex-wrap gap-2" x-show="custom.length > 0" x-cloak>
+                    <template x-for="(tag, i) in custom" :key="i">
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                            <span x-text="tag.de + ' · ' + tag.en + ' · ' + tag.fr"></span>
+                            <button type="button" x-on:click="remove(i)" class="text-emerald-600 hover:text-emerald-900" aria-label="{{ __('Remove') }}">&times;</button>
+                        </span>
+                    </template>
+                </div>
+            </div>
+
+            {{-- Hidden inputs that actually submit. Enum → taste_profile_tags[],
+                 custom → custom_taste_tags[i][de|en|fr]. --}}
+            <template x-for="val in enumSelected" :key="'enum-' + val">
+                <input type="hidden" name="taste_profile_tags[]" :value="val">
+            </template>
+            <template x-for="(tag, i) in custom" :key="'custom-' + i">
+                <span>
+                    <input type="hidden" :name="'custom_taste_tags[' + i + '][de]'" :value="tag.de">
+                    <input type="hidden" :name="'custom_taste_tags[' + i + '][en]'" :value="tag.en">
+                    <input type="hidden" :name="'custom_taste_tags[' + i + '][fr]'" :value="tag.fr">
+                </span>
+            </template>
+
             <x-input-error class="mt-2" :messages="$errors->get('taste_profile_tags')" />
+            <x-input-error class="mt-2" :messages="$errors->get('custom_taste_tags')" />
         </div>
     </div>
 

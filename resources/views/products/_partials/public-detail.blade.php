@@ -88,7 +88,13 @@
         \App\Enums\Allergen::Molluscs->value => __('Molluscs'),
     ];
 
-    $tasteTags = array_values(array_filter((array) $product->taste_profile_tags, fn ($v) => isset($tasteLabels[$v])));
+    // Display labels: predefined enum tags resolved to the current locale,
+    // then the trilingual custom tags resolved to the same locale.
+    $tasteTags = array_map(
+        fn ($v) => $tasteLabels[$v],
+        array_values(array_filter((array) $product->taste_profile_tags, fn ($v) => isset($tasteLabels[$v])))
+    );
+    $tasteTags = array_merge($tasteTags, $product->localizedCustomTasteTags());
     $dietaryTags = array_values(array_filter((array) $product->dietary_tags, fn ($v) => isset($dietaryLabels[$v])));
     $allergens = array_values(array_filter((array) $product->allergens, fn ($v) => isset($allergenLabels[$v])));
 @endphp
@@ -170,7 +176,7 @@
                 <p class="eyebrow text-brand-moss">{{ __('product.detail.taste_label') }}</p>
                 <div class="mt-4 flex flex-wrap gap-2">
                     @forelse ($tasteTags as $tag)
-                        <span class="inline-flex items-center border border-brand-ink/25 px-3 py-1.5 text-[0.65rem] uppercase tracking-eyebrow text-brand-ink">{{ $tasteLabels[$tag] }}</span>
+                        <span class="inline-flex items-center border border-brand-ink/25 px-3 py-1.5 text-[0.65rem] uppercase tracking-eyebrow text-brand-ink">{{ $tag }}</span>
                     @empty
                         <span class="text-sm text-brand-ink/55">{{ __('product.detail.allergens_none') }}</span>
                     @endforelse

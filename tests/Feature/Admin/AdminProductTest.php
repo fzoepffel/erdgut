@@ -311,6 +311,73 @@ class AdminProductTest extends TestCase
         $this->assertSame(['sweet', 'crisp'], $product->taste_profile_tags);
     }
 
+    public function test_admin_can_save_trilingual_custom_taste_tags(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x'],
+                    'en' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x'],
+                    'fr' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'x'],
+                ],
+                'category' => 'produce',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '2.50',
+                // A predefined enum tag plus a trilingual custom one.
+                'taste_profile_tags' => ['sweet'],
+                'custom_taste_tags' => [
+                    ['de' => 'Buttrig', 'en' => 'Buttery', 'fr' => 'Beurré'],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $product = Product::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', 'Custom Tags'))
+            ->firstOrFail();
+
+        $this->assertSame(['sweet'], $product->taste_profile_tags);
+        $this->assertSame(
+            [['de' => 'Buttrig', 'en' => 'Buttery', 'fr' => 'Beurré']],
+            $product->custom_taste_tags
+        );
+
+        // Custom tag resolves to the active locale, falling back through de.
+        $this->assertSame(['Buttery'], $product->localizedCustomTasteTags('en'));
+        $this->assertSame(['Beurré'], $product->localizedCustomTasteTags('fr'));
+        $this->assertSame(['Buttrig'], $product->localizedCustomTasteTags('de'));
+    }
+
+    public function test_admin_custom_taste_tag_requires_all_three_languages(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Partial Tag', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x'],
+                    'en' => ['name' => 'Partial Tag', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x'],
+                    'fr' => ['name' => 'Partial Tag', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'x'],
+                ],
+                'category' => 'produce',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '2.50',
+                // Missing the FR label — must be rejected.
+                'custom_taste_tags' => [
+                    ['de' => 'Buttrig', 'en' => 'Buttery', 'fr' => ''],
+                ],
+            ])
+            ->assertSessionHasErrors('custom_taste_tags.0.fr');
+    }
+
     public function test_admin_update_syncs_pairings(): void
     {
         $admin = User::factory()->admin()->create();

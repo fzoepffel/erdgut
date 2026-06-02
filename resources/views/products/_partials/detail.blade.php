@@ -72,7 +72,13 @@
 
     $dietaryTags = array_values(array_filter((array) $product->dietary_tags, fn ($v) => isset($dietaryLabels[$v])));
     $allergens = array_values(array_filter((array) $product->allergens, fn ($v) => isset($allergenLabels[$v])));
-    $tasteTags = array_values(array_filter((array) $product->taste_profile_tags, fn ($v) => isset($tasteLabels[$v])));
+    // Display labels: predefined enum tags resolved to the current locale,
+    // then the trilingual custom tags resolved to the same locale.
+    $tasteTags = array_map(
+        fn ($v) => $tasteLabels[$v],
+        array_values(array_filter((array) $product->taste_profile_tags, fn ($v) => isset($tasteLabels[$v])))
+    );
+    $tasteTags = array_merge($tasteTags, $product->localizedCustomTasteTags());
     $tasteProfile = $product->localizedTasteProfile();
 @endphp
 
@@ -152,21 +158,23 @@
                         </div>
                     @endif
 
-                    @if ($tasteProfile !== '' || $tasteTags !== [])
+                    @if ($tasteProfile !== '')
                         <div class="space-y-3">
-                            <p class="eyebrow text-brand-ink/60">{{ __('Taste profile') }}</p>
-                            @if ($tasteProfile !== '')
-                                <p class="font-editorial text-base italic leading-relaxed text-brand-ink/85">{{ $tasteProfile }}</p>
-                            @endif
-                            @if ($tasteTags !== [])
-                                <div class="flex flex-wrap gap-2">
-                                    @foreach ($tasteTags as $tag)
-                                        <span class="inline-flex items-center border border-brand-ink/20 px-3 py-1 text-xs italic text-brand-ink/80">
-                                            {{ $tasteLabels[$tag] }}
-                                        </span>
-                                    @endforeach
-                                </div>
-                            @endif
+                            <p class="eyebrow text-brand-ink/60">{{ __('Description') }}</p>
+                            <p class="font-editorial text-base italic leading-relaxed text-brand-ink/85">{{ $tasteProfile }}</p>
+                        </div>
+                    @endif
+
+                    @if ($tasteTags !== [])
+                        <div class="space-y-3">
+                            <p class="eyebrow text-brand-ink/60">{{ __('Taste profile tags') }}</p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach ($tasteTags as $tag)
+                                    <span class="inline-flex items-center border border-brand-ink/20 px-3 py-1 text-xs italic text-brand-ink/80">
+                                        {{ $tag }}
+                                    </span>
+                                @endforeach
+                            </div>
                         </div>
                     @endif
 
