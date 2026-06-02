@@ -67,7 +67,7 @@
         })"
     >
         {{-- ── Hero ──────────────────────────────────────────────────── --}}
-        <section class="relative border-b border-shop-border">
+        <x-reveal as="section" class="relative border-b border-shop-border">
             <div class="absolute right-6 top-6 hidden font-mono text-xs tracking-widest text-shop-primary lg:block">
                 {{ $monthStamp }}
             </div>
@@ -80,7 +80,7 @@
                     {{ __('shop.intro') }}
                 </p>
             </div>
-        </section>
+        </x-reveal>
 
         @if (session('error'))
             <div class="mx-auto max-w-[1100px] px-6 pt-8 lg:px-12">
@@ -109,7 +109,7 @@
                 <input type="hidden" name="expected_delivery_date" value="{{ $selectedDate?->toDateString() }}">
 
                 {{-- ── Delivery-date picker ──────────────────────────── --}}
-                <section class="border-b border-shop-border py-14" data-testid="shop-date-picker">
+                <x-reveal as="section" class="border-b border-shop-border py-14" data-testid="shop-date-picker">
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
                             <div>
@@ -173,10 +173,10 @@
                             </div>
                         </div>
                     </div>
-                </section>
+                </x-reveal>
 
                 {{-- ── Products ──────────────────────────────────────── --}}
-                <section class="border-b border-shop-border py-14">
+                <x-reveal as="section" class="border-b border-shop-border py-14">
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
                             <div>
@@ -274,10 +274,10 @@
                             <x-input-error :messages="$errors->get('items')" class="mt-4" />
                         @endif
                     </div>
-                </section>
+                </x-reveal>
 
                 {{-- ── Fulfillment ───────────────────────────────────── --}}
-                <section class="border-b border-shop-border py-14">
+                <x-reveal as="section" class="border-b border-shop-border py-14">
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <header class="mb-8">
                             <p class="{{ $eyebrow }}">{{ __('shop.section_fulfillment') }}</p>
@@ -306,10 +306,10 @@
                         </div>
                         <x-input-error :messages="$errors->get('fulfillment_mode')" class="mt-4" />
                     </div>
-                </section>
+                </x-reveal>
 
                 {{-- ── Pickup location (pickup only) ─────────────────── --}}
-                <section class="border-b border-shop-border py-14" x-show="mode === 'pickup'" x-cloak>
+                <x-reveal as="section" class="border-b border-shop-border py-14" x-show="mode === 'pickup'" x-cloak>
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
                             <div>
@@ -332,10 +332,10 @@
                         </div>
                         <x-input-error :messages="$errors->get('pickup_location')" class="mt-4" />
                     </div>
-                </section>
+                </x-reveal>
 
                 {{-- ── Payment (pickup only; delivery is always online) ── --}}
-                <section class="border-b border-shop-border py-14" x-show="mode === 'pickup'" x-cloak>
+                <x-reveal as="section" class="border-b border-shop-border py-14" x-show="mode === 'pickup'" x-cloak>
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <header class="mb-8">
                             <p class="{{ $eyebrow }}">{{ __('shop.section_payment') }}</p>
@@ -365,10 +365,10 @@
                         </template>
                         <x-input-error :messages="$errors->get('payment_method')" class="mt-4" />
                     </div>
-                </section>
+                </x-reveal>
 
                 {{-- ── Contact ───────────────────────────────────────── --}}
-                <section class="border-b border-shop-border py-14">
+                <x-reveal as="section" class="border-b border-shop-border py-14">
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <header class="mb-8">
                             <p class="{{ $eyebrow }}">{{ __('shop.section_contact') }}</p>
@@ -393,10 +393,10 @@
                             </label>
                         </div>
                     </div>
-                </section>
+                </x-reveal>
 
                 {{-- ── Delivery address (delivery only) ──────────────── --}}
-                <section class="border-b border-shop-border py-14" x-show="mode === 'delivery'" x-cloak>
+                <x-reveal as="section" class="border-b border-shop-border py-14" x-show="mode === 'delivery'" x-cloak>
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <header class="mb-8">
                             <p class="{{ $eyebrow }}">{{ __('shop.section_address') }}</p>
@@ -424,10 +424,10 @@
                             </label>
                         </div>
                     </div>
-                </section>
+                </x-reveal>
 
                 {{-- ── Summary + submit ──────────────────────────────── --}}
-                <section class="py-14">
+                <x-reveal as="section" class="py-14">
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <p class="{{ $eyebrow }}">{{ __('shop.summary_heading') }}</p>
                         <div class="mt-6 border-y border-shop-border py-6">
@@ -518,7 +518,7 @@
                             <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">{{ __('shop.cta_helper') }}</span>
                         </div>
                     </div>
-                </section>
+                </x-reveal>
             </form>
         @endif
     </div>
