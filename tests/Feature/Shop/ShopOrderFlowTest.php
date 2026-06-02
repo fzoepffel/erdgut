@@ -421,7 +421,7 @@ class ShopOrderFlowTest extends TestCase
 
         $this->get(route('public.shop.return', ['shopOrder' => $order->id]))
             ->assertOk()
-            ->assertSee(__('shop.return_paid_heading'));
+            ->assertSee(__('shop.return_basket_heading'));
 
         $order->refresh();
         $this->assertSame(ShopOrderStatus::Paid, $order->status);
@@ -457,7 +457,7 @@ class ShopOrderFlowTest extends TestCase
 
         $this->get(route('public.shop.return', ['shopOrder' => $order->id]))
             ->assertOk()
-            ->assertSee(__('shop.return_paid_heading'));
+            ->assertSee(__('shop.return_basket_heading'));
 
         $order->refresh();
         $this->assertSame(ShopOrderStatus::Paid, $order->status);
