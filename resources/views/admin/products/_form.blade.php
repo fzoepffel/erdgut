@@ -334,7 +334,7 @@
                     </div>
 
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('Taste profile')" required />
+                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('Description')" required />
                         <textarea
                             id="{{ 'translations_'.$locale.'_taste_profile' }}"
                             name="{{ 'translations['.$locale.'][taste_profile]' }}"
@@ -554,17 +554,83 @@
             <x-input-error class="mt-2" :messages="$errors->get('dietary_tags')" />
         </div>
 
-        <div>
+        @php
+            // Split the persisted tags into the predefined enum ones (driven
+            // by the checkboxes) and any free-form custom values the admin
+            // added previously. Both submit through the same
+            // `taste_profile_tags[]` hidden inputs below.
+            $enumTasteValues = TasteProfile::values();
+            $selectedEnumTaste = array_values(array_intersect($selectedTaste, $enumTasteValues));
+            $selectedCustomTaste = array_values(array_diff($selectedTaste, $enumTasteValues));
+        @endphp
+        <div
+            x-data='{
+                enumSelected: {!! json_encode($selectedEnumTaste, JSON_UNESCAPED_UNICODE) !!},
+                custom: {!! json_encode($selectedCustomTaste, JSON_UNESCAPED_UNICODE) !!},
+                newTag: "",
+                add() {
+                    const v = this.newTag.trim();
+                    if (v === "") return;
+                    const existing = [...this.enumSelected, ...this.custom].map(s => s.toLocaleLowerCase());
+                    if (! existing.includes(v.toLocaleLowerCase())) {
+                        this.custom.push(v);
+                    }
+                    this.newTag = "";
+                },
+                remove(i) { this.custom.splice(i, 1); },
+            }'
+        >
             <p class="text-xs font-medium text-gray-700 uppercase tracking-wide">{{ __('Taste profile tags') }}</p>
             <p class="mt-0.5 text-xs text-gray-500">{{ __('Structured tags shown as chips to customers. Separate from the prose above.') }}</p>
+
+            {{-- Predefined enum tags. These carry no name attribute — they
+                 only drive the Alpine `enumSelected` array; the hidden inputs
+                 at the bottom are what actually submit. --}}
             <div class="mt-2 grid grid-cols-2 gap-y-1 sm:grid-cols-3">
                 @foreach ($tasteCases as $taste)
                     <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" name="taste_profile_tags[]" value="{{ $taste->value }}" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600" @checked(in_array($taste->value, $selectedTaste, true))>
+                        <input type="checkbox" value="{{ $taste->value }}" x-model="enumSelected" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600">
                         <span>{{ $tasteLabel($taste) }}</span>
                     </label>
                 @endforeach
             </div>
+
+            {{-- Free-form custom tags: type + Add (or Enter). Any number. --}}
+            <div class="mt-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <input
+                        type="text"
+                        x-model="newTag"
+                        x-on:keydown.enter.prevent="add()"
+                        placeholder="{{ __('admin.product_form.taste_custom_placeholder') }}"
+                        class="block w-full sm:w-64 border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm text-sm"
+                        data-testid="taste-custom-input"
+                    >
+                    <button
+                        type="button"
+                        x-on:click="add()"
+                        class="inline-flex items-center rounded-md border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                        data-testid="taste-custom-add"
+                    >{{ __('Add') }}</button>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-2" x-show="custom.length > 0" x-cloak>
+                    <template x-for="(tag, i) in custom" :key="i">
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                            <span x-text="tag"></span>
+                            <button type="button" x-on:click="remove(i)" class="text-emerald-600 hover:text-emerald-900" aria-label="{{ __('Remove') }}">&times;</button>
+                        </span>
+                    </template>
+                </div>
+            </div>
+
+            {{-- Hidden inputs that actually submit (enum + custom combined). --}}
+            <template x-for="val in enumSelected" :key="'enum-' + val">
+                <input type="hidden" name="taste_profile_tags[]" :value="val">
+            </template>
+            <template x-for="(tag, i) in custom" :key="'custom-' + i">
+                <input type="hidden" name="taste_profile_tags[]" :value="tag">
+            </template>
+
             <x-input-error class="mt-2" :messages="$errors->get('taste_profile_tags')" />
         </div>
     </div>
