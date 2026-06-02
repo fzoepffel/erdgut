@@ -36,7 +36,7 @@
 </nav>
 
 {{-- Hero --}}
-<section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8" aria-labelledby="producer-hero-heading">
+<x-reveal as="section" class="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8" aria-labelledby="producer-hero-heading">
     <div class="grid items-start gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
         {{-- Left: copy --}}
         <div>
@@ -75,7 +75,7 @@
             </div>
         </div>
     </div>
-</section>
+</x-reveal>
 
 {{-- Products: rendered as full cards (image, name, price, note), like the catalogue --}}
 @if ($products->isNotEmpty())
@@ -89,7 +89,7 @@
             'meat' => asset('images/mock/products/meat.jpg'),
         ];
     @endphp
-    <section class="border-t border-brand-ink/15" aria-labelledby="producer-products-heading">
+    <x-reveal as="section" class="border-t border-brand-ink/15" aria-labelledby="producer-products-heading">
         <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
             {{-- Section header --}}
             <div class="max-w-2xl">
@@ -147,5 +147,5 @@
                 @endforeach
             </ul>
         </div>
-    </section>
+    </x-reveal>
 @endif

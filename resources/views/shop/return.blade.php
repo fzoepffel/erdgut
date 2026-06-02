@@ -38,7 +38,7 @@
 
     @if ($isHappyState)
         {{-- ───────────────────────── Hero ───────────────────────── --}}
-        <section class="relative border-b border-shop-border">
+        <x-reveal as="section" class="relative border-b border-shop-border">
             @if ($orderRef)
                 <div class="absolute right-4 top-6 hidden font-mono text-xs uppercase tracking-eyebrow text-chapter-produce sm:right-6 lg:block lg:px-6">
                     {{ __('shop.return_order_label') }} · #{{ $order->id }} · {{ $orderRef }}
@@ -67,11 +67,11 @@
                     @endif
                 </p>
             </div>
-        </section>
+        </x-reveal>
 
         {{-- ──────────────────── Fulfillment block ──────────────────── --}}
         @if ($isDelivery)
-            <section class="border-b border-shop-border bg-brand-paper">
+            <x-reveal as="section" class="border-b border-shop-border bg-brand-paper">
                 <div class="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_1.6fr] lg:gap-16 lg:px-8 lg:py-16">
                     <div>
                         <p class="eyebrow text-chapter-produce">{{ __('shop.fulfillment_delivery_eyebrow') }}</p>
@@ -98,9 +98,9 @@
                         </div>
                     </dl>
                 </div>
-            </section>
+            </x-reveal>
         @else
-            <section class="border-b border-shop-border bg-brand-paper">
+            <x-reveal as="section" class="border-b border-shop-border bg-brand-paper">
                 <div class="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_1.4fr] lg:gap-16 lg:px-8 lg:py-16">
                     <div>
                         <p class="eyebrow text-chapter-produce">{{ __('shop.return_pickup_eyebrow') }}</p>
@@ -132,11 +132,11 @@
                         </div>
                     @endif
                 </div>
-            </section>
+            </x-reveal>
         @endif
 
         {{-- ─────────────────────── Order ─────────────────────── --}}
-        <section class="border-b border-shop-border bg-brand-paper">
+        <x-reveal as="section" class="border-b border-shop-border bg-brand-paper">
             <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
                 <div class="mb-12 flex flex-wrap items-end justify-between gap-6">
                     <div>
@@ -196,11 +196,11 @@
                     </div>
                 </div>
             </div>
-        </section>
+        </x-reveal>
 
         {{-- ─────────────────────── Producers ─────────────────────── --}}
         @if ($producers->isNotEmpty())
-            <section class="border-b border-shop-border">
+            <x-reveal as="section" class="border-b border-shop-border">
                 <div class="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.4fr] lg:gap-16 lg:px-8 lg:py-20">
                     <div>
                         <p class="eyebrow text-chapter-produce">{{ __('shop.return_producers_eyebrow') }}</p>
@@ -226,7 +226,7 @@
                         @endforeach
                     </ul>
                 </div>
-            </section>
+            </x-reveal>
         @endif
 
         {{-- Stay inside the isolated shop surface: link back to the storefront,
