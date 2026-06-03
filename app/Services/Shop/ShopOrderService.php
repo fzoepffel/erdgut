@@ -267,13 +267,13 @@ class ShopOrderService
         $inventory = app(InventoryService::class);
 
         $cursor = Carbon::today()->addDay();
-        $weekEnd = Carbon::today()->endOfWeek(Carbon::SUNDAY);
+        $twoWeekEnd = Carbon::today()->endOfWeek(Carbon::SUNDAY)->addWeek();
         $horizonEnd = Carbon::today()->addDays(7 * $horizonWeeks);
 
         while ($cursor->lte($horizonEnd)) {
             if ($inventory->availableOnDate($product, $cursor) > 0) {
                 return [
-                    'state' => $cursor->lte($weekEnd) ? 'this_week' : 'future',
+                    'state' => $cursor->lte($twoWeekEnd) ? 'this_week' : 'future',
                     'date' => $cursor->copy()->startOfDay(),
                     'url' => route('public.shop.index', ['date' => $cursor->toDateString()]),
                 ];
