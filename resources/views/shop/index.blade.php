@@ -125,7 +125,7 @@
                 <input type="hidden" name="expected_delivery_date" value="{{ $selectedDate?->toDateString() }}">
 
                 {{-- ── Delivery-date picker + product filter ─────────── --}}
-                <x-reveal as="section" class="border-b border-shop-border py-14" data-testid="shop-date-picker">
+                <x-reveal as="section" class="relative z-10 border-b border-shop-border py-14" data-testid="shop-date-picker">
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
                             <div>
