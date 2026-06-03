@@ -2741,6 +2741,7 @@
     "shop.product_filter_no_product": "No product found.",
     "shop.product_filter_days_suffix": "days",
     "shop.product_filter_products_label": "products",
+    "shop.product_filter_no_combo_date": "No delivery date exists where all selected products are available at the same time.",
     "shop.intro": "Pick your delivery day and fill your basket with whatever's in season right now.",
     "shop.no_products_for_date": "Nothing is available for this day right now. Pick another delivery day.",
     "shop.pay_back": "Back to the shop",
