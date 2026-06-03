@@ -67,16 +67,20 @@ class ShopAvailabilityCtaTest extends TestCase
         $thisWeek = $this->publishedProduct();
         $this->inflow($thisWeek, '2026-06-05'); // Fri, current week
 
+        $nextWeek = $this->publishedProduct();
+        $this->inflow($nextWeek, '2026-06-10'); // Wed next week — still this_week
+
         $future = $this->publishedProduct();
-        $this->inflow($future, '2026-06-10'); // Wed next week
+        $this->inflow($future, '2026-06-17'); // Wed week after next — future
 
         $none = $this->publishedProduct();
 
         $this->assertSame('this_week', $service->productAvailabilityCta($thisWeek)['state']);
+        $this->assertSame('this_week', $service->productAvailabilityCta($nextWeek)['state']);
 
         $futureCta = $service->productAvailabilityCta($future);
         $this->assertSame('future', $futureCta['state']);
-        $this->assertSame('2026-06-10', $futureCta['date']->toDateString());
+        $this->assertSame('2026-06-17', $futureCta['date']->toDateString());
 
         $noneCta = $service->productAvailabilityCta($none);
         $this->assertSame('none', $noneCta['state']);
@@ -97,12 +101,12 @@ class ShopAvailabilityCtaTest extends TestCase
     public function test_product_page_shows_available_again_when_future(): void
     {
         $product = $this->publishedProduct();
-        $this->inflow($product, '2026-06-10');
+        $this->inflow($product, '2026-06-17'); // Wed two weeks out — beyond the two-week window
 
         $this->get(route('public.shop.products.show', $product->fresh()))
             ->assertOk()
             ->assertSee('data-testid="shop-cta-future"', false)
-            ->assertSee(route('public.shop.index', ['date' => '2026-06-10']), false)
+            ->assertSee(route('public.shop.index', ['date' => '2026-06-17']), false)
             ->assertDontSee('data-testid="shop-cta-available"', false);
     }
 
