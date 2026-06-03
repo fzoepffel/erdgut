@@ -43,13 +43,29 @@
         $stampDate = $selectedDate ?? now();
         $monthStamp = mb_strtoupper($stampDate->locale(app()->getLocale())->isoFormat('MMMM')).' · '.$stampDate->format('Y').' · HOFLADEN';
 
-        // Selected-date summary for the picker button.
+        // Selected-date summary for the picker button trigger line.
         $selectedRow = $selectedDate
             ? $availableDates->first(fn ($row) => $row['date']->toDateString() === $selectedDate->toDateString())
             : null;
 
-        // Dropdown options grouped by ISO calendar week (KW).
-        $datesByWeek = $availableDates->groupBy(fn ($row) => $row['date']->isoWeek());
+        // Alpine date data: each date carries its label, KW, product count,
+        // product-count label (pre-formatted for pluralisation), and product IDs.
+        $alpineDates = $availableDates->map(fn ($row) => [
+            'iso' => $row['date']->toDateString(),
+            'label' => $row['date']->locale(app()->getLocale())->isoFormat('dddd, D. MMMM'),
+            'kw' => $row['date']->isoWeek(),
+            'productCount' => $row['product_count'],
+            'productCountLabel' => trans_choice('shop.date_product_count', $row['product_count'], ['count' => $row['product_count']]),
+            'productIds' => $row['product_ids'],
+        ])->values();
+
+        // Alpine product filter data: id, name, producer, date count.
+        $alpineFilterProducts = $filterProducts->map(fn ($p) => [
+            'id' => $p['id'],
+            'name' => $p['name'],
+            'producer' => $p['producer'],
+            'dateCount' => $p['date_count'],
+        ])->values();
     @endphp
 
     <div
@@ -108,7 +124,7 @@
                 @csrf
                 <input type="hidden" name="expected_delivery_date" value="{{ $selectedDate?->toDateString() }}">
 
-                {{-- ── Delivery-date picker ──────────────────────────── --}}
+                {{-- ── Delivery-date picker + product filter ─────────── --}}
                 <x-reveal as="section" class="border-b border-shop-border py-14" data-testid="shop-date-picker">
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -118,58 +134,198 @@
                             <p class="max-w-md text-sm leading-relaxed text-shop-muted">{{ __('shop.date_picker_intro') }}</p>
                         </header>
 
-                        <div class="relative max-w-xl" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
-                            <button
-                                type="button"
-                                @click="open = !open"
-                                class="flex w-full items-end justify-between gap-6 border-b border-shop-foreground bg-transparent px-1 pb-3 pt-2 text-left transition hover:border-shop-primary"
-                                data-testid="shop-date-button"
-                            >
-                                <span class="flex flex-col gap-2">
-                                    <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">
-                                        KW {{ $selectedRow ? $selectedRow['date']->isoWeek() : '—' }} ·
-                                        {{ $selectedRow ? trans_choice('shop.date_product_count', $selectedRow['product_count'], ['count' => $selectedRow['product_count']]) : '' }}
-                                        {{ __('shop.date_available_suffix') }}
-                                    </span>
-                                    <span class="font-display text-3xl leading-tight md:text-4xl">
-                                        {{ $selectedDate?->locale(app()->getLocale())->isoFormat('dddd, D. MMMM') }}
-                                    </span>
-                                </span>
-                                <svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-2 h-3 w-3 shrink-0 text-shop-primary transition-transform" :class="open && 'rotate-180'" aria-hidden="true">
-                                    <path d="M1 1.5 6 6.5 11 1.5" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </button>
+                        <div
+                            class="max-w-xl space-y-8"
+                            x-data="shopDateFilter({
+                                allDates: @js($alpineDates),
+                                filterProducts: @js($alpineFilterProducts),
+                                selectedIso: @js($selectedDate?->toDateString() ?? ''),
+                                activeProductId: {{ $activeProductId }},
+                                shopUrl: @js(route('public.shop.index')),
+                                availableSuffix: @js(__('shop.date_available_suffix')),
+                                allProductsLabel: @js(__('shop.product_filter_all')),
+                                noFilterLabel: @js(__('shop.product_filter_no_filter')),
+                                notAvailableLabel: @js(__('shop.product_filter_not_available')),
+                                unavailableTemplate: @js(__('shop.product_unavailable_on_date')),
+                                noProductText: @js(__('shop.product_filter_no_product')),
+                                daysSuffix: @js(__('shop.product_filter_days_suffix')),
+                            })"
+                        >
+                            {{-- ── Date dropdown ──────────────────────────── --}}
+                            <div class="relative" @keydown.escape="dateOpen = false" @click.outside="dateOpen = false">
+                                <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.date_picker_label') }}</p>
 
-                            <div
-                                x-show="open"
-                                x-transition.origin.top
-                                x-cloak
-                                class="absolute left-0 right-0 z-20 mt-2 max-h-96 overflow-y-auto border border-shop-border bg-shop-card shadow-lg"
-                                data-testid="shop-date-menu"
-                            >
-                                @foreach ($datesByWeek as $kw => $weekRows)
-                                    <p class="sticky top-0 bg-shop-paper px-5 py-2 font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">KW {{ $kw }}</p>
-                                    @foreach ($weekRows as $row)
-                                        @php
-                                            $iso = $row['date']->toDateString();
-                                            $isSelected = $selectedDate && $selectedDate->toDateString() === $iso;
-                                        @endphp
-                                        <a
-                                            href="{{ route('public.shop.index', ['date' => $iso]) }}"
-                                            class="flex items-center justify-between gap-4 px-5 py-3 transition hover:bg-shop-paper {{ $isSelected ? 'text-shop-primary' : 'text-shop-foreground' }}"
+                                <button
+                                    type="button"
+                                    @click="dateOpen = !dateOpen"
+                                    class="mt-1 flex w-full items-end justify-between gap-6 border-b border-shop-foreground bg-transparent px-1 pb-3 pt-2 text-left transition hover:border-shop-primary"
+                                    data-testid="shop-date-button"
+                                    aria-haspopup="listbox"
+                                    :aria-expanded="dateOpen"
+                                >
+                                    <span class="flex flex-col gap-2">
+                                        <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">
+                                            KW {{ $selectedRow ? $selectedRow['date']->isoWeek() : '—' }} ·
+                                            {{ $selectedRow ? trans_choice('shop.date_product_count', $selectedRow['product_count'], ['count' => $selectedRow['product_count']]) : '' }}
+                                            {{ __('shop.date_available_suffix') }}
+                                        </span>
+                                        <span class="font-display text-3xl leading-tight md:text-4xl">
+                                            {{ $selectedDate?->locale(app()->getLocale())->isoFormat('dddd, D. MMMM') }}
+                                        </span>
+                                    </span>
+                                    <svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-2 h-3 w-3 shrink-0 text-shop-primary transition-transform" :class="dateOpen && 'rotate-180'" aria-hidden="true">
+                                        <path d="M1 1.5 6 6.5 11 1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+
+                                {{-- "Not available on selected date" notice --}}
+                                <div
+                                    x-show="productUnavailableOnDate"
+                                    x-cloak
+                                    class="mt-3 border-l-2 border-shop-primary bg-shop-paper px-4 py-3"
+                                    data-testid="shop-product-unavailable-notice"
+                                >
+                                    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                                        <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary" x-text="notAvailableLabel"></span>
+                                        <span class="text-sm text-shop-foreground" x-text="unavailableNoticeText"></span>
+                                    </div>
+                                    <div class="mt-2 text-right" x-show="nextAvailableDate">
+                                        <button
+                                            type="button"
+                                            @click="selectDate(nextAvailableDate.iso)"
+                                            class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary underline underline-offset-2 hover:opacity-75"
+                                            x-text="'→ ' + (nextAvailableDate?.label ?? '')"
+                                        ></button>
+                                    </div>
+                                </div>
+
+                                {{-- Date popover --}}
+                                <div
+                                    x-show="dateOpen"
+                                    x-transition.origin.top
+                                    x-cloak
+                                    class="absolute left-0 right-0 z-20 mt-2 max-h-96 overflow-y-auto border border-shop-border bg-shop-card shadow-[0_20px_40px_-20px_rgba(0,0,0,0.25)]"
+                                    role="listbox"
+                                    data-testid="shop-date-menu"
+                                >
+                                    <template x-for="group in datesByKw" :key="group.kw">
+                                        <div>
+                                            <p class="sticky top-0 bg-shop-paper px-5 py-2 font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted" x-text="'KW ' + group.kw"></p>
+                                            <template x-for="d in group.dates" :key="d.iso">
+                                                <button
+                                                    type="button"
+                                                    role="option"
+                                                    :aria-selected="d.iso === selectedIso"
+                                                    @click="selectDate(d.iso)"
+                                                    class="flex w-full items-center justify-between gap-4 px-5 py-3 text-left transition hover:bg-shop-paper"
+                                                    :class="d.iso === selectedIso ? 'text-shop-primary bg-shop-paper' : 'text-shop-foreground'"
+                                                >
+                                                    <span class="flex items-center gap-2">
+                                                        <span x-show="d.iso === selectedIso" class="text-shop-primary" aria-hidden="true">&#9679;</span>
+                                                        <span class="font-display text-xl" x-text="d.label"></span>
+                                                    </span>
+                                                    <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="d.productCountLabel + ' ' + availableSuffix"></span>
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <p x-show="visibleDates.length === 0" x-cloak class="px-5 py-4 text-sm text-shop-muted">{{ __('shop.no_products_for_date') }}</p>
+                                </div>
+                            </div>
+
+                            {{-- ── Product filter combobox ─────────────────── --}}
+                            <div class="relative" @keydown.escape="productOpen = false; productQuery = ''" @click.outside="productOpen = false; productQuery = ''">
+                                <div class="flex items-baseline justify-between">
+                                    <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.product_filter_label') }}</p>
+                                    <button
+                                        type="button"
+                                        x-show="activeProductId !== 0"
+                                        x-cloak
+                                        @click="clearProductFilter()"
+                                        class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted underline underline-offset-2 hover:text-shop-primary"
+                                        data-testid="shop-product-filter-reset"
+                                    >{{ __('shop.product_filter_reset') }}</button>
+                                </div>
+
+                                {{-- Closed: show as button --}}
+                                <button
+                                    type="button"
+                                    x-show="!productOpen"
+                                    @click="productOpen = true; $nextTick(() => $refs.productInput?.focus())"
+                                    class="mt-1 flex w-full items-end justify-between gap-6 border-b border-shop-foreground bg-transparent px-1 pb-3 pt-2 text-left transition hover:border-shop-primary"
+                                    aria-haspopup="listbox"
+                                    :aria-expanded="productOpen"
+                                    data-testid="shop-product-filter-button"
+                                >
+                                    <span
+                                        class="font-display text-2xl leading-tight md:text-3xl"
+                                        :class="activeProductId === 0 ? 'text-shop-muted' : 'text-shop-foreground'"
+                                        x-text="activeProductId === 0 ? allProductsLabel : (activeProduct?.name ?? allProductsLabel)"
+                                    ></span>
+                                    <svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-2 h-3 w-3 shrink-0 text-shop-primary" aria-hidden="true">
+                                        <path d="M1 1.5 6 6.5 11 1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+
+                                {{-- Open: show as text input --}}
+                                <input
+                                    x-ref="productInput"
+                                    x-show="productOpen"
+                                    type="text"
+                                    autocomplete="off"
+                                    x-model="productQuery"
+                                    :placeholder="activeProductId === 0 ? allProductsLabel : (activeProduct?.name ?? allProductsLabel)"
+                                    class="mt-1 w-full border-b border-shop-foreground bg-transparent px-1 pb-3 pt-2 font-display text-2xl leading-tight text-shop-foreground placeholder:text-shop-muted focus:border-shop-primary focus:outline-none md:text-3xl"
+                                    data-testid="shop-product-filter-input"
+                                />
+
+                                {{-- Product popover --}}
+                                <div
+                                    x-show="productOpen"
+                                    x-transition.origin.top
+                                    x-cloak
+                                    class="absolute left-0 right-0 z-20 mt-2 max-h-96 overflow-y-auto border border-shop-border bg-shop-card shadow-[0_20px_40px_-20px_rgba(0,0,0,0.25)]"
+                                    role="listbox"
+                                    data-testid="shop-product-filter-menu"
+                                >
+                                    {{-- "All products" fixed option --}}
+                                    <button
+                                        type="button"
+                                        role="option"
+                                        :aria-selected="activeProductId === 0"
+                                        @click="selectProduct(0)"
+                                        class="flex w-full items-center justify-between gap-4 px-5 py-3 text-left transition hover:bg-shop-paper"
+                                        :class="activeProductId === 0 ? 'bg-shop-paper' : ''"
+                                    >
+                                        <span class="flex items-center gap-2">
+                                            <span x-show="activeProductId === 0" class="text-shop-primary" aria-hidden="true">&#9679;</span>
+                                            <span class="font-display text-xl" :class="activeProductId === 0 ? 'text-shop-primary' : 'text-shop-foreground'" x-text="allProductsLabel"></span>
+                                        </span>
+                                        <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="noFilterLabel"></span>
+                                    </button>
+
+                                    <template x-for="p in filteredProducts" :key="p.id">
+                                        <button
+                                            type="button"
+                                            role="option"
+                                            :aria-selected="p.id === activeProductId"
+                                            @click="selectProduct(p.id)"
+                                            class="flex w-full items-center justify-between gap-4 px-5 py-3 text-left transition hover:bg-shop-paper"
+                                            :class="p.id === activeProductId ? 'bg-shop-paper' : ''"
                                         >
-                                            <span class="flex items-center gap-2">
-                                                @if ($isSelected)
-                                                    <span class="text-shop-primary" aria-hidden="true">&#9679;</span>
-                                                @endif
-                                                <span class="font-display text-xl">{{ $row['date']->locale(app()->getLocale())->isoFormat('dddd, D. MMMM') }}</span>
+                                            <span class="flex items-start gap-2">
+                                                <span x-show="p.id === activeProductId" class="mt-1 shrink-0 text-shop-primary" aria-hidden="true">&#9679;</span>
+                                                <span>
+                                                    <span class="block font-display text-xl" :class="p.id === activeProductId ? 'text-shop-primary' : 'text-shop-foreground'" x-text="p.name"></span>
+                                                    <span class="block font-mono text-[0.55rem] uppercase tracking-widest text-shop-muted" x-text="p.producer"></span>
+                                                </span>
                                             </span>
-                                            <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">
-                                                {{ trans_choice('shop.date_product_count', $row['product_count'], ['count' => $row['product_count']]) }}
-                                            </span>
-                                        </a>
-                                    @endforeach
-                                @endforeach
+                                            <span class="shrink-0 font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="p.dateCount + ' ' + daysSuffix"></span>
+                                        </button>
+                                    </template>
+
+                                    <p x-show="filteredProducts.length === 0" x-cloak class="px-5 py-4 text-sm text-shop-muted" x-text="noProductText"></p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -526,8 +682,94 @@
     {{-- Inline (not @stack): the isolated shop layout has no scripts stack.
          A plain inline script runs during parse, before the deferred Alpine
          module, so the function is global by the time Alpine evaluates
-         x-data="shopStorefront(...)". --}}
+         x-data="shopStorefront(...)" / x-data="shopDateFilter(...)". --}}
     <script>
+        function shopDateFilter(config) {
+            return {
+                allDates: config.allDates,
+                filterProducts: config.filterProducts,
+                selectedIso: config.selectedIso,
+                activeProductId: config.activeProductId,
+                shopUrl: config.shopUrl,
+                // Localised strings
+                availableSuffix: config.availableSuffix,
+                allProductsLabel: config.allProductsLabel,
+                noFilterLabel: config.noFilterLabel,
+                notAvailableLabel: config.notAvailableLabel,
+                unavailableTemplate: config.unavailableTemplate,
+                noProductText: config.noProductText,
+                daysSuffix: config.daysSuffix,
+                // UI state
+                dateOpen: false,
+                productOpen: false,
+                productQuery: '',
+
+                // ── Computed helpers ───────────────────────────────────
+                get visibleDates() {
+                    if (this.activeProductId === 0) return this.allDates;
+                    return this.allDates.filter(
+                        (d) => d.productIds.includes(this.activeProductId),
+                    );
+                },
+                get datesByKw() {
+                    const groups = [];
+                    let cur = null;
+                    for (const d of this.visibleDates) {
+                        if (!cur || cur.kw !== d.kw) {
+                            cur = { kw: d.kw, dates: [] };
+                            groups.push(cur);
+                        }
+                        cur.dates.push(d);
+                    }
+                    return groups;
+                },
+                get selectedDateData() {
+                    return this.allDates.find((d) => d.iso === this.selectedIso) || null;
+                },
+                get productUnavailableOnDate() {
+                    if (this.activeProductId === 0 || !this.selectedDateData) return false;
+                    return !this.selectedDateData.productIds.includes(this.activeProductId);
+                },
+                get nextAvailableDate() {
+                    return this.visibleDates.length > 0 ? this.visibleDates[0] : null;
+                },
+                get activeProduct() {
+                    return this.filterProducts.find((p) => p.id === this.activeProductId) || null;
+                },
+                get filteredProducts() {
+                    const q = this.productQuery.trim().toLowerCase();
+                    if (!q) return this.filterProducts;
+                    return this.filterProducts.filter(
+                        (p) =>
+                            p.name.toLowerCase().includes(q) ||
+                            p.producer.toLowerCase().includes(q),
+                    );
+                },
+                get unavailableNoticeText() {
+                    if (!this.selectedDateData) return '';
+                    return this.unavailableTemplate.replace(':date', this.selectedDateData.label);
+                },
+
+                // ── Actions ────────────────────────────────────────────
+                selectDate(iso) {
+                    const url = new URL(this.shopUrl);
+                    url.searchParams.set('date', iso);
+                    if (this.activeProductId !== 0) {
+                        url.searchParams.set('product', this.activeProductId);
+                    }
+                    window.location.href = url.toString();
+                },
+                selectProduct(id) {
+                    this.activeProductId = id;
+                    this.productOpen = false;
+                    this.productQuery = '';
+                },
+                clearProductFilter() {
+                    this.selectProduct(0);
+                },
+            };
+        }
+
         function shopStorefront(config) {
             return {
                 products: config.products,

@@ -42,7 +42,9 @@ class ShopController extends Controller
 
     public function index(Request $request): View
     {
-        $availableDates = $this->service->availableDates();
+        $index = $this->service->availabilityIndex();
+        $availableDates = $index['dates'];
+        $filterProducts = $index['products'];
 
         // Resolve the active date: the `?date=` query param if it's still
         // on the menu, else the first available date. Null when the shop
@@ -57,12 +59,21 @@ class ShopController extends Controller
             $selectedDate = $availableDates->first()['date'];
         }
 
+        // Resolve the active product filter from `?product=` — must be a
+        // known catalog product ID; unknown/invalid values are silently dropped.
+        $activeProductId = (int) $request->query('product', 0);
+        if ($activeProductId !== 0 && ! $filterProducts->contains('id', $activeProductId)) {
+            $activeProductId = 0;
+        }
+
         $products = $selectedDate !== null
             ? $this->service->weeklyProductsForDate($selectedDate)
             : collect();
 
         return view('shop.index', [
             'availableDates' => $availableDates,
+            'filterProducts' => $filterProducts,
+            'activeProductId' => $activeProductId,
             'selectedDate' => $selectedDate,
             'products' => $products,
             'pickupLocations' => PickupLocations::all(),
