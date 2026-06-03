@@ -815,19 +815,11 @@
                     this.productOpen = false;
                     this.productQuery = '';
                 },
-                // Close the product dropdown. For a multi-product selection whose
-                // current date is missing some of the chosen products, jump
-                // straight to the next date where all of them are available.
+                // Close the product dropdown. The date is never changed
+                // automatically — the notice offers a manual jump link instead.
                 closeProductDropdown() {
-                    const wasOpen = this.productOpen;
                     this.productOpen = false;
                     this.productQuery = '';
-                    if (wasOpen
-                        && this.activeProductIds.length > 1
-                        && this.productUnavailableOnDate
-                        && this.nextAvailableDate) {
-                        this.selectDate(this.nextAvailableDate.iso);
-                    }
                 },
             };
         }
