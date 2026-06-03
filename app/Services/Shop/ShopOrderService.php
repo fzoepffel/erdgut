@@ -98,6 +98,77 @@ class ShopOrderService
     }
 
     /**
+     * Full availability index in a single scan pass.
+     *
+     * Returns two collections built together so we only call
+     * `availabilityWindow` once per product:
+     *
+     *  - `dates`:    every future date with ≥1 product in stock, each carrying
+     *                `product_count` (total) and `product_ids` (int[]).
+     *  - `products`: every catalog product that has at least one date in stock,
+     *                carrying `id`, `name`, `producer` (string), `date_count`.
+     *
+     * @return array{
+     *     dates: Collection<int, array{date: Carbon, product_count: int, product_ids: int[]}>,
+     *     products: Collection<int, array{id: int, name: string, producer: string, date_count: int}>,
+     * }
+     */
+    public function availabilityIndex(?int $horizonWeeks = null): array
+    {
+        $horizonWeeks ??= (int) config('shop.horizon_weeks', 8);
+
+        $products = Product::query()->visibleInCatalog()->with(['translations', 'producer.translations'])->get();
+
+        if ($products->isEmpty()) {
+            return ['dates' => collect(), 'products' => collect()];
+        }
+
+        $inventory = app(InventoryService::class);
+        $start = Carbon::today()->addDay();
+        $end = Carbon::today()->addDays(7 * $horizonWeeks);
+
+        // One scan: accumulate per-date product IDs and per-product date counts.
+        $dateProductIds = [];    // iso => int[]
+        $productDateCount = [];  // product_id => int
+
+        foreach ($products as $product) {
+            $window = $inventory->availabilityWindow($product, $start, $end);
+            $datesForProduct = 0;
+
+            foreach ($window as $iso => $remaining) {
+                if ($remaining > 0) {
+                    $dateProductIds[$iso][] = $product->id;
+                    $datesForProduct++;
+                }
+            }
+
+            $productDateCount[$product->id] = $datesForProduct;
+        }
+
+        ksort($dateProductIds);
+
+        $dates = collect($dateProductIds)
+            ->map(fn (array $ids, string $iso): array => [
+                'date' => Carbon::parse($iso)->startOfDay(),
+                'product_count' => count($ids),
+                'product_ids' => $ids,
+            ])
+            ->values();
+
+        $catalogProducts = $products
+            ->filter(fn (Product $p): bool => ($productDateCount[$p->id] ?? 0) > 0)
+            ->map(fn (Product $p): array => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'producer' => $p->producer?->name ?? '',
+                'date_count' => $productDateCount[$p->id] ?? 0,
+            ])
+            ->values();
+
+        return ['dates' => $dates, 'products' => $catalogProducts];
+    }
+
+    /**
      * Dates with stock for *any* catalog product, within the horizon.
      *
      * A date `D` is offered iff at least one `visibleInCatalog()` product
