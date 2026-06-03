@@ -230,7 +230,17 @@
                                             </template>
                                         </div>
                                     </template>
-                                    <p x-show="visibleDates.length === 0" x-cloak class="px-5 py-4 text-sm text-shop-muted">{{ __('shop.no_products_for_date') }}</p>
+                                    {{-- No dates: distinguish "no stock at all" from "no day has all selected products" --}}
+                                    <p
+                                        x-show="visibleDates.length === 0 && activeProductIds.length <= 1"
+                                        x-cloak
+                                        class="px-5 py-4 text-sm text-shop-muted"
+                                    >{{ __('shop.no_products_for_date') }}</p>
+                                    <p
+                                        x-show="visibleDates.length === 0 && activeProductIds.length > 1"
+                                        x-cloak
+                                        class="px-5 py-4 text-sm text-shop-muted"
+                                    >{{ __('shop.product_filter_no_combo_date') }}</p>
                                 </div>
                             </div>
 
@@ -710,8 +720,9 @@
                 // ── Computed helpers ───────────────────────────────────
                 get visibleDates() {
                     if (this.activeProductIds.length === 0) return this.allDates;
+                    // AND logic: only show dates where every selected product is available.
                     return this.allDates.filter(
-                        (d) => this.activeProductIds.some((id) => d.productIds.includes(id)),
+                        (d) => this.activeProductIds.every((id) => d.productIds.includes(id)),
                     );
                 },
                 get datesByKw() {
@@ -731,7 +742,8 @@
                 },
                 get productUnavailableOnDate() {
                     if (this.activeProductIds.length === 0 || !this.selectedDateData) return false;
-                    return !this.activeProductIds.some((id) =>
+                    // True when the selected date is missing at least one of the chosen products.
+                    return !this.activeProductIds.every((id) =>
                         this.selectedDateData.productIds.includes(id),
                     );
                 },

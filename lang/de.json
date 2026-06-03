@@ -2741,6 +2741,7 @@
     "shop.product_filter_no_product": "Kein Produkt gefunden.",
     "shop.product_filter_days_suffix": "Tage",
     "shop.product_filter_products_label": "Produkte",
+    "shop.product_filter_no_combo_date": "Kein Liefertag, an dem alle gewählten Produkte gleichzeitig verfügbar sind.",
     "shop.intro": "Wähle deinen Liefertag und füll deinen Korb mit dem, was gerade Saison hat.",
     "shop.no_products_for_date": "Für diesen Tag ist gerade nichts verfügbar. Wähle einen anderen Liefertag.",
     "shop.pay_back": "Zurück zum Hofladen",
