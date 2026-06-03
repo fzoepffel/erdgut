@@ -53,6 +53,7 @@
         $alpineDates = $availableDates->map(fn ($row) => [
             'iso' => $row['date']->toDateString(),
             'label' => $row['date']->locale(app()->getLocale())->isoFormat('dddd, D. MMMM'),
+            'shortLabel' => $row['date']->locale(app()->getLocale())->isoFormat('D. MMMM'),
             'kw' => $row['date']->isoWeek(),
             'productCount' => $row['product_count'],
             'productCountLabel' => trans_choice('shop.date_product_count', $row['product_count'], ['count' => $row['product_count']]),
@@ -147,6 +148,8 @@
                                 noFilterLabel: @js(__('shop.product_filter_no_filter')),
                                 notAvailableLabel: @js(__('shop.product_filter_not_available')),
                                 unavailableTemplate: @js(__('shop.product_unavailable_on_date')),
+                                unavailableComboOne: @js(__('shop.product_unavailable_combo_one')),
+                                unavailableComboMany: @js(__('shop.product_unavailable_combo_many')),
                                 noProductText: @js(__('shop.product_filter_no_product')),
                                 daysSuffix: @js(__('shop.product_filter_days_suffix')),
                                 productsLabel: @js(__('shop.product_filter_products_label')),
@@ -245,7 +248,7 @@
                             </div>
 
                             {{-- ── Product filter combobox ─────────────────── --}}
-                            <div class="relative" @keydown.escape="productOpen = false; productQuery = ''" @click.outside="productOpen = false; productQuery = ''">
+                            <div class="relative" @keydown.escape="closeProductDropdown()" @click.outside="closeProductDropdown()">
                                 <div class="flex items-baseline justify-between">
                                     <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.product_filter_label') }}</p>
                                     <button
@@ -709,6 +712,8 @@
                 noFilterLabel: config.noFilterLabel,
                 notAvailableLabel: config.notAvailableLabel,
                 unavailableTemplate: config.unavailableTemplate,
+                unavailableComboOne: config.unavailableComboOne,
+                unavailableComboMany: config.unavailableComboMany,
                 noProductText: config.noProductText,
                 daysSuffix: config.daysSuffix,
                 productsLabel: config.productsLabel,
@@ -770,7 +775,20 @@
                 },
                 get unavailableNoticeText() {
                     if (!this.selectedDateData) return '';
-                    return this.unavailableTemplate.replace(':date', this.selectedDateData.label);
+                    const total = this.activeProductIds.length;
+                    // Single product: keep the simple sentence with the full date label.
+                    if (total <= 1) {
+                        return this.unavailableTemplate.replace(':date', this.selectedDateData.label);
+                    }
+                    // Multi-select: report how many of the chosen products are missing.
+                    const missing = this.activeProductIds.filter(
+                        (id) => !this.selectedDateData.productIds.includes(id),
+                    ).length;
+                    const tpl = missing === 1 ? this.unavailableComboOne : this.unavailableComboMany;
+                    return tpl
+                        .replace(':count', missing)
+                        .replace(':total', total)
+                        .replace(':date', this.selectedDateData.shortLabel);
                 },
 
                 // ── Actions ────────────────────────────────────────────
@@ -796,6 +814,20 @@
                     this.activeProductIds = [];
                     this.productOpen = false;
                     this.productQuery = '';
+                },
+                // Close the product dropdown. For a multi-product selection whose
+                // current date is missing some of the chosen products, jump
+                // straight to the next date where all of them are available.
+                closeProductDropdown() {
+                    const wasOpen = this.productOpen;
+                    this.productOpen = false;
+                    this.productQuery = '';
+                    if (wasOpen
+                        && this.activeProductIds.length > 1
+                        && this.productUnavailableOnDate
+                        && this.nextAvailableDate) {
+                        this.selectDate(this.nextAvailableDate.iso);
+                    }
                 },
             };
         }
