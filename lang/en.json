@@ -2738,6 +2738,8 @@
     "shop.product_filter_reset": "× Clear filter",
     "shop.product_filter_not_available": "Not available",
     "shop.product_unavailable_on_date": "This product is not available on :date.",
+    "shop.product_unavailable_combo_one": ":count of :total products is not available on :date.",
+    "shop.product_unavailable_combo_many": ":count of :total products are not available on :date.",
     "shop.product_filter_no_product": "No product found.",
     "shop.product_filter_days_suffix": "days",
     "shop.product_filter_products_label": "products",
