@@ -2740,6 +2740,7 @@
     "shop.product_unavailable_on_date": "Ce produit n'est pas disponible le :date.",
     "shop.product_filter_no_product": "Aucun produit trouvé.",
     "shop.product_filter_days_suffix": "jours",
+    "shop.product_filter_products_label": "produits",
     "shop.intro": "Choisissez votre jour de livraison et remplissez votre panier avec ce qui est de saison en ce moment.",
     "shop.no_products_for_date": "Rien n'est disponible pour ce jour. Choisissez un autre jour de livraison.",
     "shop.pay_back": "Retour à la boutique",

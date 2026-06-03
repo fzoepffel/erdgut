@@ -140,7 +140,7 @@
                                 allDates: @js($alpineDates),
                                 filterProducts: @js($alpineFilterProducts),
                                 selectedIso: @js($selectedDate?->toDateString() ?? ''),
-                                activeProductId: {{ $activeProductId }},
+                                activeProductIds: @js($activeProductIds),
                                 shopUrl: @js(route('public.shop.index')),
                                 availableSuffix: @js(__('shop.date_available_suffix')),
                                 allProductsLabel: @js(__('shop.product_filter_all')),
@@ -149,6 +149,7 @@
                                 unavailableTemplate: @js(__('shop.product_unavailable_on_date')),
                                 noProductText: @js(__('shop.product_filter_no_product')),
                                 daysSuffix: @js(__('shop.product_filter_days_suffix')),
+                                productsLabel: @js(__('shop.product_filter_products_label')),
                             })"
                         >
                             {{-- ── Date dropdown ──────────────────────────── --}}
@@ -239,7 +240,7 @@
                                     <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.product_filter_label') }}</p>
                                     <button
                                         type="button"
-                                        x-show="activeProductId !== 0"
+                                        x-show="activeProductIds.length > 0"
                                         x-cloak
                                         @click="clearProductFilter()"
                                         class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted underline underline-offset-2 hover:text-shop-primary"
@@ -259,8 +260,8 @@
                                 >
                                     <span
                                         class="font-display text-2xl leading-tight md:text-3xl"
-                                        :class="activeProductId === 0 ? 'text-shop-muted' : 'text-shop-foreground'"
-                                        x-text="activeProductId === 0 ? allProductsLabel : (activeProduct?.name ?? allProductsLabel)"
+                                        :class="activeProductIds.length === 0 ? 'text-shop-muted' : 'text-shop-foreground'"
+                                        x-text="triggerLabel"
                                     ></span>
                                     <svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-2 h-3 w-3 shrink-0 text-shop-primary" aria-hidden="true">
                                         <path d="M1 1.5 6 6.5 11 1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -274,32 +275,33 @@
                                     type="text"
                                     autocomplete="off"
                                     x-model="productQuery"
-                                    :placeholder="activeProductId === 0 ? allProductsLabel : (activeProduct?.name ?? allProductsLabel)"
+                                    :placeholder="triggerLabel"
                                     class="mt-1 w-full border-b border-shop-foreground bg-transparent px-1 pb-3 pt-2 font-display text-2xl leading-tight text-shop-foreground placeholder:text-shop-muted focus:border-shop-primary focus:outline-none md:text-3xl"
                                     data-testid="shop-product-filter-input"
                                 />
 
-                                {{-- Product popover --}}
+                                {{-- Product popover — stays open for multi-select --}}
                                 <div
                                     x-show="productOpen"
                                     x-transition.origin.top
                                     x-cloak
                                     class="absolute left-0 right-0 z-20 mt-2 max-h-96 overflow-y-auto border border-shop-border bg-shop-card shadow-[0_20px_40px_-20px_rgba(0,0,0,0.25)]"
                                     role="listbox"
+                                    aria-multiselectable="true"
                                     data-testid="shop-product-filter-menu"
                                 >
-                                    {{-- "All products" fixed option --}}
+                                    {{-- "All products" fixed option — clears selection and closes --}}
                                     <button
                                         type="button"
                                         role="option"
-                                        :aria-selected="activeProductId === 0"
-                                        @click="selectProduct(0)"
+                                        :aria-selected="activeProductIds.length === 0"
+                                        @click="clearProductFilter()"
                                         class="flex w-full items-center justify-between gap-4 px-5 py-3 text-left transition hover:bg-shop-paper"
-                                        :class="activeProductId === 0 ? 'bg-shop-paper' : ''"
+                                        :class="activeProductIds.length === 0 ? 'bg-shop-paper' : ''"
                                     >
                                         <span class="flex items-center gap-2">
-                                            <span x-show="activeProductId === 0" class="text-shop-primary" aria-hidden="true">&#9679;</span>
-                                            <span class="font-display text-xl" :class="activeProductId === 0 ? 'text-shop-primary' : 'text-shop-foreground'" x-text="allProductsLabel"></span>
+                                            <span x-show="activeProductIds.length === 0" class="text-shop-primary" aria-hidden="true">&#9679;</span>
+                                            <span class="font-display text-xl" :class="activeProductIds.length === 0 ? 'text-shop-primary' : 'text-shop-foreground'" x-text="allProductsLabel"></span>
                                         </span>
                                         <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="noFilterLabel"></span>
                                     </button>
@@ -308,15 +310,15 @@
                                         <button
                                             type="button"
                                             role="option"
-                                            :aria-selected="p.id === activeProductId"
-                                            @click="selectProduct(p.id)"
+                                            :aria-selected="activeProductIds.includes(p.id)"
+                                            @click="toggleProduct(p.id)"
                                             class="flex w-full items-center justify-between gap-4 px-5 py-3 text-left transition hover:bg-shop-paper"
-                                            :class="p.id === activeProductId ? 'bg-shop-paper' : ''"
+                                            :class="activeProductIds.includes(p.id) ? 'bg-shop-paper' : ''"
                                         >
                                             <span class="flex items-start gap-2">
-                                                <span x-show="p.id === activeProductId" class="mt-1 shrink-0 text-shop-primary" aria-hidden="true">&#9679;</span>
+                                                <span x-show="activeProductIds.includes(p.id)" class="mt-1 shrink-0 text-shop-primary" aria-hidden="true">&#9679;</span>
                                                 <span>
-                                                    <span class="block font-display text-xl" :class="p.id === activeProductId ? 'text-shop-primary' : 'text-shop-foreground'" x-text="p.name"></span>
+                                                    <span class="block font-display text-xl" :class="activeProductIds.includes(p.id) ? 'text-shop-primary' : 'text-shop-foreground'" x-text="p.name"></span>
                                                     <span class="block font-mono text-[0.55rem] uppercase tracking-widest text-shop-muted" x-text="p.producer"></span>
                                                 </span>
                                             </span>
@@ -689,7 +691,7 @@
                 allDates: config.allDates,
                 filterProducts: config.filterProducts,
                 selectedIso: config.selectedIso,
-                activeProductId: config.activeProductId,
+                activeProductIds: config.activeProductIds,
                 shopUrl: config.shopUrl,
                 // Localised strings
                 availableSuffix: config.availableSuffix,
@@ -699,6 +701,7 @@
                 unavailableTemplate: config.unavailableTemplate,
                 noProductText: config.noProductText,
                 daysSuffix: config.daysSuffix,
+                productsLabel: config.productsLabel,
                 // UI state
                 dateOpen: false,
                 productOpen: false,
@@ -706,9 +709,9 @@
 
                 // ── Computed helpers ───────────────────────────────────
                 get visibleDates() {
-                    if (this.activeProductId === 0) return this.allDates;
+                    if (this.activeProductIds.length === 0) return this.allDates;
                     return this.allDates.filter(
-                        (d) => d.productIds.includes(this.activeProductId),
+                        (d) => this.activeProductIds.some((id) => d.productIds.includes(id)),
                     );
                 },
                 get datesByKw() {
@@ -727,14 +730,22 @@
                     return this.allDates.find((d) => d.iso === this.selectedIso) || null;
                 },
                 get productUnavailableOnDate() {
-                    if (this.activeProductId === 0 || !this.selectedDateData) return false;
-                    return !this.selectedDateData.productIds.includes(this.activeProductId);
+                    if (this.activeProductIds.length === 0 || !this.selectedDateData) return false;
+                    return !this.activeProductIds.some((id) =>
+                        this.selectedDateData.productIds.includes(id),
+                    );
                 },
                 get nextAvailableDate() {
                     return this.visibleDates.length > 0 ? this.visibleDates[0] : null;
                 },
-                get activeProduct() {
-                    return this.filterProducts.find((p) => p.id === this.activeProductId) || null;
+                get triggerLabel() {
+                    const n = this.activeProductIds.length;
+                    if (n === 0) return this.allProductsLabel;
+                    if (n === 1) {
+                        const p = this.filterProducts.find((x) => x.id === this.activeProductIds[0]);
+                        return p ? p.name : this.allProductsLabel;
+                    }
+                    return n + ' ' + this.productsLabel;
                 },
                 get filteredProducts() {
                     const q = this.productQuery.trim().toLowerCase();
@@ -754,18 +765,25 @@
                 selectDate(iso) {
                     const url = new URL(this.shopUrl);
                     url.searchParams.set('date', iso);
-                    if (this.activeProductId !== 0) {
-                        url.searchParams.set('product', this.activeProductId);
+                    for (const id of this.activeProductIds) {
+                        url.searchParams.append('product[]', id);
                     }
                     window.location.href = url.toString();
                 },
-                selectProduct(id) {
-                    this.activeProductId = id;
-                    this.productOpen = false;
+                // Toggle a product in/out of the selection; keep popover open.
+                toggleProduct(id) {
+                    const i = this.activeProductIds.indexOf(id);
+                    if (i === -1) {
+                        this.activeProductIds = [...this.activeProductIds, id];
+                    } else {
+                        this.activeProductIds = this.activeProductIds.filter((x) => x !== id);
+                    }
                     this.productQuery = '';
                 },
                 clearProductFilter() {
-                    this.selectProduct(0);
+                    this.activeProductIds = [];
+                    this.productOpen = false;
+                    this.productQuery = '';
                 },
             };
         }
