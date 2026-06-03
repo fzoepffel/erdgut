@@ -151,6 +151,7 @@
                                 unavailableComboOne: @js(__('shop.product_unavailable_combo_one')),
                                 unavailableComboMany: @js(__('shop.product_unavailable_combo_many')),
                                 noProductText: @js(__('shop.product_filter_no_product')),
+                                noComboDateText: @js(__('shop.product_filter_no_combo_date')),
                                 daysSuffix: @js(__('shop.product_filter_days_suffix')),
                                 productsLabel: @js(__('shop.product_filter_products_label')),
                             })"
@@ -161,8 +162,10 @@
 
                                 <button
                                     type="button"
-                                    @click="dateOpen = !dateOpen"
-                                    class="mt-1 flex w-full items-end justify-between gap-6 border-b border-shop-foreground bg-transparent px-1 pb-3 pt-2 text-left transition hover:border-shop-primary"
+                                    @click="!noComboDate && (dateOpen = !dateOpen)"
+                                    :disabled="noComboDate"
+                                    class="mt-1 flex w-full items-end justify-between gap-6 border-b border-shop-foreground bg-transparent px-1 pb-3 pt-2 text-left transition"
+                                    :class="noComboDate ? 'opacity-40 cursor-not-allowed' : 'hover:border-shop-primary'"
                                     data-testid="shop-date-button"
                                     aria-haspopup="listbox"
                                     :aria-expanded="dateOpen"
@@ -715,6 +718,7 @@
                 unavailableComboOne: config.unavailableComboOne,
                 unavailableComboMany: config.unavailableComboMany,
                 noProductText: config.noProductText,
+                noComboDateText: config.noComboDateText,
                 daysSuffix: config.daysSuffix,
                 productsLabel: config.productsLabel,
                 // UI state
@@ -745,8 +749,14 @@
                 get selectedDateData() {
                     return this.allDates.find((d) => d.iso === this.selectedIso) || null;
                 },
+                get noComboDate() {
+                    return this.activeProductIds.length > 1 && this.visibleDates.length === 0;
+                },
                 get productUnavailableOnDate() {
-                    if (this.activeProductIds.length === 0 || !this.selectedDateData) return false;
+                    if (this.activeProductIds.length === 0) return false;
+                    // No date has the full combo → always show the notice.
+                    if (this.noComboDate) return true;
+                    if (!this.selectedDateData) return false;
                     // True when the selected date is missing at least one of the chosen products.
                     return !this.activeProductIds.every((id) =>
                         this.selectedDateData.productIds.includes(id),
@@ -774,8 +784,10 @@
                     );
                 },
                 get unavailableNoticeText() {
-                    if (!this.selectedDateData) return '';
                     const total = this.activeProductIds.length;
+                    // No date has the full combo at all → surface the combo message directly.
+                    if (this.noComboDate) return this.noComboDateText;
+                    if (!this.selectedDateData) return '';
                     // Single product: keep the simple sentence with the full date label.
                     if (total <= 1) {
                         return this.unavailableTemplate.replace(':date', this.selectedDateData.label);
