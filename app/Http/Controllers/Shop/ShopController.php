@@ -59,12 +59,12 @@ class ShopController extends Controller
             $selectedDate = $availableDates->first()['date'];
         }
 
-        // Resolve the active product filter from `?product=` — must be a
-        // known catalog product ID; unknown/invalid values are silently dropped.
-        $activeProductId = (int) $request->query('product', 0);
-        if ($activeProductId !== 0 && ! $filterProducts->contains('id', $activeProductId)) {
-            $activeProductId = 0;
-        }
+        // Resolve the active product filter from `?product[]=` — array of known
+        // catalog product IDs; unknown/invalid values are silently dropped.
+        $activeProductIds = array_values(array_filter(
+            array_map('intval', (array) $request->query('product', [])),
+            fn (int $id): bool => $id > 0 && $filterProducts->contains('id', $id),
+        ));
 
         $products = $selectedDate !== null
             ? $this->service->weeklyProductsForDate($selectedDate)
@@ -73,7 +73,7 @@ class ShopController extends Controller
         return view('shop.index', [
             'availableDates' => $availableDates,
             'filterProducts' => $filterProducts,
-            'activeProductId' => $activeProductId,
+            'activeProductIds' => $activeProductIds,
             'selectedDate' => $selectedDate,
             'products' => $products,
             'pickupLocations' => PickupLocations::all(),
