@@ -37,14 +37,13 @@
 <body class="bg-brand-cream font-sans text-brand-ink antialiased">
     <div class="flex min-h-screen flex-col">
         @php
-            // Top-nav items. The shop landing is dropped while already on it.
+            // Top-nav items — always all three, including the link back to the
+            // storefront, in a fixed order.
             $shopNav = [
+                ['key' => 'shop', 'route' => 'public.shop.index', 'label' => __('shop.nav_shop')],
                 ['key' => 'products', 'route' => 'public.shop.products.index', 'label' => __('shop.nav_products')],
                 ['key' => 'producers', 'route' => 'public.shop.producers.index', 'label' => __('shop.nav_producers')],
             ];
-            if ($navActive !== 'shop') {
-                $shopNav[] = ['key' => 'shop', 'route' => 'public.shop.index', 'label' => __('shop.nav_shop')];
-            }
         @endphp
         <header
             class="border-b"
@@ -52,31 +51,34 @@
             x-data="{ navOpen: false }"
         >
             <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-                <a href="{{ route('public.shop.index') }}" class="flex items-center gap-3" aria-label="Erdgut">
-                    <span
-                        aria-hidden="true"
-                        class="block h-9 w-9 shrink-0"
-                        style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-mark-tight.png') }}') no-repeat center / contain; mask: url('{{ asset('images/logo/erdgut-mark-tight.png') }}') no-repeat center / contain;"
-                    ></span>
-                    <span
-                        role="img"
-                        aria-label="Erdgut"
-                        class="block h-7 w-32 sm:w-36"
-                        style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain; mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain;"
-                    ></span>
-                </a>
+                {{-- Logo + nav, grouped on the left --}}
+                <div class="flex items-center" style="gap: 2rem;">
+                    <a href="{{ route('public.shop.index') }}" class="flex items-center gap-3" aria-label="Erdgut">
+                        <span
+                            aria-hidden="true"
+                            class="block h-9 w-9 shrink-0"
+                            style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-mark-tight.png') }}') no-repeat center / contain; mask: url('{{ asset('images/logo/erdgut-mark-tight.png') }}') no-repeat center / contain;"
+                        ></span>
+                        <span
+                            role="img"
+                            aria-label="Erdgut"
+                            class="block h-7 w-32 sm:w-36"
+                            style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain; mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain;"
+                        ></span>
+                    </a>
 
-                {{-- Desktop nav --}}
-                <nav class="hidden items-center gap-8 sm:flex" aria-label="{{ __('shop.nav_label') }}">
-                    @foreach ($shopNav as $item)
-                        <a
-                            href="{{ route($item['route']) }}"
-                            data-testid="shop-nav-{{ $item['key'] }}"
-                            class="font-mono text-xs uppercase tracking-widest underline-offset-8 transition hover:underline {{ $navActive === $item['key'] ? 'text-[#21341d] underline' : 'text-[#21341d]/70 hover:text-[#21341d]' }}"
-                            @if ($navActive === $item['key']) aria-current="page" @endif
-                        >{{ $item['label'] }}</a>
-                    @endforeach
-                </nav>
+                    {{-- Desktop nav --}}
+                    <nav class="hidden items-center sm:flex" style="gap: 1.75rem;" aria-label="{{ __('shop.nav_label') }}">
+                        @foreach ($shopNav as $item)
+                            <a
+                                href="{{ route($item['route']) }}"
+                                data-testid="shop-nav-{{ $item['key'] }}"
+                                class="font-sans text-sm font-medium underline-offset-4 transition hover:underline {{ $navActive === $item['key'] ? 'text-[#21341d] underline' : 'text-[#21341d]/70 hover:text-[#21341d]' }}"
+                                @if ($navActive === $item['key']) aria-current="page" @endif
+                            >{{ $item['label'] }}</a>
+                        @endforeach
+                    </nav>
+                </div>
 
                 {{-- Mobile toggle --}}
                 <button
@@ -120,7 +122,7 @@
                         @foreach ($shopNav as $item)
                             <a
                                 href="{{ route($item['route']) }}"
-                                class="font-display text-2xl text-brand-ink {{ $navActive === $item['key'] ? 'underline underline-offset-4' : '' }}"
+                                class="font-sans text-lg font-medium text-brand-ink {{ $navActive === $item['key'] ? 'underline underline-offset-4' : '' }}"
                                 @if ($navActive === $item['key']) aria-current="page" @endif
                             >{{ $item['label'] }}</a>
                         @endforeach
