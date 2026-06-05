@@ -19,8 +19,10 @@ use Tests\TestCase;
 /**
  * Trial-shop end-to-end coverage for the standalone spargel sales channel.
  *
- * Flow: form (GET /spargel) → submit (POST /spargel) → SumUp pay
- * (GET /spargel/{order}/pay) → SumUp redirect (GET /spargel/{order}/return).
+ * The entry view (GET /spargel) is retired and now redirects to /shop; the
+ * remaining checkout mechanics — submit (POST /spargel) → SumUp pay
+ * (GET /spargel/{order}/pay) → SumUp redirect (GET /spargel/{order}/return)
+ * — stay live so any in-flight SpargelOrder can still complete.
  *
  * Tests assert at each hop:
  * - the right status transitions happen on the SpargelOrder row,
@@ -101,127 +103,12 @@ class SpargelOrderFlowTest extends TestCase
         }
     }
 
-    public function test_show_form_renders_publicly_without_auth(): void
+    public function test_spargel_entry_redirects_to_shop(): void
     {
+        // The spargel channel is retired: its entry view now redirects to
+        // the general shop so bookmarked /spargel links still land somewhere.
         $this->get(route('public.spargel.show'))
-            ->assertOk()
-            ->assertSee(__('spargel.heading_main'))
-            ->assertSee(__('spargel.section_contact'))
-            ->assertSee(__('spargel.section_product'))
-            ->assertSee('data-testid="spargel-form"', false);
-    }
-
-    public function test_form_renders_week_picker_with_available_weeks(): void
-    {
-        Carbon::setTestNow(Carbon::parse('2026-05-01 10:00:00')); // Fri
-
-        try {
-            $response = $this->get(route('public.spargel.show'))->assertOk();
-
-            $response
-                ->assertSee('data-testid="spargel-week-picker"', false)
-                ->assertSee('name="expected_delivery_date"', false);
-
-            // All three setUp-seeded Mondays should appear as options.
-            foreach (['2026-05-04', '2026-05-11', '2026-05-18'] as $monday) {
-                $response->assertSee('value="'.$monday.'"', false);
-            }
-        } finally {
-            Carbon::setTestNow(null);
-        }
-    }
-
-    public function test_form_shows_empty_state_when_no_weeks_have_stock(): void
-    {
-        Carbon::setTestNow(Carbon::parse('2026-06-01 10:00:00')); // past all seeded Mondays
-
-        try {
-            $this->get(route('public.spargel.show'))
-                ->assertOk()
-                ->assertSee('data-testid="spargel-week-picker-empty"', false)
-                ->assertSee(__('spargel.week_picker_empty'));
-        } finally {
-            Carbon::setTestNow(null);
-        }
-    }
-
-    public function test_wednesday_inflow_surfaces_wednesday_in_picker_and_excludes_monday(): void
-    {
-        // Wipe every Monday inflow from setUp; replace with a single
-        // Wednesday inflow per variety, freshness=1 (same-day only).
-        // The picker must surface ONLY that Wednesday — no Mondays,
-        // no Thursdays — purely from the inflow data.
-        ProductStockInflow::query()->delete();
-
-        $wed = '2026-05-06'; // Wed
-        $whiteId = (int) config('spargel.white_product_id');
-        $greenId = (int) config('spargel.green_product_id');
-
-        foreach ([$whiteId, $greenId] as $productId) {
-            ProductStockInflow::create([
-                'product_id' => $productId,
-                'received_on' => $wed,
-                'quantity' => 3000,
-                'freshness_window_days' => 1,
-            ]);
-        }
-
-        Carbon::setTestNow(Carbon::parse('2026-05-04 10:00:00')); // Mon
-        try {
-            $response = $this->get(route('public.spargel.show'))->assertOk();
-            $response->assertSee('value="'.$wed.'"', false);
-            // No Monday should appear as a picker option.
-            $response->assertDontSee('value="2026-05-04"', false);
-            $response->assertDontSee('value="2026-05-11"', false);
-        } finally {
-            Carbon::setTestNow(null);
-        }
-    }
-
-    public function test_freshness_window_extends_availability_into_following_days(): void
-    {
-        // Single Wednesday inflow with freshness=3 should make Wed,
-        // Thu, and Fri all bookable; freshness=1 should keep only Wed.
-        ProductStockInflow::query()->delete();
-
-        $wed = '2026-05-06';
-        $whiteId = (int) config('spargel.white_product_id');
-        $greenId = (int) config('spargel.green_product_id');
-
-        foreach ([$whiteId, $greenId] as $productId) {
-            ProductStockInflow::create([
-                'product_id' => $productId,
-                'received_on' => $wed,
-                'quantity' => 3000,
-                'freshness_window_days' => 3,
-            ]);
-        }
-
-        Carbon::setTestNow(Carbon::parse('2026-05-04 10:00:00'));
-        try {
-            $response = $this->get(route('public.spargel.show'))->assertOk();
-            $response->assertSee('value="2026-05-06"', false); // Wed
-            $response->assertSee('value="2026-05-07"', false); // Thu
-            $response->assertSee('value="2026-05-08"', false); // Fri
-            // Saturday (Wed + 3) should not appear (freshness window
-            // closes after Fri).
-            $response->assertDontSee('value="2026-05-09"', false);
-        } finally {
-            Carbon::setTestNow(null);
-        }
-
-        // Now tighten freshness to 1 — only Wed should surface.
-        ProductStockInflow::query()->update(['freshness_window_days' => 1]);
-
-        Carbon::setTestNow(Carbon::parse('2026-05-04 10:00:00'));
-        try {
-            $response = $this->get(route('public.spargel.show'))->assertOk();
-            $response->assertSee('value="2026-05-06"', false);
-            $response->assertDontSee('value="2026-05-07"', false);
-            $response->assertDontSee('value="2026-05-08"', false);
-        } finally {
-            Carbon::setTestNow(null);
-        }
+            ->assertRedirect(route('public.shop.index'));
     }
 
     public function test_overbooking_a_week_is_rejected_per_variety(): void
@@ -837,43 +724,6 @@ class SpargelOrderFlowTest extends TestCase
         });
     }
 
-    public function test_form_renders_per_variety_quantity_dropdowns(): void
-    {
-        $html = $this->get(route('public.spargel.show'))
-            ->assertOk()
-            ->getContent();
-
-        // Two <select> dropdowns — one per variety.
-        $this->assertStringContainsString('name="quantity_green_grams"', $html);
-        $this->assertStringContainsString('name="quantity_white_grams"', $html);
-        // 50 g multiples are present in the option list.
-        $this->assertStringContainsString('value="0"', $html);
-        $this->assertStringContainsString('value="100"', $html);
-        $this->assertStringContainsString('value="500"', $html);
-        $this->assertStringContainsString('value="3000"', $html);
-        // The collapsed single-quantity name is gone.
-        $this->assertStringNotContainsString('name="quantity_grams"', $html);
-        $this->assertStringNotContainsString('name="asparagus_type"', $html);
-    }
-
-    public function test_form_renders_both_submit_buttons_so_alpine_can_pick(): void
-    {
-        // Both buttons exist in the DOM with x-show toggling visibility —
-        // online (Weiter zur Zahlung) and in-person (Bestellung bestätigen).
-        $html = $this->get(route('public.spargel.show'))
-            ->assertOk()
-            ->assertSee(__('spargel.cta_continue_to_payment'))
-            ->assertSee(__('spargel.cta_confirm_order'))
-            ->assertSee('data-testid="spargel-submit-online"', false)
-            ->assertSee('data-testid="spargel-submit-in-person"', false)
-            ->getContent();
-
-        // Confirmation modal is in the DOM (hidden behind x-cloak).
-        $this->assertStringContainsString('data-testid="spargel-confirm-modal"', $html);
-        $this->assertStringContainsString('data-testid="spargel-confirm-cancel"', $html);
-        $this->assertStringContainsString('data-testid="spargel-confirm-submit"', $html);
-    }
-
     public function test_sumup_paid_path_queues_confirmation_email_via_return_url(): void
     {
         Mail::fake();
@@ -1049,23 +899,6 @@ class SpargelOrderFlowTest extends TestCase
 
         $order = SpargelOrder::query()->latest('id')->first();
         $this->assertNull($order->pickup_location);
-    }
-
-    public function test_form_renders_pickup_location_chooser_with_addresses_only(): void
-    {
-        $html = $this->get(route('public.spargel.show'))
-            ->assertOk()
-            ->getContent();
-
-        // Both pickup-location radios are present.
-        $this->assertStringContainsString('value="karl_kunger"', $html);
-        $this->assertStringContainsString('value="gotenstrasse"', $html);
-        // Addresses are visible on the form.
-        $this->assertStringContainsString('Karl-Kunger-Straße 9', $html);
-        $this->assertStringContainsString('Gotenstraße 19', $html);
-        // …but the host names are NOT shown on the order page.
-        $this->assertStringNotContainsString('Arthur Hamcha', $html);
-        $this->assertStringNotContainsString('Milan Ross', $html);
     }
 
     public function test_return_page_shows_pickup_host_name_and_address(): void
