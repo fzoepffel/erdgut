@@ -13,6 +13,7 @@
 
     $productsIndexRoute = $productsIndexRoute ?? 'public.products.index';
     $productShowRoute = $productShowRoute ?? 'public.products.show';
+    $isolated = $isolated ?? false;
 
     // Total catalogue count (for hero stat line — all visible products, unfiltered).
     $totalCount = \App\Models\Product::query()->visibleInCatalog()->count();
@@ -112,7 +113,7 @@
             {{-- Right: lead + stats --}}
             <div class="flex flex-col justify-end">
                 <p class="max-w-md text-base leading-relaxed text-brand-ink/60">
-                    {{ __('products.index_intro') }}
+                    {{ $isolated ? __('shop.products_index_intro') : __('products.index_intro') }}
                 </p>
                 <p class="mt-8 font-mono text-xs uppercase tracking-widest text-chapter-produce">
                     {{ $totalCount }} {{ __('entries') }} · {{ __('products.hero_stat_farms') }} · {{ __('products.hero_stat_radius') }}
@@ -260,7 +261,7 @@
                     </h2>
                 </div>
                 <p class="max-w-sm text-sm leading-relaxed text-brand-ink/60">
-                    {{ __('products.manifest_pricing_note') }}
+                    {{ $isolated ? __('shop.products_manifest_note') : __('products.manifest_pricing_note') }}
                 </p>
             </div>
 
