@@ -113,6 +113,68 @@ class ShopCatalogIsolationTest extends TestCase
         $response->assertDontSee('data-testid="customer-header-marketing"', false);
     }
 
+    public function test_shop_products_index_is_isolated_and_links_stay_in_shop(): void
+    {
+        $product = $this->publishedProduct();
+        $product->translations()->where('locale', 'en')->update(['name' => 'Organic Green Asparagus']);
+
+        $response = $this->get(route('public.shop.products.index'));
+
+        $response->assertOk();
+        $response->assertSee('data-testid="products-grid"', false);
+        // Product cards + category rail link inside the shop.
+        $response->assertSee(route('public.shop.products.show', $product->fresh()), false);
+        $response->assertSee('href="'.route('public.shop.products.index').'"', false);
+        // Never the marketing catalogue or the app/dashboard catalogue.
+        $response->assertDontSee('data-testid="customer-header-marketing"', false);
+        $response->assertDontSee('href="'.route('public.products.index').'"', false);
+        $response->assertDontSee(route('public.products.show', $product->fresh()), false);
+        $response->assertDontSee('href="'.route('public.marketing-home').'"', false);
+    }
+
+    public function test_shop_producers_index_is_isolated_and_links_stay_in_shop(): void
+    {
+        $producer = Producer::factory()->create();
+        $producer->translations()->where('locale', 'en')->update(['name' => 'Spargelhof Kalkwitz']);
+
+        $response = $this->get(route('public.shop.producers.index'));
+
+        $response->assertOk();
+        $response->assertSee('Spargelhof Kalkwitz', false);
+        $response->assertSee('data-testid="producers-grid"', false);
+        // Cards + filter form link inside the shop; the per-card products
+        // link goes to the shop catalogue, not the app dashboard.
+        $response->assertSee(route('public.shop.producers.show', $producer->fresh()), false);
+        $response->assertSee('href="'.route('public.shop.products.index').'"', false);
+        // No marketing / auth / dashboard / contact links escape the shop.
+        $response->assertDontSee('data-testid="customer-header-marketing"', false);
+        $response->assertDontSee('href="'.route('public.producers').'"', false);
+        $response->assertDontSee(route('public.producers.show', $producer->fresh()), false);
+        $response->assertDontSee(route('app.products.index'), false);
+        $response->assertDontSee(route('auth.register'), false);
+        $response->assertDontSee(route('auth.login'), false);
+        $response->assertDontSee('href="'.route('public.contact').'"', false);
+    }
+
+    public function test_shop_header_nav_links_into_catalog_and_hides_shop_link_on_landing(): void
+    {
+        // On the products index, all three nav items are present, including
+        // the "Hofladen" link back to the storefront.
+        $this->get(route('public.shop.products.index'))
+            ->assertOk()
+            ->assertSee('data-testid="shop-nav-products"', false)
+            ->assertSee('data-testid="shop-nav-producers"', false)
+            ->assertSee('data-testid="shop-nav-shop"', false);
+
+        // On the storefront itself, the redundant "Hofladen" nav link is gone
+        // while products/producers stay reachable.
+        $this->get(route('public.shop.index'))
+            ->assertOk()
+            ->assertSee('data-testid="shop-nav-products"', false)
+            ->assertSee('data-testid="shop-nav-producers"', false)
+            ->assertDontSee('data-testid="shop-nav-shop"', false);
+    }
+
     public function test_unpublished_product_returns_404_in_shop(): void
     {
         $product = Product::factory()->create([
