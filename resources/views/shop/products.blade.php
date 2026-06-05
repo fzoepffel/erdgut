@@ -4,5 +4,6 @@
     @include('products._partials.public-index', [
         'productsIndexRoute' => 'public.shop.products.index',
         'productShowRoute' => 'public.shop.products.show',
+        'isolated' => true,
     ])
 </x-shop-layout>

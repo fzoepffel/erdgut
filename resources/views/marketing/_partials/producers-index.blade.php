@@ -30,12 +30,12 @@
         </x-reveal>
         <x-reveal variant="fade-up" delay="200">
             <h1 id="producers-hero-heading" class="mt-6 font-display text-5xl font-semibold leading-[1.04] tracking-tight text-brand-moss sm:text-6xl lg:text-7xl">
-                {{ __('The people behind your weekly box.') }}
+                {{ $isolated ? __('shop.producers_hero_heading') : __('The people behind your weekly box.') }}
             </h1>
         </x-reveal>
         <x-reveal variant="fade-up" delay="300">
             <p class="mx-auto mt-10 max-w-2xl font-editorial text-lg italic leading-relaxed text-brand-ink/80 sm:text-xl">
-                {{ __('Farms, bakeries, fisheries and a small circle of makers — each one picked by hand, each one within reach of Berlin.') }}
+                {{ $isolated ? __('shop.producers_hero_subheading') : __('Farms, bakeries, fisheries and a small circle of makers — each one picked by hand, each one within reach of Berlin.') }}
             </p>
         </x-reveal>
         <x-triple-star class="mt-12" />
@@ -114,21 +114,11 @@
             </x-slot>
         </x-empty-state>
     @else
-        @php
-            $fallbackProducerImages = [
-                asset('images/mock/producers/elena.jpg'),
-                asset('images/mock/producers/marcus.jpg'),
-                asset('images/mock/producers/sophia.jpg'),
-                asset('images/mock/producers/thomas.jpg'),
-                asset('images/mock/producers/anna.jpg'),
-                asset('images/mock/producers/jakob.jpg'),
-            ];
-        @endphp
         <div class="grid gap-12 reveal-stagger sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-10 lg:gap-y-16" data-testid="producers-grid">
             @foreach ($producers as $index => $producer)
                 @php
-                    $fallback = $fallbackProducerImages[$index % count($fallbackProducerImages)];
                     $number = sprintf('%02d', $index + 1);
+                    $hasImage = (bool) $producer->primaryImageUrl();
                 @endphp
                 <x-reveal as="article" variant="fade-up"
                     class="group flex flex-col gap-5"
@@ -142,12 +132,21 @@
                         class="relative block aspect-[4/5] overflow-hidden bg-chapter-producers-soft/40"
                         data-testid="producer-card-profile-image-link"
                     >
-                        <img
-                            src="{{ $producer->primaryImageUrl() ?? $fallback }}"
-                            alt=""
-                            class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
-                            loading="lazy"
-                        >
+                        @if ($hasImage)
+                            <img
+                                src="{{ $producer->primaryImageUrl() }}"
+                                alt=""
+                                class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
+                                loading="lazy"
+                            >
+                        @else
+                            {{-- No photo: neutral branded placeholder, no random mock image --}}
+                            <div class="flex h-full w-full items-end justify-end bg-chapter-producers-soft/60 p-4 transition duration-700 group-hover:bg-chapter-producers-soft/80">
+                                <span class="font-mono text-[2rem] font-bold leading-none text-chapter-producers/20 select-none">
+                                    {{ mb_strtoupper(mb_substr($producer->name, 0, 1)) }}
+                                </span>
+                            </div>
+                        @endif
                         <span class="absolute left-0 top-0 bg-chapter-producers px-3 py-2 font-display text-xs font-bold uppercase tracking-eyebrow text-brand-cream">{{ $number }}</span>
                     </a>
                     <div class="flex flex-1 flex-col gap-3">
@@ -227,12 +226,12 @@
         </x-reveal>
         <x-reveal variant="fade-up" delay="150">
             <h2 id="producers-cta-heading" class="mt-6 font-display text-3xl font-semibold leading-tight text-brand-cream sm:text-4xl lg:text-5xl">
-                {{ __('A farm, a bakery, a fishery?') }}
+                {{ $isolated ? __('shop.producers_cta_heading') : __('A farm, a bakery, a fishery?') }}
             </h2>
         </x-reveal>
         <x-reveal variant="fade-up" delay="250">
             <p class="mx-auto mt-8 max-w-2xl font-editorial text-lg italic leading-relaxed text-brand-cream/85">
-                {{ __('If you work the land, a oven or a boat within reach of Berlin, we\'d love to hear from you — the circle grows slowly and by invitation, but it does keep growing.') }}
+                {{ $isolated ? __('shop.producers_cta_body') : __('If you work the land, a oven or a boat within reach of Berlin, we\'d love to hear from you — the circle grows slowly and by invitation, but it does keep growing.') }}
             </p>
         </x-reveal>
         <x-reveal variant="fade-up" delay="350">
