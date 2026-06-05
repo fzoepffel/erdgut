@@ -1,4 +1,4 @@
-<x-shop-layout>
+<x-shop-layout nav-active="shop">
     @php
         // Mono eyebrow — prototype voice: JetBrains Mono, uppercase, 0.1em
         // tracking (Tailwind `tracking-widest`), primary green.

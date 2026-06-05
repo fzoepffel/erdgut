@@ -150,7 +150,9 @@ Route::name('public.')->group(function () {
     // out into the rest of the hidden project). The static `products` /
     // `producers` prefixes are declared before the `{shopOrder}` wildcard
     // routes above only in name, not in URL — these own distinct paths.
+    Route::get('/shop/products', [ShopCatalogController::class, 'products'])->name('shop.products.index');
     Route::get('/shop/products/{product}', [ShopCatalogController::class, 'product'])->name('shop.products.show');
+    Route::get('/shop/producers', [ShopCatalogController::class, 'producers'])->name('shop.producers.index');
     Route::get('/shop/producers/{producer:slug}', [ShopCatalogController::class, 'producer'])->name('shop.producers.show');
 
     // Shop-specific AGB — the storefront consent checkbox and footer link
