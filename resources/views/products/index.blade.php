@@ -95,7 +95,7 @@
                     <p class="eyebrow text-chapter-produce">{{ __('The catalogue') }}</p>
                     <h1 class="mt-4 font-display text-5xl leading-[1.02] tracking-tight text-brand-ink md:text-6xl lg:text-7xl">
                         {{ __('Five stalls,') }}<br>
-                        <em class="font-normal italic text-chapter-produce">{{ __('curated') }}</em> {{ __('weekly.') }}
+                        <em class="font-normal italic text-chapter-produce">{{ __('products.hero_heading_suffix') }}</em>
                     </h1>
                 </div>
 
@@ -105,7 +105,7 @@
                         {{ __('products.index_intro') }}
                     </p>
                     <p class="mt-8 font-mono text-xs uppercase tracking-widest text-chapter-produce">
-                        {{ $totalCount }} {{ __('entries') }} · {{ __('products.hero_stat_farms') }} · {{ __('products.hero_stat_radius') }}
+                        {{ $totalCount }} {{ __('entries') }} · {{ __('products.hero_stat_farms') }}
                     </p>
                 </div>
 
