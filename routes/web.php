@@ -104,10 +104,12 @@ Route::name('public.')->group(function () {
         ->whereAlpha('locale')
         ->name('locale.switch');
 
-    // Spargel trial-shop: standalone single-product test channel surfaced
-    // on the coming-soon page. No auth, no User row, no Order linkage —
-    // every flow visit is a one-off purchase against a SpargelOrder row.
-    Route::get('/spargel', [SpargelOrderController::class, 'show'])->name('spargel.show');
+    // Spargel trial-shop (retired): the single-product test channel has
+    // been superseded by the general /shop. The entry view is disabled and
+    // redirected to the shop so customers who bookmarked /spargel still land
+    // somewhere useful. The store/pay/return routes stay live so any
+    // in-flight SpargelOrder can still finish its SumUp checkout.
+    Route::redirect('/spargel', '/shop')->name('spargel.show');
     Route::post('/spargel', [SpargelOrderController::class, 'store'])
         ->middleware('throttle:6,1')
         ->name('spargel.store');
