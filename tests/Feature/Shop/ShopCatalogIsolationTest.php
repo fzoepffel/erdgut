@@ -156,23 +156,19 @@ class ShopCatalogIsolationTest extends TestCase
         $response->assertDontSee('href="'.route('public.contact').'"', false);
     }
 
-    public function test_shop_header_nav_links_into_catalog_and_hides_shop_link_on_landing(): void
+    public function test_shop_header_nav_links_into_catalog_on_every_page(): void
     {
-        // On the products index, all three nav items are present, including
-        // the "Hofladen" link back to the storefront.
-        $this->get(route('public.shop.products.index'))
-            ->assertOk()
-            ->assertSee('data-testid="shop-nav-products"', false)
-            ->assertSee('data-testid="shop-nav-producers"', false)
-            ->assertSee('data-testid="shop-nav-shop"', false);
-
-        // On the storefront itself, the redundant "Hofladen" nav link is gone
-        // while products/producers stay reachable.
-        $this->get(route('public.shop.index'))
-            ->assertOk()
-            ->assertSee('data-testid="shop-nav-products"', false)
-            ->assertSee('data-testid="shop-nav-producers"', false)
-            ->assertDontSee('data-testid="shop-nav-shop"', false);
+        // All three nav items (Hofladen · Produkte · Höfe) are present on the
+        // storefront and on every catalogue page, always linking into /shop.
+        foreach (['public.shop.index', 'public.shop.products.index', 'public.shop.producers.index'] as $route) {
+            $this->get(route($route))
+                ->assertOk()
+                ->assertSee('data-testid="shop-nav-shop"', false)
+                ->assertSee('data-testid="shop-nav-products"', false)
+                ->assertSee('data-testid="shop-nav-producers"', false)
+                ->assertSee('href="'.route('public.shop.products.index').'"', false)
+                ->assertSee('href="'.route('public.shop.producers.index').'"', false);
+        }
     }
 
     public function test_unpublished_product_returns_404_in_shop(): void
