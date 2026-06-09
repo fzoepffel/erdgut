@@ -53,6 +53,7 @@ class TranslationRequiredValidationTest extends TestCase
                 'translations.fr.origin',
                 'translations.fr.variety',
                 'translations.fr.taste_profile',
+                'translations.fr.short_description',
             ]);
     }
 }

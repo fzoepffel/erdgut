@@ -29,9 +29,9 @@ class CatalogAuditLogTest extends TestCase
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'Audit Apple', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -56,9 +56,9 @@ class CatalogAuditLogTest extends TestCase
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'Audit Apple Renamed', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',

@@ -104,6 +104,10 @@ class ProductSeeder extends Seeder
                     'origin' => $row['translations'][$locale]['origin'],
                     'variety' => $row['translations'][$locale]['variety'],
                     'taste_profile' => $row['translations'][$locale]['taste_profile'],
+                    // Seed rows reuse the (already short) taste_profile sentence
+                    // as the card description unless an explicit short is given.
+                    'short_description' => $row['translations'][$locale]['short_description']
+                        ?? $row['translations'][$locale]['taste_profile'],
                 ]);
             }
 

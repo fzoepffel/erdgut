@@ -130,9 +130,9 @@ class AdminProductTest extends TestCase
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'Leicht süß und knackig.'],
-                    'en' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'Lightly sweet and crisp.'],
-                    'fr' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'Légèrement sucrées et croquantes.'],
+                    'de' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'Leicht süß und knackig.', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'Lightly sweet and crisp.', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'Admin Test Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'Légèrement sucrées et croquantes.', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -178,9 +178,9 @@ class AdminProductTest extends TestCase
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'With Image', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -247,9 +247,9 @@ class AdminProductTest extends TestCase
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'Blocked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -262,9 +262,9 @@ class AdminProductTest extends TestCase
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'Hijacked', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -278,6 +278,79 @@ class AdminProductTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_short_description_is_required_in_all_locales(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->from(route('app.admin.products.create'))
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    // de has a short description, en/fr omit it.
+                    'de' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'kurz'],
+                    'en' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long'],
+                    'fr' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long'],
+                ],
+                'category' => 'produce',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '1.00',
+            ])
+            ->assertRedirect(route('app.admin.products.create'))
+            ->assertSessionHasErrors([
+                'translations.en.short_description',
+                'translations.fr.short_description',
+            ]);
+    }
+
+    public function test_admin_can_save_short_and_long_descriptions(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Desc Apples', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'Lange Beschreibung DE', 'short_description' => 'Kurz DE'],
+                    'en' => ['name' => 'Desc Apples', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'Long description EN', 'short_description' => 'Short EN'],
+                    'fr' => ['name' => 'Desc Apples', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'Longue description FR', 'short_description' => 'Court FR'],
+                ],
+                'category' => 'produce',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '2.50',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $product = Product::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', 'Desc Apples'))
+            ->firstOrFail();
+
+        $this->assertSame('Short EN', $product->localizedShortDescription('en'));
+        $this->assertSame('Long description EN', $product->localizedTasteProfile('en'));
+        // Card prefers the short description.
+        $this->assertSame('Short EN', $product->cardDescription('en'));
+    }
+
+    public function test_card_description_falls_back_to_long_when_short_is_empty(): void
+    {
+        // Simulates a product migrated before short descriptions existed:
+        // short_description is null, so the card must fall back to the long one.
+        $product = Product::factory()->create();
+        $product->translations()->where('locale', 'en')->update([
+            'short_description' => null,
+            'taste_profile' => 'Fallback long description',
+        ]);
+        $product->refresh();
+
+        $this->assertSame('', $product->localizedShortDescription('en'));
+        $this->assertSame('Fallback long description', $product->cardDescription('en'));
+    }
+
     public function test_admin_can_save_attributes_and_buying_price(): void
     {
         $admin = User::factory()->admin()->create();
@@ -287,9 +360,9 @@ class AdminProductTest extends TestCase
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'Attr Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'süß'],
-                    'en' => ['name' => 'Attr Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'sweet'],
-                    'fr' => ['name' => 'Attr Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'sucré'],
+                    'de' => ['name' => 'Attr Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'süß', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'Attr Apples', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'sweet', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'Attr Apples', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'sucré', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -321,9 +394,9 @@ class AdminProductTest extends TestCase
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x'],
-                    'en' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x'],
-                    'fr' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'x'],
+                    'de' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'Custom Tags', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'x', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -363,9 +436,9 @@ class AdminProductTest extends TestCase
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'Partial Tag', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x'],
-                    'en' => ['name' => 'Partial Tag', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x'],
-                    'fr' => ['name' => 'Partial Tag', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'x'],
+                    'de' => ['name' => 'Partial Tag', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'Partial Tag', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'Partial Tag', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => 'x', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -393,9 +466,9 @@ class AdminProductTest extends TestCase
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -420,9 +493,9 @@ class AdminProductTest extends TestCase
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -446,9 +519,9 @@ class AdminProductTest extends TestCase
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'G', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'G', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'G', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'G', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'G', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'G', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -483,9 +556,9 @@ class AdminProductTest extends TestCase
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'R', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'R', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'R', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'R', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'R', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'R', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -515,9 +588,9 @@ class AdminProductTest extends TestCase
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'New Name', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -585,9 +658,9 @@ class AdminProductTest extends TestCase
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'Goliath', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'Goliath', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'Goliath', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'Goliath', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'Goliath', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'Goliath', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -626,9 +699,9 @@ class AdminProductTest extends TestCase
             ->put(route('app.admin.products.update', $product), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    'de' => ['name' => 'Switched', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'en' => ['name' => 'Switched', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
-                    'fr' => ['name' => 'Switched', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                    'de' => ['name' => 'Switched', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'en' => ['name' => 'Switched', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                    'fr' => ['name' => 'Switched', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
                 ],
                 'category' => 'produce',
                 'unit' => 'bunch',

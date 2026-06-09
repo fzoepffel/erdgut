@@ -237,9 +237,37 @@ class Product extends Model
         return $this->translationFor($locale)?->variety ?? '';
     }
 
+    /**
+     * The long/detailed description, rendered on the product detail page.
+     * Stored in the `taste_profile` column for historical reasons.
+     */
     public function localizedTasteProfile(?string $locale = null): string
     {
         return $this->translationFor($locale)?->taste_profile ?? '';
+    }
+
+    /**
+     * The short, card-friendly description. Required on save going forward,
+     * but nullable in the DB so products created before this field existed
+     * don't break. Use {@see cardDescription()} for display with a graceful
+     * fallback to the long description.
+     */
+    public function localizedShortDescription(?string $locale = null): string
+    {
+        return $this->translationFor($locale)?->short_description ?? '';
+    }
+
+    /**
+     * The description to show on product cards (catalogue + shop): the short
+     * description when set, otherwise the long description as a fallback so
+     * nothing breaks for products migrated before short descriptions existed.
+     * Callers should still clamp the line count in CSS for safety.
+     */
+    public function cardDescription(?string $locale = null): string
+    {
+        $short = $this->localizedShortDescription($locale);
+
+        return $short !== '' ? $short : $this->localizedTasteProfile($locale);
     }
 
     /**

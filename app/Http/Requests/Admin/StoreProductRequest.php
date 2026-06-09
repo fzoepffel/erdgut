@@ -39,7 +39,10 @@ class StoreProductRequest extends FormRequest
             $translationRules["translations.$locale.name"] = ['required', 'string', 'max:255'];
             $translationRules["translations.$locale.origin"] = ['required', 'string', 'max:128'];
             $translationRules["translations.$locale.variety"] = ['required', 'string', 'max:128'];
-            $translationRules["translations.$locale.taste_profile"] = ['required', 'string', 'max:512'];
+            // Long/detailed description (detail page). Stored in `taste_profile`.
+            $translationRules["translations.$locale.taste_profile"] = ['required', 'string', 'max:1500'];
+            // Short, card-friendly description (catalogue + shop cards).
+            $translationRules["translations.$locale.short_description"] = ['required', 'string', 'max:240'];
         }
 
         return [

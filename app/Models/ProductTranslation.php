@@ -20,6 +20,7 @@ class ProductTranslation extends Model
         'origin',
         'variety',
         'taste_profile',
+        'short_description',
     ];
 
     /**
