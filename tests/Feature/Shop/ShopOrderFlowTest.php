@@ -102,6 +102,17 @@ class ShopOrderFlowTest extends TestCase
             ->assertSee($this->product->name);
     }
 
+    public function test_storefront_does_not_show_product_card_description(): void
+    {
+        $note = $this->product->cardDescription();
+        $this->assertNotSame('', $note, 'Factory product should have a card description to assert against.');
+
+        $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->assertSee($this->product->name)
+            ->assertDontSee($note, escape: false);
+    }
+
     public function test_shop_terms_page_renders(): void
     {
         $this->get(route('public.shop.terms'))

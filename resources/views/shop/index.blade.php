@@ -406,14 +406,6 @@
                                         @endif
                                         <p class="mt-2 font-mono text-xs tabular-nums text-shop-muted">{{ $product->displayPrice() }}</p>
 
-                                        {{-- Short description (falls back to the long one
-                                             for products migrated before it existed). Clamped
-                                             so a long fallback never overflows the card. --}}
-                                        @php($shopNote = $product->cardDescription())
-                                        @if ($shopNote)
-                                            <p class="mt-2 text-sm leading-relaxed text-shop-muted line-clamp-2">{{ $shopNote }}</p>
-                                        @endif
-
                                         {{-- Unit descriptor: weight/volume per piece or bunch --}}
                                         @if ($product->unit_weight_grams || $product->unit_volume_ml)
                                             <p class="mt-1 font-mono text-[0.65rem] text-shop-muted">
