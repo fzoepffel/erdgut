@@ -19,7 +19,10 @@ jobs:
     name: Deploy to staging.erd-gut.de
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Increased from 20 to 35: vendor extraction on IONOS can take 10–15 min
+    # on first deploy after a dependency change. Most deploys skip it entirely
+    # (hash match) and finish in well under 10 min.
+    timeout-minutes: 35
     env:
       APP_DIR: ${{ secrets.STAGING_SERVER_DIR }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -53,17 +56,21 @@ jobs:
 
       - name: Validate SSH deploy secrets
         run: |
-          test -n "$SSH_HOST" || (echo "Missing SSH_HOST secret" && exit 1)
-          test -n "$SSH_USERNAME" || (echo "Missing SSH_USERNAME secret" && exit 1)
-          test -n "$SSH_PASSWORD" || (echo "Missing SSH_PASSWORD secret" && exit 1)
-          test -n "$APP_DIR" || (echo "Missing STAGING_SERVER_DIR secret" && exit 1)
+          test -n "$SSH_HOST"    || (echo "Missing SSH_HOST secret"            && exit 1)
+          test -n "$SSH_USERNAME" || (echo "Missing SSH_USERNAME secret"       && exit 1)
+          test -n "$SSH_PASSWORD" || (echo "Missing SSH_PASSWORD secret"       && exit 1)
+          test -n "$APP_DIR"     || (echo "Missing STAGING_SERVER_DIR secret"  && exit 1)
 
-      - name: Create deployment archive
+      # App archive: everything except vendor (which has its own archive).
+      # Excluding vendor keeps this archive small (~5–15 MB) so extraction
+      # on IONOS finishes in seconds regardless of hosting I/O speed.
+      - name: Create app archive (without vendor)
         run: |
           tar -czf /tmp/release.tar.gz \
             --exclude=.git \
             --exclude=.github \
             --exclude=node_modules \
+            --exclude=vendor \
             --exclude=tests \
             --exclude=scripts \
             --exclude=.env \
@@ -73,27 +80,57 @@ jobs:
             .
           mv /tmp/release.tar.gz .
 
-      - name: Upload archive via SCP
+      # Vendor archive: only the vendor/ directory.
+      # This is large (~60 MB compressed) but is only extracted on the server
+      # when composer.lock changed. We always upload it; extraction is skipped
+      # via a hash check in the extract step.
+      - name: Create vendor archive
+        run: tar -czf vendor.tar.gz vendor/
+
+      # Hash used server-side to decide whether to extract vendor.
+      - name: Compute composer.lock hash
+        run: md5sum composer.lock | cut -d' ' -f1 > vendor_lock_hash_new.txt
+
+      - name: Upload archives and hash via SCP
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ env.SSH_HOST }}
           username: ${{ env.SSH_USERNAME }}
           password: ${{ env.SSH_PASSWORD }}
-          source: release.tar.gz
+          source: "release.tar.gz,vendor.tar.gz,vendor_lock_hash_new.txt"
           target: ~/
 
-      - name: Extract archive on server
+      - name: Extract archives on server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ env.SSH_HOST }}
           username: ${{ env.SSH_USERNAME }}
           password: ${{ env.SSH_PASSWORD }}
-          command_timeout: 10m
+          # 30 min: worst-case is first deploy after a dep update. Normal
+          # deploys (no composer.lock change) finish in under 2 min.
+          command_timeout: 30m
           script: |
             set -e
             mkdir -p "${{ env.APP_DIR }}"
+
+            # Always extract the app code (small, fast).
             tar -xzf ~/release.tar.gz -C "${{ env.APP_DIR }}"
             rm -f ~/release.tar.gz
+
+            # Only extract vendor when composer.lock changed.
+            NEW_HASH=$(cat ~/vendor_lock_hash_new.txt)
+            OLD_HASH=$(cat ~/vendor_lock_hash_deployed.txt 2>/dev/null || echo "none")
+
+            if [ "$NEW_HASH" != "$OLD_HASH" ]; then
+              echo "composer.lock changed — extracting vendor (this may take a while)..."
+              tar -xzf ~/vendor.tar.gz -C "${{ env.APP_DIR }}"
+              cp ~/vendor_lock_hash_new.txt ~/vendor_lock_hash_deployed.txt
+              echo "Vendor extraction complete."
+            else
+              echo "composer.lock unchanged — skipping vendor extraction."
+            fi
+
+            rm -f ~/vendor.tar.gz ~/vendor_lock_hash_new.txt
 
       - name: Run post-deploy steps on server
         uses: appleboy/ssh-action@v1.2.0
