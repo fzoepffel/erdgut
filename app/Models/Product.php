@@ -337,7 +337,7 @@ class Product extends Model
      * Numeric selling price expressed in the admin-chosen *display* unit
      * (e.g. €/kg), not the canonical storage unit (€/g). `unit_price` is
      * stored per canonical unit, so multiply by the canonical-per-display
-     * factor (1000 for kg/L, 1 for g/ml/piece/bunch).
+     * factor (1000 for kg/L, 100 for 100 g, 1 for g/ml/piece/bunch).
      */
     public function displayUnitPrice(): float
     {

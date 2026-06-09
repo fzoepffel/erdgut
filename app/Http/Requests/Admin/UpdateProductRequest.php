@@ -53,7 +53,7 @@ class UpdateProductRequest extends FormRequest
             'producer_id' => ['required', 'integer', 'exists:producers,id'],
             'category' => ['required', 'string', Rule::in(ProductCategory::values())],
             'unit' => ['required', 'string', Rule::in(ProductUnit::values())],
-            'price_display_unit' => ['required', 'string', Rule::in(['g', 'kg', 'ml', 'l', 'piece', 'bunch'])],
+            'price_display_unit' => ['required', 'string', Rule::in(['g', '100g', 'kg', 'ml', 'l', 'piece', 'bunch'])],
             'price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'default_freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],

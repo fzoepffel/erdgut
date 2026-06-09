@@ -54,9 +54,20 @@ class ProductUnitFormatTest extends TestCase
 
     public function test_allowed_display_units_per_kind(): void
     {
-        $this->assertSame(['g', 'kg'], ProductUnit::Mass->allowedDisplayUnits());
+        $this->assertSame(['g', '100g', 'kg'], ProductUnit::Mass->allowedDisplayUnits());
         $this->assertSame(['ml', 'l'], ProductUnit::Volume->allowedDisplayUnits());
         $this->assertSame(['piece'], ProductUnit::Piece->allowedDisplayUnits());
         $this->assertSame(['bunch'], ProductUnit::Bunch->allowedDisplayUnits());
+    }
+
+    public function test_format_price_in_100g_display_unit(): void
+    {
+        // €/g stored = 0.0215 → €2,15 per 100 g
+        $this->assertSame('2,15 €/100 g', ProductUnit::Mass->formatPrice(0.0215, '100g', 'de'));
+    }
+
+    public function test_canonical_units_per_100g_display_is_100(): void
+    {
+        $this->assertSame(100, ProductUnit::Mass->canonicalUnitsPerDisplay('100g'));
     }
 }

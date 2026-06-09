@@ -36,6 +36,16 @@ class ProductNaturalUnitPricingTest extends TestCase
         $this->assertStringContainsString('0,02', $product->displayPrice('de'));
     }
 
+    public function test_mass_kind_with_100g_display_unit_renders_per_100g(): void
+    {
+        $product = new Product;
+        $product->unit = ProductUnit::Mass;
+        $product->price_display_unit = '100g';
+        $product->unit_price = '0.0215'; // €/g
+
+        $this->assertSame('2,15 €/100 g', $product->displayPrice('de'));
+    }
+
     public function test_volume_kind_with_litre_display_unit_renders_per_litre(): void
     {
         $product = new Product;

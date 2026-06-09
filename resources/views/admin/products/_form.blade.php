@@ -393,7 +393,7 @@
     {{-- Unit, display unit, and price live in a shared Alpine state so
          the price label and the allowed display-unit options stay in
          sync with the chosen kind. The admin enters the price in
-         whichever display unit they pick (€/g, €/kg, €/ml, €/L,
+         whichever display unit they pick (€/g, €/100 g, €/kg, €/ml, €/L,
          €/Stück, €/Bund); the controller divides by the kind's
          canonical factor before persisting. --}}
     @php
@@ -431,6 +431,7 @@
         }
         $displayLabels = [
             'g' => 'g',
+            '100g' => '100 g',
             'kg' => 'kg',
             'ml' => 'ml',
             'l' => 'L',
