@@ -379,9 +379,9 @@
                                     @endphp
 
                                     @if ($availableToday)
-                                        <article class="group flex flex-col" data-testid="shop-product-card">
+                                        <article class="group flex h-full flex-col" data-testid="shop-product-card">
                                     @else
-                                        <article class="group flex flex-col" data-testid="shop-product-card-unavailable">
+                                        <article class="group flex h-full flex-col" data-testid="shop-product-card-unavailable">
                                     @endif
                                         <a href="{{ route('public.shop.products.show', $product) }}" class="relative block aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}">
                                             @if ($imageUrl)
@@ -415,7 +415,7 @@
                                             </p>
                                         @endif
 
-                                        <div class="mt-4">
+                                        <div class="mt-auto pt-4">
                                             <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.quantity_label') }}</p>
 
                                             @if ($availableToday)
@@ -437,16 +437,24 @@
                                                         aria-label="+"
                                                     >+</button>
                                                 </div>
-                                                <p class="mt-2 font-mono text-xs tabular-nums text-shop-muted" x-show="(quantities[{{ $product->id }}] || 0) > 0" x-cloak>
-                                                    <span x-text="money(lineTotal({{ $product->id }}))"></span>
-                                                </p>
                                             @else
                                                 <div class="mt-2 flex items-stretch border border-shop-border bg-shop-paper opacity-60">
                                                     <div class="w-10 py-3 text-center font-mono text-sm text-shop-muted">−</div>
                                                     <div class="flex flex-1 items-center justify-center border-x border-shop-border py-3 font-mono text-sm text-shop-muted">{{ __('shop.quantity_none') }}</div>
                                                     <div class="w-10 py-3 text-center font-mono text-sm text-shop-muted">+</div>
                                                 </div>
-                                                <p class="mt-2 text-xs leading-relaxed text-shop-muted" data-testid="shop-weekly-note">
+                                            @endif
+                                        </div>
+
+                                        {{-- Fixed-height footer so line totals / availability notes
+                                             don't shift the quantity row above. --}}
+                                        <div class="mt-2 min-h-[2.75rem]">
+                                            @if ($availableToday)
+                                                <p class="font-mono text-xs tabular-nums text-shop-muted" x-show="(quantities[{{ $product->id }}] || 0) > 0" x-cloak>
+                                                    <span x-text="money(lineTotal({{ $product->id }}))"></span>
+                                                </p>
+                                            @else
+                                                <p class="text-xs leading-relaxed text-shop-muted" data-testid="shop-weekly-note">
                                                     <span class="font-mono uppercase tracking-widest text-shop-primary">{{ __('shop.weekly_unavailable_label') }}</span><br>
                                                     {{ __('shop.weekly_available_on', ['dates' => $dateList]) }}
                                                 </p>
