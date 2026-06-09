@@ -142,6 +142,7 @@ class ProductController extends Controller
                         'origin' => $translations[$locale]['origin'],
                         'variety' => $translations[$locale]['variety'],
                         'taste_profile' => $translations[$locale]['taste_profile'],
+                        'short_description' => $translations[$locale]['short_description'],
                     ]
                 );
             }
@@ -205,6 +206,7 @@ class ProductController extends Controller
                         'origin' => $translations[$locale]['origin'],
                         'variety' => $translations[$locale]['variety'],
                         'taste_profile' => $translations[$locale]['taste_profile'],
+                        'short_description' => $translations[$locale]['short_description'],
                     ]
                 );
             }

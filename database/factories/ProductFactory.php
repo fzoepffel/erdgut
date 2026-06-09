@@ -26,6 +26,7 @@ class ProductFactory extends Factory
                     'origin' => fake()->city(),
                     'variety' => fake()->word(),
                     'taste_profile' => fake()->sentence(),
+                    'short_description' => fake()->sentence(6),
                 ]);
             }
         });

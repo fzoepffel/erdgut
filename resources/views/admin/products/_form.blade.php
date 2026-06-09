@@ -61,7 +61,7 @@
 
     // Open the tab whose locale already has a validation error so the
     // admin doesn't have to hunt for the field that failed.
-    $translationFields = ['name', 'unit', 'origin', 'variety', 'taste_profile'];
+    $translationFields = ['name', 'unit', 'origin', 'variety', 'short_description', 'taste_profile'];
     $initialTab = 'de';
     foreach (array_keys($locales) as $loc) {
         foreach ($translationFields as $f) {
@@ -222,7 +222,7 @@
             tabMissing: {!! json_encode($initialTabMissing, JSON_UNESCAPED_UNICODE) !!},
             recheckTabs() {
                 Object.keys(this.tabMissing).forEach(loc => {
-                    const fields = ["name", "unit", "origin", "variety", "taste_profile"];
+                    const fields = ["name", "unit", "origin", "variety", "short_description", "taste_profile"];
                     let missing = false;
                     for (const f of fields) {
                         const el = document.getElementById("translations_" + loc + "_" + f);
@@ -334,15 +334,31 @@
                     </div>
 
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('Description')" required />
+                        <x-input-label :for="'translations_'.$locale.'_short_description'" :value="__('admin.product_form.short_description_label')" required />
+                        <textarea
+                            id="{{ 'translations_'.$locale.'_short_description' }}"
+                            name="{{ 'translations['.$locale.'][short_description]' }}"
+                            rows="2"
+                            maxlength="240"
+                            class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+                            required
+                            x-on:input="recheckTabs()"
+                        >{{ old('translations.'.$locale.'.short_description', $t?->short_description) }}</textarea>
+                        <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.short_description_hint') }}</p>
+                        <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.short_description')" />
+                    </div>
+
+                    <div>
+                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('admin.product_form.long_description_label')" required />
                         <textarea
                             id="{{ 'translations_'.$locale.'_taste_profile' }}"
                             name="{{ 'translations['.$locale.'][taste_profile]' }}"
-                            rows="2"
+                            rows="4"
                             class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
                             required
                             x-on:input="recheckTabs()"
                         >{{ old('translations.'.$locale.'.taste_profile', $t?->taste_profile) }}</textarea>
+                        <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.long_description_hint') }}</p>
                         <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.taste_profile')" />
                     </div>
                 </div>

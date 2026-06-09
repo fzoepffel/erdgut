@@ -278,7 +278,7 @@
                         $cardNumber  = ($products->firstItem() ?? 1) + $i;
                         $catLabelStr = $categoryLabel[$chapter] ?? __('admin.category.' . ($product->category ?? ''));
                         $statusLabel = $product->is_seasonal ? __('In season') : __('Available');
-                        $note        = $product->localizedTasteProfile();
+                        $note        = $product->cardDescription();
                     @endphp
                     <x-reveal as="li" variant="fade-up" style="--i:{{ $i % 6 }}" class="list-none">
                         <a href="{{ route($productShowRoute, $product) }}" class="group flex flex-col">
@@ -330,9 +330,11 @@
                                 </p>
                             @endif
 
-                            {{-- Note --}}
+                            {{-- Short description (falls back to the long one for
+                                 products migrated before short descriptions existed).
+                                 Clamped to 3 lines so a long fallback never overflows. --}}
                             @if ($note)
-                                <p class="mt-2 text-sm leading-relaxed text-brand-ink/60">{{ $note }}</p>
+                                <p class="mt-2 text-sm leading-relaxed text-brand-ink/60 line-clamp-3">{{ $note }}</p>
                             @endif
 
                             {{-- CTA --}}
