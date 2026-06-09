@@ -406,6 +406,15 @@
                                         @endif
                                         <p class="mt-2 font-mono text-xs tabular-nums text-shop-muted">{{ $product->displayPrice() }}</p>
 
+                                        @php($shopTasteTags = $product->shopTasteTags())
+                                        @if ($shopTasteTags !== [])
+                                            <div class="mt-1.5 flex flex-wrap gap-1" aria-label="{{ __('Taste profile tags') }}">
+                                                @foreach ($shopTasteTags as $tag)
+                                                    <span class="inline-flex items-center border border-shop-border/80 px-1.5 py-px font-mono text-[0.55rem] uppercase tracking-wider text-shop-muted">{{ $tag }}</span>
+                                                @endforeach
+                                            </div>
+                                        @endif
+
                                         {{-- Unit descriptor: weight/volume per piece or bunch --}}
                                         @if ($product->unit_weight_grams || $product->unit_volume_ml)
                                             <p class="mt-1 font-mono text-[0.65rem] text-shop-muted">

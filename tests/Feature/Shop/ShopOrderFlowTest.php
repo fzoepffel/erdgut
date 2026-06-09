@@ -113,6 +113,42 @@ class ShopOrderFlowTest extends TestCase
             ->assertDontSee($note, escape: false);
     }
 
+    public function test_storefront_shows_at_most_three_taste_profile_tags(): void
+    {
+        $tagged = Product::factory()->create([
+            'category' => 'produce',
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 5.00,
+            'taste_profile_tags' => ['sweet', 'crisp', 'earthy', 'fresh'],
+            'custom_taste_tags' => [
+                ['de' => 'Waldig', 'en' => 'Woody', 'fr' => 'Boisé'],
+            ],
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $tagged->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 10,
+            'freshness_window_days' => 1,
+        ]);
+
+        $html = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->assertSee($tagged->name)
+            ->assertSee('Sweet', escape: false)
+            ->assertSee('Crisp', escape: false)
+            ->assertSee('Earthy', escape: false)
+            ->assertDontSee('Fresh', escape: false)
+            ->assertDontSee('Woody', escape: false)
+            ->getContent();
+
+        $this->assertSame(1, substr_count($html, '>Sweet<'));
+        $this->assertSame(1, substr_count($html, '>Crisp<'));
+        $this->assertSame(1, substr_count($html, '>Earthy<'));
+    }
+
     public function test_shop_terms_page_renders(): void
     {
         $this->get(route('public.shop.terms'))

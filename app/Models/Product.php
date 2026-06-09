@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ProductUnit;
+use App\Enums\TasteProfile;
 use App\Services\Admin\InventoryService;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -305,6 +306,63 @@ class Product extends Model
         }
 
         return $resolved;
+    }
+
+    /**
+     * Localized labels for enum-backed and custom taste tags.
+     *
+     * @return list<string>
+     */
+    public function localizedTasteTagLabels(?string $locale = null): array
+    {
+        $labels = self::tasteProfileLabelMap($locale);
+
+        $enumTags = array_map(
+            fn (string $value) => $labels[$value],
+            array_values(array_filter(
+                (array) $this->taste_profile_tags,
+                fn ($value) => is_string($value) && isset($labels[$value]),
+            )),
+        );
+
+        return array_merge($enumTags, $this->localizedCustomTasteTags($locale));
+    }
+
+    /**
+     * Compact taste chips for shop cards — capped so cards stay scannable.
+     *
+     * @return list<string>
+     */
+    public function shopTasteTags(int $limit = 3, ?string $locale = null): array
+    {
+        if ($limit <= 0) {
+            return [];
+        }
+
+        return array_slice($this->localizedTasteTagLabels($locale), 0, $limit);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function tasteProfileLabelMap(?string $locale = null): array
+    {
+        $locale ??= app()->getLocale();
+
+        return [
+            TasteProfile::Sweet->value => (string) __('Sweet', [], $locale),
+            TasteProfile::Earthy->value => (string) __('Earthy', [], $locale),
+            TasteProfile::Fresh->value => (string) __('Fresh', [], $locale),
+            TasteProfile::Peppery->value => (string) __('Peppery', [], $locale),
+            TasteProfile::Bitter->value => (string) __('Bitter', [], $locale),
+            TasteProfile::Umami->value => (string) __('Umami', [], $locale),
+            TasteProfile::Crisp->value => (string) __('Crisp', [], $locale),
+            TasteProfile::Herbal->value => (string) __('Herbal', [], $locale),
+            TasteProfile::Nutty->value => (string) __('Nutty', [], $locale),
+            TasteProfile::Spicy->value => (string) __('Spicy', [], $locale),
+            TasteProfile::Sour->value => (string) __('Sour', [], $locale),
+            TasteProfile::Rich->value => (string) __('Rich', [], $locale),
+        ];
     }
 
     /**
