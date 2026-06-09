@@ -410,11 +410,7 @@
                                         @if ($product->unit_weight_grams || $product->unit_volume_ml)
                                             <p class="mt-1 font-mono text-[0.65rem] text-shop-muted">
                                                 {{ __('ca.') }}
-                                                @if ($product->unit_weight_grams)
-                                                    {{ $product->displayQuantity($product->unit_weight_grams) }}
-                                                @else
-                                                    {{ $product->displayQuantity($product->unit_volume_ml) }}
-                                                @endif
+                                                {{ $product->displayUnitWeight() ?? $product->displayUnitVolume() }}
                                                 {{ __('per') }} {{ $product->localizedUnit() }}
                                             </p>
                                         @endif

@@ -167,6 +167,37 @@ class Product extends Model
     }
 
     /**
+     * Render the optional "weight per unit" descriptor (for piece/bunch
+     * products) as a *mass* quantity — e.g. "100 g", "1,2 kg".
+     *
+     * Note: this deliberately does NOT use `displayQuantity()`, which
+     * formats with the product's own unit (piece/bunch) and would render
+     * a gram figure as "100 Bund". The stored value is always grams.
+     */
+    public function displayUnitWeight(?string $locale = null): ?string
+    {
+        if ($this->unit_weight_grams === null) {
+            return null;
+        }
+
+        return ProductUnit::Mass->formatQuantity($this->unit_weight_grams, $locale);
+    }
+
+    /**
+     * Render the optional "volume per unit" descriptor (for piece/bunch
+     * products) as a *volume* quantity — e.g. "250 ml", "1,5 L". The
+     * stored value is always millilitres.
+     */
+    public function displayUnitVolume(?string $locale = null): ?string
+    {
+        if ($this->unit_volume_ml === null) {
+            return null;
+        }
+
+        return ProductUnit::Volume->formatQuantity($this->unit_volume_ml, $locale);
+    }
+
+    /**
      * Render the given quantity (in canonical units of `$this->unit`)
      * adaptively: under 1000 g → "850 g"; ≥ 1000 g → "2,3 kg" (same
      * for ml / L). Piece + Bunch render as integer counts.

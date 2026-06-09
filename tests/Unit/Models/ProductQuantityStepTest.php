@@ -94,4 +94,52 @@ class ProductQuantityStepTest extends TestCase
 
         $this->assertSame(50, $product->effectiveQuantityStep());
     }
+
+    // ── Unit descriptors render as mass/volume, NOT the product's own unit ──
+
+    public function test_bunch_product_weight_descriptor_renders_in_grams_not_bunch(): void
+    {
+        // Regression: previously rendered "100 Bund" because displayQuantity()
+        // formats with the product's own unit. Must read "100 g".
+        $product = new Product;
+        $product->unit = ProductUnit::Bunch;
+        $product->unit_weight_grams = 100;
+
+        $rendered = $product->displayUnitWeight('de');
+
+        $this->assertStringContainsString('100', $rendered);
+        $this->assertStringContainsString('g', $rendered);
+        $this->assertStringNotContainsString('Bund', $rendered);
+    }
+
+    public function test_bunch_product_weight_descriptor_switches_to_kg_above_threshold(): void
+    {
+        $product = new Product;
+        $product->unit = ProductUnit::Bunch;
+        $product->unit_weight_grams = 1200;
+
+        $this->assertStringContainsString('kg', $product->displayUnitWeight('de'));
+    }
+
+    public function test_piece_product_volume_descriptor_renders_in_ml_not_piece(): void
+    {
+        $product = new Product;
+        $product->unit = ProductUnit::Piece;
+        $product->unit_volume_ml = 250;
+
+        $rendered = $product->displayUnitVolume('de');
+
+        $this->assertStringContainsString('250', $rendered);
+        $this->assertStringContainsString('ml', $rendered);
+        $this->assertStringNotContainsString('Stück', $rendered);
+    }
+
+    public function test_descriptor_helpers_return_null_when_unset(): void
+    {
+        $product = new Product;
+        $product->unit = ProductUnit::Bunch;
+
+        $this->assertNull($product->displayUnitWeight());
+        $this->assertNull($product->displayUnitVolume());
+    }
 }

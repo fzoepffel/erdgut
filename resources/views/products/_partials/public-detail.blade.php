@@ -156,11 +156,7 @@
                     <p class="eyebrow text-brand-ink/55">{{ __('product.detail.unit_descriptor_label') }}</p>
                     <p class="mt-2 text-base text-brand-ink">
                         {{ __('ca.') }}
-                        @if ($product->unit_weight_grams)
-                            {{ $product->displayQuantity($product->unit_weight_grams) }}
-                        @else
-                            {{ $product->displayQuantity($product->unit_volume_ml) }}
-                        @endif
+                        {{ $product->displayUnitWeight() ?? $product->displayUnitVolume() }}
                         {{ __('per') }} {{ $product->localizedUnit() }}
                     </p>
                 </div>

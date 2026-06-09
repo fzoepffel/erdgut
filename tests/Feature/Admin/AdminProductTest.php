@@ -6,6 +6,7 @@ use App\Models\BoxItem;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductStockInflow;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -550,5 +551,126 @@ class AdminProductTest extends TestCase
             ->get(route('app.admin.products.edit', $product))
             ->assertOk()
             ->assertSee("displayUnit: 'kg'", escape: false);
+    }
+
+    // ── Unit-kind change vs. existing inventory ───────────────────────────
+
+    /**
+     * Changing the unit KIND (mass↔bunch etc.) while stock inflows exist is
+     * blocked: the stored amounts are in the old kind's canonical unit and
+     * would be silently misread under the new kind. Regression for the
+     * goliath-rhubarb bunch→mass inventory corruption.
+     */
+    public function test_unit_kind_change_is_blocked_when_stock_inflow_exists(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'category' => 'produce',
+            'unit' => 'bunch',
+            'price_display_unit' => 'bunch',
+            'unit_price' => 3.00,
+        ]);
+
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => '2026-06-12',
+            'quantity' => 4, // 4 bunches
+            'freshness_window_days' => 1,
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('app.admin.products.edit', $product))
+            ->put(route('app.admin.products.update', $product), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Goliath', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'en' => ['name' => 'Goliath', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'fr' => ['name' => 'Goliath', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                ],
+                'category' => 'produce',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '5.00',
+                'quantity_step' => '500',
+            ])
+            ->assertRedirect(route('app.admin.products.edit', $product))
+            ->assertSessionHasErrors('unit');
+
+        // Unit unchanged in DB.
+        $this->assertSame('bunch', $product->refresh()->unit->value);
+    }
+
+    /**
+     * With no inventory, switching kinds (mass→bunch) succeeds even though
+     * the form still submits a stale quantity_step (hidden, not cleared by
+     * Alpine). The controller nulls out the irrelevant field. Regression for
+     * the failed save + 500 on re-render.
+     */
+    public function test_unit_kind_change_succeeds_when_no_inventory_and_clears_stale_step(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'category' => 'produce',
+            'unit' => 'mass',
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.005,
+            'quantity_step' => 500,
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('app.admin.products.edit', $product))
+            ->put(route('app.admin.products.update', $product), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Switched', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'en' => ['name' => 'Switched', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—'],
+                    'fr' => ['name' => 'Switched', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—'],
+                ],
+                'category' => 'produce',
+                'unit' => 'bunch',
+                'price_display_unit' => 'bunch',
+                'price' => '3.00',
+                // Stale value carried by the hidden mass-only field.
+                'quantity_step' => '500',
+                // New bunch descriptor.
+                'unit_weight_grams' => '350',
+            ])
+            ->assertRedirect(route('app.admin.products.edit', $product))
+            ->assertSessionHasNoErrors();
+
+        $product->refresh();
+        $this->assertSame('bunch', $product->unit->value);
+        $this->assertNull($product->quantity_step);          // cleared
+        $this->assertSame(350, $product->unit_weight_grams);  // kept
+    }
+
+    /**
+     * The edit form must render (200, not 500) even when `old()` input holds
+     * a display unit from a different kind than the persisted product —
+     * the state right after a blocked unit-kind change. Regression for the
+     * `canonicalUnitsPerDisplay()` throw in the price prefill.
+     */
+    public function test_edit_form_renders_after_failed_unit_kind_switch(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create([
+            'unit' => 'mass',
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.005,
+        ]);
+
+        // Simulate the post-validation-failure redirect: old() carries the
+        // bunch display unit while the product is still stored as mass.
+        $this->actingAs($admin)
+            ->withSession(['_old_input' => [
+                'unit' => 'bunch',
+                'price_display_unit' => 'bunch',
+            ]])
+            ->get(route('app.admin.products.edit', $product))
+            ->assertOk();
     }
 }

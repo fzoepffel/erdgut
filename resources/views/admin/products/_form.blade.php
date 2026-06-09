@@ -393,6 +393,15 @@
         $defaultPrice = null;
         if ($product?->unit !== null && $product?->unit_price !== null) {
             $du = $currentDisplayUnit ?? $product->unit->defaultDisplayUnit();
+            // Guard: after a failed save where the admin switched unit
+            // KIND, `old('price_display_unit')` can belong to a different
+            // kind than the persisted `$product->unit` (e.g. 'bunch' while
+            // the stored unit is still 'mass'). Converting against the
+            // stored kind would throw. Fall back to the stored kind's
+            // default display unit in that case.
+            if (! in_array($du, $product->unit->allowedDisplayUnits(), true)) {
+                $du = $product->unit->defaultDisplayUnit();
+            }
             $factor = $product->unit->canonicalUnitsPerDisplay($du);
             $defaultPrice = round((float) $product->unit_price * $factor, 2);
         }

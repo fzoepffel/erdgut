@@ -7,6 +7,7 @@ use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
+use App\Models\Product;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -117,20 +118,36 @@ class UpdateProductRequest extends FormRequest
                 $v->errors()->add('price_display_unit', __('admin.products.price_display_unit_invalid'));
             }
 
-            $isMeasured = in_array($kind, [ProductUnit::Mass, ProductUnit::Volume], true);
-            if (! $isMeasured && $this->filled('quantity_step')) {
-                $v->errors()->add('quantity_step', __('admin.products.quantity_step_not_applicable'));
+            // Block a unit-KIND change while the product still has stock
+            // inflows, recurring schedules, or box items. Those quantities
+            // are stored in the OLD kind's canonical unit (e.g. "2 bunches")
+            // and have no meaningful interpretation under a new kind ("2 g"),
+            // so allowing the switch would silently corrupt inventory. The
+            // admin must clear the existing inventory first. Display-unit
+            // changes within the same kind (g↔kg, ml↔L) are unaffected.
+            $product = $this->route('product');
+            if ($product instanceof Product
+                && $product->unit !== null
+                && $product->unit !== $kind
+                && $this->productHasInventory($product)
+            ) {
+                $v->errors()->add('unit', __('admin.products.unit_change_blocked_inventory', [
+                    'unit' => $product->unit->label(),
+                ]));
             }
 
-            $isCount = in_array($kind, [ProductUnit::Piece, ProductUnit::Bunch], true);
-            if (! $isCount) {
-                if ($this->filled('unit_weight_grams')) {
-                    $v->errors()->add('unit_weight_grams', __('admin.products.unit_descriptor_not_applicable'));
-                }
-                if ($this->filled('unit_volume_ml')) {
-                    $v->errors()->add('unit_volume_ml', __('admin.products.unit_descriptor_not_applicable'));
-                }
-            }
+            // Note: irrelevant fields for the chosen kind (quantity_step for
+            // piece/bunch, unit_weight/unit_volume for mass/volume) are NOT
+            // rejected here — the controller nulls them out based on the
+            // final unit kind. Rejecting would trap admins switching kinds,
+            // since the hidden form fields still carry their old values.
         });
+    }
+
+    private function productHasInventory(Product $product): bool
+    {
+        return $product->stockInflows()->exists()
+            || $product->stockInflowSchedules()->exists()
+            || $product->boxItems()->exists();
     }
 }
