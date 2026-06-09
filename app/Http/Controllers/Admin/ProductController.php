@@ -313,6 +313,21 @@ class ProductController extends Controller
             ? null
             : (int) round(((float) $buyingPrice) * 100);
 
+        // Quantity step: only stored for mass/volume; cleared for piece/bunch.
+        $isMeasured = in_array($unitEnum, [ProductUnit::Mass, ProductUnit::Volume], true);
+        $payload['quantity_step'] = $isMeasured && isset($validated['quantity_step']) && $validated['quantity_step'] !== ''
+            ? (int) $validated['quantity_step']
+            : null;
+
+        // Unit descriptors: only stored for piece/bunch; cleared for mass/volume.
+        $isCount = in_array($unitEnum, [ProductUnit::Piece, ProductUnit::Bunch], true);
+        $payload['unit_weight_grams'] = $isCount && isset($validated['unit_weight_grams']) && $validated['unit_weight_grams'] !== ''
+            ? (int) $validated['unit_weight_grams']
+            : null;
+        $payload['unit_volume_ml'] = $isCount && isset($validated['unit_volume_ml']) && $validated['unit_volume_ml'] !== ''
+            ? (int) $validated['unit_volume_ml']
+            : null;
+
         return $payload;
     }
 

@@ -78,6 +78,13 @@ class StoreProductRequest extends FormRequest
             'custom_taste_tags.*.de' => ['required', 'string', 'max:64'],
             'custom_taste_tags.*.en' => ['required', 'string', 'max:64'],
             'custom_taste_tags.*.fr' => ['required', 'string', 'max:64'],
+            // Per-product quantity step (g for mass, ml for volume). Only
+            // meaningful for mass/volume; ignored for piece/bunch (always 1).
+            'quantity_step' => ['nullable', 'integer', 'min:1'],
+            // Approximate weight/volume per unit for piece/bunch products.
+            // Informational — shown in the shop as a reference.
+            'unit_weight_grams' => ['nullable', 'integer', 'min:1'],
+            'unit_volume_ml' => ['nullable', 'integer', 'min:1'],
             'pairings' => ['nullable', 'array'],
             'pairings.*' => ['integer', 'exists:products,id'],
             'gallery_images' => ['nullable', 'array', 'max:12'],
@@ -114,6 +121,23 @@ class StoreProductRequest extends FormRequest
 
             if (! in_array($display, $kind->allowedDisplayUnits(), true)) {
                 $v->errors()->add('price_display_unit', __('admin.products.price_display_unit_invalid'));
+            }
+
+            // quantity_step only makes sense for mass/volume.
+            $isMeasured = in_array($kind, [ProductUnit::Mass, ProductUnit::Volume], true);
+            if (! $isMeasured && $this->filled('quantity_step')) {
+                $v->errors()->add('quantity_step', __('admin.products.quantity_step_not_applicable'));
+            }
+
+            // unit_weight_grams / unit_volume_ml only make sense for piece/bunch.
+            $isCount = in_array($kind, [ProductUnit::Piece, ProductUnit::Bunch], true);
+            if (! $isCount) {
+                if ($this->filled('unit_weight_grams')) {
+                    $v->errors()->add('unit_weight_grams', __('admin.products.unit_descriptor_not_applicable'));
+                }
+                if ($this->filled('unit_volume_ml')) {
+                    $v->errors()->add('unit_volume_ml', __('admin.products.unit_descriptor_not_applicable'));
+                }
             }
         });
     }

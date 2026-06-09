@@ -73,6 +73,9 @@ class UpdateProductRequest extends FormRequest
             'custom_taste_tags.*.de' => ['required', 'string', 'max:64'],
             'custom_taste_tags.*.en' => ['required', 'string', 'max:64'],
             'custom_taste_tags.*.fr' => ['required', 'string', 'max:64'],
+            'quantity_step' => ['nullable', 'integer', 'min:1'],
+            'unit_weight_grams' => ['nullable', 'integer', 'min:1'],
+            'unit_volume_ml' => ['nullable', 'integer', 'min:1'],
             'pairings' => ['nullable', 'array'],
             'pairings.*' => ['integer', 'exists:products,id', Rule::notIn([$selfId])],
             'gallery_images' => ['nullable', 'array', 'max:12'],
@@ -112,6 +115,21 @@ class UpdateProductRequest extends FormRequest
 
             if (! in_array($display, $kind->allowedDisplayUnits(), true)) {
                 $v->errors()->add('price_display_unit', __('admin.products.price_display_unit_invalid'));
+            }
+
+            $isMeasured = in_array($kind, [ProductUnit::Mass, ProductUnit::Volume], true);
+            if (! $isMeasured && $this->filled('quantity_step')) {
+                $v->errors()->add('quantity_step', __('admin.products.quantity_step_not_applicable'));
+            }
+
+            $isCount = in_array($kind, [ProductUnit::Piece, ProductUnit::Bunch], true);
+            if (! $isCount) {
+                if ($this->filled('unit_weight_grams')) {
+                    $v->errors()->add('unit_weight_grams', __('admin.products.unit_descriptor_not_applicable'));
+                }
+                if ($this->filled('unit_volume_ml')) {
+                    $v->errors()->add('unit_volume_ml', __('admin.products.unit_descriptor_not_applicable'));
+                }
             }
         });
     }

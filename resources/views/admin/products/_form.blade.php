@@ -531,6 +531,81 @@
                 <x-input-error class="mt-2" :messages="$errors->get('default_freshness_window_days')" />
             </div>
         </div>
+
+        {{-- Quantity step — shown only for mass / volume products --}}
+        @php
+            $quantityStepValue = old('quantity_step', $product?->quantity_step ?? '');
+            $globalStep = (int) config('shop.quantity_step', 50);
+        @endphp
+        <div x-show="unit === 'mass' || unit === 'volume'" x-cloak>
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                    <x-input-label for="quantity_step" :value="__('admin.product_form.quantity_step_label')" />
+                    <div class="mt-1 flex items-center gap-2">
+                        <x-text-input
+                            id="quantity_step"
+                            name="quantity_step"
+                            type="number"
+                            min="1"
+                            step="1"
+                            class="block w-32"
+                            :value="$quantityStepValue"
+                            placeholder="{{ $globalStep }}"
+                        />
+                        <span class="text-sm text-gray-500" x-text="unit === 'volume' ? 'ml' : 'g'"></span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">
+                        {{ __('admin.product_form.quantity_step_hint', ['default' => $globalStep]) }}
+                    </p>
+                    <x-input-error class="mt-2" :messages="$errors->get('quantity_step')" />
+                </div>
+            </div>
+        </div>
+
+        {{-- Unit descriptors — shown only for piece / bunch products --}}
+        @php
+            $unitWeightValue = old('unit_weight_grams', $product?->unit_weight_grams ?? '');
+            $unitVolumeValue = old('unit_volume_ml', $product?->unit_volume_ml ?? '');
+        @endphp
+        <div x-show="unit === 'piece' || unit === 'bunch'" x-cloak>
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                    <x-input-label for="unit_weight_grams" :value="__('admin.product_form.unit_weight_label')" />
+                    <div class="mt-1 flex items-center gap-2">
+                        <x-text-input
+                            id="unit_weight_grams"
+                            name="unit_weight_grams"
+                            type="number"
+                            min="1"
+                            step="1"
+                            class="block w-32"
+                            :value="$unitWeightValue"
+                        />
+                        <span class="text-sm text-gray-500">g</span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.unit_weight_hint') }}</p>
+                    <x-input-error class="mt-2" :messages="$errors->get('unit_weight_grams')" />
+                </div>
+                <div>
+                    <x-input-label for="unit_volume_ml" :value="__('admin.product_form.unit_volume_label')" />
+                    <div class="mt-1 flex items-center gap-2">
+                        <x-text-input
+                            id="unit_volume_ml"
+                            name="unit_volume_ml"
+                            type="number"
+                            min="1"
+                            step="1"
+                            class="block w-32"
+                            :value="$unitVolumeValue"
+                        />
+                        <span class="text-sm text-gray-500">ml</span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.unit_volume_hint') }}</p>
+                    <x-input-error class="mt-2" :messages="$errors->get('unit_volume_ml')" />
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <div class="rounded border border-gray-200 bg-white p-4 space-y-4">

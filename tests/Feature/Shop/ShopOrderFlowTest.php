@@ -694,4 +694,114 @@ class ShopOrderFlowTest extends TestCase
             ->assertSee(route('public.shop.index'))
             ->assertSee(__('Shop'));
     }
+
+    // ── Per-product quantity step ─────────────────────────────────────────
+
+    /**
+     * A mass product with a custom 500 g step should reject a quantity
+     * that is not a multiple of that step.
+     */
+    public function test_quantity_not_a_multiple_of_custom_step_is_rejected(): void
+    {
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'category' => 'produce',
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.02,    // €/g
+            'quantity_step' => 500,  // only 500 g / 1 kg / 1.5 kg … allowed
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 3000,
+            'freshness_window_days' => 1,
+        ]);
+
+        // 250 g is not a multiple of 500 — should fail validation.
+        $response = $this->post(route('public.shop.store'), array_merge(
+            $this->pickupPayload(),
+            ['quantities' => [$product->id => 250]]
+        ));
+
+        $response->assertSessionHasErrors();
+    }
+
+    /**
+     * A mass product with a custom 500 g step should accept a quantity
+     * that is an exact multiple of that step.
+     */
+    public function test_quantity_that_is_multiple_of_custom_step_is_accepted(): void
+    {
+        Mail::fake();
+
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'category' => 'produce',
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.02,    // €/g
+            'quantity_step' => 500,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 3000,
+            'freshness_window_days' => 1,
+        ]);
+
+        // 1000 g = 2 × 500 — should pass.
+        $response = $this->post(route('public.shop.store'), array_merge(
+            $this->pickupPayload(),
+            ['quantities' => [$product->id => 1000]]
+        ));
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('shop_orders', ['email' => 'anna@example.com']);
+    }
+
+    /**
+     * When quantity_step is null, the product falls back to the global
+     * config default and accepts multiples of that default step.
+     */
+    public function test_null_quantity_step_falls_back_to_global_config(): void
+    {
+        Mail::fake();
+        config(['shop.quantity_step' => 100]);
+
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'category' => 'produce',
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.02,
+            'quantity_step' => null, // use global default = 100
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 3000,
+            'freshness_window_days' => 1,
+        ]);
+
+        // 300 g = 3 × 100 — should pass.
+        $response = $this->post(route('public.shop.store'), array_merge(
+            $this->pickupPayload(),
+            ['quantities' => [$product->id => 300]]
+        ));
+
+        $response->assertSessionHasNoErrors();
+    }
 }

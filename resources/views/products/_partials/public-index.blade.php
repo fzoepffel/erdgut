@@ -321,6 +321,19 @@
                                 {{ $product->producer?->name ?? __('products.producer_unknown') }}
                             </p>
 
+                            {{-- Unit descriptor: weight/volume per piece or bunch --}}
+                            @if ($product->unit_weight_grams || $product->unit_volume_ml)
+                                <p class="mt-1 font-mono text-[0.65rem] text-brand-ink/50">
+                                    {{ __('ca.') }}
+                                    @if ($product->unit_weight_grams)
+                                        {{ $product->displayQuantity($product->unit_weight_grams) }}
+                                    @else
+                                        {{ $product->displayQuantity($product->unit_volume_ml) }}
+                                    @endif
+                                    {{ __('per') }} {{ $product->localizedUnit() }}
+                                </p>
+                            @endif
+
                             {{-- Note --}}
                             @if ($note)
                                 <p class="mt-2 text-sm leading-relaxed text-brand-ink/60">{{ $note }}</p>

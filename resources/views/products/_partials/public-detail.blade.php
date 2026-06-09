@@ -150,6 +150,22 @@
                 <p class="mt-2 text-base text-brand-ink">{{ $categoryLabel !== '' ? $categoryLabel : __('products.producer_unknown') }}</p>
             </div>
 
+            {{-- Unit descriptor: weight/volume per piece or bunch --}}
+            @if ($product->unit_weight_grams || $product->unit_volume_ml)
+                <div class="mt-6 border-t border-brand-ink/15 pt-6">
+                    <p class="eyebrow text-brand-ink/55">{{ __('product.detail.unit_descriptor_label') }}</p>
+                    <p class="mt-2 text-base text-brand-ink">
+                        {{ __('ca.') }}
+                        @if ($product->unit_weight_grams)
+                            {{ $product->displayQuantity($product->unit_weight_grams) }}
+                        @else
+                            {{ $product->displayQuantity($product->unit_volume_ml) }}
+                        @endif
+                        {{ __('per') }} {{ $product->localizedUnit() }}
+                    </p>
+                </div>
+            @endif
+
             {{-- Shop availability CTA: only on the shop-shell pages ($shopCta passed). --}}
             @isset($shopCta)
                 <div class="mt-8">
