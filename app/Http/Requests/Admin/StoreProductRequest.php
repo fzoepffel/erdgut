@@ -54,7 +54,7 @@ class StoreProductRequest extends FormRequest
             // (g / kg / ml / l / piece / bunch). The controller converts
             // to per-canonical-unit before persisting so storage stays
             // uniform across products of the same kind.
-            'price_display_unit' => ['required', 'string', Rule::in(['g', 'kg', 'ml', 'l', 'piece', 'bunch'])],
+            'price_display_unit' => ['required', 'string', Rule::in(['g', '100g', 'kg', 'ml', 'l', 'piece', 'bunch'])],
             'price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             // Days a fresh inflow remains sellable, starting at the
             // receipt day inclusive. Default 1 (same-day-only) matches

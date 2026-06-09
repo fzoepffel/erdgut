@@ -278,6 +278,39 @@ class AdminProductTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_can_save_mass_product_with_per_100g_price_unit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => '100g Apples', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'kurz'],
+                    'en' => ['name' => '100g Apples', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'short'],
+                    'fr' => ['name' => '100g Apples', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'court'],
+                ],
+                'category' => 'produce',
+                'unit' => 'mass',
+                'price_display_unit' => '100g',
+                'price' => '2.15', // €2,15 per 100 g
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $product = Product::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', '100g Apples'))
+            ->firstOrFail();
+
+        // €2.15 / 100 g → canonical €/g = 0.0215.
+        $this->assertSame('100g', $product->price_display_unit);
+        $this->assertEqualsWithDelta(0.0215, (float) $product->unit_price, 0.0001);
+
+        // Customer-facing price renders in the chosen 100 g unit.
+        $this->assertSame('2,15 €/100 g', $product->displayPrice('de'));
+    }
+
     public function test_short_description_is_required_in_all_locales(): void
     {
         $admin = User::factory()->admin()->create();

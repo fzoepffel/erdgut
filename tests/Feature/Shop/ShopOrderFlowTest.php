@@ -189,6 +189,28 @@ class ShopOrderFlowTest extends TestCase
         $this->assertStringContainsString('data-testid="shop-qty-stepper"', $html);
     }
 
+    public function test_storefront_shows_mass_product_price_in_per_100g_unit(): void
+    {
+        $mass = Product::factory()->create([
+            'category' => 'produce',
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => '100g',
+            'unit_price' => 0.0215, // €/g → €2,15 per 100 g
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $mass->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 500,
+            'freshness_window_days' => 1,
+        ]);
+
+        $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->assertSee($mass->displayPrice(), escape: false);
+    }
+
     public function test_mass_product_quantity_picker_steps_by_50_grams(): void
     {
         $mass = Product::factory()->create([

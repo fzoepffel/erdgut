@@ -9,7 +9,7 @@ use InvalidArgumentException;
  * admins can't introduce drift (the freeform predecessor caused real
  * display drift in the box-setup view).
  *
- *  - `mass`   → canonical storage in grams; admin entry/display in g or kg.
+ *  - `mass`   → canonical storage in grams; admin entry/display in g, 100 g, or kg.
  *  - `volume` → canonical storage in millilitres; admin entry/display in ml or L.
  *  - `piece`  → integer count; no sub-units.
  *  - `bunch`  → integer count; no sub-units.
@@ -67,7 +67,7 @@ enum ProductUnit: string
     public function allowedDisplayUnits(): array
     {
         return match ($this) {
-            self::Mass => ['g', 'kg'],
+            self::Mass => ['g', '100g', 'kg'],
             self::Volume => ['ml', 'l'],
             self::Piece => ['piece'],
             self::Bunch => ['bunch'],
@@ -107,6 +107,7 @@ enum ProductUnit: string
 
         return match ($displayUnit) {
             'kg', 'l' => 1000,
+            '100g' => 100,
             default => 1,
         };
     }
@@ -171,6 +172,7 @@ enum ProductUnit: string
     {
         return match ($displayUnit) {
             'l' => 'L',
+            '100g' => '100 g',
             'g', 'kg', 'ml' => $displayUnit,
             default => (string) __('units.'.$displayUnit, [], app()->getLocale()),
         };
