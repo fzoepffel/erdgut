@@ -123,22 +123,10 @@ class StoreProductRequest extends FormRequest
                 $v->errors()->add('price_display_unit', __('admin.products.price_display_unit_invalid'));
             }
 
-            // quantity_step only makes sense for mass/volume.
-            $isMeasured = in_array($kind, [ProductUnit::Mass, ProductUnit::Volume], true);
-            if (! $isMeasured && $this->filled('quantity_step')) {
-                $v->errors()->add('quantity_step', __('admin.products.quantity_step_not_applicable'));
-            }
-
-            // unit_weight_grams / unit_volume_ml only make sense for piece/bunch.
-            $isCount = in_array($kind, [ProductUnit::Piece, ProductUnit::Bunch], true);
-            if (! $isCount) {
-                if ($this->filled('unit_weight_grams')) {
-                    $v->errors()->add('unit_weight_grams', __('admin.products.unit_descriptor_not_applicable'));
-                }
-                if ($this->filled('unit_volume_ml')) {
-                    $v->errors()->add('unit_volume_ml', __('admin.products.unit_descriptor_not_applicable'));
-                }
-            }
+            // Note: irrelevant fields for the chosen kind (quantity_step for
+            // piece/bunch, unit_weight/unit_volume for mass/volume) are NOT
+            // rejected — the controller nulls them out based on the final
+            // unit kind, so a stale hidden-field value is harmless.
         });
     }
 }
