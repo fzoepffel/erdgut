@@ -134,8 +134,6 @@ class ShopOrderRequest extends FormRequest
             $productIds = collect($items)->pluck('product_id')->map(fn ($id): int => (int) $id)->all();
             $products = Product::query()->whereIn('id', $productIds)->get()->keyBy('id');
 
-            $step = (int) config('shop.quantity_step', 250);
-
             foreach ($items as $index => $line) {
                 $productId = (int) ($line['product_id'] ?? 0);
                 $quantity = (float) ($line['quantity'] ?? 0);
@@ -155,8 +153,9 @@ class ShopOrderRequest extends FormRequest
                     continue;
                 }
 
-                // Quantity step per unit kind: mass/volume step by the
-                // configured increment; piece/bunch must be whole counts.
+                // Quantity step per unit kind. piece/bunch must be whole counts;
+                // mass/volume use the product's own step (falls back to config).
+                $step = $product->effectiveQuantityStep();
                 if ($product->unit === ProductUnit::Piece || $product->unit === ProductUnit::Bunch) {
                     if (abs($quantity - round($quantity)) > 1e-6) {
                         $v->errors()->add(
@@ -169,7 +168,7 @@ class ShopOrderRequest extends FormRequest
                 } elseif (abs(fmod($quantity, $step)) > 1e-6) {
                     $v->errors()->add(
                         "items.$index.quantity",
-                        __('shop.errors.quantity_step', ['name' => $product->name, 'step' => $step])
+                        __('shop.errors.quantity_step', ['name' => $product->name, 'step' => $product->displayQuantity($step)])
                     );
 
                     continue;

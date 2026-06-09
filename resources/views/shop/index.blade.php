@@ -16,12 +16,13 @@
         // quantity field, so they never enter the cart.
         $alpineProducts = $products
             ->filter(fn ($row) => $row['available_on_selected'])
-            ->map(function ($row) use ($quantityStep, $maxQuantity, $maxCount) {
+            ->map(function ($row) use ($maxQuantity, $maxCount) {
                 $product = $row['product'];
-                $isCount = in_array($product->unit?->value, ['piece', 'bunch'], true);
-                $step = $isCount ? 1 : (int) $quantityStep;
+                // Use each product's own effective step (falls back to the
+                // global config default for mass/volume; always 1 for piece/bunch).
+                $step = $product->effectiveQuantityStep();
                 $remaining = (int) floor($row['remaining']);
-                $cap = $isCount
+                $cap = in_array($product->unit?->value, ['piece', 'bunch'], true)
                     ? min($remaining, (int) $maxCount)
                     : min((int) (floor($remaining / $step) * $step), (int) $maxQuantity);
 
@@ -404,6 +405,19 @@
                                             </a>
                                         @endif
                                         <p class="mt-2 font-mono text-xs tabular-nums text-shop-muted">{{ $product->displayPrice() }}</p>
+
+                                        {{-- Unit descriptor: weight/volume per piece or bunch --}}
+                                        @if ($product->unit_weight_grams || $product->unit_volume_ml)
+                                            <p class="mt-1 font-mono text-[0.65rem] text-shop-muted">
+                                                {{ __('ca.') }}
+                                                @if ($product->unit_weight_grams)
+                                                    {{ $product->displayQuantity($product->unit_weight_grams) }}
+                                                @else
+                                                    {{ $product->displayQuantity($product->unit_volume_ml) }}
+                                                @endif
+                                                {{ __('per') }} {{ $product->localizedUnit() }}
+                                            </p>
+                                        @endif
 
                                         <div class="mt-4">
                                             <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.quantity_label') }}</p>

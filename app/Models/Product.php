@@ -46,6 +46,10 @@ class Product extends Model
         'custom_taste_tags',
         'image_path',
         'is_test',
+        // Per-product quantity controls
+        'quantity_step',
+        'unit_weight_grams',
+        'unit_volume_ml',
     ];
 
     /**
@@ -76,6 +80,9 @@ class Product extends Model
             'taste_profile_tags' => 'array',
             'custom_taste_tags' => 'array',
             'is_test' => 'boolean',
+            'quantity_step' => 'integer',
+            'unit_weight_grams' => 'integer',
+            'unit_volume_ml' => 'integer',
         ];
     }
 
@@ -141,6 +148,22 @@ class Product extends Model
         }
 
         return ProductUnit::displaySymbol($display);
+    }
+
+    /**
+     * The canonical-unit step size to use for this product's quantity selector.
+     *
+     * - Piece / Bunch: always 1 (whole units only).
+     * - Mass: grams per step (falls back to config('shop.quantity_step') when null).
+     * - Volume: ml per step (same fallback).
+     */
+    public function effectiveQuantityStep(): int
+    {
+        if ($this->unit === ProductUnit::Piece || $this->unit === ProductUnit::Bunch) {
+            return 1;
+        }
+
+        return $this->quantity_step ?? max(1, (int) (config('shop.quantity_step') ?? 50));
     }
 
     /**
