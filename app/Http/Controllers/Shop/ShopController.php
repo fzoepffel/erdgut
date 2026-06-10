@@ -122,7 +122,6 @@ class ShopController extends Controller
             'alpineSubcategories' => $alpineSubcategories,
             'pickupLocations' => PickupLocations::all(),
             'deliveryFeeEur' => $this->service->deliveryFee(),
-            'vatRatePercent' => (int) config('shop.vat_rate_percent', 7),
             'quantityStep' => (int) config('shop.quantity_step', 50),
             'maxQuantity' => (int) config('shop.max_quantity', 3000),
             'maxCount' => (int) config('shop.max_count', 12),
@@ -264,7 +263,6 @@ class ShopController extends Controller
             'checkoutId' => $checkoutId,
             'checkoutError' => $checkoutError,
             'returnUrl' => $returnUrl,
-            'vatRatePercent' => (int) config('shop.vat_rate_percent', 7),
         ]);
     }
 

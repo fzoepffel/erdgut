@@ -34,6 +34,7 @@
                 return [
                     'id' => $product->id,
                     'unitPrice' => (float) $product->unit_price,
+                    'vatRate' => (int) $product->vat_rate_percent,
                     'step' => $step,
                     'cap' => $cap,
                     'steps' => $steps,
@@ -84,6 +85,8 @@
             couponErrorGeneric: @js(__('coupon.errors.generic')),
             subcategoriesByCategory: @js($alpineSubcategories),
             defaultShopCategory: @js($defaultShopCategory),
+            deliveryVatRate: {{ (int) config('shop.vat_rate_percent', 7) }},
+            vatLineTemplate: @js(__('shop.summary_vat_rate_line')),
         })"
     >
         {{-- ── Hero ──────────────────────────────────────────────────── --}}
@@ -761,7 +764,9 @@
                                 <span class="font-display text-2xl">{{ __('shop.summary_line_total') }}</span>
                                 <span class="font-display text-4xl text-shop-primary tabular-nums" x-text="money(total)">{{ \App\Support\Money::format(0) }}</span>
                             </div>
-                            <p class="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">{{ __('shop.summary_vat_inclusive', ['rate' => $vatRatePercent]) }}</p>
+                            <template x-for="rate in vatRates" :key="rate">
+                                <p class="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="vatLine(rate)"></p>
+                            </template>
                         </div>
 
                         <label class="mt-10 flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-shop-muted">
@@ -943,6 +948,8 @@
                 activeCategory: config.defaultShopCategory || '',
                 activeSubcategoryId: 0,
                 subcategoriesByCategory: config.subcategoriesByCategory || {},
+                deliveryVatRate: config.deliveryVatRate || 7,
+                vatLineTemplate: config.vatLineTemplate || 'davon :rate% MwSt.: :amount',
                 get availableSubcategories() {
                     return this.subcategoriesByCategory[this.activeCategory] ?? [];
                 },
@@ -1101,6 +1108,33 @@
                     return Math.round((Math.max(0, this.itemsTotal - this.appliedDiscount) + this.effectiveDeliveryFee) * 100) / 100;
                 },
                 money(v) { return v.toFixed(2).replace('.', ',') + ' €'; },
+                // ── VAT breakdown (per rate, gross-inclusive) ───────────
+                // Sums the VAT contained in each line + the delivery fee,
+                // grouped by rate. Rendered as one summary line per rate.
+                get vatBreakdown() {
+                    const bd = {};
+                    this.products.forEach((p) => {
+                        const lt = this.lineTotal(p.id);
+                        if (lt > 0) {
+                            const r = p.vatRate;
+                            bd[r] = Math.round(((bd[r] || 0) + lt * r / (100 + r)) * 100) / 100;
+                        }
+                    });
+                    const fee = this.effectiveDeliveryFee;
+                    if (fee > 0) {
+                        const r = this.deliveryVatRate;
+                        bd[r] = Math.round(((bd[r] || 0) + fee * r / (100 + r)) * 100) / 100;
+                    }
+                    return bd;
+                },
+                get vatRates() {
+                    return Object.keys(this.vatBreakdown).map(Number).sort((a, b) => a - b);
+                },
+                vatLine(rate) {
+                    return this.vatLineTemplate
+                        .replace(':rate', rate)
+                        .replace(':amount', this.money(this.vatBreakdown[rate]));
+                },
             };
         }
     </script>

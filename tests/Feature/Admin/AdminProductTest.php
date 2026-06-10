@@ -312,6 +312,89 @@ class AdminProductTest extends TestCase
         $this->assertSame('2,15 €/100 g', $product->displayPrice('de'));
     }
 
+    public function test_admin_can_store_product_with_standard_vat_rate(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Apfelsaft', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'kurz'],
+                    'en' => ['name' => 'Apfelsaft', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'short'],
+                    'fr' => ['name' => 'Apfelsaft', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'court'],
+                ],
+                'category' => 'produce',
+                'unit' => 'piece',
+                'price_display_unit' => 'piece',
+                'price' => '3.50',
+                'vat_rate_percent' => '19',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $product = Product::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', 'Apfelsaft'))
+            ->firstOrFail();
+
+        $this->assertSame(19, $product->vat_rate_percent);
+    }
+
+    public function test_product_defaults_to_reduced_vat_rate_when_not_submitted(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Möhren', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'kurz'],
+                    'en' => ['name' => 'Möhren', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'short'],
+                    'fr' => ['name' => 'Möhren', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'court'],
+                ],
+                'category' => 'produce',
+                'unit' => 'piece',
+                'price_display_unit' => 'piece',
+                'price' => '1.20',
+                // vat_rate_percent intentionally omitted.
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $product = Product::query()
+            ->whereHas('translations', fn ($q) => $q->where('locale', 'en')->where('name', 'Möhren'))
+            ->firstOrFail();
+
+        $this->assertSame(7, $product->vat_rate_percent);
+    }
+
+    public function test_admin_can_update_product_vat_rate(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create(['vat_rate_percent' => 7]);
+
+        $this->actingAs($admin)
+            ->put(route('app.admin.products.update', $product), [
+                'producer_id' => $product->producer_id,
+                'translations' => [
+                    'de' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'kurz'],
+                    'en' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'short'],
+                    'fr' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'court'],
+                ],
+                'category' => $product->category,
+                'unit' => $product->unit->value,
+                'price_display_unit' => $product->price_display_unit,
+                'price' => '2.00',
+                'vat_rate_percent' => '19',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(19, $product->fresh()->vat_rate_percent);
+    }
+
     public function test_short_description_is_required_in_all_locales(): void
     {
         $admin = User::factory()->admin()->create();

@@ -57,6 +57,10 @@ class UpdateProductRequest extends FormRequest
             'unit' => ['required', 'string', Rule::in(ProductUnit::values())],
             'price_display_unit' => ['required', 'string', Rule::in(['g', '100g', 'kg', 'ml', 'l', 'piece', 'bunch'])],
             'price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            // German VAT rate: 7% reduced (fresh food) or 19% standard.
+            // Form always submits one of the two; absent → controller
+            // defaults to 7 (the food rate).
+            'vat_rate_percent' => ['nullable', 'integer', 'in:7,19'],
             'default_freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'is_seasonal' => ['boolean'],

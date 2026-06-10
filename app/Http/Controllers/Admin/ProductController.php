@@ -300,6 +300,7 @@ class ProductController extends Controller
             'unit' => $validated['unit'],
             'price_display_unit' => $displayUnit,
             'unit_price' => $canonicalUnitPrice,
+            'vat_rate_percent' => (int) ($validated['vat_rate_percent'] ?? 7),
             'default_freshness_window_days' => isset($validated['default_freshness_window_days'])
                 ? max(1, (int) $validated['default_freshness_window_days'])
                 : 1,

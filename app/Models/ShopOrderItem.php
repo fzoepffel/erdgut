@@ -23,6 +23,8 @@ use Illuminate\Support\Carbon;
  * @property string $unit
  * @property numeric $unit_price_snapshot_eur
  * @property numeric $line_total_eur
+ * @property int $vat_rate_snapshot_percent
+ * @property numeric $vat_amount_eur
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
@@ -37,6 +39,8 @@ class ShopOrderItem extends Model
         'unit',
         'unit_price_snapshot_eur',
         'line_total_eur',
+        'vat_rate_snapshot_percent',
+        'vat_amount_eur',
     ];
 
     protected function casts(): array
@@ -45,6 +49,8 @@ class ShopOrderItem extends Model
             'quantity' => 'decimal:4',
             'unit_price_snapshot_eur' => 'decimal:4',
             'line_total_eur' => 'decimal:2',
+            'vat_rate_snapshot_percent' => 'integer',
+            'vat_amount_eur' => 'decimal:2',
         ];
     }
 

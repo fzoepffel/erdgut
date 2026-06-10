@@ -58,6 +58,10 @@ class StoreProductRequest extends FormRequest
             // uniform across products of the same kind.
             'price_display_unit' => ['required', 'string', Rule::in(['g', '100g', 'kg', 'ml', 'l', 'piece', 'bunch'])],
             'price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            // German VAT rate: 7% reduced (fresh food) or 19% standard
+            // (processed goods / drinks). The form always submits one of
+            // the two; absent → controller defaults to 7 (the food rate).
+            'vat_rate_percent' => ['nullable', 'integer', 'in:7,19'],
             // Days a fresh inflow remains sellable, starting at the
             // receipt day inclusive. Default 1 (same-day-only) matches
             // today's no-storage farm reality. Admin can raise this

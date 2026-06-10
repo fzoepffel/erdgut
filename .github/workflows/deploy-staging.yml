@@ -158,6 +158,11 @@ jobs:
 
             php artisan migrate --force
 
+            # Idempotently (firstOrCreate) seed the default product
+            # subcategories so the shop/admin subcategory pickers are
+            # populated. Safe to re-run on every deploy.
+            php artisan db:seed --class=ProductSubcategorySeeder --force
+
             php artisan tinker --execute="
             if (! \Illuminate\Support\Facades\Schema::hasColumn('products', 'subcategory_id')) {
                 fwrite(STDERR, 'Missing products.subcategory_id after migrate'.PHP_EOL);

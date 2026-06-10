@@ -597,6 +597,26 @@
         </div>
 
         @php
+            $currentVatRate = (int) old('vat_rate_percent', $product?->vat_rate_percent ?? 7);
+        @endphp
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <x-input-label for="vat_rate_percent" :value="__('admin.product_form.vat_rate_label')" required />
+                <select
+                    id="vat_rate_percent"
+                    name="vat_rate_percent"
+                    class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+                    required
+                >
+                    <option value="7" @selected($currentVatRate === 7)>{{ __('admin.product_form.vat_rate_7') }}</option>
+                    <option value="19" @selected($currentVatRate === 19)>{{ __('admin.product_form.vat_rate_19') }}</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.vat_rate_hint') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('vat_rate_percent')" />
+            </div>
+        </div>
+
+        @php
             $freshnessValue = old(
                 'default_freshness_window_days',
                 $product?->default_freshness_window_days ?? 1

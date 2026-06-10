@@ -32,6 +32,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $delivery_notes
  * @property numeric $items_total_eur
  * @property numeric $delivery_fee_eur
+ * @property int $delivery_fee_vat_rate_percent
+ * @property numeric $delivery_fee_vat_amount_eur
  * @property numeric $total_amount_eur
  * @property int|null $coupon_id
  * @property string|null $coupon_code
@@ -70,6 +72,8 @@ class ShopOrder extends Model
         'delivery_notes',
         'items_total_eur',
         'delivery_fee_eur',
+        'delivery_fee_vat_rate_percent',
+        'delivery_fee_vat_amount_eur',
         'total_amount_eur',
         'coupon_id',
         'coupon_code',
@@ -112,6 +116,8 @@ class ShopOrder extends Model
             'delivery_window_set_at' => 'datetime',
             'items_total_eur' => 'decimal:2',
             'delivery_fee_eur' => 'decimal:2',
+            'delivery_fee_vat_rate_percent' => 'integer',
+            'delivery_fee_vat_amount_eur' => 'decimal:2',
             'total_amount_eur' => 'decimal:2',
             'discount_eur' => 'decimal:2',
             'paid_at' => 'datetime',

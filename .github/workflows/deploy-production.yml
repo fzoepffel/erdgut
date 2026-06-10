@@ -154,6 +154,12 @@ jobs:
             php artisan optimize:clear
 
             php artisan migrate --force
+
+            # Idempotently (firstOrCreate) seed the default product
+            # subcategories so the shop/admin subcategory pickers are
+            # populated. Safe to re-run on every deploy.
+            php artisan db:seed --class=ProductSubcategorySeeder --force
+
             php artisan storage:link --force
 
             # Boot smoke test: `artisan about` exercises the full service

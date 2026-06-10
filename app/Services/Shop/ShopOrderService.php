@@ -383,9 +383,11 @@ class ShopOrderService
      *
      * @param  array<int, array{product_id: int|string, quantity: int|float}>  $cartLines
      * @return array{
-     *     lines: array<int, array{product: Product, quantity: float, unit: string, unit_price_eur: float, line_total_eur: float}>,
+     *     lines: array<int, array{product: Product, quantity: float, unit: string, unit_price_eur: float, line_total_eur: float, vat_rate_percent: int, vat_amount_eur: float}>,
      *     items_total_eur: float,
      *     delivery_fee_eur: float,
+     *     delivery_fee_vat_rate_percent: int,
+     *     delivery_fee_vat_amount_eur: float,
      *     discount_eur: float,
      *     coupon: Coupon|null,
      *     coupon_code: string|null,
@@ -427,17 +429,39 @@ class ShopOrderService
             $lineTotal = round($unitPrice * $quantity, 2);
             $itemsTotal += $lineTotal;
 
+            // VAT contained in the gross line total (prices are gross):
+            // vat = gross * rate / (100 + rate). Snapshotted per line.
+            $vatRate = (int) ($product->vat_rate_percent ?? 7);
+            $vatAmount = round($lineTotal * $vatRate / (100 + $vatRate), 2);
+
             $lines[] = [
                 'product' => $product,
                 'quantity' => $quantity,
                 'unit' => $product->unit->value,
                 'unit_price_eur' => $unitPrice,
                 'line_total_eur' => $lineTotal,
+                'vat_rate_percent' => $vatRate,
+                'vat_amount_eur' => $vatAmount,
             ];
         }
 
         $itemsTotal = round($itemsTotal, 2);
         $deliveryFee = $fulfillmentMode === 'delivery' ? $this->deliveryFee() : 0.0;
+
+        // The delivery fee is a VAT-bearing service. It follows the dominant
+        // rate of the basket (most line items by count), falling back to the
+        // configured default for an empty cart.
+        $deliveryVatRate = $lines !== []
+            ? (int) collect($lines)
+                ->groupBy('vat_rate_percent')
+                ->sortByDesc(fn ($group) => $group->count())
+                ->keys()
+                ->first()
+            : (int) config('shop.vat_rate_percent', 7);
+
+        $deliveryVatAmount = $deliveryFee > 0
+            ? round($deliveryFee * $deliveryVatRate / (100 + $deliveryVatRate), 2)
+            : 0.0;
 
         // Resolve an optional coupon against the gross product subtotal (and
         // the delivery fee, which only a free-delivery coupon touches). An
@@ -471,6 +495,8 @@ class ShopOrderService
             'lines' => $lines,
             'items_total_eur' => $itemsTotal,
             'delivery_fee_eur' => $deliveryFee,
+            'delivery_fee_vat_rate_percent' => $deliveryVatRate,
+            'delivery_fee_vat_amount_eur' => $deliveryVatAmount,
             'discount_eur' => round($discount, 2),
             'coupon' => $coupon,
             'coupon_code' => $coupon?->code,
@@ -552,6 +578,8 @@ class ShopOrderService
                 'delivery_notes' => $payload['delivery_notes'] ?? null,
                 'items_total_eur' => $quote['items_total_eur'],
                 'delivery_fee_eur' => $quote['delivery_fee_eur'],
+                'delivery_fee_vat_rate_percent' => $quote['delivery_fee_vat_rate_percent'],
+                'delivery_fee_vat_amount_eur' => $quote['delivery_fee_vat_amount_eur'],
                 'total_amount_eur' => $quote['total_amount_eur'],
                 'coupon_id' => $quote['coupon']?->id,
                 'coupon_code' => $quote['coupon_code'],
@@ -569,6 +597,8 @@ class ShopOrderService
                     'unit' => $line['unit'],
                     'unit_price_snapshot_eur' => $line['unit_price_eur'],
                     'line_total_eur' => $line['line_total_eur'],
+                    'vat_rate_snapshot_percent' => $line['vat_rate_percent'],
+                    'vat_amount_eur' => $line['vat_amount_eur'],
                 ]);
             }
 

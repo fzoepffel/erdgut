@@ -3,6 +3,16 @@
         $deliveryDateLabel = $order->expected_delivery_date
             ? $order->expected_delivery_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM')
             : null;
+
+        // Per-rate VAT breakdown (VAT contained in the gross totals).
+        $vatByRate = $order->items
+            ->groupBy('vat_rate_snapshot_percent')
+            ->map(fn ($group) => round($group->sum(fn ($i) => (float) $i->vat_amount_eur), 2));
+        if ((float) $order->delivery_fee_vat_amount_eur > 0) {
+            $r = (int) $order->delivery_fee_vat_rate_percent;
+            $vatByRate[$r] = round(($vatByRate[$r] ?? 0) + (float) $order->delivery_fee_vat_amount_eur, 2);
+        }
+        $vatByRate = $vatByRate->sortKeys();
     @endphp
 
     <p class="eyebrow text-chapter-produce">{{ __('shop.eyebrow_pay') }}</p>
@@ -58,9 +68,11 @@
             <dt class="eyebrow text-brand-ink/60">{{ __('shop.summary_line_total') }}</dt>
             <dd class="font-display text-lg tabular-nums text-brand-ink">@eur($order->total_amount_eur)</dd>
         </div>
-        <p class="mt-1 text-xs text-brand-ink/60">
-            {{ __('shop.summary_vat_inclusive', ['rate' => $vatRatePercent]) }}
-        </p>
+        @foreach ($vatByRate as $rate => $amount)
+            <p class="mt-1 text-xs text-brand-ink/60">
+                {{ __('shop.summary_vat_detail', ['rate' => $rate, 'amount' => \App\Support\Money::formatEur($amount)]) }}
+            </p>
+        @endforeach
     </dl>
 
     @if ($checkoutId)

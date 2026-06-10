@@ -20,7 +20,15 @@
 
         $bandLocation = $isDelivery ? $order->delivery_street : ($pickup['street'] ?? null);
 
-        $vatRate = config('shop.vat_rate_percent', 7);
+        // Per-rate VAT breakdown (VAT contained in the gross totals).
+        $vatByRate = $order->items
+            ->groupBy('vat_rate_snapshot_percent')
+            ->map(fn ($group) => round($group->sum(fn ($i) => (float) $i->vat_amount_eur), 2));
+        if ((float) $order->delivery_fee_vat_amount_eur > 0) {
+            $r = (int) $order->delivery_fee_vat_rate_percent;
+            $vatByRate[$r] = round(($vatByRate[$r] ?? 0) + (float) $order->delivery_fee_vat_amount_eur, 2);
+        }
+        $vatByRate = $vatByRate->sortKeys();
         $itemCount = $order->items->count();
         $discount = (float) $order->discount_eur;
         $deliveryFee = (float) $order->delivery_fee_eur;
@@ -238,9 +246,11 @@
                         <span class="font-mono text-xs uppercase tracking-eyebrow text-chapter-produce">{{ __('shop.summary_line_total') }}</span>
                         <span class="font-display text-4xl tabular-nums text-chapter-produce">@eur($order->total_amount_eur)</span>
                     </div>
-                    <p class="mt-2 text-right font-mono text-[0.65rem] uppercase tracking-eyebrow text-brand-ink/55">
-                        {{ __('shop.summary_vat_inclusive', ['rate' => $vatRate]) }}
-                    </p>
+                    @foreach ($vatByRate as $rate => $amount)
+                        <p class="mt-2 text-right font-mono text-[0.65rem] uppercase tracking-eyebrow text-brand-ink/55">
+                            {{ __('shop.summary_vat_detail', ['rate' => $rate, 'amount' => \App\Support\Money::formatEur($amount)]) }}
+                        </p>
+                    @endforeach
                 </div>
             </div>
         </div>

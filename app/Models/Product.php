@@ -35,6 +35,7 @@ class Product extends Model
         'unit',
         'price_display_unit',
         'unit_price',
+        'vat_rate_percent',
         'default_freshness_window_days',
         'buying_price_cents',
         'is_seasonal',
@@ -70,6 +71,9 @@ class Product extends Model
             // `displayPrice()` which renders in the admin's chosen
             // `price_display_unit` and formats to 2 decimals.
             'unit_price' => 'decimal:4',
+            // Whole-percent German VAT rate (7 reduced / 19 standard).
+            // The gross `unit_price` already includes this tax.
+            'vat_rate_percent' => 'integer',
             'default_freshness_window_days' => 'integer',
             'buying_price_cents' => 'integer',
             'is_seasonal' => 'boolean',
