@@ -389,6 +389,23 @@
             get availableSubcategories() {
                 return this.subcategoriesByCategory[this.category] ?? [];
             },
+            syncSubcategorySelect() {
+                this.$nextTick(() => {
+                    if (! this.$refs.subcategorySelect) {
+                        return;
+                    }
+                    const value = this.subcategoryId > 0 ? String(this.subcategoryId) : '0';
+                    this.$refs.subcategorySelect.value = value;
+                });
+            },
+            init() {
+                // x-model on <select> initializes before <template x-for>
+                // renders its <option>s, so the browser coerces back to the
+                // empty default and the POST carries subcategory_id=0.
+                this.syncSubcategorySelect();
+                this.$watch('category', () => this.syncSubcategorySelect());
+                this.$watch('availableSubcategories', () => this.syncSubcategorySelect());
+            },
         }"
         class="space-y-4"
     >
@@ -418,8 +435,13 @@
                     {{ __('admin.product_form.subcategory_manage_link') }} →
                 </a>
             </div>
-            <select id="subcategory_id" name="subcategory_id"
+            {{-- Hidden input submits the value; the visible <select> is Alpine-only
+                 (same pattern as the producer combobox) so x-for option timing
+                 cannot drop the chosen subcategory on save. --}}
+            <input type="hidden" name="subcategory_id" x-bind:value="subcategoryId > 0 ? subcategoryId : ''" />
+            <select id="subcategory_id"
                     x-model="subcategoryId"
+                    x-ref="subcategorySelect"
                     class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm">
                 <option value="0">{{ __('admin.product_form.subcategory_none') }}</option>
                 <template x-for="s in availableSubcategories" :key="s.id">

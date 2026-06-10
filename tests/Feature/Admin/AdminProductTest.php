@@ -7,6 +7,7 @@ use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductStockInflow;
+use App\Models\ProductSubcategory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -657,6 +658,69 @@ class AdminProductTest extends TestCase
             ->get(route('app.admin.products.edit', $product))
             ->assertOk()
             ->assertSee("displayUnit: 'kg'", escape: false);
+    }
+
+    public function test_admin_can_assign_subcategory_on_product_update(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+        $subcategory = ProductSubcategory::query()->create([
+            'category' => 'produce',
+            'label_de' => 'Beeren',
+            'label_en' => 'Berries',
+            'label_fr' => 'Baies',
+            'sort_order' => 10,
+        ]);
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'category' => 'produce',
+            'subcategory_id' => null,
+            'unit_price' => 1.00,
+        ]);
+
+        $translations = [
+            'de' => ['name' => 'Berry Product', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+            'en' => ['name' => 'Berry Product', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+            'fr' => ['name' => 'Berry Product', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+        ];
+
+        $this->actingAs($admin)
+            ->put(route('app.admin.products.update', $product), [
+                'producer_id' => $producer->id,
+                'translations' => $translations,
+                'category' => 'produce',
+                'subcategory_id' => (string) $subcategory->id,
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '3.25',
+                'is_available' => '1',
+            ])
+            ->assertRedirect(route('app.admin.products.edit', $product));
+
+        $this->assertSame($subcategory->id, $product->refresh()->subcategory_id);
+    }
+
+    public function test_edit_form_seeds_subcategory_id_for_alpine_select(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $subcategory = ProductSubcategory::query()->create([
+            'category' => 'produce',
+            'label_de' => 'Wurzeln',
+            'label_en' => 'Roots',
+            'label_fr' => 'Racines',
+            'sort_order' => 20,
+        ]);
+        $product = Product::factory()->create([
+            'category' => 'produce',
+            'subcategory_id' => $subcategory->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.products.edit', $product))
+            ->assertOk()
+            ->assertSee('name="subcategory_id"', escape: false)
+            ->assertSee('subcategoryId: '.$subcategory->id, escape: false)
+            ->assertSee('x-ref="subcategorySelect"', escape: false);
     }
 
     // ── Unit-kind change vs. existing inventory ───────────────────────────
