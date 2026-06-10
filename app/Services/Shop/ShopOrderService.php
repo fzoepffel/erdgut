@@ -72,6 +72,39 @@ class ShopOrderService
     }
 
     /**
+     * Signed, non-expiring PDF-receipt download URL. The route is public but
+     * the signature prevents guessing arbitrary order IDs.
+     */
+    public static function receiptUrl(ShopOrder $order): string
+    {
+        return URL::signedRoute('public.shop.receipt', ['shopOrder' => $order->id]);
+    }
+
+    /**
+     * Compute the per-rate VAT breakdown for an order.
+     *
+     * Groups the VAT contained in each gross line item by rate, adds the
+     * delivery-fee VAT (if any), and returns a Collection keyed by integer
+     * rate percent (e.g. 7 → 0.79, 19 → 1.60), sorted ascending by rate.
+     * All views that display VAT call this so the logic lives in one place.
+     *
+     * @return Collection<int, float>
+     */
+    public static function vatByRate(ShopOrder $order): Collection
+    {
+        $byRate = $order->items
+            ->groupBy('vat_rate_snapshot_percent')
+            ->map(fn ($group) => round($group->sum(fn ($item) => (float) $item->vat_amount_eur), 2));
+
+        if ((float) $order->delivery_fee_vat_amount_eur > 0) {
+            $r = (int) $order->delivery_fee_vat_rate_percent;
+            $byRate[$r] = round(($byRate[$r] ?? 0) + (float) $order->delivery_fee_vat_amount_eur, 2);
+        }
+
+        return $byRate->sortKeys();
+    }
+
+    /**
      * Customer-facing contact phone, which differs per fulfillment context:
      * deliveries and Karl-Kunger-Straße pickups share one line, the
      * Gotenstraße pickup point has its own. Used on the tracking page and

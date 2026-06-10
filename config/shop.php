@@ -46,6 +46,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Company / seller details (for PDF receipts / Belege)
+    |--------------------------------------------------------------------------
+    |
+    | These values appear on the Kleinbetragsrechnung that is generated after
+    | each paid order (§ 33 UStDV). They are rendered in German regardless of
+    | the customer's locale because the receipt is a German tax document.
+    |
+    */
+
+    'company_name' => env('SHOP_COMPANY_NAME', 'Erdgut'),
+    'company_street' => env('SHOP_COMPANY_STREET', ''),
+    'company_postal_city' => env('SHOP_COMPANY_POSTAL_CITY', ''),
+    'company_phone' => env('SHOP_COMPANY_PHONE', ''),
+    'company_email' => env('SHOP_COMPANY_EMAIL', 'kontakt@erd-gut.de'),
+    // Umsatzsteuer-Identifikationsnummer or Steuernummer of the seller.
+    'company_vat_id' => env('SHOP_COMPANY_VAT_ID', ''),
+
+    /*
+    |--------------------------------------------------------------------------
     | Pickup locations
     |--------------------------------------------------------------------------
     |

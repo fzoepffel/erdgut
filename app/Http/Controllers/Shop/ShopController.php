@@ -14,12 +14,14 @@ use App\Services\Shop\ShopOrderService;
 use App\Support\PickupLocations;
 use App\Support\ShopOrderAdminNotifier;
 use App\Support\SumUpCheckoutLogger;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Throwable;
 
 /**
@@ -302,6 +304,38 @@ class ShopController extends Controller
                 'items.product.producer.translations',
             ]),
         ]);
+    }
+
+    /**
+     * PDF receipt (Kleinbetragsrechnung) — always rendered in German.
+     *
+     * Guarded by a signed URL so order IDs cannot be enumerated by guests.
+     * No expiry: the customer can re-download at any time via the link in
+     * their confirmation email or from the return/track page.
+     */
+    public function receipt(Request $request, ShopOrder $shopOrder): SymfonyResponse
+    {
+        abort_unless($request->hasValidSignature(), 403);
+
+        $order = $shopOrder->loadMissing([
+            'items.product.translations',
+            'items.product.producer',
+        ]);
+
+        $pdf = Pdf::loadView('shop.pdf.receipt', [
+            'order' => $order,
+            'vatByRate' => ShopOrderService::vatByRate($order),
+            'company' => [
+                'name' => (string) config('shop.company_name'),
+                'street' => (string) config('shop.company_street'),
+                'postal_city' => (string) config('shop.company_postal_city'),
+                'phone' => (string) config('shop.company_phone'),
+                'email' => (string) config('shop.company_email'),
+                'vat_id' => (string) config('shop.company_vat_id'),
+            ],
+        ])->setPaper('a4');
+
+        return $pdf->download('erdgut-beleg-'.$order->id.'.pdf');
     }
 
     /**

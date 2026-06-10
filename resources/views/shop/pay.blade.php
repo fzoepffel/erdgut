@@ -4,15 +4,7 @@
             ? $order->expected_delivery_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM')
             : null;
 
-        // Per-rate VAT breakdown (VAT contained in the gross totals).
-        $vatByRate = $order->items
-            ->groupBy('vat_rate_snapshot_percent')
-            ->map(fn ($group) => round($group->sum(fn ($i) => (float) $i->vat_amount_eur), 2));
-        if ((float) $order->delivery_fee_vat_amount_eur > 0) {
-            $r = (int) $order->delivery_fee_vat_rate_percent;
-            $vatByRate[$r] = round(($vatByRate[$r] ?? 0) + (float) $order->delivery_fee_vat_amount_eur, 2);
-        }
-        $vatByRate = $vatByRate->sortKeys();
+        $vatByRate = \App\Services\Shop\ShopOrderService::vatByRate($order);
     @endphp
 
     <p class="eyebrow text-chapter-produce">{{ __('shop.eyebrow_pay') }}</p>

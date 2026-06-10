@@ -144,6 +144,9 @@ Route::name('public.')->group(function () {
     // in the confirmation / window emails) so order details can't be browsed
     // by incrementing the id. No expiry — the customer reopens it on the day.
     Route::get('/shop/{shopOrder}/track', [ShopController::class, 'track'])->name('shop.track');
+    // PDF receipt (Kleinbetragsrechnung) — always in German. Signed URL
+    // prevents order enumeration; no expiry so the customer can re-download.
+    Route::get('/shop/{shopOrder}/receipt', [ShopController::class, 'receipt'])->name('shop.receipt');
 
     // Isolated catalog detail pages for the preview shop. Same body as the
     // public /products/{product} and /producers/{slug} pages but wrapped in

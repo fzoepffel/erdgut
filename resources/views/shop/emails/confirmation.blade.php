@@ -20,15 +20,7 @@
             ? $order->expected_delivery_date->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY')
             : null;
         $totalLabel = number_format((float) $order->total_amount_eur, 2, ',', '.').' €';
-        // Per-rate VAT breakdown (VAT contained in the gross totals).
-        $vatByRate = $order->items
-            ->groupBy('vat_rate_snapshot_percent')
-            ->map(fn ($group) => round($group->sum(fn ($i) => (float) $i->vat_amount_eur), 2));
-        if ((float) $order->delivery_fee_vat_amount_eur > 0) {
-            $r = (int) $order->delivery_fee_vat_rate_percent;
-            $vatByRate[$r] = round(($vatByRate[$r] ?? 0) + (float) $order->delivery_fee_vat_amount_eur, 2);
-        }
-        $vatByRate = $vatByRate->sortKeys();
+        $vatByRate = \App\Services\Shop\ShopOrderService::vatByRate($order);
         $pickup = \App\Services\Shop\ShopOrderService::pickupLocation($order->pickup_location);
         $contactPhone = \App\Services\Shop\ShopOrderService::contactPhone($order);
         $contactPhoneHref = 'tel:'.preg_replace('/[^+0-9]/', '', $contactPhone);

@@ -20,16 +20,7 @@
             ? trim(preg_replace('/\s+\d+.*$/u', '', $pickup['street']))
             : null;
 
-        // Per-rate VAT breakdown (VAT contained in the gross totals), summing
-        // line-item VAT plus the delivery-fee VAT, keyed by whole-percent rate.
-        $vatByRate = $order->items
-            ->groupBy('vat_rate_snapshot_percent')
-            ->map(fn ($group) => round($group->sum(fn ($i) => (float) $i->vat_amount_eur), 2));
-        if ((float) $order->delivery_fee_vat_amount_eur > 0) {
-            $r = (int) $order->delivery_fee_vat_rate_percent;
-            $vatByRate[$r] = round(($vatByRate[$r] ?? 0) + (float) $order->delivery_fee_vat_amount_eur, 2);
-        }
-        $vatByRate = $vatByRate->sortKeys();
+        $vatByRate = \App\Services\Shop\ShopOrderService::vatByRate($order);
         $itemCount = $order->items->count();
         $discount = (float) $order->discount_eur;
         $deliveryFee = (float) $order->delivery_fee_eur;
@@ -240,10 +231,17 @@
             </x-reveal>
         @endif
 
-        {{-- Stay inside the isolated shop surface: link back to the storefront,
-             never to the (hidden) marketing home. --}}
-        <div class="mx-auto max-w-6xl px-4 py-10 text-sm sm:px-6 lg:px-8">
-            <a href="{{ route('public.shop.index') }}" class="text-brand-ink/65 underline-offset-4 hover:text-brand-ink hover:underline">
+        {{-- Receipt download + back link ──────────────────────────────── --}}
+        <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8 flex flex-wrap items-center gap-6">
+            <a
+                href="{{ \App\Services\Shop\ShopOrderService::receiptUrl($order) }}"
+                class="inline-flex items-center gap-2 rounded-sm border border-brand-ink/25 px-4 py-2 font-mono text-[0.7rem] uppercase tracking-widest text-brand-ink/70 transition hover:border-brand-ink/50 hover:text-brand-ink"
+                data-testid="shop-receipt-download"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                {{ __('shop.receipt_download_button') }}
+            </a>
+            <a href="{{ route('public.shop.index') }}" class="text-sm text-brand-ink/65 underline-offset-4 hover:text-brand-ink hover:underline">
                 ← {{ __('shop.pay_back') }}
             </a>
         </div>
