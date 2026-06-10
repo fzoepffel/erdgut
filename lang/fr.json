@@ -1838,6 +1838,7 @@
     "admin.product_form.unit_weight_hint": "Poids approximatif par unité en g. Optionnel — affiché aux clients dans la boutique comme référence.",
     "admin.product_form.unit_weight_label": "Poids par unité",
     "admin.product_form.subcategory_label": "Sous-catégorie",
+    "admin.product_form.subcategory_category_mismatch": "La sous-catégorie choisie n'appartient pas à la catégorie sélectionnée.",
     "admin.product_form.subcategory_manage_link": "Gérer les sous-catégories",
     "admin.product_form.subcategory_none": "— Aucune —",
     "admin.product_schedules.action_adjust": "Modifier la quantité",

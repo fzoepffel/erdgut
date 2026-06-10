@@ -1838,6 +1838,7 @@
     "admin.product_form.unit_weight_hint": "Ungefähres Gewicht pro Einheit in g. Optional — wird Kund:innen im Shop als Richtwert angezeigt.",
     "admin.product_form.unit_weight_label": "Gewicht pro Einheit",
     "admin.product_form.subcategory_label": "Unterkategorie",
+    "admin.product_form.subcategory_category_mismatch": "Die gewählte Unterkategorie gehört nicht zur ausgewählten Kategorie.",
     "admin.product_form.subcategory_manage_link": "Unterkategorien verwalten",
     "admin.product_form.subcategory_none": "— Keine —",
     "admin.product_schedules.action_adjust": "Menge ändern",

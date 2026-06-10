@@ -8,6 +8,7 @@ use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
 use App\Models\Product;
+use App\Models\ProductSubcategory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -94,7 +95,13 @@ class UpdateProductRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $subcategoryId = $this->input('subcategory_id');
+        if ($subcategoryId === '' || $subcategoryId === '0' || $subcategoryId === 0) {
+            $subcategoryId = null;
+        }
+
         $this->merge([
+            'subcategory_id' => $subcategoryId,
             'is_seasonal' => $this->boolean('is_seasonal'),
             'is_available' => $this->boolean('is_available'),
             'is_published' => $this->boolean('is_published'),
@@ -145,6 +152,19 @@ class UpdateProductRequest extends FormRequest
             // rejected here — the controller nulls them out based on the
             // final unit kind. Rejecting would trap admins switching kinds,
             // since the hidden form fields still carry their old values.
+
+            $category = $this->input('category');
+            $subcategoryId = $this->input('subcategory_id');
+            if (is_string($category) && $category !== '' && $subcategoryId !== null && $subcategoryId !== '') {
+                $matchesCategory = ProductSubcategory::query()
+                    ->whereKey((int) $subcategoryId)
+                    ->where('category', $category)
+                    ->exists();
+
+                if (! $matchesCategory) {
+                    $v->errors()->add('subcategory_id', __('admin.product_form.subcategory_category_mismatch'));
+                }
+            }
         });
     }
 

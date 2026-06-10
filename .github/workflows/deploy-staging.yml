@@ -149,7 +149,21 @@ jobs:
             # 2026-05-08).
             php artisan optimize:clear
 
+            # Drop tables left by the reverted translations-based subcategory
+            # migration. Tar extract does not delete removed files/tables.
+            php artisan tinker --execute="
+            \Illuminate\Support\Facades\Schema::dropIfExists('product_subcategory');
+            \Illuminate\Support\Facades\Schema::dropIfExists('product_subcategory_translations');
+            " 2>/dev/null || true
+
             php artisan migrate --force
+
+            php artisan tinker --execute="
+            if (! \Illuminate\Support\Facades\Schema::hasColumn('products', 'subcategory_id')) {
+                fwrite(STDERR, 'Missing products.subcategory_id after migrate'.PHP_EOL);
+                exit(1);
+            }
+            "
             php artisan storage:link --force
 
             # Boot smoke test — fails the deploy if the app can't bootstrap.

@@ -1838,6 +1838,7 @@
     "admin.product_form.unit_weight_hint": "Approximate weight per unit in g. Optional — shown to customers in the shop as a reference.",
     "admin.product_form.unit_weight_label": "Weight per unit",
     "admin.product_form.subcategory_label": "Subcategory",
+    "admin.product_form.subcategory_category_mismatch": "The selected subcategory does not belong to the selected category.",
     "admin.product_form.subcategory_manage_link": "Manage subcategories",
     "admin.product_form.subcategory_none": "— None —",
     "admin.product_schedules.action_adjust": "Change quantity",

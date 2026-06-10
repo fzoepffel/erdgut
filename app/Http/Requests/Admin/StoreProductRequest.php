@@ -7,6 +7,7 @@ use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
+use App\Models\ProductSubcategory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -100,7 +101,13 @@ class StoreProductRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $subcategoryId = $this->input('subcategory_id');
+        if ($subcategoryId === '' || $subcategoryId === '0' || $subcategoryId === 0) {
+            $subcategoryId = null;
+        }
+
         $this->merge([
+            'subcategory_id' => $subcategoryId,
             'is_seasonal' => $this->boolean('is_seasonal'),
             'is_available' => $this->boolean('is_available'),
             'is_published' => $this->boolean('is_published', true),
@@ -131,6 +138,19 @@ class StoreProductRequest extends FormRequest
             // piece/bunch, unit_weight/unit_volume for mass/volume) are NOT
             // rejected — the controller nulls them out based on the final
             // unit kind, so a stale hidden-field value is harmless.
+
+            $category = $this->input('category');
+            $subcategoryId = $this->input('subcategory_id');
+            if (is_string($category) && $category !== '' && $subcategoryId !== null && $subcategoryId !== '') {
+                $matchesCategory = ProductSubcategory::query()
+                    ->whereKey((int) $subcategoryId)
+                    ->where('category', $category)
+                    ->exists();
+
+                if (! $matchesCategory) {
+                    $v->errors()->add('subcategory_id', __('admin.product_form.subcategory_category_mismatch'));
+                }
+            }
         });
     }
 }
