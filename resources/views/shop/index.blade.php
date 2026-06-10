@@ -83,6 +83,7 @@
             csrf: @js(csrf_token()),
             couponErrorGeneric: @js(__('coupon.errors.generic')),
             subcategoriesByCategory: @js($alpineSubcategories),
+            defaultShopCategory: @js($defaultShopCategory),
         })"
     >
         {{-- ── Hero ──────────────────────────────────────────────────── --}}
@@ -378,7 +379,7 @@
                                 </div>
 
                                 {{-- Category chip rail --}}
-                                @if (count($availableCategories) > 1)
+                                @if (count($availableCategories) >= 1)
                                     <div>
                                         <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.grid_filter_category_label') }}</p>
                                         <div class="mt-2 flex flex-wrap gap-2">
@@ -939,7 +940,7 @@
                 email: config.email || '',
                 // ── Grid filters ───────────────────────────────────────
                 nameQuery: '',
-                activeCategory: '',
+                activeCategory: config.defaultShopCategory || '',
                 activeSubcategoryId: 0,
                 subcategoriesByCategory: config.subcategoriesByCategory || {},
                 get availableSubcategories() {

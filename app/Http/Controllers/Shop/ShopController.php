@@ -79,6 +79,12 @@ class ShopController extends Controller
             ->values()
             ->all();
 
+        // When the selected day only has one category, pre-activate it so the
+        // subcategory chip rail is reachable without a redundant category step.
+        $defaultShopCategory = count($availableCategories) === 1
+            ? $availableCategories[0]
+            : '';
+
         // Subcategories grouped by parent category for the shop filter UI.
         $locale = app()->getLocale();
         $alpineSubcategories = ProductSubcategory::query()
@@ -99,6 +105,7 @@ class ShopController extends Controller
             'selectedDate' => $selectedDate,
             'products' => $products,
             'availableCategories' => $availableCategories,
+            'defaultShopCategory' => $defaultShopCategory,
             'alpineSubcategories' => $alpineSubcategories,
             'pickupLocations' => PickupLocations::all(),
             'deliveryFeeEur' => $this->service->deliveryFee(),
