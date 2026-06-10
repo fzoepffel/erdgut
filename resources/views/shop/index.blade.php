@@ -82,6 +82,7 @@
             couponPreviewUrl: @js(route('public.shop.coupon.preview')),
             csrf: @js(csrf_token()),
             couponErrorGeneric: @js(__('coupon.errors.generic')),
+            subcategoriesByCategory: @js($alpineSubcategories),
         })"
     >
         {{-- ── Hero ──────────────────────────────────────────────────── --}}
@@ -360,6 +361,68 @@
                             <p class="max-w-md text-sm leading-relaxed text-shop-muted">{{ __('shop.weekly_intro') }}</p>
                         </header>
 
+                        {{-- ── Product grid filters ──────────────────────── --}}
+                        @if (! $products->isEmpty())
+                            <div class="mb-8 space-y-4">
+                                {{-- Name search --}}
+                                <div>
+                                    <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.grid_filter_search_label') }}</p>
+                                    <input
+                                        type="text"
+                                        x-model="nameQuery"
+                                        :placeholder="@js(__('shop.grid_filter_search_placeholder'))"
+                                        autocomplete="off"
+                                        class="mt-1 w-full border-b border-shop-foreground bg-transparent px-1 pb-3 pt-2 font-display text-2xl leading-tight text-shop-foreground placeholder:text-shop-muted focus:border-shop-primary focus:outline-none md:text-3xl"
+                                        data-testid="shop-name-filter"
+                                    />
+                                </div>
+
+                                {{-- Category chip rail --}}
+                                @if (count($availableCategories) > 1)
+                                    <div>
+                                        <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.grid_filter_category_label') }}</p>
+                                        <div class="mt-2 flex flex-wrap gap-2">
+                                            <button type="button"
+                                                    @click="setCategory('')"
+                                                    :class="activeCategory === '' ? 'bg-shop-foreground text-shop-background' : 'border border-shop-border text-shop-foreground hover:border-shop-foreground'"
+                                                    class="px-3 py-1 font-mono text-[0.6rem] uppercase tracking-wider transition">
+                                                {{ __('shop.grid_filter_all') }}
+                                            </button>
+                                            @foreach ($availableCategories as $cat)
+                                                <button type="button"
+                                                        @click="setCategory('{{ $cat }}')"
+                                                        :class="activeCategory === '{{ $cat }}' ? 'bg-shop-foreground text-shop-background' : 'border border-shop-border text-shop-foreground hover:border-shop-foreground'"
+                                                        class="px-3 py-1 font-mono text-[0.6rem] uppercase tracking-wider transition">
+                                                    {{ __('admin.category.'.$cat) }}
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+
+                                {{-- Subcategory chip rail (appears when a category is active) --}}
+                                <div x-show="activeCategory !== '' && availableSubcategories.length > 0" x-cloak>
+                                    <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.grid_filter_subcategory_label') }}</p>
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        <button type="button"
+                                                @click="activeSubcategoryId = 0"
+                                                :class="activeSubcategoryId === 0 ? 'bg-shop-foreground text-shop-background' : 'border border-shop-border text-shop-foreground hover:border-shop-foreground'"
+                                                class="px-3 py-1 font-mono text-[0.6rem] uppercase tracking-wider transition">
+                                            {{ __('shop.grid_filter_all') }}
+                                        </button>
+                                        <template x-for="s in availableSubcategories" :key="s.id">
+                                            <button type="button"
+                                                    @click="activeSubcategoryId = s.id"
+                                                    :class="activeSubcategoryId === s.id ? 'bg-shop-foreground text-shop-background' : 'border border-shop-border text-shop-foreground hover:border-shop-foreground'"
+                                                    class="px-3 py-1 font-mono text-[0.6rem] uppercase tracking-wider transition"
+                                                    x-text="s.label">
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
                         @if ($products->isEmpty())
                             <div class="border border-shop-border bg-shop-paper p-6 text-sm text-shop-muted" data-testid="shop-no-products">
                                 {{ __('shop.no_products_for_date') }}
@@ -378,6 +441,7 @@
                                         $oldQty = (int) old('quantities.'.$product->id, 0);
                                     @endphp
 
+                                    <div x-show="cardVisible({{ json_encode(mb_strtolower($product->name)) }}, '{{ $product->category }}', {{ $product->subcategory_id ?? 0 }})">
                                     @if ($availableToday)
                                         <article class="group flex h-full flex-col" data-testid="shop-product-card">
                                     @else
@@ -470,6 +534,7 @@
                                             @endif
                                         </div>
                                     </article>
+                                    </div>{{-- /cardVisible wrapper --}}
                                 @endforeach
                             </div>
                             <x-input-error :messages="$errors->get('items')" class="mt-4" />
@@ -872,6 +937,24 @@
                 pickupLocation: config.pickupLocation || '',
                 quantities: {},
                 email: config.email || '',
+                // ── Grid filters ───────────────────────────────────────
+                nameQuery: '',
+                activeCategory: '',
+                activeSubcategoryId: 0,
+                subcategoriesByCategory: config.subcategoriesByCategory || {},
+                get availableSubcategories() {
+                    return this.subcategoriesByCategory[this.activeCategory] ?? [];
+                },
+                setCategory(cat) {
+                    this.activeCategory = this.activeCategory === cat ? '' : cat;
+                    this.activeSubcategoryId = 0;
+                },
+                cardVisible(name, category, subcategoryId) {
+                    if (this.nameQuery.trim() && !name.includes(this.nameQuery.trim().toLowerCase())) return false;
+                    if (this.activeCategory && category !== this.activeCategory) return false;
+                    if (this.activeSubcategoryId && subcategoryId !== this.activeSubcategoryId) return false;
+                    return true;
+                },
                 // Coupon state.
                 couponPreviewUrl: config.couponPreviewUrl,
                 csrf: config.csrf,

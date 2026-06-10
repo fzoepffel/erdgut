@@ -366,28 +366,61 @@
         @endforeach
     </div>
 
-    <div>
-        <x-input-label for="category" :value="__('Category')" required />
-        <select id="category" name="category" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" required>
-            {{-- F2 (UX notes): force an explicit category choice instead of
-                 silently defaulting to the first enum value (Backwaren). The
-                 placeholder is a disabled empty option that Laravel's
-                 `required` rule will reject, so a "saved as Backwaren by
-                 mistake" outcome stops being possible. --}}
-            @php
-                // Use the full block form rather than the single-line
-                // shorthand: the latter breaks subsequent block compilation.
-                // See docs/feedback_blade_php_shorthand.md.
-                $currentCategory = old('category', $product?->category);
-            @endphp
-            <option value="" disabled @selected($currentCategory === null || $currentCategory === '')>
-                {{ __('— Select category —') }}
-            </option>
-            @foreach ($categories as $cat)
-                <option value="{{ $cat }}" @selected($currentCategory === $cat)>{{ __('admin.category.'.$cat) }}</option>
-            @endforeach
-        </select>
-        <x-input-error class="mt-2" :messages="$errors->get('category')" />
+    @php
+        $currentCategory    = old('category', $product?->category);
+        $currentSubcatId    = (int) old('subcategory_id', $product?->subcategory_id ?? 0);
+
+        $subcategoriesByCategory = \App\Models\ProductSubcategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('label_de')
+            ->get()
+            ->groupBy('category')
+            ->map(fn ($g) => $g->map(fn ($s) => [
+                'id'    => $s->id,
+                'label' => $s->label(app()->getLocale()),
+            ])->values()->all())
+            ->all();
+    @endphp
+    <div
+        x-data="{
+            category: @js((string) ($currentCategory ?? '')),
+            subcategoryId: @js($currentSubcatId),
+            subcategoriesByCategory: @js($subcategoriesByCategory),
+            get availableSubcategories() {
+                return this.subcategoriesByCategory[this.category] ?? [];
+            },
+        }"
+        class="space-y-4"
+    >
+        <div>
+            <x-input-label for="category" :value="__('Category')" required />
+            <select id="category" name="category"
+                    x-model="category"
+                    x-on:change="subcategoryId = 0"
+                    class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+                    required>
+                <option value="" disabled :selected="category === ''">
+                    {{ __('— Select category —') }}
+                </option>
+                @foreach ($categories as $cat)
+                    <option value="{{ $cat }}">{{ __('admin.category.'.$cat) }}</option>
+                @endforeach
+            </select>
+            <x-input-error class="mt-2" :messages="$errors->get('category')" />
+        </div>
+
+        <div x-show="availableSubcategories.length > 0" x-cloak>
+            <x-input-label for="subcategory_id" :value="__('admin.product_form.subcategory_label')" />
+            <select id="subcategory_id" name="subcategory_id"
+                    x-model="subcategoryId"
+                    class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm">
+                <option value="0">{{ __('admin.product_form.subcategory_none') }}</option>
+                <template x-for="s in availableSubcategories" :key="s.id">
+                    <option :value="s.id" x-text="s.label"></option>
+                </template>
+            </select>
+            <x-input-error class="mt-2" :messages="$errors->get('subcategory_id')" />
+        </div>
     </div>
 
     {{-- Unit, display unit, and price live in a shared Alpine state so

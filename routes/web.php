@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\AdminUpcomingChargeController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\SubcategoryController;
 use App\Http\Controllers\BoxController;
 use App\Http\Controllers\DashboardClickEventController;
 use App\Http\Controllers\DashboardController;
@@ -409,6 +410,7 @@ Route::middleware(['auth', 'verified'])
                 ->name('inflow-schedules.adjust');
 
             Route::resource('products', ProductController::class)->except(['show']);
+            Route::resource('subcategories', SubcategoryController::class)->except(['show']);
 
             Route::get('orders/create', [AdminOrderController::class, 'create'])->name('orders.create');
             Route::post('orders', [AdminOrderController::class, 'store'])

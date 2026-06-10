@@ -31,6 +31,7 @@ class Product extends Model
     protected $fillable = [
         'producer_id',
         'category',
+        'subcategory_id',
         'unit',
         'price_display_unit',
         'unit_price',
@@ -93,6 +94,11 @@ class Product extends Model
     public function producer(): BelongsTo
     {
         return $this->belongsTo(Producer::class);
+    }
+
+    public function subcategory(): BelongsTo
+    {
+        return $this->belongsTo(ProductSubcategory::class, 'subcategory_id');
     }
 
     /**

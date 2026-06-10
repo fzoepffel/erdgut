@@ -52,6 +52,7 @@ class UpdateProductRequest extends FormRequest
             ...$translationRules,
             'producer_id' => ['required', 'integer', 'exists:producers,id'],
             'category' => ['required', 'string', Rule::in(ProductCategory::values())],
+            'subcategory_id' => ['nullable', 'integer', 'exists:product_subcategories,id'],
             'unit' => ['required', 'string', Rule::in(ProductUnit::values())],
             'price_display_unit' => ['required', 'string', Rule::in(['g', '100g', 'kg', 'ml', 'l', 'piece', 'bunch'])],
             'price' => ['required', 'numeric', 'min:0', 'decimal:0,2'],

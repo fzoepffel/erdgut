@@ -49,6 +49,7 @@ class StoreProductRequest extends FormRequest
             ...$translationRules,
             'producer_id' => ['required', 'integer', 'exists:producers,id'],
             'category' => ['required', 'string', Rule::in(ProductCategory::values())],
+            'subcategory_id' => ['nullable', 'integer', 'exists:product_subcategories,id'],
             'unit' => ['required', 'string', Rule::in(ProductUnit::values())],
             // Admin chooses which symbol they're entering the price in
             // (g / kg / ml / l / piece / bunch). The controller converts

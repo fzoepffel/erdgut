@@ -294,6 +294,9 @@ class ProductController extends Controller
         $payload = [
             'producer_id' => $validated['producer_id'],
             'category' => $validated['category'],
+            'subcategory_id' => isset($validated['subcategory_id']) && (int) $validated['subcategory_id'] > 0
+                ? (int) $validated['subcategory_id']
+                : null,
             'unit' => $validated['unit'],
             'price_display_unit' => $displayUnit,
             'unit_price' => $canonicalUnitPrice,

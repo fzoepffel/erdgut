@@ -6,6 +6,7 @@ use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ShopOrderRequest;
 use App\Mail\ShopOrderConfirmationMail;
+use App\Models\ProductSubcategory;
 use App\Models\ShopOrder;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
@@ -70,12 +71,35 @@ class ShopController extends Controller
             ? $this->service->weeklyProductsForDate($selectedDate)
             : collect();
 
+        // Categories that have at least one product available on this day —
+        // used to render only relevant category filter chips.
+        $availableCategories = $products
+            ->map(fn (array $row): string => $row['product']->category)
+            ->unique()
+            ->values()
+            ->all();
+
+        // Subcategories grouped by parent category for the shop filter UI.
+        $locale = app()->getLocale();
+        $alpineSubcategories = ProductSubcategory::query()
+            ->orderBy('category')
+            ->orderBy('sort_order')
+            ->get()
+            ->groupBy('category')
+            ->map(fn ($g) => $g->map(fn ($s) => [
+                'id' => $s->id,
+                'label' => $s->label($locale),
+            ])->values()->all())
+            ->all();
+
         return view('shop.index', [
             'availableDates' => $availableDates,
             'filterProducts' => $filterProducts,
             'activeProductIds' => $activeProductIds,
             'selectedDate' => $selectedDate,
             'products' => $products,
+            'availableCategories' => $availableCategories,
+            'alpineSubcategories' => $alpineSubcategories,
             'pickupLocations' => PickupLocations::all(),
             'deliveryFeeEur' => $this->service->deliveryFee(),
             'vatRatePercent' => (int) config('shop.vat_rate_percent', 7),
