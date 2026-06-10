@@ -410,7 +410,14 @@
         </div>
 
         <div x-show="availableSubcategories.length > 0" x-cloak>
-            <x-input-label for="subcategory_id" :value="__('admin.product_form.subcategory_label')" />
+            <div class="flex items-baseline justify-between">
+                <x-input-label for="subcategory_id" :value="__('admin.product_form.subcategory_label')" />
+                <a href="{{ route('app.admin.subcategories.index') }}"
+                   class="text-xs text-emerald-700 underline underline-offset-2 hover:no-underline"
+                   target="_blank">
+                    {{ __('admin.product_form.subcategory_manage_link') }} →
+                </a>
+            </div>
             <select id="subcategory_id" name="subcategory_id"
                     x-model="subcategoryId"
                     class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm">

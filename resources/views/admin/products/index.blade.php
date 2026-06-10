@@ -13,6 +13,12 @@
             </h2>
             <div class="flex flex-wrap items-center gap-2">
                 <a
+                    href="{{ route('app.admin.subcategories.index') }}"
+                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                >
+                    {{ __('admin.subcategories.title') }}
+                </a>
+                <a
                     href="{{ route('app.admin.inventory.index') }}"
                     class="inline-flex items-center rounded-md border border-emerald-600 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
                 >
