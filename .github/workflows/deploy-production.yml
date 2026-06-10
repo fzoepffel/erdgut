@@ -88,6 +88,9 @@ jobs:
         run: tar -czf vendor.tar.gz vendor/
 
       # Hash used server-side to decide whether to extract vendor.
+      # File is suffixed -production so staging and production (which share
+      # the same server home directory ~/), don't overwrite each other's
+      # hash and accidentally skip vendor extraction on the other env.
       - name: Compute composer.lock hash
         run: md5sum composer.lock | cut -d' ' -f1 > vendor_lock_hash_new.txt
 
@@ -118,13 +121,15 @@ jobs:
             rm -f ~/release.tar.gz
 
             # Only extract vendor when composer.lock changed.
+            # Uses env-suffixed filenames so staging and production (same
+            # server, shared ~/) can't cross-contaminate their hash state.
             NEW_HASH=$(cat ~/vendor_lock_hash_new.txt)
-            OLD_HASH=$(cat ~/vendor_lock_hash_deployed.txt 2>/dev/null || echo "none")
+            OLD_HASH=$(cat ~/vendor_lock_hash_deployed_production.txt 2>/dev/null || echo "none")
 
             if [ "$NEW_HASH" != "$OLD_HASH" ]; then
               echo "composer.lock changed — extracting vendor (this may take a while)..."
               tar -xzf ~/vendor.tar.gz -C "${{ env.APP_DIR }}"
-              cp ~/vendor_lock_hash_new.txt ~/vendor_lock_hash_deployed.txt
+              cp ~/vendor_lock_hash_new.txt ~/vendor_lock_hash_deployed_production.txt
               echo "Vendor extraction complete."
             else
               echo "composer.lock unchanged — skipping vendor extraction."
