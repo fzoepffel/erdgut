@@ -116,6 +116,13 @@ jobs:
             set -e
             mkdir -p "${{ env.APP_DIR }}"
 
+            # Guard: fail fast with a clear message if the SCP upload silently
+            # dropped the files (known transient issue with appleboy/scp-action
+            # on IONOS). Just re-run the workflow if this fires.
+            test -f ~/release.tar.gz      || (echo "UPLOAD MISSING: release.tar.gz not found in ~/. Re-run the workflow." && exit 1)
+            test -f ~/vendor.tar.gz       || (echo "UPLOAD MISSING: vendor.tar.gz not found in ~/. Re-run the workflow." && exit 1)
+            test -f ~/vendor_lock_hash_new.txt || (echo "UPLOAD MISSING: vendor_lock_hash_new.txt not found in ~/. Re-run the workflow." && exit 1)
+
             # Always extract the app code (small, fast).
             tar -xzf ~/release.tar.gz -C "${{ env.APP_DIR }}"
             rm -f ~/release.tar.gz
