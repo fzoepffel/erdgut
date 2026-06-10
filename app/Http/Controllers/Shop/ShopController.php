@@ -85,9 +85,22 @@ class ShopController extends Controller
             ? $availableCategories[0]
             : '';
 
-        // Subcategories grouped by parent category for the shop filter UI.
+        // Subcategory IDs that appear on at least one product this day — only
+        // these are shown as filter chips so every option narrows the grid.
+        $subcategoryIdsOnDay = $products
+            ->map(function (array $row): ?int {
+                $id = $row['product']->subcategory_id;
+
+                return $id !== null && (int) $id > 0 ? (int) $id : null;
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
         $locale = app()->getLocale();
         $alpineSubcategories = ProductSubcategory::query()
+            ->whereIn('id', $subcategoryIdsOnDay)
             ->orderBy('category')
             ->orderBy('sort_order')
             ->get()
