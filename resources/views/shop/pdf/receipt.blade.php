@@ -181,8 +181,8 @@
             <div class="customer-detail">
                 Abholung<br>
                 @if ($pickup)
-                    {{ $pickup['label'] ?? $order->pickup_location }}<br>
-                    {{ $pickup['street'] ?? '' }}
+                    {{ $pickup['street'] ?? '' }}<br>
+                    {{ ($pickup['postal_code'] ?? '') . ' ' . ($pickup['city'] ?? '') }}
                 @else
                     {{ $order->pickup_location }}
                 @endif
