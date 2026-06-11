@@ -3329,5 +3329,13 @@
     "coupon.admin.errors.value_required": "Bitte einen Wert angeben.",
     "coupon.admin.errors.percent_too_high": "Der Rabatt darf höchstens :max % betragen.",
     "coupon.admin.errors.fixed_needs_min": "Festbetrag-Gutscheine brauchen einen Mindestbestellwert.",
-    "coupon.admin.errors.min_below_value": "Der Mindestbestellwert muss mindestens dem Gutscheinwert entsprechen."
+    "coupon.admin.errors.min_below_value": "Der Mindestbestellwert muss mindestens dem Gutscheinwert entsprechen.",
+    "shop.confirm_order_title": "Bestellung prüfen",
+    "shop.confirm_order_body": "Bitte prüfe deine Bestellung, bevor sie verbindlich aufgegeben wird.",
+    "shop.confirm_order_date": "Abholdatum",
+    "shop.confirm_order_location": "Abholort",
+    "shop.confirm_order_total": "Gesamtbetrag",
+    "shop.confirm_order_submit": "Jetzt verbindlich bestellen",
+    "shop.confirm_order_cancel": "Zurück",
+    "shop.cta_helper_in_person": "Du kannst deine Bestellung im nächsten Schritt prüfen."
 }

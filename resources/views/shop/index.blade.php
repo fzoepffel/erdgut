@@ -91,6 +91,15 @@
             trackEnabled: {{ config('shop.ranking.enabled', true) ? 'true' : 'false' }},
             impressionThreshold: {{ (float) config('shop.ranking.impression_visibility', 0.5) }},
             beaconDebounce: {{ (int) config('shop.ranking.beacon_debounce_ms', 2000) }},
+            pickupLocationNames: @js(collect($pickupLocations)->map(fn($loc) => $loc['name'])->all()),
+            selectedDateLabel: @js($selectedDate?->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY') ?? ''),
+            confirmTitle: @js(__('shop.confirm_order_title')),
+            confirmBody: @js(__('shop.confirm_order_body')),
+            confirmDateLabel: @js(__('shop.confirm_order_date')),
+            confirmLocationLabel: @js(__('shop.confirm_order_location')),
+            confirmTotalLabel: @js(__('shop.confirm_order_total')),
+            confirmSubmitLabel: @js(__('shop.confirm_order_submit')),
+            confirmCancelLabel: @js(__('shop.confirm_order_cancel')),
         })"
     >
         {{-- ── Hero ──────────────────────────────────────────────────── --}}
@@ -131,6 +140,7 @@
                 method="POST"
                 action="{{ route('public.shop.store') }}"
                 data-testid="shop-form"
+                @submit="requestConfirm($event)"
             >
                 @csrf
                 <input type="hidden" name="expected_delivery_date" value="{{ $selectedDate?->toDateString() }}">
@@ -791,11 +801,73 @@
                                 <span x-show="mode === 'delivery' || payment === 'online'">{{ __('shop.cta_continue_to_payment') }} →</span>
                                 <span x-show="mode === 'pickup' && payment === 'in_person'" x-cloak>{{ __('shop.cta_place_order') }} →</span>
                             </button>
-                            <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">{{ __('shop.cta_helper') }}</span>
+                            <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">
+                                <span x-show="payment !== 'in_person'">{{ __('shop.cta_helper') }}</span>
+                                <span x-show="payment === 'in_person'" x-cloak>{{ __('shop.cta_helper_in_person') }}</span>
+                            </span>
                         </div>
                     </div>
                 </x-reveal>
             </form>
+
+            {{-- ── In-person order confirmation modal ──────────────────── --}}
+            <div
+                x-show="showConfirmModal"
+                x-cloak
+                class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                role="dialog"
+                aria-modal="true"
+                :aria-label="confirmTitle"
+                data-testid="shop-confirm-modal"
+            >
+                {{-- Backdrop --}}
+                <div class="absolute inset-0 bg-brand-ink/60 backdrop-blur-sm" @click="showConfirmModal = false"></div>
+
+                {{-- Panel --}}
+                <div class="relative w-full max-w-md bg-shop-paper p-8 shadow-xl">
+                    <p class="{{ $eyebrow }} mb-4" x-text="confirmTitle"></p>
+                    <p class="mb-6 text-sm leading-relaxed text-shop-muted" x-text="confirmBody"></p>
+
+                    {{-- Summary --}}
+                    <dl class="mb-6 space-y-3 border border-shop-border p-4 text-sm">
+                        <div class="flex items-baseline justify-between gap-4">
+                            <dt class="text-shop-muted" x-text="confirmDateLabel"></dt>
+                            <dd class="text-right font-medium text-shop-foreground" x-text="selectedDateLabel"></dd>
+                        </div>
+                        <div class="flex items-baseline justify-between gap-4">
+                            <dt class="text-shop-muted" x-text="confirmLocationLabel"></dt>
+                            <dd class="text-right font-medium text-shop-foreground" x-text="confirmPickupName"></dd>
+                        </div>
+                        <div class="border-t border-shop-border pt-3 flex items-baseline justify-between gap-4">
+                            <dt class="font-semibold text-shop-foreground" x-text="confirmTotalLabel"></dt>
+                            <dd class="text-right font-semibold tabular-nums text-shop-foreground" x-text="money(total)"></dd>
+                        </div>
+                    </dl>
+
+                    {{-- Actions --}}
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button
+                            type="button"
+                            class="rounded-sm bg-shop-primary px-6 py-3 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+                            :disabled="confirmSubmitting"
+                            @click="submitConfirmed()"
+                            data-testid="shop-confirm-submit"
+                        >
+                            <span x-show="!confirmSubmitting" x-text="confirmSubmitLabel"></span>
+                            <span x-show="confirmSubmitting" x-cloak>…</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:underline"
+                            :disabled="confirmSubmitting"
+                            @click="showConfirmModal = false"
+                            data-testid="shop-confirm-cancel"
+                        >
+                            <span x-text="confirmCancelLabel"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         @endif
     </div>
 
@@ -979,6 +1051,31 @@
                 couponMessage: '',
                 applyingCoupon: false,
                 _couponTimer: null,
+                // ── In-person confirmation modal ─────────────────────────
+                showConfirmModal: false,
+                confirmSubmitting: false,
+                pickupLocationNames: config.pickupLocationNames || {},
+                selectedDateLabel: config.selectedDateLabel || '',
+                confirmTitle: config.confirmTitle,
+                confirmBody: config.confirmBody,
+                confirmDateLabel: config.confirmDateLabel,
+                confirmLocationLabel: config.confirmLocationLabel,
+                confirmTotalLabel: config.confirmTotalLabel,
+                confirmSubmitLabel: config.confirmSubmitLabel,
+                confirmCancelLabel: config.confirmCancelLabel,
+                get confirmPickupName() {
+                    return this.pickupLocationNames[this.pickupLocation] || this.pickupLocation;
+                },
+                requestConfirm(event) {
+                    // Only intercept in-person pickup; online/delivery submit normally.
+                    if (this.payment !== 'in_person' || this.mode !== 'pickup') return;
+                    event.preventDefault();
+                    this.showConfirmModal = true;
+                },
+                submitConfirmed() {
+                    this.confirmSubmitting = true;
+                    this.$el.closest('form').submit();
+                },
                 // ── Engagement tracking (ranking bandit) ─────────────────
                 trackUrl: config.trackUrl,
                 trackEnabled: config.trackEnabled !== false,

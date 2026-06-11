@@ -3329,5 +3329,13 @@
     "coupon.admin.errors.value_required": "Please enter a value.",
     "coupon.admin.errors.percent_too_high": "The discount may be at most :max%.",
     "coupon.admin.errors.fixed_needs_min": "Fixed-amount coupons require a minimum order value.",
-    "coupon.admin.errors.min_below_value": "The minimum order value must be at least the coupon value."
+    "coupon.admin.errors.min_below_value": "The minimum order value must be at least the coupon value.",
+    "shop.confirm_order_title": "Review your order",
+    "shop.confirm_order_body": "Please review your order before placing it.",
+    "shop.confirm_order_date": "Pickup date",
+    "shop.confirm_order_location": "Pickup location",
+    "shop.confirm_order_total": "Total",
+    "shop.confirm_order_submit": "Place order now",
+    "shop.confirm_order_cancel": "Back",
+    "shop.cta_helper_in_person": "You can review your order before confirming."
 }

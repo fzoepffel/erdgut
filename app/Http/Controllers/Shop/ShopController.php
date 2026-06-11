@@ -144,6 +144,26 @@ class ShopController extends Controller
 
     public function store(ShopOrderRequest $request): RedirectResponse
     {
+        // Guard against duplicate in-person orders from back-button replay.
+        // If the same email+date already has a PendingPayment in-person order
+        // created within the last 10 minutes, redirect to that order instead
+        // of creating another one. Online orders are not deduped here — their
+        // SumUp checkout URL is idempotent and the pay page handles retries.
+        if ($request->input('payment_method') === 'in_person') {
+            $existing = ShopOrder::query()
+                ->where('email', (string) $request->input('email'))
+                ->whereDate('expected_delivery_date', (string) $request->input('expected_delivery_date'))
+                ->where('payment_method', 'in_person')
+                ->where('status', ShopOrderStatus::PendingPayment)
+                ->where('created_at', '>=', now()->subMinutes(10))
+                ->latest()
+                ->first();
+
+            if ($existing !== null) {
+                return redirect()->route('public.shop.return', ['shopOrder' => $existing->id]);
+            }
+        }
+
         try {
             $order = $this->service->createOrder($request->validated());
         } catch (InsufficientStockException $e) {
