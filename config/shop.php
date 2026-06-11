@@ -75,4 +75,37 @@ return [
 
     'pickup_locations' => PickupLocations::all(),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Product ranking (margin-per-impression Thompson-sampling bandit)
+    |--------------------------------------------------------------------------
+    |
+    | Orders the storefront grid to drive sales: proven high-margin sellers
+    | rise (exploitation) while new/under-exposed products still get visibility
+    | (exploration), with a time-decay so the order stays seasonal and never
+    | locks in. See App\Services\Shop\ProductRankingService.
+    |
+    | - enabled:         master switch; off → legacy "available first" order.
+    | - objective:       'margin' (uses buying prices, revenue fallback) or 'revenue'.
+    | - half_life_days:  age at which a sale/impression counts half as much.
+    | - prior_alpha/beta: Beta priors for the add-to-cart rate of a product
+    |                    with no data yet (tuned for early exploration).
+    | - stats_ttl:       seconds the decayed-stats aggregate is cached.
+    | - impression_visibility: fraction of a card visible before it counts
+    |                    as an impression (frontend IntersectionObserver).
+    | - beacon_debounce_ms: how long the frontend batches events before sending.
+    |
+    */
+
+    'ranking' => [
+        'enabled' => (bool) env('SHOP_RANKING_ENABLED', true),
+        'objective' => env('SHOP_RANKING_OBJECTIVE', 'margin'), // margin|revenue
+        'half_life_days' => (int) env('SHOP_RANKING_HALF_LIFE_DAYS', 28),
+        'prior_alpha' => (float) env('SHOP_RANKING_PRIOR_ALPHA', 1.0),
+        'prior_beta' => (float) env('SHOP_RANKING_PRIOR_BETA', 20.0),
+        'stats_ttl' => (int) env('SHOP_RANKING_STATS_TTL', 900),
+        'impression_visibility' => (float) env('SHOP_RANKING_IMPRESSION_VISIBILITY', 0.5),
+        'beacon_debounce_ms' => (int) env('SHOP_RANKING_BEACON_DEBOUNCE_MS', 2000),
+    ],
+
 ];

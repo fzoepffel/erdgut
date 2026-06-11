@@ -455,6 +455,34 @@ class Product extends Model
     }
 
     /**
+     * Fraction of a gross line total that is gross margin (0–1), or null when
+     * no buying price is set. Used by the ranking bandit to turn a line's
+     * gross revenue into realized margin; a null result means callers fall
+     * back to revenue (the margin objective's revenue fallback).
+     */
+    public function marginFraction(): ?float
+    {
+        $percent = $this->grossMarginPercent();
+
+        return $percent === null ? null : max(0.0, $percent / 100);
+    }
+
+    /**
+     * Cold-start value estimate (EUR) for a product with no purchase history
+     * yet, used as the ranking bandit's prior "value per add-to-cart". Uses
+     * the per-display-unit margin when a buying price exists, else the
+     * per-display-unit price (revenue fallback) — so an expensive/high-margin
+     * new product is explored with an appropriately high value.
+     */
+    public function rankingPriorValue(): float
+    {
+        $fraction = $this->marginFraction();
+        $price = $this->displayUnitPrice();
+
+        return $fraction !== null ? $price * $fraction : $price;
+    }
+
+    /**
      * Get all boxes that include this product via box items.
      */
     public function boxes(): BelongsToMany
