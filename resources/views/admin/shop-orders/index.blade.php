@@ -1,8 +1,15 @@
 <x-admin-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between gap-3">
-            <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('shop.admin.heading') }}</h1>
-            <span class="text-sm text-gray-500">{{ __('shop.admin.subheading', ['count' => $orders->total()]) }}</span>
+            <div>
+                <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('shop.admin.heading') }}</h1>
+                <span class="text-sm text-gray-500">{{ __('shop.admin.subheading', ['count' => $orders->total()]) }}</span>
+            </div>
+            <a href="{{ route('app.admin.shop-orders.create') }}"
+               class="inline-flex items-center gap-1.5 rounded-sm bg-gray-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700"
+               data-testid="shop-admin-create-link">
+                + {{ __('shop.admin.action_create_order') }}
+            </a>
         </div>
     </x-slot>
 
@@ -44,6 +51,7 @@
                             <th class="px-3 py-2">{{ __('shop.admin.col_id') }}</th>
                             <th class="px-3 py-2">{{ __('shop.admin.col_placed') }}</th>
                             <th class="px-3 py-2">{{ __('shop.admin.col_customer') }}</th>
+                            <th class="px-3 py-2">{{ __('shop.admin.col_type') }}</th>
                             <th class="px-3 py-2">{{ __('shop.admin.col_fulfillment') }}</th>
                             <th class="px-3 py-2">{{ __('shop.admin.col_when') }}</th>
                             <th class="px-3 py-2 text-right">{{ __('shop.admin.col_total') }}</th>
@@ -60,8 +68,22 @@
                                     {{ $order->created_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm') }}
                                 </td>
                                 <td class="px-3 py-2">
-                                    <div class="font-medium text-gray-800">{{ $order->name }}</div>
-                                    <div class="text-xs text-gray-500">{{ $order->email }}</div>
+                                    <div class="font-medium text-gray-800">
+                                        {{ $order->name ?: '—' }}
+                                    </div>
+                                    @if ($order->email)
+                                        <div class="text-xs text-gray-500">{{ $order->email }}</div>
+                                    @endif
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-2">
+                                    <div class="flex flex-wrap gap-1">
+                                        @if ($order->order_source === \App\Enums\OrderSource::Admin)
+                                            <span class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-gray-600">{{ __('shop.admin.badge_admin') }}</span>
+                                        @endif
+                                        @if ($order->customer_type === \App\Enums\CustomerType::Business)
+                                            <span class="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-blue-700">{{ __('shop.admin.badge_b2b') }}</span>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="px-3 py-2 text-gray-700">
                                     {{ $order->fulfillment_mode === 'delivery' ? __('shop.fulfillment_delivery') : __('shop.fulfillment_pickup') }}
@@ -122,7 +144,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="px-3 py-6 text-center text-gray-500">{{ __('shop.admin.empty') }}</td>
+                                <td colspan="10" class="px-3 py-6 text-center text-gray-500">{{ __('shop.admin.empty') }}</td>
                             </tr>
                         @endforelse
                     </tbody>

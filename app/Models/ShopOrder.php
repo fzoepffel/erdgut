@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\CustomerType;
+use App\Enums\OrderSource;
 use App\Enums\ShopOrderStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -49,6 +51,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $sumup_payment_id
  * @property array<string,mixed>|null $provider_payload
  * @property bool $is_test
+ * @property OrderSource $order_source
+ * @property CustomerType $customer_type
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
@@ -96,6 +100,8 @@ class ShopOrder extends Model
         'sumup_payment_id',
         'provider_payload',
         'is_test',
+        'order_source',
+        'customer_type',
     ];
 
     /**
@@ -131,6 +137,8 @@ class ShopOrder extends Model
             'last_refund_attempt_at' => 'datetime',
             'provider_payload' => 'array',
             'is_test' => 'boolean',
+            'order_source' => OrderSource::class,
+            'customer_type' => CustomerType::class,
         ];
     }
 

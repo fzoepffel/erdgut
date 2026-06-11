@@ -2,6 +2,8 @@
 
 namespace App\Services\Shop;
 
+use App\Enums\CustomerType;
+use App\Enums\OrderSource;
 use App\Enums\ShopOrderStatus;
 use App\Models\Coupon;
 use App\Models\Product;
@@ -611,8 +613,8 @@ class ShopOrderService
             }
 
             $order = ShopOrder::create([
-                'name' => $payload['name'],
-                'email' => $payload['email'],
+                'name' => $payload['name'] ?? null,
+                'email' => $payload['email'] ?? null,
                 'phone' => $payload['phone'] ?? null,
                 'fulfillment_mode' => $fulfillmentMode,
                 'expected_delivery_date' => $deliveryDate->toDateString(),
@@ -633,6 +635,10 @@ class ShopOrderService
                 'discount_eur' => $quote['discount_eur'],
                 'payment_method' => $payload['payment_method'] ?? 'online',
                 'status' => ShopOrderStatus::PendingPayment,
+                // Classification: defaults let the storefront path work without
+                // sending these keys; the admin creation path passes them explicitly.
+                'order_source' => $payload['order_source'] ?? OrderSource::Storefront->value,
+                'customer_type' => $payload['customer_type'] ?? CustomerType::Private->value,
             ]);
 
             foreach ($quote['lines'] as $line) {
