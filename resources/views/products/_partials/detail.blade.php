@@ -214,12 +214,12 @@
                         @php
                             $pairCatEnum = \App\Enums\ProductCategory::tryFrom($pair->category);
                             $pairPlaceholder = $categoryPlaceholders[$pair->category] ?? $categoryPlaceholders['produce'];
-                            $pairImage = $pair->images->first()?->url() ?? $pair->imageUrl() ?? $pairPlaceholder;
+                            $pairImage = $pair->images->first()?->thumbUrl() ?? $pair->thumbUrl() ?? $pairPlaceholder;
                         @endphp
                         <li>
                             <a href="{{ route($detailRouteName, $pair) }}" class="group flex flex-col gap-3">
                                 <div class="relative aspect-square w-full overflow-hidden bg-brand-ink/5">
-                                    <img src="{{ $pairImage }}" alt="{{ $pair->name }}" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" />
+                                    <img src="{{ $pairImage }}" alt="{{ $pair->name }}" width="600" height="600" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" />
                                 </div>
                                 <div>
                                     @if ($pairCatEnum)

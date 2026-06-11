@@ -437,7 +437,7 @@
                                     @php
                                         $product = $row['product'];
                                         $availableToday = $row['available_on_selected'];
-                                        $imageUrl = $product->imageUrl();
+                                        $imageUrl = $product->thumbUrl();
                                         $badge = str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT);
                                         $dateList = collect($row['available_dates'])
                                             ->map(fn ($d) => $d['date']->locale(app()->getLocale())->isoFormat('dd, D. MMM'))
@@ -453,7 +453,7 @@
                                     @endif
                                         <a href="{{ route('public.shop.products.show', $product) }}" class="relative block aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}">
                                             @if ($imageUrl)
-                                                <img src="{{ $imageUrl }}" alt="{{ $product->name }}" class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" loading="lazy" />
+                                                <img src="{{ $imageUrl }}" alt="{{ $product->name }}" width="600" height="600" class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" loading="lazy" />
                                             @else
                                                 <span class="flex h-full w-full items-center justify-center text-shop-muted" aria-hidden="true">
                                                     <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 6h16v12H4V6z" /></svg>

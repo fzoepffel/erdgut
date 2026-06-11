@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ImageProcessor;
 use Database\Factories\ProducerFactory;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -157,5 +158,25 @@ class Producer extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Square card thumbnail for grids. Uses the generated thumbnail of an
+     * uploaded image when present, otherwise falls back to the full image
+     * resolution from {@see primaryImageUrl()} (external `image_url` values
+     * can't be resized, so they pass through unchanged).
+     */
+    public function primaryThumbUrl(): ?string
+    {
+        $path = $this->image_path;
+        if ($path !== null && $path !== '') {
+            $disk = Storage::disk('public');
+            $thumb = ImageProcessor::thumbPath($path);
+            if ($disk->exists($thumb)) {
+                return $disk->url($thumb);
+            }
+        }
+
+        return $this->primaryImageUrl();
     }
 }

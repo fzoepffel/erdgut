@@ -14,6 +14,7 @@ use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductTranslation;
+use App\Services\ImageProcessor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -413,7 +414,7 @@ class ProductController extends Controller
                 continue;
             }
 
-            $path = Storage::disk('public')->putFile('products/'.$product->id, $file);
+            $path = app(ImageProcessor::class)->storeUpload($file, 'products/'.$product->id);
 
             ProductImage::query()->create([
                 'product_id' => $product->id,
@@ -478,7 +479,7 @@ class ProductController extends Controller
 
     private function storeUploadedImage(UploadedFile $file, Product $product): string
     {
-        return Storage::disk('public')->putFile('products/'.$product->id, $file);
+        return app(ImageProcessor::class)->storeUpload($file, 'products/'.$product->id);
     }
 
     private function deletePublicImage(?string $path): void
@@ -487,8 +488,13 @@ class ProductController extends Controller
             return;
         }
 
-        if (Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
+        $disk = Storage::disk('public');
+
+        // Remove the stored original and its derived thumbnail together.
+        foreach ([$path, ImageProcessor::thumbPath($path)] as $target) {
+            if ($disk->exists($target)) {
+                $disk->delete($target);
+            }
         }
     }
 }
