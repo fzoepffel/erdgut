@@ -144,6 +144,100 @@ class InventoryServiceTest extends TestCase
         $this->assertEqualsWithDelta(2.0, $this->service->committedOnDate($product, Carbon::parse('2026-05-27')), 0.001);
     }
 
+    public function test_availability_matrix_matches_per_day_available_on_date(): void
+    {
+        // Two products, overlapping inflows + every kind of commitment, so the
+        // bulk matrix must agree cell-for-cell with the trusted single-point
+        // availableOnDate() across the whole window.
+        $white = Product::factory()->create();
+        $other = Product::factory()->create();
+        config(['spargel.white_product_id' => $white->id]);
+
+        // Inflows with multi-day freshness windows that overlap.
+        ProductStockInflow::create([
+            'product_id' => $white->id,
+            'received_on' => '2026-05-25',
+            'quantity' => 5000,
+            'freshness_window_days' => 3, // active 25–27
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $white->id,
+            'received_on' => '2026-05-27',
+            'quantity' => 2000,
+            'freshness_window_days' => 2, // active 27–28 (stacks on 27)
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $other->id,
+            'received_on' => '2026-05-26',
+            'quantity' => 800,
+            'freshness_window_days' => 4, // active 26–29
+        ]);
+
+        // Spargel commitment against the white product.
+        SpargelOrder::create([
+            'name' => 'A', 'email' => 'a@example.com', 'phone' => null,
+            'quantity_white_grams' => 1500, 'quantity_green_grams' => 0,
+            'unit_price_eur' => 21.50, 'fulfillment_mode' => 'pickup',
+            'delivery_fee_eur' => 0, 'total_amount_eur' => 32.25,
+            'payment_method' => 'online', 'expected_delivery_date' => '2026-05-26',
+            'status' => SpargelOrderStatus::Paid,
+        ]);
+        // Cancelled spargel order must NOT count.
+        SpargelOrder::create([
+            'name' => 'B', 'email' => 'b@example.com', 'phone' => null,
+            'quantity_white_grams' => 9999, 'quantity_green_grams' => 0,
+            'unit_price_eur' => 21.50, 'fulfillment_mode' => 'pickup',
+            'delivery_fee_eur' => 0, 'total_amount_eur' => 32.25,
+            'payment_method' => 'online', 'expected_delivery_date' => '2026-05-26',
+            'status' => SpargelOrderStatus::Cancelled,
+        ]);
+
+        // Box commitment routed by resolved delivery date (Wed 2026-05-27).
+        $user = User::factory()->create();
+        Address::factory()->create(['user_id' => $user->id, 'is_primary' => true]);
+        $sub = Subscription::factory()->withPaymentToken()->create([
+            'user_id' => $user->id,
+            'delivery_weekday' => 3,
+        ]);
+        $box = Box::factory()->create([
+            'user_id' => $user->id,
+            'subscription_id' => $sub->id,
+            'week_start_date' => '2026-05-25',
+            'status' => BoxStatus::Locked,
+            'estimated_value' => 0,
+        ]);
+        BoxItem::factory()->create([
+            'box_id' => $box->id,
+            'product_id' => $other->id,
+            'quantity' => 300,
+            'unit' => 'g',
+            'is_extra' => false,
+        ]);
+
+        $from = Carbon::parse('2026-05-24');
+        $to = Carbon::parse('2026-05-30');
+        $products = Product::query()->whereIn('id', [$white->id, $other->id])->get();
+
+        $matrix = $this->service->availabilityMatrix($products, $from, $to);
+
+        foreach ($products as $product) {
+            $cursor = $from->copy();
+            while ($cursor->lte($to)) {
+                $iso = $cursor->toDateString();
+                $expected = $this->service->availableOnDate($product, $cursor);
+                $actual = (float) ($matrix[$product->id][$iso] ?? 0.0);
+
+                $this->assertEqualsWithDelta(
+                    $expected,
+                    $actual,
+                    0.001,
+                    "Mismatch for product {$product->id} on {$iso}: expected {$expected}, got {$actual}",
+                );
+                $cursor->addDay();
+            }
+        }
+    }
+
     public function test_materialize_window_is_idempotent(): void
     {
         $product = Product::factory()->create();

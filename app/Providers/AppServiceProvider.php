@@ -6,12 +6,17 @@ use App\Http\Controllers\Admin\AdminShopOrderController;
 use App\Http\Controllers\SpargelAdminController;
 use App\Listeners\AddListUnsubscribeHeader;
 use App\Listeners\LogSentMail;
+use App\Models\BoxItem;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductStockInflow;
+use App\Models\ProductStockInflowSchedule;
 use App\Models\ShopOrder;
+use App\Models\ShopOrderItem;
 use App\Models\SpargelOrder;
 use App\Models\User;
 use App\Observers\CatalogAuditObserver;
+use App\Observers\InventoryCacheObserver;
 use App\Observers\ShopOrderObserver;
 use App\Observers\SpargelOrderObserver;
 use App\Policies\ProducerPolicy;
@@ -74,6 +79,21 @@ class AppServiceProvider extends ServiceProvider
         Producer::observe(CatalogAuditObserver::class);
         SpargelOrder::observe(SpargelOrderObserver::class);
         ShopOrder::observe(ShopOrderObserver::class);
+
+        // Invalidate the cached shop availability matrix on any write that can
+        // change inventory: inflows/schedules (supply), shop/spargel orders +
+        // their items and box items (demand), and products (visibility/set).
+        foreach ([
+            ProductStockInflow::class,
+            ProductStockInflowSchedule::class,
+            ShopOrder::class,
+            ShopOrderItem::class,
+            SpargelOrder::class,
+            BoxItem::class,
+            Product::class,
+        ] as $inventoryModel) {
+            $inventoryModel::observe(InventoryCacheObserver::class);
+        }
 
         Event::listen(MessageSending::class, AddListUnsubscribeHeader::class);
         // ERD-350: per-user mail history surfaces in /app/admin/users/{user}
