@@ -6,10 +6,13 @@ use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ShopOrderRequest;
 use App\Mail\ShopOrderConfirmationMail;
+use App\Models\Product;
+use App\Models\ProductEngagementDaily;
 use App\Models\ProductSubcategory;
 use App\Models\ShopOrder;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
+use App\Services\Shop\ProductRankingService;
 use App\Services\Shop\ShopOrderService;
 use App\Support\PickupLocations;
 use App\Support\ShopOrderAdminNotifier;
@@ -41,6 +44,7 @@ class ShopController extends Controller
     public function __construct(
         private readonly ShopOrderService $service,
         private readonly CouponService $coupons,
+        private readonly ProductRankingService $ranking,
     ) {}
 
     public function index(Request $request): View
@@ -72,6 +76,14 @@ class ShopController extends Controller
         $products = $selectedDate !== null
             ? $this->service->weeklyProductsForDate($selectedDate)
             : collect();
+
+        // Sales-driving order: a margin-per-impression Thompson-sampling bandit
+        // ranks orderable products (exploit winners + explore new ones), seeded
+        // per session+day so the order is stable within a visit but rotates
+        // across visits. See ProductRankingService.
+        if ($products->isNotEmpty()) {
+            $products = $this->ranking->orderForStorefront($products, $this->storefrontSeed($request));
+        }
 
         // Categories that have at least one product available on this day —
         // used to render only relevant category filter chips.
@@ -336,6 +348,65 @@ class ShopController extends Controller
         ])->setPaper('a4');
 
         return $pdf->download('erdgut-beleg-'.$order->id.'.pdf');
+    }
+
+    /**
+     * Record anonymous engagement beacons for the ranking bandit.
+     *
+     * The storefront batches "impression" (card scrolled into view) and
+     * "add_to_cart" (first time a product's quantity goes 0 → >0) events and
+     * flushes them here via navigator.sendBeacon. Aggregated into per-product
+     * daily counters — no user data, no per-visitor rows. Cheap, throttled,
+     * fire-and-forget (always 204); unknown product IDs are silently dropped.
+     */
+    public function trackEngagement(Request $request): SymfonyResponse
+    {
+        // No-op if the ranking feature is off or there's no real shop session.
+        if (! (bool) config('shop.ranking.enabled', true) || ! $request->hasSession()) {
+            return response()->noContent();
+        }
+
+        $data = $request->validate([
+            'events' => ['required', 'array', 'max:200'],
+            'events.*.product_id' => ['required', 'integer'],
+            'events.*.type' => ['required', 'in:impression,add_to_cart'],
+        ]);
+
+        // Collapse to one increment per (product, type) so a payload can't be
+        // used to inflate a single product's counters in one shot.
+        $counts = []; // [productId][column] => n
+        foreach ($data['events'] as $event) {
+            $column = $event['type'] === 'add_to_cart' ? 'add_to_carts' : 'impressions';
+            $pid = (int) $event['product_id'];
+            $counts[$pid][$column] = ($counts[$pid][$column] ?? 0) + 1;
+        }
+
+        $validIds = Product::query()
+            ->visibleInCatalog()
+            ->whereIn('id', array_keys($counts))
+            ->pluck('id')
+            ->all();
+
+        $today = Carbon::today()->toDateString();
+        foreach ($validIds as $pid) {
+            foreach ($counts[$pid] as $column => $by) {
+                ProductEngagementDaily::bumpCounter((int) $pid, $column, $today, (int) $by);
+            }
+        }
+
+        return response()->noContent();
+    }
+
+    /**
+     * Per-session, per-day RNG seed for the storefront ranking. Stable within
+     * a visit (no chaotic reshuffle on reload) yet rotates across sessions and
+     * days so exposure keeps rotating.
+     */
+    private function storefrontSeed(Request $request): int
+    {
+        $sessionId = $request->hasSession() ? $request->session()->getId() : 'no-session';
+
+        return (int) crc32($sessionId.'|'.Carbon::today()->toDateString());
     }
 
     /**

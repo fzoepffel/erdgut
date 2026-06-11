@@ -87,6 +87,10 @@
             defaultShopCategory: @js($defaultShopCategory),
             deliveryVatRate: {{ (int) config('shop.vat_rate_percent', 7) }},
             vatLineTemplate: @js(__('shop.summary_vat_rate_line')),
+            trackUrl: @js(route('public.shop.engagement')),
+            trackEnabled: {{ config('shop.ranking.enabled', true) ? 'true' : 'false' }},
+            impressionThreshold: {{ (float) config('shop.ranking.impression_visibility', 0.5) }},
+            beaconDebounce: {{ (int) config('shop.ranking.beacon_debounce_ms', 2000) }},
         })"
     >
         {{-- ── Hero ──────────────────────────────────────────────────── --}}
@@ -445,7 +449,7 @@
                                         $oldQty = (int) old('quantities.'.$product->id, 0);
                                     @endphp
 
-                                    <div x-show="cardVisible({{ json_encode(mb_strtolower($product->name)) }}, '{{ $product->category }}', {{ $product->subcategory_id ?? 0 }})">
+                                    <div x-show="cardVisible({{ json_encode(mb_strtolower($product->name)) }}, '{{ $product->category }}', {{ $product->subcategory_id ?? 0 }})" data-shop-card data-product-id="{{ $product->id }}">
                                     @if ($availableToday)
                                         <article class="group flex h-full flex-col" data-testid="shop-product-card">
                                     @else
@@ -975,6 +979,14 @@
                 couponMessage: '',
                 applyingCoupon: false,
                 _couponTimer: null,
+                // ── Engagement tracking (ranking bandit) ─────────────────
+                trackUrl: config.trackUrl,
+                trackEnabled: config.trackEnabled !== false,
+                impressionThreshold: config.impressionThreshold || 0.5,
+                beaconDebounce: config.beaconDebounce || 2000,
+                _trackQueue: [],
+                _seenImpressions: new Set(),
+                _trackTimer: null,
                 init() {
                     // Seed quantities from the rendered hidden inputs so a
                     // validation bounce (old() values) keeps the cart.
@@ -989,6 +1001,52 @@
                         // but re-validate so caps/min-order stay authoritative.
                         this.scheduleCouponRefresh();
                     });
+                    this.initEngagementTracking();
+                },
+                // Observe product cards; the first time one is ≥threshold visible
+                // we queue an impression. Flush batched events via sendBeacon.
+                initEngagementTracking() {
+                    if (!this.trackEnabled || typeof IntersectionObserver === 'undefined') return;
+                    const observer = new IntersectionObserver((entries) => {
+                        entries.forEach((entry) => {
+                            if (!entry.isIntersecting) return;
+                            const id = parseInt(entry.target.getAttribute('data-product-id'), 10);
+                            if (!id || this._seenImpressions.has(id)) return;
+                            this._seenImpressions.add(id);
+                            this.queueEvent(id, 'impression');
+                            observer.unobserve(entry.target);
+                        });
+                    }, { threshold: this.impressionThreshold });
+                    this.$nextTick(() => {
+                        document.querySelectorAll('[data-shop-card][data-product-id]').forEach((el) => observer.observe(el));
+                    });
+                    // Make sure queued events leave before the page is hidden/unloaded.
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'hidden') this.flushTrack();
+                    });
+                    window.addEventListener('pagehide', () => this.flushTrack());
+                },
+                queueEvent(productId, type) {
+                    if (!this.trackEnabled || !productId) return;
+                    this._trackQueue.push({ product_id: productId, type });
+                    clearTimeout(this._trackTimer);
+                    this._trackTimer = setTimeout(() => this.flushTrack(), this.beaconDebounce);
+                },
+                flushTrack() {
+                    if (this._trackQueue.length === 0) return;
+                    const events = this._trackQueue.splice(0, this._trackQueue.length);
+                    const payload = JSON.stringify({ events, _token: this.csrf });
+                    try {
+                        if (navigator.sendBeacon) {
+                            navigator.sendBeacon(this.trackUrl, new Blob([payload], { type: 'application/json' }));
+                        } else {
+                            fetch(this.trackUrl, {
+                                method: 'POST', keepalive: true,
+                                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': this.csrf },
+                                body: payload,
+                            });
+                        }
+                    } catch (e) { /* tracking must never break the page */ }
                 },
                 // ── Coupon ───────────────────────────────────────────────
                 applyCoupon() {
@@ -1070,7 +1128,10 @@
                     if (!p) return;
                     const i = this.stepIndex(id);
                     if (i < p.steps.length - 1) {
+                        const wasEmpty = (this.quantities[id] || 0) <= 0;
                         this.quantities[id] = p.steps[i + 1].v;
+                        // First add of this product → an add-to-cart signal.
+                        if (wasEmpty) this.queueEvent(id, 'add_to_cart');
                         this.scheduleCouponRefresh();
                     }
                 },

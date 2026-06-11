@@ -138,6 +138,11 @@ Route::name('public.')->group(function () {
     Route::post('/shop/coupon/preview', [ShopController::class, 'couponPreview'])
         ->middleware('throttle:20,1')
         ->name('shop.coupon.preview');
+    // Anonymous engagement beacons (impression / add-to-cart) feeding the
+    // product-ranking bandit. Batched via navigator.sendBeacon; throttled.
+    Route::post('/shop/track', [ShopController::class, 'trackEngagement'])
+        ->middleware('throttle:60,1')
+        ->name('shop.engagement');
     Route::get('/shop/{shopOrder}/pay', [ShopController::class, 'pay'])->name('shop.pay');
     Route::get('/shop/{shopOrder}/return', [ShopController::class, 'return'])->name('shop.return');
     // Stable per-order tracking page. Reached only via a signed URL (carried
