@@ -10,6 +10,7 @@ use App\Models\ProductStockInflowSchedule;
 use App\Models\ShopOrderItem;
 use App\Models\SpargelOrder;
 use App\Support\BoxDeliveryDateResolver;
+use App\Support\InventoryCache;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -87,6 +88,221 @@ class InventoryService
         }
 
         return $out;
+    }
+
+    /**
+     * Bulk availability for many products over a date window in a constant,
+     * tiny number of queries — the storefront's hot path.
+     *
+     * Computes the exact same value as looping `availableOnDate()` over every
+     * (product, day) pair, but with ~4 aggregate queries total instead of
+     * `products × days × 3`. Inflows are spread across their freshness window
+     * and commitments (shop / spargel / box) are bucketed per product+date in
+     * PHP from windowed result sets, then `max(0, gross − committed)` per cell.
+     *
+     * Days/products with no inflow are simply absent from the inner map (the
+     * caller treats a missing key as 0.0), mirroring `availableOnDate()` which
+     * returns 0 for an empty day.
+     *
+     * @param  iterable<int, Product>  $products
+     * @return array<int, array<string, float>> productId => (iso => remaining)
+     */
+    public function availabilityMatrix(iterable $products, Carbon $from, Carbon $to): array
+    {
+        $from = $from->copy()->startOfDay();
+        $to = $to->copy()->startOfDay();
+
+        $productIds = collect($products)->map(fn (Product $p): int => (int) $p->id)->unique()->sort()->values()->all();
+        if ($productIds === [] || $from->gt($to)) {
+            return [];
+        }
+
+        // Cache the computed matrix (pure scalars, locale-independent) under a
+        // version-scoped key. Model observers bump the version on any
+        // inventory-affecting write; a short TTL bounds staleness otherwise.
+        $suffix = sprintf('matrix.%s.%s.%s', $from->toDateString(), $to->toDateString(), md5(implode(',', $productIds)));
+
+        return InventoryCache::remember($suffix, fn (): array => $this->computeAvailabilityMatrix($productIds, $from, $to));
+    }
+
+    /**
+     * Uncached core of {@see availabilityMatrix}.
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, array<string, float>>
+     */
+    private function computeAvailabilityMatrix(array $productIds, Carbon $from, Carbon $to): array
+    {
+        $fromIso = $from->toDateString();
+        $toIso = $to->toDateString();
+
+        // ── 1. Gross inflows, spread across each row's freshness window ──────
+        $gross = [];   // [productId][iso] => float
+        $driver = DB::connection()->getDriverName();
+        $expiresExpr = match ($driver) {
+            'sqlite' => "date(received_on, '+' || (freshness_window_days - 1) || ' day')",
+            'pgsql' => "received_on + (freshness_window_days - 1) * INTERVAL '1 day'",
+            default => 'DATE_ADD(received_on, INTERVAL (freshness_window_days - 1) DAY)',
+        };
+
+        ProductStockInflow::query()
+            ->whereIn('product_id', $productIds)
+            ->whereDate('received_on', '<=', $toIso)
+            ->whereRaw($expiresExpr.' >= ?', [$fromIso])
+            ->get(['product_id', 'received_on', 'quantity', 'freshness_window_days'])
+            ->each(function (ProductStockInflow $inflow) use (&$gross, $from, $to): void {
+                $pid = (int) $inflow->product_id;
+                $start = Carbon::parse($inflow->received_on)->startOfDay();
+                $end = $start->copy()->addDays(max(1, (int) $inflow->freshness_window_days) - 1);
+
+                $cursor = $start->lt($from) ? $from->copy() : $start;
+                $last = $end->gt($to) ? $to : $end;
+                $qty = (float) $inflow->quantity;
+
+                while ($cursor->lte($last)) {
+                    $iso = $cursor->toDateString();
+                    $gross[$pid][$iso] = ($gross[$pid][$iso] ?? 0.0) + $qty;
+                    $cursor->addDay();
+                }
+            });
+
+        // ── 2. Committed: shop + spargel + box, bucketed per product+date ────
+        $committed = [];   // [productId][iso] => float
+        $this->accumulateShopCommitments($committed, $productIds, $fromIso, $toIso);
+        $this->accumulateSpargelCommitments($committed, $productIds, $fromIso, $toIso);
+        $this->accumulateBoxCommitments($committed, $productIds, $from, $to);
+
+        // ── 3. remaining = max(0, gross − committed) per cell ────────────────
+        $matrix = [];
+        foreach ($productIds as $pid) {
+            $isos = array_unique(array_merge(
+                array_keys($gross[$pid] ?? []),
+                array_keys($committed[$pid] ?? []),
+            ));
+            foreach ($isos as $iso) {
+                $remaining = round(($gross[$pid][$iso] ?? 0.0) - ($committed[$pid][$iso] ?? 0.0), 4);
+                $matrix[$pid][$iso] = max(0.0, $remaining);
+            }
+        }
+
+        return $matrix;
+    }
+
+    /**
+     * Add shop-order commitments to the per-product+date bucket. Mirrors
+     * {@see shopCommittedOnDate} but windowed and grouped in one query.
+     *
+     * @param  array<int, array<string, float>>  $committed
+     * @param  list<int>  $productIds
+     */
+    private function accumulateShopCommitments(array &$committed, array $productIds, string $fromIso, string $toIso): void
+    {
+        ShopOrderItem::query()
+            ->join('shop_orders', 'shop_orders.id', '=', 'shop_order_items.shop_order_id')
+            ->whereIn('shop_order_items.product_id', $productIds)
+            ->whereDate('shop_orders.expected_delivery_date', '>=', $fromIso)
+            ->whereDate('shop_orders.expected_delivery_date', '<=', $toIso)
+            ->whereNotIn('shop_orders.status', [
+                ShopOrderStatus::Cancelled->value,
+                ShopOrderStatus::Refunded->value,
+            ])
+            ->groupBy('shop_order_items.product_id', 'shop_orders.expected_delivery_date')
+            ->get([
+                'shop_order_items.product_id as product_id',
+                'shop_orders.expected_delivery_date as iso',
+                DB::raw('SUM(shop_order_items.quantity) as total'),
+            ])
+            ->each(function ($row) use (&$committed): void {
+                $iso = Carbon::parse($row->iso)->toDateString();
+                $pid = (int) $row->product_id;
+                $committed[$pid][$iso] = ($committed[$pid][$iso] ?? 0.0) + (float) $row->total;
+            });
+    }
+
+    /**
+     * Add spargel-order commitments. Only the two configured spargel product
+     * IDs carry any; skips entirely when neither is configured.
+     *
+     * @param  array<int, array<string, float>>  $committed
+     * @param  list<int>  $productIds
+     */
+    private function accumulateSpargelCommitments(array &$committed, array $productIds, string $fromIso, string $toIso): void
+    {
+        $whiteId = config('spargel.white_product_id');
+        $greenId = config('spargel.green_product_id');
+
+        $columns = [];
+        if ($whiteId !== null && in_array((int) $whiteId, $productIds, true)) {
+            $columns[(int) $whiteId] = 'quantity_white_grams';
+        }
+        if ($greenId !== null && in_array((int) $greenId, $productIds, true)) {
+            $columns[(int) $greenId] = 'quantity_green_grams';
+        }
+        if ($columns === []) {
+            return;
+        }
+
+        $rows = SpargelOrder::query()
+            ->whereDate('expected_delivery_date', '>=', $fromIso)
+            ->whereDate('expected_delivery_date', '<=', $toIso)
+            ->whereNotIn('status', [
+                SpargelOrderStatus::Cancelled->value,
+                SpargelOrderStatus::Refunded->value,
+            ])
+            ->get(['expected_delivery_date', 'quantity_white_grams', 'quantity_green_grams']);
+
+        foreach ($rows as $row) {
+            $iso = Carbon::parse($row->expected_delivery_date)->toDateString();
+            foreach ($columns as $pid => $column) {
+                $qty = (float) $row->{$column};
+                if ($qty !== 0.0) {
+                    $committed[$pid][$iso] = ($committed[$pid][$iso] ?? 0.0) + $qty;
+                }
+            }
+        }
+    }
+
+    /**
+     * Add box-item commitments, resolving each row's delivery date in PHP
+     * exactly as {@see boxCommittedOnDate} does, but for all products at once.
+     *
+     * @param  array<int, array<string, float>>  $committed
+     * @param  list<int>  $productIds
+     */
+    private function accumulateBoxCommitments(array &$committed, array $productIds, Carbon $from, Carbon $to): void
+    {
+        $rows = DB::table('box_items')
+            ->join('boxes', 'boxes.id', '=', 'box_items.box_id')
+            ->leftJoin('subscriptions', 'subscriptions.id', '=', 'boxes.subscription_id')
+            ->whereIn('box_items.product_id', $productIds)
+            ->select([
+                'box_items.product_id',
+                'box_items.quantity',
+                'boxes.week_start_date',
+                'subscriptions.delivery_weekday',
+            ])
+            ->get();
+
+        $defaultWeekday = $this->defaultWeekday();
+        $fromIso = $from->toDateString();
+        $toIso = $to->toDateString();
+
+        foreach ($rows as $row) {
+            $weekday = $row->delivery_weekday !== null
+                ? (int) $row->delivery_weekday
+                : $defaultWeekday;
+            $deliveryDate = Carbon::parse($row->week_start_date)
+                ->startOfDay()
+                ->addDays(($weekday - 1 + 7) % 7);
+
+            $iso = $deliveryDate->toDateString();
+            if ($iso < $fromIso || $iso > $toIso) {
+                continue;
+            }
+
+            $pid = (int) $row->product_id;
+            $committed[$pid][$iso] = ($committed[$pid][$iso] ?? 0.0) + (float) $row->quantity;
+        }
     }
 
     /**

@@ -160,15 +160,17 @@ class ShopOrderService
         $start = Carbon::today()->addDay();
         $end = Carbon::today()->addDays(7 * $horizonWeeks);
 
-        // One scan: accumulate per-date product IDs and per-product date counts.
+        // One bulk pass over all products × the whole horizon (a few queries),
+        // then accumulate per-date product IDs and per-product date counts.
+        $matrix = $inventory->availabilityMatrix($products, $start, $end);
+
         $dateProductIds = [];    // iso => int[]
         $productDateCount = [];  // product_id => int
 
         foreach ($products as $product) {
-            $window = $inventory->availabilityWindow($product, $start, $end);
             $datesForProduct = 0;
 
-            foreach ($window as $iso => $remaining) {
+            foreach ($matrix[$product->id] ?? [] as $iso => $remaining) {
                 if ($remaining > 0) {
                     $dateProductIds[$iso][] = $product->id;
                     $datesForProduct++;
@@ -226,11 +228,12 @@ class ShopOrderService
         $start = Carbon::today()->addDay();
         $end = Carbon::today()->addDays(7 * $horizonWeeks);
 
+        $matrix = $inventory->availabilityMatrix($products, $start, $end);
+
         // Tally, per ISO date, how many products have positive stock.
         $counts = [];
         foreach ($products as $product) {
-            $window = $inventory->availabilityWindow($product, $start, $end);
-            foreach ($window as $iso => $remaining) {
+            foreach ($matrix[$product->id] ?? [] as $iso => $remaining) {
                 if ($remaining > 0) {
                     $counts[$iso] = ($counts[$iso] ?? 0) + 1;
                 }
@@ -261,13 +264,19 @@ class ShopOrderService
     {
         $inventory = app(InventoryService::class);
 
-        return Product::query()
+        $products = Product::query()
             ->visibleInCatalog()
             ->with(['translations', 'producer.translations', 'images'])
-            ->get()
+            ->get();
+
+        $day = $date->copy()->startOfDay();
+        $matrix = $inventory->availabilityMatrix($products, $day, $day);
+        $iso = $day->toDateString();
+
+        return $products
             ->map(fn (Product $product): array => [
                 'product' => $product,
-                'remaining' => $inventory->availableOnDate($product, $date),
+                'remaining' => (float) ($matrix[$product->id][$iso] ?? 0.0),
             ])
             ->filter(fn (array $row): bool => $row['remaining'] > 0)
             ->values();
@@ -313,12 +322,17 @@ class ShopOrderService
             return collect();
         }
 
-        return Product::query()
+        $products = Product::query()
             ->visibleInCatalog()
             ->with(['translations', 'producer.translations', 'images'])
-            ->get()
-            ->map(function (Product $product) use ($inventory, $from, $weekEnd, $selectedIso): array {
-                $window = $inventory->availabilityWindow($product, $from, $weekEnd);
+            ->get();
+
+        $matrix = $inventory->availabilityMatrix($products, $from, $weekEnd);
+
+        return $products
+            ->map(function (Product $product) use ($matrix, $selectedIso): array {
+                $window = $matrix[$product->id] ?? [];
+                ksort($window);
 
                 $dates = [];
                 foreach ($window as $iso => $remaining) {

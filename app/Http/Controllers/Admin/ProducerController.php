@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreProducerRequest;
 use App\Http\Requests\Admin\UpdateProducerRequest;
 use App\Models\Producer;
 use App\Models\ProducerTranslation;
+use App\Services\ImageProcessor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -199,7 +200,7 @@ class ProducerController extends Controller
 
     private function storeUploadedImage(UploadedFile $file, Producer $producer): string
     {
-        return Storage::disk('public')->putFile('producers/'.$producer->id, $file);
+        return app(ImageProcessor::class)->storeUpload($file, 'producers/'.$producer->id);
     }
 
     private function deletePublicImage(?string $path): void
@@ -208,8 +209,13 @@ class ProducerController extends Controller
             return;
         }
 
-        if (Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
+        $disk = Storage::disk('public');
+
+        // Remove the stored original and its derived thumbnail together.
+        foreach ([$path, ImageProcessor::thumbPath($path)] as $target) {
+            if ($disk->exists($target)) {
+                $disk->delete($target);
+            }
         }
     }
 }

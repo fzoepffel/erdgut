@@ -286,8 +286,10 @@
                             {{-- Image well --}}
                             <div class="relative aspect-square overflow-hidden bg-brand-paper">
                                 <img
-                                    src="{{ $product->imageUrl() ?? $placeholder }}"
+                                    src="{{ $product->thumbUrl() ?? $placeholder }}"
                                     alt="{{ $product->name }}"
+                                    width="600"
+                                    height="600"
                                     class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
                                     loading="lazy"
                                 />
