@@ -2612,6 +2612,7 @@
     "products.producer_unknown": "Inconnu",
     "required": "obligatoire",
     "shop.admin.action_delete": "Supprimer",
+    "shop.admin.action_download_receipt": "Télécharger le reçu",
     "shop.admin.action_mark_completed": "Marquer comme terminée",
     "shop.admin.action_mark_paid": "Marquer comme payée",
     "shop.admin.action_refund": "Rembourser",

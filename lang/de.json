@@ -2612,6 +2612,7 @@
     "products.producer_unknown": "Unbekannt",
     "required": "Pflichtfeld",
     "shop.admin.action_delete": "Löschen",
+    "shop.admin.action_download_receipt": "Beleg herunterladen",
     "shop.admin.action_mark_completed": "Als erledigt markieren",
     "shop.admin.action_mark_paid": "Als bezahlt markieren",
     "shop.admin.action_refund": "Erstatten",
