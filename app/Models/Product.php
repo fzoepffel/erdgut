@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
 use App\Services\Admin\InventoryService;
+use App\Services\ImageProcessor;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -482,6 +483,31 @@ class Product extends Model
         }
 
         return $disk->url($path);
+    }
+
+    /**
+     * Public URL for the small square card thumbnail, falling back to the
+     * full image (then null) when no thumbnail has been generated yet.
+     *
+     * Used on grid/card views so a ~600px JPEG is served instead of the
+     * multi-megabyte original. New uploads always get a thumbnail; the
+     * `images:reprocess` command backfills pre-existing products.
+     */
+    public function thumbUrl(): ?string
+    {
+        $path = $this->image_path;
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        $disk = Storage::disk('public');
+        $thumb = ImageProcessor::thumbPath($path);
+
+        if ($disk->exists($thumb)) {
+            return $disk->url($thumb);
+        }
+
+        return $disk->exists($path) ? $disk->url($path) : null;
     }
 
     /**

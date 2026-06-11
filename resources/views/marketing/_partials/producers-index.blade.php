@@ -134,8 +134,10 @@
                     >
                         @if ($hasImage)
                             <img
-                                src="{{ $producer->primaryImageUrl() }}"
+                                src="{{ $producer->primaryThumbUrl() }}"
                                 alt=""
+                                width="600"
+                                height="600"
                                 class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
                                 loading="lazy"
                             >
