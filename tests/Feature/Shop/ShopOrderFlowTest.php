@@ -873,4 +873,52 @@ class ShopOrderFlowTest extends TestCase
 
         $response->assertSessionHasNoErrors();
     }
+
+    public function test_in_person_duplicate_submit_redirects_to_existing_order(): void
+    {
+        Mail::fake();
+
+        $payload = $this->pickupPayload(['payment_method' => 'in_person']);
+
+        // First submit — creates the order.
+        $first = $this->post(route('public.shop.store'), $payload);
+        $firstOrder = ShopOrder::query()->where('payment_method', 'in_person')->latest('id')->first();
+        $first->assertRedirect(route('public.shop.return', ['shopOrder' => $firstOrder->id]));
+
+        // Second submit within 10 minutes — must NOT create a new order.
+        $countBefore = ShopOrder::query()->count();
+        $second = $this->post(route('public.shop.store'), $payload);
+        $this->assertSame($countBefore, ShopOrder::query()->count(), 'Duplicate in-person order was created.');
+        $second->assertRedirect(route('public.shop.return', ['shopOrder' => $firstOrder->id]));
+    }
+
+    public function test_in_person_dedup_does_not_block_after_ten_minutes(): void
+    {
+        Mail::fake();
+
+        $payload = $this->pickupPayload(['payment_method' => 'in_person']);
+
+        // Seed a stale in-person order directly (11 minutes old) — bypasses store().
+        $staleOrder = ShopOrder::factory()->create([
+            'email' => $payload['email'],
+            'expected_delivery_date' => $payload['expected_delivery_date'],
+            'payment_method' => 'in_person',
+            'status' => ShopOrderStatus::PendingPayment,
+            'created_at' => now()->subMinutes(11),
+        ]);
+
+        // Submit now — dedup window expired, so a new order should be created.
+        $countBefore = ShopOrder::query()->count();
+        $this->post(route('public.shop.store'), $payload);
+        $this->assertSame($countBefore + 1, ShopOrder::query()->count(), 'Expected a new order after dedup window expired.');
+    }
+
+    public function test_storefront_renders_confirmation_modal_markup(): void
+    {
+        $response = $this->get(route('public.shop.index'));
+        $response->assertOk();
+        $response->assertSee('data-testid="shop-confirm-modal"', false);
+        $response->assertSee('data-testid="shop-confirm-submit"', false);
+        $response->assertSee('data-testid="shop-confirm-cancel"', false);
+    }
 }

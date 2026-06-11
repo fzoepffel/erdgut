@@ -3329,5 +3329,13 @@
     "coupon.admin.errors.value_required": "Veuillez saisir une valeur.",
     "coupon.admin.errors.percent_too_high": "La remise ne peut pas dépasser :max %.",
     "coupon.admin.errors.fixed_needs_min": "Les codes à montant fixe nécessitent un montant minimum de commande.",
-    "coupon.admin.errors.min_below_value": "Le montant minimum doit être au moins égal à la valeur du code."
+    "coupon.admin.errors.min_below_value": "Le montant minimum doit être au moins égal à la valeur du code.",
+    "shop.confirm_order_title": "Vérifier la commande",
+    "shop.confirm_order_body": "Veuillez vérifier votre commande avant de la confirmer.",
+    "shop.confirm_order_date": "Date de retrait",
+    "shop.confirm_order_location": "Lieu de retrait",
+    "shop.confirm_order_total": "Total",
+    "shop.confirm_order_submit": "Commander maintenant",
+    "shop.confirm_order_cancel": "Retour",
+    "shop.cta_helper_in_person": "Vous pourrez vérifier votre commande avant de confirmer."
 }
