@@ -100,6 +100,7 @@ class AdminInventoryController extends Controller
             sourceScheduleId: null,
             notes: $validated['notes'] ?? null,
             createdByUserId: (int) $request->user()->id,
+            b2bOnly: (bool) ($validated['b2b_only'] ?? false),
         );
 
         return $this->redirectToInventory($request, $validated['received_on'], __('admin.inventory.flash_inflow_created'));
@@ -132,6 +133,7 @@ class AdminInventoryController extends Controller
                 ?? $product?->default_freshness_window_days
                 ?? 1
             )),
+            'b2b_only' => (bool) ($validated['b2b_only'] ?? false),
             'notes' => $validated['notes'] ?? null,
         ])->save();
 

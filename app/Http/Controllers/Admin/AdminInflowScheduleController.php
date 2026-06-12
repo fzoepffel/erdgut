@@ -31,6 +31,7 @@ class AdminInflowScheduleController extends Controller
             'starts_on' => ['required', 'date'],
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'b2b_only' => ['sometimes', 'boolean'],
         ]);
 
         $this->inventory->createSchedule(
@@ -42,6 +43,7 @@ class AdminInflowScheduleController extends Controller
             freshnessWindowDays: $validated['freshness_window_days'] ?? null,
             notes: $validated['notes'] ?? null,
             createdByUserId: (int) $request->user()->id,
+            b2bOnly: (bool) ($validated['b2b_only'] ?? false),
         );
 
         return $this->redirectBack($request, __('admin.inflow_schedules.flash_created'));

@@ -5,6 +5,7 @@ namespace App\Services\Shop;
 use App\Enums\CustomerType;
 use App\Enums\OrderSource;
 use App\Enums\ShopOrderStatus;
+use App\Enums\ShopStockAudience;
 use App\Models\Coupon;
 use App\Models\Product;
 use App\Models\ShopOrder;
@@ -159,6 +160,7 @@ class ShopOrderService
         }
 
         $inventory = app(InventoryService::class);
+        $closures = app(ShopClosureService::class);
         $start = Carbon::today()->addDay();
         $end = Carbon::today()->addDays(7 * $horizonWeeks);
 
@@ -173,7 +175,7 @@ class ShopOrderService
             $datesForProduct = 0;
 
             foreach ($matrix[$product->id] ?? [] as $iso => $remaining) {
-                if ($remaining > 0) {
+                if ($remaining > 0 && ! $closures->isClosed(Carbon::parse($iso))) {
                     $dateProductIds[$iso][] = $product->id;
                     $datesForProduct++;
                 }
@@ -227,6 +229,7 @@ class ShopOrderService
         }
 
         $inventory = app(InventoryService::class);
+        $closures = app(ShopClosureService::class);
         $start = Carbon::today()->addDay();
         $end = Carbon::today()->addDays(7 * $horizonWeeks);
 
@@ -236,7 +239,7 @@ class ShopOrderService
         $counts = [];
         foreach ($products as $product) {
             foreach ($matrix[$product->id] ?? [] as $iso => $remaining) {
-                if ($remaining > 0) {
+                if ($remaining > 0 && ! $closures->isClosed(Carbon::parse($iso))) {
                     $counts[$iso] = ($counts[$iso] ?? 0) + 1;
                 }
             }
@@ -262,8 +265,10 @@ class ShopOrderService
      *
      * @return Collection<int, array{product: Product, remaining: float}>
      */
-    public function availableProductsForDate(Carbon $date): Collection
-    {
+    public function availableProductsForDate(
+        Carbon $date,
+        ShopStockAudience $audience = ShopStockAudience::Consumer,
+    ): Collection {
         $inventory = app(InventoryService::class);
 
         $products = Product::query()
@@ -272,7 +277,7 @@ class ShopOrderService
             ->get();
 
         $day = $date->copy()->startOfDay();
-        $matrix = $inventory->availabilityMatrix($products, $day, $day);
+        $matrix = $inventory->availabilityMatrix($products, $day, $day, $audience);
         $iso = $day->toDateString();
 
         return $products
@@ -311,8 +316,10 @@ class ShopOrderService
     public function weeklyProductsForDate(Carbon $date): Collection
     {
         $inventory = app(InventoryService::class);
+        $closures = app(ShopClosureService::class);
 
         $selectedIso = $date->copy()->startOfDay()->toDateString();
+        $selectedClosed = $closures->isClosed($date);
         $weekStart = $date->copy()->startOfWeek(Carbon::MONDAY);
         $weekEnd = $date->copy()->endOfWeek(Carbon::SUNDAY);
 
@@ -332,13 +339,13 @@ class ShopOrderService
         $matrix = $inventory->availabilityMatrix($products, $from, $weekEnd);
 
         return $products
-            ->map(function (Product $product) use ($matrix, $selectedIso): array {
+            ->map(function (Product $product) use ($matrix, $selectedIso, $selectedClosed, $closures): array {
                 $window = $matrix[$product->id] ?? [];
                 ksort($window);
 
                 $dates = [];
                 foreach ($window as $iso => $remaining) {
-                    if ($remaining > 0) {
+                    if ($remaining > 0 && ! $closures->isClosed(Carbon::parse($iso))) {
                         $dates[] = [
                             'date' => Carbon::parse($iso)->startOfDay(),
                             'remaining' => $remaining,
@@ -346,12 +353,14 @@ class ShopOrderService
                     }
                 }
 
-                $selectedRemaining = (float) ($window[$selectedIso] ?? 0.0);
+                $selectedRemaining = $selectedClosed
+                    ? 0.0
+                    : (float) ($window[$selectedIso] ?? 0.0);
 
                 return [
                     'product' => $product,
                     'remaining' => $selectedRemaining,
-                    'available_on_selected' => $selectedRemaining > 0,
+                    'available_on_selected' => ! $selectedClosed && $selectedRemaining > 0,
                     'available_dates' => $dates,
                 ];
             })
@@ -385,13 +394,14 @@ class ShopOrderService
         $horizonWeeks ??= (int) config('shop.horizon_weeks', 8);
 
         $inventory = app(InventoryService::class);
+        $closures = app(ShopClosureService::class);
 
         $cursor = Carbon::today()->addDay();
         $twoWeekEnd = Carbon::today()->endOfWeek(Carbon::SUNDAY)->addWeek();
         $horizonEnd = Carbon::today()->addDays(7 * $horizonWeeks);
 
         while ($cursor->lte($horizonEnd)) {
-            if ($inventory->availableOnDate($product, $cursor) > 0) {
+            if (! $closures->isClosed($cursor) && $inventory->availableOnDate($product, $cursor) > 0) {
                 return [
                     'state' => $cursor->lte($twoWeekEnd) ? 'this_week' : 'future',
                     'date' => $cursor->copy()->startOfDay(),
@@ -591,7 +601,9 @@ class ShopOrderService
             throw new \InvalidArgumentException('Cart is empty.');
         }
 
-        return DB::transaction(function () use ($payload, $fulfillmentMode, $deliveryDate, $quote): ShopOrder {
+        $audience = $this->stockAudienceForPayload($payload);
+
+        return DB::transaction(function () use ($payload, $fulfillmentMode, $deliveryDate, $quote, $audience): ShopOrder {
             $inventory = app(InventoryService::class);
 
             // Re-check every line against live availability before we
@@ -602,7 +614,7 @@ class ShopOrderService
                 $product = $line['product'];
                 Product::query()->lockForUpdate()->find($product->id);
 
-                $remaining = $inventory->availableOnDate($product, $deliveryDate);
+                $remaining = $inventory->availableOnDate($product, $deliveryDate, $audience);
                 if ($line['quantity'] > $remaining + 1e-6) {
                     throw new InsufficientStockException(
                         $product,
@@ -803,5 +815,20 @@ class ShopOrderService
         ]);
 
         return self::VERIFY_PENDING;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function stockAudienceForPayload(array $payload): ShopStockAudience
+    {
+        $source = (string) ($payload['order_source'] ?? OrderSource::Storefront->value);
+        $customerType = (string) ($payload['customer_type'] ?? CustomerType::Private->value);
+
+        if ($source === OrderSource::Admin->value && $customerType === CustomerType::Business->value) {
+            return ShopStockAudience::BusinessTrade;
+        }
+
+        return ShopStockAudience::Consumer;
     }
 }

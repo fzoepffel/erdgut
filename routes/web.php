@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
 use App\Http\Controllers\Admin\AdminSearchController;
+use App\Http\Controllers\Admin\AdminShopClosureController;
 use App\Http\Controllers\Admin\AdminShopOrderController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
@@ -438,6 +439,14 @@ Route::middleware(['auth', 'verified'])
 
             // Anonymous multi-product shop orders (the proper admin surface,
             // unlike the disposable /spargel-admin page).
+            Route::get('shop-closures', [AdminShopClosureController::class, 'index'])->name('shop-closures.index');
+            Route::post('shop-closures', [AdminShopClosureController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('shop-closures.store');
+            Route::delete('shop-closures/{closure}', [AdminShopClosureController::class, 'destroy'])
+                ->middleware('throttle:30,1')
+                ->name('shop-closures.destroy');
+
             Route::get('shop-orders', [AdminShopOrderController::class, 'index'])->name('shop-orders.index');
             // Manual order creation — declared before {shopOrder} wildcard.
             Route::get('shop-orders/create', [AdminShopOrderController::class, 'create'])->name('shop-orders.create');

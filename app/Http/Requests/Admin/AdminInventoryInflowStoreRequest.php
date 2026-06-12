@@ -30,6 +30,7 @@ class AdminInventoryInflowStoreRequest extends FormRequest
             'quantity' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
             'freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'b2b_only' => ['sometimes', 'boolean'],
         ];
     }
 }

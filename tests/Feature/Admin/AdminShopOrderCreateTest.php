@@ -217,6 +217,62 @@ class AdminShopOrderCreateTest extends TestCase
         $this->assertSame(0, ShopOrder::query()->where('order_source', 'admin')->count());
     }
 
+    public function test_business_admin_order_can_book_b2b_only_stock(): void
+    {
+        $b2bProduct = Product::factory()->create([
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        ProductStockInflow::create([
+            'product_id' => $b2bProduct->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 12,
+            'freshness_window_days' => 1,
+            'b2b_only' => true,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), $this->payload([
+                'customer_type' => 'business',
+                'items' => [['product_id' => $b2bProduct->id, 'quantity' => 5]],
+            ]))
+            ->assertRedirect();
+
+        $this->assertSame(1, ShopOrder::query()->where('customer_type', CustomerType::Business)->count());
+    }
+
+    public function test_private_admin_order_cannot_book_b2b_only_stock(): void
+    {
+        $b2bProduct = Product::factory()->create([
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        ProductStockInflow::create([
+            'product_id' => $b2bProduct->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 12,
+            'freshness_window_days' => 1,
+            'b2b_only' => true,
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson(route('app.admin.shop-orders.available-products', [
+                'date' => self::DELIVERY_DATE,
+                'customer_type' => 'private',
+            ]));
+
+        $ids = collect($response->json())->pluck('id')->all();
+        $this->assertNotContains($b2bProduct->id, $ids);
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), $this->payload([
+                'items' => [['product_id' => $b2bProduct->id, 'quantity' => 5]],
+            ]))
+            ->assertSessionHasErrors('items.0.quantity');
+    }
+
     public function test_payment_method_is_always_in_person_regardless_of_payload(): void
     {
         $this->actingAs($this->admin)

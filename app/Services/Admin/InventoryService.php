@@ -2,7 +2,9 @@
 
 namespace App\Services\Admin;
 
+use App\Enums\CustomerType;
 use App\Enums\ShopOrderStatus;
+use App\Enums\ShopStockAudience;
 use App\Enums\SpargelOrderStatus;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
@@ -60,11 +62,14 @@ class InventoryService
      * still live that day, after existing commitments have been allocated
      * to batches expiring-soonest-first. Never negative.
      */
-    public function availableOnDate(Product $product, Carbon $date): float
-    {
+    public function availableOnDate(
+        Product $product,
+        Carbon $date,
+        ShopStockAudience $audience = ShopStockAudience::Consumer,
+    ): float {
         $date = $date->copy()->startOfDay();
 
-        $map = $this->productAvailability([$product->id], $date, $date);
+        $map = $this->productAvailability([$product->id], $date, $date, $audience);
 
         return max(0.0, round($map[$product->id][$date->toDateString()] ?? 0.0, 4));
     }
@@ -125,8 +130,12 @@ class InventoryService
      * @param  iterable<int, Product>  $products
      * @return array<int, array<string, float>> productId => (iso => remaining)
      */
-    public function availabilityMatrix(iterable $products, Carbon $from, Carbon $to): array
-    {
+    public function availabilityMatrix(
+        iterable $products,
+        Carbon $from,
+        Carbon $to,
+        ShopStockAudience $audience = ShopStockAudience::Consumer,
+    ): array {
         $from = $from->copy()->startOfDay();
         $to = $to->copy()->startOfDay();
 
@@ -138,9 +147,15 @@ class InventoryService
         // Cache the computed matrix (pure scalars, locale-independent) under a
         // version-scoped key. Model observers bump the version on any
         // inventory-affecting write; a short TTL bounds staleness otherwise.
-        $suffix = sprintf('matrix.%s.%s.%s', $from->toDateString(), $to->toDateString(), md5(implode(',', $productIds)));
+        $suffix = sprintf(
+            'matrix.%s.%s.%s.%s',
+            $from->toDateString(),
+            $to->toDateString(),
+            $audience->value,
+            md5(implode(',', $productIds)),
+        );
 
-        return InventoryCache::remember($suffix, fn (): array => $this->computeAvailabilityMatrix($productIds, $from, $to));
+        return InventoryCache::remember($suffix, fn (): array => $this->computeAvailabilityMatrix($productIds, $from, $to, $audience));
     }
 
     /**
@@ -150,13 +165,17 @@ class InventoryService
      * @param  list<int>  $productIds
      * @return array<int, array<string, float>>
      */
-    private function computeAvailabilityMatrix(array $productIds, Carbon $from, Carbon $to): array
-    {
+    private function computeAvailabilityMatrix(
+        array $productIds,
+        Carbon $from,
+        Carbon $to,
+        ShopStockAudience $audience = ShopStockAudience::Consumer,
+    ): array {
         $fromIso = $from->toDateString();
         $toIso = $to->toDateString();
 
         $matrix = [];
-        foreach ($this->productAvailability($productIds, $from, $to) as $pid => $row) {
+        foreach ($this->productAvailability($productIds, $from, $to, $audience) as $pid => $row) {
             foreach ($row as $iso => $value) {
                 if ($iso >= $fromIso && $iso <= $toIso) {
                     $matrix[$pid][$iso] = max(0.0, round($value, 4));
@@ -182,8 +201,12 @@ class InventoryService
      * @param  list<int>  $productIds
      * @return array<int, array<string, float>>
      */
-    private function productAvailability(array $productIds, Carbon $from, Carbon $to): array
-    {
+    private function productAvailability(
+        array $productIds,
+        Carbon $from,
+        Carbon $to,
+        ShopStockAudience $audience = ShopStockAudience::Consumer,
+    ): array {
         $from = $from->copy()->startOfDay();
         $to = $to->copy()->startOfDay();
 
@@ -217,11 +240,58 @@ class InventoryService
             }
         }
 
-        $committed = $this->committedForProducts($productIds, $spanFrom, $spanTo);
+        $sharedCommitted = $this->sharedCommittedForProducts($productIds, $spanFrom, $spanTo);
+        $businessShopCommitted = [];
+        if ($audience === ShopStockAudience::BusinessTrade) {
+            $this->accumulateShopCommitments(
+                $businessShopCommitted,
+                $productIds,
+                $spanFrom->toDateString(),
+                $spanTo->toDateString(),
+                CustomerType::Business,
+            );
+        }
 
         $out = [];
         foreach ($batchesByPid as $pid => $batches) {
-            $out[$pid] = $this->allocateRemainingByDay($batches, $committed[$pid] ?? []);
+            if ($audience === ShopStockAudience::Consumer) {
+                $sharedBatches = array_values(array_filter(
+                    $batches,
+                    static fn (array $b): bool => ! ($b['b2b_only'] ?? false),
+                ));
+                $out[$pid] = $this->allocateRemainingByDay($sharedBatches, $sharedCommitted[$pid] ?? []);
+
+                continue;
+            }
+
+            $sharedBatches = array_values(array_filter(
+                $batches,
+                static fn (array $b): bool => ! ($b['b2b_only'] ?? false),
+            ));
+            $b2bBatches = array_values(array_filter(
+                $batches,
+                static fn (array $b): bool => (bool) ($b['b2b_only'] ?? false),
+            ));
+
+            $sharedAvail = $this->allocateRemainingByDay($sharedBatches, $sharedCommitted[$pid] ?? []);
+            $b2bAvail = $this->allocateRemainingByDay($b2bBatches, $businessShopCommitted[$pid] ?? []);
+            $out[$pid] = $this->mergeDailyAvailability($sharedAvail, $b2bAvail);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, float>  ...$maps
+     * @return array<string, float>
+     */
+    private function mergeDailyAvailability(array ...$maps): array
+    {
+        $out = [];
+        foreach ($maps as $map) {
+            foreach ($map as $iso => $value) {
+                $out[$iso] = ($out[$iso] ?? 0.0) + (float) $value;
+            }
         }
 
         return $out;
@@ -315,7 +385,7 @@ class InventoryService
      * Load inflow batches overlapping `[from, to]`, grouped by product.
      *
      * @param  list<int>  $productIds
-     * @return array<int, list<array{start: Carbon, end: Carbon, qty: float}>>
+     * @return array<int, list<array{start: Carbon, end: Carbon, qty: float, b2b_only: bool}>>
      */
     private function loadBatchesByProduct(array $productIds, Carbon $from, Carbon $to): array
     {
@@ -331,7 +401,7 @@ class InventoryService
             ->whereIn('product_id', $productIds)
             ->whereDate('received_on', '<=', $to->toDateString())
             ->whereRaw($expiresExpr.' >= ?', [$from->toDateString()])
-            ->get(['product_id', 'received_on', 'quantity', 'freshness_window_days'])
+            ->get(['product_id', 'received_on', 'quantity', 'freshness_window_days', 'b2b_only'])
             ->each(function (ProductStockInflow $inflow) use (&$byPid): void {
                 $start = Carbon::parse($inflow->received_on)->startOfDay();
                 $end = $start->copy()->addDays(max(1, (int) $inflow->freshness_window_days) - 1);
@@ -339,6 +409,7 @@ class InventoryService
                     'start' => $start,
                     'end' => $end,
                     'qty' => (float) $inflow->quantity,
+                    'b2b_only' => (bool) $inflow->b2b_only,
                 ];
             });
 
@@ -346,13 +417,13 @@ class InventoryService
     }
 
     /**
-     * Per-product committed-for-delivery totals over `[from, to]`, summing
-     * shop + spargel + box channels via the existing accumulators.
+     * Commitments that deplete shared (non-B2B-exclusive) stock: all shop
+     * orders plus spargel and box channels.
      *
      * @param  list<int>  $productIds
      * @return array<int, array<string, float>>
      */
-    private function committedForProducts(array $productIds, Carbon $from, Carbon $to): array
+    private function sharedCommittedForProducts(array $productIds, Carbon $from, Carbon $to): array
     {
         $committed = [];
         $this->accumulateShopCommitments($committed, $productIds, $from->toDateString(), $to->toDateString());
@@ -369,13 +440,19 @@ class InventoryService
      * @param  array<int, array<string, float>>  $committed
      * @param  list<int>  $productIds
      */
-    private function accumulateShopCommitments(array &$committed, array $productIds, string $fromIso, string $toIso): void
-    {
+    private function accumulateShopCommitments(
+        array &$committed,
+        array $productIds,
+        string $fromIso,
+        string $toIso,
+        ?CustomerType $customerType = null,
+    ): void {
         ShopOrderItem::query()
             ->join('shop_orders', 'shop_orders.id', '=', 'shop_order_items.shop_order_id')
             ->whereIn('shop_order_items.product_id', $productIds)
             ->whereDate('shop_orders.expected_delivery_date', '>=', $fromIso)
             ->whereDate('shop_orders.expected_delivery_date', '<=', $toIso)
+            ->when($customerType !== null, fn ($q) => $q->where('shop_orders.customer_type', $customerType->value))
             ->whereNotIn('shop_orders.status', [
                 ShopOrderStatus::Cancelled->value,
                 ShopOrderStatus::Refunded->value,
@@ -509,6 +586,7 @@ class InventoryService
         ?int $sourceScheduleId = null,
         ?string $notes = null,
         ?int $createdByUserId = null,
+        bool $b2bOnly = false,
     ): ProductStockInflow {
         $freshness = $freshnessWindowDays
             ?? (int) ($product->default_freshness_window_days ?? 1);
@@ -521,6 +599,7 @@ class InventoryService
             'original_received_on' => $iso,
             'quantity' => round($quantity, 4),
             'freshness_window_days' => max(1, $freshness),
+            'b2b_only' => $b2bOnly,
             'source_schedule_id' => $sourceScheduleId,
             'notes' => $notes,
             'created_by_user_id' => $createdByUserId,
@@ -539,6 +618,7 @@ class InventoryService
         ?int $freshnessWindowDays = null,
         ?string $notes = null,
         ?int $createdByUserId = null,
+        bool $b2bOnly = false,
     ): ProductStockInflowSchedule {
         if ($endsOn !== null && $endsOn->lt($startsOn)) {
             throw new \InvalidArgumentException('ends_on must be >= starts_on.');
@@ -547,12 +627,13 @@ class InventoryService
         $freshness = $freshnessWindowDays
             ?? (int) ($product->default_freshness_window_days ?? 1);
 
-        return DB::transaction(function () use ($product, $weekday, $plannedQuantity, $startsOn, $endsOn, $freshness, $notes, $createdByUserId): ProductStockInflowSchedule {
+        return DB::transaction(function () use ($product, $weekday, $plannedQuantity, $startsOn, $endsOn, $freshness, $notes, $createdByUserId, $b2bOnly): ProductStockInflowSchedule {
             $schedule = ProductStockInflowSchedule::create([
                 'product_id' => $product->id,
                 'weekday' => $weekday,
                 'planned_quantity' => round($plannedQuantity, 4),
                 'freshness_window_days' => max(1, $freshness),
+                'b2b_only' => $b2bOnly,
                 'starts_on' => $startsOn->copy()->startOfDay()->toDateString(),
                 'ends_on' => $endsOn?->copy()->startOfDay()->toDateString(),
                 'notes' => $notes,
@@ -630,6 +711,7 @@ class InventoryService
                 freshnessWindowDays: $old->freshness_window_days,
                 notes: $old->notes,
                 createdByUserId: $createdByUserId,
+                b2bOnly: (bool) $old->b2b_only,
             );
         });
     }
@@ -693,6 +775,7 @@ class InventoryService
                     'original_received_on' => $cursor->toDateString(),
                     'quantity' => $schedule->planned_quantity,
                     'freshness_window_days' => $schedule->freshness_window_days,
+                    'b2b_only' => (bool) $schedule->b2b_only,
                     'source_schedule_id' => $schedule->id,
                     'notes' => null,
                     'created_by_user_id' => null,
