@@ -71,15 +71,17 @@
                                                 </template>
                                             </select>
                                         </div>
-                                        {{-- Quantity (free-form, no step restriction) --}}
-                                        <div class="w-32">
+                                        {{-- Quantity + unit label --}}
+                                        <div class="flex items-center gap-1.5">
                                             <input type="number"
                                                 :name="'items[' + i + '][quantity]'"
                                                 x-model="item.quantity"
                                                 min="0.001" step="any"
                                                 placeholder="{{ __('admin.quantity') }}"
-                                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                class="block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                 required>
+                                            <span class="w-8 text-xs text-gray-500 tabular-nums"
+                                                  x-text="availableProducts.find(p => String(p.id) === String(item.product_id))?.unit ?? ''"></span>
                                         </div>
                                         {{-- Remove --}}
                                         <button type="button"
