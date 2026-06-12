@@ -3,6 +3,7 @@
 namespace Tests\Unit\Services;
 
 use App\Enums\BoxStatus;
+use App\Enums\ShopOrderStatus;
 use App\Enums\SpargelOrderStatus;
 use App\Models\Address;
 use App\Models\Box;
@@ -10,6 +11,7 @@ use App\Models\BoxItem;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ProductStockInflowSchedule;
+use App\Models\ShopOrder;
 use App\Models\SpargelOrder;
 use App\Models\Subscription;
 use App\Models\User;
@@ -45,6 +47,105 @@ class InventoryServiceTest extends TestCase
         $this->assertEqualsWithDelta(1000.0, $this->service->availableOnDate($product, Carbon::parse('2026-05-27')), 0.001);
         $this->assertEqualsWithDelta(0.0, $this->service->availableOnDate($product, Carbon::parse('2026-05-28')), 0.001);
         $this->assertEqualsWithDelta(0.0, $this->service->availableOnDate($product, Carbon::parse('2026-05-24')), 0.001);
+    }
+
+    /** Create a non-cancelled shop order committing $qty of $product for $date. */
+    private function commitShopOrder(Product $product, float $qty, string $date): void
+    {
+        $order = ShopOrder::create([
+            'name' => 'C', 'email' => 'c@example.com', 'phone' => null,
+            'fulfillment_mode' => 'pickup', 'pickup_location' => 'karl_kunger',
+            'expected_delivery_date' => $date,
+            'items_total_eur' => 0, 'delivery_fee_eur' => 0, 'total_amount_eur' => 0,
+            'payment_method' => 'in_person', 'status' => ShopOrderStatus::Paid,
+        ]);
+        $order->items()->create([
+            'product_id' => $product->id, 'quantity' => $qty, 'unit' => 'piece',
+            'unit_price_snapshot_eur' => 1, 'line_total_eur' => $qty,
+            'vat_rate_snapshot_percent' => 7, 'vat_amount_eur' => 0,
+        ]);
+    }
+
+    public function test_batch_depletion_carries_across_the_whole_freshness_window(): void
+    {
+        // Reported bug: inflow 100, freshness 4 (Aug 12–15); a sale of 10 on the
+        // 12th must reduce ALL four days to 90, not just the 12th.
+        $product = Product::factory()->create();
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => '2026-08-12',
+            'quantity' => 100,
+            'freshness_window_days' => 4, // active 12–15
+        ]);
+
+        $this->commitShopOrder($product, 10, '2026-08-12');
+
+        foreach (['2026-08-12', '2026-08-13', '2026-08-14', '2026-08-15'] as $iso) {
+            $this->assertEqualsWithDelta(90.0, $this->service->availableOnDate($product, Carbon::parse($iso)), 0.001, "Day {$iso}");
+        }
+    }
+
+    public function test_batch_depletion_from_a_mid_window_day_also_reduces_all_days(): void
+    {
+        $product = Product::factory()->create();
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => '2026-08-12',
+            'quantity' => 100,
+            'freshness_window_days' => 4,
+        ]);
+
+        $this->commitShopOrder($product, 10, '2026-08-14'); // sell from the 14th
+
+        foreach (['2026-08-12', '2026-08-13', '2026-08-14', '2026-08-15'] as $iso) {
+            $this->assertEqualsWithDelta(90.0, $this->service->availableOnDate($product, Carbon::parse($iso)), 0.001, "Day {$iso}");
+        }
+    }
+
+    public function test_fefo_drains_the_soonest_expiring_batch_first(): void
+    {
+        // Batch A: 100, active 12–15 (expires 15). Batch B: 100, active 14–17.
+        $product = Product::factory()->create();
+        ProductStockInflow::create(['product_id' => $product->id, 'received_on' => '2026-08-12', 'quantity' => 100, 'freshness_window_days' => 4]);
+        ProductStockInflow::create(['product_id' => $product->id, 'received_on' => '2026-08-14', 'quantity' => 100, 'freshness_window_days' => 4]);
+
+        // Commit 100 on the 14th, where both batches are live. FEFO → drain A.
+        $this->commitShopOrder($product, 100, '2026-08-14');
+
+        // Day 12: only A is live and it's fully drained → 0.
+        $this->assertEqualsWithDelta(0.0, $this->service->availableOnDate($product, Carbon::parse('2026-08-12')), 0.001);
+        // Day 14: A drained (0) + B intact (100) = 100.
+        $this->assertEqualsWithDelta(100.0, $this->service->availableOnDate($product, Carbon::parse('2026-08-14')), 0.001);
+        // Day 16: only B is live and untouched → 100.
+        $this->assertEqualsWithDelta(100.0, $this->service->availableOnDate($product, Carbon::parse('2026-08-16')), 0.001);
+    }
+
+    public function test_fefo_preserves_feasibility_for_short_window_batch(): void
+    {
+        // Batch A: 10, active 12 only. Batch B: 10, active 12–13.
+        $product = Product::factory()->create();
+        ProductStockInflow::create(['product_id' => $product->id, 'received_on' => '2026-08-12', 'quantity' => 10, 'freshness_window_days' => 1]);
+        ProductStockInflow::create(['product_id' => $product->id, 'received_on' => '2026-08-12', 'quantity' => 10, 'freshness_window_days' => 2]);
+
+        // Demand 10 on the 12th must take expiring A, leaving B for the 13th.
+        $this->commitShopOrder($product, 10, '2026-08-12');
+
+        // Day 12: A drained (0) + B intact (10) = 10.
+        $this->assertEqualsWithDelta(10.0, $this->service->availableOnDate($product, Carbon::parse('2026-08-12')), 0.001);
+        // Day 13: only B is live, still 10 (A correctly wasn't consumed by day-13 demand).
+        $this->assertEqualsWithDelta(10.0, $this->service->availableOnDate($product, Carbon::parse('2026-08-13')), 0.001);
+    }
+
+    public function test_over_commitment_exhausts_batch_across_window(): void
+    {
+        $product = Product::factory()->create();
+        ProductStockInflow::create(['product_id' => $product->id, 'received_on' => '2026-08-12', 'quantity' => 100, 'freshness_window_days' => 4]);
+
+        $this->commitShopOrder($product, 150, '2026-08-12'); // oversell
+
+        foreach (['2026-08-12', '2026-08-13', '2026-08-14', '2026-08-15'] as $iso) {
+            $this->assertEqualsWithDelta(0.0, $this->service->availableOnDate($product, Carbon::parse($iso)), 0.001, "Day {$iso}");
+        }
     }
 
     public function test_available_subtracts_spargel_outflow_for_configured_white_product(): void

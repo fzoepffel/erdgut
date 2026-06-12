@@ -42,17 +42,31 @@ class InventoryService
     public const CRON_MATERIALIZE_WEEKS_AHEAD = 30;
 
     /**
-     * Gross active inflow on `$date` minus committed outflow.
+     * Days of slack added on each side of a query window when loading inflow
+     * batches, so every batch that competes for the same commitments is
+     * considered by the FEFO allocator. Comfortably exceeds any realistic
+     * freshness window (which is measured in days).
+     */
+    private const BATCH_OVERLAP_BUFFER_DAYS = 60;
+
+    /**
+     * Remaining available quantity for delivery on `$date`, accounting for
+     * batch depletion across each inflow's whole freshness window (FEFO).
      *
-     * Never returns negative; over-commitments are surfaced separately
-     * via `committedOnDate() > grossInflowOnDate()` on the admin matrix.
+     * An inflow is a physical batch usable on any day in
+     * `[received_on, received_on + freshness − 1]`; a commitment on any of
+     * those days draws the batch down for *all* of them. Availability on a
+     * day is therefore the sum of the *remaining* quantity of every batch
+     * still live that day, after existing commitments have been allocated
+     * to batches expiring-soonest-first. Never negative.
      */
     public function availableOnDate(Product $product, Carbon $date): float
     {
-        $gross = $this->grossInflowOnDate($product, $date);
-        $committed = $this->committedOnDate($product, $date);
+        $date = $date->copy()->startOfDay();
 
-        return max(0.0, round($gross - $committed, 4));
+        $map = $this->productAvailability([$product->id], $date, $date);
+
+        return max(0.0, round($map[$product->id][$date->toDateString()] ?? 0.0, 4));
     }
 
     /**
@@ -80,10 +94,14 @@ class InventoryService
         $from = $from->copy()->startOfDay();
         $to = $to->copy()->startOfDay();
 
+        $row = $this->productAvailability([$product->id], $from, $to)[$product->id] ?? [];
+
+        // Preserve the contract of a value for every day in [from, to].
         $out = [];
         $cursor = $from->copy();
         while ($cursor->lte($to)) {
-            $out[$cursor->toDateString()] = $this->availableOnDate($product, $cursor);
+            $iso = $cursor->toDateString();
+            $out[$iso] = max(0.0, round($row[$iso] ?? 0.0, 4));
             $cursor->addDay();
         }
 
@@ -94,15 +112,15 @@ class InventoryService
      * Bulk availability for many products over a date window in a constant,
      * tiny number of queries — the storefront's hot path.
      *
-     * Computes the exact same value as looping `availableOnDate()` over every
-     * (product, day) pair, but with ~4 aggregate queries total instead of
-     * `products × days × 3`. Inflows are spread across their freshness window
-     * and commitments (shop / spargel / box) are bucketed per product+date in
-     * PHP from windowed result sets, then `max(0, gross − committed)` per cell.
+     * Batch-aware (FEFO): inflows are treated as physical batches whose
+     * depletion carries across their whole freshness window, so a sale on one
+     * day reduces every day that batch is live (see {@see productAvailability}
+     * and {@see allocateRemainingByDay}). Loads batches + commitments in a few
+     * windowed queries instead of `products × days × 3` per-day lookups.
      *
-     * Days/products with no inflow are simply absent from the inner map (the
-     * caller treats a missing key as 0.0), mirroring `availableOnDate()` which
-     * returns 0 for an empty day.
+     * Days/products with no live batch are simply absent from the inner map
+     * (the caller treats a missing key as 0.0), mirroring {@see availableOnDate}
+     * which returns 0 for an empty day.
      *
      * @param  iterable<int, Product>  $products
      * @return array<int, array<string, float>> productId => (iso => remaining)
@@ -126,7 +144,8 @@ class InventoryService
     }
 
     /**
-     * Uncached core of {@see availabilityMatrix}.
+     * Uncached core of {@see availabilityMatrix} — slices the shared
+     * batch-aware availability to the requested `[from, to]` window.
      *
      * @param  list<int>  $productIds
      * @return array<int, array<string, float>>
@@ -136,8 +155,170 @@ class InventoryService
         $fromIso = $from->toDateString();
         $toIso = $to->toDateString();
 
-        // ── 1. Gross inflows, spread across each row's freshness window ──────
-        $gross = [];   // [productId][iso] => float
+        $matrix = [];
+        foreach ($this->productAvailability($productIds, $from, $to) as $pid => $row) {
+            foreach ($row as $iso => $value) {
+                if ($iso >= $fromIso && $iso <= $toIso) {
+                    $matrix[$pid][$iso] = max(0.0, round($value, 4));
+                }
+            }
+        }
+
+        return $matrix;
+    }
+
+    /**
+     * Batch-aware available quantity per product per day (the single source
+     * of truth behind {@see availableOnDate}, {@see availabilityWindow}, and
+     * {@see computeAvailabilityMatrix}).
+     *
+     * Loads each product's inflow *batches* overlapping the window (widened by
+     * {@see BATCH_OVERLAP_BUFFER_DAYS} so competing batches aren't missed),
+     * loads all commitments over the batches' span, then runs the FEFO
+     * allocator so a sale on any day draws its batch down across that batch's
+     * entire freshness window. Returns `[productId => [iso => remaining]]` for
+     * every day any batch is live; callers slice to the days they need.
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, array<string, float>>
+     */
+    private function productAvailability(array $productIds, Carbon $from, Carbon $to): array
+    {
+        $from = $from->copy()->startOfDay();
+        $to = $to->copy()->startOfDay();
+
+        if ($productIds === [] || $from->gt($to)) {
+            return [];
+        }
+
+        // Load batches overlapping a buffered window so every batch that could
+        // compete for the same commitments is present for the allocator.
+        $loadFrom = $from->copy()->subDays(self::BATCH_OVERLAP_BUFFER_DAYS);
+        $loadTo = $to->copy()->addDays(self::BATCH_OVERLAP_BUFFER_DAYS);
+        $batchesByPid = $this->loadBatchesByProduct($productIds, $loadFrom, $loadTo);
+
+        if ($batchesByPid === []) {
+            return [];
+        }
+
+        // Commitments must cover the full span of the loaded batches: a
+        // commitment outside [from, to] but inside a batch's window still
+        // depletes that batch.
+        $spanFrom = $from->copy();
+        $spanTo = $to->copy();
+        foreach ($batchesByPid as $batches) {
+            foreach ($batches as $b) {
+                if ($b['start']->lt($spanFrom)) {
+                    $spanFrom = $b['start']->copy();
+                }
+                if ($b['end']->gt($spanTo)) {
+                    $spanTo = $b['end']->copy();
+                }
+            }
+        }
+
+        $committed = $this->committedForProducts($productIds, $spanFrom, $spanTo);
+
+        $out = [];
+        foreach ($batchesByPid as $pid => $batches) {
+            $out[$pid] = $this->allocateRemainingByDay($batches, $committed[$pid] ?? []);
+        }
+
+        return $out;
+    }
+
+    /**
+     * FEFO allocation core: draw each day's committed demand from the batch
+     * that expires soonest, then report each batch's *remaining* quantity
+     * summed across the days it stays live.
+     *
+     * @param  list<array{start: Carbon, end: Carbon, qty: float}>  $batches
+     * @param  array<string, float>  $committedByIso  iso => committed-for-delivery that day
+     * @return array<string, float> iso => remaining available
+     */
+    private function allocateRemainingByDay(array $batches, array $committedByIso): array
+    {
+        if ($batches === []) {
+            return [];
+        }
+
+        // Work on copies carrying a mutable remaining quantity.
+        $batches = array_values(array_map(static fn (array $b): array => [
+            'start' => $b['start'],
+            'end' => $b['end'],
+            'remaining' => (float) $b['qty'],
+        ], $batches));
+
+        // Allocate demand chronologically (iso strings sort by date).
+        ksort($committedByIso);
+
+        foreach ($committedByIso as $iso => $demand) {
+            $demand = (float) $demand;
+            if ($demand <= 1e-9) {
+                continue;
+            }
+            $day = Carbon::parse($iso)->startOfDay();
+
+            // Batches live on this day with stock left, expiring-soonest first.
+            $candidates = [];
+            foreach ($batches as $i => $b) {
+                if ($b['remaining'] > 1e-9 && $b['start']->lte($day) && $b['end']->gte($day)) {
+                    $candidates[] = $i;
+                }
+            }
+            usort($candidates, function (int $a, int $b) use ($batches): int {
+                return [$batches[$a]['end']->getTimestamp(), $batches[$a]['start']->getTimestamp(), $a]
+                    <=> [$batches[$b]['end']->getTimestamp(), $batches[$b]['start']->getTimestamp(), $b];
+            });
+
+            foreach ($candidates as $i) {
+                if ($demand <= 1e-9) {
+                    break;
+                }
+                $take = min($demand, $batches[$i]['remaining']);
+                $batches[$i]['remaining'] -= $take;
+                $demand -= $take;
+            }
+            // Any leftover demand is over-commitment: the live batches are now
+            // exhausted, which is physically correct — no further effect.
+        }
+
+        // Sum remaining per day across the union span of all batches.
+        $spanStart = $batches[0]['start'];
+        $spanEnd = $batches[0]['end'];
+        foreach ($batches as $b) {
+            if ($b['start']->lt($spanStart)) {
+                $spanStart = $b['start'];
+            }
+            if ($b['end']->gt($spanEnd)) {
+                $spanEnd = $b['end'];
+            }
+        }
+
+        $out = [];
+        $cursor = $spanStart->copy();
+        while ($cursor->lte($spanEnd)) {
+            $sum = 0.0;
+            foreach ($batches as $b) {
+                if ($b['start']->lte($cursor) && $b['end']->gte($cursor)) {
+                    $sum += $b['remaining'];
+                }
+            }
+            $out[$cursor->toDateString()] = round($sum, 4);
+            $cursor->addDay();
+        }
+
+        return $out;
+    }
+
+    /**
+     * Load inflow batches overlapping `[from, to]`, grouped by product.
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, list<array{start: Carbon, end: Carbon, qty: float}>>
+     */
+    private function loadBatchesByProduct(array $productIds, Carbon $from, Carbon $to): array
+    {
         $driver = DB::connection()->getDriverName();
         $expiresExpr = match ($driver) {
             'sqlite' => "date(received_on, '+' || (freshness_window_days - 1) || ' day')",
@@ -145,47 +326,40 @@ class InventoryService
             default => 'DATE_ADD(received_on, INTERVAL (freshness_window_days - 1) DAY)',
         };
 
+        $byPid = [];
         ProductStockInflow::query()
             ->whereIn('product_id', $productIds)
-            ->whereDate('received_on', '<=', $toIso)
-            ->whereRaw($expiresExpr.' >= ?', [$fromIso])
+            ->whereDate('received_on', '<=', $to->toDateString())
+            ->whereRaw($expiresExpr.' >= ?', [$from->toDateString()])
             ->get(['product_id', 'received_on', 'quantity', 'freshness_window_days'])
-            ->each(function (ProductStockInflow $inflow) use (&$gross, $from, $to): void {
-                $pid = (int) $inflow->product_id;
+            ->each(function (ProductStockInflow $inflow) use (&$byPid): void {
                 $start = Carbon::parse($inflow->received_on)->startOfDay();
                 $end = $start->copy()->addDays(max(1, (int) $inflow->freshness_window_days) - 1);
-
-                $cursor = $start->lt($from) ? $from->copy() : $start;
-                $last = $end->gt($to) ? $to : $end;
-                $qty = (float) $inflow->quantity;
-
-                while ($cursor->lte($last)) {
-                    $iso = $cursor->toDateString();
-                    $gross[$pid][$iso] = ($gross[$pid][$iso] ?? 0.0) + $qty;
-                    $cursor->addDay();
-                }
+                $byPid[(int) $inflow->product_id][] = [
+                    'start' => $start,
+                    'end' => $end,
+                    'qty' => (float) $inflow->quantity,
+                ];
             });
 
-        // ── 2. Committed: shop + spargel + box, bucketed per product+date ────
-        $committed = [];   // [productId][iso] => float
-        $this->accumulateShopCommitments($committed, $productIds, $fromIso, $toIso);
-        $this->accumulateSpargelCommitments($committed, $productIds, $fromIso, $toIso);
+        return $byPid;
+    }
+
+    /**
+     * Per-product committed-for-delivery totals over `[from, to]`, summing
+     * shop + spargel + box channels via the existing accumulators.
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, array<string, float>>
+     */
+    private function committedForProducts(array $productIds, Carbon $from, Carbon $to): array
+    {
+        $committed = [];
+        $this->accumulateShopCommitments($committed, $productIds, $from->toDateString(), $to->toDateString());
+        $this->accumulateSpargelCommitments($committed, $productIds, $from->toDateString(), $to->toDateString());
         $this->accumulateBoxCommitments($committed, $productIds, $from, $to);
 
-        // ── 3. remaining = max(0, gross − committed) per cell ────────────────
-        $matrix = [];
-        foreach ($productIds as $pid) {
-            $isos = array_unique(array_merge(
-                array_keys($gross[$pid] ?? []),
-                array_keys($committed[$pid] ?? []),
-            ));
-            foreach ($isos as $iso) {
-                $remaining = round(($gross[$pid][$iso] ?? 0.0) - ($committed[$pid][$iso] ?? 0.0), 4);
-                $matrix[$pid][$iso] = max(0.0, $remaining);
-            }
-        }
-
-        return $matrix;
+        return $committed;
     }
 
     /**
