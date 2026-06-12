@@ -163,6 +163,29 @@ class Product extends Model
     }
 
     /**
+     * The unit label that matches the quantity the admin (or service) actually
+     * stores — i.e. the canonical unit, not the display/pricing unit.
+     *
+     * - Mass   → "g"    (quantities are in grams, regardless of €/kg pricing)
+     * - Volume → "ml"   (quantities are in ml, regardless of €/L pricing)
+     * - Piece  → "Stück"
+     * - Bunch  → "Bund"
+     *
+     * Used in the admin manual-order form so the operator sees the right unit
+     * next to the quantity input.
+     */
+    public function canonicalUnitLabel(?string $locale = null): string
+    {
+        return match ($this->unit) {
+            ProductUnit::Mass => 'g',
+            ProductUnit::Volume => 'ml',
+            ProductUnit::Piece => (string) __('Stück', [], $locale ?? app()->getLocale()),
+            ProductUnit::Bunch => (string) __('Bund', [], $locale ?? app()->getLocale()),
+            default => '',
+        };
+    }
+
+    /**
      * The canonical-unit step size to use for this product's quantity selector.
      *
      * - Piece / Bunch: always 1 (whole units only).
