@@ -1,22 +1,18 @@
 <x-admin-layout>
     <x-slot name="header">
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-                <a href="{{ route('app.admin.shop-orders.index') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ __('shop.admin.back_to_list') }}</a>
-                <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('shop.admin.create_heading') }}</h1>
-            </div>
+        <div class="flex items-center gap-3">
+            <a href="{{ route('app.admin.shop-orders.index') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ __('shop.admin.back_to_list') }}</a>
+            <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('shop.admin.create_heading') }}</h1>
         </div>
     </x-slot>
 
     <div class="py-8 sm:py-12"
-         x-data="{
-             mode: '{{ old('fulfillment_mode', 'pickup') }}',
-             items: @js(
-                 collect(old('items', [['product_id'=>'','quantity'=>'']]))->map(fn($i)=>['product_id'=>(string)($i['product_id']??''),'quantity'=>(string)($i['quantity']??'')])->values()->all()
-             ),
-             addItem() { this.items.push({ product_id: '', quantity: '' }); },
-             removeItem(i) { if (this.items.length > 1) this.items.splice(i, 1); },
-         }">
+         x-data="adminOrderForm({
+             availableProductsUrl: @js($availableProductsUrl),
+             pickupMode: '{{ old('fulfillment_mode', 'pickup') }}',
+             preselectedDate: '{{ old('expected_delivery_date', '') }}',
+             preselectedItems: @js(collect(old('items', []))->map(fn($i) => ['product_id' => (string)($i['product_id'] ?? ''), 'quantity' => (string)($i['quantity'] ?? '')])->values()->all()),
+         })">
         <div class="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-8">
 
             @if (session('error'))
@@ -25,11 +21,102 @@
 
             <form method="POST" action="{{ route('app.admin.shop-orders.store') }}">
                 @csrf
+                {{-- payment_method is always in_person for admin orders --}}
+                <input type="hidden" name="payment_method" value="in_person">
 
-                {{-- ── Customer (optional) ──────────────────────────────────── --}}
+                {{-- ── Step 1: Date ─────────────────────────────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
                     <div class="border-b border-gray-100 px-6 py-4">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('shop.admin.create_customer_heading') }}</h2>
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">1. {{ __('shop.form_delivery_date') }}</h2>
+                    </div>
+                    <div class="p-6">
+                        <input type="date" id="expected_delivery_date" name="expected_delivery_date"
+                            x-model="selectedDate"
+                            @change="onDateChange()"
+                            class="block w-56 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                            required>
+                        <x-input-error :messages="$errors->get('expected_delivery_date')" class="mt-1" />
+                        <p class="mt-2 text-xs text-gray-500" x-show="selectedDate && !loading && availableProducts.length === 0" x-cloak>
+                            {{ __('shop.admin.no_products_on_date') }}
+                        </p>
+                    </div>
+                </div>
+
+                {{-- ── Step 2: Products (only once a date is chosen) ────── --}}
+                <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
+                     x-show="selectedDate"
+                     x-cloak>
+                    <div class="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">2. {{ __('shop.admin.create_items_heading') }}</h2>
+                        <span x-show="loading" class="text-xs text-gray-400">{{ __('Loading') }}…</span>
+                    </div>
+                    <div class="p-6 space-y-3">
+                        <x-input-error :messages="$errors->get('items')" class="mb-2" />
+
+                        <template x-if="availableProducts.length > 0">
+                            <div class="space-y-3">
+                                <template x-for="(item, i) in items" :key="i">
+                                    <div class="flex items-start gap-3">
+                                        {{-- Product selector --}}
+                                        <div class="flex-1">
+                                            <select :name="'items[' + i + '][product_id]'"
+                                                x-model="item.product_id"
+                                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                required>
+                                                <option value="">{{ __('admin.select_product') }}</option>
+                                                <template x-for="p in availableProducts" :key="p.id">
+                                                    <option :value="String(p.id)"
+                                                            :selected="String(p.id) === String(item.product_id)"
+                                                            x-text="p.name + (p.producer ? ' (' + p.producer + ')' : '') + ' — ' + p.price + ' / ' + p.unit"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                        {{-- Quantity (free-form, no step restriction) --}}
+                                        <div class="w-32">
+                                            <input type="number"
+                                                :name="'items[' + i + '][quantity]'"
+                                                x-model="item.quantity"
+                                                min="0.001" step="any"
+                                                placeholder="{{ __('admin.quantity') }}"
+                                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                required>
+                                        </div>
+                                        {{-- Remove --}}
+                                        <button type="button"
+                                            @click="removeItem(i)"
+                                            x-show="items.length > 1"
+                                            class="mt-1 text-xs text-red-500 hover:text-red-700 whitespace-nowrap"
+                                            x-cloak>
+                                            {{ __('shop.admin.create_remove_item') }}
+                                        </button>
+                                    </div>
+                                </template>
+
+                                @foreach ($errors->keys() as $key)
+                                    @if (str_starts_with($key, 'items.'))
+                                        <p class="text-xs text-red-600">{{ $errors->first($key) }}</p>
+                                    @endif
+                                @endforeach
+
+                                <button type="button" @click="addItem()"
+                                    class="mt-1 text-sm text-emerald-700 hover:text-emerald-900">
+                                    {{ __('shop.admin.create_add_item') }}
+                                </button>
+                            </div>
+                        </template>
+
+                        <p class="text-sm text-gray-400" x-show="!loading && availableProducts.length === 0">
+                            {{ __('shop.admin.no_products_on_date') }}
+                        </p>
+                    </div>
+                </div>
+
+                {{-- ── Step 3: Customer (optional) ──────────────────────── --}}
+                <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
+                     x-show="selectedDate"
+                     x-cloak>
+                    <div class="border-b border-gray-100 px-6 py-4">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">3. {{ __('shop.admin.create_customer_heading') }}</h2>
                     </div>
                     <div class="space-y-4 p-6">
 
@@ -76,74 +163,12 @@
                     </div>
                 </div>
 
-                {{-- ── Products ─────────────────────────────────────────────── --}}
-                <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
+                {{-- ── Step 4: Fulfillment ──────────────────────────────── --}}
+                <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
+                     x-show="selectedDate"
+                     x-cloak>
                     <div class="border-b border-gray-100 px-6 py-4">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('shop.admin.create_items_heading') }}</h2>
-                    </div>
-                    <div class="p-6 space-y-3">
-                        <x-input-error :messages="$errors->get('items')" class="mb-2" />
-
-                        <template x-for="(item, i) in items" :key="i">
-                            <div class="flex items-start gap-3">
-                                {{-- Product selector --}}
-                                <div class="flex-1">
-                                    <select :name="'items[' + i + '][product_id]'"
-                                        x-model="item.product_id"
-                                        class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                        required>
-                                        <option value="">{{ __('admin.select_product') }}</option>
-                                        @foreach ($products as $product)
-                                            <option value="{{ $product->id }}">
-                                                {{ $product->name }}
-                                                @if ($product->producer)
-                                                    ({{ $product->producer->name }})
-                                                @endif
-                                                — {{ $product->displayPrice() }}
-                                                / {{ $product->localizedUnit() }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                {{-- Quantity --}}
-                                <div class="w-28">
-                                    <input type="number"
-                                        :name="'items[' + i + '][quantity]'"
-                                        x-model="item.quantity"
-                                        min="0.001" step="any"
-                                        placeholder="{{ __('admin.quantity') }}"
-                                        class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                        required>
-                                </div>
-                                {{-- Remove button --}}
-                                <button type="button"
-                                    @click="removeItem(i)"
-                                    x-show="items.length > 1"
-                                    class="mt-0.5 text-xs text-red-500 hover:text-red-700 whitespace-nowrap"
-                                    x-cloak>
-                                    {{ __('shop.admin.create_remove_item') }}
-                                </button>
-                            </div>
-                        </template>
-
-                        {{-- Error messages per item --}}
-                        @foreach ($errors->keys() as $key)
-                            @if (str_starts_with($key, 'items.'))
-                                <p class="text-xs text-red-600">{{ $errors->first($key) }}</p>
-                            @endif
-                        @endforeach
-
-                        <button type="button" @click="addItem()"
-                            class="mt-1 text-sm text-emerald-700 hover:text-emerald-900">
-                            {{ __('shop.admin.create_add_item') }}
-                        </button>
-                    </div>
-                </div>
-
-                {{-- ── Fulfillment ──────────────────────────────────────────── --}}
-                <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
-                    <div class="border-b border-gray-100 px-6 py-4">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('shop.admin.create_fulfillment_heading') }}</h2>
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">4. {{ __('shop.admin.create_fulfillment_heading') }}</h2>
                     </div>
                     <div class="space-y-4 p-6">
 
@@ -167,16 +192,6 @@
                             <x-input-error :messages="$errors->get('fulfillment_mode')" class="mt-1" />
                         </div>
 
-                        {{-- Date --}}
-                        <div>
-                            <label for="expected_delivery_date" class="block text-sm font-medium text-gray-700">{{ __('shop.form_delivery_date') }}</label>
-                            <input type="date" id="expected_delivery_date" name="expected_delivery_date"
-                                value="{{ old('expected_delivery_date') }}"
-                                class="mt-1 block w-48 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                required>
-                            <x-input-error :messages="$errors->get('expected_delivery_date')" class="mt-1" />
-                        </div>
-
                         {{-- Pickup location --}}
                         <div x-show="mode === 'pickup'">
                             <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('shop.pickup_location_section') }}</label>
@@ -185,7 +200,7 @@
                                     <label class="flex items-center gap-2 cursor-pointer">
                                         <input type="radio" name="pickup_location" value="{{ $key }}"
                                             class="text-emerald-600 focus:ring-emerald-500"
-                                            {{ old('pickup_location') === $key ? 'checked' : '' }}>
+                                            {{ old('pickup_location', 'karl_kunger') === $key ? 'checked' : '' }}>
                                         <span class="text-sm text-gray-700">
                                             <strong>{{ $loc['name'] }}</strong> —
                                             {{ $loc['street'] }}, {{ $loc['postal_code'] }} {{ $loc['city'] }}
@@ -229,34 +244,11 @@
                     </div>
                 </div>
 
-                {{-- ── Payment ──────────────────────────────────────────────── --}}
-                <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
-                    <div class="border-b border-gray-100 px-6 py-4">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('shop.admin.create_payment_heading') }}</h2>
-                    </div>
-                    <div class="p-6">
-                        <div class="flex gap-4">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="payment_method" value="in_person"
-                                    class="text-emerald-600 focus:ring-emerald-500"
-                                    {{ old('payment_method', 'in_person') === 'in_person' ? 'checked' : '' }}>
-                                <span class="text-sm text-gray-700">{{ __('shop.payment_in_person') }}</span>
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="payment_method" value="online"
-                                    class="text-emerald-600 focus:ring-emerald-500"
-                                    {{ old('payment_method') === 'online' ? 'checked' : '' }}>
-                                <span class="text-sm text-gray-700">{{ __('shop.payment_online') }}</span>
-                            </label>
-                        </div>
-                        <p class="mt-2 text-xs text-gray-500">{{ __('shop.admin.create_payment_hint') }}</p>
-                        <x-input-error :messages="$errors->get('payment_method')" class="mt-1" />
-                    </div>
-                </div>
-
-                {{-- ── Submit ───────────────────────────────────────────────── --}}
-                <div class="flex items-center gap-4">
-                    <button type="submit" class="btn-solid-sm">
+                {{-- ── Submit ───────────────────────────────────────────── --}}
+                <div class="flex items-center gap-4" x-show="selectedDate" x-cloak>
+                    <button type="submit"
+                        :disabled="availableProducts.length === 0 || loading"
+                        class="btn-solid-sm disabled:cursor-not-allowed disabled:opacity-40">
                         {{ __('shop.admin.create_submit') }}
                     </button>
                     <a href="{{ route('app.admin.shop-orders.index') }}" class="text-sm text-gray-500 hover:text-gray-700">
@@ -267,4 +259,53 @@
             </form>
         </div>
     </div>
+
+    <script>
+    function adminOrderForm(config) {
+        return {
+            availableProductsUrl: config.availableProductsUrl,
+            selectedDate: config.preselectedDate || '',
+            availableProducts: [],
+            loading: false,
+            mode: config.pickupMode || 'pickup',
+            items: config.preselectedItems && config.preselectedItems.length
+                ? config.preselectedItems
+                : [{ product_id: '', quantity: '' }],
+
+            async init() {
+                if (this.selectedDate) {
+                    await this.fetchProducts();
+                }
+            },
+
+            async onDateChange() {
+                this.availableProducts = [];
+                if (!this.selectedDate) return;
+                await this.fetchProducts();
+            },
+
+            async fetchProducts() {
+                this.loading = true;
+                try {
+                    const res = await fetch(this.availableProductsUrl + '?date=' + this.selectedDate, {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    this.availableProducts = await res.json();
+                } catch (e) {
+                    this.availableProducts = [];
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            addItem() {
+                this.items.push({ product_id: '', quantity: '' });
+            },
+
+            removeItem(i) {
+                if (this.items.length > 1) this.items.splice(i, 1);
+            },
+        };
+    }
+    </script>
 </x-admin-layout>

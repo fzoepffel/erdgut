@@ -441,6 +441,7 @@ Route::middleware(['auth', 'verified'])
             Route::get('shop-orders', [AdminShopOrderController::class, 'index'])->name('shop-orders.index');
             // Manual order creation — declared before {shopOrder} wildcard.
             Route::get('shop-orders/create', [AdminShopOrderController::class, 'create'])->name('shop-orders.create');
+            Route::get('shop-orders/available-products', [AdminShopOrderController::class, 'availableProductsForDate'])->name('shop-orders.available-products');
             Route::post('shop-orders', [AdminShopOrderController::class, 'store'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.store');

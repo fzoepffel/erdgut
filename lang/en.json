@@ -3361,5 +3361,7 @@
     "admin.select_product": "Select product...",
     "admin.quantity": "Quantity",
     "shop.form_delivery_date": "Delivery/pickup date",
-    "shop.fulfillment_mode_label": "Fulfillment mode"
+    "shop.fulfillment_mode_label": "Fulfillment mode",
+    "shop.admin.no_products_on_date": "No products available on this date.",
+    "Loading": "Loading"
 }

@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Enums\ProductUnit;
 use App\Http\Requests\ShopOrderRequest;
 use App\Models\Product;
 use App\Services\Shop\ShopOrderService;
@@ -56,7 +55,8 @@ class AdminCreateShopOrderRequest extends FormRequest
             'expected_delivery_date' => ['required', 'date'],
 
             'fulfillment_mode' => ['required', Rule::in(['pickup', 'delivery'])],
-            'payment_method' => ['required', Rule::in(['online', 'in_person'])],
+            // payment_method is hardcoded to 'in_person' by the controller —
+            // admin orders are always pay-at-pickup, no SumUp widget needed.
 
             'delivery_street' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:160'],
             'delivery_postal_code' => ['nullable', 'required_if:fulfillment_mode,delivery', 'string', 'max:16'],
@@ -83,12 +83,6 @@ class AdminCreateShopOrderRequest extends FormRequest
             }
 
             $items = (array) $this->input('items', []);
-            $mode = (string) $this->input('fulfillment_mode');
-            $payMethod = (string) $this->input('payment_method');
-
-            if ($payMethod === 'in_person' && $mode !== 'pickup') {
-                $v->errors()->add('payment_method', __('shop.errors.in_person_pickup_only'));
-            }
 
             $deliveryDate = (string) $this->input('expected_delivery_date');
             $date = $deliveryDate !== '' ? Carbon::parse($deliveryDate) : null;
@@ -114,29 +108,10 @@ class AdminCreateShopOrderRequest extends FormRequest
                     continue;
                 }
 
-                // Same quantity-step rules as the storefront: piece/bunch must
-                // be whole counts, mass/volume must align to the product step.
-                $step = $product->effectiveQuantityStep();
-                if ($product->unit === ProductUnit::Piece || $product->unit === ProductUnit::Bunch) {
-                    if (abs($quantity - round($quantity)) > 1e-6) {
-                        $v->errors()->add(
-                            "items.$index.quantity",
-                            __('shop.errors.quantity_whole', ['name' => $product->name])
-                        );
-
-                        continue;
-                    }
-                } elseif (abs(fmod($quantity, $step)) > 1e-6) {
-                    $v->errors()->add(
-                        "items.$index.quantity",
-                        __('shop.errors.quantity_step', ['name' => $product->name, 'step' => $product->displayQuantity($step)])
-                    );
-
-                    continue;
-                }
-
-                // Stock check: the service re-checks inside a row-lock, but an
-                // early error here gives the admin a clear message.
+                // No quantity-step restriction for admin orders — the operator
+                // may need to enter any amount (e.g. 37 g on a product normally
+                // sold in 50 g increments). Stock is still checked so the admin
+                // sees a clear warning if they exceed available supply.
                 if ($date !== null) {
                     $remaining = $product->availableOnDate($date);
                     if ($quantity > $remaining + 1e-6) {
