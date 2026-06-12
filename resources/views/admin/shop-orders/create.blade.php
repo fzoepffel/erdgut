@@ -10,6 +10,7 @@
          x-data="adminOrderForm({
              availableProductsUrl: @js($availableProductsUrl),
              pickupMode: '{{ old('fulfillment_mode', 'pickup') }}',
+             customerType: '{{ old('customer_type', 'private') }}',
              preselectedDate: '{{ old('expected_delivery_date', '') }}',
              preselectedItems: @js(collect(old('items', []))->map(fn($i) => ['product_id' => (string)($i['product_id'] ?? ''), 'quantity' => (string)($i['quantity'] ?? '')])->values()->all()),
          })">
@@ -128,12 +129,16 @@
                             <div class="flex gap-4">
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" name="customer_type" value="private"
+                                        x-model="customerType"
+                                        @change="onCustomerTypeChange()"
                                         class="text-emerald-600 focus:ring-emerald-500"
                                         {{ old('customer_type', 'private') === 'private' ? 'checked' : '' }}>
                                     <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_private') }}</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" name="customer_type" value="business"
+                                        x-model="customerType"
+                                        @change="onCustomerTypeChange()"
                                         class="text-emerald-600 focus:ring-emerald-500"
                                         {{ old('customer_type') === 'business' ? 'checked' : '' }}>
                                     <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_business') }}</span>
@@ -267,6 +272,7 @@
         return {
             availableProductsUrl: config.availableProductsUrl,
             selectedDate: config.preselectedDate || '',
+            customerType: config.customerType || 'private',
             availableProducts: [],
             loading: false,
             mode: config.pickupMode || 'pickup',
@@ -286,10 +292,19 @@
                 await this.fetchProducts();
             },
 
+            async onCustomerTypeChange() {
+                if (!this.selectedDate) return;
+                await this.fetchProducts();
+            },
+
             async fetchProducts() {
                 this.loading = true;
                 try {
-                    const res = await fetch(this.availableProductsUrl + '?date=' + this.selectedDate, {
+                    const params = new URLSearchParams({
+                        date: this.selectedDate,
+                        customer_type: this.customerType,
+                    });
+                    const res = await fetch(this.availableProductsUrl + '?' + params.toString(), {
                         headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     });
                     this.availableProducts = await res.json();

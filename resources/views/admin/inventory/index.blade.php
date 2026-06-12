@@ -286,15 +286,22 @@
                                             </td>
                                             <td class="px-3 py-2 tabular-nums">{{ $inflow->freshness_window_days }}</td>
                                             <td class="px-3 py-2">
-                                                @if ($inflow->source_schedule_id !== null)
-                                                    <span class="inline-flex items-center rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                                                        {{ __('admin.inventory.source_schedule') }}
-                                                    </span>
-                                                @else
-                                                    <span class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                                                        {{ __('admin.inventory.source_manual') }}
-                                                    </span>
-                                                @endif
+                                                <div class="flex flex-wrap items-center gap-1">
+                                                    @if ($inflow->b2b_only)
+                                                        <span class="inline-flex items-center rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">
+                                                            {{ __('admin.inventory.b2b_only_badge') }}
+                                                        </span>
+                                                    @endif
+                                                    @if ($inflow->source_schedule_id !== null)
+                                                        <span class="inline-flex items-center rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                                                            {{ __('admin.inventory.source_schedule') }}
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                                                            {{ __('admin.inventory.source_manual') }}
+                                                        </span>
+                                                    @endif
+                                                </div>
                                             </td>
                                             <td class="px-3 py-2">
                                                 <div class="flex items-center gap-3">
@@ -307,6 +314,7 @@
                                                             received_on: @js((string) ($inflow->received_on?->toDateString() ?? '')),
                                                             quantity: {{ $displayQty }},
                                                             freshness_window_days: {{ (int) $inflow->freshness_window_days }},
+                                                            b2b_only: @js((bool) $inflow->b2b_only),
                                                             notes: @js((string) ($inflow->notes ?? '')),
                                                             update_url: @js(route('app.admin.inventory.inflows.update', $inflow)),
                                                         })"
@@ -379,6 +387,11 @@
                             {{ __('admin.inventory.manual_notes') }}
                             <textarea name="notes" rows="2" maxlength="500" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"></textarea>
                         </label>
+                        <label class="flex items-center gap-2 text-xs text-gray-700 sm:col-span-2">
+                            <input type="hidden" name="b2b_only" value="0">
+                            <input type="checkbox" name="b2b_only" value="1" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600">
+                            <span>{{ __('admin.inventory.b2b_only_label') }}</span>
+                        </label>
                         <div class="sm:col-span-2 flex justify-end gap-2">
                             <button type="button" x-on:click="close()" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
                                 {{ __('admin.inventory.modal_cancel') }}
@@ -432,6 +445,11 @@
                         <label class="text-xs text-gray-700 sm:col-span-2">
                             {{ __('admin.inventory.manual_notes') }}
                             <textarea name="notes" rows="2" maxlength="500" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" x-text="ctx?.notes ?? ''"></textarea>
+                        </label>
+                        <label class="flex items-center gap-2 text-xs text-gray-700 sm:col-span-2">
+                            <input type="hidden" name="b2b_only" value="0">
+                            <input type="checkbox" name="b2b_only" value="1" :checked="ctx?.b2b_only" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600">
+                            <span>{{ __('admin.inventory.b2b_only_label') }}</span>
                         </label>
                         <div class="sm:col-span-2 flex justify-end gap-2">
                             <button type="button" x-on:click="close()" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
@@ -608,6 +626,11 @@
                                     <label class="text-xs text-gray-700 sm:col-span-2">
                                         {{ __('admin.inflow_schedules.field_notes') }}
                                         <textarea name="notes" rows="2" maxlength="500" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"></textarea>
+                                    </label>
+                                    <label class="flex items-center gap-2 text-xs text-gray-700 sm:col-span-2">
+                                        <input type="hidden" name="b2b_only" value="0">
+                                        <input type="checkbox" name="b2b_only" value="1" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600">
+                                        <span>{{ __('admin.inventory.b2b_only_label') }}</span>
                                     </label>
                                     <div class="sm:col-span-2 flex justify-end gap-2">
                                         <button type="button" x-on:click="close()" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">

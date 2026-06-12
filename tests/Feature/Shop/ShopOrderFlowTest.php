@@ -921,4 +921,29 @@ class ShopOrderFlowTest extends TestCase
         $response->assertSee('data-testid="shop-confirm-submit"', false);
         $response->assertSee('data-testid="shop-confirm-cancel"', false);
     }
+
+    public function test_storefront_does_not_show_product_from_b2b_only_inflow_alone(): void
+    {
+        $b2bOnly = Product::factory()->create([
+            'category' => 'produce',
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 6.00,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        ProductStockInflow::create([
+            'product_id' => $b2bOnly->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 20,
+            'freshness_window_days' => 1,
+            'b2b_only' => true,
+        ]);
+
+        $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->assertSee($this->product->name)
+            ->assertDontSee($b2bOnly->name);
+    }
 }

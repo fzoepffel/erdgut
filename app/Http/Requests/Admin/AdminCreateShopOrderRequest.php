@@ -2,9 +2,10 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Http\Requests\ShopOrderRequest;
+use App\Enums\CustomerType;
+use App\Enums\ShopStockAudience;
 use App\Models\Product;
-use App\Services\Shop\ShopOrderService;
+use App\Services\Admin\InventoryService;
 use App\Support\PickupLocations;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
@@ -89,6 +90,10 @@ class AdminCreateShopOrderRequest extends FormRequest
 
             $productIds = collect($items)->pluck('product_id')->map(fn ($id): int => (int) $id)->all();
             $products = Product::query()->whereIn('id', $productIds)->get()->keyBy('id');
+            $audience = $this->input('customer_type') === CustomerType::Business->value
+                ? ShopStockAudience::BusinessTrade
+                : ShopStockAudience::Consumer;
+            $inventory = app(InventoryService::class);
 
             foreach ($items as $index => $line) {
                 $productId = (int) ($line['product_id'] ?? 0);
@@ -113,7 +118,7 @@ class AdminCreateShopOrderRequest extends FormRequest
                 // sold in 50 g increments). Stock is still checked so the admin
                 // sees a clear warning if they exceed available supply.
                 if ($date !== null) {
-                    $remaining = $product->availableOnDate($date);
+                    $remaining = $inventory->availableOnDate($product, $date, $audience);
                     if ($quantity > $remaining + 1e-6) {
                         $v->errors()->add(
                             "items.$index.quantity",
