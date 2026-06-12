@@ -36,6 +36,7 @@ class ProductStockInflowSchedule extends Model
         'weekday',
         'planned_quantity',
         'freshness_window_days',
+        'b2b_only',
         'starts_on',
         'ends_on',
         'notes',
@@ -48,6 +49,7 @@ class ProductStockInflowSchedule extends Model
             'weekday' => 'integer',
             'planned_quantity' => 'decimal:4',
             'freshness_window_days' => 'integer',
+            'b2b_only' => 'boolean',
             'starts_on' => 'date:Y-m-d',
             'ends_on' => 'date:Y-m-d',
         ];

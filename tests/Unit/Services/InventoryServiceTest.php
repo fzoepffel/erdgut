@@ -3,7 +3,9 @@
 namespace Tests\Unit\Services;
 
 use App\Enums\BoxStatus;
+use App\Enums\CustomerType;
 use App\Enums\ShopOrderStatus;
+use App\Enums\ShopStockAudience;
 use App\Enums\SpargelOrderStatus;
 use App\Models\Address;
 use App\Models\Box;
@@ -409,5 +411,61 @@ class InventoryServiceTest extends TestCase
         $this->assertContains('2026-06-10', $remaining);
         $this->assertNotContains('2026-06-03', $remaining);
         $this->assertNotContains('2026-06-17', $remaining);
+    }
+
+    public function test_b2b_only_inflow_invisible_to_consumer_visible_to_business_trade(): void
+    {
+        $product = Product::factory()->create();
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => '2026-06-10',
+            'quantity' => 25,
+            'freshness_window_days' => 1,
+            'b2b_only' => true,
+        ]);
+
+        $date = Carbon::parse('2026-06-10');
+
+        $this->assertEqualsWithDelta(
+            0.0,
+            $this->service->availableOnDate($product, $date, ShopStockAudience::Consumer),
+            0.001,
+        );
+        $this->assertEqualsWithDelta(
+            25.0,
+            $this->service->availableOnDate($product, $date, ShopStockAudience::BusinessTrade),
+            0.001,
+        );
+    }
+
+    public function test_shared_inflow_visible_to_both_audiences_and_depleted_by_all_shop_orders(): void
+    {
+        $product = Product::factory()->create();
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => '2026-06-10',
+            'quantity' => 100,
+            'freshness_window_days' => 1,
+            'b2b_only' => false,
+        ]);
+
+        $order = ShopOrder::create([
+            'name' => 'C', 'email' => 'c@example.com', 'phone' => null,
+            'fulfillment_mode' => 'pickup', 'pickup_location' => 'karl_kunger',
+            'expected_delivery_date' => '2026-06-10',
+            'customer_type' => CustomerType::Private->value,
+            'items_total_eur' => 0, 'delivery_fee_eur' => 0, 'total_amount_eur' => 0,
+            'payment_method' => 'in_person', 'status' => ShopOrderStatus::Paid,
+        ]);
+        $order->items()->create([
+            'product_id' => $product->id, 'quantity' => 30, 'unit' => 'piece',
+            'unit_price_snapshot_eur' => 1, 'line_total_eur' => 30,
+            'vat_rate_snapshot_percent' => 7, 'vat_amount_eur' => 0,
+        ]);
+
+        $date = Carbon::parse('2026-06-10');
+
+        $this->assertEqualsWithDelta(70.0, $this->service->availableOnDate($product, $date, ShopStockAudience::Consumer), 0.001);
+        $this->assertEqualsWithDelta(70.0, $this->service->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.001);
     }
 }

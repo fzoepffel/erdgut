@@ -32,6 +32,7 @@ class ProductStockInflow extends Model
         'original_received_on',
         'quantity',
         'freshness_window_days',
+        'b2b_only',
         'source_schedule_id',
         'notes',
         'created_by_user_id',
@@ -49,6 +50,7 @@ class ProductStockInflow extends Model
             'original_received_on' => 'date:Y-m-d',
             'quantity' => 'decimal:4',
             'freshness_window_days' => 'integer',
+            'b2b_only' => 'boolean',
         ];
     }
 

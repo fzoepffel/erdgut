@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\CustomerType;
 use App\Enums\OrderSource;
 use App\Enums\ShopOrderStatus;
+use App\Enums\ShopStockAudience;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
@@ -57,9 +58,13 @@ class AdminShopOrderController extends Controller
         }
 
         $date = Carbon::parse($dateStr)->startOfDay();
+        $customerType = (string) $request->query('customer_type', CustomerType::Private->value);
+        $audience = $customerType === CustomerType::Business->value
+            ? ShopStockAudience::BusinessTrade
+            : ShopStockAudience::Consumer;
 
         return response()->json(
-            $this->service->availableProductsForDate($date)
+            $this->service->availableProductsForDate($date, $audience)
                 ->map(fn (array $row) => [
                     'id' => $row['product']->id,
                     'name' => $row['product']->name,
