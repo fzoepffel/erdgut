@@ -1859,7 +1859,7 @@
     "admin.shop_closures.nav_label": "Fermetures boutique",
     "admin.shop_closures.title": "Fermetures de livraison boutique",
     "admin.shop_closures.intro": "Les jours fermés sont masqués sur la boutique publique. Les commandes admin restent possibles ces jours-là.",
-    "admin.shop_closures.intro_calendar": "Les jours en rouge sont fermés sur la boutique publique. Cliquez sur un jour pour l'ouvrir ou le fermer. Créez des plages ci-dessus ; rouvrez des jours individuels dans le calendrier.",
+    "admin.shop_closures.intro_calendar": "Les jours en rouge sont fermés sur la boutique publique. Cliquez sur un jour à partir de demain pour l'ouvrir ou le fermer. Les jours passés ne sont de toute façon pas réservables.",
     "admin.shop_closures.create_range_hint": "Ferme tous les jours de la plage. Rouvrez ensuite des jours individuels dans le calendrier.",
     "admin.shop_closures.calendar_heading": "Calendrier",
     "admin.shop_closures.calendar_hint": "Cliquez sur un jour pour basculer ouvert/fermé.",

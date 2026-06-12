@@ -3,10 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ShopDeliveryClosure;
 use App\Services\Shop\ShopClosureService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -23,13 +21,9 @@ class AdminShopClosureController extends Controller
         $this->closures->purgeExpired();
 
         $month = $this->resolveMonth((string) $request->query('month', ''));
-        $calendar = $this->calendarPayload($month);
 
         return view('admin.shop-closures.index', [
-            'month' => $month,
-            'calendar' => $calendar,
-            'activeRanges' => $this->closures->activeRanges(),
-            'tomorrow' => Carbon::tomorrow()->toDateString(),
+            'calendar' => $this->calendarPayload($month),
         ]);
     }
 
@@ -67,64 +61,7 @@ class AdminShopClosureController extends Controller
             'date' => $date->toDateString(),
             'closed' => $closed,
             'calendar' => $this->calendarPayload($month),
-            'active_ranges' => $this->closures->activeRanges(),
         ]);
-    }
-
-    public function store(Request $request): RedirectResponse
-    {
-        $this->authorize('admin');
-
-        $validated = $request->validate([
-            'starts_on' => ['required', 'date'],
-            'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
-            'reason' => ['nullable', 'string', 'max:500'],
-            'month' => ['nullable', 'date_format:Y-m'],
-        ]);
-
-        $startsOn = Carbon::parse($validated['starts_on'])->startOfDay();
-        $endsOn = isset($validated['ends_on'])
-            ? Carbon::parse($validated['ends_on'])->startOfDay()
-            : $startsOn->copy();
-        $earliest = $this->closures->earliestManageableDate();
-
-        if ($startsOn->lt($earliest) || $endsOn->lt($earliest)) {
-            throw ValidationException::withMessages([
-                'starts_on' => [__('admin.shop_closures.validation_past_date')],
-            ]);
-        }
-
-        if ($this->closures->rangesOverlap($startsOn, $endsOn)) {
-            throw ValidationException::withMessages([
-                'starts_on' => [__('admin.shop_closures.validation_overlap')],
-            ]);
-        }
-
-        ShopDeliveryClosure::query()->create([
-            'starts_on' => $startsOn->toDateString(),
-            'ends_on' => $endsOn->toDateString(),
-            'reason' => $validated['reason'] ?? null,
-            'created_by_user_id' => (int) $request->user()->id,
-        ]);
-
-        $month = $this->resolveMonth((string) ($validated['month'] ?? $startsOn->format('Y-m')));
-
-        return redirect()
-            ->route('app.admin.shop-closures.index', ['month' => $month->format('Y-m')])
-            ->with('status', __('admin.shop_closures.created'));
-    }
-
-    public function destroy(Request $request, ShopDeliveryClosure $closure): RedirectResponse
-    {
-        $this->authorize('admin');
-
-        $month = $this->resolveMonth((string) $request->query('month', $closure->starts_on->format('Y-m')));
-
-        $closure->delete();
-
-        return redirect()
-            ->route('app.admin.shop-closures.index', ['month' => $month->format('Y-m')])
-            ->with('status', __('admin.shop_closures.deleted'));
     }
 
     /**

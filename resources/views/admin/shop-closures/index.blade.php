@@ -13,55 +13,13 @@
     <div class="py-8 sm:py-12"
          x-data="closureCalendar({
              initialCalendar: @js($calendar),
-             activeRanges: @js($activeRanges),
              toggleUrl: @js(route('app.admin.shop-closures.toggle')),
              indexUrl: @js(route('app.admin.shop-closures.index')),
              csrf: @js(csrf_token()),
          })">
-        <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
-
-            @if (session('status'))
-                <div class="rounded-md bg-emerald-50 p-4 text-sm text-emerald-800" role="status">
-                    {{ session('status') }}
-                </div>
-            @endif
+        <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
 
             <p class="text-sm text-gray-600">{{ __('admin.shop_closures.intro_calendar') }}</p>
-
-            <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
-                <div class="border-b border-gray-100 bg-gray-50 px-6 py-4">
-                    <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.shop_closures.create_heading') }}</h2>
-                    <p class="mt-1 text-xs text-gray-500">{{ __('admin.shop_closures.create_range_hint') }}</p>
-                </div>
-                <form method="POST" action="{{ route('app.admin.shop-closures.store') }}" class="space-y-4 p-6">
-                    @csrf
-                    <input type="hidden" name="month" value="{{ $month->format('Y-m') }}">
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label for="starts_on" class="block text-sm font-medium text-gray-700">{{ __('admin.shop_closures.field_starts_on') }}</label>
-                            <input type="date" id="starts_on" name="starts_on" value="{{ old('starts_on', $tomorrow) }}" min="{{ $tomorrow }}" required
-                                class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
-                            <x-input-error :messages="$errors->get('starts_on')" class="mt-1" />
-                        </div>
-                        <div>
-                            <label for="ends_on" class="block text-sm font-medium text-gray-700">{{ __('admin.shop_closures.field_ends_on') }}</label>
-                            <input type="date" id="ends_on" name="ends_on" value="{{ old('ends_on') }}" min="{{ $tomorrow }}"
-                                class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
-                            <p class="mt-1 text-xs text-gray-500">{{ __('admin.shop_closures.field_ends_on_hint') }}</p>
-                            <x-input-error :messages="$errors->get('ends_on')" class="mt-1" />
-                        </div>
-                    </div>
-                    <div>
-                        <label for="reason" class="block text-sm font-medium text-gray-700">{{ __('admin.shop_closures.field_reason') }}</label>
-                        <input type="text" id="reason" name="reason" value="{{ old('reason') }}" maxlength="500"
-                            class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
-                        <x-input-error :messages="$errors->get('reason')" class="mt-1" />
-                    </div>
-                    <div>
-                        <x-primary-button size="sm">{{ __('admin.shop_closures.submit_create') }}</x-primary-button>
-                    </div>
-                </form>
-            </div>
 
             <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
                 <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-4 sm:px-6">
@@ -132,38 +90,6 @@
                 </div>
             </div>
 
-            <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm" x-show="activeRanges.length > 0" x-cloak>
-                <div class="border-b border-gray-100 bg-gray-50 px-6 py-4">
-                    <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.shop_closures.section_ranges') }}</h2>
-                </div>
-                <ul class="divide-y divide-gray-100 text-sm">
-                    <template x-for="range in activeRanges" :key="range.id">
-                        <li class="flex flex-col gap-2 px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                                <p class="font-medium text-gray-900 tabular-nums">
-                                    <span x-text="range.starts_on"></span>
-                                    <span x-show="range.ends_on !== range.starts_on"> – <span x-text="range.ends_on"></span></span>
-                                </p>
-                                <p class="mt-1 text-gray-600" x-show="range.reason" x-text="range.reason"></p>
-                                <p class="mt-1 text-xs text-gray-500" x-show="range.open_dates.length > 0">
-                                    {{ __('admin.shop_closures.open_days_in_range') }}:
-                                    <span x-text="range.open_dates.join(', ')"></span>
-                                </p>
-                            </div>
-                            <form method="post"
-                                  :action="`{{ url('/app/admin/shop-closures') }}/${range.id}?month=${calendar.month}`"
-                                  onsubmit="return confirm(@js(__('admin.shop_closures.delete_confirm')))">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="text-xs text-red-600 underline underline-offset-2 hover:no-underline">
-                                    {{ __('Delete') }}
-                                </button>
-                            </form>
-                        </li>
-                    </template>
-                </ul>
-            </div>
-
         </div>
     </div>
 
@@ -171,7 +97,6 @@
     function closureCalendar(config) {
         return {
             calendar: config.initialCalendar,
-            activeRanges: config.activeRanges,
             toggleUrl: config.toggleUrl,
             loadingDate: null,
 
@@ -207,7 +132,6 @@
 
                     const data = await response.json();
                     this.calendar = data.calendar;
-                    this.activeRanges = data.active_ranges;
                 } finally {
                     this.loadingDate = null;
                 }

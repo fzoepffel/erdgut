@@ -1859,7 +1859,7 @@
     "admin.shop_closures.nav_label": "Delivery closures",
     "admin.shop_closures.title": "Shop delivery closures",
     "admin.shop_closures.intro": "Closed days are hidden from the public shop. Admin manual orders remain allowed on those days.",
-    "admin.shop_closures.intro_calendar": "Red days are closed on the public shop. Click a day to open or close it. Create ranges above; reopen individual days inside a range via the calendar.",
+    "admin.shop_closures.intro_calendar": "Red days are closed on the public shop. Click any day from tomorrow onward to open or close it. Past days are not bookable anyway.",
     "admin.shop_closures.create_range_hint": "Closes every day in the range. Reopen individual days afterwards in the calendar.",
     "admin.shop_closures.calendar_heading": "Calendar",
     "admin.shop_closures.calendar_hint": "Click a day to toggle open/closed.",

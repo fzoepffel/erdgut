@@ -1859,7 +1859,7 @@
     "admin.shop_closures.nav_label": "Shop schließen",
     "admin.shop_closures.title": "Shop-Liefersperren",
     "admin.shop_closures.intro": "Geschlossene Tage erscheinen nicht im öffentlichen Shop. Admin-Bestellungen bleiben auf diesen Tagen möglich.",
-    "admin.shop_closures.intro_calendar": "Rot markierte Tage sind im öffentlichen Shop geschlossen. Klicke auf einen Tag, um ihn zu öffnen oder zu schließen. Zeiträume legst du oben an; einzelne Tage innerhalb eines Zeitraums kannst du im Kalender wieder öffnen.",
+    "admin.shop_closures.intro_calendar": "Rot markierte Tage sind im öffentlichen Shop geschlossen. Klicke auf einen Tag ab morgen, um ihn zu öffnen oder zu schließen. Vergangene Tage sind ohnehin nicht buchbar.",
     "admin.shop_closures.create_range_hint": "Schließt alle Tage im Zeitraum. Einzelne Tage danach im Kalender wieder öffnen.",
     "admin.shop_closures.calendar_heading": "Kalender",
     "admin.shop_closures.calendar_hint": "Klick auf einen Tag schaltet zwischen offen und geschlossen.",
