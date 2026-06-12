@@ -3361,5 +3361,7 @@
     "admin.select_product": "Produkt waehlen...",
     "admin.quantity": "Menge",
     "shop.form_delivery_date": "Liefer-/Abholdatum",
-    "shop.fulfillment_mode_label": "Art der Abgabe"
+    "shop.fulfillment_mode_label": "Art der Abgabe",
+    "shop.admin.no_products_on_date": "Keine Produkte mit Bestand an diesem Tag.",
+    "Loading": "Lädt…"
 }
