@@ -56,11 +56,11 @@ class AdminShopOrderCreateTest extends TestCase
 
     private function payload(array $overrides = []): array
     {
+        // payment_method is hardcoded by the controller; no longer a form field.
         return array_merge([
             'fulfillment_mode' => 'pickup',
             'pickup_location' => 'karl_kunger',
             'expected_delivery_date' => self::DELIVERY_DATE,
-            'payment_method' => 'in_person',
             'customer_type' => 'private',
             'items' => [['product_id' => $this->product->id, 'quantity' => 3]],
         ], $overrides);
@@ -85,7 +85,29 @@ class AdminShopOrderCreateTest extends TestCase
         $this->actingAs($this->admin)
             ->get(route('app.admin.shop-orders.create'))
             ->assertOk()
-            ->assertSee($this->product->name);
+            ->assertSee('expected_delivery_date', false) // date input present
+            ->assertSee('adminOrderForm', false);        // Alpine component wired
+    }
+
+    public function test_available_products_endpoint_returns_products_with_stock(): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->getJson(route('app.admin.shop-orders.available-products', ['date' => self::DELIVERY_DATE]));
+
+        $response->assertOk()
+            ->assertJsonFragment(['id' => $this->product->id]);
+    }
+
+    public function test_available_products_endpoint_excludes_out_of_stock_products(): void
+    {
+        $noStock = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson(route('app.admin.shop-orders.available-products', ['date' => self::DELIVERY_DATE]));
+
+        $ids = collect($response->json())->pluck('id')->all();
+        $this->assertContains($this->product->id, $ids);
+        $this->assertNotContains($noStock->id, $ids);
     }
 
     // ── Order creation ───────────────────────────────────────────────────────
@@ -193,6 +215,42 @@ class AdminShopOrderCreateTest extends TestCase
 
         $response->assertSessionHasErrors();
         $this->assertSame(0, ShopOrder::query()->where('order_source', 'admin')->count());
+    }
+
+    public function test_payment_method_is_always_in_person_regardless_of_payload(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), $this->payload());
+
+        $order = ShopOrder::query()->latest('id')->first();
+        $this->assertSame('in_person', $order->payment_method);
+    }
+
+    public function test_any_quantity_amount_is_accepted_without_step_restriction(): void
+    {
+        // A mass product with 50g step — admin should be able to enter 37g freely.
+        $massProduct = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.02, // €/g
+            'quantity_step' => 50,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $massProduct->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 5000,
+            'freshness_window_days' => 1,
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), $this->payload([
+                'items' => [['product_id' => $massProduct->id, 'quantity' => 37]],
+            ]));
+
+        $response->assertSessionHasNoErrors();
+        $this->assertSame(1, ShopOrder::query()->where('order_source', 'admin')->count());
     }
 
     // ── Validation ───────────────────────────────────────────────────────────

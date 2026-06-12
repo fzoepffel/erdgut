@@ -9,7 +9,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
 use App\Mail\ShopOrderWindowMail;
-use App\Models\Product;
 use App\Models\ShopOrder;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
@@ -19,8 +18,10 @@ use App\Support\PickupLocations;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
@@ -44,17 +45,41 @@ class AdminShopOrderController extends Controller
     public function __construct(private readonly ShopOrderService $service) {}
 
     /**
+     * JSON list of products available on a specific date, for the admin order
+     * form's date-first product picker. Returns only products with positive
+     * stock on the given date so the admin only sees orderable items.
+     */
+    public function availableProductsForDate(Request $request): JsonResponse
+    {
+        $dateStr = (string) $request->query('date', '');
+        if ($dateStr === '') {
+            return response()->json([]);
+        }
+
+        $date = Carbon::parse($dateStr)->startOfDay();
+
+        return response()->json(
+            $this->service->availableProductsForDate($date)
+                ->map(fn (array $row) => [
+                    'id' => $row['product']->id,
+                    'name' => $row['product']->name,
+                    'producer' => $row['product']->producer?->name ?? '',
+                    'price' => $row['product']->displayPrice(),
+                    'unit' => $row['product']->localizedUnit(),
+                    'remaining' => $row['remaining'],
+                ])
+                ->values()
+        );
+    }
+
+    /**
      * Show the form for manually creating a shop order.
      */
     public function create(Request $request): View
     {
         return view('admin.shop-orders.create', [
-            'products' => Product::query()
-                ->visibleInCatalog()
-                ->with(['translations', 'producer.translations'])
-                ->orderBy('id')
-                ->get(),
             'pickupLocations' => PickupLocations::all(),
+            'availableProductsUrl' => route('app.admin.shop-orders.available-products'),
         ]);
     }
 
@@ -75,6 +100,7 @@ class AdminShopOrderController extends Controller
                 [
                     'order_source' => OrderSource::Admin->value,
                     'customer_type' => $request->input('customer_type', CustomerType::Private->value),
+                    'payment_method' => 'in_person', // admin orders are always pay-at-pickup
                 ]
             ));
         } catch (InsufficientStockException $e) {
