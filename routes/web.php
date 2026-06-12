@@ -439,6 +439,11 @@ Route::middleware(['auth', 'verified'])
             // Anonymous multi-product shop orders (the proper admin surface,
             // unlike the disposable /spargel-admin page).
             Route::get('shop-orders', [AdminShopOrderController::class, 'index'])->name('shop-orders.index');
+            // Manual order creation — declared before {shopOrder} wildcard.
+            Route::get('shop-orders/create', [AdminShopOrderController::class, 'create'])->name('shop-orders.create');
+            Route::post('shop-orders', [AdminShopOrderController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.store');
             Route::get('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'show'])->name('shop-orders.show');
             Route::post('shop-orders/{shopOrder}/mark-paid', [AdminShopOrderController::class, 'markPaid'])
                 ->middleware('throttle:30,1')

@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Enums\OrderSource;
 use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Shop\ShopController;
 use App\Models\ShopOrder;
@@ -30,6 +31,12 @@ class ShopOrderObserver
 {
     public function updated(ShopOrder $order): void
     {
+        // Admin-created orders must never trigger automated emails or
+        // notifications — the operator who entered the order is already aware.
+        if ($order->order_source === OrderSource::Admin) {
+            return;
+        }
+
         if (! $order->wasChanged('status')) {
             return;
         }

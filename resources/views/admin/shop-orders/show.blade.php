@@ -171,6 +171,27 @@
                 <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('shop.admin.section_payment') }}</h2>
                 <dl class="grid gap-2 text-sm sm:grid-cols-2">
                     <div class="flex justify-between gap-4">
+                        <dt class="text-gray-500">{{ __('shop.admin.order_source_label') }}</dt>
+                        <dd class="text-gray-800">
+                            @if ($order->order_source === \App\Enums\OrderSource::Admin)
+                                <span class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-gray-600">{{ __('shop.admin.order_source_admin') }}</span>
+                            @else
+                                {{ __('shop.admin.order_source_storefront') }}
+                            @endif
+                        </dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-gray-500">{{ __('shop.admin.customer_type_label') }}</dt>
+                        <dd class="text-gray-800">
+                            @if ($order->customer_type === \App\Enums\CustomerType::Business)
+                                <span class="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-blue-700">{{ __('shop.admin.badge_b2b') }}</span>
+                                {{ __('shop.admin.customer_type_business') }}
+                            @else
+                                {{ __('shop.admin.customer_type_private') }}
+                            @endif
+                        </dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
                         <dt class="text-gray-500">{{ __('shop.summary_line_payment_method') }}</dt>
                         <dd class="text-gray-800">{{ $order->payment_method === 'in_person' ? __('shop.payment_in_person') : __('shop.payment_online') }}</dd>
                     </div>

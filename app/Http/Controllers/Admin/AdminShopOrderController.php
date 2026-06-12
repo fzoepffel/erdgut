@@ -2,13 +2,20 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\CustomerType;
+use App\Enums\OrderSource;
 use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
+use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
 use App\Mail\ShopOrderWindowMail;
+use App\Models\Product;
 use App\Models\ShopOrder;
 use App\Services\Shop\CouponService;
+use App\Services\Shop\InsufficientStockException;
+use App\Services\Shop\ShopOrderService;
 use App\Support\AuditLogger;
+use App\Support\PickupLocations;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Contracts\View\View;
@@ -34,6 +41,64 @@ use Throwable;
  */
 class AdminShopOrderController extends Controller
 {
+    public function __construct(private readonly ShopOrderService $service) {}
+
+    /**
+     * Show the form for manually creating a shop order.
+     */
+    public function create(Request $request): View
+    {
+        return view('admin.shop-orders.create', [
+            'products' => Product::query()
+                ->visibleInCatalog()
+                ->with(['translations', 'producer.translations'])
+                ->orderBy('id')
+                ->get(),
+            'pickupLocations' => PickupLocations::all(),
+        ]);
+    }
+
+    /**
+     * Persist a manually-entered shop order.
+     *
+     * Reuses {@see ShopOrderService::createOrder()} so stock checking, VAT
+     * snapshots, and the transaction race-lock are identical to the storefront
+     * flow. No automated emails are sent — the admin is in direct contact with
+     * the buyer, and the observer guard ({@see ShopOrderObserver}) also prevents
+     * any later notifications on status changes.
+     */
+    public function store(AdminCreateShopOrderRequest $request): RedirectResponse
+    {
+        try {
+            $order = $this->service->createOrder(array_merge(
+                $request->validated(),
+                [
+                    'order_source' => OrderSource::Admin->value,
+                    'customer_type' => $request->input('customer_type', CustomerType::Private->value),
+                ]
+            ));
+        } catch (InsufficientStockException $e) {
+            return back()
+                ->withInput()
+                ->with('error', __('shop.errors.stock_vanished', ['name' => $e->product->name]));
+        }
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: $order->id,
+            action: 'create',
+            fromState: null,
+            toState: ShopOrderStatus::PendingPayment->value,
+            reason: null,
+            metadata: ['channel' => 'admin', 'customer_type' => $order->customer_type->value],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.shop-orders.show', $order)
+            ->with('status', __('shop.admin.order_created_success'));
+    }
+
     /**
      * Default filter: only "finalized" orders — confirmed sales the team
      * actually has to act on. That means paid orders, already-fulfilled
