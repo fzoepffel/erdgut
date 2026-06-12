@@ -174,13 +174,13 @@ class Product extends Model
      * Used in the admin manual-order form so the operator sees the right unit
      * next to the quantity input.
      */
-    public function canonicalUnitLabel(?string $locale = null): string
+    public function canonicalUnitLabel(): string
     {
         return match ($this->unit) {
             ProductUnit::Mass => 'g',
             ProductUnit::Volume => 'ml',
-            ProductUnit::Piece => (string) __('Stück', [], $locale ?? app()->getLocale()),
-            ProductUnit::Bunch => (string) __('Bund', [], $locale ?? app()->getLocale()),
+            ProductUnit::Piece => 'Stück',
+            ProductUnit::Bunch => 'Bund',
             default => '',
         };
     }
