@@ -20,6 +20,8 @@ class AdminShopClosureController extends Controller
     {
         $this->authorize('admin');
 
+        $this->closures->purgeExpired();
+
         $month = $this->resolveMonth((string) $request->query('month', ''));
         $calendar = $this->calendarPayload($month);
 
@@ -50,6 +52,13 @@ class AdminShopClosureController extends Controller
         ]);
 
         $date = Carbon::parse($validated['date'])->startOfDay();
+
+        if (! $this->closures->isManageableDate($date)) {
+            throw ValidationException::withMessages([
+                'date' => [__('admin.shop_closures.validation_past_date')],
+            ]);
+        }
+
         $closed = $this->closures->toggleDay($date, (int) $request->user()->id);
 
         $month = $this->resolveMonth((string) ($validated['month'] ?? $date->format('Y-m')));
@@ -77,6 +86,13 @@ class AdminShopClosureController extends Controller
         $endsOn = isset($validated['ends_on'])
             ? Carbon::parse($validated['ends_on'])->startOfDay()
             : $startsOn->copy();
+        $earliest = $this->closures->earliestManageableDate();
+
+        if ($startsOn->lt($earliest) || $endsOn->lt($earliest)) {
+            throw ValidationException::withMessages([
+                'starts_on' => [__('admin.shop_closures.validation_past_date')],
+            ]);
+        }
 
         if ($this->closures->rangesOverlap($startsOn, $endsOn)) {
             throw ValidationException::withMessages([
@@ -118,7 +134,7 @@ class AdminShopClosureController extends Controller
      *     prev_month: string,
      *     next_month: string,
      *     weekdays: list<string>,
-     *     weeks: list<list<array{iso: string, day: int, in_month: bool, closed: bool, is_today: bool, is_past: bool}>>
+     *     weeks: list<list<array{iso: string, day: int, in_month: bool, closed: bool, is_today: bool, is_disabled: bool}>>
      * }
      */
     private function calendarPayload(Carbon $month): array
@@ -127,6 +143,7 @@ class AdminShopClosureController extends Controller
         $end = $month->copy()->endOfMonth();
         $closedSet = array_fill_keys($this->closures->closedIsoDatesBetween($start, $end), true);
         $today = Carbon::today()->toDateString();
+        $earliestIso = $this->closures->earliestManageableDate()->toDateString();
 
         $gridStart = $start->copy()->startOfWeek(Carbon::MONDAY);
         $gridEnd = $end->copy()->endOfWeek(Carbon::SUNDAY);
@@ -138,13 +155,14 @@ class AdminShopClosureController extends Controller
             $week = [];
             for ($i = 0; $i < 7; $i++) {
                 $iso = $cursor->toDateString();
+                $isDisabled = $iso < $earliestIso;
                 $week[] = [
                     'iso' => $iso,
                     'day' => (int) $cursor->day,
                     'in_month' => $cursor->month === $month->month,
-                    'closed' => isset($closedSet[$iso]),
+                    'closed' => ! $isDisabled && isset($closedSet[$iso]),
                     'is_today' => $iso === $today,
-                    'is_past' => $iso < $today,
+                    'is_disabled' => $isDisabled,
                 ];
                 $cursor->addDay();
             }

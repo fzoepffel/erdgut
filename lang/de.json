@@ -1892,6 +1892,7 @@
     "admin.shop_closures.deleted": "Sperre entfernt.",
     "admin.shop_closures.delete_confirm": "Diese Sperre wirklich entfernen?",
     "admin.shop_closures.validation_overlap": "Der Zeitraum überschneidet sich mit einer bestehenden Sperre.",
+    "admin.shop_closures.validation_past_date": "Nur morgen und spätere Tage können geschlossen werden.",
     "admin.inventory.b2b_only_label": "Nur B2B (Gewerbekunden)",
     "admin.inventory.b2b_only_badge": "B2B",
     "admin.product_schedules.action_cancel": "Beenden",

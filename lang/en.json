@@ -1892,6 +1892,7 @@
     "admin.shop_closures.deleted": "Closure removed.",
     "admin.shop_closures.delete_confirm": "Really remove this closure?",
     "admin.shop_closures.validation_overlap": "This period overlaps an existing closure.",
+    "admin.shop_closures.validation_past_date": "Only tomorrow and later can be closed.",
     "admin.inventory.b2b_only_label": "B2B only (trade customers)",
     "admin.inventory.b2b_only_badge": "B2B",
     "admin.product_schedules.action_cancel": "End",

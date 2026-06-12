@@ -17,6 +17,43 @@ use Illuminate\Support\Facades\DB;
  */
 class ShopClosureService
 {
+    /**
+     * First day closures can apply — mirrors the public shop (no same-day delivery).
+     */
+    public function earliestManageableDate(): Carbon
+    {
+        return Carbon::today()->addDay()->startOfDay();
+    }
+
+    public function isManageableDate(Carbon $date): bool
+    {
+        return $date->copy()->startOfDay()->gte($this->earliestManageableDate());
+    }
+
+    /**
+     * Drop closure rows that only affected non-bookable days.
+     */
+    public function purgeExpired(): void
+    {
+        $cutoff = $this->earliestManageableDate()->toDateString();
+
+        ShopDeliveryClosureException::query()
+            ->whereDate('date', '<', $cutoff)
+            ->delete();
+
+        ShopDeliveryClosure::query()
+            ->whereDate('ends_on', '<', $cutoff)
+            ->delete();
+
+        ShopDeliveryClosure::query()
+            ->whereDate('starts_on', '<', $cutoff)
+            ->whereDate('ends_on', '>=', $cutoff)
+            ->whereColumn('starts_on', '!=', 'ends_on')
+            ->each(function (ShopDeliveryClosure $closure) use ($cutoff): void {
+                $closure->forceFill(['starts_on' => $cutoff])->save();
+            });
+    }
+
     public function isClosed(Carbon $date): bool
     {
         $iso = $date->copy()->startOfDay()->toDateString();
@@ -36,6 +73,11 @@ class ShopClosureService
     public function toggleDay(Carbon $date, ?int $createdByUserId = null): bool
     {
         $date = $date->copy()->startOfDay();
+
+        if (! $this->isManageableDate($date)) {
+            throw new \InvalidArgumentException('Closure date must be tomorrow or later.');
+        }
+
         $iso = $date->toDateString();
 
         if ($this->isClosed($date)) {
@@ -94,11 +136,11 @@ class ShopClosureService
      */
     public function activeRanges(): array
     {
-        $today = Carbon::today()->toDateString();
+        $cutoff = $this->earliestManageableDate()->toDateString();
 
         return ShopDeliveryClosure::query()
             ->with('openDayExceptions')
-            ->whereDate('ends_on', '>=', $today)
+            ->whereDate('ends_on', '>=', $cutoff)
             ->whereColumn('starts_on', '!=', 'ends_on')
             ->orderBy('starts_on')
             ->get()
@@ -109,6 +151,7 @@ class ShopClosureService
                 'reason' => $closure->reason,
                 'open_dates' => $closure->openDayExceptions
                     ->map(fn (ShopDeliveryClosureException $e): string => $e->date->toDateString())
+                    ->filter(fn (string $iso): bool => $iso >= $cutoff)
                     ->sort()
                     ->values()
                     ->all(),

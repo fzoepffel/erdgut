@@ -39,13 +39,13 @@
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
                             <label for="starts_on" class="block text-sm font-medium text-gray-700">{{ __('admin.shop_closures.field_starts_on') }}</label>
-                            <input type="date" id="starts_on" name="starts_on" value="{{ old('starts_on', $tomorrow) }}" required
+                            <input type="date" id="starts_on" name="starts_on" value="{{ old('starts_on', $tomorrow) }}" min="{{ $tomorrow }}" required
                                 class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
                             <x-input-error :messages="$errors->get('starts_on')" class="mt-1" />
                         </div>
                         <div>
                             <label for="ends_on" class="block text-sm font-medium text-gray-700">{{ __('admin.shop_closures.field_ends_on') }}</label>
-                            <input type="date" id="ends_on" name="ends_on" value="{{ old('ends_on') }}"
+                            <input type="date" id="ends_on" name="ends_on" value="{{ old('ends_on') }}" min="{{ $tomorrow }}"
                                 class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
                             <p class="mt-1 text-xs text-gray-500">{{ __('admin.shop_closures.field_ends_on_hint') }}</p>
                             <x-input-error :messages="$errors->get('ends_on')" class="mt-1" />
@@ -98,16 +98,19 @@
                             <div class="grid grid-cols-7 gap-1">
                                 <template x-for="cell in week" :key="cell.iso">
                                     <button type="button"
-                                            @click="toggleDay(cell.iso)"
-                                            :disabled="loadingDate === cell.iso"
+                                            @click="!cell.is_disabled && toggleDay(cell.iso)"
+                                            :disabled="cell.is_disabled || loadingDate === cell.iso"
                                             :aria-pressed="cell.closed ? 'true' : 'false'"
+                                            :aria-disabled="cell.is_disabled ? 'true' : 'false'"
                                             :aria-label="cell.iso"
-                                            class="relative flex aspect-square items-center justify-center rounded-md text-sm tabular-nums transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 disabled:opacity-60"
+                                            class="relative flex aspect-square items-center justify-center rounded-md text-sm tabular-nums transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 disabled:cursor-not-allowed"
                                             :class="{
-                                                'bg-red-100 text-red-900 ring-1 ring-red-200 hover:bg-red-200': cell.closed && cell.in_month,
-                                                'bg-white text-gray-800 hover:bg-gray-50 ring-1 ring-gray-100': !cell.closed && cell.in_month,
-                                                'bg-gray-50 text-gray-400': !cell.in_month,
-                                                'ring-2 ring-emerald-500 ring-offset-1': cell.is_today && cell.in_month,
+                                                'bg-red-100 text-red-900 ring-1 ring-red-200 hover:bg-red-200': cell.closed && cell.in_month && !cell.is_disabled,
+                                                'bg-white text-gray-800 hover:bg-gray-50 ring-1 ring-gray-100': !cell.closed && cell.in_month && !cell.is_disabled,
+                                                'bg-gray-100 text-gray-300 ring-1 ring-gray-100': cell.is_disabled && cell.in_month,
+                                                'bg-gray-50 text-gray-300': !cell.in_month || (cell.is_disabled && !cell.in_month),
+                                                'ring-2 ring-emerald-500 ring-offset-1': cell.is_today && cell.in_month && !cell.is_disabled,
+                                                'opacity-60': loadingDate === cell.iso,
                                             }">
                                         <span x-text="cell.day"></span>
                                     </button>

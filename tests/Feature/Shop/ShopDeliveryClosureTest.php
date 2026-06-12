@@ -204,4 +204,78 @@ class ShopDeliveryClosureTest extends TestCase
             ->assertSee('closureCalendar', false)
             ->assertSee(__('admin.shop_closures.calendar_heading'));
     }
+
+    public function test_purge_removes_fully_past_closures_on_index(): void
+    {
+        ShopDeliveryClosure::query()->delete();
+
+        ShopDeliveryClosure::query()->create([
+            'starts_on' => '2026-05-20',
+            'ends_on' => '2026-05-25',
+            'created_by_user_id' => $this->admin->id,
+        ]);
+
+        ShopDeliveryClosure::query()->create([
+            'starts_on' => self::DELIVERY_DATE,
+            'ends_on' => self::DELIVERY_DATE,
+            'created_by_user_id' => $this->admin->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-closures.index'))
+            ->assertOk();
+
+        $this->assertDatabaseMissing('shop_delivery_closures', [
+            'starts_on' => '2026-05-20',
+            'ends_on' => '2026-05-25',
+        ]);
+        $this->assertDatabaseHas('shop_delivery_closures', [
+            'starts_on' => self::DELIVERY_DATE,
+            'ends_on' => self::DELIVERY_DATE,
+        ]);
+    }
+
+    public function test_fully_past_range_not_listed_as_active(): void
+    {
+        ShopDeliveryClosure::query()->delete();
+
+        ShopDeliveryClosure::query()->create([
+            'starts_on' => '2026-05-20',
+            'ends_on' => '2026-05-28',
+            'created_by_user_id' => $this->admin->id,
+        ]);
+
+        $ranges = app(ShopClosureService::class)->activeRanges();
+
+        $this->assertSame([], $ranges);
+    }
+
+    public function test_cannot_toggle_past_day(): void
+    {
+        ShopDeliveryClosure::query()->delete();
+
+        $this->actingAs($this->admin)
+            ->postJson(route('app.admin.shop-closures.toggle'), [
+                'date' => '2026-05-28',
+                'month' => '2026-05',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('date');
+    }
+
+    public function test_calendar_marks_today_and_past_as_disabled(): void
+    {
+        $this->actingAs($this->admin);
+
+        $response = $this->getJson(route('app.admin.shop-closures.calendar', ['month' => '2026-05']));
+
+        $cells = collect($response->json('weeks'))->flatten(1);
+        $today = $cells->firstWhere('iso', '2026-05-30');
+        $past = $cells->firstWhere('iso', '2026-05-28');
+        $tomorrow = $cells->firstWhere('iso', '2026-05-31');
+
+        $this->assertTrue($today['is_disabled']);
+        $this->assertTrue($past['is_disabled']);
+        $this->assertFalse($tomorrow['is_disabled']);
+    }
 }

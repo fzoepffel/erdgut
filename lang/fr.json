@@ -1892,6 +1892,7 @@
     "admin.shop_closures.deleted": "Fermeture supprimée.",
     "admin.shop_closures.delete_confirm": "Supprimer vraiment cette fermeture ?",
     "admin.shop_closures.validation_overlap": "Cette période chevauche une fermeture existante.",
+    "admin.shop_closures.validation_past_date": "Seuls demain et les jours suivants peuvent être fermés.",
     "admin.inventory.b2b_only_label": "B2B uniquement (clients professionnels)",
     "admin.inventory.b2b_only_badge": "B2B",
     "admin.product_schedules.action_cancel": "Terminer",
