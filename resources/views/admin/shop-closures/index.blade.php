@@ -51,10 +51,10 @@
                         </template>
                     </div>
 
-                    <div class="space-y-1">
-                        <template x-for="(week, wi) in calendar.weeks" :key="wi">
+                    <div class="space-y-1" :key="renderKey">
+                        <template x-for="(week, wi) in calendar.weeks" :key="`${renderKey}-${wi}`">
                             <div class="grid grid-cols-7 gap-1">
-                                <template x-for="cell in week" :key="cell.iso">
+                                <template x-for="cell in week" :key="`${renderKey}-${cell.iso}`">
                                     <button type="button"
                                             @click="!cell.is_disabled && toggleDay(cell.iso)"
                                             :disabled="cell.is_disabled || loadingDate === cell.iso"
@@ -99,9 +99,21 @@
             calendar: config.initialCalendar,
             toggleUrl: config.toggleUrl,
             loadingDate: null,
+            renderKey: 0,
 
             goMonth(month) {
                 window.location.href = config.indexUrl + '?month=' + encodeURIComponent(month);
+            },
+
+            setCellClosed(iso, closed) {
+                for (const week of this.calendar.weeks) {
+                    for (const cell of week) {
+                        if (cell.iso === iso && ! cell.is_disabled) {
+                            cell.closed = closed;
+                            return;
+                        }
+                    }
+                }
             },
 
             async toggleDay(iso) {
@@ -110,6 +122,13 @@
                 }
 
                 this.loadingDate = iso;
+                const previousClosed = this.calendar.weeks
+                    .flat()
+                    .find((cell) => cell.iso === iso)?.closed ?? false;
+
+                // Optimistic paint so the cell flips immediately.
+                this.setCellClosed(iso, ! previousClosed);
+                this.renderKey++;
 
                 try {
                     const response = await fetch(this.toggleUrl, {
@@ -126,12 +145,18 @@
                         }),
                     });
 
-                    if (!response.ok) {
+                    if (! response.ok) {
+                        this.setCellClosed(iso, previousClosed);
+                        this.renderKey++;
                         return;
                     }
 
                     const data = await response.json();
                     this.calendar = data.calendar;
+                    this.renderKey++;
+                } catch {
+                    this.setCellClosed(iso, previousClosed);
+                    this.renderKey++;
                 } finally {
                     this.loadingDate = null;
                 }
