@@ -440,6 +440,10 @@ Route::middleware(['auth', 'verified'])
             // Anonymous multi-product shop orders (the proper admin surface,
             // unlike the disposable /spargel-admin page).
             Route::get('shop-closures', [AdminShopClosureController::class, 'index'])->name('shop-closures.index');
+            Route::get('shop-closures/calendar', [AdminShopClosureController::class, 'calendar'])->name('shop-closures.calendar');
+            Route::post('shop-closures/toggle', [AdminShopClosureController::class, 'toggle'])
+                ->middleware('throttle:60,1')
+                ->name('shop-closures.toggle');
             Route::post('shop-closures', [AdminShopClosureController::class, 'store'])
                 ->middleware('throttle:30,1')
                 ->name('shop-closures.store');

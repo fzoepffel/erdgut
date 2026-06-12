@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 class ShopDeliveryClosure extends Model
@@ -30,6 +31,16 @@ class ShopDeliveryClosure extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function openDayExceptions(): HasMany
+    {
+        return $this->hasMany(ShopDeliveryClosureException::class);
+    }
+
+    public function isSingleDay(): bool
+    {
+        return $this->starts_on->toDateString() === $this->ends_on->toDateString();
     }
 
     public function covers(Carbon $date): bool

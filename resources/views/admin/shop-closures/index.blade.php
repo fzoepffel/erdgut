@@ -10,7 +10,14 @@
         </div>
     </x-slot>
 
-    <div class="py-8 sm:py-12">
+    <div class="py-8 sm:py-12"
+         x-data="closureCalendar({
+             initialCalendar: @js($calendar),
+             activeRanges: @js($activeRanges),
+             toggleUrl: @js(route('app.admin.shop-closures.toggle')),
+             indexUrl: @js(route('app.admin.shop-closures.index')),
+             csrf: @js(csrf_token()),
+         })">
         <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
 
             @if (session('status'))
@@ -19,14 +26,16 @@
                 </div>
             @endif
 
-            <p class="text-sm text-gray-600">{{ __('admin.shop_closures.intro') }}</p>
+            <p class="text-sm text-gray-600">{{ __('admin.shop_closures.intro_calendar') }}</p>
 
             <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
                 <div class="border-b border-gray-100 bg-gray-50 px-6 py-4">
                     <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.shop_closures.create_heading') }}</h2>
+                    <p class="mt-1 text-xs text-gray-500">{{ __('admin.shop_closures.create_range_hint') }}</p>
                 </div>
                 <form method="POST" action="{{ route('app.admin.shop-closures.store') }}" class="space-y-4 p-6">
                     @csrf
+                    <input type="hidden" name="month" value="{{ $month->format('Y-m') }}">
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
                             <label for="starts_on" class="block text-sm font-medium text-gray-700">{{ __('admin.shop_closures.field_starts_on') }}</label>
@@ -55,84 +64,152 @@
             </div>
 
             <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
-                <div class="border-b border-gray-100 bg-gray-50 px-6 py-4">
-                    <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.shop_closures.section_upcoming') }}</h2>
+                <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-4 sm:px-6">
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.shop_closures.calendar_heading') }}</h2>
+                        <p class="mt-1 text-xs text-gray-500">{{ __('admin.shop_closures.calendar_hint') }}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button"
+                                @click="goMonth(calendar.prev_month)"
+                                class="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                                aria-label="{{ __('admin.shop_closures.prev_month') }}">
+                            &larr;
+                        </button>
+                        <span class="min-w-[9rem] text-center text-sm font-medium text-gray-900" x-text="calendar.label"></span>
+                        <button type="button"
+                                @click="goMonth(calendar.next_month)"
+                                class="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                                aria-label="{{ __('admin.shop_closures.next_month') }}">
+                            &rarr;
+                        </button>
+                    </div>
                 </div>
-                @if ($upcoming->isEmpty())
-                    <p class="p-6 text-sm text-gray-500">{{ __('admin.shop_closures.empty_upcoming') }}</p>
-                @else
-                    <table class="min-w-full divide-y divide-gray-100 text-sm">
-                        <thead>
-                            <tr class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                <th class="px-6 py-3">{{ __('admin.shop_closures.col_period') }}</th>
-                                <th class="px-6 py-3">{{ __('admin.shop_closures.col_reason') }}</th>
-                                <th class="px-6 py-3">{{ __('admin.shop_closures.col_created_by') }}</th>
-                                <th class="px-6 py-3"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 text-gray-800">
-                            @foreach ($upcoming as $closure)
-                                <tr>
-                                    <td class="px-6 py-3 tabular-nums">
-                                        @if ($closure->starts_on->eq($closure->ends_on))
-                                            {{ $closure->starts_on->translatedFormat('d.m.Y') }}
-                                        @else
-                                            {{ $closure->starts_on->translatedFormat('d.m.Y') }}
-                                            –
-                                            {{ $closure->ends_on->translatedFormat('d.m.Y') }}
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-3 text-gray-600">{{ $closure->reason ?: '—' }}</td>
-                                    <td class="px-6 py-3 text-gray-500">{{ $closure->createdBy?->name ?? '—' }}</td>
-                                    <td class="px-6 py-3 text-right">
-                                        <form method="post" action="{{ route('app.admin.shop-closures.destroy', $closure) }}"
-                                              onsubmit="return confirm('{{ __('admin.shop_closures.delete_confirm') }}')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-xs text-red-600 underline underline-offset-2 hover:no-underline">
-                                                {{ __('Delete') }}
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @endif
+
+                <div class="p-4 sm:p-6">
+                    <div class="mb-2 grid grid-cols-7 gap-1 text-center text-xs font-medium uppercase tracking-wide text-gray-500">
+                        <template x-for="label in calendar.weekdays" :key="label">
+                            <div x-text="label"></div>
+                        </template>
+                    </div>
+
+                    <div class="space-y-1">
+                        <template x-for="(week, wi) in calendar.weeks" :key="wi">
+                            <div class="grid grid-cols-7 gap-1">
+                                <template x-for="cell in week" :key="cell.iso">
+                                    <button type="button"
+                                            @click="toggleDay(cell.iso)"
+                                            :disabled="loadingDate === cell.iso"
+                                            :aria-pressed="cell.closed ? 'true' : 'false'"
+                                            :aria-label="cell.iso"
+                                            class="relative flex aspect-square items-center justify-center rounded-md text-sm tabular-nums transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 disabled:opacity-60"
+                                            :class="{
+                                                'bg-red-100 text-red-900 ring-1 ring-red-200 hover:bg-red-200': cell.closed && cell.in_month,
+                                                'bg-white text-gray-800 hover:bg-gray-50 ring-1 ring-gray-100': !cell.closed && cell.in_month,
+                                                'bg-gray-50 text-gray-400': !cell.in_month,
+                                                'ring-2 ring-emerald-500 ring-offset-1': cell.is_today && cell.in_month,
+                                            }">
+                                        <span x-text="cell.day"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                        <span class="inline-flex items-center gap-2">
+                            <span class="inline-block h-4 w-4 rounded bg-red-100 ring-1 ring-red-200"></span>
+                            {{ __('admin.shop_closures.legend_closed') }}
+                        </span>
+                        <span class="inline-flex items-center gap-2">
+                            <span class="inline-block h-4 w-4 rounded bg-white ring-1 ring-gray-100"></span>
+                            {{ __('admin.shop_closures.legend_open') }}
+                        </span>
+                    </div>
+                </div>
             </div>
 
-            @if ($past->isNotEmpty())
-                <details class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
-                    <summary class="cursor-pointer border-b border-gray-100 bg-gray-50 px-6 py-4 text-sm font-semibold text-gray-700">
-                        {{ __('admin.shop_closures.section_past') }} ({{ $past->count() }})
-                    </summary>
-                    <table class="min-w-full divide-y divide-gray-100 text-sm">
-                        <thead>
-                            <tr class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                <th class="px-6 py-3">{{ __('admin.shop_closures.col_period') }}</th>
-                                <th class="px-6 py-3">{{ __('admin.shop_closures.col_reason') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 text-gray-600">
-                            @foreach ($past as $closure)
-                                <tr>
-                                    <td class="px-6 py-3 tabular-nums">
-                                        @if ($closure->starts_on->eq($closure->ends_on))
-                                            {{ $closure->starts_on->translatedFormat('d.m.Y') }}
-                                        @else
-                                            {{ $closure->starts_on->translatedFormat('d.m.Y') }}
-                                            –
-                                            {{ $closure->ends_on->translatedFormat('d.m.Y') }}
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-3">{{ $closure->reason ?: '—' }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </details>
-            @endif
+            <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm" x-show="activeRanges.length > 0" x-cloak>
+                <div class="border-b border-gray-100 bg-gray-50 px-6 py-4">
+                    <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.shop_closures.section_ranges') }}</h2>
+                </div>
+                <ul class="divide-y divide-gray-100 text-sm">
+                    <template x-for="range in activeRanges" :key="range.id">
+                        <li class="flex flex-col gap-2 px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <p class="font-medium text-gray-900 tabular-nums">
+                                    <span x-text="range.starts_on"></span>
+                                    <span x-show="range.ends_on !== range.starts_on"> – <span x-text="range.ends_on"></span></span>
+                                </p>
+                                <p class="mt-1 text-gray-600" x-show="range.reason" x-text="range.reason"></p>
+                                <p class="mt-1 text-xs text-gray-500" x-show="range.open_dates.length > 0">
+                                    {{ __('admin.shop_closures.open_days_in_range') }}:
+                                    <span x-text="range.open_dates.join(', ')"></span>
+                                </p>
+                            </div>
+                            <form method="post"
+                                  :action="`{{ url('/app/admin/shop-closures') }}/${range.id}?month=${calendar.month}`"
+                                  onsubmit="return confirm(@js(__('admin.shop_closures.delete_confirm')))">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="text-xs text-red-600 underline underline-offset-2 hover:no-underline">
+                                    {{ __('Delete') }}
+                                </button>
+                            </form>
+                        </li>
+                    </template>
+                </ul>
+            </div>
 
         </div>
     </div>
+
+    <script>
+    function closureCalendar(config) {
+        return {
+            calendar: config.initialCalendar,
+            activeRanges: config.activeRanges,
+            toggleUrl: config.toggleUrl,
+            loadingDate: null,
+
+            goMonth(month) {
+                window.location.href = config.indexUrl + '?month=' + encodeURIComponent(month);
+            },
+
+            async toggleDay(iso) {
+                if (this.loadingDate) {
+                    return;
+                }
+
+                this.loadingDate = iso;
+
+                try {
+                    const response = await fetch(this.toggleUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': config.csrf,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({
+                            date: iso,
+                            month: this.calendar.month,
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        return;
+                    }
+
+                    const data = await response.json();
+                    this.calendar = data.calendar;
+                    this.activeRanges = data.active_ranges;
+                } finally {
+                    this.loadingDate = null;
+                }
+            },
+        };
+    }
+    </script>
 </x-admin-layout>

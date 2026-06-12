@@ -6,7 +6,9 @@ use App\Enums\ProductUnit;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ShopDeliveryClosure;
+use App\Models\ShopDeliveryClosureException;
 use App\Models\User;
+use App\Services\Shop\ShopClosureService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -112,5 +114,94 @@ class ShopDeliveryClosureTest extends TestCase
         $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
             ->assertOk()
             ->assertSee($this->product->name);
+    }
+
+    public function test_open_exception_inside_range_keeps_range_but_opens_single_day(): void
+    {
+        ShopDeliveryClosure::query()->delete();
+
+        $closure = ShopDeliveryClosure::query()->create([
+            'starts_on' => '2026-06-04',
+            'ends_on' => '2026-06-07',
+            'created_by_user_id' => $this->admin->id,
+        ]);
+
+        ShopDeliveryClosureException::query()->create([
+            'shop_delivery_closure_id' => $closure->id,
+            'date' => '2026-06-05',
+        ]);
+
+        $service = app(ShopClosureService::class);
+
+        $this->assertTrue($service->isClosed(Carbon::parse('2026-06-04')));
+        $this->assertFalse($service->isClosed(Carbon::parse('2026-06-05')));
+        $this->assertTrue($service->isClosed(Carbon::parse('2026-06-06')));
+
+        $this->get(route('public.shop.index'))
+            ->assertOk()
+            ->assertSee('2026-06-05', false)
+            ->assertDontSee('2026-06-04', false);
+    }
+
+    public function test_admin_can_toggle_day_via_calendar_endpoint(): void
+    {
+        ShopDeliveryClosure::query()->delete();
+
+        $this->actingAs($this->admin)
+            ->postJson(route('app.admin.shop-closures.toggle'), [
+                'date' => self::DELIVERY_DATE,
+                'month' => '2026-06',
+            ])
+            ->assertOk()
+            ->assertJsonPath('closed', true);
+
+        $this->assertTrue(app(ShopClosureService::class)->isClosed(Carbon::parse(self::DELIVERY_DATE)));
+
+        $this->actingAs($this->admin)
+            ->postJson(route('app.admin.shop-closures.toggle'), [
+                'date' => self::DELIVERY_DATE,
+                'month' => '2026-06',
+            ])
+            ->assertOk()
+            ->assertJsonPath('closed', false);
+
+        $this->assertFalse(app(ShopClosureService::class)->isClosed(Carbon::parse(self::DELIVERY_DATE)));
+    }
+
+    public function test_toggle_reopens_single_day_inside_range_without_deleting_range(): void
+    {
+        ShopDeliveryClosure::query()->delete();
+
+        $closure = ShopDeliveryClosure::query()->create([
+            'starts_on' => '2026-06-04',
+            'ends_on' => '2026-06-07',
+            'created_by_user_id' => $this->admin->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('app.admin.shop-closures.toggle'), [
+                'date' => '2026-06-05',
+                'month' => '2026-06',
+            ])
+            ->assertOk()
+            ->assertJsonPath('closed', false);
+
+        $closure->refresh();
+        $this->assertSame('2026-06-04', $closure->starts_on->toDateString());
+        $this->assertSame('2026-06-07', $closure->ends_on->toDateString());
+        $this->assertDatabaseHas('shop_delivery_closure_exceptions', [
+            'shop_delivery_closure_id' => $closure->id,
+            'date' => '2026-06-05',
+        ]);
+        $this->assertTrue(app(ShopClosureService::class)->isClosed(Carbon::parse('2026-06-06')));
+    }
+
+    public function test_closure_calendar_page_renders_month_grid(): void
+    {
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-closures.index', ['month' => '2026-06']))
+            ->assertOk()
+            ->assertSee('closureCalendar', false)
+            ->assertSee(__('admin.shop_closures.calendar_heading'));
     }
 }
