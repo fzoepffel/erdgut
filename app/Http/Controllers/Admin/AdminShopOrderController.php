@@ -65,7 +65,7 @@ class AdminShopOrderController extends Controller
                     'name' => $row['product']->name,
                     'producer' => $row['product']->producer?->name ?? '',
                     'price' => $row['product']->displayPrice(),
-                    'unit' => $row['product']->localizedUnit(),
+                    'unit' => $row['product']->canonicalUnitLabel(),
                     'remaining' => $row['remaining'],
                 ])
                 ->values()
