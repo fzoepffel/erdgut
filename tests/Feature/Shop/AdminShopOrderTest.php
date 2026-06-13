@@ -173,24 +173,32 @@ class AdminShopOrderTest extends TestCase
             ->assertSee('Karl-Kunger-Straße 9');
     }
 
-    public function test_index_filters_by_delivery_date(): void
+    public function test_index_filters_by_delivery_date_range(): void
     {
         $admin = User::factory()->admin()->create();
 
-        $onDate = ShopOrder::factory()->paid()->create([
-            'name' => 'On Date',
+        $inRange = ShopOrder::factory()->paid()->create([
+            'name' => 'In Range',
             'expected_delivery_date' => '2026-06-10',
         ]);
-        $otherDate = ShopOrder::factory()->paid()->create([
-            'name' => 'Other Date',
+        $alsoInRange = ShopOrder::factory()->paid()->create([
+            'name' => 'Also In Range',
+            'expected_delivery_date' => '2026-06-12',
+        ]);
+        $outside = ShopOrder::factory()->paid()->create([
+            'name' => 'Outside',
             'expected_delivery_date' => '2026-06-17',
         ]);
 
         $this->actingAs($admin)
-            ->get(route('app.admin.shop-orders.index', ['delivery_date' => '2026-06-10']))
+            ->get(route('app.admin.shop-orders.index', [
+                'delivery_from' => '2026-06-10',
+                'delivery_to' => '2026-06-12',
+            ]))
             ->assertOk()
-            ->assertSee('data-testid="shop-admin-row-'.$onDate->id.'"', false)
-            ->assertDontSee('data-testid="shop-admin-row-'.$otherDate->id.'"', false);
+            ->assertSee('data-testid="shop-admin-row-'.$inRange->id.'"', false)
+            ->assertSee('data-testid="shop-admin-row-'.$alsoInRange->id.'"', false)
+            ->assertDontSee('data-testid="shop-admin-row-'.$outside->id.'"', false);
     }
 
     public function test_admin_can_open_order_detail(): void
