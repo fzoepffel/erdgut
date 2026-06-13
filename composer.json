@@ -11,6 +11,7 @@
         "intervention/image": "^4.1",
         "laravel/framework": "^11.31",
         "laravel/tinker": "^2.9",
+        "maatwebsite/excel": "^3.1",
         "sumup/sumup-php": "^0.1.0"
     },
     "require-dev": {
@@ -74,6 +75,9 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
+        },
+        "platform": {
+            "php": "8.3.0"
         }
     },
     "minimum-stability": "stable",
