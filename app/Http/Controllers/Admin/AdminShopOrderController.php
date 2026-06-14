@@ -6,6 +6,7 @@ use App\Enums\CustomerType;
 use App\Enums\OrderSource;
 use App\Enums\ShopOrderStatus;
 use App\Enums\ShopStockAudience;
+use App\Exports\ShopOrdersExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
@@ -19,11 +20,14 @@ use App\Support\PickupLocations;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 
 /**
@@ -141,15 +145,69 @@ class AdminShopOrderController extends Controller
 
     public function index(Request $request): View
     {
+        $filter = $this->resolveFilter($request);
+
+        $orders = $this->filteredOrdersQuery($filter)
+            ->with('items.product.translations')
+            ->orderByDesc('id')
+            ->paginate(30)
+            ->withQueryString();
+
+        return view('admin.shop-orders.index', [
+            'orders' => $orders,
+            'statuses' => ShopOrderStatus::cases(),
+            'status' => $filter['status'],
+            'deliveryFrom' => $filter['delivery_from'],
+            'deliveryTo' => $filter['delivery_to'],
+        ]);
+    }
+
+    /**
+     * Stream the filtered orders set as a two-sheet Excel workbook
+     * (per-customer deliveries + per-farm supply totals). Reuses the
+     * exact same filter as {@see index()} so admins export "what they see".
+     */
+    public function export(Request $request): BinaryFileResponse
+    {
+        $filter = $this->resolveFilter($request);
+
+        $orders = $this->filteredOrdersQuery($filter)
+            ->with('items.product.producer.translations', 'items.product.translations')
+            ->orderBy('expected_delivery_date')
+            ->orderBy('id')
+            ->get();
+
+        $filename = 'erdgut-bestellungen-'.now()->format('Y-m-d').'.xlsx';
+
+        return Excel::download(new ShopOrdersExport($orders, $filter), $filename);
+    }
+
+    /**
+     * @return array{status: string, delivery_from: string, delivery_to: string}
+     */
+    private function resolveFilter(Request $request): array
+    {
         $statusParam = $request->query('status', self::FILTER_FINALIZED);
         $status = is_string($statusParam) ? $statusParam : self::FILTER_FINALIZED;
-        $statusEnum = ShopOrderStatus::tryFrom($status);
+        $from = (string) $request->query('delivery_from', '');
+        $to = (string) $request->query('delivery_to', '');
 
-        $deliveryDate = (string) $request->query('delivery_date', '');
+        return ['status' => $status, 'delivery_from' => $from, 'delivery_to' => $to];
+    }
 
-        $orders = ShopOrder::query()
-            ->with('items.product.translations')
-            ->when($status === self::FILTER_FINALIZED, fn ($q) => $q->where(function ($inner) {
+    /**
+     * Common filter used by the list page and the export. Encapsulates the
+     * "finalized" pseudo-status and the delivery-date range.
+     *
+     * @param  array{status: string, delivery_from: string, delivery_to: string}  $filter
+     * @return Builder<ShopOrder>
+     */
+    private function filteredOrdersQuery(array $filter): Builder
+    {
+        $statusEnum = ShopOrderStatus::tryFrom($filter['status']);
+
+        return ShopOrder::query()
+            ->when($filter['status'] === self::FILTER_FINALIZED, fn ($q) => $q->where(function ($inner) {
                 $inner->whereIn('status', [
                     ShopOrderStatus::Paid->value,
                     ShopOrderStatus::Fulfilled->value,
@@ -159,17 +217,8 @@ class AdminShopOrderController extends Controller
                 });
             }))
             ->when($statusEnum, fn ($q) => $q->where('status', $statusEnum))
-            ->when($deliveryDate !== '', fn ($q) => $q->whereDate('expected_delivery_date', $deliveryDate))
-            ->orderByDesc('id')
-            ->paginate(30)
-            ->withQueryString();
-
-        return view('admin.shop-orders.index', [
-            'orders' => $orders,
-            'statuses' => ShopOrderStatus::cases(),
-            'status' => $status,
-            'deliveryDate' => $deliveryDate,
-        ]);
+            ->when($filter['delivery_from'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '>=', $filter['delivery_from']))
+            ->when($filter['delivery_to'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '<=', $filter['delivery_to']));
     }
 
     public function show(ShopOrder $shopOrder): View
@@ -279,7 +328,7 @@ class AdminShopOrderController extends Controller
         }
 
         return redirect()
-            ->route('app.admin.shop-orders.index', $request->only('status', 'delivery_date', 'page'))
+            ->route('app.admin.shop-orders.index', $request->only('status', 'delivery_from', 'delivery_to', 'page'))
             ->with('status', __($flashKey, ['id' => $shopOrder->id]));
     }
 

@@ -5,11 +5,18 @@
                 <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('shop.admin.heading') }}</h1>
                 <span class="text-sm text-gray-500">{{ __('shop.admin.subheading', ['count' => $orders->total()]) }}</span>
             </div>
-            <a href="{{ route('app.admin.shop-orders.create') }}"
-               class="inline-flex items-center gap-1.5 rounded-sm bg-gray-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700"
-               data-testid="shop-admin-create-link">
-                + {{ __('shop.admin.action_create_order') }}
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="{{ route('app.admin.shop-orders.export', request()->query()) }}"
+                   class="inline-flex items-center gap-1.5 rounded-sm border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                   data-testid="shop-admin-export-link">
+                    {{ __('shop.admin.action_export') }}
+                </a>
+                <a href="{{ route('app.admin.shop-orders.create') }}"
+                   class="inline-flex items-center gap-1.5 rounded-sm bg-gray-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700"
+                   data-testid="shop-admin-create-link">
+                    + {{ __('shop.admin.action_create_order') }}
+                </a>
+            </div>
         </div>
     </x-slot>
 
@@ -34,11 +41,15 @@
                         </select>
                     </div>
                     <div>
-                        <label for="delivery_date" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_delivery_date') }}</label>
-                        <input type="date" id="delivery_date" name="delivery_date" value="{{ $deliveryDate }}" class="rounded-md border-gray-300 text-sm">
+                        <label for="delivery_from" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_delivery_from') }}</label>
+                        <input type="date" id="delivery_from" name="delivery_from" value="{{ $deliveryFrom }}" class="rounded-md border-gray-300 text-sm">
+                    </div>
+                    <div>
+                        <label for="delivery_to" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_delivery_to') }}</label>
+                        <input type="date" id="delivery_to" name="delivery_to" value="{{ $deliveryTo }}" class="rounded-md border-gray-300 text-sm">
                     </div>
                     <x-primary-button size="sm">{{ __('Filter') }}</x-primary-button>
-                    @if ($status !== 'finalized' || $deliveryDate !== '')
+                    @if ($status !== 'finalized' || $deliveryFrom !== '' || $deliveryTo !== '')
                         <a href="{{ route('app.admin.shop-orders.index') }}" class="text-sm text-gray-600 underline">{{ __('Reset') }}</a>
                     @endif
                 </form>
