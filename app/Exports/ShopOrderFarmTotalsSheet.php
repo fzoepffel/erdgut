@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Enums\ProductUnit;
+use App\Exports\Concerns\FormatsShopOrders;
 use App\Models\ShopOrder;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -11,11 +12,14 @@ use Maatwebsite\Excel\Concerns\WithTitle;
 
 /**
  * Aggregated supply view: total quantity needed per producer × product across
- * the filtered orders, in the product's display unit. Lines without a producer
- * are grouped under a "no producer" bucket so nothing disappears.
+ * the filtered orders. Includes procurement cost + margin estimates so
+ * purchasing can sanity-check the order against the buying prices on file.
+ * Lines without a producer are grouped under a "no producer" bucket.
  */
 class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
 {
+    use FormatsShopOrders;
+
     /**
      * @param  Collection<int, ShopOrder>  $orders
      */
@@ -37,6 +41,11 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
             (string) __('shop.export.col_quantity'),
             (string) __('shop.export.col_unit'),
             (string) __('shop.export.col_order_count'),
+            (string) __('shop.export.col_customer_count'),
+            (string) __('shop.export.col_buying_price_per_unit_eur'),
+            (string) __('shop.export.col_buying_total_eur'),
+            (string) __('shop.export.col_revenue_eur'),
+            (string) __('shop.export.col_margin_eur'),
         ];
     }
 
@@ -46,11 +55,9 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
     public function array(): array
     {
         /**
-         * Bucket keyed by `producerName||productName||displayUnit` so the
-         * sheet aggregates the same product across orders and keeps display
-         * units consistent (no mixed kg + g rows for the same product).
+         * Bucket keyed by `producerName||productName||displayUnit`.
          *
-         * @var array<string, array{producer:string, product:string, qty_canonical:float, unit:?ProductUnit, display:string, order_ids:array<int,true>}>
+         * @var array<string, array{producer:string, product:string, qty_canonical:float, unit:?ProductUnit, display:string, order_ids:array<int,true>, emails:array<string,true>, buying_per_unit:?float, revenue:float}>
          */
         $buckets = [];
 
@@ -75,11 +82,18 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
                         'unit' => $unit,
                         'display' => $display,
                         'order_ids' => [],
+                        'emails' => [],
+                        'buying_per_unit' => $this->buyingPricePerDisplayUnit($product),
+                        'revenue' => 0.0,
                     ];
                 }
 
                 $buckets[$key]['qty_canonical'] += (float) $item->quantity;
                 $buckets[$key]['order_ids'][$order->id] = true;
+                if ($order->email !== null && $order->email !== '') {
+                    $buckets[$key]['emails'][strtolower($order->email)] = true;
+                }
+                $buckets[$key]['revenue'] += (float) $item->line_total_eur;
             }
         }
 
@@ -96,16 +110,25 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
                 $unitLabel = '';
             }
 
+            $buyingPerUnit = $bucket['buying_per_unit'];
+            $buyingTotal = $buyingPerUnit !== null ? round($buyingPerUnit * $qty, 2) : null;
+            $revenue = round($bucket['revenue'], 2);
+            $margin = $buyingTotal !== null ? round($revenue - $buyingTotal, 2) : null;
+
             $rows[] = [
                 $bucket['producer'],
                 $bucket['product'],
                 round($qty, 4),
                 $unitLabel,
                 count($bucket['order_ids']),
+                count($bucket['emails']),
+                $buyingPerUnit,
+                $buyingTotal,
+                $revenue,
+                $margin,
             ];
         }
 
-        // Sort by producer, then product — predictable scanning for procurement.
         usort($rows, function (array $a, array $b): int {
             return [$a[0], $a[1]] <=> [$b[0], $b[1]];
         });

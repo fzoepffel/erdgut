@@ -7,21 +7,28 @@ use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 /**
- * Two-sheet workbook for an admin-filtered set of {@see ShopOrder}s.
+ * Six-sheet workbook for an admin-filtered set of {@see ShopOrder}s.
  *
- *  - Deliveries: one row per order line so ops can pack each customer.
- *  - Farm totals: aggregated quantities per producer/product so procurement
- *    knows exactly what to source.
+ *  1. Übersicht — KPI dashboard + echo of the active filter.
+ *  2. Lieferungen — Kunden — one row per order (office summary).
+ *  3. Bestellpositionen — Packliste — one row per line (picker view).
+ *  4. Hof-Summen — Einkauf — aggregated per producer × product (procurement).
+ *  5. Tour — Lieferungen — delivery orders sorted by PLZ → street (driver).
+ *  6. Abholungen — pickup orders grouped by location.
  *
- * Orders must already be loaded with `items.product.producer.translations` so
- * the sheets don't trigger N+1 lookups per row.
+ * Orders must be eager-loaded with `items.product.producer.translations`
+ * so the sheets don't trigger N+1 lookups per row.
  */
 class ShopOrdersExport implements WithMultipleSheets
 {
     /**
      * @param  Collection<int, ShopOrder>  $orders
+     * @param  array{status: string, delivery_from: string, delivery_to: string}  $filter
      */
-    public function __construct(private readonly Collection $orders) {}
+    public function __construct(
+        private readonly Collection $orders,
+        private readonly array $filter,
+    ) {}
 
     /**
      * @return array<int, object>
@@ -29,8 +36,12 @@ class ShopOrdersExport implements WithMultipleSheets
     public function sheets(): array
     {
         return [
-            new ShopOrderDeliveriesSheet($this->orders),
+            new ShopOrderSummarySheet($this->orders, $this->filter),
+            new ShopOrderCustomerSummarySheet($this->orders),
+            new ShopOrderPicklistSheet($this->orders),
             new ShopOrderFarmTotalsSheet($this->orders),
+            new ShopOrderRouteSheet($this->orders),
+            new ShopOrderPickupsSheet($this->orders),
         ];
     }
 }

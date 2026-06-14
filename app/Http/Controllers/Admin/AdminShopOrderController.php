@@ -179,7 +179,7 @@ class AdminShopOrderController extends Controller
 
         $filename = 'erdgut-bestellungen-'.now()->format('Y-m-d').'.xlsx';
 
-        return Excel::download(new ShopOrdersExport($orders), $filename);
+        return Excel::download(new ShopOrdersExport($orders, $filter), $filename);
     }
 
     /**
