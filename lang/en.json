@@ -3371,6 +3371,7 @@
     "coupon.admin.errors.min_below_value": "The minimum order value must be at least the coupon value.",
     "shop.confirm_order_title": "Review your order",
     "shop.confirm_order_body": "Please review your order before placing it.",
+    "shop.confirm_order_positions": "Positions",
     "shop.confirm_order_date": "Pickup date",
     "shop.confirm_order_location": "Pickup location",
     "shop.confirm_order_total": "Total",

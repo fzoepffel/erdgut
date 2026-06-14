@@ -3371,6 +3371,7 @@
     "coupon.admin.errors.min_below_value": "Der Mindestbestellwert muss mindestens dem Gutscheinwert entsprechen.",
     "shop.confirm_order_title": "Bestellung prüfen",
     "shop.confirm_order_body": "Bitte prüfe deine Bestellung, bevor sie verbindlich aufgegeben wird.",
+    "shop.confirm_order_positions": "Positionen",
     "shop.confirm_order_date": "Abholdatum",
     "shop.confirm_order_location": "Abholort",
     "shop.confirm_order_total": "Gesamtbetrag",

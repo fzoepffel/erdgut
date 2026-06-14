@@ -95,6 +95,7 @@
             selectedDateLabel: @js($selectedDate?->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY') ?? ''),
             confirmTitle: @js(__('shop.confirm_order_title')),
             confirmBody: @js(__('shop.confirm_order_body')),
+            confirmPositionsLabel: @js(__('shop.confirm_order_positions')),
             confirmDateLabel: @js(__('shop.confirm_order_date')),
             confirmLocationLabel: @js(__('shop.confirm_order_location')),
             confirmTotalLabel: @js(__('shop.confirm_order_total')),
@@ -829,20 +830,40 @@
                     <p class="mb-6 text-sm leading-relaxed text-shop-muted" x-text="confirmBody"></p>
 
                     {{-- Summary --}}
-                    <dl class="mb-6 space-y-3 border border-shop-border p-4 text-sm">
-                        <div class="flex items-baseline justify-between gap-4">
-                            <dt class="text-shop-muted" x-text="confirmDateLabel"></dt>
-                            <dd class="text-right font-medium text-shop-foreground" x-text="selectedDateLabel"></dd>
+                    <div class="mb-6 border border-shop-border p-4 text-sm" data-testid="shop-confirm-summary">
+                        {{-- Cart positions: one row per line, name + qty on
+                             the left, line € on the right. Hidden when the
+                             cart is empty (the submit guard catches that
+                             elsewhere). --}}
+                        <div class="mb-3 space-y-2 border-b border-shop-border pb-3" x-show="cartLines.length > 0" x-cloak>
+                            <p class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="confirmPositionsLabel"></p>
+                            <ul class="space-y-1.5" data-testid="shop-confirm-positions">
+                                <template x-for="line in cartLines" :key="line.id">
+                                    <li class="flex items-baseline justify-between gap-4">
+                                        <span class="text-shop-foreground">
+                                            <span x-text="line.name"></span>
+                                            <span class="text-shop-muted" x-text="' · ' + line.qty"></span>
+                                        </span>
+                                        <span class="text-right tabular-nums text-shop-foreground" x-text="money(line.lineTotal)"></span>
+                                    </li>
+                                </template>
+                            </ul>
                         </div>
-                        <div class="flex items-baseline justify-between gap-4">
-                            <dt class="text-shop-muted" x-text="confirmLocationLabel"></dt>
-                            <dd class="text-right font-medium text-shop-foreground" x-text="confirmPickupName"></dd>
-                        </div>
-                        <div class="border-t border-shop-border pt-3 flex items-baseline justify-between gap-4">
-                            <dt class="font-semibold text-shop-foreground" x-text="confirmTotalLabel"></dt>
-                            <dd class="text-right font-semibold tabular-nums text-shop-foreground" x-text="money(total)"></dd>
-                        </div>
-                    </dl>
+                        <dl class="space-y-3">
+                            <div class="flex items-baseline justify-between gap-4">
+                                <dt class="text-shop-muted" x-text="confirmDateLabel"></dt>
+                                <dd class="text-right font-medium text-shop-foreground" x-text="selectedDateLabel"></dd>
+                            </div>
+                            <div class="flex items-baseline justify-between gap-4">
+                                <dt class="text-shop-muted" x-text="confirmLocationLabel"></dt>
+                                <dd class="text-right font-medium text-shop-foreground" x-text="confirmPickupName"></dd>
+                            </div>
+                            <div class="border-t border-shop-border pt-3 flex items-baseline justify-between gap-4">
+                                <dt class="font-semibold text-shop-foreground" x-text="confirmTotalLabel"></dt>
+                                <dd class="text-right font-semibold tabular-nums text-shop-foreground" x-text="money(total)"></dd>
+                            </div>
+                        </dl>
+                    </div>
 
                     {{-- Actions --}}
                     <div class="flex flex-wrap items-center gap-3">
@@ -1058,6 +1079,7 @@
                 selectedDateLabel: config.selectedDateLabel || '',
                 confirmTitle: config.confirmTitle,
                 confirmBody: config.confirmBody,
+                confirmPositionsLabel: config.confirmPositionsLabel,
                 confirmDateLabel: config.confirmDateLabel,
                 confirmLocationLabel: config.confirmLocationLabel,
                 confirmTotalLabel: config.confirmTotalLabel,
@@ -1065,6 +1087,19 @@
                 confirmCancelLabel: config.confirmCancelLabel,
                 get confirmPickupName() {
                     return this.pickupLocationNames[this.pickupLocation] || this.pickupLocation;
+                },
+                // Cart positions for the review modal: name + display-unit
+                // quantity (e.g. "1,5 kg") + €-line total. Empty when the
+                // cart is empty — caller hides the section in that case.
+                get cartLines() {
+                    return this.products
+                        .filter((p) => (this.quantities[p.id] || 0) > 0)
+                        .map((p) => ({
+                            id: p.id,
+                            name: p.name,
+                            qty: this.label(p.id),
+                            lineTotal: this.lineTotal(p.id),
+                        }));
                 },
                 requestConfirm(event) {
                     // Only intercept in-person pickup; online/delivery submit normally.
