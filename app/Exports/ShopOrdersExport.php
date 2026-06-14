@@ -7,14 +7,13 @@ use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 /**
- * Six-sheet workbook for an admin-filtered set of {@see ShopOrder}s.
+ * Five-sheet workbook for an admin-filtered set of {@see ShopOrder}s.
  *
  *  1. Übersicht — KPI dashboard + echo of the active filter.
- *  2. Lieferungen — Kunden — one row per order (office summary).
- *  3. Bestellpositionen — Packliste — one row per line (picker view).
- *  4. Hof-Summen — Einkauf — aggregated per producer × product (procurement).
- *  5. Tour — Lieferungen — delivery orders sorted by PLZ → street (driver).
- *  6. Abholungen — pickup orders grouped by location.
+ *  2. Bestellungen — one row per order, positions stacked inside cells.
+ *  3. Hof-Summen — aggregated per producer × product (procurement).
+ *  4. Tour — delivery orders sorted by PLZ → street (driver).
+ *  5. Abholungen — pickup orders grouped by location.
  *
  * Orders must be eager-loaded with `items.product.producer.translations`
  * so the sheets don't trigger N+1 lookups per row.
@@ -37,7 +36,6 @@ class ShopOrdersExport implements WithMultipleSheets
     {
         return [
             new ShopOrderSummarySheet($this->orders, $this->filter),
-            new ShopOrderCustomerSummarySheet($this->orders),
             new ShopOrderPicklistSheet($this->orders),
             new ShopOrderFarmTotalsSheet($this->orders),
             new ShopOrderRouteSheet($this->orders),

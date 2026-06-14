@@ -5,7 +5,6 @@ namespace Tests\Feature\Admin;
 use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
 use App\Enums\ShopOrderStatus;
-use App\Exports\ShopOrderCustomerSummarySheet;
 use App\Exports\ShopOrderFarmTotalsSheet;
 use App\Exports\ShopOrderPicklistSheet;
 use App\Exports\ShopOrderPickupsSheet;
@@ -23,9 +22,9 @@ use Maatwebsite\Excel\Facades\Excel;
 use Tests\TestCase;
 
 /**
- * Coverage for the six-sheet shop-orders export. Asserts auth gating, that
+ * Coverage for the five-sheet shop-orders export. Asserts auth gating, that
  * the filter is reused for the file, and the shape of each individual sheet
- * (per-line, per-order, per-producer, route, pickups, KPI summary).
+ * (orders w/ stacked positions, farm totals, route, pickups, KPI summary).
  */
 class AdminShopOrderExportTest extends TestCase
 {
@@ -90,7 +89,7 @@ class AdminShopOrderExportTest extends TestCase
         $filename = 'erdgut-bestellungen-'.now()->format('Y-m-d').'.xlsx';
         Excel::assertDownloaded($filename, function (ShopOrdersExport $export) use ($inRange, $outside, $abandoned): bool {
             $sheets = $export->sheets();
-            $picklist = $sheets[2];
+            $picklist = $sheets[1];
             self::assertInstanceOf(ShopOrderPicklistSheet::class, $picklist);
             $ids = collect($picklist->array())->pluck(0)->all();
 
@@ -100,7 +99,7 @@ class AdminShopOrderExportTest extends TestCase
         });
     }
 
-    public function test_workbook_exposes_six_sheets_in_canonical_order(): void
+    public function test_workbook_exposes_five_sheets_in_canonical_order(): void
     {
         $export = new ShopOrdersExport(
             Collection::make(),
@@ -108,40 +107,62 @@ class AdminShopOrderExportTest extends TestCase
         );
         $sheets = $export->sheets();
 
+        $this->assertCount(5, $sheets);
         $this->assertInstanceOf(ShopOrderSummarySheet::class, $sheets[0]);
-        $this->assertInstanceOf(ShopOrderCustomerSummarySheet::class, $sheets[1]);
-        $this->assertInstanceOf(ShopOrderPicklistSheet::class, $sheets[2]);
-        $this->assertInstanceOf(ShopOrderFarmTotalsSheet::class, $sheets[3]);
-        $this->assertInstanceOf(ShopOrderRouteSheet::class, $sheets[4]);
-        $this->assertInstanceOf(ShopOrderPickupsSheet::class, $sheets[5]);
+        $this->assertInstanceOf(ShopOrderPicklistSheet::class, $sheets[1]);
+        $this->assertInstanceOf(ShopOrderFarmTotalsSheet::class, $sheets[2]);
+        $this->assertInstanceOf(ShopOrderRouteSheet::class, $sheets[3]);
+        $this->assertInstanceOf(ShopOrderPickupsSheet::class, $sheets[4]);
     }
 
-    public function test_picklist_sheet_emits_one_row_per_line_with_display_unit_and_vat(): void
+    public function test_picklist_sheet_emits_one_row_per_order_with_stacked_positions(): void
     {
-        $producer = Producer::factory()->create();
-        $product = Product::factory()->create([
-            'producer_id' => $producer->id,
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $tomato = Product::factory()->create([
+            'producer_id' => $farmA->id,
             'unit' => ProductUnit::Mass->value,
             'price_display_unit' => 'kg',
+        ]);
+        $eggs = Product::factory()->create([
+            'producer_id' => $farmB->id,
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
         ]);
 
         $order = ShopOrder::factory()->paid()->create([
             'name' => 'Anna Kunde',
             'customer_type' => CustomerType::Private,
+            'fulfillment_mode' => 'delivery',
             'expected_delivery_date' => '2026-06-10',
             'delivery_window_from' => '14:00:00',
             'delivery_window_to' => '16:00:00',
+            'delivery_street' => 'Karl-Marx-Allee 1',
+            'delivery_postal_code' => '10178',
+            'delivery_city' => 'Berlin',
+            'delivery_notes' => 'Ring twice',
+            'items_total_eur' => 23.5,
+            'delivery_fee_eur' => 2.9,
+            'discount_eur' => 0,
+            'total_amount_eur' => 26.4,
         ]);
-        // 1500 g canonical → 1.5 kg display. Snapshot price 0.009 €/g → 9 €/kg.
+        // 1500 g canonical → 1.5 kg display @ 9 €/kg = 13.50 €.
         ShopOrderItem::factory()->create([
             'shop_order_id' => $order->id,
-            'product_id' => $product->id,
+            'product_id' => $tomato->id,
             'quantity' => 1500,
             'unit' => 'g',
             'unit_price_snapshot_eur' => 0.009,
             'line_total_eur' => 13.5,
-            'vat_rate_snapshot_percent' => 7,
-            'vat_amount_eur' => 0.95,
+        ]);
+        // 5 pieces × 2 €/piece = 10 €.
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $eggs->id,
+            'quantity' => 5,
+            'unit' => 'piece',
+            'unit_price_snapshot_eur' => 2.0,
+            'line_total_eur' => 10.0,
         ]);
 
         $sheet = new ShopOrderPicklistSheet(
@@ -149,60 +170,33 @@ class AdminShopOrderExportTest extends TestCase
         );
         $rows = $sheet->array();
 
+        // One row for the whole order.
         $this->assertCount(1, $rows);
         $row = $rows[0];
+
+        // Order metadata sits in single cells.
         $this->assertSame($order->id, $row[0]);
         $this->assertSame('2026-06-10', $row[1]);
         $this->assertSame('14:00 – 16:00', $row[2]);
         $this->assertSame('Anna Kunde', $row[3]);
         $this->assertSame(__('shop.export.type_private'), $row[4]);
-        $this->assertSame($product->name, $row[5]);
-        $this->assertSame($producer->name, $row[6]);
-        $this->assertSame(1.5, $row[7]);
-        $this->assertSame('kg', $row[8]);
-        $this->assertSame(9.0, $row[9]);
-        $this->assertSame(13.5, $row[10]);
-        $this->assertSame(7, $row[11]);
-        $this->assertSame(0.95, $row[12]);
-    }
+        $this->assertSame('Karl-Marx-Allee 1, 10178 Berlin', $row[6]);
+        $this->assertSame('Ring twice', $row[8]);
 
-    public function test_customer_summary_sheet_emits_one_row_per_order(): void
-    {
-        $orderA = ShopOrder::factory()->paid()->create([
-            'name' => 'Order A',
-            'fulfillment_mode' => 'delivery',
-            'expected_delivery_date' => '2026-06-10',
-            'delivery_street' => 'Karl-Marx-Allee 1',
-            'delivery_postal_code' => '10178',
-            'delivery_city' => 'Berlin',
-            'delivery_notes' => 'Ring twice',
-            'items_total_eur' => 20.0,
-            'delivery_fee_eur' => 2.9,
-            'discount_eur' => 0,
-            'total_amount_eur' => 22.9,
-        ]);
-        ShopOrderItem::factory()->count(2)->create(['shop_order_id' => $orderA->id]);
+        // Position-related columns are \n-joined so Excel can wrap them.
+        $this->assertSame(
+            sprintf("%s (%s)\n%s (%s)", $tomato->name, $farmA->name, $eggs->name, $farmB->name),
+            $row[9],
+        );
+        $this->assertSame('1.50 kg'."\n".'5.00 '.__('units.piece'), $row[10]);
+        $this->assertSame("9.00\n2.00", $row[11]);
+        $this->assertSame("13.50\n10.00", $row[12]);
 
-        $orderB = ShopOrder::factory()->paid()->create([
-            'name' => 'Order B',
-            'fulfillment_mode' => 'pickup',
-            'expected_delivery_date' => '2026-06-09',
-            'pickup_location' => 'karl_kunger',
-        ]);
-        ShopOrderItem::factory()->create(['shop_order_id' => $orderB->id]);
-
-        $sheet = new ShopOrderCustomerSummarySheet(Collection::make([
-            $orderA->fresh(['items.product.producer.translations']),
-            $orderB->fresh(['items.product.producer.translations']),
-        ]));
-        $rows = $sheet->array();
-
-        // Sorted by date ascending → Order B (06-09) appears before Order A (06-10).
-        $this->assertSame($orderB->id, $rows[0][0]);
-        $this->assertSame($orderA->id, $rows[1][0]);
-        $this->assertSame(2, $rows[1][13]); // item count
-        $this->assertSame('Karl-Marx-Allee 1, 10178 Berlin', $rows[1][10]);
-        $this->assertSame('Ring twice', $rows[1][12]);
+        // Order-level totals stay single numeric cells.
+        $this->assertSame(23.5, $row[13]);
+        $this->assertSame(2.9, $row[14]);
+        $this->assertSame(0.0, $row[15]);
+        $this->assertSame(26.4, $row[17]);
     }
 
     public function test_farm_totals_sheet_aggregates_with_cost_and_margin(): void
