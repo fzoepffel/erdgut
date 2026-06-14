@@ -920,6 +920,10 @@ class ShopOrderFlowTest extends TestCase
         $response->assertSee('data-testid="shop-confirm-modal"', false);
         $response->assertSee('data-testid="shop-confirm-submit"', false);
         $response->assertSee('data-testid="shop-confirm-cancel"', false);
+        // Cart positions list inside the modal — driven by Alpine cartLines.
+        $response->assertSee('data-testid="shop-confirm-positions"', false);
+        $response->assertSee('confirmPositionsLabel', false);
+        $response->assertSee(__('shop.confirm_order_positions'));
     }
 
     public function test_storefront_does_not_show_product_from_b2b_only_inflow_alone(): void
