@@ -566,6 +566,90 @@ class ShopOrderService
     }
 
     /**
+     * Apply optional admin-entered product total and delivery fee overrides.
+     *
+     * When the product total differs from the catalog quote, line totals are
+     * scaled proportionally (with a penny correction on the largest line) so
+     * receipts and exports stay internally consistent.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function applyAdminPriceOverrides(array $quote, array $payload): array
+    {
+        $itemsOverride = array_key_exists('items_total_eur', $payload) && $payload['items_total_eur'] !== null
+            ? round((float) $payload['items_total_eur'], 2)
+            : null;
+
+        $deliveryOverride = array_key_exists('delivery_fee_eur', $payload) && $payload['delivery_fee_eur'] !== null
+            ? round((float) $payload['delivery_fee_eur'], 2)
+            : null;
+
+        if ($itemsOverride === null && $deliveryOverride === null) {
+            return $quote;
+        }
+
+        $catalogItemsTotal = (float) $quote['items_total_eur'];
+
+        if ($itemsOverride !== null && $catalogItemsTotal > 0 && abs($itemsOverride - $catalogItemsTotal) > 0.001) {
+            $factor = $itemsOverride / $catalogItemsTotal;
+            $lines = $quote['lines'];
+            $scaledSum = 0.0;
+
+            foreach ($lines as $index => $line) {
+                $lineTotal = round($line['line_total_eur'] * $factor, 2);
+                $vatRate = (int) $line['vat_rate_percent'];
+                $lines[$index] = array_merge($line, [
+                    'line_total_eur' => $lineTotal,
+                    'unit_price_eur' => round($lineTotal / (float) $line['quantity'], 4),
+                    'vat_amount_eur' => round($lineTotal * $vatRate / (100 + $vatRate), 2),
+                ]);
+                $scaledSum += $lineTotal;
+            }
+
+            $diff = round($itemsOverride - $scaledSum, 2);
+            if (abs($diff) >= 0.01 && $lines !== []) {
+                $largestIdx = 0;
+                $largestTotal = -1.0;
+                foreach ($lines as $idx => $line) {
+                    if ($line['line_total_eur'] > $largestTotal) {
+                        $largestTotal = $line['line_total_eur'];
+                        $largestIdx = $idx;
+                    }
+                }
+
+                $adjustedTotal = round($lines[$largestIdx]['line_total_eur'] + $diff, 2);
+                $vatRate = (int) $lines[$largestIdx]['vat_rate_percent'];
+                $lines[$largestIdx] = array_merge($lines[$largestIdx], [
+                    'line_total_eur' => $adjustedTotal,
+                    'unit_price_eur' => round($adjustedTotal / (float) $lines[$largestIdx]['quantity'], 4),
+                    'vat_amount_eur' => round($adjustedTotal * $vatRate / (100 + $vatRate), 2),
+                ]);
+            }
+
+            $quote['lines'] = $lines;
+            $quote['items_total_eur'] = $itemsOverride;
+        } elseif ($itemsOverride !== null) {
+            $quote['items_total_eur'] = $itemsOverride;
+        }
+
+        if ($deliveryOverride !== null) {
+            $deliveryVatRate = (int) $quote['delivery_fee_vat_rate_percent'];
+            $quote['delivery_fee_eur'] = $deliveryOverride;
+            $quote['delivery_fee_vat_amount_eur'] = $deliveryOverride > 0
+                ? round($deliveryOverride * $deliveryVatRate / (100 + $deliveryVatRate), 2)
+                : 0.0;
+        }
+
+        $quote['total_amount_eur'] = round(
+            (float) $quote['items_total_eur'] - (float) $quote['discount_eur'] + (float) $quote['delivery_fee_eur'],
+            2
+        );
+
+        return $quote;
+    }
+
+    /**
      * Persist a shop order with its cart lines, race-tight against stock.
      *
      * Re-validates each line's quantity against
@@ -599,6 +683,13 @@ class ShopOrderService
         );
         if ($quote['lines'] === []) {
             throw new \InvalidArgumentException('Cart is empty.');
+        }
+
+        $orderSource = (string) ($payload['order_source'] ?? OrderSource::Storefront->value);
+        if ($orderSource === OrderSource::Admin->value
+            && (array_key_exists('items_total_eur', $payload) || array_key_exists('delivery_fee_eur', $payload))
+        ) {
+            $quote = $this->applyAdminPriceOverrides($quote, $payload);
         }
 
         $audience = $this->stockAudienceForPayload($payload);
