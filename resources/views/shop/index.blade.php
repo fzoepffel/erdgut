@@ -1109,8 +1109,18 @@
                     this.showConfirmModal = true;
                 },
                 submitConfirmed() {
+                    // The form is a descendant of the x-data root, so
+                    // closest('form') on this.$el returns null. Look it up
+                    // inside the scope by its data-testid (single form on
+                    // the storefront page). Calling .submit() bypasses
+                    // requestConfirm() — no re-open loop.
+                    const form = this.$el.querySelector('form[data-testid="shop-form"]');
+                    if (!form) {
+                        this.confirmSubmitting = false;
+                        return;
+                    }
                     this.confirmSubmitting = true;
-                    this.$el.closest('form').submit();
+                    form.submit();
                 },
                 // ── Engagement tracking (ranking bandit) ─────────────────
                 trackUrl: config.trackUrl,
