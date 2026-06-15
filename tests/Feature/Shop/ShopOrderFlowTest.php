@@ -13,6 +13,7 @@ use App\Models\ShopOrder;
 use App\Models\User;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\ShopOrderService;
+use App\Support\Money;
 use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -595,6 +596,10 @@ class ShopOrderFlowTest extends TestCase
         $this->assertSame(ShopOrderStatus::PendingPayment, $order->status);
 
         $response->assertRedirect(route('public.shop.return', ['shopOrder' => $order->id]));
+
+        $this->get(route('public.shop.return', ['shopOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee(Money::formatEur($order->total_amount_eur), false);
 
         Mail::assertQueued(ShopOrderConfirmationMail::class, fn ($mail) => $mail->hasTo('inperson@example.com'));
     }
