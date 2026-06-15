@@ -142,6 +142,7 @@
                 method="POST"
                 action="{{ route('public.shop.store') }}"
                 data-testid="shop-form"
+                x-ref="shopForm"
                 @submit="requestConfirm($event)"
             >
                 @csrf
@@ -1076,6 +1077,7 @@
                 // ── In-person confirmation modal ─────────────────────────
                 showConfirmModal: false,
                 confirmSubmitting: false,
+                _confirmBypass: false,
                 pickupLocationNames: config.pickupLocationNames || {},
                 selectedDateLabel: config.selectedDateLabel || '',
                 confirmTitle: config.confirmTitle,
@@ -1105,22 +1107,37 @@
                 requestConfirm(event) {
                     // Only intercept in-person pickup; online/delivery submit normally.
                     if (this.payment !== 'in_person' || this.mode !== 'pickup') return;
+                    // Second pass after the modal confirm button — let the
+                    // browser submit (validation + POST) without re-opening.
+                    if (this._confirmBypass) {
+                        this._confirmBypass = false;
+                        return;
+                    }
                     event.preventDefault();
                     this.showConfirmModal = true;
                 },
                 submitConfirmed() {
-                    // The form is a descendant of the x-data root, so
-                    // closest('form') on this.$el returns null. Look it up
-                    // inside the scope by its data-testid (single form on
-                    // the storefront page). Calling .submit() bypasses
-                    // requestConfirm() — no re-open loop.
-                    const form = this.$el.querySelector('form[data-testid="shop-form"]');
+                    const form = this.$refs.shopForm;
                     if (!form) {
-                        this.confirmSubmitting = false;
+                        return;
+                    }
+                    if (!form.checkValidity()) {
+                        this.showConfirmModal = false;
+                        form.reportValidity();
                         return;
                     }
                     this.confirmSubmitting = true;
-                    form.submit();
+                    this._confirmBypass = true;
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+                    } else {
+                        const btn = form.querySelector('[data-testid="shop-submit"]');
+                        if (btn) {
+                            btn.click();
+                        } else {
+                            HTMLFormElement.prototype.submit.call(form);
+                        }
+                    }
                 },
                 // ── Engagement tracking (ranking bandit) ─────────────────
                 trackUrl: config.trackUrl,
