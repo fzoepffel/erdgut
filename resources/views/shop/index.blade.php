@@ -33,6 +33,7 @@
 
                 return [
                     'id' => $product->id,
+                    'name' => $product->name,
                     'unitPrice' => (float) $product->unit_price,
                     'vatRate' => (int) $product->vat_rate_percent,
                     'step' => $step,

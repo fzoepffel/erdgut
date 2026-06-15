@@ -915,7 +915,7 @@ class ShopOrderFlowTest extends TestCase
 
     public function test_storefront_renders_confirmation_modal_markup(): void
     {
-        $response = $this->get(route('public.shop.index'));
+        $response = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]));
         $response->assertOk();
         $response->assertSee('data-testid="shop-confirm-modal"', false);
         $response->assertSee('data-testid="shop-confirm-submit"', false);
@@ -924,6 +924,18 @@ class ShopOrderFlowTest extends TestCase
         $response->assertSee('data-testid="shop-confirm-positions"', false);
         $response->assertSee('confirmPositionsLabel', false);
         $response->assertSee(__('shop.confirm_order_positions'));
+        // Each orderable product must ship a `name` field into the Alpine
+        // products registry — otherwise the modal renders "· qty" with no
+        // product name (regression check for the cart-line getter). `@js()`
+        // emits the JSON wrapped in JSON.parse('…'), with each `"` rendered
+        // as the Unicode escape `"` so the inner JSON survives the
+        // outer single-quoted JS string; assert against that exact form.
+        $q = '\u0022';
+        $this->assertStringContainsString(
+            $q.'id'.$q.':'.$this->product->id.','.$q.'name'.$q.':',
+            (string) $response->getContent(),
+            'Expected each Alpine product entry to carry a `name` field for the confirm-modal cart lines.',
+        );
     }
 
     public function test_storefront_does_not_show_product_from_b2b_only_inflow_alone(): void
