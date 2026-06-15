@@ -82,6 +82,42 @@ class AdminShopOrderController extends Controller
     }
 
     /**
+     * JSON quote for the admin create form — catalog-priced defaults for
+     * product total, delivery fee, and grand total before manual overrides.
+     */
+    public function quoteForCreate(Request $request): JsonResponse
+    {
+        $items = $request->input('items', []);
+        if (! is_array($items) || $items === []) {
+            return response()->json(['message' => 'items required'], 422);
+        }
+
+        $fulfillmentMode = (string) $request->input('fulfillment_mode', 'pickup');
+        $couponCode = $request->input('coupon_code');
+        $normalizedCoupon = is_string($couponCode) && trim($couponCode) !== '' ? trim($couponCode) : null;
+
+        $quote = $this->service->quote($items, $fulfillmentMode, $normalizedCoupon);
+
+        if ($quote['lines'] === []) {
+            return response()->json(['message' => 'empty cart'], 422);
+        }
+
+        return response()->json([
+            'items_total_eur' => $quote['items_total_eur'],
+            'delivery_fee_eur' => $quote['delivery_fee_eur'],
+            'discount_eur' => $quote['discount_eur'],
+            'total_amount_eur' => $quote['total_amount_eur'],
+            'lines' => collect($quote['lines'])
+                ->map(fn (array $line): array => [
+                    'product_id' => $line['product']->id,
+                    'line_total_eur' => $line['line_total_eur'],
+                ])
+                ->values()
+                ->all(),
+        ]);
+    }
+
+    /**
      * Show the form for manually creating a shop order.
      */
     public function create(Request $request): View
@@ -89,6 +125,7 @@ class AdminShopOrderController extends Controller
         return view('admin.shop-orders.create', [
             'pickupLocations' => PickupLocations::all(),
             'availableProductsUrl' => route('app.admin.shop-orders.available-products'),
+            'quoteUrl' => route('app.admin.shop-orders.quote'),
         ]);
     }
 

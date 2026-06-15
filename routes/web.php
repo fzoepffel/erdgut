@@ -449,6 +449,7 @@ Route::middleware(['auth', 'verified'])
             // Manual order creation — declared before {shopOrder} wildcard.
             Route::get('shop-orders/create', [AdminShopOrderController::class, 'create'])->name('shop-orders.create');
             Route::get('shop-orders/available-products', [AdminShopOrderController::class, 'availableProductsForDate'])->name('shop-orders.available-products');
+            Route::get('shop-orders/quote', [AdminShopOrderController::class, 'quoteForCreate'])->name('shop-orders.quote');
             // Excel export of the filtered orders set — declared before the
             // {shopOrder} wildcard so "export" isn't interpreted as a model id.
             Route::get('shop-orders/export', [AdminShopOrderController::class, 'export'])

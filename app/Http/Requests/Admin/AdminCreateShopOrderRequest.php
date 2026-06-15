@@ -73,6 +73,11 @@ class AdminCreateShopOrderRequest extends FormRequest
             ],
 
             'customer_type' => ['nullable', Rule::in(['private', 'business'])],
+
+            // Optional manual pricing — defaults come from quote(); admin may
+            // override for negotiated B2B totals (see applyAdminPriceOverrides).
+            'items_total_eur' => ['nullable', 'numeric', 'min:0', 'max:99999.99'],
+            'delivery_fee_eur' => ['nullable', 'numeric', 'min:0', 'max:999.99'],
         ];
     }
 
@@ -128,6 +133,16 @@ class AdminCreateShopOrderRequest extends FormRequest
                             ])
                         );
                     }
+                }
+            }
+
+            if ($this->input('fulfillment_mode') === 'pickup') {
+                $deliveryFee = $this->input('delivery_fee_eur');
+                if ($deliveryFee !== null && $deliveryFee !== '' && (float) $deliveryFee > 0) {
+                    $v->errors()->add(
+                        'delivery_fee_eur',
+                        __('shop.admin.errors.delivery_fee_on_pickup'),
+                    );
                 }
             }
         });
