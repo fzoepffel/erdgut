@@ -9,10 +9,13 @@
     <div class="py-8 sm:py-12"
          x-data="adminOrderForm({
              availableProductsUrl: @js($availableProductsUrl),
+             quoteUrl: @js($quoteUrl),
              pickupMode: '{{ old('fulfillment_mode', 'pickup') }}',
              customerType: '{{ old('customer_type', 'private') }}',
              preselectedDate: '{{ old('expected_delivery_date', '') }}',
              preselectedItems: @js(collect(old('items', []))->map(fn($i) => ['product_id' => (string)($i['product_id'] ?? ''), 'quantity' => (string)($i['quantity'] ?? '')])->values()->all()),
+             preselectedItemsTotal: @js(old('items_total_eur')),
+             preselectedDeliveryFee: @js(old('delivery_fee_eur')),
          })">
         <div class="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-8">
 
@@ -62,6 +65,7 @@
                                         <div class="flex-1">
                                             <select :name="'items[' + i + '][product_id]'"
                                                 x-model="item.product_id"
+                                                @change="scheduleQuote()"
                                                 class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                 required>
                                                 <option value="">{{ __('admin.select_product') }}</option>
@@ -77,6 +81,7 @@
                                             <input type="number"
                                                 :name="'items[' + i + '][quantity]'"
                                                 x-model="item.quantity"
+                                                @input="scheduleQuote()"
                                                 min="0.001" step="any"
                                                 placeholder="{{ __('admin.quantity') }}"
                                                 class="block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
@@ -186,12 +191,14 @@
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" name="fulfillment_mode" value="pickup"
                                         x-model="mode"
+                                        @change="onModeChange()"
                                         class="text-emerald-600 focus:ring-emerald-500">
                                     <span class="text-sm text-gray-700">{{ __('shop.fulfillment_pickup') }}</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="radio" name="fulfillment_mode" value="delivery"
                                         x-model="mode"
+                                        @change="onModeChange()"
                                         class="text-emerald-600 focus:ring-emerald-500">
                                     <span class="text-sm text-gray-700">{{ __('shop.fulfillment_delivery') }}</span>
                                 </label>
@@ -251,6 +258,60 @@
                     </div>
                 </div>
 
+                {{-- ── Step 5: Pricing ──────────────────────────────────── --}}
+                <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
+                     x-show="selectedDate && hasValidItems"
+                     x-cloak>
+                    <div class="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">5. {{ __('shop.admin.create_pricing_heading') }}</h2>
+                        <span x-show="quoteLoading" class="text-xs text-gray-400">{{ __('Loading') }}…</span>
+                    </div>
+                    <div class="space-y-4 p-6">
+                        <p class="text-sm text-gray-600">{{ __('shop.admin.create_pricing_hint') }}</p>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label for="items_total_eur" class="block text-sm font-medium text-gray-700">{{ __('shop.admin.create_items_total_label') }}</label>
+                                <div class="relative mt-1">
+                                    <input type="number"
+                                        id="items_total_eur"
+                                        name="items_total_eur"
+                                        x-model="itemsTotalEur"
+                                        @input="itemsPriceTouched = true"
+                                        min="0" step="0.01"
+                                        class="block w-full rounded-md border-gray-300 pr-8 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                        :disabled="quoteLoading">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">€</span>
+                                </div>
+                                <x-input-error :messages="$errors->get('items_total_eur')" class="mt-1" />
+                            </div>
+
+                            <div x-show="mode === 'delivery'" x-cloak>
+                                <label for="delivery_fee_eur" class="block text-sm font-medium text-gray-700">{{ __('shop.admin.create_delivery_fee_label') }}</label>
+                                <div class="relative mt-1">
+                                    <input type="number"
+                                        id="delivery_fee_eur"
+                                        name="delivery_fee_eur"
+                                        x-model="deliveryFeeEur"
+                                        @input="deliveryPriceTouched = true"
+                                        min="0" step="0.01"
+                                        class="block w-full rounded-md border-gray-300 pr-8 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                        :disabled="quoteLoading">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">€</span>
+                                </div>
+                                <x-input-error :messages="$errors->get('delivery_fee_eur')" class="mt-1" />
+                            </div>
+                        </div>
+
+                        <div class="rounded-md border border-gray-100 bg-gray-50 px-4 py-3 text-sm">
+                            <div class="flex items-baseline justify-between gap-4">
+                                <span class="font-medium text-gray-700">{{ __('shop.admin.create_grand_total_label') }}</span>
+                                <span class="font-semibold tabular-nums text-gray-900" x-text="grandTotalLabel"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- ── Submit ───────────────────────────────────────────── --}}
                 <div class="flex items-center gap-4" x-show="selectedDate" x-cloak>
                     <button type="submit"
@@ -271,18 +332,43 @@
     function adminOrderForm(config) {
         return {
             availableProductsUrl: config.availableProductsUrl,
+            quoteUrl: config.quoteUrl,
             selectedDate: config.preselectedDate || '',
             customerType: config.customerType || 'private',
             availableProducts: [],
             loading: false,
+            quoteLoading: false,
             mode: config.pickupMode || 'pickup',
             items: config.preselectedItems && config.preselectedItems.length
                 ? config.preselectedItems
                 : [{ product_id: '', quantity: '' }],
+            itemsTotalEur: config.preselectedItemsTotal ?? '',
+            deliveryFeeEur: config.preselectedDeliveryFee ?? '',
+            discountEur: 0,
+            itemsPriceTouched: config.preselectedItemsTotal !== null && config.preselectedItemsTotal !== '',
+            deliveryPriceTouched: config.preselectedDeliveryFee !== null && config.preselectedDeliveryFee !== '',
+            _quoteTimer: null,
+
+            get hasValidItems() {
+                return this.items.some((item) => item.product_id && parseFloat(item.quantity) > 0);
+            },
+
+            get grandTotalLabel() {
+                const items = parseFloat(this.itemsTotalEur);
+                const delivery = this.mode === 'delivery' ? parseFloat(this.deliveryFeeEur) : 0;
+                if (Number.isNaN(items)) {
+                    return '—';
+                }
+                const total = items - (this.discountEur || 0) + (Number.isNaN(delivery) ? 0 : delivery);
+                return total.toFixed(2).replace('.', ',') + ' €';
+            },
 
             async init() {
                 if (this.selectedDate) {
                     await this.fetchProducts();
+                    if (this.hasValidItems) {
+                        await this.recalculateQuote();
+                    }
                 }
             },
 
@@ -290,11 +376,73 @@
                 this.availableProducts = [];
                 if (!this.selectedDate) return;
                 await this.fetchProducts();
+                this.scheduleQuote();
             },
 
             async onCustomerTypeChange() {
                 if (!this.selectedDate) return;
                 await this.fetchProducts();
+                this.scheduleQuote();
+            },
+
+            onModeChange() {
+                if (this.mode === 'pickup') {
+                    this.deliveryFeeEur = '0';
+                    this.deliveryPriceTouched = false;
+                }
+                this.scheduleQuote();
+            },
+
+            scheduleQuote() {
+                clearTimeout(this._quoteTimer);
+                this._quoteTimer = setTimeout(() => this.recalculateQuote(), 300);
+            },
+
+            async recalculateQuote() {
+                const validItems = this.items.filter(
+                    (item) => item.product_id && parseFloat(item.quantity) > 0,
+                );
+                if (!this.selectedDate || validItems.length === 0) {
+                    return;
+                }
+
+                this.quoteLoading = true;
+                try {
+                    const params = new URLSearchParams();
+                    params.set('fulfillment_mode', this.mode);
+                    validItems.forEach((item, i) => {
+                        params.set(`items[${i}][product_id]`, item.product_id);
+                        params.set(`items[${i}][quantity]`, item.quantity);
+                    });
+                    const res = await fetch(this.quoteUrl + '?' + params.toString(), {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    if (!res.ok) {
+                        return;
+                    }
+                    const data = await res.json();
+                    this.discountEur = data.discount_eur || 0;
+                    if (!this.itemsPriceTouched) {
+                        this.itemsTotalEur = this.formatAmount(data.items_total_eur);
+                    }
+                    if (!this.deliveryPriceTouched) {
+                        this.deliveryFeeEur = this.mode === 'delivery'
+                            ? this.formatAmount(data.delivery_fee_eur)
+                            : '0';
+                    }
+                } catch (e) {
+                    // Keep last values on transient network errors.
+                } finally {
+                    this.quoteLoading = false;
+                }
+            },
+
+            formatAmount(value) {
+                const n = parseFloat(value);
+                if (Number.isNaN(n)) {
+                    return '';
+                }
+                return n.toFixed(2);
             },
 
             async fetchProducts() {
@@ -320,7 +468,10 @@
             },
 
             removeItem(i) {
-                if (this.items.length > 1) this.items.splice(i, 1);
+                if (this.items.length > 1) {
+                    this.items.splice(i, 1);
+                    this.scheduleQuote();
+                }
             },
         };
     }

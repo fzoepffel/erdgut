@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ShopOrder;
 use App\Models\User;
+use App\Services\Shop\ShopOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
@@ -110,6 +111,39 @@ class AdminShopOrderCreateTest extends TestCase
         $this->assertNotContains($noStock->id, $ids);
     }
 
+    public function test_quote_endpoint_returns_catalog_defaults(): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->getJson(route('app.admin.shop-orders.quote', [
+                'fulfillment_mode' => 'pickup',
+                'items' => [
+                    ['product_id' => $this->product->id, 'quantity' => 3],
+                ],
+            ]));
+
+        $response->assertOk();
+        $this->assertEqualsWithDelta(15.0, (float) $response->json('items_total_eur'), 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $response->json('delivery_fee_eur'), 0.01);
+        $this->assertEqualsWithDelta(15.0, (float) $response->json('total_amount_eur'), 0.01);
+    }
+
+    public function test_quote_endpoint_includes_delivery_fee_for_delivery_orders(): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->getJson(route('app.admin.shop-orders.quote', [
+                'fulfillment_mode' => 'delivery',
+                'items' => [
+                    ['product_id' => $this->product->id, 'quantity' => 2],
+                ],
+            ]));
+
+        $response->assertOk();
+        $deliveryFee = (float) config('shop.delivery_fee_eur', 2.90);
+        $this->assertEqualsWithDelta(10.0, (float) $response->json('items_total_eur'), 0.01);
+        $this->assertEqualsWithDelta($deliveryFee, (float) $response->json('delivery_fee_eur'), 0.01);
+        $this->assertEqualsWithDelta(10.0 + $deliveryFee, (float) $response->json('total_amount_eur'), 0.01);
+    }
+
     // ── Order creation ───────────────────────────────────────────────────────
 
     public function test_admin_can_create_minimal_order_without_contact_details(): void
@@ -172,6 +206,77 @@ class AdminShopOrderCreateTest extends TestCase
         $this->assertSame(1, $order->items->count());
         $this->assertEqualsWithDelta(5.0, (float) $order->items->first()->quantity, 0.001);
         $this->assertEqualsWithDelta(25.0, (float) $order->items->first()->line_total_eur, 0.01);
+    }
+
+    public function test_admin_can_override_product_total_with_proportional_line_scaling(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), $this->payload([
+                'items' => [['product_id' => $this->product->id, 'quantity' => 5]],
+                'items_total_eur' => 12.00,
+            ]))
+            ->assertRedirect();
+
+        $order = ShopOrder::query()->latest('id')->first();
+        $this->assertEqualsWithDelta(12.0, (float) $order->items_total_eur, 0.01);
+        $this->assertEqualsWithDelta(12.0, (float) $order->total_amount_eur, 0.01);
+
+        $lineSum = $order->items->sum(fn ($item) => (float) $item->line_total_eur);
+        $this->assertEqualsWithDelta(12.0, $lineSum, 0.01);
+        $this->assertEqualsWithDelta(2.4, (float) $order->items->first()->unit_price_snapshot_eur, 0.01);
+    }
+
+    public function test_admin_can_override_delivery_fee_on_delivery_order(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), $this->payload([
+                'fulfillment_mode' => 'delivery',
+                'delivery_street' => 'Musterstraße 1',
+                'delivery_postal_code' => '10115',
+                'delivery_city' => 'Berlin',
+                'items' => [['product_id' => $this->product->id, 'quantity' => 2]],
+                'items_total_eur' => 10.00,
+                'delivery_fee_eur' => 5.00,
+            ]))
+            ->assertRedirect();
+
+        $order = ShopOrder::query()->latest('id')->first();
+        $this->assertEqualsWithDelta(5.0, (float) $order->delivery_fee_eur, 0.01);
+        $this->assertEqualsWithDelta(15.0, (float) $order->total_amount_eur, 0.01);
+        $this->assertGreaterThan(0, (float) $order->delivery_fee_vat_amount_eur);
+    }
+
+    public function test_pickup_order_rejects_non_zero_delivery_fee_override(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), $this->payload([
+                'items_total_eur' => 15.00,
+                'delivery_fee_eur' => 5.00,
+            ]))
+            ->assertSessionHasErrors('delivery_fee_eur');
+
+        $this->assertSame(0, ShopOrder::query()->where('order_source', 'admin')->count());
+    }
+
+    public function test_overridden_product_total_scales_vat_snapshots(): void
+    {
+        $this->product->update(['vat_rate_percent' => 7]);
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), $this->payload([
+                'items' => [['product_id' => $this->product->id, 'quantity' => 3]],
+                'items_total_eur' => 12.00,
+            ]))
+            ->assertRedirect();
+
+        $order = ShopOrder::query()->latest('id')->first();
+        $vatByRate = ShopOrderService::vatByRate($order);
+        $this->assertEqualsWithDelta(12.0, (float) $order->items_total_eur, 0.01);
+        $this->assertEqualsWithDelta(
+            round(12.0 * 7 / 107, 2),
+            (float) ($vatByRate->get(7) ?? 0),
+            0.02,
+        );
     }
 
     // ── No emails ────────────────────────────────────────────────────────────
