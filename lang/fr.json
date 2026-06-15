@@ -3371,6 +3371,7 @@
     "coupon.admin.errors.min_below_value": "Le montant minimum doit être au moins égal à la valeur du code.",
     "shop.confirm_order_title": "Vérifier la commande",
     "shop.confirm_order_body": "Veuillez vérifier votre commande avant de la confirmer.",
+    "shop.confirm_order_positions": "Articles",
     "shop.confirm_order_date": "Date de retrait",
     "shop.confirm_order_location": "Lieu de retrait",
     "shop.confirm_order_total": "Total",

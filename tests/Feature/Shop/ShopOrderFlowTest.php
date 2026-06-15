@@ -13,6 +13,7 @@ use App\Models\ShopOrder;
 use App\Models\User;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\ShopOrderService;
+use App\Support\Money;
 use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -596,6 +597,10 @@ class ShopOrderFlowTest extends TestCase
 
         $response->assertRedirect(route('public.shop.return', ['shopOrder' => $order->id]));
 
+        $this->get(route('public.shop.return', ['shopOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee(Money::formatEur($order->total_amount_eur), false);
+
         Mail::assertQueued(ShopOrderConfirmationMail::class, fn ($mail) => $mail->hasTo('inperson@example.com'));
     }
 
@@ -915,11 +920,48 @@ class ShopOrderFlowTest extends TestCase
 
     public function test_storefront_renders_confirmation_modal_markup(): void
     {
-        $response = $this->get(route('public.shop.index'));
+        $response = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]));
         $response->assertOk();
         $response->assertSee('data-testid="shop-confirm-modal"', false);
         $response->assertSee('data-testid="shop-confirm-submit"', false);
         $response->assertSee('data-testid="shop-confirm-cancel"', false);
+        // Cart positions list inside the modal — driven by Alpine cartLines.
+        $response->assertSee('data-testid="shop-confirm-positions"', false);
+        $response->assertSee('confirmPositionsLabel', false);
+        $response->assertSee(__('shop.confirm_order_positions'));
+        // Each orderable product must ship a `name` field into the Alpine
+        // products registry — otherwise the modal renders "· qty" with no
+        // product name (regression check for the cart-line getter). `@js()`
+        // emits the JSON wrapped in JSON.parse('…'), with each `"` rendered
+        // as the Unicode escape `"` so the inner JSON survives the
+        // outer single-quoted JS string; assert against that exact form.
+        $q = '\u0022';
+        $this->assertStringContainsString(
+            $q.'id'.$q.':'.$this->product->id.','.$q.'name'.$q.':',
+            (string) $response->getContent(),
+            'Expected each Alpine product entry to carry a `name` field for the confirm-modal cart lines.',
+        );
+        // Regression: submitConfirmed must reach the shop form via Alpine
+        // x-ref (form is a descendant of the x-data root, not an ancestor),
+        // then re-submit through requestSubmit + _confirmBypass — not
+        // closest('form') (null) or raw form.submit() (silent no-op when the
+        // submit IDL is shadowed by the type=submit button).
+        $response->assertSee('x-ref="shopForm"', false);
+        $this->assertStringContainsString(
+            'this.$refs.shopForm',
+            (string) $response->getContent(),
+            'submitConfirmed must resolve the shop form via Alpine x-ref.',
+        );
+        $this->assertStringContainsString(
+            '_confirmBypass',
+            (string) $response->getContent(),
+            'submitConfirmed must bypass the modal interceptor on the second submit pass.',
+        );
+        $this->assertStringContainsString(
+            'requestSubmit',
+            (string) $response->getContent(),
+            'submitConfirmed must use requestSubmit so validation and POST run normally.',
+        );
     }
 
     public function test_storefront_does_not_show_product_from_b2b_only_inflow_alone(): void

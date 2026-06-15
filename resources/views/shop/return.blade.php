@@ -59,7 +59,7 @@
                 </h1>
                 <p class="mt-8 max-w-xl text-base leading-relaxed text-brand-ink/65">
                     @if ($payInPersonPending)
-                        {{ __('shop.return_pay_in_person_body', ['email' => $order->email, 'amount' => \App\Support\Money::format($order->total_amount_eur)]) }}
+                        {{ __('shop.return_pay_in_person_body', ['email' => $order->email, 'amount' => \App\Support\Money::formatEur($order->total_amount_eur)]) }}
                     @elseif ($isDelivery)
                         {{ __('shop.return_hero_body_delivery', ['email' => $order->email]) }}
                     @else
