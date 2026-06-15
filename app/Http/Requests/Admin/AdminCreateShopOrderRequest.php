@@ -25,6 +25,7 @@ use Illuminate\Validation\Validator;
  *    check inside {@see ShopOrderService::createOrder()} will
  *    fail naturally if there is no supply on the chosen date).
  *  - `customer_type` field for B2C / B2B classification.
+ *  - Per-line gross totals and VAT rates for negotiated B2B pricing.
  *  - `order_source` is hardcoded to 'admin' by the controller — not a form field.
  *
  * Quantity-step rules and catalog-visibility checks are kept identical so
@@ -51,6 +52,8 @@ class AdminCreateShopOrderRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'items.*.line_total_eur' => ['required', 'numeric', 'min:0', 'max:99999.99'],
+            'items.*.vat_rate_percent' => ['required', 'integer', Rule::in([7, 19])],
 
             // Any future (or even past) date — admin takes responsibility.
             'expected_delivery_date' => ['required', 'date'],
@@ -74,10 +77,8 @@ class AdminCreateShopOrderRequest extends FormRequest
 
             'customer_type' => ['nullable', Rule::in(['private', 'business'])],
 
-            // Optional manual pricing — defaults come from quote(); admin may
-            // override for negotiated B2B totals (see applyAdminPriceOverrides).
-            'items_total_eur' => ['nullable', 'numeric', 'min:0', 'max:99999.99'],
-            'delivery_fee_eur' => ['nullable', 'numeric', 'min:0', 'max:999.99'],
+            'delivery_fee_eur' => ['nullable', 'required_if:fulfillment_mode,delivery', 'numeric', 'min:0', 'max:999.99'],
+            'delivery_fee_vat_rate_percent' => ['nullable', 'required_if:fulfillment_mode,delivery', 'integer', Rule::in([7, 19])],
         ];
     }
 
