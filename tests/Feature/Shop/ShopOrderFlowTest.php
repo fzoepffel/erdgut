@@ -936,6 +936,16 @@ class ShopOrderFlowTest extends TestCase
             (string) $response->getContent(),
             'Expected each Alpine product entry to carry a `name` field for the confirm-modal cart lines.',
         );
+        // Regression: submitConfirmed must scope its form lookup inside the
+        // x-data root (querySelector('form[data-testid="shop-form"]')), not
+        // .closest('form') — the form is a *descendant* of the storefront
+        // x-data root, so closest() walking upward returns null and the
+        // "Place order" button gets stuck on the loading ellipsis.
+        $this->assertStringContainsString(
+            'querySelector(\'form[data-testid="shop-form"]\')',
+            (string) $response->getContent(),
+            'submitConfirmed must look the form up by selector inside the x-data root, not closest("form").',
+        );
     }
 
     public function test_storefront_does_not_show_product_from_b2b_only_inflow_alone(): void
