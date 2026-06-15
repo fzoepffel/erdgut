@@ -129,6 +129,7 @@
                         <tr class="text-left text-xs font-medium uppercase tracking-wide text-gray-600">
                             <th class="px-4 py-2">{{ __('shop.admin.col_product') }}</th>
                             <th class="px-4 py-2">{{ __('shop.admin.col_quantity') }}</th>
+                            <th class="px-4 py-2 text-right">{{ __('shop.admin.col_vat_rate') }}</th>
                             <th class="px-4 py-2 text-right">{{ __('shop.admin.col_line_total') }}</th>
                         </tr>
                     </thead>
@@ -137,29 +138,33 @@
                             <tr>
                                 <td class="px-4 py-2 text-gray-800">{{ $item->product?->name ?? __('shop.admin.deleted_product') }}</td>
                                 <td class="px-4 py-2 text-gray-600">{{ $item->product?->displayQuantity((float) $item->quantity) ?? (rtrim(rtrim((string) $item->quantity, '0'), '.') . ' ' . $item->unit) }}</td>
+                                <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ $item->vat_rate_snapshot_percent }}%</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($item->line_total_eur)</td>
                             </tr>
                         @endforeach
                     </tbody>
                     <tfoot class="bg-gray-50 text-sm">
                         <tr>
-                            <td colspan="2" class="px-4 py-2 text-right text-gray-600">{{ __('shop.summary_line_items') }}</td>
+                            <td colspan="3" class="px-4 py-2 text-right text-gray-600">{{ __('shop.summary_line_items') }}</td>
                             <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($order->items_total_eur)</td>
                         </tr>
                         @if ((float) $order->discount_eur > 0)
                             <tr>
-                                <td colspan="2" class="px-4 py-2 text-right text-gray-600">{{ __('coupon.discount_line') }} {{ $order->coupon_code }}</td>
+                                <td colspan="3" class="px-4 py-2 text-right text-gray-600">{{ __('coupon.discount_line') }} {{ $order->coupon_code }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-emerald-700">− @eur($order->discount_eur)</td>
                             </tr>
                         @endif
                         @if ($order->fulfillment_mode === 'delivery')
                             <tr>
-                                <td colspan="2" class="px-4 py-2 text-right text-gray-600">{{ __('shop.summary_line_delivery') }}</td>
+                                <td colspan="3" class="px-4 py-2 text-right text-gray-600">
+                                    {{ __('shop.summary_line_delivery') }}
+                                    <span class="text-gray-400">({{ $order->delivery_fee_vat_rate_percent }}% {{ __('shop.admin.col_vat_rate') }})</span>
+                                </td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($order->delivery_fee_eur)</td>
                             </tr>
                         @endif
                         <tr class="font-semibold">
-                            <td colspan="2" class="px-4 py-2 text-right text-gray-800">{{ __('shop.summary_line_total') }}</td>
+                            <td colspan="3" class="px-4 py-2 text-right text-gray-800">{{ __('shop.summary_line_total') }}</td>
                             <td class="px-4 py-2 text-right tabular-nums text-gray-900">@eur($order->total_amount_eur)</td>
                         </tr>
                     </tfoot>

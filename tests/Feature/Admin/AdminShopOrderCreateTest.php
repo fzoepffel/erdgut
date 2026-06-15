@@ -57,14 +57,37 @@ class AdminShopOrderCreateTest extends TestCase
 
     private function payload(array $overrides = []): array
     {
-        // payment_method is hardcoded by the controller; no longer a form field.
-        return array_merge([
+        $quantity = 3;
+
+        $base = [
             'fulfillment_mode' => 'pickup',
             'pickup_location' => 'karl_kunger',
             'expected_delivery_date' => self::DELIVERY_DATE,
             'customer_type' => 'private',
-            'items' => [['product_id' => $this->product->id, 'quantity' => 3]],
-        ], $overrides);
+            'items' => [[
+                'product_id' => $this->product->id,
+                'quantity' => $quantity,
+                'line_total_eur' => round($quantity * 5.0, 2),
+                'vat_rate_percent' => 7,
+            ]],
+        ];
+
+        if (isset($overrides['items'])) {
+            $overrides['items'] = collect($overrides['items'])->map(function (array $item): array {
+                $productId = (int) ($item['product_id'] ?? 0);
+                $qty = (float) ($item['quantity'] ?? 0);
+                $product = Product::query()->find($productId);
+                $unitPrice = $product ? (float) $product->unit_price : 5.0;
+                $vatRate = $product ? (int) ($product->vat_rate_percent ?? 7) : 7;
+
+                return array_merge([
+                    'line_total_eur' => round($qty * $unitPrice, 2),
+                    'vat_rate_percent' => $vatRate,
+                ], $item);
+            })->all();
+        }
+
+        return array_merge($base, $overrides);
     }
 
     // ── Access ──────────────────────────────────────────────────────────────
@@ -125,6 +148,8 @@ class AdminShopOrderCreateTest extends TestCase
         $this->assertEqualsWithDelta(15.0, (float) $response->json('items_total_eur'), 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $response->json('delivery_fee_eur'), 0.01);
         $this->assertEqualsWithDelta(15.0, (float) $response->json('total_amount_eur'), 0.01);
+        $this->assertEqualsWithDelta(15.0, (float) $response->json('lines.0.line_total_eur'), 0.01);
+        $this->assertSame(7, (int) $response->json('lines.0.vat_rate_percent'));
     }
 
     public function test_quote_endpoint_includes_delivery_fee_for_delivery_orders(): void
@@ -199,7 +224,12 @@ class AdminShopOrderCreateTest extends TestCase
     {
         $this->actingAs($this->admin)
             ->post(route('app.admin.shop-orders.store'), $this->payload([
-                'items' => [['product_id' => $this->product->id, 'quantity' => 5]],
+                'items' => [[
+                    'product_id' => $this->product->id,
+                    'quantity' => 5,
+                    'line_total_eur' => 25.00,
+                    'vat_rate_percent' => 7,
+                ]],
             ]));
 
         $order = ShopOrder::query()->latest('id')->first();
@@ -208,25 +238,57 @@ class AdminShopOrderCreateTest extends TestCase
         $this->assertEqualsWithDelta(25.0, (float) $order->items->first()->line_total_eur, 0.01);
     }
 
-    public function test_admin_can_override_product_total_with_proportional_line_scaling(): void
+    public function test_admin_can_set_per_line_totals_and_vat_rates(): void
     {
+        $productB = Product::factory()->create([
+            'unit' => ProductUnit::Piece->value,
+            'unit_price' => 10.00,
+            'vat_rate_percent' => 19,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $productB->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 20,
+            'freshness_window_days' => 1,
+        ]);
+
         $this->actingAs($this->admin)
             ->post(route('app.admin.shop-orders.store'), $this->payload([
-                'items' => [['product_id' => $this->product->id, 'quantity' => 5]],
-                'items_total_eur' => 12.00,
+                'items' => [
+                    [
+                        'product_id' => $this->product->id,
+                        'quantity' => 2,
+                        'line_total_eur' => 8.00,
+                        'vat_rate_percent' => 7,
+                    ],
+                    [
+                        'product_id' => $productB->id,
+                        'quantity' => 1,
+                        'line_total_eur' => 12.00,
+                        'vat_rate_percent' => 19,
+                    ],
+                ],
             ]))
             ->assertRedirect();
 
         $order = ShopOrder::query()->latest('id')->first();
-        $this->assertEqualsWithDelta(12.0, (float) $order->items_total_eur, 0.01);
-        $this->assertEqualsWithDelta(12.0, (float) $order->total_amount_eur, 0.01);
+        $this->assertEqualsWithDelta(20.0, (float) $order->items_total_eur, 0.01);
+        $this->assertEqualsWithDelta(20.0, (float) $order->total_amount_eur, 0.01);
 
-        $lineSum = $order->items->sum(fn ($item) => (float) $item->line_total_eur);
-        $this->assertEqualsWithDelta(12.0, $lineSum, 0.01);
-        $this->assertEqualsWithDelta(2.4, (float) $order->items->first()->unit_price_snapshot_eur, 0.01);
+        $lines = $order->items->sortBy('product_id')->values();
+        $this->assertEqualsWithDelta(8.0, (float) $lines[0]->line_total_eur, 0.01);
+        $this->assertSame(7, (int) $lines[0]->vat_rate_snapshot_percent);
+        $this->assertEqualsWithDelta(12.0, (float) $lines[1]->line_total_eur, 0.01);
+        $this->assertSame(19, (int) $lines[1]->vat_rate_snapshot_percent);
+
+        $vatByRate = ShopOrderService::vatByRate($order);
+        $this->assertEqualsWithDelta(0.52, (float) ($vatByRate->get(7) ?? 0), 0.02);
+        $this->assertEqualsWithDelta(1.91, (float) ($vatByRate->get(19) ?? 0), 0.02);
     }
 
-    public function test_admin_can_override_delivery_fee_on_delivery_order(): void
+    public function test_admin_can_override_delivery_fee_and_vat_on_delivery_order(): void
     {
         $this->actingAs($this->admin)
             ->post(route('app.admin.shop-orders.store'), $this->payload([
@@ -234,49 +296,38 @@ class AdminShopOrderCreateTest extends TestCase
                 'delivery_street' => 'Musterstraße 1',
                 'delivery_postal_code' => '10115',
                 'delivery_city' => 'Berlin',
-                'items' => [['product_id' => $this->product->id, 'quantity' => 2]],
-                'items_total_eur' => 10.00,
+                'items' => [[
+                    'product_id' => $this->product->id,
+                    'quantity' => 2,
+                    'line_total_eur' => 10.00,
+                    'vat_rate_percent' => 7,
+                ]],
                 'delivery_fee_eur' => 5.00,
+                'delivery_fee_vat_rate_percent' => 19,
             ]))
             ->assertRedirect();
 
         $order = ShopOrder::query()->latest('id')->first();
         $this->assertEqualsWithDelta(5.0, (float) $order->delivery_fee_eur, 0.01);
+        $this->assertSame(19, (int) $order->delivery_fee_vat_rate_percent);
         $this->assertEqualsWithDelta(15.0, (float) $order->total_amount_eur, 0.01);
-        $this->assertGreaterThan(0, (float) $order->delivery_fee_vat_amount_eur);
+        $this->assertEqualsWithDelta(
+            round(5.0 * 19 / 119, 2),
+            (float) $order->delivery_fee_vat_amount_eur,
+            0.01
+        );
     }
 
     public function test_pickup_order_rejects_non_zero_delivery_fee_override(): void
     {
         $this->actingAs($this->admin)
             ->post(route('app.admin.shop-orders.store'), $this->payload([
-                'items_total_eur' => 15.00,
                 'delivery_fee_eur' => 5.00,
+                'delivery_fee_vat_rate_percent' => 7,
             ]))
             ->assertSessionHasErrors('delivery_fee_eur');
 
         $this->assertSame(0, ShopOrder::query()->where('order_source', 'admin')->count());
-    }
-
-    public function test_overridden_product_total_scales_vat_snapshots(): void
-    {
-        $this->product->update(['vat_rate_percent' => 7]);
-
-        $this->actingAs($this->admin)
-            ->post(route('app.admin.shop-orders.store'), $this->payload([
-                'items' => [['product_id' => $this->product->id, 'quantity' => 3]],
-                'items_total_eur' => 12.00,
-            ]))
-            ->assertRedirect();
-
-        $order = ShopOrder::query()->latest('id')->first();
-        $vatByRate = ShopOrderService::vatByRate($order);
-        $this->assertEqualsWithDelta(12.0, (float) $order->items_total_eur, 0.01);
-        $this->assertEqualsWithDelta(
-            round(12.0 * 7 / 107, 2),
-            (float) ($vatByRate->get(7) ?? 0),
-            0.02,
-        );
     }
 
     // ── No emails ────────────────────────────────────────────────────────────
