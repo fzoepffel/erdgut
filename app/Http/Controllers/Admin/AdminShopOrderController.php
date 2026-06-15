@@ -76,6 +76,7 @@ class AdminShopOrderController extends Controller
                     'price' => $row['product']->displayPrice(),
                     'unit' => $row['product']->canonicalUnitLabel(),
                     'remaining' => $row['remaining'],
+                    'vat_rate_percent' => (int) ($row['product']->vat_rate_percent ?? 7),
                 ])
                 ->values()
         );
@@ -102,15 +103,25 @@ class AdminShopOrderController extends Controller
             return response()->json(['message' => 'empty cart'], 422);
         }
 
+        $vatByRate = [];
+        foreach ($quote['lines'] as $line) {
+            $rate = (int) $line['vat_rate_percent'];
+            $vatByRate[$rate] = round(($vatByRate[$rate] ?? 0) + (float) $line['vat_amount_eur'], 2);
+        }
+
         return response()->json([
             'items_total_eur' => $quote['items_total_eur'],
             'delivery_fee_eur' => $quote['delivery_fee_eur'],
+            'delivery_fee_vat_rate_percent' => $quote['delivery_fee_vat_rate_percent'],
             'discount_eur' => $quote['discount_eur'],
             'total_amount_eur' => $quote['total_amount_eur'],
+            'vat_by_rate' => $vatByRate,
             'lines' => collect($quote['lines'])
                 ->map(fn (array $line): array => [
                     'product_id' => $line['product']->id,
                     'line_total_eur' => $line['line_total_eur'],
+                    'vat_rate_percent' => $line['vat_rate_percent'],
+                    'vat_amount_eur' => $line['vat_amount_eur'],
                 ])
                 ->values()
                 ->all(),

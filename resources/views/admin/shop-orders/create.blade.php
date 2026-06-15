@@ -13,11 +13,19 @@
              pickupMode: '{{ old('fulfillment_mode', 'pickup') }}',
              customerType: '{{ old('customer_type', 'private') }}',
              preselectedDate: '{{ old('expected_delivery_date', '') }}',
-             preselectedItems: @js(collect(old('items', []))->map(fn($i) => ['product_id' => (string)($i['product_id'] ?? ''), 'quantity' => (string)($i['quantity'] ?? '')])->values()->all()),
-             preselectedItemsTotal: @js(old('items_total_eur')),
+             preselectedItems: @js(collect(old('items', []))->map(fn ($i) => [
+                 'product_id' => (string) ($i['product_id'] ?? ''),
+                 'quantity' => (string) ($i['quantity'] ?? ''),
+                 'line_total_eur' => isset($i['line_total_eur']) ? (string) $i['line_total_eur'] : '',
+                 'vat_rate_percent' => (string) ($i['vat_rate_percent'] ?? '7'),
+                 'lineTouched' => isset($i['line_total_eur']),
+                 'vatTouched' => isset($i['vat_rate_percent']),
+             ])->values()->all()),
              preselectedDeliveryFee: @js(old('delivery_fee_eur')),
+             preselectedDeliveryVatRate: @js(old('delivery_fee_vat_rate_percent', '7')),
+             vatLineTemplate: @js(__('shop.summary_vat_rate_line')),
          })">
-        <div class="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-5xl space-y-6 px-4 sm:px-6 lg:px-8">
 
             @if (session('error'))
                 <p class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{{ session('error') }}</p>
@@ -25,7 +33,6 @@
 
             <form method="POST" action="{{ route('app.admin.shop-orders.store') }}">
                 @csrf
-                {{-- payment_method is always in_person for admin orders --}}
                 <input type="hidden" name="payment_method" value="in_person">
 
                 {{-- ── Step 1: Date ─────────────────────────────────────── --}}
@@ -46,7 +53,7 @@
                     </div>
                 </div>
 
-                {{-- ── Step 2: Products (only once a date is chosen) ────── --}}
+                {{-- ── Step 2: Products + per-line pricing ──────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                      x-show="selectedDate"
                      x-cloak>
@@ -59,13 +66,21 @@
 
                         <template x-if="availableProducts.length > 0">
                             <div class="space-y-3">
+                                <div class="hidden sm:grid sm:grid-cols-12 sm:gap-3 sm:px-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                                    <span class="sm:col-span-5">{{ __('admin.select_product') }}</span>
+                                    <span class="sm:col-span-2">{{ __('admin.quantity') }}</span>
+                                    <span class="sm:col-span-2">{{ __('shop.admin.create_line_total_label') }}</span>
+                                    <span class="sm:col-span-2">{{ __('shop.admin.create_line_vat_label') }}</span>
+                                    <span class="sm:col-span-1"></span>
+                                </div>
+
                                 <template x-for="(item, i) in items" :key="i">
-                                    <div class="flex items-start gap-3">
-                                        {{-- Product selector --}}
-                                        <div class="flex-1">
+                                    <div class="grid grid-cols-1 gap-3 rounded-md border border-gray-100 p-3 sm:grid-cols-12 sm:items-start sm:border-0 sm:p-0">
+                                        <div class="sm:col-span-5">
+                                            <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('admin.select_product') }}</label>
                                             <select :name="'items[' + i + '][product_id]'"
                                                 x-model="item.product_id"
-                                                @change="scheduleQuote()"
+                                                @change="onLineProductChange(item)"
                                                 class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                 required>
                                                 <option value="">{{ __('admin.select_product') }}</option>
@@ -76,27 +91,55 @@
                                                 </template>
                                             </select>
                                         </div>
-                                        {{-- Quantity + unit label --}}
-                                        <div class="flex items-center gap-1.5">
-                                            <input type="number"
-                                                :name="'items[' + i + '][quantity]'"
-                                                x-model="item.quantity"
-                                                @input="scheduleQuote()"
-                                                min="0.001" step="any"
-                                                placeholder="{{ __('admin.quantity') }}"
-                                                class="block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                                required>
-                                            <span class="w-8 text-xs text-gray-500 tabular-nums"
-                                                  x-text="availableProducts.find(p => String(p.id) === String(item.product_id))?.unit ?? ''"></span>
+                                        <div class="sm:col-span-2">
+                                            <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('admin.quantity') }}</label>
+                                            <div class="flex items-center gap-1.5">
+                                                <input type="number"
+                                                    :name="'items[' + i + '][quantity]'"
+                                                    x-model="item.quantity"
+                                                    @input="scheduleQuote()"
+                                                    min="0.001" step="any"
+                                                    placeholder="{{ __('admin.quantity') }}"
+                                                    class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                    required>
+                                                <span class="shrink-0 text-xs text-gray-500 tabular-nums"
+                                                      x-text="availableProducts.find(p => String(p.id) === String(item.product_id))?.unit ?? ''"></span>
+                                            </div>
                                         </div>
-                                        {{-- Remove --}}
-                                        <button type="button"
-                                            @click="removeItem(i)"
-                                            x-show="items.length > 1"
-                                            class="mt-1 text-xs text-red-500 hover:text-red-700 whitespace-nowrap"
-                                            x-cloak>
-                                            {{ __('shop.admin.create_remove_item') }}
-                                        </button>
+                                        <div class="sm:col-span-2">
+                                            <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('shop.admin.create_line_total_label') }}</label>
+                                            <div class="relative">
+                                                <input type="number"
+                                                    :name="'items[' + i + '][line_total_eur]'"
+                                                    x-model="item.line_total_eur"
+                                                    @input="item.lineTouched = true"
+                                                    min="0" step="0.01"
+                                                    class="block w-full rounded-md border-gray-300 pr-7 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                    :disabled="quoteLoading"
+                                                    required>
+                                                <span class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-400">€</span>
+                                            </div>
+                                        </div>
+                                        <div class="sm:col-span-2">
+                                            <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('shop.admin.create_line_vat_label') }}</label>
+                                            <select :name="'items[' + i + '][vat_rate_percent]'"
+                                                x-model="item.vat_rate_percent"
+                                                @change="item.vatTouched = true"
+                                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                required>
+                                                <option value="7">{{ __('admin.product_form.vat_rate_7') }}</option>
+                                                <option value="19">{{ __('admin.product_form.vat_rate_19') }}</option>
+                                            </select>
+                                        </div>
+                                        <div class="sm:col-span-1 sm:flex sm:justify-end">
+                                            <button type="button"
+                                                @click="removeItem(i)"
+                                                x-show="items.length > 1"
+                                                class="text-xs text-red-500 hover:text-red-700 whitespace-nowrap"
+                                                x-cloak>
+                                                {{ __('shop.admin.create_remove_item') }}
+                                            </button>
+                                        </div>
                                     </div>
                                 </template>
 
@@ -127,8 +170,6 @@
                         <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">3. {{ __('shop.admin.create_customer_heading') }}</h2>
                     </div>
                     <div class="space-y-4 p-6">
-
-                        {{-- Customer type --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('shop.admin.customer_type_label') }}</label>
                             <div class="flex gap-4">
@@ -183,8 +224,6 @@
                         <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">4. {{ __('shop.admin.create_fulfillment_heading') }}</h2>
                     </div>
                     <div class="space-y-4 p-6">
-
-                        {{-- Mode --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('shop.fulfillment_mode_label') }}</label>
                             <div class="flex gap-4">
@@ -206,7 +245,6 @@
                             <x-input-error :messages="$errors->get('fulfillment_mode')" class="mt-1" />
                         </div>
 
-                        {{-- Pickup location --}}
                         <div x-show="mode === 'pickup'">
                             <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('shop.pickup_location_section') }}</label>
                             <div class="space-y-2">
@@ -225,7 +263,6 @@
                             <x-input-error :messages="$errors->get('pickup_location')" class="mt-1" />
                         </div>
 
-                        {{-- Delivery address --}}
                         <div x-show="mode === 'delivery'" class="space-y-3" x-cloak>
                             <div class="grid gap-3 sm:grid-cols-2">
                                 <div class="sm:col-span-2">
@@ -254,11 +291,10 @@
                                 <x-input-error :messages="$errors->get('delivery_notes')" class="mt-1" />
                             </div>
                         </div>
-
                     </div>
                 </div>
 
-                {{-- ── Step 5: Pricing ──────────────────────────────────── --}}
+                {{-- ── Step 5: Delivery pricing + summary ───────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                      x-show="selectedDate && hasValidItems"
                      x-cloak>
@@ -269,24 +305,8 @@
                     <div class="space-y-4 p-6">
                         <p class="text-sm text-gray-600">{{ __('shop.admin.create_pricing_hint') }}</p>
 
-                        <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="grid gap-4 sm:grid-cols-2" x-show="mode === 'delivery'" x-cloak>
                             <div>
-                                <label for="items_total_eur" class="block text-sm font-medium text-gray-700">{{ __('shop.admin.create_items_total_label') }}</label>
-                                <div class="relative mt-1">
-                                    <input type="number"
-                                        id="items_total_eur"
-                                        name="items_total_eur"
-                                        x-model="itemsTotalEur"
-                                        @input="itemsPriceTouched = true"
-                                        min="0" step="0.01"
-                                        class="block w-full rounded-md border-gray-300 pr-8 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                        :disabled="quoteLoading">
-                                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-400">€</span>
-                                </div>
-                                <x-input-error :messages="$errors->get('items_total_eur')" class="mt-1" />
-                            </div>
-
-                            <div x-show="mode === 'delivery'" x-cloak>
                                 <label for="delivery_fee_eur" class="block text-sm font-medium text-gray-700">{{ __('shop.admin.create_delivery_fee_label') }}</label>
                                 <div class="relative mt-1">
                                     <input type="number"
@@ -301,10 +321,36 @@
                                 </div>
                                 <x-input-error :messages="$errors->get('delivery_fee_eur')" class="mt-1" />
                             </div>
+                            <div>
+                                <label for="delivery_fee_vat_rate_percent" class="block text-sm font-medium text-gray-700">{{ __('shop.admin.create_delivery_vat_label') }}</label>
+                                <select id="delivery_fee_vat_rate_percent"
+                                    name="delivery_fee_vat_rate_percent"
+                                    x-model="deliveryVatRate"
+                                    @change="deliveryVatTouched = true"
+                                    class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                    <option value="7">{{ __('admin.product_form.vat_rate_7') }}</option>
+                                    <option value="19">{{ __('admin.product_form.vat_rate_19') }}</option>
+                                </select>
+                                <x-input-error :messages="$errors->get('delivery_fee_vat_rate_percent')" class="mt-1" />
+                            </div>
                         </div>
 
-                        <div class="rounded-md border border-gray-100 bg-gray-50 px-4 py-3 text-sm">
+                        <div class="rounded-md border border-gray-100 bg-gray-50 px-4 py-3 text-sm space-y-2">
                             <div class="flex items-baseline justify-between gap-4">
+                                <span class="text-gray-600">{{ __('shop.summary_line_items') }}</span>
+                                <span class="tabular-nums text-gray-900" x-text="itemsSubtotalLabel"></span>
+                            </div>
+                            <template x-for="row in vatSummaryLines" :key="row.rate">
+                                <div class="flex items-baseline justify-between gap-4 text-gray-500">
+                                    <span x-text="row.label"></span>
+                                    <span class="tabular-nums" x-text="row.amount"></span>
+                                </div>
+                            </template>
+                            <div class="flex items-baseline justify-between gap-4" x-show="mode === 'delivery'" x-cloak>
+                                <span class="text-gray-600">{{ __('shop.summary_line_delivery') }}</span>
+                                <span class="tabular-nums text-gray-900" x-text="deliveryFeeLabel"></span>
+                            </div>
+                            <div class="border-t border-gray-200 pt-2 flex items-baseline justify-between gap-4">
                                 <span class="font-medium text-gray-700">{{ __('shop.admin.create_grand_total_label') }}</span>
                                 <span class="font-semibold tabular-nums text-gray-900" x-text="grandTotalLabel"></span>
                             </div>
@@ -312,7 +358,6 @@
                     </div>
                 </div>
 
-                {{-- ── Submit ───────────────────────────────────────────── --}}
                 <div class="flex items-center gap-4" x-show="selectedDate" x-cloak>
                     <button type="submit"
                         :disabled="availableProducts.length === 0 || loading"
@@ -333,6 +378,7 @@
         return {
             availableProductsUrl: config.availableProductsUrl,
             quoteUrl: config.quoteUrl,
+            vatLineTemplate: config.vatLineTemplate || '',
             selectedDate: config.preselectedDate || '',
             customerType: config.customerType || 'private',
             availableProducts: [],
@@ -341,26 +387,65 @@
             mode: config.pickupMode || 'pickup',
             items: config.preselectedItems && config.preselectedItems.length
                 ? config.preselectedItems
-                : [{ product_id: '', quantity: '' }],
-            itemsTotalEur: config.preselectedItemsTotal ?? '',
+                : [emptyLine()],
             deliveryFeeEur: config.preselectedDeliveryFee ?? '',
+            deliveryVatRate: String(config.preselectedDeliveryVatRate ?? '7'),
             discountEur: 0,
-            itemsPriceTouched: config.preselectedItemsTotal !== null && config.preselectedItemsTotal !== '',
             deliveryPriceTouched: config.preselectedDeliveryFee !== null && config.preselectedDeliveryFee !== '',
+            deliveryVatTouched: false,
             _quoteTimer: null,
 
             get hasValidItems() {
                 return this.items.some((item) => item.product_id && parseFloat(item.quantity) > 0);
             },
 
+            get itemsSubtotal() {
+                return this.items.reduce((sum, item) => {
+                    const n = parseFloat(item.line_total_eur);
+                    return sum + (Number.isNaN(n) ? 0 : n);
+                }, 0);
+            },
+
+            get itemsSubtotalLabel() {
+                return this.formatMoney(this.itemsSubtotal);
+            },
+
+            get deliveryFeeLabel() {
+                const n = parseFloat(this.deliveryFeeEur);
+                return this.formatMoney(Number.isNaN(n) ? 0 : n);
+            },
+
             get grandTotalLabel() {
-                const items = parseFloat(this.itemsTotalEur);
                 const delivery = this.mode === 'delivery' ? parseFloat(this.deliveryFeeEur) : 0;
-                if (Number.isNaN(items)) {
-                    return '—';
+                const total = this.itemsSubtotal - (this.discountEur || 0) + (Number.isNaN(delivery) ? 0 : delivery);
+                return this.formatMoney(total);
+            },
+
+            get vatSummaryLines() {
+                const byRate = {};
+                this.items.forEach((item) => {
+                    const gross = parseFloat(item.line_total_eur);
+                    const rate = parseInt(item.vat_rate_percent, 10);
+                    if (Number.isNaN(gross) || gross <= 0 || Number.isNaN(rate)) return;
+                    byRate[rate] = (byRate[rate] || 0) + gross * rate / (100 + rate);
+                });
+                if (this.mode === 'delivery') {
+                    const fee = parseFloat(this.deliveryFeeEur);
+                    const rate = parseInt(this.deliveryVatRate, 10);
+                    if (!Number.isNaN(fee) && fee > 0 && !Number.isNaN(rate)) {
+                        byRate[rate] = (byRate[rate] || 0) + fee * rate / (100 + rate);
+                    }
                 }
-                const total = items - (this.discountEur || 0) + (Number.isNaN(delivery) ? 0 : delivery);
-                return total.toFixed(2).replace('.', ',') + ' €';
+                return Object.keys(byRate)
+                    .map((r) => parseInt(r, 10))
+                    .sort((a, b) => a - b)
+                    .map((rate) => ({
+                        rate,
+                        label: this.vatLineTemplate
+                            .replace(':rate', String(rate))
+                            .replace(':amount', this.formatMoney(byRate[rate]).replace(' €', '')),
+                        amount: this.formatMoney(byRate[rate]),
+                    }));
             },
 
             async init() {
@@ -389,6 +474,17 @@
                 if (this.mode === 'pickup') {
                     this.deliveryFeeEur = '0';
                     this.deliveryPriceTouched = false;
+                    this.deliveryVatTouched = false;
+                }
+                this.scheduleQuote();
+            },
+
+            onLineProductChange(item) {
+                const product = this.availableProducts.find(
+                    (p) => String(p.id) === String(item.product_id),
+                );
+                if (product && !item.vatTouched) {
+                    item.vat_rate_percent = String(product.vat_rate_percent ?? 7);
                 }
                 this.scheduleQuote();
             },
@@ -399,10 +495,13 @@
             },
 
             async recalculateQuote() {
-                const validItems = this.items.filter(
-                    (item) => item.product_id && parseFloat(item.quantity) > 0,
-                );
-                if (!this.selectedDate || validItems.length === 0) {
+                const validIndices = [];
+                this.items.forEach((item, index) => {
+                    if (item.product_id && parseFloat(item.quantity) > 0) {
+                        validIndices.push(index);
+                    }
+                });
+                if (!this.selectedDate || validIndices.length === 0) {
                     return;
                 }
 
@@ -410,7 +509,8 @@
                 try {
                     const params = new URLSearchParams();
                     params.set('fulfillment_mode', this.mode);
-                    validItems.forEach((item, i) => {
+                    validIndices.forEach((itemIndex, i) => {
+                        const item = this.items[itemIndex];
                         params.set(`items[${i}][product_id]`, item.product_id);
                         params.set(`items[${i}][quantity]`, item.quantity);
                     });
@@ -422,13 +522,26 @@
                     }
                     const data = await res.json();
                     this.discountEur = data.discount_eur || 0;
-                    if (!this.itemsPriceTouched) {
-                        this.itemsTotalEur = this.formatAmount(data.items_total_eur);
-                    }
+
+                    validIndices.forEach((itemIndex, i) => {
+                        const item = this.items[itemIndex];
+                        const quoted = data.lines[i];
+                        if (!quoted) return;
+                        if (!item.lineTouched) {
+                            item.line_total_eur = this.formatAmount(quoted.line_total_eur);
+                        }
+                        if (!item.vatTouched) {
+                            item.vat_rate_percent = String(quoted.vat_rate_percent ?? 7);
+                        }
+                    });
+
                     if (!this.deliveryPriceTouched) {
                         this.deliveryFeeEur = this.mode === 'delivery'
                             ? this.formatAmount(data.delivery_fee_eur)
                             : '0';
+                    }
+                    if (!this.deliveryVatTouched && this.mode === 'delivery') {
+                        this.deliveryVatRate = String(data.delivery_fee_vat_rate_percent ?? 7);
                     }
                 } catch (e) {
                     // Keep last values on transient network errors.
@@ -443,6 +556,14 @@
                     return '';
                 }
                 return n.toFixed(2);
+            },
+
+            formatMoney(value) {
+                const n = parseFloat(value);
+                if (Number.isNaN(n)) {
+                    return '—';
+                }
+                return n.toFixed(2).replace('.', ',') + ' €';
             },
 
             async fetchProducts() {
@@ -464,7 +585,7 @@
             },
 
             addItem() {
-                this.items.push({ product_id: '', quantity: '' });
+                this.items.push(emptyLine());
             },
 
             removeItem(i) {
@@ -473,6 +594,17 @@
                     this.scheduleQuote();
                 }
             },
+        };
+    }
+
+    function emptyLine() {
+        return {
+            product_id: '',
+            quantity: '',
+            line_total_eur: '',
+            vat_rate_percent: '7',
+            lineTouched: false,
+            vatTouched: false,
         };
     }
     </script>
