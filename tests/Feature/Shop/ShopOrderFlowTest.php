@@ -936,15 +936,26 @@ class ShopOrderFlowTest extends TestCase
             (string) $response->getContent(),
             'Expected each Alpine product entry to carry a `name` field for the confirm-modal cart lines.',
         );
-        // Regression: submitConfirmed must scope its form lookup inside the
-        // x-data root (querySelector('form[data-testid="shop-form"]')), not
-        // .closest('form') — the form is a *descendant* of the storefront
-        // x-data root, so closest() walking upward returns null and the
-        // "Place order" button gets stuck on the loading ellipsis.
+        // Regression: submitConfirmed must reach the shop form via Alpine
+        // x-ref (form is a descendant of the x-data root, not an ancestor),
+        // then re-submit through requestSubmit + _confirmBypass — not
+        // closest('form') (null) or raw form.submit() (silent no-op when the
+        // submit IDL is shadowed by the type=submit button).
+        $response->assertSee('x-ref="shopForm"', false);
         $this->assertStringContainsString(
-            'querySelector(\'form[data-testid="shop-form"]\')',
+            'this.$refs.shopForm',
             (string) $response->getContent(),
-            'submitConfirmed must look the form up by selector inside the x-data root, not closest("form").',
+            'submitConfirmed must resolve the shop form via Alpine x-ref.',
+        );
+        $this->assertStringContainsString(
+            '_confirmBypass',
+            (string) $response->getContent(),
+            'submitConfirmed must bypass the modal interceptor on the second submit pass.',
+        );
+        $this->assertStringContainsString(
+            'requestSubmit',
+            (string) $response->getContent(),
+            'submitConfirmed must use requestSubmit so validation and POST run normally.',
         );
     }
 
