@@ -25,7 +25,7 @@
 
             <div class="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8 lg:pb-24">
                 <x-reveal variant="fade-up" delay="100">
-                    <p class="eyebrow text-brand-cream/85">{{ __('An Erdgut for Berlin') }}</p>
+                    <p class="eyebrow text-brand-cream/85">{{ __('Seasonal food for Berlin') }}</p>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="200">
                     <h1 id="shop-home-hero-heading" class="mt-4 max-w-4xl font-display text-5xl leading-[1.05] tracking-tight text-brand-cream sm:text-6xl lg:text-7xl">
@@ -72,7 +72,7 @@
     <section class="border-b border-brand-ink/10" aria-labelledby="shop-home-letter-heading">
         <div class="mx-auto max-w-3xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8" data-testid="shop-home-founder-letter">
             <x-reveal variant="fade-up">
-                <p class="eyebrow text-chapter-produce">{{ __('A word from the founders') }}</p>
+                <p class="eyebrow text-chapter-produce">{{ __('A letter from Lucille, Arthur and Milan.') }}</p>
             </x-reveal>
             <x-reveal variant="fade-up" delay="100">
                 <h2 id="shop-home-letter-heading" class="mt-6 font-display text-3xl leading-tight text-brand-moss sm:text-4xl">
@@ -123,12 +123,12 @@
     </section>
     --}}
 
-    {{-- Producers invitation — same chapter as shop-about until we have a real pull quote. --}}
+    {{-- Producers invitation --}}
     <section class="bg-brand-moss text-brand-cream" aria-labelledby="shop-home-producers-heading">
         <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
             <div class="grid gap-12 lg:grid-cols-12 lg:gap-16" data-testid="shop-home-producers-pitch">
                 <x-reveal variant="fade-up" class="lg:col-span-7">
-                    <p class="eyebrow text-brand-cream/70">{{ __('Chapter 04') }}</p>
+                    <p class="eyebrow text-brand-cream/70">{{ __('The producers') }}</p>
                     <h2 id="shop-home-producers-heading" class="mt-4 font-display text-3xl font-semibold leading-tight text-brand-cream sm:text-4xl lg:text-5xl">
                         {{ __('A small circle of hands.') }}
                     </h2>
@@ -144,7 +144,7 @@
                 </x-reveal>
                 <x-reveal variant="scale" class="lg:col-span-5">
                     <div class="aspect-[4/5] overflow-hidden">
-                        <img src="{{ asset('images/mock/producers/marcus.jpg') }}" alt="" class="h-full w-full object-cover" loading="lazy">
+                        <img src="{{ asset('images/about/producers-circle.jpg') }}" alt="" class="h-full w-full object-cover" loading="lazy" data-testid="shop-home-producers-image">
                     </div>
                 </x-reveal>
             </div>
@@ -171,8 +171,8 @@
                     ['slug' => 'produce',  'category' => 'produce',       'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'),   'href' => route('public.shop.products.index', ['category' => 'produce']),        'image' => 'catalog-strip-cabbage.png'],
                     ['slug' => 'eggdairy', 'category' => 'eggs_and_dairy','label' => __('Eggs & Dairy'),      'tagline' => __('Milk, butter, cheese'),   'href' => route('public.shop.products.index', ['category' => 'eggs_and_dairy']), 'image' => 'catalog-strip-eggs.png'],
                     ['slug' => 'meat',     'category' => 'meat',          'label' => __('Meat'),               'tagline' => __('Pasture-raised cuts'),    'href' => route('public.shop.products.index', ['category' => 'meat']),           'image' => 'catalog-strip-waguy.png'],
-                    ['slug' => 'fish',     'category' => 'fish',          'label' => __('Fish & Seafood'),     'tagline' => __('Line-caught & smoked'),   'href' => route('public.shop.products.index', ['category' => 'fish']),           'image' => 'catalog-strip-sardines.png'],
-                    ['slug' => 'bread',    'category' => 'bread',         'label' => __('Bread'),             'tagline' => __('Sourdough & pastry'),      'href' => route('public.shop.products.index', ['category' => 'bread']),          'image' => 'catalog-strip-wheat.png'],
+                    ['slug' => 'fish',     'category' => 'fish',          'label' => __('Fish & Seafood'),     'tagline' => __('products.chapter_subtitle_fish'),   'href' => route('public.shop.products.index', ['category' => 'fish']),           'image' => 'catalog-strip-sardines.png'],
+                    ['slug' => 'bread',    'category' => 'bread',         'label' => __('Bread'),             'tagline' => __('products.chapter_subtitle_bread'),      'href' => route('public.shop.products.index', ['category' => 'bread']),          'image' => 'catalog-strip-wheat.png'],
                 ];
                 $chapterPanelBg = [
                     'produce'  => 'bg-chapter-produce',
@@ -268,27 +268,39 @@
                 lead="{{ __('A simple order, delivered in the rhythm of the season — no account gymnastics required.') }}"
                 id="shop-home-steps-heading"
             />
-            <ol class="mt-16 grid gap-12 reveal-stagger md:grid-cols-2 lg:grid-cols-4" data-testid="shop-home-how-it-works">
-                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:0">
-                    <span class="font-display text-6xl text-chapter-produce/40">01</span>
-                    <h3 class="font-display text-2xl text-brand-ink">{{ __('Browse the shop') }}</h3>
-                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Explore what is in season across seven chapters of producers.') }}</p>
-                </x-reveal>
-                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:1">
-                    <span class="font-display text-6xl text-chapter-fish/40">02</span>
-                    <h3 class="font-display text-2xl text-brand-ink">{{ __('Fill your basket') }}</h3>
-                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Add exactly the products you want, in the quantities you need.') }}</p>
-                </x-reveal>
-                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:2">
-                    <span class="font-display text-6xl text-chapter-eggdairy/40">03</span>
-                    <h3 class="font-display text-2xl text-brand-ink">{{ __('Check out securely') }}</h3>
-                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Pick a delivery date and pay safely — no subscription required.') }}</p>
-                </x-reveal>
-                <x-reveal as="li" variant="fade-up" class="flex flex-col gap-4" style="--i:3">
-                    <span class="font-display text-6xl text-chapter-meat/40">04</span>
-                    <h3 class="font-display text-2xl text-brand-ink">{{ __('We deliver to Berlin') }}</h3>
-                    <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Your order arrives fresh, with a note from the producers behind it.') }}</p>
-                </x-reveal>
+            @php
+                $homeSteps = [
+                    ['chapter' => 'produce', 'title' => __('Browse the shop'), 'copy' => __('Explore what is in season across our range of five different categories.')],
+                    ['chapter' => 'eggdairy', 'title' => __('Choose a day and fill your basket'), 'copy' => __('Choose the delivery day, then add what is available that day. What is fresh and in stock changes every day.')],
+                    ['chapter' => 'bread', 'title' => __('Check out securely'), 'copy' => __('Pay online or in cash or by card when you receive your products.')],
+                    ['chapter' => 'fish', 'title' => __('Delivery or pickup'), 'copy' => __('We send you an email with the delivery details. Your order arrives fresh on the chosen day.')],
+                ];
+                $stepChapterBorder = [
+                    'produce' => 'border-chapter-produce',
+                    'meat' => 'border-chapter-meat',
+                    'fish' => 'border-chapter-fish',
+                    'eggdairy' => 'border-chapter-eggdairy',
+                    'bread' => 'border-chapter-bread',
+                ];
+                $stepChapterText = [
+                    'produce' => 'text-chapter-produce',
+                    'meat' => 'text-chapter-meat',
+                    'fish' => 'text-chapter-fish',
+                    'eggdairy' => 'text-chapter-eggdairy',
+                    'bread' => 'text-chapter-bread',
+                ];
+            @endphp
+            <ol class="mt-16 grid gap-10 reveal-stagger md:grid-cols-2 lg:grid-cols-4" data-testid="shop-home-how-it-works">
+                @foreach ($homeSteps as $i => $step)
+                    <x-reveal as="li" variant="fade-up" class="flex flex-col gap-5 border-t-2 {{ $stepChapterBorder[$step['chapter']] }} pt-6" style="--i:{{ $i }}">
+                        <div class="flex items-baseline justify-between">
+                            <p class="eyebrow {{ $stepChapterText[$step['chapter']] }}">{{ sprintf('%02d', $i + 1) }}</p>
+                            <x-chapter-mark :chapter="$step['chapter']" size="sm" class="opacity-90" />
+                        </div>
+                        <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ $step['title'] }}</h3>
+                        <p class="text-sm leading-relaxed text-brand-ink/70">{{ $step['copy'] }}</p>
+                    </x-reveal>
+                @endforeach
             </ol>
         </div>
     </section>

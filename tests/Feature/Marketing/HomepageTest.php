@@ -26,6 +26,7 @@ class HomepageTest extends TestCase
         $response->assertSee('data-testid="shop-home-founder-letter"', false);
         $response->assertSee('data-testid="shop-home-chapter-strip"', false);
         $response->assertSee('data-testid="shop-home-producers-pitch"', false);
+        $response->assertSee('images/about/producers-circle.jpg', false);
         $response->assertSee('A small circle of hands.', false);
         $response->assertDontSee('data-testid="shop-home-social-proof"', false);
         $response->assertDontSee('id="shop-home-producer-quote-heading"', false);
@@ -146,10 +147,18 @@ class HomepageTest extends TestCase
         $response = $this->get(route('public.shop-about'));
 
         $response->assertOk();
-        $response->assertSee('A short book about a shop full of Berlin', false);
         $response->assertSee('data-testid="shop-about-founder-letter"', false);
-        $response->assertSee('data-testid="shop-about-how-steps"', false);
+        $response->assertSee('data-testid="shop-about-founder-image"', false);
+        $response->assertSee('images/about/founder-letter.jpg', false);
+        $response->assertSee('data-testid="shop-about-model"', false);
+        $response->assertSee('data-testid="shop-about-values-row"', false);
         $response->assertSee('data-testid="shop-about-faq-accordion"', false);
+        $response->assertSee('Food should never be anonymous.', false);
+        $response->assertSee('Box subscription is also on its way', false);
+        $response->assertDontSee('data-testid="shop-about-how-steps"', false);
+        $response->assertDontSee('data-testid="shop-about-producers-pitch"', false);
+        $response->assertDontSee('How an order reaches you.', false);
+        $response->assertDontSee('A small circle of hands.', false);
         $response->assertSee(route('public.shop.index'), false);
         // Apostrophes are single-escaped (no double-escaped &amp;#039;).
         $response->assertDontSee('amp;#039;', false);
