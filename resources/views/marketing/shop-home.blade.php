@@ -80,7 +80,7 @@
                 </h2>
             </x-reveal>
             <x-reveal variant="fade-up" delay="200">
-                <p class="drop-cap mt-8 font-editorial text-lg leading-relaxed text-brand-ink/85 sm:text-xl" style="--chapter-ink: theme('colors.chapter.produce.DEFAULT');">
+                <p class="drop-cap mt-8 font-editorial text-lg leading-relaxed text-brand-ink/85" style="--chapter-ink: theme('colors.chapter.produce.DEFAULT');">
                     {{ __('Food is never just food.') }} {{ __('Behind every vegetable, fruit, cheese, and cut of meat lies a landscape, a season, a craft, and the dedication of those who produce it.') }}
                 </p>
             </x-reveal>
