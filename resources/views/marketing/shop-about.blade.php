@@ -77,7 +77,7 @@
                 <x-reveal variant="fade-up" class="lg:col-span-7">
                     <p class="font-editorial text-lg leading-relaxed text-brand-ink/85">
                         {{ __('We favour regional producers whenever possible, supporting German farms that embody a more sustainable and flavour-driven model of agriculture.') }}
-                        {{ __('Yet some products only reach their full expression elsewhere. This is why we also work with small-scale farms and fisheries in France and Italy, whose terroirs give rise to exceptional fruits, vegetables and seafood.') }}
+                        {{ __('Yet some products only reach their full expression elsewhere. This is why we also work with small-scale farms and fisheries in France and Italy, where soil and climate give rise to exceptional fruits, vegetables and seafood.') }}
                     </p>
                     <p class="mt-8 font-editorial text-lg leading-relaxed text-brand-ink/85">
                         {{ __('Above all, we source directly from people, not through anonymous supply chains. Behind every product is a producer, a craft and a story worth sharing.') }}
