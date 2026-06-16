@@ -81,20 +81,15 @@
             </x-reveal>
             <x-reveal variant="fade-up" delay="200">
                 <p class="drop-cap mt-8 font-editorial text-lg leading-relaxed text-brand-ink/85 sm:text-xl" style="--chapter-ink: theme('colors.chapter.produce.DEFAULT');">
-                    {{ __('Food is never just food.') }}
+                    {{ __('Food is never just food.') }} {{ __('Behind every vegetable, fruit, cheese, and cut of meat lies a landscape, a season, a craft, and the dedication of those who produce it.') }}
                 </p>
             </x-reveal>
             <x-reveal variant="fade-up" delay="280">
                 <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
-                    {{ __('Behind every vegetable, fruit, cheese, and cut of meat lies a landscape, a season, a craft, and the dedication of those who produce it.') }}
-                </p>
-            </x-reveal>
-            <x-reveal variant="fade-up" delay="340">
-                <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
                     {{ __('Yet today, we have become disconnected from where our food comes from. Small farms disappear, biodiversity declines, and true flavour is increasingly replaced by uniformity.') }}
                 </p>
             </x-reveal>
-            <x-reveal variant="fade-up" delay="400">
+            <x-reveal variant="fade-up" delay="360">
                 <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
                     {{ __('Erdgut was created to preserve another path, reconnecting Berliners with the farmers and artisans who cultivate with care.') }}
                 </p>

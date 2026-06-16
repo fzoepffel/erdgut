@@ -37,12 +37,12 @@
         <div class="mx-auto max-w-3xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8" data-testid="shop-about-founder-letter">
             <h2 id="shop-about-letter-heading" class="sr-only">{{ __('Founder letter') }}</h2>
             <x-reveal variant="fade-up">
-                <p class="drop-cap font-editorial text-lg leading-relaxed text-brand-ink/90 sm:text-xl" style="--chapter-ink: theme('colors.chapter.almanach.DEFAULT');">
+                <p class="drop-cap font-editorial text-lg leading-relaxed text-brand-ink/90" style="--chapter-ink: theme('colors.chapter.almanach.DEFAULT');">
                     {{ __('How did we come to no longer know where our food comes from? To eat tomatoes in February instead of seasonal vegetables such as parsnips or crosnes? To lose the experience of true flavour in favour of uniformity? To ingest chemicals on a daily basis, or tolerate that some animals never see sunlight? To slowly accept the disappearance of small farms and endemic species that make up the richness of our regions?') }}
                 </p>
             </x-reveal>
             <x-reveal variant="fade-up" delay="100">
-                <p class="mt-8 font-editorial text-xl font-medium leading-relaxed text-brand-ink sm:text-2xl">
+                <p class="mt-6 font-editorial text-lg font-semibold italic leading-relaxed text-brand-ink">
                     {{ __('Food is never just food.') }}
                 </p>
             </x-reveal>
