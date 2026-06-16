@@ -25,8 +25,15 @@ class HomepageTest extends TestCase
         $response->assertSee('data-testid="shop-home-hero-ctas"', false);
         $response->assertSee('data-testid="shop-home-founder-letter"', false);
         $response->assertSee('data-testid="shop-home-chapter-strip"', false);
+        $response->assertSee('data-testid="shop-home-producers-pitch"', false);
+        $response->assertSee('A small circle of hands.', false);
+        $response->assertDontSee('data-testid="shop-home-social-proof"', false);
+        $response->assertDontSee('id="shop-home-producer-quote-heading"', false);
         $response->assertSee('data-testid="shop-home-how-it-works"', false);
-        $response->assertSee('data-testid="shop-home-value-cards"', false);
+
+        // Removed sections must not appear.
+        $response->assertDontSee('data-testid="shop-home-promo-section"', false);
+        $response->assertDontSee('data-testid="shop-home-value-cards"', false);
 
         // Primary CTAs point at the shop, not the box onboarding flow.
         $response->assertSee('data-testid="shop-home-cta-shop"', false);

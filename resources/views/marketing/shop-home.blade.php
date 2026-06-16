@@ -107,6 +107,50 @@
         </div>
     </section>
 
+    {{-- TODO: Re-enable producer pull quote when we have a real quote — restore
+         attribution / speaker name in the blockquote when this goes live.
+    <section class="bg-brand-ink text-brand-cream" aria-labelledby="shop-home-producer-quote-heading">
+        <div class="mx-auto max-w-5xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
+            <x-reveal variant="fade-up">
+                <p class="eyebrow text-brand-cream/60">{{ __('A word from the producers') }}</p>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="150">
+                <blockquote class="mt-8 font-editorial text-3xl italic leading-snug text-brand-cream sm:text-4xl lg:text-5xl" id="shop-home-producer-quote-heading">
+                    <span aria-hidden="true" class="text-accent-star/80">"</span>{{ __('We have grown vegetables here for three generations. With Erdgut, our crates finally reach people in Berlin who want to know who pulled the carrots that morning.') }}<span aria-hidden="true" class="text-accent-star/80">"</span>
+                </blockquote>
+            </x-reveal>
+        </div>
+    </section>
+    --}}
+
+    {{-- Producers invitation — same chapter as shop-about until we have a real pull quote. --}}
+    <section class="bg-brand-moss text-brand-cream" aria-labelledby="shop-home-producers-heading">
+        <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
+            <div class="grid gap-12 lg:grid-cols-12 lg:gap-16" data-testid="shop-home-producers-pitch">
+                <x-reveal variant="fade-up" class="lg:col-span-7">
+                    <p class="eyebrow text-brand-cream/70">{{ __('Chapter 04') }}</p>
+                    <h2 id="shop-home-producers-heading" class="mt-4 font-display text-3xl font-semibold leading-tight text-brand-cream sm:text-4xl lg:text-5xl">
+                        {{ __('A small circle of hands.') }}
+                    </h2>
+                    <p class="mt-8 font-editorial text-lg italic leading-relaxed text-brand-cream/85 sm:text-xl">
+                        {{ __('We grow Erdgut the same way we cook: slowly, with the people we already trust. Every producer joins the circle by invitation, not by listing.') }}
+                    </p>
+                    <p class="mt-8">
+                        <a href="{{ route('public.shop.producers.index') }}" class="inline-flex items-center gap-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream underline-offset-4 hover:underline" data-testid="shop-home-producers-link">
+                            {{ __('Meet the circle') }}
+                            <span aria-hidden="true">&rarr;</span>
+                        </a>
+                    </p>
+                </x-reveal>
+                <x-reveal variant="scale" class="lg:col-span-5">
+                    <div class="aspect-[4/5] overflow-hidden">
+                        <img src="{{ asset('images/mock/producers/marcus.jpg') }}" alt="" class="h-full w-full object-cover" loading="lazy">
+                    </div>
+                </x-reveal>
+            </div>
+        </div>
+    </section>
+
     {{-- Five chapters: portrait book-cover grid, same design as products page --}}
     <section class="border-b border-brand-ink/10 bg-brand-paper" aria-labelledby="shop-home-chapters-heading">
         <div class="mx-auto max-w-[1400px] px-6 py-20 sm:py-24 lg:px-12">
@@ -196,27 +240,23 @@
         </div>
     </section>
 
-    {{-- Shop promo --}}
-    <section class="border-b border-brand-ink/10 bg-chapter-produce-soft/40" aria-labelledby="shop-home-promo-heading" data-testid="shop-home-promo-section">
-        <div class="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 sm:py-20 md:grid-cols-[1fr_auto] md:items-center lg:px-8">
-            <div>
-                <p class="eyebrow text-chapter-produce">{{ __('No subscription needed') }}</p>
-                <h2 id="shop-home-promo-heading" class="mt-3 font-display text-3xl leading-tight text-brand-moss sm:text-4xl">
-                    {{ __('Order exactly what you like.') }}
-                </h2>
-                <p class="mt-4 max-w-2xl font-editorial text-base leading-relaxed text-brand-ink/80 sm:text-lg">
-                    {{ __('Fill your basket from the shop — produce, meat, fish, eggs, dairy and bread — and we deliver across Berlin. One order, no commitment, no stored card you did not ask for.') }}
-                </p>
+    {{-- TODO: Re-enable customer / chef pull quote when we have a real quote —
+         restore attribution / speaker name in the blockquote when this goes live.
+    <section class="bg-brand-moss text-brand-cream" aria-labelledby="shop-home-social-heading">
+        <div class="mx-auto max-w-5xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
+            <div data-testid="shop-home-social-proof">
+                <x-reveal variant="fade-up">
+                    <p class="eyebrow text-brand-cream/70">{{ __('From the table') }}</p>
+                </x-reveal>
+                <x-reveal variant="fade-up" delay="150">
+                    <blockquote class="mt-8 font-editorial text-3xl italic leading-snug text-brand-cream sm:text-4xl lg:text-5xl">
+                        <span aria-hidden="true" class="text-accent-star/80">"</span>{{ __('I let the Erdgut crate write half my menu. When the produce is this honest, my job in the kitchen is mostly to stay out of its way.') }}<span aria-hidden="true" class="text-accent-star/80">"</span>
+                    </blockquote>
+                </x-reveal>
             </div>
-            <a
-                href="{{ route('public.shop.index') }}"
-                class="inline-flex items-center justify-center bg-chapter-produce px-6 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream transition hover:bg-brand-moss"
-                data-testid="shop-home-promo-cta"
-            >
-                {{ __('Visit the shop') }}
-            </a>
         </div>
     </section>
+    --}}
 
     {{-- How it works --}}
     <section class="border-b border-brand-ink/10" aria-labelledby="shop-home-steps-heading">
@@ -250,57 +290,6 @@
                     <p class="text-sm leading-relaxed text-brand-ink/70">{{ __('Your order arrives fresh, with a note from the producers behind it.') }}</p>
                 </x-reveal>
             </ol>
-        </div>
-    </section>
-
-    {{-- Pull quote / community --}}
-    <section class="bg-brand-moss text-brand-cream" aria-labelledby="shop-home-social-heading">
-        <div class="mx-auto max-w-5xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
-            <div data-testid="shop-home-social-proof">
-                <x-reveal variant="fade-up">
-                    <p class="eyebrow text-brand-cream/70">{{ __('From the table') }}</p>
-                </x-reveal>
-                <x-reveal variant="fade-up" delay="150">
-                    <blockquote class="mt-8 font-editorial text-3xl italic leading-snug text-brand-cream sm:text-4xl lg:text-5xl">
-                        <span aria-hidden="true" class="text-accent-star/80">“</span>{{ __('Every week a small piece of the countryside lands on my table, and I know exactly whose hands prepared it.') }}<span aria-hidden="true" class="text-accent-star/80">”</span>
-                    </blockquote>
-                </x-reveal>
-                <x-reveal variant="fade-up" delay="300">
-                    <p class="mt-8 max-w-xl text-base leading-relaxed text-brand-cream/80">
-                        {{ __('We are onboarding early supporters — real stories and numbers will appear here as the community grows.') }}
-                    </p>
-                </x-reveal>
-            </div>
-        </div>
-    </section>
-
-    {{-- Value props --}}
-    <section class="border-b border-brand-ink/10" aria-labelledby="shop-home-values-heading">
-        <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-            <h2 id="shop-home-values-heading" class="sr-only">{{ __('What you get with Erdgut') }}</h2>
-            <div class="grid gap-12 reveal-stagger md:grid-cols-3" data-testid="shop-home-value-cards">
-                <x-reveal as="article" variant="fade-up" class="flex flex-col gap-4 border-t border-chapter-produce pt-8" style="--i:0">
-                    <p class="eyebrow text-chapter-produce">{{ __('Producers') }}</p>
-                    <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ __('Every name, every field.') }}</h3>
-                    <p class="font-editorial text-base leading-relaxed text-brand-ink/80">
-                        {{ __('Products link back to real people and real places — not anonymous supply chains — so you can trust what lands in your kitchen.') }}
-                    </p>
-                </x-reveal>
-                <x-reveal as="article" variant="fade-up" class="flex flex-col gap-4 border-t border-chapter-fish pt-8" style="--i:1">
-                    <p class="eyebrow text-chapter-fish">{{ __('Your choice') }}</p>
-                    <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ __('Order on your terms.') }}</h3>
-                    <p class="font-editorial text-base leading-relaxed text-brand-ink/80">
-                        {{ __('Shop only what you want, when you want it — no subscription, no minimum, delivered across Berlin.') }}
-                    </p>
-                </x-reveal>
-                <x-reveal as="article" variant="fade-up" class="flex flex-col gap-4 border-t border-chapter-meat pt-8" style="--i:2">
-                    <p class="eyebrow text-chapter-meat">{{ __('Fair share') }}</p>
-                    <h3 class="font-display text-2xl leading-snug text-brand-ink">{{ __('Fair share for farmers.') }}</h3>
-                    <p class="font-editorial text-base leading-relaxed text-brand-ink/80">
-                        {{ __('We focus on direct relationships and clear pricing so more of what you pay supports the people who grow your food.') }}
-                    </p>
-                </x-reveal>
-            </div>
         </div>
     </section>
 
