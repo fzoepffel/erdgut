@@ -40,7 +40,7 @@
                     <li>{{ __('If you don’t see a reply, check your spam or promotions folder.') }}</li>
                 </ul>
                 <p class="mt-6 text-sm text-brand-ink/80">
-                    <a href="{{ route('public.marketing-home') }}" class="font-semibold underline-offset-4 hover:underline">{{ __('Back to homepage') }}</a>
+                    <a href="{{ route('public.home') }}" class="font-semibold underline-offset-4 hover:underline">{{ __('Back to homepage') }}</a>
                     <span class="mx-2 text-brand-ink/40">·</span>
                     <a href="{{ route('auth.register') }}" class="font-semibold underline-offset-4 hover:underline">{{ __('Create an account') }}</a>
                 </p>

@@ -160,11 +160,11 @@ class SpargelOrderFlowTest extends TestCase
         }
     }
 
-    public function test_coming_soon_renders_link_to_shop(): void
+    public function test_landing_page_renders_link_to_shop(): void
     {
         $this->get(route('public.home'))
             ->assertOk()
-            ->assertSee('data-testid="coming-soon-shop-cta"', false)
+            ->assertSee('data-testid="shop-home-cta-shop"', false)
             ->assertSee(route('public.shop.index'));
     }
 

@@ -1,10 +1,10 @@
-{{-- Standalone, self-contained layout for the preview shop and its
-     catalog subpages. Deliberately isolated from the marketing / app /
-     onboarding chrome: while the full project stays hidden behind the
-     coming-soon page, the shop must not expose any navigation into the
-     rest of the site. The only outbound links are the legally required
-     privacy / terms notices and a contact email; the logo points back to
-     the shop itself, never to the marketing home.
+{{-- Standalone, self-contained layout for the shop and its catalog
+     subpages. The shop is now the published public front, so its header
+     shares the same nav as the shop-marketing surface (Startseite ·
+     Über uns · Höfe · Produkte · Hofladen · Kontakt) and the logo points
+     back to the landing page. It still carries NO account chrome
+     (sign-up / sign-in stay box-only for now) and never links into the
+     parked box pages or the app/onboarding shells.
 
      CSP is relaxed for SumUp's hosted widget (gateway.sumup.com) on the
      pay view via :allow-sumup; everything else stays locked to 'self'. --}}
@@ -13,8 +13,8 @@
     'allowSumup' => false,
     'narrow' => false,
     // Which top-nav item is the current page: 'shop' | 'products' | 'producers'
-    // | null. Drives active styling and hides the redundant "Hofladen" link
-    // while the guest is already on the shop landing.
+    // | null. Drives active styling. The landing / About / Kontakt items
+    // live on the shop-marketing surface and are never active here.
     'navActive' => null,
 ])
 <!DOCTYPE html>
@@ -36,100 +36,10 @@
 </head>
 <body class="bg-brand-cream font-sans text-brand-ink antialiased">
     <div class="flex min-h-screen flex-col">
-        @php
-            // Top-nav items — always all three, including the link back to the
-            // storefront, in a fixed order.
-            $shopNav = [
-                ['key' => 'shop', 'route' => 'public.shop.index', 'label' => __('shop.nav_shop')],
-                ['key' => 'products', 'route' => 'public.shop.products.index', 'label' => __('shop.nav_products')],
-                ['key' => 'producers', 'route' => 'public.shop.producers.index', 'label' => __('shop.nav_producers')],
-            ];
-        @endphp
-        <header
-            class="border-b"
-            style="background-color: #709452; border-color: rgba(33, 52, 29, 0.15);"
-            x-data="{ navOpen: false }"
-        >
-            <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-                {{-- Logo + nav, grouped on the left --}}
-                <div class="flex items-center" style="gap: 2rem;">
-                    <a href="{{ route('public.shop.index') }}" class="flex items-center gap-3" aria-label="Erdgut">
-                        <span
-                            aria-hidden="true"
-                            class="block h-9 w-9 shrink-0"
-                            style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-mark-tight.png') }}') no-repeat center / contain; mask: url('{{ asset('images/logo/erdgut-mark-tight.png') }}') no-repeat center / contain;"
-                        ></span>
-                        <span
-                            role="img"
-                            aria-label="Erdgut"
-                            class="block h-7 w-32 sm:w-36"
-                            style="background-color: #21341d; -webkit-mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain; mask: url('{{ asset('images/logo/erdgut-wordmark-tight.png') }}') no-repeat left center / contain;"
-                        ></span>
-                    </a>
-
-                    {{-- Desktop nav --}}
-                    <nav class="hidden items-center sm:flex" style="gap: 1.75rem;" aria-label="{{ __('shop.nav_label') }}">
-                        @foreach ($shopNav as $item)
-                            <a
-                                href="{{ route($item['route']) }}"
-                                data-testid="shop-nav-{{ $item['key'] }}"
-                                class="font-sans text-sm font-medium underline-offset-4 transition hover:underline {{ $navActive === $item['key'] ? 'text-[#21341d] underline' : 'text-[#21341d]/70 hover:text-[#21341d]' }}"
-                                @if ($navActive === $item['key']) aria-current="page" @endif
-                            >{{ $item['label'] }}</a>
-                        @endforeach
-                    </nav>
-                </div>
-
-                {{-- Mobile toggle --}}
-                <button
-                    type="button"
-                    @click="navOpen = true"
-                    class="text-[#21341d] sm:hidden"
-                    aria-label="{{ __('shop.nav_open') }}"
-                >
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
-                    </svg>
-                </button>
-            </div>
-
-            {{-- Mobile drawer --}}
-            <div
-                x-show="navOpen"
-                x-cloak
-                @keydown.escape.window="navOpen = false"
-                class="fixed inset-0 z-50 sm:hidden"
-            >
-                <div class="absolute inset-0 bg-[#21341d]/40" @click="navOpen = false"></div>
-                <div
-                    x-show="navOpen"
-                    x-transition:enter="transition ease-out duration-200"
-                    x-transition:enter-start="translate-x-full"
-                    x-transition:enter-end="translate-x-0"
-                    class="absolute right-0 top-0 flex h-full w-72 max-w-[80%] flex-col bg-brand-cream p-6 shadow-xl"
-                >
-                    <button
-                        type="button"
-                        @click="navOpen = false"
-                        class="self-end text-brand-ink"
-                        aria-label="{{ __('shop.nav_close') }}"
-                    >
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                    <nav class="mt-8 flex flex-col gap-6" aria-label="{{ __('shop.nav_label') }}">
-                        @foreach ($shopNav as $item)
-                            <a
-                                href="{{ route($item['route']) }}"
-                                class="font-sans text-lg font-medium text-brand-ink {{ $navActive === $item['key'] ? 'underline underline-offset-4' : '' }}"
-                                @if ($navActive === $item['key']) aria-current="page" @endif
-                            >{{ $item['label'] }}</a>
-                        @endforeach
-                    </nav>
-                </div>
-            </div>
-        </header>
+        {{-- Shared shop-surface header (identical to the shop landing /
+             About / Kontakt pages). Active state is derived from the route,
+             so the legacy `navActive` prop is no longer needed. --}}
+        <x-customer-header variant="shop" />
 
         <main id="main" class="flex-1">
             @if ($narrow)
