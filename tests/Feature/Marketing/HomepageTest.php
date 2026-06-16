@@ -27,7 +27,7 @@ class HomepageTest extends TestCase
         $response->assertSee('data-testid="shop-home-chapter-strip"', false);
         $response->assertSee('data-testid="shop-home-producers-pitch"', false);
         $response->assertSee('images/about/producers-circle.jpg', false);
-        $response->assertSee('A small circle of hands.', false);
+        $response->assertSee('The people behind our food', false);
         $response->assertDontSee('data-testid="shop-home-social-proof"', false);
         $response->assertDontSee('id="shop-home-producer-quote-heading"', false);
         $response->assertSee('data-testid="shop-home-how-it-works"', false);

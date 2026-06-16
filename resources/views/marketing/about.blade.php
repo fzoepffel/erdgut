@@ -176,7 +176,7 @@
                         {{ __('A small circle of hands.') }}
                     </h2>
                     <p class="mt-8 font-editorial text-lg italic leading-relaxed text-brand-cream/85 sm:text-xl">
-                        {{ __('We grow Erdgut the same way we cook: slowly, with the people we already trust. Every producer joins the circle by invitation, not by listing.') }}
+                        {{ __('We grow Erdgut the same way we cook: slowly, with the people we already trust.') }}
                     </p>
                     <p class="mt-8">
                         <a href="{{ route('public.producers') }}" class="inline-flex items-center gap-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream underline-offset-4 hover:underline" data-testid="about-producers-link">

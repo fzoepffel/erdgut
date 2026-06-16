@@ -130,14 +130,14 @@
                 <x-reveal variant="fade-up" class="lg:col-span-7">
                     <p class="eyebrow text-brand-cream/70">{{ __('The producers') }}</p>
                     <h2 id="shop-home-producers-heading" class="mt-4 font-display text-3xl font-semibold leading-tight text-brand-cream sm:text-4xl lg:text-5xl">
-                        {{ __('A small circle of hands.') }}
+                        {{ __('The people behind our food') }}
                     </h2>
                     <p class="mt-8 max-w-2xl text-lg leading-relaxed text-brand-cream/90">
-                        {{ __('We grow Erdgut the same way we cook: slowly, with the people we already trust. Every producer joins the circle by invitation, not by listing.') }}
+                        {{ __('Behind every product lies a story of land, tradition, and craftsmanship. Discover the farmers and artisans who preserve local varieties, respect natural rhythms, and dedicate their lives to producing food with care.') }}
                     </p>
                     <p class="mt-8">
                         <a href="{{ route('public.shop.producers.index') }}" class="inline-flex items-center gap-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream underline-offset-4 hover:underline" data-testid="shop-home-producers-link">
-                            {{ __('Meet the circle') }}
+                            {{ __('Discover their stories') }}
                             <span aria-hidden="true">&rarr;</span>
                         </a>
                     </p>
