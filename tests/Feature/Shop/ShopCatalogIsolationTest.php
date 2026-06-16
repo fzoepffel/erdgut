@@ -105,6 +105,15 @@ class ShopCatalogIsolationTest extends TestCase
         $response->assertDontSee('href="'.route('public.producers').'"', false);
     }
 
+    public function test_shop_storefront_renders_full_marketing_footer(): void
+    {
+        $this->get(route('public.shop.index'))
+            ->assertOk()
+            ->assertSee(__('footer.tagline'), false)
+            ->assertSee('instagram.com/erdgut.berlin', false)
+            ->assertSee('href="'.route('public.imprint').'"', false);
+    }
+
     public function test_shop_storefront_is_isolated(): void
     {
         $response = $this->get(route('public.shop.index'));
@@ -146,6 +155,7 @@ class ShopCatalogIsolationTest extends TestCase
         // link goes to the shop catalogue, not the app dashboard.
         $response->assertSee(route('public.shop.producers.show', $producer->fresh()), false);
         $response->assertSee('href="'.route('public.shop.products.index').'"', false);
+        $response->assertSee('href="'.route('public.shop-contact').'"', false);
         // No marketing / auth / dashboard / contact links escape the shop.
         $response->assertDontSee('data-testid="customer-header-marketing"', false);
         $response->assertDontSee('href="'.route('public.producers').'"', false);

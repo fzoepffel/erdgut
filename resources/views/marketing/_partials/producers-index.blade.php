@@ -23,17 +23,14 @@
 <section class="relative overflow-hidden bg-chapter-producers-soft/60" aria-labelledby="producers-hero-heading">
     <div class="mx-auto max-w-5xl px-4 pb-16 pt-24 text-center sm:px-6 sm:pb-20 sm:pt-32 lg:px-8">
         <x-reveal variant="fade-up">
-            <x-month-label color="ink" />
+            <p class="eyebrow text-chapter-producers">{{ __('Chapter 06 — Producers') }}</p>
         </x-reveal>
         <x-reveal variant="fade-up" delay="100">
-            <p class="eyebrow mt-8 text-chapter-producers">{{ __('Chapter 06 — Producers') }}</p>
-        </x-reveal>
-        <x-reveal variant="fade-up" delay="200">
             <h1 id="producers-hero-heading" class="mt-6 font-display text-5xl font-semibold leading-[1.04] tracking-tight text-brand-moss sm:text-6xl lg:text-7xl">
                 {{ $isolated ? __('shop.producers_hero_heading') : __('The people behind your weekly box.') }}
             </h1>
         </x-reveal>
-        <x-reveal variant="fade-up" delay="300">
+        <x-reveal variant="fade-up" delay="200">
             <p class="mx-auto mt-10 max-w-2xl font-editorial text-lg italic leading-relaxed text-brand-ink/80 sm:text-xl">
                 {{ $isolated ? __('shop.producers_hero_subheading') : __('Farms, bakeries, fisheries and a small circle of makers — each one picked by hand, each one within reach of Berlin.') }}
             </p>
@@ -239,7 +236,7 @@
         <x-reveal variant="fade-up" delay="350">
             <div class="mt-10 flex justify-center">
                 <a
-                    href="{{ $isolated ? 'mailto:kontakt@erd-gut.de' : route('public.contact') }}"
+                    href="{{ $isolated ? route('public.shop-contact') : route('public.contact') }}"
                     class="inline-flex items-center justify-center border border-brand-cream px-6 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream transition hover:bg-brand-cream hover:text-brand-moss"
                     data-testid="producers-contact-cta"
                 >
