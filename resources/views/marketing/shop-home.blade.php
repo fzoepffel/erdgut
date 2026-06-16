@@ -33,7 +33,7 @@
                     </h1>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="300">
-                    <p class="mt-6 max-w-xl font-editorial text-base italic leading-relaxed text-brand-cream/90 sm:text-lg">
+                    <p class="mt-8 max-w-2xl text-lg leading-relaxed text-brand-cream/90">
                         {{ __('Browse the shop and order exactly what you like — by producers we know by name, harvested in the rhythm of the seasons.') }}
                     </p>
                 </x-reveal>
@@ -132,7 +132,7 @@
                     <h2 id="shop-home-producers-heading" class="mt-4 font-display text-3xl font-semibold leading-tight text-brand-cream sm:text-4xl lg:text-5xl">
                         {{ __('A small circle of hands.') }}
                     </h2>
-                    <p class="mt-8 font-editorial text-lg italic leading-relaxed text-brand-cream/85 sm:text-xl">
+                    <p class="mt-8 max-w-2xl text-lg leading-relaxed text-brand-cream/90">
                         {{ __('We grow Erdgut the same way we cook: slowly, with the people we already trust. Every producer joins the circle by invitation, not by listing.') }}
                     </p>
                     <p class="mt-8">
