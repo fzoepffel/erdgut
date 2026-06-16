@@ -159,8 +159,8 @@
     <x-chapter-divider
         chapter="producers"
         :eyebrow="__('Chapter 4')"
-        :title="__('Short answers, out loud.')"
-        :subtitle="__('The questions we hear most, answered without footnotes.')"
+        :title="__('Good to know.')"
+        :subtitle="__('On delivery, ordering, and the people behind the shop.')"
         :showMark="false"
     />
 
