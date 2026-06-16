@@ -126,7 +126,7 @@
     {{-- Producers invitation --}}
     <section class="bg-brand-moss text-brand-cream" aria-labelledby="shop-home-producers-heading">
         <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
-            <div class="grid gap-12 lg:grid-cols-12 lg:gap-16" data-testid="shop-home-producers-pitch">
+            <div class="grid gap-12 lg:grid-cols-12 lg:items-center lg:gap-16" data-testid="shop-home-producers-pitch">
                 <x-reveal variant="fade-up" class="lg:col-span-7">
                     <p class="eyebrow text-brand-cream/70">{{ __('The producers') }}</p>
                     <h2 id="shop-home-producers-heading" class="mt-4 font-display text-3xl font-semibold leading-tight text-brand-cream sm:text-4xl lg:text-5xl">

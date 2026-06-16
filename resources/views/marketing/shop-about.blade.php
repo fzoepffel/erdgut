@@ -20,7 +20,7 @@
                 </x-reveal>
             </div>
 
-            <div class="mt-10 grid gap-12 lg:grid-cols-12 lg:gap-16 lg:items-start">
+            <div class="mt-10 grid gap-12 lg:grid-cols-12 lg:items-center lg:gap-16">
                 <div class="lg:col-span-7">
                     <x-reveal variant="fade-up" delay="200">
                         <p class="drop-cap font-editorial text-lg leading-relaxed text-brand-ink/90" style="--chapter-ink: theme('colors.chapter.produce.DEFAULT');">
@@ -47,7 +47,7 @@
                         </p>
                     </x-reveal>
                 </div>
-                <x-reveal variant="scale" class="lg:col-span-5 lg:sticky lg:top-28">
+                <x-reveal variant="scale" class="lg:col-span-5">
                     <div class="aspect-[4/5] overflow-hidden">
                         <img
                             src="{{ asset('images/about/founder-letter.jpg') }}"
@@ -73,7 +73,7 @@
     <section class="border-b border-brand-ink/10 bg-brand-paper" aria-labelledby="shop-about-model-heading" data-testid="shop-about-model">
         <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
             <h2 id="shop-about-model-heading" class="sr-only">{{ __('Erdgut\'s model') }}</h2>
-            <div class="grid gap-12 lg:grid-cols-12 lg:gap-16 lg:items-center">
+            <div class="grid gap-12 lg:grid-cols-12 lg:items-center lg:gap-16">
                 <x-reveal variant="fade-up" class="lg:col-span-7">
                     <p class="font-editorial text-lg leading-relaxed text-brand-ink/85">
                         {{ __('We favour regional producers whenever possible, supporting German farms that embody a more sustainable and flavour-driven model of agriculture.') }}
