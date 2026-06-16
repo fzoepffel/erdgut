@@ -31,11 +31,13 @@ use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DeliveryPreferencesController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Marketing\AboutController;
-use App\Http\Controllers\Marketing\ComingSoonController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\PrivacyController;
 use App\Http\Controllers\Marketing\ProducerController as MarketingProducerController;
+use App\Http\Controllers\Marketing\ShopAboutController;
+use App\Http\Controllers\Marketing\ShopContactController;
+use App\Http\Controllers\Marketing\ShopHomeController;
 use App\Http\Controllers\Marketing\TermsController;
 use App\Http\Controllers\Onboarding\AccountStepController;
 use App\Http\Controllers\Onboarding\AddressStepController;
@@ -69,9 +71,22 @@ if (app()->environment('local')) {
 
 Route::name('public.')->group(function () {
     Route::get('/cron/run', CronRunController::class)->name('cron.run');
-    Route::get('/', ComingSoonController::class)->name('home');
-    Route::get('/home', [HomeController::class, 'index'])->name('marketing-home');
-    Route::get('/about', [AboutController::class, 'index'])->name('about');
+    // Shop-first public surface. The root URL, /erdgut and /kontakt make up
+    // the shop-focused marketing site (shop header, no account chrome). The
+    // pre-launch "coming soon" holding page (ComingSoonController +
+    // marketing.coming-soon) is retired and no longer routed, but kept in
+    // the codebase.
+    Route::get('/', ShopHomeController::class)->name('home');
+    Route::get('/erdgut', ShopAboutController::class)->name('shop-about');
+    Route::get('/kontakt', [ShopContactController::class, 'create'])->name('shop-contact');
+    Route::post('/kontakt', [ShopContactController::class, 'store'])->middleware('throttle:contact')->name('shop-contact.store');
+
+    // Box / subscription marketing pages. The account-based subscription
+    // product is not published yet, so these are parked under /box/* (kept
+    // reachable so we don't lose them, but off the primary shop surface).
+    // They keep the full marketing header with sign-up / sign-in.
+    Route::get('/box/home', [HomeController::class, 'index'])->name('marketing-home');
+    Route::get('/box/about', [AboutController::class, 'index'])->name('about');
     Route::get('/producers', [MarketingProducerController::class, 'index'])->name('producers');
     Route::get('/producers/{producer:slug}', [MarketingProducerController::class, 'show'])->name('producers.show');
 

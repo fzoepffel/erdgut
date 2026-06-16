@@ -17,10 +17,10 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DeliveryPreferencesController;
 use App\Http\Controllers\Marketing\AboutController;
-use App\Http\Controllers\Marketing\ComingSoonController;
 use App\Http\Controllers\Marketing\ContactController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Marketing\ProducerController;
+use App\Http\Controllers\Marketing\ShopHomeController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SubscriptionController;
 use App\Models\User;
@@ -35,8 +35,10 @@ class RouteGroupingTest extends TestCase
     public function test_core_named_routes_use_expected_paths(): void
     {
         $this->assertSame('/', route('public.home', absolute: false));
-        $this->assertSame('/home', route('public.marketing-home', absolute: false));
-        $this->assertSame('/about', route('public.about', absolute: false));
+        $this->assertSame('/erdgut', route('public.shop-about', absolute: false));
+        $this->assertSame('/kontakt', route('public.shop-contact', absolute: false));
+        $this->assertSame('/box/home', route('public.marketing-home', absolute: false));
+        $this->assertSame('/box/about', route('public.about', absolute: false));
         $this->assertSame('/producers', route('public.producers', absolute: false));
         $this->assertSame('/contact', route('public.contact', absolute: false));
         $this->assertSame('/health', route('public.health', absolute: false));
@@ -177,13 +179,13 @@ class RouteGroupingTest extends TestCase
         $this->assertContains('throttle:12,1', $billingChargeRoute->gatherMiddleware());
     }
 
-    public function test_public_home_route_uses_coming_soon_controller(): void
+    public function test_public_home_route_uses_shop_home_controller(): void
     {
         $homeRoute = RouteFacade::getRoutes()->getByName('public.home');
 
         $this->assertNotNull($homeRoute);
         $this->assertStringContainsString(
-            ComingSoonController::class,
+            ShopHomeController::class,
             (string) $homeRoute->getAction('controller')
         );
     }
