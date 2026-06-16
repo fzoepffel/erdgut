@@ -62,17 +62,17 @@
         </div>
     </section>
 
-    {{-- Chapter 2: Erdgut's model --}}
+    {{-- Chapter 2: Our sourcing philosophy --}}
     <x-chapter-divider
         chapter="almanach"
         :eyebrow="__('Chapter 2')"
-        :title="__('Erdgut\'s model')"
+        :title="__('Our sourcing philosophy')"
         :showMark="false"
     />
 
     <section class="border-b border-brand-ink/10 bg-brand-paper" aria-labelledby="shop-about-model-heading" data-testid="shop-about-model">
         <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-            <h2 id="shop-about-model-heading" class="sr-only">{{ __('Erdgut\'s model') }}</h2>
+            <h2 id="shop-about-model-heading" class="sr-only">{{ __('Our sourcing philosophy') }}</h2>
             <div class="grid gap-12 lg:grid-cols-12 lg:items-center lg:gap-16">
                 <x-reveal variant="fade-up" class="lg:col-span-7">
                     <p class="font-editorial text-lg leading-relaxed text-brand-ink/85">
