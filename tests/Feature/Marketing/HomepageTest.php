@@ -46,7 +46,6 @@ class HomepageTest extends TestCase
         $response->assertSee('Why we started Erdgut.', false);
         $response->assertSee('Seven chapters, one season.', false);
         $response->assertSee(route('public.about'), false);
-        $response->assertSee(route('public.producers'), false);
         $response->assertSee(route('auth.login'), false);
         $response->assertSee(route('app.onboarding.start', ['intent' => 'trial']), false);
         $response->assertSee(route('app.onboarding.start', ['intent' => 'subscription']), false);
@@ -116,9 +115,9 @@ class HomepageTest extends TestCase
         // Meat is empty -> coming-soon marker, no link to the meat category.
         $response->assertSee('data-testid="shop-home-chapter-comingsoon-meat"', false);
         $response->assertDontSee('href="'.route('public.shop.products.index', ['category' => 'meat']).'"', false);
-        // Producers / Almanac never depend on category stock.
-        $response->assertDontSee('data-testid="shop-home-chapter-comingsoon-producers"', false);
-        $response->assertDontSee('data-testid="shop-home-chapter-comingsoon-almanach"', false);
+        // Producers and Almanac chapters are removed from the landing page strip.
+        $response->assertDontSee('shop-home-chapter-tile-producers', false);
+        $response->assertDontSee('shop-home-chapter-tile-almanach', false);
     }
 
     public function test_box_marketing_home_keeps_account_header(): void
