@@ -98,85 +98,87 @@
         </div>
     </section>
 
-    {{-- Seven chapters: table of contents, catalogue style --}}
+    {{-- Five chapters: portrait book-cover grid, same design as products page --}}
     <section class="border-b border-brand-ink/10 bg-brand-paper" aria-labelledby="shop-home-chapters-heading">
-        <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+        <div class="mx-auto max-w-[1400px] px-6 py-20 sm:py-24 lg:px-12">
             <x-section-heading
                 eyebrow="{{ __('What is in the shop') }}"
                 color="producers"
-                title="{{ __('Seven chapters, one season.') }}"
-                lead="{{ __('Like the pages of an almanac, each chapter runs with its own colour, its own producers, its own rhythm.') }}"
+                title="{{ __('Five chapters, one season.') }}"
+                lead="{{ __('Five chapters of producers, one season of food.') }}"
                 id="shop-home-chapters-heading"
             />
 
-            <div class="-mx-4 mt-16 flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" data-testid="shop-home-chapter-strip">
-                @php
-                    // Each chapter reuses the catalogue strip crop (transparent PNG
-                    // with the chapter-coloured illustration). Chapters 1-5 link to
-                    // the isolated shop catalogue filtered by category; 6 links to
-                    // the shop producers index, 7 to the shop About page. All stay
-                    // on the account-free shop surface.
-                    // `category` ties a chapter to a catalogue category; chapters
-                    // whose category has no products yet render a non-clickable
-                    // "coming soon" tile instead of a live link. Producers /
-                    // Almanac have no category and are always open.
-                    $chapters = [
-                        ['slug' => 'produce', 'category' => 'produce', 'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'), 'href' => route('public.shop.products.index', ['category' => 'produce']), 'image' => 'catalog-strip-cabbage.png'],
-                        ['slug' => 'meat', 'category' => 'meat', 'label' => __('Meat'), 'tagline' => __('Pasture-raised cuts'), 'href' => route('public.shop.products.index', ['category' => 'meat']), 'image' => 'catalog-strip-waguy.png'],
-                        ['slug' => 'fish', 'category' => 'fish', 'label' => __('Fish & Seafood'), 'tagline' => __('Line-caught & smoked'), 'href' => route('public.shop.products.index', ['category' => 'fish']), 'image' => 'catalog-strip-sardines.png'],
-                        ['slug' => 'eggdairy', 'category' => 'eggs_and_dairy', 'label' => __('Eggs & Dairy'), 'tagline' => __('Milk, butter, cheese'), 'href' => route('public.shop.products.index', ['category' => 'eggs_and_dairy']), 'image' => 'catalog-strip-eggs.png'],
-                        ['slug' => 'bread', 'category' => 'bread', 'label' => __('Bread'), 'tagline' => __('Sourdough & pastry'), 'href' => route('public.shop.products.index', ['category' => 'bread']), 'image' => 'catalog-strip-wheat.png'],
-                        ['slug' => 'producers', 'category' => null, 'label' => __('Producers'), 'tagline' => __('The people behind the food'), 'href' => route('public.shop.producers.index'), 'image' => 'catalog-strip-producers.png'],
-                        ['slug' => 'almanach', 'category' => null, 'label' => __('Almanac'), 'tagline' => __('Seasons, stories, traditions'), 'href' => route('public.shop-about'), 'image' => 'catalog-strip-almanach.png'],
-                    ];
-                    $chapterPanelBg = [
-                        'produce' => 'bg-chapter-produce',
-                        'meat' => 'bg-chapter-meat',
-                        'fish' => 'bg-chapter-fish',
-                        'eggdairy' => 'bg-chapter-eggdairy',
-                        'bread' => 'bg-chapter-bread',
-                        'producers' => 'bg-chapter-producers',
-                        'almanach' => 'bg-chapter-almanach',
-                    ];
-                @endphp
-                @foreach ($chapters as $i => $chapter)
+            @php
+                use App\Support\ProductCategoryStyle;
+
+                // Five product chapters only — Producers and Almanac removed.
+                // `category` drives the coming-soon check against $availableCategories.
+                $homeChapters = [
+                    ['slug' => 'produce',  'category' => 'produce',       'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'),      'href' => route('public.shop.products.index', ['category' => 'produce']),       'image' => 'catalog-strip-cabbage.png'],
+                    ['slug' => 'meat',     'category' => 'meat',          'label' => __('Meat'),               'tagline' => __('Pasture-raised cuts'),        'href' => route('public.shop.products.index', ['category' => 'meat']),          'image' => 'catalog-strip-waguy.png'],
+                    ['slug' => 'fish',     'category' => 'fish',          'label' => __('Fish & Seafood'),     'tagline' => __('Line-caught & smoked'),       'href' => route('public.shop.products.index', ['category' => 'fish']),          'image' => 'catalog-strip-sardines.png'],
+                    ['slug' => 'eggdairy', 'category' => 'eggs_and_dairy','label' => __('Eggs & Dairy'),      'tagline' => __('Milk, butter, cheese'),       'href' => route('public.shop.products.index', ['category' => 'eggs_and_dairy']),'image' => 'catalog-strip-eggs.png'],
+                    ['slug' => 'bread',    'category' => 'bread',         'label' => __('Bread'),             'tagline' => __('Sourdough & pastry'),         'href' => route('public.shop.products.index', ['category' => 'bread']),         'image' => 'catalog-strip-wheat.png'],
+                ];
+                $chapterPanelBg = [
+                    'produce'  => 'bg-chapter-produce',
+                    'meat'     => 'bg-chapter-meat',
+                    'fish'     => 'bg-chapter-fish',
+                    'eggdairy' => 'bg-chapter-eggdairy',
+                    'bread'    => 'bg-chapter-bread',
+                ];
+            @endphp
+
+            {{-- Portrait book-cover grid: 2 cols mobile → 3 sm → 5 lg,
+                 identical to the products page chapter rail. --}}
+            <div class="mt-16 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5" data-testid="shop-home-chapter-strip">
+                @foreach ($homeChapters as $i => $chapter)
                     @php
-                        $comingSoon = $chapter['category'] !== null && ! in_array($chapter['category'], $availableCategories ?? [], true);
-                        $panelClasses = 'flex h-full min-h-[220px] w-full overflow-hidden text-brand-cream '.$chapterPanelBg[$chapter['slug']];
+                        $comingSoon = ! in_array($chapter['category'], $availableCategories ?? [], true);
+                        $bgClass    = $chapterPanelBg[$chapter['slug']];
+                        $idx        = str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT);
                     @endphp
-                    <x-reveal variant="fade-up" delay="{{ $i * 60 }}" class="group flex w-[280px] shrink-0 snap-start sm:w-[320px]">
-                        {{-- An <a> without href is inert (not focusable / clickable),
-                             so empty categories show "coming soon" without linking. --}}
+                    <x-reveal variant="fade-up" delay="{{ $i * 80 }}">
+                        {{-- <a> without href is inert when coming soon --}}
                         <a
                             @if (! $comingSoon) href="{{ $chapter['href'] }}" @else aria-disabled="true" @endif
-                            @class([$panelClasses, 'transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-20px_rgba(44,36,28,0.35)]' => ! $comingSoon, 'cursor-default' => $comingSoon])
+                            @class(['group relative flex aspect-[3/4] flex-col overflow-hidden text-brand-cream', $bgClass, 'transition duration-150 hover:-translate-y-1' => ! $comingSoon, 'cursor-default' => $comingSoon])
                             data-testid="shop-home-chapter-tile-{{ $chapter['slug'] }}"
                         >
-                            <div class="relative flex w-16 shrink-0 items-stretch overflow-hidden sm:w-20 {{ $comingSoon ? 'opacity-60' : '' }}">
+                            {{-- Left-spine catalogue illustration --}}
+                            <div class="pointer-events-none absolute inset-y-0 left-0 overflow-hidden {{ $comingSoon ? 'opacity-50' : '' }}" style="width: 22%">
                                 <img
                                     src="{{ asset('images/chapters/' . $chapter['image']) }}"
                                     alt=""
                                     aria-hidden="true"
-                                    class="h-full w-full select-none object-contain object-center"
-                                    style="filter: brightness(0) invert(1);"
+                                    class="h-full w-full select-none object-cover object-center"
+                                    style="filter: brightness(0) invert(1); opacity: 0.9; transform: scale(1.1);"
                                 />
                             </div>
-                            <div class="flex flex-1 flex-col justify-between gap-6 p-6 sm:p-7 {{ $comingSoon ? 'opacity-80' : '' }}">
-                                <p class="eyebrow text-brand-cream/80">{{ sprintf('%02d', $i + 1) }} &nbsp;·&nbsp; {{ __('Chapter') }}</p>
-                                <div>
-                                    <h3 class="font-display text-2xl leading-tight hyphens-auto break-words sm:text-3xl" lang="{{ app()->getLocale() }}">{{ $chapter['label'] }}</h3>
-                                    <p class="mt-2 font-editorial text-sm italic leading-relaxed text-brand-cream/80 sm:text-base">{{ $chapter['tagline'] }}</p>
+
+                            {{-- Top bar: chapter index --}}
+                            <div class="relative flex items-center justify-end gap-3 px-5 pt-5">
+                                <span class="font-mono text-[0.7rem] tabular-nums tracking-widest text-brand-cream/90">{{ $idx }}</span>
+                                <span class="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-brand-cream/90">· {{ __('Chapter') }}</span>
+                            </div>
+
+                            {{-- Title block pinned to bottom --}}
+                            <div class="relative mt-auto flex flex-col {{ $comingSoon ? 'opacity-75' : '' }}" style="padding-left: 32%; padding-right: 1.25rem; padding-bottom: 1.25rem;">
+                                <h3 class="font-display text-xl leading-[1.05] text-brand-cream lg:text-2xl">{{ $chapter['label'] }}</h3>
+                                <p class="mt-1 font-display text-[0.8rem] italic text-brand-cream/85">{{ $chapter['tagline'] }}</p>
+                                <div class="mt-3 h-px w-full bg-brand-cream/30"></div>
+                                <div class="mt-3 flex items-baseline justify-between gap-2">
+                                    @if ($comingSoon)
+                                        <span class="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-brand-cream/70" data-testid="shop-home-chapter-comingsoon-{{ $chapter['slug'] }}">
+                                            {{ __('Coming soon') }}
+                                        </span>
+                                    @else
+                                        <span class="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-brand-cream/90 transition duration-150 group-hover:translate-x-1">
+                                            {{ __('Open chapter') }} →
+                                        </span>
+                                    @endif
                                 </div>
-                                @if ($comingSoon)
-                                    <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream/70" data-testid="shop-home-chapter-comingsoon-{{ $chapter['slug'] }}">
-                                        {{ __('Coming soon') }}
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream/90 transition-[gap] duration-200 group-hover:gap-3 group-hover:text-brand-cream">
-                                        {{ __('Open chapter') }}
-                                        <span aria-hidden="true">&rarr;</span>
-                                    </span>
-                                @endif
                             </div>
                         </a>
                     </x-reveal>
