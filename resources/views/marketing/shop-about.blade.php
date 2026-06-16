@@ -38,21 +38,46 @@
             <h2 id="shop-about-letter-heading" class="sr-only">{{ __('Founder letter') }}</h2>
             <x-reveal variant="fade-up">
                 <p class="drop-cap font-editorial text-lg leading-relaxed text-brand-ink/90 sm:text-xl" style="--chapter-ink: theme('colors.chapter.almanach.DEFAULT');">
-                    {{ __('We grew up around tables where everybody at the meal knew whose hands had grown what was on it — the baker two villages over, the cousin with the sheep, the neighbour with more cucumbers than she could eat. In Berlin, that chain is mostly broken. Most of us shop well, but we shop blind.') }}
+                    {{ __('How did we come to no longer know where our food comes from? To eat tomatoes in February instead of seasonal vegetables such as parsnips or crosnes? To lose the experience of true flavour in favour of uniformity? To ingest chemicals on a daily basis, or tolerate that some animals never see sunlight? To slowly accept the disappearance of small farms and endemic species that make up the richness of our regions?') }}
                 </p>
             </x-reveal>
             <x-reveal variant="fade-up" delay="100">
-                <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
-                    {{ __('Erdgut is our attempt to mend that, in the smallest, most domestic way possible: a shop stocked from a circle of farms, bakeries and fisheries we picked one by one. No marketplace, no anonymous catalogue. A short list of people, and the food they make.') }}
+                <p class="mt-8 font-editorial text-xl font-medium leading-relaxed text-brand-ink sm:text-2xl">
+                    {{ __('Food is never just food.') }}
                 </p>
             </x-reveal>
-            <x-reveal variant="fade-up" delay="200">
+            <x-reveal variant="fade-up" delay="160">
                 <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
-                    {{ __('We are a small crew — three friends who like to cook, mostly — and we are building Erdgut slowly, so that the people behind the food keep the lead role and the technology stays useful and invisible.') }}
+                    {{ __('Behind every vegetable, every fruit, every cheese and every cut of meat lies a landscape, a season, a craft and the work of people who dedicate their lives to growing and raising food with care.') }}
+                </p>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="220">
+                <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
+                    {{ __('Today, these producers are becoming increasingly rare. In Germany, 10 farms disappear every day, replaced by larger and more standardized models of production. As food becomes more uniform, we lose not only biodiversity and local know-how, but also our connection to where our food comes from.') }}
+                </p>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="280">
+                <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
+                    {{ __('Yet another path exists, and Erdgut was created to bring it to Berlin.') }}
+                </p>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="340">
+                <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
+                    {{ __('Across Germany, France and Italy, farmers and artisans continue to cultivate their land with care. They preserve local varieties, respect natural cycles, raise animals with care, and harvest when flavour is at its best.') }}
+                </p>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="400">
+                <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
+                    {{ __('Our role is simple: to connect their work with your table. Seasonal food, rooted in its terroir, delivered across Berlin.') }}
+                </p>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="460">
+                <p class="mt-6 font-editorial text-lg italic leading-relaxed text-brand-ink/75">
+                    {{ __('We hope you will take as much pleasure in discovering their worlds as we did in bringing them to you.') }}
                 </p>
             </x-reveal>
             <x-triple-star class="mt-14" />
-            <x-reveal variant="fade-up" delay="300">
+            <x-reveal variant="fade-up" delay="520">
                 <div class="mt-10 flex justify-center">
                     <x-founder-signature size="lg" />
                 </div>

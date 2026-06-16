@@ -68,7 +68,7 @@
         </div>
     </section>
 
-    {{-- Founder letter: drop-cap editorial paragraph, triple-star, signed --}}
+    {{-- Founder letter: short manifesto + "Read our story" link to About --}}
     <section class="border-b border-brand-ink/10" aria-labelledby="shop-home-letter-heading">
         <div class="mx-auto max-w-3xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8" data-testid="shop-home-founder-letter">
             <x-reveal variant="fade-up">
@@ -81,18 +81,32 @@
             </x-reveal>
             <x-reveal variant="fade-up" delay="200">
                 <p class="drop-cap mt-8 font-editorial text-lg leading-relaxed text-brand-ink/85 sm:text-xl" style="--chapter-ink: theme('colors.chapter.produce.DEFAULT');">
-                    {{ __('We grew up with grandparents who knew where every egg, every tomato, every loaf came from. Today, Berlin households rarely have that relationship with their food. Erdgut is our attempt to rebuild it — a shop stocked from a small circle of farms, bakeries and fisheries we picked ourselves.') }}
+                    {{ __('Food is never just food.') }}
                 </p>
             </x-reveal>
-            <x-reveal variant="fade-up" delay="300">
+            <x-reveal variant="fade-up" delay="280">
                 <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
-                    {{ __('No anonymous supply chains. No algorithmic curation. Just seasonal food, signed by the hands that grew it, delivered across Berlin.') }}
+                    {{ __('Behind every vegetable, fruit, cheese, and cut of meat lies a landscape, a season, a craft, and the dedication of those who produce it.') }}
+                </p>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="340">
+                <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
+                    {{ __('Yet today, we have become disconnected from where our food comes from. Small farms disappear, biodiversity declines, and true flavour is increasingly replaced by uniformity.') }}
+                </p>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="400">
+                <p class="mt-6 font-editorial text-lg leading-relaxed text-brand-ink/85">
+                    {{ __('Erdgut was created to preserve another path, reconnecting Berliners with the farmers and artisans who cultivate with care.') }}
                 </p>
             </x-reveal>
             <x-triple-star class="mt-12" />
-            <x-reveal variant="fade-up" delay="400">
-                <div class="mt-10 flex justify-center">
+            <x-reveal variant="fade-up" delay="460">
+                <div class="mt-10 flex flex-col items-center gap-6">
                     <x-founder-signature size="lg" />
+                    <a href="{{ route('public.shop-about') }}" class="inline-flex items-center gap-2 border-b border-chapter-produce pb-0.5 font-mono text-xs uppercase tracking-widest text-chapter-produce transition hover:text-chapter-produce/80" data-testid="shop-home-read-story">
+                        {{ __('Read our story') }}
+                        <span aria-hidden="true">&rarr;</span>
+                    </a>
                 </div>
             </x-reveal>
         </div>
