@@ -11,7 +11,7 @@
                 loop
                 playsinline
                 preload="metadata"
-                poster="{{ asset('images/mock/hero/hero-poster.jpg') }}"
+                poster="{{ asset('images/mock/hero/shop-hero-poster.jpg') }}"
                 data-parallax
             >
                 <source src="{{ asset('videos/mock/shop-hero.mp4') }}" type="video/mp4">
