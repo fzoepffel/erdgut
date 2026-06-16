@@ -53,7 +53,7 @@ class ShopCatalogController extends Controller
         return view('shop.products', [
             'products' => $products,
             'activeCategory' => $activeCategory,
-            'categories' => ProductCategory::casesSortedByLabel(),
+            'categories' => ProductCategory::casesInDisplayOrder(),
             'title' => __('shop.nav_products').' · '.config('app.name', 'Erdgut').' '.__('shop.eyebrow'),
         ]);
     }

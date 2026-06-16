@@ -65,6 +65,27 @@ enum ProductCategory: string
     }
 
     /**
+     * Cases in canonical display order for the public shop / homepage:
+     *   Fruits & Veg → Dairy & Eggs → Meat → Fish → Bread
+     *
+     * This order is intentional (the most common weekly items first,
+     * bread last as a finishing touch). Use everywhere a customer-facing
+     * chapter strip or category rail is rendered.
+     *
+     * @return list<self>
+     */
+    public static function casesInDisplayOrder(): array
+    {
+        return [
+            self::Produce,
+            self::EggsAndDairy,
+            self::Meat,
+            self::Fish,
+            self::Bread,
+        ];
+    }
+
+    /**
      * The visual "market stall" / chapter this category belongs to.
      * Drives the colour system and `<x-eyebrow color="...">` accents.
      */

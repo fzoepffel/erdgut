@@ -115,11 +115,11 @@
                 // Five product chapters only — Producers and Almanac removed.
                 // `category` drives the coming-soon check against $availableCategories.
                 $homeChapters = [
-                    ['slug' => 'produce',  'category' => 'produce',       'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'),      'href' => route('public.shop.products.index', ['category' => 'produce']),       'image' => 'catalog-strip-cabbage.png'],
-                    ['slug' => 'meat',     'category' => 'meat',          'label' => __('Meat'),               'tagline' => __('Pasture-raised cuts'),        'href' => route('public.shop.products.index', ['category' => 'meat']),          'image' => 'catalog-strip-waguy.png'],
-                    ['slug' => 'fish',     'category' => 'fish',          'label' => __('Fish & Seafood'),     'tagline' => __('Line-caught & smoked'),       'href' => route('public.shop.products.index', ['category' => 'fish']),          'image' => 'catalog-strip-sardines.png'],
-                    ['slug' => 'eggdairy', 'category' => 'eggs_and_dairy','label' => __('Eggs & Dairy'),      'tagline' => __('Milk, butter, cheese'),       'href' => route('public.shop.products.index', ['category' => 'eggs_and_dairy']),'image' => 'catalog-strip-eggs.png'],
-                    ['slug' => 'bread',    'category' => 'bread',         'label' => __('Bread'),             'tagline' => __('Sourdough & pastry'),         'href' => route('public.shop.products.index', ['category' => 'bread']),         'image' => 'catalog-strip-wheat.png'],
+                    ['slug' => 'produce',  'category' => 'produce',       'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'),   'href' => route('public.shop.products.index', ['category' => 'produce']),        'image' => 'catalog-strip-cabbage.png'],
+                    ['slug' => 'eggdairy', 'category' => 'eggs_and_dairy','label' => __('Eggs & Dairy'),      'tagline' => __('Milk, butter, cheese'),   'href' => route('public.shop.products.index', ['category' => 'eggs_and_dairy']), 'image' => 'catalog-strip-eggs.png'],
+                    ['slug' => 'meat',     'category' => 'meat',          'label' => __('Meat'),               'tagline' => __('Pasture-raised cuts'),    'href' => route('public.shop.products.index', ['category' => 'meat']),           'image' => 'catalog-strip-waguy.png'],
+                    ['slug' => 'fish',     'category' => 'fish',          'label' => __('Fish & Seafood'),     'tagline' => __('Line-caught & smoked'),   'href' => route('public.shop.products.index', ['category' => 'fish']),           'image' => 'catalog-strip-sardines.png'],
+                    ['slug' => 'bread',    'category' => 'bread',         'label' => __('Bread'),             'tagline' => __('Sourdough & pastry'),      'href' => route('public.shop.products.index', ['category' => 'bread']),          'image' => 'catalog-strip-wheat.png'],
                 ];
                 $chapterPanelBg = [
                     'produce'  => 'bg-chapter-produce',

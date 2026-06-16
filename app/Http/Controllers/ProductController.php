@@ -39,7 +39,7 @@ class ProductController extends Controller
         return view($template, [
             'products' => $products,
             'activeCategory' => $activeCategory,
-            'categories' => ProductCategory::casesSortedByLabel(),
+            'categories' => ProductCategory::casesInDisplayOrder(),
         ]);
     }
 
