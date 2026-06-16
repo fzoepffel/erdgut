@@ -21,8 +21,7 @@ class LocaleSwitchTest extends TestCase
 
         $response->assertOk();
         // Headline is split: "Des légumes frais sont" + <span italic> "en route."
-        $response->assertSee('Des légumes frais sont', false);
-        $response->assertSee('en route.', false);
+        $response->assertSee('Des produits de saison de petites fermes, livrés dans tout Berlin.', false);
         $response->assertSee('data-current-locale="fr"', false);
     }
 
@@ -36,8 +35,7 @@ class LocaleSwitchTest extends TestCase
 
         $response->assertOk();
         // Headline is split: "Frisches Gemüse ist" + <span italic> "unterwegs."
-        $response->assertSee('Frisches Gemüse ist', false);
-        $response->assertSee('unterwegs.', false);
+        $response->assertSee('Saisonale Lebensmittel von kleinen Höfen, geliefert in ganz Berlin.', false);
         $response->assertSee('data-current-locale="de"', false);
     }
 
@@ -59,8 +57,7 @@ class LocaleSwitchTest extends TestCase
 
         $response->assertOk();
         // Headline split into two parts in FR locale.
-        $response->assertSee('Des légumes frais sont', false);
-        $response->assertSee('en route.', false);
+        $response->assertSee('Des produits de saison de petites fermes, livrés dans tout Berlin.', false);
     }
 
     public function test_session_locale_takes_precedence_over_accept_language(): void
@@ -73,10 +70,9 @@ class LocaleSwitchTest extends TestCase
 
         $response->assertOk();
         // EN locale: headline split.
-        $response->assertSee('Fresh produce is', false);
-        $response->assertSee('on its way.', false);
+        $response->assertSee('Seasonal food from small farms, delivered across Berlin.', false);
         // FR copy must not appear when session forces EN.
-        $response->assertDontSee('Des légumes frais sont', false);
+        $response->assertDontSee('Des produits de saison de petites fermes, livrés dans tout Berlin.', false);
     }
 
     public function test_default_locale_is_english_without_session_or_header(): void
@@ -85,8 +81,7 @@ class LocaleSwitchTest extends TestCase
 
         $response->assertOk();
         // EN locale: headline is "Fresh produce is" + <span italic> "on its way."
-        $response->assertSee('Fresh produce is', false);
-        $response->assertSee('on its way.', false);
+        $response->assertSee('Seasonal food from small farms, delivered across Berlin.', false);
     }
 
     public function test_selector_is_rendered_on_coming_soon_page(): void
@@ -122,8 +117,7 @@ class LocaleSwitchTest extends TestCase
 
         $response->assertOk();
         // FR locale headline is split.
-        $response->assertSee('Des légumes frais sont', false);
-        $response->assertSee('en route.', false);
+        $response->assertSee('Des produits de saison de petites fermes, livrés dans tout Berlin.', false);
     }
 
     public function test_session_locale_still_wins_over_authenticated_user_locale(): void
@@ -138,7 +132,6 @@ class LocaleSwitchTest extends TestCase
 
         $response->assertOk();
         // EN locale headline is split: first part + italic second part.
-        $response->assertSee('Fresh produce is', false);
-        $response->assertSee('on its way.', false);
+        $response->assertSee('Seasonal food from small farms, delivered across Berlin.', false);
     }
 }
