@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\SubcategoryController;
 use App\Http\Controllers\BoxController;
+use App\Http\Controllers\BoxWaitlistController;
 use App\Http\Controllers\DashboardClickEventController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
@@ -80,6 +81,12 @@ Route::name('public.')->group(function () {
     Route::get('/erdgut', ShopAboutController::class)->name('shop-about');
     Route::get('/kontakt', [ShopContactController::class, 'create'])->name('shop-contact');
     Route::post('/kontakt', [ShopContactController::class, 'store'])->middleware('throttle:contact')->name('shop-contact.store');
+
+    // Box waitlist — capture interest in the upcoming subscription boxes.
+    // Homepage form + post-payment checkout prompt; one row per email.
+    Route::post('/box-warteliste', [BoxWaitlistController::class, 'subscribe'])
+        ->middleware('throttle:contact')
+        ->name('box-waitlist.store');
 
     // Box / subscription marketing pages. The account-based subscription
     // product is not published yet, so these are parked under /box/* (kept
@@ -161,6 +168,11 @@ Route::name('public.')->group(function () {
         ->name('shop.engagement');
     Route::get('/shop/{shopOrder}/pay', [ShopController::class, 'pay'])->name('shop.pay');
     Route::get('/shop/{shopOrder}/return', [ShopController::class, 'return'])->name('shop.return');
+    // Post-payment box-waitlist answer (yes/no), recorded against the order
+    // email. The order is already complete; this never blocks confirmation.
+    Route::post('/shop/{shopOrder}/box-interesse', [BoxWaitlistController::class, 'recordInterest'])
+        ->middleware('throttle:contact')
+        ->name('shop.box-interest');
     // Stable per-order tracking page. Reached only via a signed URL (carried
     // in the confirmation / window emails) so order details can't be browsed
     // by incrementing the id. No expiry — the customer reopens it on the day.

@@ -305,6 +305,68 @@
         </div>
     </section>
 
+    {{-- Box waitlist: capture interest in the upcoming subscription boxes --}}
+    <section class="bg-brand-ink text-brand-cream" aria-labelledby="shop-home-waitlist-heading">
+        <div class="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 sm:py-24 lg:px-8" data-testid="shop-home-waitlist">
+            <x-reveal variant="fade-up">
+                <p class="eyebrow text-accent-star/90">{{ __('Coming soon') }}</p>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="100">
+                <h2 id="shop-home-waitlist-heading" class="mt-6 font-display text-3xl leading-tight text-brand-cream sm:text-4xl">
+                    {{ __('Weekly boxes are on their way.') }}
+                </h2>
+            </x-reveal>
+            <x-reveal variant="fade-up" delay="200">
+                <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-brand-cream/80">
+                    {{ __('We are putting together a subscription box: a seasonal selection from our producers, delivered every week at a friendlier price. Leave your email and we will tell you the moment it launches.') }}
+                </p>
+            </x-reveal>
+
+            @if (session('status') === 'box-waitlist-subscribed')
+                <x-reveal variant="fade-up" delay="100">
+                    <p class="mx-auto mt-10 max-w-md border border-brand-cream/30 px-6 py-4 font-editorial text-lg italic text-brand-cream" data-testid="shop-home-waitlist-success">
+                        {{ __('Thank you — we will be in touch the moment boxes launch.') }}
+                    </p>
+                </x-reveal>
+            @else
+                <x-reveal variant="fade-up" delay="300">
+                    <form
+                        method="POST"
+                        action="{{ route('public.box-waitlist.store') }}"
+                        class="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row"
+                        data-testid="shop-home-waitlist-form"
+                    >
+                        @csrf
+                        {{-- Honeypot: hidden from humans, must stay empty. --}}
+                        <div class="hidden" aria-hidden="true">
+                            <label for="shop-home-waitlist-website">{{ __('Leave this field empty') }}</label>
+                            <input type="text" id="shop-home-waitlist-website" name="website" tabindex="-1" autocomplete="off">
+                        </div>
+                        <label for="shop-home-waitlist-email" class="sr-only">{{ __('Your email address') }}</label>
+                        <input
+                            type="email"
+                            id="shop-home-waitlist-email"
+                            name="email"
+                            required
+                            value="{{ old('email') }}"
+                            placeholder="{{ __('Your email address') }}"
+                            class="w-full flex-1 border-b border-brand-cream/40 bg-transparent py-3 text-base text-brand-cream placeholder:text-brand-cream/50 focus:border-brand-cream focus:outline-none"
+                        >
+                        <button
+                            type="submit"
+                            class="inline-flex items-center justify-center border border-brand-cream bg-brand-cream px-6 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-ink transition hover:bg-transparent hover:text-brand-cream"
+                        >
+                            {{ __('Keep me posted') }}
+                        </button>
+                    </form>
+                    @error('email')
+                        <p class="mt-3 text-sm text-accent-star" data-testid="shop-home-waitlist-error">{{ $message }}</p>
+                    @enderror
+                </x-reveal>
+            @endif
+        </div>
+    </section>
+
     {{-- Bottom CTA --}}
     <section class="relative" aria-labelledby="shop-home-bottom-cta-heading">
         <div class="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6 sm:py-32 lg:px-8">

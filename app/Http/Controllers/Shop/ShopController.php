@@ -6,6 +6,7 @@ use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ShopOrderRequest;
 use App\Mail\ShopOrderConfirmationMail;
+use App\Models\BoxWaitlistSignup;
 use App\Models\Product;
 use App\Models\ProductEngagementDaily;
 use App\Models\ProductSubcategory;
@@ -313,11 +314,21 @@ class ShopController extends Controller
             }
         }
 
+        // Ask paid customers (once, ever) whether they'd like to hear when the
+        // subscription boxes launch. Skipped if they've already answered — at
+        // homepage or a previous checkout — keyed by their email.
+        $showBoxPrompt = $shopOrder->status === ShopOrderStatus::Paid
+            && filled($shopOrder->email)
+            && ! BoxWaitlistSignup::query()
+                ->where('email', mb_strtolower(trim($shopOrder->email)))
+                ->exists();
+
         return view('shop.return', [
             'order' => $shopOrder->loadMissing([
                 'items.product.translations',
                 'items.product.producer.translations',
             ]),
+            'showBoxPrompt' => $showBoxPrompt,
         ]);
     }
 
