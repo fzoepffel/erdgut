@@ -74,6 +74,22 @@ class HomepageInSeasonTest extends TestCase
             ->assertDontSee('&amp;#039;', false);
     }
 
+    public function test_in_season_section_renders_normalized_apostrophes_from_corrupted_db_text(): void
+    {
+        $corrupted = str_repeat(
+            'Fraîches et noisettées avec une nette note d\\u0027asperge — l\\u0027épluchage est rarement nécessaire. ',
+            3,
+        );
+        $product = $this->makeProduct($corrupted, 'products/asparagus.jpg', '2026-06-11');
+
+        $this->get(route('public.home'))
+            ->assertOk()
+            ->assertSee('data-testid="shop-home-in-season"', false)
+            // Blade escapes apostrophes in {{ }}; corruption must not leak as \u0027.
+            ->assertSee('d&#039;asperge', false)
+            ->assertDontSee('\\u0027', false);
+    }
+
     public function test_product_without_image_is_not_featured(): void
     {
         $long = str_repeat('Eine wunderbar aromatische Sorte aus der Region. ', 5);

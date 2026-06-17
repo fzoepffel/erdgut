@@ -7,6 +7,7 @@ use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
+use App\Http\Requests\Admin\Concerns\NormalizesProductTranslationInput;
 use App\Models\Product;
 use App\Models\ProductSubcategory;
 use Illuminate\Foundation\Http\FormRequest;
@@ -15,6 +16,8 @@ use Illuminate\Validation\Validator;
 
 class UpdateProductRequest extends FormRequest
 {
+    use NormalizesProductTranslationInput;
+
     /**
      * @return list<string>
      */
@@ -113,6 +116,8 @@ class UpdateProductRequest extends FormRequest
             'is_test' => $this->boolean('is_test'),
             'remove_image' => $this->boolean('remove_image'),
         ]);
+
+        $this->normalizeProductTranslationInput();
     }
 
     public function withValidator(Validator $validator): void

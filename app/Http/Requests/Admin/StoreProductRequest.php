@@ -7,6 +7,7 @@ use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
+use App\Http\Requests\Admin\Concerns\NormalizesProductTranslationInput;
 use App\Models\ProductSubcategory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,8 @@ use Illuminate\Validation\Validator;
 
 class StoreProductRequest extends FormRequest
 {
+    use NormalizesProductTranslationInput;
+
     /**
      * @return list<string>
      */
@@ -118,6 +121,8 @@ class StoreProductRequest extends FormRequest
             'is_egg_addon' => $this->boolean('is_egg_addon'),
             'is_test' => $this->boolean('is_test'),
         ]);
+
+        $this->normalizeProductTranslationInput();
     }
 
     public function withValidator(Validator $validator): void
