@@ -32,13 +32,6 @@ class HomepageTest extends TestCase
         $response->assertDontSee('id="shop-home-producer-quote-heading"', false);
         $response->assertSee('data-testid="shop-home-how-it-works"', false);
 
-        // Delivery logistics facts strip answers the pre-purchase questions
-        // (area, days, fee, minimum) without entering the shop flow.
-        $response->assertSee('data-testid="shop-home-delivery-facts"', false);
-        $response->assertSee('All of Berlin', false);
-        $response->assertSee('Minimum order', false);
-        $response->assertSee('2,90 €', false);
-
         // Removed sections must not appear.
         $response->assertDontSee('data-testid="shop-home-promo-section"', false);
         $response->assertDontSee('data-testid="shop-home-value-cards"', false);

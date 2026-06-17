@@ -264,38 +264,12 @@
             <x-section-heading
                 eyebrow="{{ __('The rhythm') }}"
                 color="fish"
-                title="{{ __('How it works — and what it costs.') }}"
-                lead="{{ __('A simple order, delivered in the rhythm of the season. Here is where we deliver, what it costs, and what to expect.') }}"
+                title="{{ __('From the shop to your doorstep in four steps.') }}"
+                lead="{{ __('A simple order, delivered in the rhythm of the season — no account gymnastics required.') }}"
                 id="shop-home-steps-heading"
             />
-
-            {{-- Logistics facts strip: the four pre-purchase questions,
-                 answered at a glance. Fee + pickup count come from config. --}}
             @php
                 $deliveryFee = \App\Support\Money::format(config('shop.delivery_fee_eur', 2.90));
-                $deliveryFacts = [
-                    ['chapter' => 'produce',  'label' => __('Delivery area'),  'value' => __('All of Berlin')],
-                    ['chapter' => 'eggdairy', 'label' => __('Delivery days'),  'value' => __('Set by the season')],
-                    ['chapter' => 'fish',     'label' => __('Delivery fee'),   'value' => __(':fee € — pickup free', ['fee' => $deliveryFee])],
-                    ['chapter' => 'bread',    'label' => __('Minimum order'),  'value' => __('None')],
-                ];
-                $factChapterText = [
-                    'produce' => 'text-chapter-produce',
-                    'meat' => 'text-chapter-meat',
-                    'fish' => 'text-chapter-fish',
-                    'eggdairy' => 'text-chapter-eggdairy',
-                    'bread' => 'text-chapter-bread',
-                ];
-            @endphp
-            <dl class="mt-12 grid grid-cols-2 gap-px overflow-hidden border border-brand-ink/10 bg-brand-ink/10 lg:grid-cols-4" data-testid="shop-home-delivery-facts">
-                @foreach ($deliveryFacts as $fact)
-                    <div class="bg-brand-cream px-5 py-6">
-                        <dt class="eyebrow {{ $factChapterText[$fact['chapter']] }}">{{ $fact['label'] }}</dt>
-                        <dd class="mt-2 font-display text-xl leading-tight text-brand-ink">{{ $fact['value'] }}</dd>
-                    </div>
-                @endforeach
-            </dl>
-            @php
                 $homeSteps = [
                     ['chapter' => 'produce', 'title' => __('Browse the shop'), 'copy' => __('Explore what is in season across our five categories. We deliver everywhere in Berlin.')],
                     ['chapter' => 'eggdairy', 'title' => __('Choose a day and fill your basket'), 'copy' => __('Pick a delivery day from the calendar, then add what is available that day. Delivery days follow the harvest, so what is fresh and in stock changes through the season.')],
