@@ -38,25 +38,29 @@
                     </p>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="400">
-                    <div class="mt-10 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center" data-testid="shop-home-hero-ctas">
+                    {{-- One clear primary action (the date-based ordering flow),
+                         with the catalogue as a quiet secondary link so the two
+                         don't read as the same button. --}}
+                    <div class="mt-10 flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-8" data-testid="shop-home-hero-ctas">
                         <a
                             href="{{ route('public.shop.index') }}"
                             class="inline-flex items-center justify-center border border-brand-cream bg-brand-cream px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-ink transition hover:bg-transparent hover:text-brand-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cream"
                             data-testid="shop-home-cta-shop"
                         >
-                            {{ __('Visit the shop') }}
+                            {{ __('Start your order') }}
                         </a>
                         <a
                             href="{{ route('public.shop.products.index') }}"
-                            class="inline-flex items-center justify-center border border-brand-cream/70 px-8 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream transition hover:border-brand-cream hover:bg-brand-cream/10"
+                            class="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream/90 underline-offset-4 transition hover:text-brand-cream hover:underline"
                             data-testid="shop-home-cta-products"
                         >
-                            {{ __('Browse products') }}
+                            {{ __('Or browse the full catalogue') }}
+                            <span aria-hidden="true">&rarr;</span>
                         </a>
                         @auth
                             <a
                                 href="{{ route('app.dashboard') }}"
-                                class="inline-flex items-center justify-center px-4 py-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream/90 hover:underline"
+                                class="inline-flex items-center justify-center text-sm font-semibold uppercase tracking-eyebrow text-brand-cream/90 hover:underline"
                                 data-testid="shop-home-cta-dashboard"
                             >
                                 {{ __('Go to dashboard') }}
@@ -94,7 +98,49 @@
                     {{ __('Erdgut was created to preserve another path, reconnecting Berliners with the farmers and artisans who cultivate with care.') }}
                 </p>
             </x-reveal>
-            <x-triple-star class="mt-12" />
+
+            {{-- Three figures that make the case, each opening a different door:
+                 the loss of farms → meet the producers; the loss of varieties →
+                 the products; the squeeze on producers → the shop. --}}
+            @php
+                $letterFigures = [
+                    [
+                        'value' => '10',
+                        'caption' => __('farms disappear every day in Germany'),
+                        'cta' => __('Get to know our producers'),
+                        'href' => route('public.shop.producers.index'),
+                    ],
+                    [
+                        'value' => __('~75%'),
+                        'caption' => __('of crop varieties lost in the last century'),
+                        'cta' => __('Browse the products'),
+                        'href' => route('public.shop.products.index'),
+                    ],
+                    [
+                        'value' => __('~25%'),
+                        'caption' => __('of the food price reaches the producer'),
+                        'cta' => __('Visit the shop'),
+                        'href' => route('public.shop.index'),
+                    ],
+                ];
+            @endphp
+            <dl class="mt-14 grid gap-x-8 gap-y-10 sm:grid-cols-3" data-testid="shop-home-figures">
+                @foreach ($letterFigures as $i => $figure)
+                    <x-reveal variant="fade-up" delay="{{ $i * 80 }}" class="flex flex-col border-t border-brand-ink/15 pt-5">
+                        <dt class="font-display text-4xl leading-none text-chapter-produce sm:text-5xl">{{ $figure['value'] }}</dt>
+                        <dd class="mt-3 font-editorial text-sm leading-snug text-brand-ink/70">{{ $figure['caption'] }}</dd>
+                        <a
+                            href="{{ $figure['href'] }}"
+                            class="mt-5 inline-flex items-center gap-2 self-start border-b border-chapter-produce pb-0.5 font-mono text-xs uppercase tracking-widest text-chapter-produce transition hover:text-chapter-produce/80"
+                        >
+                            {{ $figure['cta'] }}
+                            <span aria-hidden="true">&rarr;</span>
+                        </a>
+                    </x-reveal>
+                @endforeach
+            </dl>
+
+            <x-triple-star class="mt-16" />
             <x-reveal variant="fade-up" delay="460">
                 <div class="mt-10 flex flex-col items-center gap-6">
                     <x-founder-signature size="lg" />
@@ -150,6 +196,52 @@
             </div>
         </div>
     </section>
+
+    {{-- In season now: real products available in the current two-week window,
+         shown as editorial image+text rows. Hidden when nothing qualifies. --}}
+    @if (! empty($inSeasonProducts) && count($inSeasonProducts) > 0)
+        <section class="border-b border-brand-ink/10" aria-labelledby="shop-home-inseason-heading">
+            <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+                <x-section-heading
+                    eyebrow="{{ __('From this week\'s harvest') }}"
+                    color="produce"
+                    title="{{ __('In season now.') }}"
+                    lead="{{ __('A few things on the shelves right now — picked from what our producers are harvesting this week.') }}"
+                    id="shop-home-inseason-heading"
+                />
+
+                <div class="mt-16 flex flex-col gap-16 sm:gap-20" data-testid="shop-home-in-season">
+                    @foreach ($inSeasonProducts as $product)
+                        <x-reveal variant="fade-up" class="grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-14" data-testid="shop-home-in-season-item">
+                            <div @class(['aspect-[4/3] overflow-hidden', 'lg:order-2' => $loop->odd])>
+                                <img
+                                    src="{{ $product->imageUrl() ?? $product->thumbUrl() }}"
+                                    alt="{{ $product->name }}"
+                                    class="h-full w-full object-cover"
+                                    loading="lazy"
+                                >
+                            </div>
+                            <div @class(['lg:order-1' => $loop->odd])>
+                                @if ($product->producer?->name)
+                                    <p class="eyebrow text-chapter-produce">{{ $product->producer->name }}</p>
+                                @endif
+                                <h3 class="mt-3 font-display text-3xl leading-tight text-brand-ink sm:text-4xl">{{ $product->name }}</h3>
+                                <p class="mt-3 font-mono text-sm text-brand-ink/60">{{ $product->displayPrice() }}</p>
+                                <p class="mt-5 font-editorial text-lg leading-relaxed text-brand-ink/80">{{ $product->localizedTasteProfile() }}</p>
+                                <a
+                                    href="{{ route('public.shop.products.show', $product) }}"
+                                    class="mt-7 inline-flex items-center gap-2 border-b border-chapter-produce pb-0.5 font-mono text-xs uppercase tracking-widest text-chapter-produce transition hover:text-chapter-produce/80"
+                                >
+                                    {{ __('See it in the shop') }}
+                                    <span aria-hidden="true">&rarr;</span>
+                                </a>
+                            </div>
+                        </x-reveal>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+    @endif
 
     {{-- Five chapters: portrait book-cover grid, same design as products page --}}
     <section class="border-b border-brand-ink/10 bg-brand-paper" aria-labelledby="shop-home-chapters-heading">
@@ -386,7 +478,7 @@
                         class="btn-solid"
                         data-testid="shop-home-bottom-primary"
                     >
-                        {{ __('Visit the shop') }}
+                        {{ __('Start your order') }}
                     </a>
                     <a
                         href="{{ route('public.shop-about') }}"
