@@ -127,7 +127,7 @@
                 $values = [
                     ['chapter' => 'produce', 'title' => __('Seasonal first.'), 'copy' => __('We follow the harvest, not the global year-round aisle. In March you will not find strawberries in your box — and in July you will barely see anything else.')],
                     ['chapter' => 'fish', 'title' => __('Short circle, clear origins.'), 'copy' => __('Every product traces to a named farm, bakery or fishery within reach of Berlin. You can read their story before, during and after it lands in your kitchen.')],
-                    ['chapter' => 'meat', 'title' => __('Fair share for producers.'), 'copy' => __('Pricing and relationships are designed so a larger share of what you pay stays with the people who actually grew or made your food.')],
+                    ['chapter' => 'meat', 'title' => __('Pay those who produce.'), 'copy' => __('Our pricing works differently: on average, 70% of what you pay goes back to the producers. Not to middlemen.')],
                     ['chapter' => 'eggdairy', 'title' => __('Calm, not constant.'), 'copy' => __('One box a week, one deadline, one delivery window. No infinite scroll, no flash sales, no notifications begging for attention.')],
                 ];
             @endphp
