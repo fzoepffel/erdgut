@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\ShopOrderStatus;
 use App\Models\BoxWaitlistSignup;
 use App\Models\ShopOrder;
+use App\Services\Shop\ShopOrderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -56,8 +56,9 @@ class BoxWaitlistController extends Controller
             'interested' => ['required', 'boolean'],
         ]);
 
-        // Only sensible for a paid order that carries an email we can key on.
-        if ($shopOrder->status === ShopOrderStatus::Paid && filled($shopOrder->email)) {
+        // Only sensible for a completed order (online Paid, or pay-in-person)
+        // that carries an email we can key on.
+        if (ShopOrderService::isCompletedCheckout($shopOrder) && filled($shopOrder->email)) {
             BoxWaitlistSignup::query()->updateOrCreate(
                 ['email' => mb_strtolower(trim($shopOrder->email))],
                 [

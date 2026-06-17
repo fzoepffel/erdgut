@@ -96,12 +96,46 @@ class BoxWaitlistTest extends TestCase
         $this->assertSame('checkout', $signup->source);
     }
 
-    public function test_checkout_prompt_ignores_unpaid_orders(): void
+    public function test_checkout_prompt_ignores_unpaid_online_orders(): void
     {
-        $order = ShopOrder::factory()->create(['email' => 'pending@example.com']);
+        // Online order still awaiting its SumUp charge — not complete.
+        $order = ShopOrder::factory()->create([
+            'email' => 'pending@example.com',
+            'payment_method' => 'online',
+        ]);
 
         $this->post(route('public.shop.box-interest', ['shopOrder' => $order->id]), ['interested' => '1']);
 
         $this->assertDatabaseCount('box_waitlist_signups', 0);
+    }
+
+    public function test_return_page_shows_prompt_for_pay_in_person_orders(): void
+    {
+        // Pay-in-person orders stay PendingPayment but are complete checkouts.
+        $order = ShopOrder::factory()->create([
+            'email' => 'cash@example.com',
+            'payment_method' => 'in_person',
+        ]);
+
+        $this->get(route('public.shop.return', ['shopOrder' => $order->id]))
+            ->assertOk()
+            ->assertViewHas('showBoxPrompt', true)
+            ->assertSee('shop-return-box-prompt', escape: false);
+    }
+
+    public function test_checkout_prompt_records_answer_for_pay_in_person_orders(): void
+    {
+        $order = ShopOrder::factory()->create([
+            'email' => 'cash@example.com',
+            'payment_method' => 'in_person',
+        ]);
+
+        $this->post(route('public.shop.box-interest', ['shopOrder' => $order->id]), ['interested' => '1'])
+            ->assertRedirect(route('public.shop.return', ['shopOrder' => $order->id]));
+
+        $signup = BoxWaitlistSignup::sole();
+        $this->assertSame('cash@example.com', $signup->email);
+        $this->assertTrue($signup->interested);
+        $this->assertSame('checkout', $signup->source);
     }
 }

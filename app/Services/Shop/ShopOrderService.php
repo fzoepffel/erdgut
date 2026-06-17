@@ -47,6 +47,19 @@ class ShopOrderService
     ) {}
 
     /**
+     * Whether the checkout is "done" from the customer's point of view —
+     * the confirmation page's happy state. True for online orders that are
+     * Paid, and for pay-in-person orders (which stay PendingPayment until
+     * the cash/card hand-over). Shared so the box-waitlist prompt and the
+     * confirmation screen never disagree on what counts as complete.
+     */
+    public static function isCompletedCheckout(ShopOrder $order): bool
+    {
+        return $order->status === ShopOrderStatus::Paid
+            || ($order->payment_method === 'in_person' && $order->status === ShopOrderStatus::PendingPayment);
+    }
+
+    /**
      * The delivery fee (EUR), added once per order for delivery orders.
      */
     public function deliveryFee(): float
