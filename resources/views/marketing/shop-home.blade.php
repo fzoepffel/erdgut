@@ -115,35 +115,44 @@
                  loss of farms → meet the producers; the loss of varieties →
                  the products; the squeeze on producers → the shop. --}}
             @php
+                // Each column states a problem (the figure), then what Erdgut
+                // does about it, then a door to act on it.
                 $letterFigures = [
                     [
                         'value' => '10',
                         'caption' => __('farms disappear every day in Germany'),
+                        'answer' => __('We buy directly from small farms and stay with them season after season.'),
                         'cta' => __('Get to know our producers'),
                         'href' => route('public.shop.producers.index'),
                     ],
                     [
                         'value' => __('~75%'),
                         'caption' => __('of crop varieties lost in the last century'),
+                        'answer' => __('We seek out rare and heirloom varieties on purpose, to give them space to grow again.'),
                         'cta' => __('Browse the products'),
                         'href' => route('public.shop.products.index'),
                     ],
                     [
                         'value' => __('~25%'),
                         'caption' => __('of the food price reaches the producer'),
+                        'answer' => __('With us, producers keep around 70% of the price on average.'),
                         'cta' => __('Visit the shop'),
                         'href' => route('public.shop.index'),
                     ],
                 ];
             @endphp
-            <dl class="mt-20 grid gap-x-8 gap-y-10 border-t border-brand-ink/10 pt-14 sm:grid-cols-3" data-testid="shop-home-figures">
+            <dl class="mt-20 grid gap-x-8 gap-y-12 border-t border-brand-ink/10 pt-14 sm:grid-cols-3" data-testid="shop-home-figures">
                 @foreach ($letterFigures as $i => $figure)
                     <x-reveal variant="fade-up" delay="{{ $i * 80 }}" class="flex flex-col">
-                        <dt class="font-display text-4xl leading-none text-chapter-produce sm:text-5xl">{{ $figure['value'] }}</dt>
-                        <dd class="mt-3 font-editorial text-sm leading-snug text-brand-ink/70">{{ $figure['caption'] }}</dd>
+                        {{-- The problem --}}
+                        <dt class="font-display text-4xl leading-none text-brand-ink/45 sm:text-5xl">{{ $figure['value'] }}</dt>
+                        <dd class="mt-3 font-editorial text-sm leading-snug text-brand-ink/55">{{ $figure['caption'] }}</dd>
+                        {{-- Erdgut's answer --}}
+                        <p class="mt-5 font-mono text-[0.7rem] uppercase tracking-widest text-chapter-produce">{{ __('Our answer') }}</p>
+                        <p class="mt-2 font-editorial text-base leading-snug text-brand-moss">{{ $figure['answer'] }}</p>
                         <a
                             href="{{ $figure['href'] }}"
-                            class="mt-5 self-start font-mono text-xs uppercase leading-relaxed tracking-widest text-chapter-produce underline decoration-chapter-produce/40 underline-offset-4 transition hover:decoration-chapter-produce"
+                            class="mt-auto self-start pt-5 font-mono text-xs uppercase leading-relaxed tracking-widest text-chapter-produce underline decoration-chapter-produce/40 underline-offset-4 transition hover:decoration-chapter-produce"
                         >
                             {{ $figure['cta'] }} <span aria-hidden="true">&rarr;</span>
                         </a>
@@ -206,7 +215,7 @@
                     eyebrow="{{ __('From this week\'s harvest') }}"
                     color="produce"
                     title="{{ __('In season now.') }}"
-                    lead="{{ __('A few things on the shelves right now — picked from what our producers are harvesting this week.') }}"
+                    lead="{{ __('A few things on the shelves right now, picked from what our producers are harvesting this week.') }}"
                     id="shop-home-inseason-heading"
                 />
 
