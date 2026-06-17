@@ -314,10 +314,12 @@ class ShopController extends Controller
             }
         }
 
-        // Ask paid customers (once, ever) whether they'd like to hear when the
-        // subscription boxes launch. Skipped if they've already answered — at
-        // homepage or a previous checkout — keyed by their email.
-        $showBoxPrompt = $shopOrder->status === ShopOrderStatus::Paid
+        // Ask customers (once, ever) whether they'd like to hear when the
+        // subscription boxes launch. Shown on any completed order — online
+        // (Paid) or pay-in-person (which stays PendingPayment until handed
+        // over), mirroring the confirmation's happy state. Skipped if they've
+        // already answered (homepage or a previous checkout), keyed by email.
+        $showBoxPrompt = ShopOrderService::isCompletedCheckout($shopOrder)
             && filled($shopOrder->email)
             && ! BoxWaitlistSignup::query()
                 ->where('email', mb_strtolower(trim($shopOrder->email)))
