@@ -46,7 +46,8 @@
         @endif
 
         @if ($title || $slot->isNotEmpty())
-            <h2 class="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+            {{-- Near-black title reads against the soft pastel background regardless of browser colour mode. --}}
+            <h2 class="font-display text-4xl font-semibold leading-tight tracking-tight text-brand-ink sm:text-5xl lg:text-6xl">
                 {{ $title ?? $slot }}
             </h2>
         @endif
