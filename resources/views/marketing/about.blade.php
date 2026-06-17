@@ -27,9 +27,9 @@
     {{-- Chapter 1: the manifesto / founder letter --}}
     <x-chapter-divider
         chapter="almanach"
-        eyebrow="{{ __('Chapter 01') }}"
-        title="{{ __('Why we started Erdgut.') }}"
-        subtitle="{{ __('A letter from Lucille, Arthur and Milan.') }}"
+        :eyebrow="__('Chapter 01')"
+        :title="__('Why we started Erdgut.')"
+        :subtitle="__('A letter from Lucille, Arthur and Milan.')"
         :showMark="false"
     />
 
@@ -63,9 +63,9 @@
     {{-- Chapter 2: how a box is assembled --}}
     <x-chapter-divider
         chapter="produce"
-        eyebrow="{{ __('Chapter 02') }}"
-        title="{{ __('How a box is put together.') }}"
-        subtitle="{{ __('From Brandenburg fields to your kitchen, in four honest steps.') }}"
+        :eyebrow="__('Chapter 02')"
+        :title="__('How a box is put together.')"
+        :subtitle="__('From Brandenburg fields to your kitchen, in four honest steps.')"
     />
 
     <section class="border-b border-brand-ink/10" aria-labelledby="about-how-heading">
@@ -115,9 +115,9 @@
     {{-- Chapter 3: principles --}}
     <x-chapter-divider
         chapter="meat"
-        eyebrow="{{ __('Chapter 03') }}"
-        title="{{ __('Four principles we don\'t trade away.') }}"
-        subtitle="{{ __('The rules of the house.') }}"
+        :eyebrow="__('Chapter 03')"
+        :title="__('Four principles we don\'t trade away.')"
+        :subtitle="__('The rules of the house.')"
     />
 
     <section class="border-b border-brand-ink/10 bg-brand-paper" aria-labelledby="about-values-heading">
@@ -197,9 +197,9 @@
     {{-- Chapter 5: FAQ --}}
     <x-chapter-divider
         chapter="producers"
-        eyebrow="{{ __('Chapter 05') }}"
-        title="{{ __('Short answers, out loud.') }}"
-        subtitle="{{ __('The questions we hear most, answered without footnotes.') }}"
+        :eyebrow="__('Chapter 05')"
+        :title="__('Short answers, out loud.')"
+        :subtitle="__('The questions we hear most, answered without footnotes.')"
     />
 
     <section class="border-b border-brand-ink/10" aria-labelledby="about-faq-heading" id="faq">

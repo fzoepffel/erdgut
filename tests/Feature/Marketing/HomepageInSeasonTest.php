@@ -67,7 +67,11 @@ class HomepageInSeasonTest extends TestCase
             ->assertOk()
             ->assertSee('data-testid="shop-home-in-season"', false)
             ->assertSee($product->name, false)
-            ->assertSee(route('public.shop.products.show', $product), false);
+            ->assertSee(route('public.shop.products.show', $product), false)
+            // The in-season eyebrow ("From this week's harvest") must not be
+            // double-escaped (regression: section-heading props were passed via
+            // interpolated attributes, escaping the apostrophe twice).
+            ->assertDontSee('&amp;#039;', false);
     }
 
     public function test_product_without_image_is_not_featured(): void

@@ -145,7 +145,7 @@
                 @foreach ($letterFigures as $i => $figure)
                     <x-reveal variant="fade-up" delay="{{ $i * 80 }}" class="flex flex-col">
                         {{-- The problem --}}
-                        <dt class="font-display text-4xl leading-none text-brand-ink/45 sm:text-5xl">{{ $figure['value'] }}</dt>
+                        <dt class="font-display text-4xl leading-none text-accent-star sm:text-5xl">{{ $figure['value'] }}</dt>
                         <dd class="mt-3 font-editorial text-sm leading-snug text-brand-ink/55">{{ $figure['caption'] }}</dd>
                         {{-- Erdgut's answer --}}
                         <p class="mt-5 font-mono text-[0.7rem] uppercase tracking-widest text-chapter-produce">{{ __('Our answer') }}</p>
@@ -212,10 +212,10 @@
         <section class="border-b border-brand-ink/10" aria-labelledby="shop-home-inseason-heading">
             <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
                 <x-section-heading
-                    eyebrow="{{ __('From this week\'s harvest') }}"
+                    :eyebrow="__('From this week\'s harvest')"
                     color="produce"
-                    title="{{ __('In season now.') }}"
-                    lead="{{ __('A few things on the shelves right now, picked from what our producers are harvesting this week.') }}"
+                    :title="__('In season now.')"
+                    :lead="__('A few things on the shelves right now, picked from what our producers are harvesting this week.')"
                     id="shop-home-inseason-heading"
                 />
 
@@ -256,10 +256,10 @@
     <section class="border-b border-brand-ink/10 bg-brand-paper" aria-labelledby="shop-home-chapters-heading">
         <div class="mx-auto max-w-[1400px] px-6 py-20 sm:py-24 lg:px-12">
             <x-section-heading
-                eyebrow="{{ __('What is in the shop') }}"
+                :eyebrow="__('What is in the shop')"
                 color="producers"
-                title="{{ __('Five chapters, one season.') }}"
-                lead="{{ __('Five chapters of producers, one season of food.') }}"
+                :title="__('Five chapters, one season.')"
+                :lead="__('Five chapters of producers, one season of food.')"
                 id="shop-home-chapters-heading"
             />
 
@@ -363,10 +363,10 @@
     <section class="border-b border-brand-ink/10" aria-labelledby="shop-home-steps-heading">
         <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
             <x-section-heading
-                eyebrow="{{ __('The rhythm') }}"
+                :eyebrow="__('The rhythm')"
                 color="fish"
-                title="{{ __('From the shop to your doorstep in four steps.') }}"
-                lead="{{ __('A simple order, delivered in the rhythm of the season — no account gymnastics required.') }}"
+                :title="__('From the shop to your doorstep in four steps.')"
+                :lead="__('A simple order, delivered in the rhythm of the season — no account gymnastics required.')"
                 id="shop-home-steps-heading"
             />
             @php

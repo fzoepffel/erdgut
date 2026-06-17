@@ -131,10 +131,10 @@
     <section class="border-b border-brand-ink/10 bg-brand-paper" aria-labelledby="home-chapters-heading">
         <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
             <x-section-heading
-                eyebrow="{{ __('What is in the book') }}"
+                :eyebrow="__('What is in the book')"
                 color="producers"
-                title="{{ __('Seven chapters, one season.') }}"
-                lead="{{ __('Like the pages of an almanac, each chapter runs with its own colour, its own producers, its own rhythm.') }}"
+                :title="__('Seven chapters, one season.')"
+                :lead="__('Like the pages of an almanac, each chapter runs with its own colour, its own producers, its own rhythm.')"
                 id="home-chapters-heading"
             />
 
@@ -235,10 +235,10 @@
     <section class="border-b border-brand-ink/10" aria-labelledby="home-steps-heading">
         <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
             <x-section-heading
-                eyebrow="{{ __('The rhythm') }}"
+                :eyebrow="__('The rhythm')"
                 color="fish"
-                title="{{ __('From signup to your doorstep in four steps.') }}"
-                lead="{{ __('A predictable weekly beat that leaves room for the unpredictable parts of your life.') }}"
+                :title="__('From signup to your doorstep in four steps.')"
+                :lead="__('A predictable weekly beat that leaves room for the unpredictable parts of your life.')"
                 id="home-steps-heading"
             />
             <ol class="mt-16 grid gap-12 reveal-stagger md:grid-cols-2 lg:grid-cols-4" data-testid="home-how-it-works">
