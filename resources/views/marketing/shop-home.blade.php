@@ -99,8 +99,20 @@
                 </p>
             </x-reveal>
 
-            {{-- Three figures that make the case, each opening a different door:
-                 the loss of farms → meet the producers; the loss of varieties →
+            <x-triple-star class="mt-12" />
+            <x-reveal variant="fade-up" delay="460">
+                <div class="mt-10 flex flex-col items-center gap-6">
+                    <x-founder-signature size="lg" />
+                    <a href="{{ route('public.shop-about') }}" class="inline-flex items-center gap-2 border-b border-chapter-produce pb-0.5 font-mono text-xs uppercase tracking-widest text-chapter-produce transition hover:text-chapter-produce/80" data-testid="shop-home-read-story">
+                        {{ __('Read our story') }}
+                        <span aria-hidden="true">&rarr;</span>
+                    </a>
+                </div>
+            </x-reveal>
+
+            {{-- The bigger picture: three figures behind the letter, set apart
+                 from the signed note above. Each opens a different door — the
+                 loss of farms → meet the producers; the loss of varieties →
                  the products; the squeeze on producers → the shop. --}}
             @php
                 $letterFigures = [
@@ -124,32 +136,20 @@
                     ],
                 ];
             @endphp
-            <dl class="mt-14 grid gap-x-8 gap-y-10 sm:grid-cols-3" data-testid="shop-home-figures">
+            <dl class="mt-20 grid gap-x-8 gap-y-10 border-t border-brand-ink/10 pt-14 sm:grid-cols-3" data-testid="shop-home-figures">
                 @foreach ($letterFigures as $i => $figure)
-                    <x-reveal variant="fade-up" delay="{{ $i * 80 }}" class="flex flex-col border-t border-brand-ink/15 pt-5">
+                    <x-reveal variant="fade-up" delay="{{ $i * 80 }}" class="flex flex-col">
                         <dt class="font-display text-4xl leading-none text-chapter-produce sm:text-5xl">{{ $figure['value'] }}</dt>
                         <dd class="mt-3 font-editorial text-sm leading-snug text-brand-ink/70">{{ $figure['caption'] }}</dd>
                         <a
                             href="{{ $figure['href'] }}"
-                            class="mt-5 inline-flex items-center gap-2 self-start border-b border-chapter-produce pb-0.5 font-mono text-xs uppercase tracking-widest text-chapter-produce transition hover:text-chapter-produce/80"
+                            class="mt-5 self-start font-mono text-xs uppercase leading-relaxed tracking-widest text-chapter-produce underline decoration-chapter-produce/40 underline-offset-4 transition hover:decoration-chapter-produce"
                         >
-                            {{ $figure['cta'] }}
-                            <span aria-hidden="true">&rarr;</span>
+                            {{ $figure['cta'] }} <span aria-hidden="true">&rarr;</span>
                         </a>
                     </x-reveal>
                 @endforeach
             </dl>
-
-            <x-triple-star class="mt-16" />
-            <x-reveal variant="fade-up" delay="460">
-                <div class="mt-10 flex flex-col items-center gap-6">
-                    <x-founder-signature size="lg" />
-                    <a href="{{ route('public.shop-about') }}" class="inline-flex items-center gap-2 border-b border-chapter-produce pb-0.5 font-mono text-xs uppercase tracking-widest text-chapter-produce transition hover:text-chapter-produce/80" data-testid="shop-home-read-story">
-                        {{ __('Read our story') }}
-                        <span aria-hidden="true">&rarr;</span>
-                    </a>
-                </div>
-            </x-reveal>
         </div>
     </section>
 
