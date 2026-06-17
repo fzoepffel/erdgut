@@ -14,7 +14,8 @@ All assets in `public/images/mock/` and `public/videos/mock/` are placeholders s
 | `hero/hero-farm.jpg` | `1500382017468-9049fed747ef` |
 | `hero/hero-field.jpg` | `1464226184884-fa280b87c399` |
 | `hero/about-hero.jpg` | `1523348837708-15d4a09cfac2` |
-| `hero/hero-poster.jpg` | extracted from `videos/mock/newvid.mp4` (frame at 1s) |
+| `hero/hero-poster.jpg` | extracted from `videos/mock/newvid.mp4` (frame at 1s) — box marketing homepage |
+| `hero/shop-hero-poster.jpg` | extracted from `videos/mock/shop-hero.mp4` (frame at 1s) — shop homepage |
 | `producers/elena.jpg` | `GV3u5aUUHwU` |
 | `producers/marcus.jpg` | `RzSwCxlXbxs` |
 | `producers/sophia.jpg` | `K8d7oyd8spQ` |
@@ -45,7 +46,8 @@ Full photo URL pattern: `https://unsplash.com/photos/<photo ID>`.
 
 | File | Source |
 | ---- | ------ |
-| `../videos/mock/newvid.mp4` | **Homepage hero** — project-provided clip (ensure you have rights to use it on the site). |
+| `../videos/mock/newvid.mp4` | **Box marketing homepage hero** — project-provided clip (ensure you have rights to use it on the site). |
+| `../videos/mock/shop-hero.mp4` | **Shop homepage hero** — project-provided clip. Poster: `hero/shop-hero-poster.jpg`. |
 | `../videos/mock/hero-loop.mp4` | Legacy placeholder: [Mixkit clip 4144](https://mixkit.co/free-stock-video/las-vegas-panning-time-lapse-4144/) — not used on the homepage when `newvid.mp4` is wired in Blade. |
 | `../videos/mock/hero-loop.webm` | Legacy VP9/WebM variant of the Mixkit clip — not used when only MP4 is referenced. |
 

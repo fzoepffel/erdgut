@@ -160,11 +160,14 @@ class ShopOrderFlowTest extends TestCase
 
     public function test_imprint_page_renders_provider_details(): void
     {
+        config(['shop.company_vat_id' => 'DE123456789']);
+
         $this->get(route('public.imprint'))
             ->assertOk()
             ->assertSee('Erdgut UG (haftungsbeschränkt)')
             ->assertSee('HRB 286220 B')
-            ->assertSee('Arthur Hamcha');
+            ->assertSee('Arthur Hamcha')
+            ->assertSee('DE123456789');
     }
 
     public function test_storefront_footer_links_to_imprint(): void

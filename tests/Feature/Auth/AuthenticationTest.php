@@ -18,7 +18,7 @@ class AuthenticationTest extends TestCase
         // W2-01: the guest layout now uses the unified customer header
         // (green chapter-produce bar, same as marketing). The logo is the
         // home link; the centered "guest-layout-home" wrapper is gone.
-        $response->assertSee(route('public.marketing-home', absolute: false), false);
+        $response->assertSee(route('public.home', absolute: false), false);
         $response->assertSee('data-testid="guest-layout"', false);
         $response->assertSee('data-testid="customer-header-auth"', false);
     }

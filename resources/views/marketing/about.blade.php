@@ -27,9 +27,9 @@
     {{-- Chapter 1: the manifesto / founder letter --}}
     <x-chapter-divider
         chapter="almanach"
-        eyebrow="{{ __('Chapter 01') }}"
-        title="{{ __('Why we started Erdgut.') }}"
-        subtitle="{{ __('A letter from Lucille, Arthur and Milan.') }}"
+        :eyebrow="__('Chapter 01')"
+        :title="__('Why we started Erdgut.')"
+        :subtitle="__('A letter from Lucille, Arthur and Milan.')"
         :showMark="false"
     />
 
@@ -63,9 +63,9 @@
     {{-- Chapter 2: how a box is assembled --}}
     <x-chapter-divider
         chapter="produce"
-        eyebrow="{{ __('Chapter 02') }}"
-        title="{{ __('How a box is put together.') }}"
-        subtitle="{{ __('From Brandenburg fields to your kitchen, in four honest steps.') }}"
+        :eyebrow="__('Chapter 02')"
+        :title="__('How a box is put together.')"
+        :subtitle="__('From Brandenburg fields to your kitchen, in four honest steps.')"
     />
 
     <section class="border-b border-brand-ink/10" aria-labelledby="about-how-heading">
@@ -115,9 +115,9 @@
     {{-- Chapter 3: principles --}}
     <x-chapter-divider
         chapter="meat"
-        eyebrow="{{ __('Chapter 03') }}"
-        title="{{ __('Four principles we don\'t trade away.') }}"
-        subtitle="{{ __('The rules of the house.') }}"
+        :eyebrow="__('Chapter 03')"
+        :title="__('Four principles we don\'t trade away.')"
+        :subtitle="__('The rules of the house.')"
     />
 
     <section class="border-b border-brand-ink/10 bg-brand-paper" aria-labelledby="about-values-heading">
@@ -127,7 +127,7 @@
                 $values = [
                     ['chapter' => 'produce', 'title' => __('Seasonal first.'), 'copy' => __('We follow the harvest, not the global year-round aisle. In March you will not find strawberries in your box — and in July you will barely see anything else.')],
                     ['chapter' => 'fish', 'title' => __('Short circle, clear origins.'), 'copy' => __('Every product traces to a named farm, bakery or fishery within reach of Berlin. You can read their story before, during and after it lands in your kitchen.')],
-                    ['chapter' => 'meat', 'title' => __('Fair share for producers.'), 'copy' => __('Pricing and relationships are designed so a larger share of what you pay stays with the people who actually grew or made your food.')],
+                    ['chapter' => 'meat', 'title' => __('Pay those who produce.'), 'copy' => __('Our pricing works differently: on average, 70% of what you pay goes back to the producers. Not to middlemen.')],
                     ['chapter' => 'eggdairy', 'title' => __('Calm, not constant.'), 'copy' => __('One box a week, one deadline, one delivery window. No infinite scroll, no flash sales, no notifications begging for attention.')],
                 ];
             @endphp
@@ -176,7 +176,7 @@
                         {{ __('A small circle of hands.') }}
                     </h2>
                     <p class="mt-8 font-editorial text-lg italic leading-relaxed text-brand-cream/85 sm:text-xl">
-                        {{ __('We grow Erdgut the same way we cook: slowly, with the people we already trust. Every producer joins the circle by invitation, not by listing.') }}
+                        {{ __('We grow Erdgut the same way we cook: slowly, with the people we already trust.') }}
                     </p>
                     <p class="mt-8">
                         <a href="{{ route('public.producers') }}" class="inline-flex items-center gap-3 text-sm font-semibold uppercase tracking-eyebrow text-brand-cream underline-offset-4 hover:underline" data-testid="about-producers-link">
@@ -197,9 +197,9 @@
     {{-- Chapter 5: FAQ --}}
     <x-chapter-divider
         chapter="producers"
-        eyebrow="{{ __('Chapter 05') }}"
-        title="{{ __('Short answers, out loud.') }}"
-        subtitle="{{ __('The questions we hear most, answered without footnotes.') }}"
+        :eyebrow="__('Chapter 05')"
+        :title="__('Short answers, out loud.')"
+        :subtitle="__('The questions we hear most, answered without footnotes.')"
     />
 
     <section class="border-b border-brand-ink/10" aria-labelledby="about-faq-heading" id="faq">

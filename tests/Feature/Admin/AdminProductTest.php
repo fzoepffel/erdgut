@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductStockInflow;
 use App\Models\ProductSubcategory;
+use App\Models\ProductTranslation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -724,6 +725,44 @@ class AdminProductTest extends TestCase
         // `decimal:4` so 0.00325 rounds to 0.0033.
         $this->assertEqualsWithDelta(0.00325, (float) $product->unit_price, 0.0001);
         $this->assertSame('kg', $product->price_display_unit);
+    }
+
+    public function test_admin_update_normalizes_json_and_html_escapes_in_descriptions(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'category' => 'produce',
+            'unit_price' => 1.00,
+        ]);
+
+        $corrupted = 'Fraîches avec une note d\\u0027asperge — l\\u0027épluchage est rarement nécessaire.';
+        $expected = "Fraîches avec une note d'asperge — l'épluchage est rarement nécessaire.";
+
+        $this->actingAs($admin)
+            ->put(route('app.admin.products.update', $product), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Spargel', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => $corrupted, 'short_description' => 'this week&#039;s harvest'],
+                    'en' => ['name' => 'Asparagus', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => $corrupted, 'short_description' => 'this week&#039;s harvest'],
+                    'fr' => ['name' => 'Asperges', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => $corrupted, 'short_description' => 'this week&#039;s harvest'],
+                ],
+                'category' => 'produce',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '3.25',
+                'is_available' => '1',
+            ])
+            ->assertRedirect(route('app.admin.products.edit', $product));
+
+        $fr = ProductTranslation::query()
+            ->where('product_id', $product->id)
+            ->where('locale', 'fr')
+            ->first();
+
+        $this->assertSame($expected, $fr->taste_profile);
+        $this->assertSame("this week's harvest", $fr->short_description);
     }
 
     public function test_edit_form_prefills_stored_price_display_unit(): void

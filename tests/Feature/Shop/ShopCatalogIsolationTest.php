@@ -105,6 +105,15 @@ class ShopCatalogIsolationTest extends TestCase
         $response->assertDontSee('href="'.route('public.producers').'"', false);
     }
 
+    public function test_shop_storefront_renders_full_marketing_footer(): void
+    {
+        $this->get(route('public.shop.index'))
+            ->assertOk()
+            ->assertSee(__('footer.tagline'), false)
+            ->assertSee('instagram.com/erdgut.berlin', false)
+            ->assertSee('href="'.route('public.imprint').'"', false);
+    }
+
     public function test_shop_storefront_is_isolated(): void
     {
         $response = $this->get(route('public.shop.index'));
@@ -146,6 +155,7 @@ class ShopCatalogIsolationTest extends TestCase
         // link goes to the shop catalogue, not the app dashboard.
         $response->assertSee(route('public.shop.producers.show', $producer->fresh()), false);
         $response->assertSee('href="'.route('public.shop.products.index').'"', false);
+        $response->assertSee('href="'.route('public.shop-contact').'"', false);
         // No marketing / auth / dashboard / contact links escape the shop.
         $response->assertDontSee('data-testid="customer-header-marketing"', false);
         $response->assertDontSee('href="'.route('public.producers').'"', false);
@@ -158,16 +168,22 @@ class ShopCatalogIsolationTest extends TestCase
 
     public function test_shop_header_nav_links_into_catalog_on_every_page(): void
     {
-        // All three nav items (Hofladen · Produkte · Höfe) are present on the
-        // storefront and on every catalogue page, always linking into /shop.
+        // The shop surface shares one nav: Startseite · Über uns · Höfe ·
+        // Produkte · Hofladen · Kontakt, present on the storefront and on
+        // every catalogue page. The logo points back to the landing page.
         foreach (['public.shop.index', 'public.shop.products.index', 'public.shop.producers.index'] as $route) {
             $this->get(route($route))
                 ->assertOk()
-                ->assertSee('data-testid="shop-nav-shop"', false)
-                ->assertSee('data-testid="shop-nav-products"', false)
-                ->assertSee('data-testid="shop-nav-producers"', false)
+                // Same shared shop header as the landing / About / Kontakt pages.
+                ->assertSee('data-testid="customer-header-shop"', false)
                 ->assertSee('href="'.route('public.shop.products.index').'"', false)
-                ->assertSee('href="'.route('public.shop.producers.index').'"', false);
+                ->assertSee('href="'.route('public.shop.producers.index').'"', false)
+                ->assertSee('href="'.route('public.home').'"', false)
+                ->assertSee('href="'.route('public.shop-about').'"', false)
+                ->assertSee('href="'.route('public.shop-contact').'"', false)
+                // Still no box pages or account chrome on the shop surface.
+                ->assertDontSee('href="'.route('public.marketing-home').'"', false)
+                ->assertDontSee('href="'.route('auth.register').'"', false);
         }
     }
 

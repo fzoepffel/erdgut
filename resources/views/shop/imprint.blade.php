@@ -24,6 +24,9 @@
             <p class="mt-1">
                 <span class="text-brand-ink/60">{{ __('imprint.label_register_number') }}:</span> HRB 286220 B<br>
                 <span class="text-brand-ink/60">{{ __('imprint.label_register_court') }}:</span> Amtsgericht Charlottenburg (Berlin)
+                @if (filled(config('shop.company_vat_id')))
+                    <br><span class="text-brand-ink/60">{{ __('imprint.label_vat_id') }}:</span> {{ config('shop.company_vat_id') }}
+                @endif
             </p>
         </div>
 

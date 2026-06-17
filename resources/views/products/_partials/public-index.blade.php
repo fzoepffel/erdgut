@@ -95,29 +95,39 @@
     <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
 
         {{-- Mono stamp top-right (lg+) --}}
-        <p class="absolute right-12 top-8 hidden font-mono text-[0.65rem] uppercase tracking-widest text-chapter-produce lg:block">
-            {{ $monthStamp }} · {{ __('Catalogue') }}
-        </p>
+        <x-reveal variant="fade-up" delay="0">
+            <p class="absolute right-12 top-8 hidden font-mono text-[0.65rem] uppercase tracking-widest text-chapter-produce lg:block">
+                {{ $monthStamp }} · {{ __('Catalogue') }}
+            </p>
+        </x-reveal>
 
         <div class="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
 
             {{-- Left: eyebrow + H1 --}}
             <div>
-                <p class="eyebrow text-chapter-produce">{{ __('The catalogue') }}</p>
-                <h1 class="mt-4 font-display text-5xl leading-[1.02] tracking-tight text-brand-ink md:text-6xl lg:text-7xl">
-                    {{ __('Five stalls,') }}<br>
-                    <em class="font-normal italic text-chapter-produce">{{ __('products.hero_heading_suffix') }}</em>
-                </h1>
+                <x-reveal variant="fade-up" delay="50">
+                    <p class="eyebrow text-chapter-produce">{{ __('The catalogue') }}</p>
+                </x-reveal>
+                <x-reveal variant="fade-up" delay="150">
+                    <h1 class="mt-4 font-display text-5xl leading-[1.02] tracking-tight text-brand-ink md:text-6xl lg:text-7xl">
+                        {{ __('Five stalls,') }}<br>
+                        <em class="font-normal italic text-chapter-produce">{{ __('products.hero_heading_suffix') }}</em>
+                    </h1>
+                </x-reveal>
             </div>
 
             {{-- Right: lead + stats --}}
             <div class="flex flex-col justify-end">
-                <p class="max-w-md text-base leading-relaxed text-brand-ink/60">
-                    {{ $isolated ? __('shop.products_index_intro') : __('products.index_intro') }}
-                </p>
-                <p class="mt-8 font-mono text-xs uppercase tracking-widest text-chapter-produce">
-                    {{ $totalCount }} {{ __('entries') }} · {{ __('products.hero_stat_farms') }}
-                </p>
+                <x-reveal variant="fade-up" delay="250">
+                    <p class="max-w-md text-base leading-relaxed text-brand-ink/60">
+                        {{ $isolated ? __('shop.products_index_intro') : __('products.index_intro') }}
+                    </p>
+                </x-reveal>
+                <x-reveal variant="fade-up" delay="350">
+                    <p class="mt-8 font-mono text-xs uppercase tracking-widest text-chapter-produce">
+                        {{ $totalCount }} {{ __('entries') }} · {{ __('products.hero_stat_farms') }}
+                    </p>
+                </x-reveal>
             </div>
 
         </div>
@@ -129,6 +139,7 @@
     <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
 
         {{-- Header: eyebrow + "All chapters" button + active label --}}
+        <x-reveal variant="fade-up">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <p class="eyebrow text-chapter-produce">{{ __('Stalls') }}</p>
             <div class="flex items-center gap-5">
@@ -148,6 +159,7 @@
                 </span>
             </div>
         </div>
+        </x-reveal>
 
         {{-- Chapter cards — portrait book-cover style --}}
         <div class="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
@@ -163,6 +175,7 @@
                     $img       = $chapterImage[$chapter] ?? null;
                     $idx       = str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT);
                 @endphp
+                <x-reveal variant="fade-up" delay="{{ $loop->index * 80 }}">
                 <a href="{{ route($productsIndexRoute, ['category' => $cat->value]) }}"
                    class="group relative flex aspect-[3/4] flex-col overflow-hidden {{ $bgClass }} text-brand-cream transition duration-150 hover:-translate-y-1
                           @if($isActive) ring-2 ring-offset-2 ring-brand-ink @endif"
@@ -206,6 +219,7 @@
                         </div>
                     </div>
                 </a>
+                </x-reveal>
             @endforeach
         </div>
 
@@ -253,6 +267,7 @@
         <div class="mx-auto max-w-[1400px] px-6 lg:px-12">
 
             {{-- Section header --}}
+            <x-reveal variant="fade-up">
             <div class="flex flex-wrap items-end justify-between gap-6">
                 <div>
                     <p class="eyebrow text-chapter-produce">{{ __('The manifest') }}</p>
@@ -265,6 +280,7 @@
                     {{ $isolated ? __('shop.products_manifest_note') : __('products.manifest_pricing_note') }}
                 </p>
             </div>
+            </x-reveal>
 
             {{-- Product grid --}}
             <ul class="mt-14 grid grid-cols-1 gap-x-10 gap-y-14 md:grid-cols-2 lg:grid-cols-3" data-testid="products-grid">

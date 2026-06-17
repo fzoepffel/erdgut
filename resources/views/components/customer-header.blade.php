@@ -32,12 +32,39 @@
     $inkSubtle = 'rgba(33, 52, 29, 0.75)';
     $homeRoute = match (true) {
         auth()->check() => route('app.dashboard'),
-        default => route('public.marketing-home'),
+        $variant === 'marketing' => route('public.marketing-home'),
+        default => route('public.home'),
     };
+
+    // Nav items per surface. The `marketing` (box) surface keeps the full
+    // account-aware nav; the `shop` surface only links to the shop pages
+    // (plus the shop landing + About) and carries no sign-up / sign-in.
+    $navItems = match ($variant) {
+        'marketing' => [
+            ['route' => 'public.marketing-home', 'active' => 'public.marketing-home', 'label' => __('Home')],
+            ['route' => 'public.about', 'active' => 'public.about', 'label' => __('About')],
+            ['route' => 'public.producers', 'active' => 'public.producers', 'label' => __('Producers')],
+            ['route' => 'public.products.index', 'active' => 'public.products.*', 'label' => __('Products')],
+            ['route' => 'public.shop.index', 'active' => 'public.shop.*', 'label' => __('Shop')],
+            ['route' => 'public.contact', 'active' => 'public.contact', 'label' => __('Contact')],
+        ],
+        // The Hofladen is the primary conversion goal; it is not a plain nav
+        // link but a solid CTA button on the right (see below).
+        'shop' => [
+            ['route' => 'public.home', 'active' => 'public.home', 'label' => __('Home')],
+            ['route' => 'public.shop-about', 'active' => 'public.shop-about', 'label' => __('About')],
+            ['route' => 'public.shop.producers.index', 'active' => 'public.shop.producers.*', 'label' => __('shop.nav_producers')],
+            ['route' => 'public.shop.products.index', 'active' => 'public.shop.products.*', 'label' => __('shop.nav_products')],
+            ['route' => 'public.shop-contact', 'active' => 'public.shop-contact', 'label' => __('Contact')],
+        ],
+        default => [],
+    };
+
+    $hasNav = in_array($variant, ['marketing', 'shop'], true);
 @endphp
 
 <header
-    @if ($variant === 'marketing')
+    @if ($hasNav)
         x-data="{ open: false }"
     @endif
     class="sticky top-0 z-50 border-b"
@@ -60,20 +87,24 @@
             ></span>
         </a>
 
-        @if ($variant === 'marketing')
+        @if ($hasNav)
             <nav class="hidden items-center gap-10 text-sm font-medium md:flex">
-                <a href="{{ route('public.marketing-home') }}" @if (request()->routeIs('public.marketing-home')) aria-current="page" @endif class="transition {{ request()->routeIs('public.marketing-home') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.marketing-home') ? $ink : $inkSubtle }};">{{ __('Home') }}</a>
-                <a href="{{ route('public.about') }}" @if (request()->routeIs('public.about')) aria-current="page" @endif class="transition {{ request()->routeIs('public.about') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.about') ? $ink : $inkSubtle }};">{{ __('About') }}</a>
-                <a href="{{ route('public.producers') }}" @if (request()->routeIs('public.producers')) aria-current="page" @endif class="transition {{ request()->routeIs('public.producers') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.producers') ? $ink : $inkSubtle }};">{{ __('Producers') }}</a>
-                <a href="{{ route('public.products.index') }}" @if (request()->routeIs('public.products.*')) aria-current="page" @endif class="transition {{ request()->routeIs('public.products.*') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.products.*') ? $ink : $inkSubtle }};">{{ __('Products') }}</a>
-                <a href="{{ route('public.shop.index') }}" @if (request()->routeIs('public.shop.*')) aria-current="page" @endif class="transition {{ request()->routeIs('public.shop.*') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.shop.*') ? $ink : $inkSubtle }};">{{ __('Shop') }}</a>
-                <a href="{{ route('public.contact') }}" @if (request()->routeIs('public.contact')) aria-current="page" @endif class="transition {{ request()->routeIs('public.contact') ? 'font-semibold' : '' }}" style="color: {{ request()->routeIs('public.contact') ? $ink : $inkSubtle }};">{{ __('Contact') }}</a>
+                @foreach ($navItems as $item)
+                    @php $isActive = request()->routeIs($item['active']); @endphp
+                    <a href="{{ route($item['route']) }}" @if ($isActive) aria-current="page" @endif class="transition {{ $isActive ? 'font-semibold' : '' }}" style="color: {{ $isActive ? $ink : $inkSubtle }};">{{ $item['label'] }}</a>
+                @endforeach
             </nav>
         @endif
 
         @if ($variant !== 'wizard')
             <div class="hidden items-center gap-3 md:flex" style="color: {{ $ink }};">
                 <x-language-selector />
+                @if ($variant === 'shop')
+                    <a href="{{ route('public.shop.index') }}" @if (request()->routeIs('public.shop.index')) aria-current="page" @endif class="inline-flex items-center justify-center gap-2 px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: {{ $ink }}; color: {{ $cream }};" data-testid="shop-nav-cta">
+                        {{ __('Visit the shop') }}
+                        <span aria-hidden="true">&rarr;</span>
+                    </a>
+                @endif
                 @if ($variant === 'marketing')
                     @auth
                         <a href="{{ route('app.dashboard') }}" class="inline-flex items-center justify-center border px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:bg-[{{ $ink }}] hover:text-[{{ $bg }}]" style="border-color: {{ $ink }}; color: {{ $ink }};">
@@ -100,7 +131,7 @@
              user can resume via /onboard, and language can be switched
              from the public marketing pages before entering onboarding. --}}
 
-        @if ($variant === 'marketing')
+        @if ($hasNav)
             <button
                 type="button"
                 class="inline-flex items-center justify-center p-2 md:hidden"
@@ -117,32 +148,38 @@
         @endif
     </div>
 
-    @if ($variant === 'marketing')
+    @if ($hasNav)
         <div x-show="open" x-transition class="border-t px-4 py-6 md:hidden" style="display: none; border-color: rgba(33, 52, 29, 0.15);">
             <div class="space-y-3 text-base font-medium">
-                <a href="{{ route('public.marketing-home') }}" @if (request()->routeIs('public.marketing-home')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.marketing-home') ? $ink : $inkSubtle }};">{{ __('Home') }}</a>
-                <a href="{{ route('public.about') }}" @if (request()->routeIs('public.about')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.about') ? $ink : $inkSubtle }};">{{ __('About') }}</a>
-                <a href="{{ route('public.producers') }}" @if (request()->routeIs('public.producers')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.producers') ? $ink : $inkSubtle }};">{{ __('Producers') }}</a>
-                <a href="{{ route('public.products.index') }}" @if (request()->routeIs('public.products.*')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.products.*') ? $ink : $inkSubtle }};">{{ __('Products') }}</a>
-                <a href="{{ route('public.shop.index') }}" @if (request()->routeIs('public.shop.*')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.shop.*') ? $ink : $inkSubtle }};">{{ __('Shop') }}</a>
-                <a href="{{ route('public.contact') }}" @if (request()->routeIs('public.contact')) aria-current="page" @endif class="block" style="color: {{ request()->routeIs('public.contact') ? $ink : $inkSubtle }};">{{ __('Contact') }}</a>
+                @foreach ($navItems as $item)
+                    @php $isActive = request()->routeIs($item['active']); @endphp
+                    <a href="{{ route($item['route']) }}" @if ($isActive) aria-current="page" @endif class="block" style="color: {{ $isActive ? $ink : $inkSubtle }};">{{ $item['label'] }}</a>
+                @endforeach
             </div>
             <div class="mt-5 border-t pt-5" style="border-color: rgba(33, 52, 29, 0.15);">
                 <div class="mb-4">
                     <x-language-selector align="left" />
                 </div>
-                <div class="space-y-3">
-                    @auth
-                        <a href="{{ route('app.dashboard') }}" class="inline-flex w-full items-center justify-center border px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:bg-[{{ $ink }}] hover:text-[{{ $bg }}]" style="border-color: {{ $ink }}; color: {{ $ink }};">
-                            {{ __('Dashboard') }}
-                        </a>
-                    @else
-                        <a href="{{ route('auth.login') }}" class="block text-sm font-medium" style="color: {{ $inkSubtle }};">{{ __('Log in') }}</a>
-                        <a href="{{ route('auth.register') }}" class="inline-flex w-full items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: {{ $ink }}; color: {{ $cream }};">
-                            {{ __('Sign up') }}
-                        </a>
-                    @endauth
-                </div>
+                @if ($variant === 'shop')
+                    <a href="{{ route('public.shop.index') }}" class="inline-flex w-full items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: {{ $ink }}; color: {{ $cream }};" data-testid="shop-nav-cta-mobile">
+                        {{ __('Visit the shop') }}
+                        <span aria-hidden="true">&rarr;</span>
+                    </a>
+                @endif
+                @if ($variant === 'marketing')
+                    <div class="space-y-3">
+                        @auth
+                            <a href="{{ route('app.dashboard') }}" class="inline-flex w-full items-center justify-center border px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:bg-[{{ $ink }}] hover:text-[{{ $bg }}]" style="border-color: {{ $ink }}; color: {{ $ink }};">
+                                {{ __('Dashboard') }}
+                            </a>
+                        @else
+                            <a href="{{ route('auth.login') }}" class="block text-sm font-medium" style="color: {{ $inkSubtle }};">{{ __('Log in') }}</a>
+                            <a href="{{ route('auth.register') }}" class="inline-flex w-full items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: {{ $ink }}; color: {{ $cream }};">
+                                {{ __('Sign up') }}
+                            </a>
+                        @endauth
+                    </div>
+                @endif
             </div>
         </div>
     @endif

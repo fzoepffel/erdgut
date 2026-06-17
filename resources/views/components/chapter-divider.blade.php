@@ -35,7 +35,7 @@
     $renderMark = $showMark && in_array($chapter, $chaptersWithMark, true);
 @endphp
 
-<section {{ $attributes->class(['relative isolate overflow-hidden py-12 sm:py-16', $wrapperClasses]) }}>
+<section {{ $attributes->class(['relative isolate overflow-hidden py-12 sm:py-16', $wrapperClasses]) }} style="color-scheme: light">
     <div class="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 text-center sm:px-6 lg:px-8">
         @if ($renderMark)
             <x-chapter-mark :chapter="$chapter" size="lg" class="opacity-90" />
@@ -46,7 +46,8 @@
         @endif
 
         @if ($title || $slot->isNotEmpty())
-            <h2 class="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+            {{-- Near-black title reads against the soft pastel background regardless of browser colour mode. --}}
+            <h2 class="font-display text-4xl font-semibold leading-tight tracking-tight text-brand-ink sm:text-5xl lg:text-6xl">
                 {{ $title ?? $slot }}
             </h2>
         @endif

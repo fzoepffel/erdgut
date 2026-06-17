@@ -47,6 +47,69 @@ class ShopOrderService
     ) {}
 
     /**
+     * Whether the checkout is "done" from the customer's point of view —
+     * the confirmation page's happy state. True for online orders that are
+     * Paid, and for pay-in-person orders (which stay PendingPayment until
+     * the cash/card hand-over). Shared so the box-waitlist prompt and the
+     * confirmation screen never disagree on what counts as complete.
+     */
+    public static function isCompletedCheckout(ShopOrder $order): bool
+    {
+        return $order->status === ShopOrderStatus::Paid
+            || ($order->payment_method === 'in_person' && $order->status === ShopOrderStatus::PendingPayment);
+    }
+
+    /**
+     * A short, editorial pick of products that are "in season now" — i.e.
+     * have stock on at least one date in a two-week window around today
+     * (today−7 … today+7). Only products that carry both an image and a
+     * sufficiently long description qualify, so the homepage feature never
+     * renders a thin or image-less card. Ordered by how many days in the
+     * window they're available (most-available first), capped at $limit.
+     *
+     * Returns an empty collection when nothing qualifies, so the caller can
+     * hide the section cleanly.
+     *
+     * @return Collection<int, Product>
+     */
+    public function featuredInSeasonProducts(int $limit = 3, int $minDescriptionChars = 140): Collection
+    {
+        $products = Product::query()
+            ->visibleInCatalog()
+            ->whereNotNull('image_path')
+            ->where('image_path', '!=', '')
+            ->with(['translations', 'producer.translations'])
+            ->get();
+
+        if ($products->isEmpty()) {
+            return collect();
+        }
+
+        $inventory = app(InventoryService::class);
+        $from = Carbon::today()->subDays(7);
+        $to = Carbon::today()->addDays(7);
+        $matrix = $inventory->availabilityMatrix($products, $from, $to);
+
+        $locale = app()->getLocale();
+
+        $availableDays = static fn (Product $p): int => collect($matrix[$p->id] ?? [])
+            ->filter(fn ($remaining): bool => $remaining > 0)
+            ->count();
+
+        return $products
+            ->filter(function (Product $p) use ($availableDays, $minDescriptionChars, $locale): bool {
+                if ($availableDays($p) === 0) {
+                    return false;
+                }
+
+                return mb_strlen(trim($p->localizedTasteProfile($locale))) >= $minDescriptionChars;
+            })
+            ->sortByDesc($availableDays)
+            ->take($limit)
+            ->values();
+    }
+
+    /**
      * The delivery fee (EUR), added once per order for delivery orders.
      */
     public function deliveryFee(): float

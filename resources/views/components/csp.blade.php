@@ -36,11 +36,19 @@
     // `npm run dev` HMR works without the npm-run-build workaround.
     // Production / staging layouts have no exposure to 127.0.0.1.
     if (app()->environment('local')) {
-        $viteHttp = 'http://127.0.0.1:5173';
-        $viteWs = 'ws://127.0.0.1:5173';
-        $scriptSrc .= " {$viteHttp}";
-        $styleSrc .= " {$viteHttp}";
-        $connectSrc .= " {$viteHttp} {$viteWs}";
+        $viteOrigins = [
+            'http://127.0.0.1:5173',
+            'http://localhost:5173',
+            'http://[::1]:5173',
+        ];
+        $viteWsOrigins = [
+            'ws://127.0.0.1:5173',
+            'ws://localhost:5173',
+            'ws://[::1]:5173',
+        ];
+        $scriptSrc .= ' '.implode(' ', $viteOrigins);
+        $styleSrc .= ' '.implode(' ', $viteOrigins);
+        $connectSrc .= ' '.implode(' ', [...$viteOrigins, ...$viteWsOrigins]);
     }
 
     $directives = [

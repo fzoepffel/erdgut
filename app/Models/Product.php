@@ -6,6 +6,7 @@ use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
 use App\Services\Admin\InventoryService;
 use App\Services\ImageProcessor;
+use App\Support\HumanText;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -278,7 +279,7 @@ class Product extends Model
      */
     public function localizedTasteProfile(?string $locale = null): string
     {
-        return $this->translationFor($locale)?->taste_profile ?? '';
+        return HumanText::normalize($this->translationFor($locale)?->taste_profile);
     }
 
     /**
@@ -289,7 +290,7 @@ class Product extends Model
      */
     public function localizedShortDescription(?string $locale = null): string
     {
-        return $this->translationFor($locale)?->short_description ?? '';
+        return HumanText::normalize($this->translationFor($locale)?->short_description);
     }
 
     /**

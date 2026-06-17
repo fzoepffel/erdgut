@@ -291,4 +291,51 @@
             </div>
         </div>
     @endif
+
+    {{-- Post-payment box-waitlist prompt. The order is already complete; this
+         is a one-time ask (skipped once the customer's email is on record). --}}
+    @if (! empty($showBoxPrompt))
+        <div
+            x-data="{ open: true }"
+            x-show="open"
+            x-cloak
+            class="fixed inset-0 z-50 flex items-center justify-center px-4"
+            data-testid="shop-return-box-prompt"
+            @keydown.escape.window="open = false"
+        >
+            <div class="absolute inset-0 bg-brand-ink/60" @click="open = false"></div>
+            <div
+                x-show="open"
+                x-transition
+                class="relative w-full max-w-md border border-shop-border bg-brand-cream p-8 text-center shadow-xl"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="shop-return-box-prompt-heading"
+            >
+                <p class="font-mono text-xs font-medium uppercase tracking-widest text-chapter-produce">{{ __('Coming soon') }}</p>
+                <h2 id="shop-return-box-prompt-heading" class="mt-4 font-display text-2xl leading-snug text-brand-ink">
+                    {{ __('Boxes are coming to Erdgut.') }}
+                </h2>
+                <p class="mt-4 text-sm leading-relaxed text-brand-ink/70">
+                    {{ __('We are about to launch a weekly subscription box — a seasonal selection from our producers, delivered to your door at a friendlier price. Shall we email you the moment it is ready?') }}
+                </p>
+                <div class="mt-8 flex flex-col gap-3">
+                    <form method="POST" action="{{ route('public.shop.box-interest', ['shopOrder' => $order->id]) }}">
+                        @csrf
+                        <input type="hidden" name="interested" value="1">
+                        <button type="submit" class="btn-solid w-full" data-testid="shop-return-box-yes">
+                            {{ __('Yes, keep me posted') }}
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ route('public.shop.box-interest', ['shopOrder' => $order->id]) }}">
+                        @csrf
+                        <input type="hidden" name="interested" value="0">
+                        <button type="submit" class="text-sm font-semibold uppercase tracking-eyebrow text-brand-ink/60 underline-offset-4 hover:text-brand-ink hover:underline" data-testid="shop-return-box-no">
+                            {{ __('No, thanks') }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
 </x-shop-layout>
