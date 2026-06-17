@@ -253,7 +253,7 @@ class WizardPolishTest extends TestCase
             __('Save card and start subscription', [], 'de'),
         );
         $this->assertSame(
-            'Letzter Schritt — Abo starten',
+            'Letzter Schritt, Abo starten',
             __('Last step — start your subscription', [], 'de'),
         );
     }

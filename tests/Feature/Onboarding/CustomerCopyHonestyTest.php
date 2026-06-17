@@ -113,7 +113,7 @@ class CustomerCopyHonestyTest extends TestCase
         // result of the page anymore. This test asserts at the lang-file
         // level that both keys exist and the new one is honest.
         $this->assertEquals(
-            'Ein Platz am Tisch — deiner, mit dieser ersten Box.',
+            'Ein Platz am Tisch, deiner, mit dieser ersten Box.',
             __('A seat at the table — yours, with this first box.', [], 'de')
         );
         // Old key remains for any legacy reference, but the new view uses

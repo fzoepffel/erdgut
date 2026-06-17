@@ -21,7 +21,7 @@ class LocaleSwitchTest extends TestCase
 
         $response->assertOk();
         // Headline is split: "Des légumes frais sont" + <span italic> "en route."
-        $response->assertSee('Des produits de saison de petites fermes, livrés dans tout Berlin.', false);
+        $response->assertSee('Des produits fermiers de saison, livrés en circuit-court à Berlin.', false);
         $response->assertSee('data-current-locale="fr"', false);
     }
 
@@ -57,7 +57,7 @@ class LocaleSwitchTest extends TestCase
 
         $response->assertOk();
         // Headline split into two parts in FR locale.
-        $response->assertSee('Des produits de saison de petites fermes, livrés dans tout Berlin.', false);
+        $response->assertSee('Des produits fermiers de saison, livrés en circuit-court à Berlin.', false);
     }
 
     public function test_session_locale_takes_precedence_over_accept_language(): void
@@ -72,7 +72,7 @@ class LocaleSwitchTest extends TestCase
         // EN locale: headline split.
         $response->assertSee('Seasonal food from small farms, delivered across Berlin.', false);
         // FR copy must not appear when session forces EN.
-        $response->assertDontSee('Des produits de saison de petites fermes, livrés dans tout Berlin.', false);
+        $response->assertDontSee('Des produits fermiers de saison, livrés en circuit-court à Berlin.', false);
     }
 
     public function test_default_locale_is_english_without_session_or_header(): void
@@ -117,7 +117,7 @@ class LocaleSwitchTest extends TestCase
 
         $response->assertOk();
         // FR locale headline is split.
-        $response->assertSee('Des produits de saison de petites fermes, livrés dans tout Berlin.', false);
+        $response->assertSee('Des produits fermiers de saison, livrés en circuit-court à Berlin.', false);
     }
 
     public function test_session_locale_still_wins_over_authenticated_user_locale(): void
