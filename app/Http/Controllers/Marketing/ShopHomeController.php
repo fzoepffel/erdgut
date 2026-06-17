@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Marketing;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Services\Shop\ShopOrderService;
 use Illuminate\Contracts\View\View;
 
 class ShopHomeController extends Controller
 {
+    public function __construct(private readonly ShopOrderService $shop) {}
+
     /**
      * Render the public shop landing page served at the root URL.
      *
@@ -31,6 +34,8 @@ class ShopHomeController extends Controller
 
         return view('marketing.shop-home', [
             'availableCategories' => $availableCategories,
+            // Real, in-season products to feature (empty → section hidden).
+            'inSeasonProducts' => $this->shop->featuredInSeasonProducts(),
         ]);
     }
 }
