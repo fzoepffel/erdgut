@@ -65,7 +65,7 @@
     {{-- Chapter 2: Our sourcing philosophy --}}
     <x-chapter-divider
         chapter="almanach"
-        :eyebrow="__('Chapter 2')"
+        :eyebrow="__('From farm to table')"
         :title="__('Our sourcing philosophy')"
         :showMark="false"
     />
@@ -105,7 +105,7 @@
     {{-- Chapter 3: Four principles --}}
     <x-chapter-divider
         chapter="meat"
-        :eyebrow="__('Chapter 3')"
+        :eyebrow="__('Our Model')"
         :title="__('Four principles we don\'t trade away.')"
         :subtitle="__('The rules of the house.')"
         :showMark="false"
@@ -158,7 +158,7 @@
     {{-- Chapter 4: FAQ --}}
     <x-chapter-divider
         chapter="producers"
-        :eyebrow="__('Chapter 4')"
+        :eyebrow="__('Questions')"
         :title="__('Good to know.')"
         :subtitle="__('On delivery, ordering, and the people behind the shop.')"
         :showMark="false"
