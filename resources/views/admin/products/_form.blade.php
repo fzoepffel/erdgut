@@ -622,12 +622,13 @@
                     'fr' => $v['name']['fr'] ?? '',
                 ],
                 'unit_price' => $v['price'] !== null ? number_format((float) $v['price'], 2, '.', '') : '',
+                'business_price' => ($v['business_price'] ?? null) !== null ? number_format((float) $v['business_price'], 2, '.', '') : '',
                 'is_active' => $v['is_active'],
             ])->values()->all());
         @endphp
         <div class="border-t border-gray-100 pt-6" x-data="{
             variants: @js(array_values($variantSeed)),
-            add() { this.variants.push({ id: '', name: { de: '', en: '', fr: '' }, unit_price: '', is_active: true }); },
+            add() { this.variants.push({ id: '', name: { de: '', en: '', fr: '' }, unit_price: '', business_price: '', is_active: true }); },
             remove(i) { this.variants.splice(i, 1); },
         }">
             <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.grades_heading') }}</h3>
@@ -654,6 +655,11 @@
                                 {{ __('admin.product_form.grades_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
                                 <input type="number" step="0.01" min="0.01" x-model="v.unit_price" :name="'variants['+i+'][unit_price]'"
                                     x-bind:placeholder="document.getElementById('price')?.value || ''"
+                                    class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                            <label class="block text-xs text-gray-600">
+                                {{ __('admin.product_form.grades_business_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                                <input type="number" step="0.01" min="0.01" x-model="v.business_price" :name="'variants['+i+'][business_price]'"
                                     class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                             </label>
                             <label class="flex items-center gap-2 pb-2 text-xs text-gray-700">

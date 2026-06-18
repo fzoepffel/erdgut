@@ -18,8 +18,9 @@
             storeUrl: @js(route('app.admin.products.pricing.store', $product->id)),
             destroyUrl: @js(route('app.admin.products.pricing.destroy', $product->id)),
             csrf: @js(csrf_token()),
-            firstKey: @js('pricing-first-'.$product->id),
+            firstKey: @js('pricing-first-'.$product->id.'-'.($variantId ?? 0)),
          })">
+        @php $variantQuery = ($variantId ?? null) !== null ? '&variant='.$variantId : ''; @endphp
         <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
 
             @if (session('status') === 'price-rule-saved')
@@ -31,6 +32,21 @@
             <p class="text-sm text-gray-600">
                 {{ __('admin.product_pricing.intro', ['price' => \App\Support\Money::formatEur($defaultPrice)]) }}
             </p>
+
+            {{-- Grade selector — date overrides are managed per grade. Only
+                 shown when the product has named grades. --}}
+            @if (count($grades) > 1)
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.product_pricing.grade_label') }}</span>
+                    @foreach ($grades as $grade)
+                        @php $isSelected = (string) ($variantId ?? '') === $grade['value']; @endphp
+                        <a href="?month={{ $calendar['month'] }}{{ $grade['value'] !== '' ? '&variant='.$grade['value'] : '' }}"
+                           class="rounded-full border px-3 py-1 text-sm {{ $isSelected ? 'border-emerald-600 bg-emerald-50 font-medium text-emerald-800' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50' }}">
+                            {{ $grade['label'] }}
+                        </a>
+                    @endforeach
+                </div>
+            @endif
 
             {{-- Pending range start — shown while waiting for the end date, even
                  after navigating to another month, so cross-month ranges are clear. --}}
@@ -44,9 +60,9 @@
                 <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-4 sm:px-6">
                     <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.product_pricing.calendar_heading') }}</h2>
                     <div class="flex items-center gap-2">
-                        <a href="?month={{ $calendar['prev_month'] }}" class="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50">&larr;</a>
+                        <a href="?month={{ $calendar['prev_month'] }}{{ $variantQuery }}" class="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50">&larr;</a>
                         <span class="min-w-[9rem] text-center text-sm font-medium text-gray-900">{{ $calendar['label'] }}</span>
-                        <a href="?month={{ $calendar['next_month'] }}" class="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50">&rarr;</a>
+                        <a href="?month={{ $calendar['next_month'] }}{{ $variantQuery }}" class="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50">&rarr;</a>
                     </div>
                 </div>
 
@@ -119,6 +135,7 @@
                     <input type="hidden" name="starts_on" :value="rangeStart">
                     <input type="hidden" name="ends_on" :value="rangeEnd">
                     <input type="hidden" name="month" value="{{ $calendar['month'] }}">
+                    @if (($variantId ?? null) !== null)<input type="hidden" name="variant_id" value="{{ $variantId }}">@endif
                     <div>
                         <label for="rule_price" class="block text-sm font-medium text-gray-700">
                             {{ __('admin.product_pricing.price_label') }}@if (! empty($displayUnit)) <span class="text-gray-400">(€ / {{ $displayUnit }})</span>@endif
@@ -143,6 +160,7 @@
                     <input type="hidden" name="starts_on" :value="rangeStart">
                     <input type="hidden" name="ends_on" :value="rangeEnd">
                     <input type="hidden" name="month" value="{{ $calendar['month'] }}">
+                    @if (($variantId ?? null) !== null)<input type="hidden" name="variant_id" value="{{ $variantId }}">@endif
                     <button type="submit" class="text-sm font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_pricing.remove') }}</button>
                 </form>
             </div>

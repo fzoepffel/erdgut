@@ -3681,5 +3681,8 @@
     "admin.product_group_prices.save": "Save",
     "admin.product_group_prices.remove": "Remove business price",
     "admin.product_group_prices.saved": "Business price saved.",
-    "admin.product_group_prices.cleared": "Business price removed."
+    "admin.product_group_prices.cleared": "Business price removed.",
+    "admin.product_form.grades_business_price": "Business price",
+    "admin.product_pricing.grade_label": "Grade",
+    "admin.product_pricing.grade_default": "Standard"
 }

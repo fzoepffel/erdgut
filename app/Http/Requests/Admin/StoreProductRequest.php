@@ -82,6 +82,7 @@ class StoreProductRequest extends FormRequest
             'variants.*.name.en' => ['nullable', 'string', 'max:120'],
             'variants.*.name.fr' => ['nullable', 'string', 'max:120'],
             'variants.*.unit_price' => ['nullable', 'numeric', 'gt:0'],
+            'variants.*.business_price' => ['nullable', 'numeric', 'gt:0'],
             'variants.*.is_active' => ['nullable', 'boolean'],
             'variants.*.position' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'is_seasonal' => ['boolean'],

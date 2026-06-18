@@ -283,7 +283,7 @@ class ProductController extends Controller
             'pairableProducts' => $pairableProducts,
             // Customer-group (business) price + grades, edited inline on the
             // product form. Both prices are shown in the display unit (€/kg).
-            'businessPrice' => $product !== null ? $this->businessDisplayPrice($product) : null,
+            'businessPrice' => $product !== null ? $this->businessDisplayPriceFor($product, null) : null,
             'existingVariants' => $product !== null
                 ? $product->variants()->get()->map(fn (ProductVariant $v): array => [
                     'id' => $v->id,
@@ -291,6 +291,7 @@ class ProductController extends Controller
                     'price' => $v->unit_price !== null
                         ? round((float) $v->unit_price * $this->displayFactor($product), 2)
                         : null,
+                    'business_price' => $this->businessDisplayPriceFor($product, $v->id),
                     'is_active' => (bool) $v->is_active,
                 ])->all()
                 : [],
@@ -309,24 +310,58 @@ class ProductController extends Controller
         return $factor > 0 ? $factor : 1;
     }
 
-    /** The plain business price rule for a product (no date/variant/qty scope). */
-    private function businessRule(Product $product): ?ProductPriceRule
+    /**
+     * The plain business price rule for a product grade (no date/qty scope).
+     * $variantId null = the default grade (the product itself).
+     */
+    private function businessRuleFor(Product $product, ?int $variantId): ?ProductPriceRule
     {
         return $product->priceRules()
             ->where('customer_type', CustomerType::Business->value)
             ->whereNull('starts_on')
             ->whereNull('ends_on')
-            ->whereNull('variant_id')
             ->whereNull('min_quantity')
+            ->when($variantId === null, fn ($q) => $q->whereNull('variant_id'), fn ($q) => $q->where('variant_id', $variantId))
             ->first();
     }
 
-    /** The business price in the display unit (€/kg), or null when unset. */
-    private function businessDisplayPrice(Product $product): ?float
+    /** A grade's business price in the display unit (€/kg), or null when unset. */
+    private function businessDisplayPriceFor(Product $product, ?int $variantId): ?float
     {
-        $rule = $this->businessRule($product);
+        $rule = $this->businessRuleFor($product, $variantId);
 
         return $rule === null ? null : round((float) $rule->unit_price * $this->displayFactor($product), 2);
+    }
+
+    /**
+     * Set/clear a grade's plain business price. $raw is a display-unit price;
+     * empty clears it. $variantId null = the default grade.
+     */
+    private function upsertBusinessPrice(Product $product, ?int $variantId, mixed $raw, float $factor, ?int $userId): void
+    {
+        $existing = $this->businessRuleFor($product, $variantId);
+
+        if ($raw === null || $raw === '') {
+            $existing?->delete();
+
+            return;
+        }
+
+        $canonical = round((float) $raw / $factor, 4);
+
+        if ($existing !== null) {
+            $existing->update(['unit_price' => $canonical, 'is_active' => true]);
+
+            return;
+        }
+
+        $product->priceRules()->create([
+            'variant_id' => $variantId,
+            'customer_type' => CustomerType::Business->value,
+            'unit_price' => $canonical,
+            'is_active' => true,
+            'created_by_user_id' => $userId,
+        ]);
     }
 
     /**
@@ -338,29 +373,8 @@ class ProductController extends Controller
      */
     private function syncBusinessPrice(Product $product, array $validated, ?int $userId): void
     {
-        $existing = $this->businessRule($product);
-        $raw = $validated['business_price'] ?? null;
-
-        if ($raw === null || $raw === '') {
-            $existing?->delete();
-
-            return;
-        }
-
-        $canonical = round((float) $raw / $this->displayFactor($product), 4);
-
-        if ($existing !== null) {
-            $existing->update(['unit_price' => $canonical, 'is_active' => true]);
-
-            return;
-        }
-
-        $product->priceRules()->create([
-            'customer_type' => CustomerType::Business->value,
-            'unit_price' => $canonical,
-            'is_active' => true,
-            'created_by_user_id' => $userId,
-        ]);
+        // Product-level field = the default grade's business price.
+        $this->upsertBusinessPrice($product, null, $validated['business_price'] ?? null, $this->displayFactor($product), $userId);
     }
 
     /**
@@ -407,10 +421,18 @@ class ProductController extends Controller
             }
 
             $keptIds[] = $variant->id;
+
+            // Each grade carries its own optional business price.
+            $this->upsertBusinessPrice($product, $variant->id, $row['business_price'] ?? null, $factor, $userId);
         }
 
-        // Remove grades the admin deleted from the form.
-        $product->variants()->whereNotIn('id', $keptIds ?: [0])->delete();
+        // Remove grades the admin deleted from the form, plus any price rules
+        // scoped to them (the variant_id column isn't a DB-level FK).
+        $removedIds = $product->variants()->whereNotIn('id', $keptIds ?: [0])->pluck('id');
+        if ($removedIds->isNotEmpty()) {
+            $product->priceRules()->whereIn('variant_id', $removedIds)->delete();
+            $product->variants()->whereKey($removedIds)->delete();
+        }
     }
 
     /**
