@@ -73,8 +73,8 @@
                                             @else
                                                 @click="pick('{{ $cell['iso'] }}')"
                                             @endif
-                                            class="relative flex aspect-square flex-col items-center justify-center rounded-md text-sm tabular-nums transition focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed"
                                             @class([
+                                                'relative flex aspect-square flex-col items-center justify-center rounded-md text-sm tabular-nums transition focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed',
                                                 $levelClasses[$cell['level']] => $cell['in_month'] && ! $cell['is_disabled'],
                                                 'bg-gray-50 text-gray-300' => ! $cell['in_month'] || $cell['is_disabled'],
                                             ])
