@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\AdminUpcomingChargeController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ProductPriceRuleController;
 use App\Http\Controllers\Admin\SubcategoryController;
 use App\Http\Controllers\BoxController;
 use App\Http\Controllers\BoxWaitlistController;
@@ -446,6 +447,10 @@ Route::middleware(['auth', 'verified'])
                 ->name('inflow-schedules.adjust');
 
             Route::resource('products', ProductController::class)->except(['show']);
+            // Per-product pricing calendar (date/period price overrides).
+            Route::get('products/{product}/pricing', [ProductPriceRuleController::class, 'calendar'])->name('products.pricing');
+            Route::post('products/{product}/pricing', [ProductPriceRuleController::class, 'store'])->name('products.pricing.store');
+            Route::delete('products/{product}/pricing', [ProductPriceRuleController::class, 'destroy'])->name('products.pricing.destroy');
             Route::resource('subcategories', SubcategoryController::class)->except(['show']);
 
             Route::get('orders/create', [AdminOrderController::class, 'create'])->name('orders.create');

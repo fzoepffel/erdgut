@@ -115,6 +115,16 @@ class Product extends Model
         return $this->hasMany(ProductTranslation::class);
     }
 
+    /**
+     * Conditional price rules (date overrides, customer-group prices, …).
+     *
+     * @return HasManyRelation<ProductPriceRule, $this>
+     */
+    public function priceRules(): HasManyRelation
+    {
+        return $this->hasMany(ProductPriceRule::class);
+    }
+
     public function translationFor(?string $locale = null): ?ProductTranslation
     {
         $locale = $locale ?? app()->getLocale();

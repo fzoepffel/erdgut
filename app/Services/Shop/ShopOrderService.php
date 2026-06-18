@@ -44,6 +44,7 @@ class ShopOrderService
     public function __construct(
         private readonly SumUpService $sumUpService,
         private readonly CouponService $couponService,
+        private readonly PriceResolver $priceResolver,
     ) {}
 
     /**
@@ -523,6 +524,8 @@ class ShopOrderService
         string $fulfillmentMode,
         ?string $couponCode = null,
         ?string $email = null,
+        ?Carbon $deliveryDate = null,
+        CustomerType $customerType = CustomerType::Private,
     ): array {
         $productIds = collect($cartLines)
             ->pluck('product_id')
@@ -532,6 +535,7 @@ class ShopOrderService
 
         $products = Product::query()
             ->visibleInCatalog()
+            ->with('priceRules')
             ->whereIn('id', $productIds)
             ->get()
             ->keyBy('id');
@@ -547,7 +551,10 @@ class ShopOrderService
                 continue;
             }
 
-            $unitPrice = (float) $product->unit_price;
+            // Effective price for this date / customer / quantity. Falls back
+            // to the product base price when no rule applies.
+            $resolved = $this->priceResolver->resolve($product, $deliveryDate, $customerType, $quantity);
+            $unitPrice = $resolved->unitPriceEur;
             $lineTotal = round($unitPrice * $quantity, 2);
             $itemsTotal += $lineTotal;
 
@@ -561,6 +568,7 @@ class ShopOrderService
                 'quantity' => $quantity,
                 'unit' => $product->unit->value,
                 'unit_price_eur' => $unitPrice,
+                'price_rule_id' => $resolved->ruleId,
                 'line_total_eur' => $lineTotal,
                 'vat_rate_percent' => $vatRate,
                 'vat_amount_eur' => $vatAmount,
@@ -652,6 +660,8 @@ class ShopOrderService
                 'vat_rate_percent' => $vatRate,
                 'unit_price_eur' => $quantity > 0 ? round($lineTotal / $quantity, 4) : 0.0,
                 'vat_amount_eur' => self::vatAmountFromGross($lineTotal, $vatRate),
+                // Manual admin pricing is authoritative; no rule provenance.
+                'price_rule_id' => null,
             ]);
             $itemsTotal += $lineTotal;
         }
@@ -716,11 +726,17 @@ class ShopOrderService
 
         // Re-resolve the coupon at persist time against the live subtotal +
         // email so a stale preview can't lock in a bigger discount.
+        $customerType = ($payload['customer_type'] ?? null) === CustomerType::Business->value
+            ? CustomerType::Business
+            : CustomerType::Private;
+
         $quote = $this->quote(
             $cartLines,
             $fulfillmentMode,
             isset($payload['coupon_code']) ? (string) $payload['coupon_code'] : null,
             isset($payload['email']) ? (string) $payload['email'] : null,
+            $deliveryDate,
+            $customerType,
         );
         if ($quote['lines'] === []) {
             throw new \InvalidArgumentException('Cart is empty.');
@@ -791,6 +807,7 @@ class ShopOrderService
                     'quantity' => $line['quantity'],
                     'unit' => $line['unit'],
                     'unit_price_snapshot_eur' => $line['unit_price_eur'],
+                    'price_rule_id' => $line['price_rule_id'] ?? null,
                     'line_total_eur' => $line['line_total_eur'],
                     'vat_rate_snapshot_percent' => $line['vat_rate_percent'],
                     'vat_amount_eur' => $line['vat_amount_eur'],

@@ -97,7 +97,14 @@ class AdminShopOrderController extends Controller
         $couponCode = $request->input('coupon_code');
         $normalizedCoupon = is_string($couponCode) && trim($couponCode) !== '' ? trim($couponCode) : null;
 
-        $quote = $this->service->quote($items, $fulfillmentMode, $normalizedCoupon);
+        $quoteDate = filled($request->input('expected_delivery_date'))
+            ? Carbon::parse((string) $request->input('expected_delivery_date'))->startOfDay()
+            : null;
+        $customerType = $request->input('customer_type') === CustomerType::Business->value
+            ? CustomerType::Business
+            : CustomerType::Private;
+
+        $quote = $this->service->quote($items, $fulfillmentMode, $normalizedCoupon, null, $quoteDate, $customerType);
 
         if ($quote['lines'] === []) {
             return response()->json(['message' => 'empty cart'], 422);

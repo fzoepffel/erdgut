@@ -216,11 +216,16 @@ class ShopController extends Controller
             }
         }
 
+        $previewDate = filled($request->input('expected_delivery_date'))
+            ? Carbon::parse((string) $request->input('expected_delivery_date'))->startOfDay()
+            : null;
+
         $quote = $this->service->quote(
             $items,
             (string) $data['fulfillment_mode'],
             $data['coupon_code'] ?? null,
             $data['email'] ?? null,
+            $previewDate,
         );
 
         $applied = $quote['coupon'] !== null;

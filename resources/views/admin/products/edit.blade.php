@@ -7,9 +7,15 @@
         ]" />
     </x-slot>
     <x-slot name="header">
-        <h1 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Edit product') }}: {{ $product->name }}
-        </h2>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h1 class="font-semibold text-xl text-gray-800 leading-tight">
+                {{ __('Edit product') }}: {{ $product->name }}
+            </h1>
+            <a href="{{ route('app.admin.products.pricing', $product->id) }}"
+               class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                {{ __('admin.product_pricing.nav_link') }} &rarr;
+            </a>
+        </div>
     </x-slot>
 
     <div class="py-12">
