@@ -66,12 +66,54 @@ class InventoryService
         Product $product,
         Carbon $date,
         ShopStockAudience $audience = ShopStockAudience::Consumer,
+        ?int $variantId = null,
     ): float {
         $date = $date->copy()->startOfDay();
+        $iso = $date->toDateString();
 
-        $map = $this->productAvailability([$product->id], $date, $date, $audience);
+        $perVariant = $this->productAvailability([$product->id], $date, $date, $audience)[$product->id] ?? [];
 
-        return max(0.0, round($map[$product->id][$date->toDateString()] ?? 0.0, 4));
+        // NULL → product total across every grade (the "is there any stock"
+        // contract relied on by the catalog). An int → that grade only
+        // (0 = the default/"Standard" grade).
+        $row = $variantId === null
+            ? $this->sumVariantAvailability($perVariant)
+            : ($perVariant[(int) $variantId] ?? []);
+
+        return max(0.0, round($row[$iso] ?? 0.0, 4));
+    }
+
+    /**
+     * Remaining stock for one grade on `$date`. NULL = the default/"Standard"
+     * grade (the product itself); an int = a named variant. Unlike
+     * {@see availableOnDate} with a NULL `$variantId`, this never sums grades.
+     */
+    public function remainingForGrade(
+        Product $product,
+        Carbon $date,
+        ?int $variantId = null,
+        ShopStockAudience $audience = ShopStockAudience::Consumer,
+    ): float {
+        return $this->availableOnDate($product, $date, $audience, $variantId ?? 0);
+    }
+
+    /**
+     * Collapse a per-grade availability map (`[variantKey => [iso => qty]]`)
+     * into a per-day product total (`[iso => qty]`).
+     *
+     * @param  array<int, array<string, float>>  $perVariant
+     * @return array<string, float>
+     */
+    private function sumVariantAvailability(array $perVariant): array
+    {
+        $out = [];
+        foreach ($perVariant as $row) {
+            foreach ($row as $iso => $value) {
+                $out[$iso] = ($out[$iso] ?? 0.0) + (float) $value;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -99,7 +141,9 @@ class InventoryService
         $from = $from->copy()->startOfDay();
         $to = $to->copy()->startOfDay();
 
-        $row = $this->productAvailability([$product->id], $from, $to)[$product->id] ?? [];
+        $row = $this->sumVariantAvailability(
+            $this->productAvailability([$product->id], $from, $to)[$product->id] ?? []
+        );
 
         // Preserve the contract of a value for every day in [from, to].
         $out = [];
@@ -175,8 +219,8 @@ class InventoryService
         $toIso = $to->toDateString();
 
         $matrix = [];
-        foreach ($this->productAvailability($productIds, $from, $to, $audience) as $pid => $row) {
-            foreach ($row as $iso => $value) {
+        foreach ($this->productAvailability($productIds, $from, $to, $audience) as $pid => $perVariant) {
+            foreach ($this->sumVariantAvailability($perVariant) as $iso => $value) {
                 if ($iso >= $fromIso && $iso <= $toIso) {
                     $matrix[$pid][$iso] = max(0.0, round($value, 4));
                 }
@@ -195,11 +239,12 @@ class InventoryService
      * {@see BATCH_OVERLAP_BUFFER_DAYS} so competing batches aren't missed),
      * loads all commitments over the batches' span, then runs the FEFO
      * allocator so a sale on any day draws its batch down across that batch's
-     * entire freshness window. Returns `[productId => [iso => remaining]]` for
-     * every day any batch is live; callers slice to the days they need.
+     * entire freshness window. Returns `[productId => [variantKey => [iso =>
+     * remaining]]]` for every day any batch is live (variantKey 0 = default
+     * grade); callers slice to the days they need and sum grades for a total.
      *
      * @param  list<int>  $productIds
-     * @return array<int, array<string, float>>
+     * @return array<int, array<int, array<string, float>>>
      */
     private function productAvailability(
         array $productIds,
@@ -229,13 +274,15 @@ class InventoryService
         // depletes that batch.
         $spanFrom = $from->copy();
         $spanTo = $to->copy();
-        foreach ($batchesByPid as $batches) {
-            foreach ($batches as $b) {
-                if ($b['start']->lt($spanFrom)) {
-                    $spanFrom = $b['start']->copy();
-                }
-                if ($b['end']->gt($spanTo)) {
-                    $spanTo = $b['end']->copy();
+        foreach ($batchesByPid as $variantBatches) {
+            foreach ($variantBatches as $batches) {
+                foreach ($batches as $b) {
+                    if ($b['start']->lt($spanFrom)) {
+                        $spanFrom = $b['start']->copy();
+                    }
+                    if ($b['end']->gt($spanTo)) {
+                        $spanTo = $b['end']->copy();
+                    }
                 }
             }
         }
@@ -253,29 +300,28 @@ class InventoryService
         }
 
         $out = [];
-        foreach ($batchesByPid as $pid => $batches) {
-            if ($audience === ShopStockAudience::Consumer) {
+        foreach ($batchesByPid as $pid => $variantBatches) {
+            foreach ($variantBatches as $vkey => $batches) {
                 $sharedBatches = array_values(array_filter(
                     $batches,
                     static fn (array $b): bool => ! ($b['b2b_only'] ?? false),
                 ));
-                $out[$pid] = $this->allocateRemainingByDay($sharedBatches, $sharedCommitted[$pid] ?? []);
 
-                continue;
+                if ($audience === ShopStockAudience::Consumer) {
+                    $out[$pid][$vkey] = $this->allocateRemainingByDay($sharedBatches, $sharedCommitted[$pid][$vkey] ?? []);
+
+                    continue;
+                }
+
+                $b2bBatches = array_values(array_filter(
+                    $batches,
+                    static fn (array $b): bool => (bool) ($b['b2b_only'] ?? false),
+                ));
+
+                $sharedAvail = $this->allocateRemainingByDay($sharedBatches, $sharedCommitted[$pid][$vkey] ?? []);
+                $b2bAvail = $this->allocateRemainingByDay($b2bBatches, $businessShopCommitted[$pid][$vkey] ?? []);
+                $out[$pid][$vkey] = $this->mergeDailyAvailability($sharedAvail, $b2bAvail);
             }
-
-            $sharedBatches = array_values(array_filter(
-                $batches,
-                static fn (array $b): bool => ! ($b['b2b_only'] ?? false),
-            ));
-            $b2bBatches = array_values(array_filter(
-                $batches,
-                static fn (array $b): bool => (bool) ($b['b2b_only'] ?? false),
-            ));
-
-            $sharedAvail = $this->allocateRemainingByDay($sharedBatches, $sharedCommitted[$pid] ?? []);
-            $b2bAvail = $this->allocateRemainingByDay($b2bBatches, $businessShopCommitted[$pid] ?? []);
-            $out[$pid] = $this->mergeDailyAvailability($sharedAvail, $b2bAvail);
         }
 
         return $out;
@@ -382,10 +428,11 @@ class InventoryService
     }
 
     /**
-     * Load inflow batches overlapping `[from, to]`, grouped by product.
+     * Load inflow batches overlapping `[from, to]`, grouped by product then by
+     * grade (variantKey 0 = the default/"Standard" grade).
      *
      * @param  list<int>  $productIds
-     * @return array<int, list<array{start: Carbon, end: Carbon, qty: float, b2b_only: bool}>>
+     * @return array<int, array<int, list<array{start: Carbon, end: Carbon, qty: float, b2b_only: bool}>>>
      */
     private function loadBatchesByProduct(array $productIds, Carbon $from, Carbon $to): array
     {
@@ -401,11 +448,12 @@ class InventoryService
             ->whereIn('product_id', $productIds)
             ->whereDate('received_on', '<=', $to->toDateString())
             ->whereRaw($expiresExpr.' >= ?', [$from->toDateString()])
-            ->get(['product_id', 'received_on', 'quantity', 'freshness_window_days', 'b2b_only'])
+            ->get(['product_id', 'variant_id', 'received_on', 'quantity', 'freshness_window_days', 'b2b_only'])
             ->each(function (ProductStockInflow $inflow) use (&$byPid): void {
                 $start = Carbon::parse($inflow->received_on)->startOfDay();
                 $end = $start->copy()->addDays(max(1, (int) $inflow->freshness_window_days) - 1);
-                $byPid[(int) $inflow->product_id][] = [
+                $vkey = (int) ($inflow->variant_id ?? 0);
+                $byPid[(int) $inflow->product_id][$vkey][] = [
                     'start' => $start,
                     'end' => $end,
                     'qty' => (float) $inflow->quantity,
@@ -418,10 +466,11 @@ class InventoryService
 
     /**
      * Commitments that deplete shared (non-B2B-exclusive) stock: all shop
-     * orders plus spargel and box channels.
+     * orders plus spargel and box channels. Keyed `[productId][variantKey][iso]`
+     * (variantKey 0 = default grade; box/spargel always attribute to it).
      *
      * @param  list<int>  $productIds
-     * @return array<int, array<string, float>>
+     * @return array<int, array<int, array<string, float>>>
      */
     private function sharedCommittedForProducts(array $productIds, Carbon $from, Carbon $to): array
     {
@@ -434,10 +483,11 @@ class InventoryService
     }
 
     /**
-     * Add shop-order commitments to the per-product+date bucket. Mirrors
-     * {@see shopCommittedOnDate} but windowed and grouped in one query.
+     * Add shop-order commitments to the per-product+grade+date bucket. Mirrors
+     * {@see shopCommittedOnDate} but windowed and grouped in one query. A line's
+     * `variant_id` (NULL = default grade) decides which grade it depletes.
      *
-     * @param  array<int, array<string, float>>  $committed
+     * @param  array<int, array<int, array<string, float>>>  $committed
      * @param  list<int>  $productIds
      */
     private function accumulateShopCommitments(
@@ -457,24 +507,27 @@ class InventoryService
                 ShopOrderStatus::Cancelled->value,
                 ShopOrderStatus::Refunded->value,
             ])
-            ->groupBy('shop_order_items.product_id', 'shop_orders.expected_delivery_date')
+            ->groupBy('shop_order_items.product_id', 'shop_order_items.variant_id', 'shop_orders.expected_delivery_date')
             ->get([
                 'shop_order_items.product_id as product_id',
+                'shop_order_items.variant_id as variant_id',
                 'shop_orders.expected_delivery_date as iso',
                 DB::raw('SUM(shop_order_items.quantity) as total'),
             ])
             ->each(function ($row) use (&$committed): void {
                 $iso = Carbon::parse($row->iso)->toDateString();
                 $pid = (int) $row->product_id;
-                $committed[$pid][$iso] = ($committed[$pid][$iso] ?? 0.0) + (float) $row->total;
+                $vkey = (int) ($row->variant_id ?? 0);
+                $committed[$pid][$vkey][$iso] = ($committed[$pid][$vkey][$iso] ?? 0.0) + (float) $row->total;
             });
     }
 
     /**
      * Add spargel-order commitments. Only the two configured spargel product
-     * IDs carry any; skips entirely when neither is configured.
+     * IDs carry any; skips entirely when neither is configured. Spargel has no
+     * grade concept, so commitments draw the default grade (variantKey 0).
      *
-     * @param  array<int, array<string, float>>  $committed
+     * @param  array<int, array<int, array<string, float>>>  $committed
      * @param  list<int>  $productIds
      */
     private function accumulateSpargelCommitments(array &$committed, array $productIds, string $fromIso, string $toIso): void
@@ -507,7 +560,7 @@ class InventoryService
             foreach ($columns as $pid => $column) {
                 $qty = (float) $row->{$column};
                 if ($qty !== 0.0) {
-                    $committed[$pid][$iso] = ($committed[$pid][$iso] ?? 0.0) + $qty;
+                    $committed[$pid][0][$iso] = ($committed[$pid][0][$iso] ?? 0.0) + $qty;
                 }
             }
         }
@@ -516,8 +569,9 @@ class InventoryService
     /**
      * Add box-item commitments, resolving each row's delivery date in PHP
      * exactly as {@see boxCommittedOnDate} does, but for all products at once.
+     * Boxes have no grade concept, so they draw the default grade (variantKey 0).
      *
-     * @param  array<int, array<string, float>>  $committed
+     * @param  array<int, array<int, array<string, float>>>  $committed
      * @param  list<int>  $productIds
      */
     private function accumulateBoxCommitments(array &$committed, array $productIds, Carbon $from, Carbon $to): void
@@ -552,7 +606,7 @@ class InventoryService
             }
 
             $pid = (int) $row->product_id;
-            $committed[$pid][$iso] = ($committed[$pid][$iso] ?? 0.0) + (float) $row->quantity;
+            $committed[$pid][0][$iso] = ($committed[$pid][0][$iso] ?? 0.0) + (float) $row->quantity;
         }
     }
 
@@ -587,6 +641,7 @@ class InventoryService
         ?string $notes = null,
         ?int $createdByUserId = null,
         bool $b2bOnly = false,
+        ?int $variantId = null,
     ): ProductStockInflow {
         $freshness = $freshnessWindowDays
             ?? (int) ($product->default_freshness_window_days ?? 1);
@@ -595,6 +650,7 @@ class InventoryService
 
         return ProductStockInflow::create([
             'product_id' => $product->id,
+            'variant_id' => $variantId,
             'received_on' => $iso,
             'original_received_on' => $iso,
             'quantity' => round($quantity, 4),
@@ -619,6 +675,7 @@ class InventoryService
         ?string $notes = null,
         ?int $createdByUserId = null,
         bool $b2bOnly = false,
+        ?int $variantId = null,
     ): ProductStockInflowSchedule {
         if ($endsOn !== null && $endsOn->lt($startsOn)) {
             throw new \InvalidArgumentException('ends_on must be >= starts_on.');
@@ -627,9 +684,10 @@ class InventoryService
         $freshness = $freshnessWindowDays
             ?? (int) ($product->default_freshness_window_days ?? 1);
 
-        return DB::transaction(function () use ($product, $weekday, $plannedQuantity, $startsOn, $endsOn, $freshness, $notes, $createdByUserId, $b2bOnly): ProductStockInflowSchedule {
+        return DB::transaction(function () use ($product, $weekday, $plannedQuantity, $startsOn, $endsOn, $freshness, $notes, $createdByUserId, $b2bOnly, $variantId): ProductStockInflowSchedule {
             $schedule = ProductStockInflowSchedule::create([
                 'product_id' => $product->id,
+                'variant_id' => $variantId,
                 'weekday' => $weekday,
                 'planned_quantity' => round($plannedQuantity, 4),
                 'freshness_window_days' => max(1, $freshness),
@@ -712,6 +770,7 @@ class InventoryService
                 notes: $old->notes,
                 createdByUserId: $createdByUserId,
                 b2bOnly: (bool) $old->b2b_only,
+                variantId: $old->variant_id !== null ? (int) $old->variant_id : null,
             );
         });
     }
@@ -771,6 +830,7 @@ class InventoryService
             if (! $exists) {
                 ProductStockInflow::create([
                     'product_id' => $schedule->product_id,
+                    'variant_id' => $schedule->variant_id,
                     'received_on' => $cursor->toDateString(),
                     'original_received_on' => $cursor->toDateString(),
                     'quantity' => $schedule->planned_quantity,

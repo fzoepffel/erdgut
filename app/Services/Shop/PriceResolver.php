@@ -5,6 +5,7 @@ namespace App\Services\Shop;
 use App\Enums\CustomerType;
 use App\Models\Product;
 use App\Models\ProductPriceRule;
+use App\Models\ProductVariant;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -29,8 +30,13 @@ class PriceResolver
         CustomerType $customerType = CustomerType::Private,
         ?float $quantity = null,
         ?int $variantId = null,
+        ?ProductVariant $variant = null,
     ): ResolvedPrice {
         $date ??= Carbon::today();
+
+        // When a variant is selected, default to matching rules against its id
+        // even if the caller passed the object but not the bare id.
+        $variantId ??= $variant?->id;
 
         // Use eager-loaded rules when present to avoid N+1 in cart/grid loops.
         $rules = $product->relationLoaded('priceRules')
@@ -67,7 +73,9 @@ class PriceResolver
             $reason = $this->reasonFor($winner);
             $ruleId = (int) $winner->id;
         } else {
-            $price = (float) $product->unit_price;
+            // Base fallback respects the selected grade's own price; a NULL
+            // variant price inherits the product base price.
+            $price = $variant !== null ? $variant->effectiveUnitPrice() : (float) $product->unit_price;
             $reason = 'base';
             $ruleId = null;
         }

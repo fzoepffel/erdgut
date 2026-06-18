@@ -33,6 +33,7 @@ class ProductStockInflowSchedule extends Model
      */
     protected $fillable = [
         'product_id',
+        'variant_id',
         'weekday',
         'planned_quantity',
         'freshness_window_days',
@@ -58,6 +59,11 @@ class ProductStockInflowSchedule extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function variant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class);
     }
 
     public function createdBy(): BelongsTo

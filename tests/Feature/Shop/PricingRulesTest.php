@@ -7,6 +7,7 @@ use App\Enums\ProductUnit;
 use App\Models\Product;
 use App\Models\ProductPriceRule;
 use App\Models\ProductStockInflow;
+use App\Models\ProductVariant;
 use App\Services\Shop\PriceResolver;
 use App\Services\Shop\ShopOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -164,5 +165,43 @@ class PricingRulesTest extends TestCase
         $this->assertSame($rule->id, $item->price_rule_id);
 
         Carbon::setTestNow(null);
+    }
+
+    public function test_variant_base_price_overrides_product_base(): void
+    {
+        $p = $this->product(10.0);
+        $variant = ProductVariant::factory()->create(['product_id' => $p->id, 'unit_price' => 6.0]);
+
+        $r = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, null, $variant->id, $variant);
+
+        $this->assertSame(6.0, $r->unitPriceEur);
+        $this->assertSame('base', $r->reason);
+        $this->assertNull($r->ruleId);
+    }
+
+    public function test_variant_inherits_product_price_when_null(): void
+    {
+        $p = $this->product(10.0);
+        $variant = ProductVariant::factory()->create(['product_id' => $p->id, 'unit_price' => null]);
+
+        $r = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, null, $variant->id, $variant);
+
+        $this->assertSame(10.0, $r->unitPriceEur);
+    }
+
+    public function test_variant_scoped_rule_beats_general_rule(): void
+    {
+        $p = $this->product(10.0);
+        $variant = ProductVariant::factory()->create(['product_id' => $p->id, 'unit_price' => 8.0]);
+        ProductPriceRule::factory()->create(['product_id' => $p->id, 'unit_price' => 9.0]); // general
+        ProductPriceRule::factory()->create([
+            'product_id' => $p->id,
+            'variant_id' => $variant->id,
+            'unit_price' => 5.0,
+        ]);
+
+        $r = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, null, $variant->id, $variant);
+
+        $this->assertSame(5.0, $r->unitPriceEur);
     }
 }

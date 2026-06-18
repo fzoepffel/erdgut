@@ -14,33 +14,90 @@
         // so the [− value +] stepper can walk a fixed ladder, plus its unit
         // price for the live total. Greyed week-only products carry no
         // quantity field, so they never enter the cart.
-        $alpineProducts = $products
+        //
+        // Grades (variants): a product with active grades emits one entry per
+        // grade — the default/"Standard" grade (keyed by the product id, posting
+        // quantities[id]) plus each named grade (keyed "v{id}", posting
+        // variant_quantities[id]). Each grade has its own price and its own
+        // remaining stock, so each gets its own stepper ladder. The card loop
+        // below reads $gradeRowsByProduct to render one stepper per grade.
+        $inventoryService = app(\App\Services\Admin\InventoryService::class);
+        $locale = app()->getLocale();
+
+        $buildSteps = function ($product, float $remainingRaw) use ($maxQuantity, $maxCount) {
+            $step = $product->effectiveQuantityStep();
+            $remaining = (int) floor($remainingRaw);
+            $cap = in_array($product->unit?->value, ['piece', 'bunch'], true)
+                ? min($remaining, (int) $maxCount)
+                : min((int) (floor($remaining / $step) * $step), (int) $maxQuantity);
+
+            $steps = [['v' => 0, 'l' => __('shop.quantity_none')]];
+            for ($q = $step; $q <= $cap; $q += $step) {
+                $steps[] = ['v' => $q, 'l' => $product->displayQuantity($q)];
+            }
+
+            return ['step' => $step, 'cap' => $cap, 'steps' => $steps];
+        };
+
+        $gradeRowsByProduct = $products
             ->filter(fn ($row) => $row['available_on_selected'])
-            ->map(function ($row) use ($maxQuantity, $maxCount) {
+            ->mapWithKeys(function ($row) use ($buildSteps, $inventoryService, $selectedDate, $locale) {
                 $product = $row['product'];
-                // Use each product's own effective step (falls back to the
-                // global config default for mass/volume; always 1 for piece/bunch).
-                $step = $product->effectiveQuantityStep();
-                $remaining = (int) floor($row['remaining']);
-                $cap = in_array($product->unit?->value, ['piece', 'bunch'], true)
-                    ? min($remaining, (int) $maxCount)
-                    : min((int) (floor($remaining / $step) * $step), (int) $maxQuantity);
+                $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit();
+                $activeVariants = $product->activeVariants();
+                $entries = [];
 
-                $steps = [['v' => 0, 'l' => __('shop.quantity_none')]];
-                for ($q = $step; $q <= $cap; $q += $step) {
-                    $steps[] = ['v' => $q, 'l' => $product->displayQuantity($q)];
-                }
-
-                return [
-                    'id' => $product->id,
+                // Default/"Standard" grade. Its cap is the default grade's own
+                // stock when named grades exist, otherwise the product total
+                // (identical when there are no grades).
+                $standardRemaining = $activeVariants->isEmpty()
+                    ? (float) $row['remaining']
+                    : $inventoryService->remainingForGrade($product, $selectedDate, null);
+                $entries[] = array_merge($buildSteps($product, $standardRemaining), [
+                    'key' => (string) $product->id,
+                    'jsId' => $product->id,
+                    'formName' => 'quantities['.$product->id.']',
+                    'gradeLabel' => $activeVariants->isEmpty() ? null : __('shop.variant.standard'),
                     'name' => $product->name,
                     'unitPrice' => (float) $product->unit_price,
                     'vatRate' => (int) $product->vat_rate_percent,
-                    'step' => $step,
-                    'cap' => $cap,
-                    'steps' => $steps,
-                ];
-            })->values();
+                    'priceDisplay' => $product->displayPrice(),
+                ]);
+
+                foreach ($activeVariants as $variant) {
+                    $remaining = $inventoryService->remainingForGrade($product, $selectedDate, $variant->id);
+                    $price = $variant->effectiveUnitPrice();
+                    $priceDisplay = $product->unit !== null && $displayUnit !== null
+                        ? $product->unit->formatPrice($price, $displayUnit, $locale)
+                        : number_format($price, 2, ',', '.').' €';
+                    $entries[] = array_merge($buildSteps($product, $remaining), [
+                        'key' => 'v'.$variant->id,
+                        'jsId' => 'v'.$variant->id,
+                        'formName' => 'variant_quantities['.$variant->id.']',
+                        'gradeLabel' => $variant->localizedName($locale),
+                        'name' => $product->name.' · '.$variant->localizedName($locale),
+                        'unitPrice' => $price,
+                        'vatRate' => (int) $product->vat_rate_percent,
+                        'priceDisplay' => $priceDisplay,
+                    ]);
+                }
+
+                return [$product->id => $entries];
+            });
+
+        // Flat registry handed to Alpine — every grade across every product.
+        $alpineProducts = $gradeRowsByProduct
+            ->flatten(1)
+            ->map(fn ($e) => [
+                'id' => $e['jsId'],
+                'name' => $e['name'],
+                'unitPrice' => $e['unitPrice'],
+                'vatRate' => $e['vatRate'],
+                'step' => $e['step'],
+                'cap' => $e['cap'],
+                'steps' => $e['steps'],
+            ])
+            ->values();
 
         // Date-stamp in the hero corner: MONTH · YEAR · HOFLADEN.
         $stampDate = $selectedDate ?? now();
@@ -513,23 +570,41 @@
                                             <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.quantity_label') }}</p>
 
                                             @if ($availableToday)
-                                                <input type="hidden" id="shop-qty-{{ $product->id }}" name="quantities[{{ $product->id }}]" value="{{ $oldQty }}" :value="quantities[{{ $product->id }}] || 0" data-testid="shop-qty-stepper">
-                                                <div class="mt-2 flex items-stretch border border-shop-border bg-shop-background">
-                                                    <button
-                                                        type="button"
-                                                        @click="dec({{ $product->id }})"
-                                                        class="w-10 py-3 font-mono text-sm text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
-                                                        :disabled="(quantities[{{ $product->id }}] || 0) <= 0"
-                                                        aria-label="−"
-                                                    >−</button>
-                                                    <div class="flex flex-1 items-center justify-center border-x border-shop-border py-3 font-mono text-sm tabular-nums" x-text="label({{ $product->id }})">{{ $oldQty > 0 ? $product->displayQuantity($oldQty) : __('shop.quantity_none') }}</div>
-                                                    <button
-                                                        type="button"
-                                                        @click="inc({{ $product->id }})"
-                                                        class="w-10 py-3 font-mono text-sm text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
-                                                        :disabled="atCap({{ $product->id }})"
-                                                        aria-label="+"
-                                                    >+</button>
+                                                @php($gradeRows = $gradeRowsByProduct[$product->id] ?? [])
+                                                <div class="mt-2 space-y-3">
+                                                    @foreach ($gradeRows as $entry)
+                                                        @php($jsId = $entry['jsId'])
+                                                        @php($entryOld = (int) old(str_replace(['[', ']'], ['.', ''], $entry['formName']), 0))
+                                                        <div>
+                                                            @if (! empty($entry['gradeLabel']))
+                                                                <div class="mb-1 flex items-baseline justify-between gap-2">
+                                                                    <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary">{{ $entry['gradeLabel'] }}</span>
+                                                                    <span class="font-mono text-[0.65rem] tabular-nums text-shop-muted">{{ $entry['priceDisplay'] }}</span>
+                                                                </div>
+                                                            @endif
+                                                            <input type="hidden" id="shop-qty-{{ $jsId }}" name="{{ $entry['formName'] }}" value="{{ $entryOld }}" :value="quantities[@js($jsId)] || 0" data-testid="shop-qty-stepper">
+                                                            <div class="flex items-stretch border border-shop-border bg-shop-background">
+                                                                <button
+                                                                    type="button"
+                                                                    @click="dec(@js($jsId))"
+                                                                    class="w-10 py-3 font-mono text-sm text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                                                    :disabled="(quantities[@js($jsId)] || 0) <= 0"
+                                                                    aria-label="−"
+                                                                >−</button>
+                                                                <div class="flex flex-1 items-center justify-center border-x border-shop-border py-3 font-mono text-sm tabular-nums" x-text="label(@js($jsId))">{{ $entryOld > 0 ? $product->displayQuantity($entryOld) : __('shop.quantity_none') }}</div>
+                                                                <button
+                                                                    type="button"
+                                                                    @click="inc(@js($jsId))"
+                                                                    class="w-10 py-3 font-mono text-sm text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                                                    :disabled="atCap(@js($jsId))"
+                                                                    aria-label="+"
+                                                                >+</button>
+                                                            </div>
+                                                            <p class="mt-1 font-mono text-xs tabular-nums text-shop-muted" x-show="(quantities[@js($jsId)] || 0) > 0" x-cloak>
+                                                                <span x-text="money(lineTotal(@js($jsId)))"></span>
+                                                            </p>
+                                                        </div>
+                                                    @endforeach
                                                 </div>
                                             @else
                                                 <div class="mt-2 flex items-stretch border border-shop-border bg-shop-paper opacity-60">
@@ -540,19 +615,14 @@
                                             @endif
                                         </div>
 
-                                        {{-- Fixed-height footer so line totals / availability notes
-                                             don't shift the quantity row above. --}}
-                                        <div class="mt-2 min-h-[2.75rem]">
-                                            @if ($availableToday)
-                                                <p class="font-mono text-xs tabular-nums text-shop-muted" x-show="(quantities[{{ $product->id }}] || 0) > 0" x-cloak>
-                                                    <span x-text="money(lineTotal({{ $product->id }}))"></span>
-                                                </p>
-                                            @else
+                                        {{-- Footer reserved for week-only availability notes. --}}
+                                        <div class="mt-2 min-h-[1.5rem]">
+                                            @unless ($availableToday)
                                                 <p class="text-xs leading-relaxed text-shop-muted" data-testid="shop-weekly-note">
                                                     <span class="font-mono uppercase tracking-widest text-shop-primary">{{ __('shop.weekly_unavailable_label') }}</span><br>
                                                     {{ __('shop.weekly_available_on', ['dates' => $dateList]) }}
                                                 </p>
-                                            @endif
+                                            @endunless
                                         </div>
                                     </article>
                                     </div>{{-- /cardVisible wrapper --}}
@@ -1291,7 +1361,9 @@
                         const wasEmpty = (this.quantities[id] || 0) <= 0;
                         this.quantities[id] = p.steps[i + 1].v;
                         // First add of this product → an add-to-cart signal.
-                        if (wasEmpty) this.queueEvent(id, 'add_to_cart');
+                        // Only product-level (numeric) ids feed the ranking
+                        // bandit; grade entries ("v123") are skipped.
+                        if (wasEmpty && typeof id === 'number') this.queueEvent(id, 'add_to_cart');
                         this.scheduleCouponRefresh();
                     }
                 },

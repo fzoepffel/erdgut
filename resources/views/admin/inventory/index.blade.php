@@ -38,6 +38,11 @@
             'display_unit_symbol' => \App\Enums\ProductUnit::displaySymbol($displayUnit),
             'default_freshness' => (int) ($product->default_freshness_window_days ?? 1),
             'schedule_count' => $product->stockInflowSchedules->count(),
+            'variants' => $product->variants->map(fn ($v) => [
+                'id' => $v->id,
+                'name' => $v->localizedName(),
+                'is_active' => (bool) $v->is_active,
+            ])->values()->all(),
         ]];
     })->all();
 @endphp
@@ -316,6 +321,8 @@
                                                             freshness_window_days: {{ (int) $inflow->freshness_window_days }},
                                                             b2b_only: @js((bool) $inflow->b2b_only),
                                                             notes: @js((string) ($inflow->notes ?? '')),
+                                                            variant_id: @js($inflow->variant_id !== null ? (int) $inflow->variant_id : ''),
+                                                            variants: @js($product?->variants->map(fn ($v) => ['id' => $v->id, 'name' => $v->localizedName(), 'is_active' => (bool) $v->is_active])->values()->all() ?? []),
                                                             update_url: @js(route('app.admin.inventory.inflows.update', $inflow)),
                                                         })"
                                                         class="text-xs font-semibold text-emerald-700 hover:underline"
@@ -378,6 +385,15 @@
                             <span x-text="'{{ __('admin.inventory.manual_quantity') }}' + (ctx?.display_unit_symbol ? ' (' + ctx.display_unit_symbol + ')' : '')"></span>
                             <input type="number" name="quantity" required step="0.01" min="0.01" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
                         </label>
+                        <label class="text-xs text-gray-700 sm:col-span-2" x-show="(ctx?.variants?.length ?? 0) > 0" x-cloak>
+                            {{ __('admin.inventory.manual_variant') }}
+                            <select name="variant_id" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                <option value="">{{ __('admin.inventory.variant_default') }}</option>
+                                <template x-for="v in (ctx?.variants ?? [])" :key="v.id">
+                                    <option :value="v.id" x-text="v.name" :disabled="! v.is_active"></option>
+                                </template>
+                            </select>
+                        </label>
                         <label class="text-xs text-gray-700 sm:col-span-2">
                             {{ __('admin.inventory.manual_freshness') }}
                             <input type="number" name="freshness_window_days" min="1" max="60" :value="ctx?.default_freshness ?? 1" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
@@ -436,6 +452,15 @@
                         <label class="text-xs text-gray-700">
                             <span x-text="'{{ __('admin.inventory.manual_quantity') }}' + (ctx?.display_unit_symbol ? ' (' + ctx.display_unit_symbol + ')' : '')"></span>
                             <input type="number" name="quantity" required step="0.01" min="0.01" :value="ctx?.quantity" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                        </label>
+                        <label class="text-xs text-gray-700 sm:col-span-2" x-show="(ctx?.variants?.length ?? 0) > 0" x-cloak>
+                            {{ __('admin.inventory.manual_variant') }}
+                            <select name="variant_id" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                <option value="" :selected="! ctx?.variant_id">{{ __('admin.inventory.variant_default') }}</option>
+                                <template x-for="v in (ctx?.variants ?? [])" :key="v.id">
+                                    <option :value="v.id" x-text="v.name" :selected="String(ctx?.variant_id) === String(v.id)" :disabled="! v.is_active"></option>
+                                </template>
+                            </select>
                         </label>
                         <label class="text-xs text-gray-700 sm:col-span-2">
                             {{ __('admin.inventory.manual_freshness') }}

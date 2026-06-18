@@ -202,7 +202,7 @@
                         <span class="col-span-3 font-mono text-xs uppercase tracking-eyebrow text-chapter-produce md:col-span-1">
                             {{ $item->product?->displayQuantity((float) $item->quantity) }}
                         </span>
-                        <span class="col-span-9 font-display text-2xl text-brand-ink md:col-span-5">{{ $item->product?->name }}</span>
+                        <span class="col-span-9 font-display text-2xl text-brand-ink md:col-span-5">{{ $item->product?->name }}@if ($item->variant_name_snapshot) <span class="text-base text-brand-ink/60">· {{ $item->variant_name_snapshot }}</span>@endif</span>
                         <span class="col-span-6 text-sm text-brand-ink/60 md:col-span-3">{{ $item->product?->producer?->name }}</span>
                         <span class="col-span-6 justify-self-end font-display text-xl tabular-nums text-brand-ink md:col-span-3">@eur($item->line_total_eur)</span>
                     </li>

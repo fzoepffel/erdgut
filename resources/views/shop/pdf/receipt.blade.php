@@ -206,7 +206,7 @@
         @foreach ($order->items as $item)
             @php $product = $item->product; @endphp
             <tr>
-                <td>{{ $product?->name ?? '—' }}</td>
+                <td>{{ $product?->name ?? '—' }}@if ($item->variant_name_snapshot) · {{ $item->variant_name_snapshot }}@endif</td>
                 <td class="producer-name">{{ $product?->producer?->name ?? '—' }}</td>
                 <td class="num">{{ $product ? $product->displayQuantity((float) $item->quantity) : $item->quantity }}</td>
                 <td class="rate">{{ $item->vat_rate_snapshot_percent }} %</td>

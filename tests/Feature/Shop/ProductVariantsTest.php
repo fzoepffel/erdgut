@@ -1,0 +1,253 @@
+<?php
+
+namespace Tests\Feature\Shop;
+
+use App\Enums\ProductUnit;
+use App\Models\Producer;
+use App\Models\Product;
+use App\Models\ProductStockInflow;
+use App\Models\ProductVariant;
+use App\Models\ShopOrderItem;
+use App\Models\User;
+use App\Services\Admin\InventoryService;
+use App\Services\Shop\ShopOrderService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Tests\TestCase;
+
+/**
+ * Pricing Phase 3 — product grades/variants with their own price + own stock.
+ */
+class ProductVariantsTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private const DELIVERY_DATE = '2026-06-12';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Carbon::setTestNow(Carbon::parse('2026-06-10 09:00:00'));
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow(null);
+        parent::tearDown();
+    }
+
+    private function pieceProduct(float $price = 10.0): Product
+    {
+        return Product::factory()->create([
+            'producer_id' => Producer::factory(),
+            'category' => 'produce',
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => $price,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+    }
+
+    private function inflow(Product $product, float $qty, ?int $variantId = null): void
+    {
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'variant_id' => $variantId,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => $qty,
+            'freshness_window_days' => 1,
+        ]);
+    }
+
+    public function test_grades_track_independent_stock(): void
+    {
+        $product = $this->pieceProduct(10.0);
+        $thin = ProductVariant::factory()->create(['product_id' => $product->id, 'unit_price' => 5.0]);
+        $this->inflow($product, 100);          // default grade
+        $this->inflow($product, 20, $thin->id); // thin grade
+
+        $inv = app(InventoryService::class);
+        $date = Carbon::parse(self::DELIVERY_DATE);
+
+        // Product total = sum of grades; each grade reports its own batch.
+        $this->assertSame(120.0, $inv->availableOnDate($product, $date));
+        $this->assertSame(100.0, $inv->remainingForGrade($product, $date, null));
+        $this->assertSame(20.0, $inv->remainingForGrade($product, $date, $thin->id));
+
+        // Order 5 of the thin grade.
+        app(ShopOrderService::class)->createOrder([
+            'name' => 'Anna', 'email' => 'a@example.com',
+            'fulfillment_mode' => 'pickup', 'pickup_location' => 'karl_kunger',
+            'payment_method' => 'online', 'expected_delivery_date' => self::DELIVERY_DATE,
+            'items' => [['product_id' => $product->id, 'quantity' => 5, 'variant_id' => $thin->id]],
+        ]);
+
+        // Only the thin grade depletes; the default grade is untouched.
+        $this->assertSame(15.0, $inv->remainingForGrade($product, $date, $thin->id));
+        $this->assertSame(100.0, $inv->remainingForGrade($product, $date, null));
+    }
+
+    public function test_checkout_snapshots_grade_and_its_price(): void
+    {
+        $product = $this->pieceProduct(10.0);
+        $thin = ProductVariant::factory()->create([
+            'product_id' => $product->id,
+            'unit_price' => 5.0,
+            'name' => ['de' => 'Dünn', 'en' => 'Thin', 'fr' => 'Fines'],
+        ]);
+        $this->inflow($product, 100);
+        $this->inflow($product, 20, $thin->id);
+
+        $order = app(ShopOrderService::class)->createOrder([
+            'name' => 'Anna', 'email' => 'a@example.com',
+            'fulfillment_mode' => 'pickup', 'pickup_location' => 'karl_kunger',
+            'payment_method' => 'online', 'expected_delivery_date' => self::DELIVERY_DATE,
+            'items' => [['product_id' => $product->id, 'quantity' => 4, 'variant_id' => $thin->id]],
+        ]);
+
+        $item = $order->items()->first();
+        $this->assertSame($thin->id, $item->variant_id);
+        $this->assertNotNull($item->variant_name_snapshot);
+        $this->assertEquals(5.0, (float) $item->unit_price_snapshot_eur);
+        $this->assertEquals(20.0, (float) $item->line_total_eur);
+    }
+
+    public function test_storefront_post_with_variant_quantities_creates_grade_line(): void
+    {
+        $product = $this->pieceProduct(10.0);
+        $thin = ProductVariant::factory()->create(['product_id' => $product->id, 'unit_price' => 5.0]);
+        $this->inflow($product, 100);
+        $this->inflow($product, 20, $thin->id);
+
+        $this->post(route('public.shop.store'), [
+            'name' => 'Anna Mustermann',
+            'email' => 'anna@example.com',
+            'fulfillment_mode' => 'pickup',
+            'pickup_location' => 'karl_kunger',
+            'payment_method' => 'online',
+            'expected_delivery_date' => self::DELIVERY_DATE,
+            'variant_quantities' => [$thin->id => 3],
+            'consent' => '1',
+        ])->assertRedirect();
+
+        $line = ShopOrderItem::query()->where('product_id', $product->id)->sole();
+        $this->assertSame($thin->id, $line->variant_id);
+        $this->assertEquals(5.0, (float) $line->unit_price_snapshot_eur);
+    }
+
+    public function test_checkout_rejects_quantity_above_grade_stock(): void
+    {
+        $product = $this->pieceProduct(10.0);
+        $thin = ProductVariant::factory()->create(['product_id' => $product->id, 'unit_price' => 5.0]);
+        $this->inflow($product, 100);        // plenty of default
+        $this->inflow($product, 2, $thin->id); // but only 2 thin
+
+        $this->post(route('public.shop.store'), [
+            'name' => 'Anna Mustermann',
+            'email' => 'anna@example.com',
+            'fulfillment_mode' => 'pickup',
+            'pickup_location' => 'karl_kunger',
+            'payment_method' => 'online',
+            'expected_delivery_date' => self::DELIVERY_DATE,
+            'variant_quantities' => [$thin->id => 5],
+            'consent' => '1',
+        ])->assertSessionHasErrors();
+
+        $this->assertSame(0, ShopOrderItem::query()->count());
+    }
+
+    public function test_inactive_variant_is_rejected_at_checkout(): void
+    {
+        $product = $this->pieceProduct(10.0);
+        $thin = ProductVariant::factory()->create(['product_id' => $product->id, 'unit_price' => 5.0, 'is_active' => false]);
+        $this->inflow($product, 100);
+        $this->inflow($product, 20, $thin->id);
+
+        $this->post(route('public.shop.store'), [
+            'name' => 'Anna Mustermann',
+            'email' => 'anna@example.com',
+            'fulfillment_mode' => 'pickup',
+            'pickup_location' => 'karl_kunger',
+            'payment_method' => 'online',
+            'expected_delivery_date' => self::DELIVERY_DATE,
+            'variant_quantities' => [$thin->id => 3],
+            'consent' => '1',
+        ])->assertSessionHasErrors();
+
+        $this->assertSame(0, ShopOrderItem::query()->count());
+    }
+
+    public function test_admin_can_create_and_delete_a_grade(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.0200, // 20,00 €/kg canonical
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        // Admin enters 7,50 (€/kg) → stored canonical 0,0075 €/g.
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.variants.store', $product->id), [
+                'name' => ['de' => 'Dünn', 'en' => 'Thin', 'fr' => 'Fines'],
+                'unit_price' => 7.5,
+                'is_active' => '1',
+                'position' => 0,
+            ])->assertRedirect();
+
+        $variant = ProductVariant::where('product_id', $product->id)->sole();
+        $this->assertEqualsWithDelta(0.0075, (float) $variant->unit_price, 1e-6);
+        $this->assertSame('Thin', $variant->localizedName('en'));
+
+        $this->actingAs($admin)
+            ->delete(route('app.admin.products.variants.destroy', [$product->id, $variant->id]))
+            ->assertRedirect();
+        $this->assertDatabaseCount('product_variants', 0);
+    }
+
+    public function test_admin_records_inflow_against_a_grade(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $product = $this->pieceProduct(10.0);
+        $thin = ProductVariant::factory()->create(['product_id' => $product->id, 'unit_price' => 5.0]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.inventory.inflows.store'), [
+                'product_id' => $product->id,
+                'variant_id' => $thin->id,
+                'received_on' => self::DELIVERY_DATE,
+                'quantity' => 12,
+                'freshness_window_days' => 1,
+            ])->assertRedirect();
+
+        $inflow = ProductStockInflow::where('product_id', $product->id)->sole();
+        $this->assertSame($thin->id, $inflow->variant_id);
+
+        $inv = app(InventoryService::class);
+        $date = Carbon::parse(self::DELIVERY_DATE);
+        $this->assertSame(12.0, $inv->remainingForGrade($product, $date, $thin->id));
+        $this->assertSame(0.0, $inv->remainingForGrade($product, $date, null));
+    }
+
+    public function test_admin_cannot_attach_a_foreign_grade_to_an_inflow(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $product = $this->pieceProduct(10.0);
+        $other = $this->pieceProduct(8.0);
+        $foreign = ProductVariant::factory()->create(['product_id' => $other->id]);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.inventory.inflows.store'), [
+                'product_id' => $product->id,
+                'variant_id' => $foreign->id,
+                'received_on' => self::DELIVERY_DATE,
+                'quantity' => 5,
+                'freshness_window_days' => 1,
+            ])->assertStatus(422);
+
+        $this->assertSame(0, ProductStockInflow::query()->count());
+    }
+}

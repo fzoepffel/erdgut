@@ -24,6 +24,7 @@ use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProductPriceRuleController;
+use App\Http\Controllers\Admin\ProductVariantController;
 use App\Http\Controllers\Admin\SubcategoryController;
 use App\Http\Controllers\BoxController;
 use App\Http\Controllers\BoxWaitlistController;
@@ -451,6 +452,11 @@ Route::middleware(['auth', 'verified'])
             Route::get('products/{product}/pricing', [ProductPriceRuleController::class, 'calendar'])->name('products.pricing');
             Route::post('products/{product}/pricing', [ProductPriceRuleController::class, 'store'])->name('products.pricing.store');
             Route::delete('products/{product}/pricing', [ProductPriceRuleController::class, 'destroy'])->name('products.pricing.destroy');
+            // Per-product grades/variants (own price + own stock).
+            Route::get('products/{product}/variants', [ProductVariantController::class, 'index'])->name('products.variants');
+            Route::post('products/{product}/variants', [ProductVariantController::class, 'store'])->name('products.variants.store');
+            Route::put('products/{product}/variants/{variant}', [ProductVariantController::class, 'update'])->name('products.variants.update');
+            Route::delete('products/{product}/variants/{variant}', [ProductVariantController::class, 'destroy'])->name('products.variants.destroy');
             Route::resource('subcategories', SubcategoryController::class)->except(['show']);
 
             Route::get('orders/create', [AdminOrderController::class, 'create'])->name('orders.create');

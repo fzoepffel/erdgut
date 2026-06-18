@@ -26,6 +26,9 @@ class AdminInventoryInflowStoreRequest extends FormRequest
     {
         return [
             'product_id' => ['required', 'integer', 'exists:products,id'],
+            // Optional grade this batch belongs to. NULL = the default grade.
+            // Belonging-to-product is enforced in the controller.
+            'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'received_on' => ['required', 'date'],
             'quantity' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
             'freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
