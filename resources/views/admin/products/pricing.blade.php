@@ -111,7 +111,9 @@
                     <input type="hidden" name="ends_on" :value="rangeEnd">
                     <input type="hidden" name="month" value="{{ $calendar['month'] }}">
                     <div>
-                        <label for="rule_price" class="block text-sm font-medium text-gray-700">{{ __('admin.product_pricing.price_label') }}</label>
+                        <label for="rule_price" class="block text-sm font-medium text-gray-700">
+                            {{ __('admin.product_pricing.price_label') }}@if (! empty($displayUnit)) <span class="text-gray-400">(€ / {{ $displayUnit }})</span>@endif
+                        </label>
                         <input id="rule_price" type="number" name="unit_price" step="0.01" min="0.01" required x-model="price"
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     </div>

@@ -28,9 +28,24 @@ class ProductPriceRuleController extends Controller
 
         return view('admin.products.pricing', [
             'product' => $product,
-            'defaultPrice' => (float) $product->unit_price,
+            // Prices are shown + entered in the display unit (€/kg), matching
+            // the product form; stored canonical (€/g) under the hood.
+            'defaultPrice' => $product->displayUnitPrice(),
+            'displayUnit' => $product->price_display_unit ?? $product->unit?->defaultDisplayUnit(),
             'calendar' => $this->calendarPayload($product, $month),
         ]);
+    }
+
+    /** Canonical units per display unit (1000 for kg/L, 1 for piece/g/…). */
+    private function displayFactor(Product $product): int
+    {
+        if ($product->unit === null) {
+            return 1;
+        }
+        $displayUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
+        $factor = $product->unit->canonicalUnitsPerDisplay($displayUnit);
+
+        return $factor > 0 ? $factor : 1;
     }
 
     public function store(Request $request, Product $product): RedirectResponse
@@ -52,14 +67,17 @@ class ProductPriceRuleController extends Controller
             throw ValidationException::withMessages(['starts_on' => [__('admin.product_pricing.validation_past')]]);
         }
 
-        DB::transaction(function () use ($product, $start, $end, $validated, $request): void {
+        // The admin enters a display-unit price (€/kg); store canonical (€/g).
+        $canonical = round((float) $validated['unit_price'] / $this->displayFactor($product), 4);
+
+        DB::transaction(function () use ($product, $start, $end, $validated, $request, $canonical): void {
             $this->clearRange($product, $start, $end);
 
             ProductPriceRule::create([
                 'product_id' => $product->id,
                 'starts_on' => $start->toDateString(),
                 'ends_on' => $end->toDateString(),
-                'unit_price' => round((float) $validated['unit_price'], 4),
+                'unit_price' => $canonical,
                 'label' => $validated['label'] ?? null,
                 'is_active' => true,
                 'created_by_user_id' => $request->user()?->id,
@@ -152,7 +170,8 @@ class ProductPriceRuleController extends Controller
      */
     private function calendarPayload(Product $product, Carbon $month): array
     {
-        $default = (float) $product->unit_price;
+        $default = (float) $product->unit_price; // canonical, for the colour ratio
+        $factor = $this->displayFactor($product); // canonical → display for the label
         $start = $month->copy()->startOfMonth();
         $end = $month->copy()->endOfMonth();
 
@@ -185,7 +204,8 @@ class ProductPriceRuleController extends Controller
                     'in_month' => $cursor->month === $month->month,
                     'is_today' => $iso === $today,
                     'is_disabled' => $iso < $today,
-                    'price' => $price,
+                    // Display-unit price for the label; level from canonical ratio.
+                    'price' => $price === null ? null : round($price * $factor, 2),
                     'level' => $price === null ? 0 : $this->level($price, $default),
                 ];
                 $cursor->addDay();

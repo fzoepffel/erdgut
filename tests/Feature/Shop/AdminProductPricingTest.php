@@ -79,6 +79,28 @@ class AdminProductPricingTest extends TestCase
         $this->assertSame('Thin batch', $rule->label);
     }
 
+    public function test_store_converts_display_price_to_canonical_for_mass_products(): void
+    {
+        $product = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.0200, // 20,00 €/kg canonical (€/g)
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        // Admin enters 15,00 (meaning €/kg) → stored as 0,015 €/g canonical.
+        $this->actingAs($this->admin())
+            ->post(route('app.admin.products.pricing.store', $product->id), [
+                'starts_on' => '2026-06-15',
+                'ends_on' => '2026-06-16',
+                'unit_price' => 15,
+            ])->assertRedirect();
+
+        $rule = ProductPriceRule::where('product_id', $product->id)->sole();
+        $this->assertEqualsWithDelta(0.015, (float) $rule->unit_price, 1e-6);
+    }
+
     public function test_store_rejects_past_dates(): void
     {
         $product = $this->product();
