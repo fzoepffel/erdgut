@@ -11,20 +11,10 @@
             <h1 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ __('Edit product') }}: {{ $product->name }}
             </h1>
-            <div class="flex items-center gap-4">
-                <a href="{{ route('app.admin.products.variants', $product->id) }}"
-                   class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                    {{ __('admin.product_variants.nav_link') }} &rarr;
-                </a>
-                <a href="{{ route('app.admin.products.group-prices', $product->id) }}"
-                   class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                    {{ __('admin.product_group_prices.nav_link') }} &rarr;
-                </a>
-                <a href="{{ route('app.admin.products.pricing', $product->id) }}"
-                   class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                    {{ __('admin.product_pricing.nav_link') }} &rarr;
-                </a>
-            </div>
+            <a href="{{ route('app.admin.products.pricing', $product->id) }}"
+               class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                {{ __('admin.product_pricing.nav_link') }} &rarr;
+            </a>
         </div>
     </x-slot>
 

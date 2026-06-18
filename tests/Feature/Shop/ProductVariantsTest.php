@@ -178,34 +178,62 @@ class ProductVariantsTest extends TestCase
         $this->assertSame(0, ShopOrderItem::query()->count());
     }
 
-    public function test_admin_can_create_and_delete_a_grade(): void
+    /** Minimal valid product-form payload (mass / €kg), with overrides. */
+    private function productFormPayload(array $overrides = []): array
+    {
+        $t = ['name' => 'Form Apples', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => 'x', 'short_description' => 'x'];
+
+        return array_merge([
+            'producer_id' => Producer::factory()->create()->id,
+            'translations' => ['de' => $t, 'en' => $t, 'fr' => $t],
+            'category' => 'produce',
+            'unit' => 'mass',
+            'price_display_unit' => 'kg',
+            'price' => '20.00',
+        ], $overrides);
+    }
+
+    public function test_product_form_creates_grade_and_business_price(): void
     {
         $admin = User::factory()->admin()->create();
-        $product = Product::factory()->create([
-            'unit' => ProductUnit::Mass->value,
-            'price_display_unit' => 'kg',
-            'unit_price' => 0.0200, // 20,00 €/kg canonical
-            'is_available' => true,
-            'is_published' => true,
-        ]);
 
-        // Admin enters 7,50 (€/kg) → stored canonical 0,0075 €/g.
+        // Admin enters grade 7,50 €/kg and business 16,00 €/kg → canonical €/g.
         $this->actingAs($admin)
-            ->post(route('app.admin.products.variants.store', $product->id), [
-                'name' => ['de' => 'Dünn', 'en' => 'Thin', 'fr' => 'Fines'],
-                'unit_price' => 7.5,
-                'is_active' => '1',
-                'position' => 0,
-            ])->assertRedirect();
+            ->post(route('app.admin.products.store'), $this->productFormPayload([
+                'business_price' => '16.00',
+                'variants' => [
+                    ['id' => '', 'name' => ['de' => 'Dünn', 'en' => 'Thin', 'fr' => 'Fines'], 'unit_price' => '7.50', 'is_active' => '1'],
+                    ['id' => '', 'name' => ['de' => '', 'en' => '', 'fr' => ''], 'unit_price' => ''], // blank row → ignored
+                ],
+            ]))->assertRedirect();
+
+        $product = Product::query()->latest('id')->firstOrFail();
 
         $variant = ProductVariant::where('product_id', $product->id)->sole();
         $this->assertEqualsWithDelta(0.0075, (float) $variant->unit_price, 1e-6);
         $this->assertSame('Thin', $variant->localizedName('en'));
 
+        $business = $product->priceRules()->where('customer_type', 'business')->sole();
+        $this->assertEqualsWithDelta(0.0160, (float) $business->unit_price, 1e-6);
+    }
+
+    public function test_product_form_removing_a_grade_row_deletes_it(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value, 'price_display_unit' => 'kg', 'unit_price' => 0.0200,
+            'is_available' => true, 'is_published' => true,
+        ]);
+        $variant = ProductVariant::factory()->create(['product_id' => $product->id, 'unit_price' => 0.0075]);
+
+        // Submit the form with no variants rows → the grade is removed.
         $this->actingAs($admin)
-            ->delete(route('app.admin.products.variants.destroy', [$product->id, $variant->id]))
-            ->assertRedirect();
-        $this->assertDatabaseCount('product_variants', 0);
+            ->put(route('app.admin.products.update', $product), $this->productFormPayload([
+                'producer_id' => $product->producer_id ?? Producer::factory()->create()->id,
+                'variants' => [],
+            ]))->assertRedirect();
+
+        $this->assertDatabaseMissing('product_variants', ['id' => $variant->id]);
     }
 
     public function test_admin_records_inflow_against_a_grade(): void
