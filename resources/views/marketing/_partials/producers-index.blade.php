@@ -23,7 +23,7 @@
 <section class="relative overflow-hidden bg-chapter-producers-soft/60" aria-labelledby="producers-hero-heading">
     <div class="mx-auto max-w-5xl px-4 pb-16 pt-24 text-center sm:px-6 sm:pb-20 sm:pt-32 lg:px-8">
         <x-reveal variant="fade-up">
-            <p class="eyebrow text-chapter-producers">{{ __('Chapter 06 — Producers') }}</p>
+            <p class="eyebrow text-chapter-producers">{{ __('Producers') }}</p>
         </x-reveal>
         <x-reveal variant="fade-up" delay="100">
             <h1 id="producers-hero-heading" class="mt-6 font-display text-5xl font-semibold leading-[1.04] tracking-tight text-brand-moss sm:text-6xl lg:text-7xl">
