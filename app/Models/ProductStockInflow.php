@@ -28,6 +28,7 @@ class ProductStockInflow extends Model
      */
     protected $fillable = [
         'product_id',
+        'variant_id',
         'received_on',
         'original_received_on',
         'quantity',
@@ -71,6 +72,11 @@ class ProductStockInflow extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function variant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class);
     }
 
     public function sourceSchedule(): BelongsTo

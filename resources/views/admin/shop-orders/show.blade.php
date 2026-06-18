@@ -136,7 +136,7 @@
                     <tbody class="divide-y divide-gray-100">
                         @foreach ($order->items as $item)
                             <tr>
-                                <td class="px-4 py-2 text-gray-800">{{ $item->product?->name ?? __('shop.admin.deleted_product') }}</td>
+                                <td class="px-4 py-2 text-gray-800">{{ $item->product?->name ?? __('shop.admin.deleted_product') }}@if ($item->variant_name_snapshot) <span class="text-gray-500">· {{ $item->variant_name_snapshot }}</span>@endif</td>
                                 <td class="px-4 py-2 text-gray-600">{{ $item->product?->displayQuantity((float) $item->quantity) ?? (rtrim(rtrim((string) $item->quantity, '0'), '.') . ' ' . $item->unit) }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ $item->vat_rate_snapshot_percent }}%</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($item->line_total_eur)</td>

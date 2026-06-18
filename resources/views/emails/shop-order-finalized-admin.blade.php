@@ -47,7 +47,7 @@
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
         @foreach ($order->items as $item)
             <tr>
-                <td style="{{ $detailRowStyle }} {{ $detailLabelStyle }}">{{ $item->product?->name ?? '(deleted product)' }}</td>
+                <td style="{{ $detailRowStyle }} {{ $detailLabelStyle }}">{{ $item->product?->name ?? '(deleted product)' }}@if ($item->variant_name_snapshot) · {{ $item->variant_name_snapshot }}@endif</td>
                 <td style="{{ $detailRowStyle }} {{ $detailValueStyle }}">
                     {{ $item->product?->displayQuantity((float) $item->quantity) ?? (rtrim(rtrim((string) $item->quantity, '0'), '.') . ' ' . $item->unit) }}
                     <span style="color: #6b5b4c;">· {{ $eur((float) $item->line_total_eur) }}</span>

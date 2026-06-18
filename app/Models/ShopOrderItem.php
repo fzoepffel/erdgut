@@ -35,6 +35,8 @@ class ShopOrderItem extends Model
     protected $fillable = [
         'shop_order_id',
         'product_id',
+        'variant_id',
+        'variant_name_snapshot',
         'quantity',
         'unit',
         'unit_price_snapshot_eur',
@@ -69,5 +71,13 @@ class ShopOrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * @return BelongsTo<ProductVariant, $this>
+     */
+    public function variant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class);
     }
 }

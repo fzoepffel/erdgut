@@ -535,7 +535,7 @@ class ShopOrderService
 
         $products = Product::query()
             ->visibleInCatalog()
-            ->with('priceRules')
+            ->with(['priceRules', 'variants'])
             ->whereIn('id', $productIds)
             ->get()
             ->keyBy('id');
@@ -551,9 +551,23 @@ class ShopOrderService
                 continue;
             }
 
-            // Effective price for this date / customer / quantity. Falls back
-            // to the product base price when no rule applies.
-            $resolved = $this->priceResolver->resolve($product, $deliveryDate, $customerType, $quantity);
+            // Optional grade (variant). A line referencing an unknown or
+            // inactive grade is dropped — the Request layer rejects those
+            // before persist, but quote() stays defensive for the preview.
+            $variantId = isset($line['variant_id']) && $line['variant_id'] !== null
+                ? (int) $line['variant_id']
+                : null;
+            $variant = $variantId !== null
+                ? $product->variants->firstWhere('id', $variantId)
+                : null;
+            if ($variantId !== null && ($variant === null || ! $variant->is_active)) {
+                continue;
+            }
+
+            // Effective price for this date / customer / quantity / grade.
+            // Falls back to the grade's (or product's) base price when no rule
+            // applies.
+            $resolved = $this->priceResolver->resolve($product, $deliveryDate, $customerType, $quantity, $variantId, $variant);
             $unitPrice = $resolved->unitPriceEur;
             $lineTotal = round($unitPrice * $quantity, 2);
             $itemsTotal += $lineTotal;
@@ -565,6 +579,8 @@ class ShopOrderService
 
             $lines[] = [
                 'product' => $product,
+                'variant_id' => $variantId,
+                'variant_name_snapshot' => $variant?->localizedName(),
                 'quantity' => $quantity,
                 'unit' => $product->unit->value,
                 'unit_price_eur' => $unitPrice,
@@ -760,7 +776,9 @@ class ShopOrderService
                 $product = $line['product'];
                 Product::query()->lockForUpdate()->find($product->id);
 
-                $remaining = $inventory->availableOnDate($product, $deliveryDate, $audience);
+                // Cap against the chosen grade's own stock (NULL line → the
+                // default grade, key 0), so grades deplete independently.
+                $remaining = $inventory->availableOnDate($product, $deliveryDate, $audience, $line['variant_id'] ?? 0);
                 if ($line['quantity'] > $remaining + 1e-6) {
                     throw new InsufficientStockException(
                         $product,
@@ -804,6 +822,8 @@ class ShopOrderService
                 $product = $line['product'];
                 $order->items()->create([
                     'product_id' => $product->id,
+                    'variant_id' => $line['variant_id'] ?? null,
+                    'variant_name_snapshot' => $line['variant_name_snapshot'] ?? null,
                     'quantity' => $line['quantity'],
                     'unit' => $line['unit'],
                     'unit_price_snapshot_eur' => $line['unit_price_eur'],

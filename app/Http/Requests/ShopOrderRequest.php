@@ -3,7 +3,10 @@
 namespace App\Http\Requests;
 
 use App\Enums\ProductUnit;
+use App\Enums\ShopStockAudience;
 use App\Models\Product;
+use App\Models\ProductVariant;
+use App\Services\Admin\InventoryService;
 use App\Services\Shop\ShopOrderService;
 use App\Support\PickupLocations;
 use Illuminate\Foundation\Http\FormRequest;
@@ -42,18 +45,43 @@ class ShopOrderRequest extends FormRequest
         // into a clean list of `{product_id, quantity}` lines, dropping
         // zero / blank entries. Tests may post `items` directly — leave
         // those untouched.
-        if (! $this->has('items') && $this->has('quantities')) {
-            $quantities = (array) $this->input('quantities', []);
+        if (! $this->has('items') && ($this->has('quantities') || $this->has('variant_quantities'))) {
             $items = [];
-            foreach ($quantities as $productId => $quantity) {
+
+            // Default/"Standard" grade lines: quantities[productId] => qty.
+            foreach ((array) $this->input('quantities', []) as $productId => $quantity) {
                 $qty = (float) $quantity;
                 if ($qty > 0) {
                     $items[] = [
                         'product_id' => (int) $productId,
                         'quantity' => $qty,
+                        'variant_id' => null,
                     ];
                 }
             }
+
+            // Named grade lines: variant_quantities[variantId] => qty. Resolve
+            // the owning product_id from the variant so the line is complete.
+            $variantQuantities = (array) $this->input('variant_quantities', []);
+            $variantQuantities = array_filter($variantQuantities, fn ($q): bool => (float) $q > 0);
+            if ($variantQuantities !== []) {
+                $variants = ProductVariant::query()
+                    ->whereIn('id', array_map('intval', array_keys($variantQuantities)))
+                    ->get(['id', 'product_id'])
+                    ->keyBy('id');
+
+                foreach ($variantQuantities as $variantId => $quantity) {
+                    $variant = $variants->get((int) $variantId);
+                    if ($variant !== null) {
+                        $items[] = [
+                            'product_id' => (int) $variant->product_id,
+                            'quantity' => (float) $quantity,
+                            'variant_id' => (int) $variantId,
+                        ];
+                    }
+                }
+            }
+
             $merge['items'] = $items;
         }
 
@@ -83,6 +111,7 @@ class ShopOrderRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'items.*.variant_id' => ['nullable', 'integer'],
 
             'expected_delivery_date' => ['required', 'date', Rule::in($availableDates)],
             'fulfillment_mode' => ['required', Rule::in(['pickup', 'delivery'])],
@@ -132,7 +161,7 @@ class ShopOrderRequest extends FormRequest
             // Load the referenced products once and validate each line's
             // visibility, quantity step, and remaining stock on the date.
             $productIds = collect($items)->pluck('product_id')->map(fn ($id): int => (int) $id)->all();
-            $products = Product::query()->whereIn('id', $productIds)->get()->keyBy('id');
+            $products = Product::query()->with('variants')->whereIn('id', $productIds)->get()->keyBy('id');
 
             foreach ($items as $index => $line) {
                 $productId = (int) ($line['product_id'] ?? 0);
@@ -151,6 +180,22 @@ class ShopOrderRequest extends FormRequest
                     );
 
                     continue;
+                }
+
+                // Optional grade must belong to this product and be active.
+                $variantId = isset($line['variant_id']) && $line['variant_id'] !== null
+                    ? (int) $line['variant_id']
+                    : null;
+                if ($variantId !== null) {
+                    $variant = $product->variants->firstWhere('id', $variantId);
+                    if ($variant === null || ! $variant->is_active) {
+                        $v->errors()->add(
+                            "items.$index.variant_id",
+                            __('shop.errors.variant_unavailable', ['name' => $product->name])
+                        );
+
+                        continue;
+                    }
                 }
 
                 // Quantity step per unit kind. piece/bunch must be whole counts;
@@ -174,9 +219,11 @@ class ShopOrderRequest extends FormRequest
                     continue;
                 }
 
-                // Remaining-stock cap for the chosen date.
+                // Remaining-stock cap for the chosen date and grade (NULL line
+                // → the default grade, key 0), so grades cap independently.
                 if ($date !== null) {
-                    $remaining = $product->availableOnDate($date);
+                    $remaining = app(InventoryService::class)
+                        ->availableOnDate($product, $date, ShopStockAudience::Consumer, $variantId ?? 0);
                     if ($quantity > $remaining + 1e-6) {
                         $v->errors()->add(
                             "items.$index.quantity",

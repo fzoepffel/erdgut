@@ -95,7 +95,7 @@
                                 @foreach ($order->items as $item)
                                     <tr>
                                         <td style="padding: 6px 18px; font-size: 14px; color: #4a5147;">
-                                            {{ $item->product?->displayQuantity((float) $item->quantity) }} · {{ $item->product?->name }}
+                                            {{ $item->product?->displayQuantity((float) $item->quantity) }} · {{ $item->product?->name }}@if ($item->variant_name_snapshot) · {{ $item->variant_name_snapshot }}@endif
                                         </td>
                                         <td align="right" style="padding: 6px 18px; font-size: 14px; color: #1d2a1e;">
                                             {{ number_format((float) $item->line_total_eur, 2, ',', '.') }} €
