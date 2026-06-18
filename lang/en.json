@@ -3659,5 +3659,17 @@
     "admin.product_variants.delete_confirm": "Delete this grade? Its stock is kept but counted toward the Standard grade.",
     "admin.product_variants.saved": "Grade saved.",
     "admin.product_variants.deleted": "Grade deleted.",
-    "admin.product_variants.inventory_hint": "Manage each grade's stock in the weekly catalog."
+    "admin.product_variants.inventory_hint": "Manage each grade's stock in the weekly catalog.",
+    "admin.product_group_prices.nav_link": "Business prices",
+    "admin.product_group_prices.title": "Business prices: :name",
+    "admin.product_group_prices.back_to_product": "← Back to product",
+    "admin.product_group_prices.intro": "Set a separate price for business customers (B2B). It applies only to orders created as a business customer in admin; private customers pay the standard price.",
+    "admin.product_group_prices.private_label": "Private customers (standard)",
+    "admin.product_group_prices.business_label": "Business customers",
+    "admin.product_group_prices.business_hint": "Saving with an empty field does not remove the business price — use \"Remove\" for that.",
+    "admin.product_group_prices.note_label": "Note",
+    "admin.product_group_prices.save": "Save",
+    "admin.product_group_prices.remove": "Remove business price",
+    "admin.product_group_prices.saved": "Business price saved.",
+    "admin.product_group_prices.cleared": "Business price removed."
 }

@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\AdminUpcomingChargeController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ProductGroupPriceController;
 use App\Http\Controllers\Admin\ProductPriceRuleController;
 use App\Http\Controllers\Admin\ProductVariantController;
 use App\Http\Controllers\Admin\SubcategoryController;
@@ -457,6 +458,10 @@ Route::middleware(['auth', 'verified'])
             Route::post('products/{product}/variants', [ProductVariantController::class, 'store'])->name('products.variants.store');
             Route::put('products/{product}/variants/{variant}', [ProductVariantController::class, 'update'])->name('products.variants.update');
             Route::delete('products/{product}/variants/{variant}', [ProductVariantController::class, 'destroy'])->name('products.variants.destroy');
+            // Per-product customer-group (business) prices.
+            Route::get('products/{product}/group-prices', [ProductGroupPriceController::class, 'index'])->name('products.group-prices');
+            Route::post('products/{product}/group-prices', [ProductGroupPriceController::class, 'store'])->name('products.group-prices.store');
+            Route::delete('products/{product}/group-prices', [ProductGroupPriceController::class, 'destroy'])->name('products.group-prices.destroy');
             Route::resource('subcategories', SubcategoryController::class)->except(['show']);
 
             Route::get('orders/create', [AdminOrderController::class, 'create'])->name('orders.create');

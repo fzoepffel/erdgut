@@ -3659,5 +3659,17 @@
     "admin.product_variants.delete_confirm": "Supprimer cette qualité ? Son stock est conservé mais rattaché à la qualité Standard.",
     "admin.product_variants.saved": "Qualité enregistrée.",
     "admin.product_variants.deleted": "Qualité supprimée.",
-    "admin.product_variants.inventory_hint": "Gérez le stock de chaque qualité dans le catalogue hebdomadaire."
+    "admin.product_variants.inventory_hint": "Gérez le stock de chaque qualité dans le catalogue hebdomadaire.",
+    "admin.product_group_prices.nav_link": "Prix pro",
+    "admin.product_group_prices.title": "Prix pro : :name",
+    "admin.product_group_prices.back_to_product": "← Retour au produit",
+    "admin.product_group_prices.intro": "Définissez un prix distinct pour les clients professionnels (B2B). Il s'applique uniquement aux commandes créées en tant que client pro dans l'admin ; les particuliers paient le prix standard.",
+    "admin.product_group_prices.private_label": "Particuliers (standard)",
+    "admin.product_group_prices.business_label": "Professionnels",
+    "admin.product_group_prices.business_hint": "Enregistrer avec un champ vide ne supprime pas le prix pro — utilisez « Supprimer ».",
+    "admin.product_group_prices.note_label": "Note",
+    "admin.product_group_prices.save": "Enregistrer",
+    "admin.product_group_prices.remove": "Supprimer le prix pro",
+    "admin.product_group_prices.saved": "Prix pro enregistré.",
+    "admin.product_group_prices.cleared": "Prix pro supprimé."
 }

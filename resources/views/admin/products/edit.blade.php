@@ -16,6 +16,10 @@
                    class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
                     {{ __('admin.product_variants.nav_link') }} &rarr;
                 </a>
+                <a href="{{ route('app.admin.products.group-prices', $product->id) }}"
+                   class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                    {{ __('admin.product_group_prices.nav_link') }} &rarr;
+                </a>
                 <a href="{{ route('app.admin.products.pricing', $product->id) }}"
                    class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
                     {{ __('admin.product_pricing.nav_link') }} &rarr;
