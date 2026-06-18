@@ -6,6 +6,7 @@ use App\Enums\ProductUnit;
 use App\Models\Product;
 use App\Models\ProductPriceRule;
 use App\Models\User;
+use App\Services\Shop\PriceResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -113,8 +114,8 @@ class AdminProductPricingTest extends TestCase
         $this->assertSame('2026-09-03', $rule->ends_on->toDateString());
 
         // The override is effective on a day deep inside the range.
-        $resolver = app(\App\Services\Shop\PriceResolver::class);
-        $resolved = $resolver->resolve($product->fresh(), \Illuminate\Support\Carbon::parse('2026-08-01'));
+        $resolver = app(PriceResolver::class);
+        $resolved = $resolver->resolve($product->fresh(), Carbon::parse('2026-08-01'));
         $this->assertSame(8.0, $resolved->unitPriceEur);
         $this->assertSame('period_override', $resolved->reason);
     }
