@@ -52,6 +52,23 @@ class AdminProductPricingTest extends TestCase
             ->assertViewHas('defaultPrice', 10.0);
     }
 
+    public function test_calendar_colours_cheaper_and_dearer_days(): void
+    {
+        $product = $this->product(); // default 10.00 / piece
+        ProductPriceRule::factory()->create([
+            'product_id' => $product->id, 'starts_on' => '2026-06-15', 'ends_on' => '2026-06-16', 'unit_price' => 5.0,
+        ]);
+        ProductPriceRule::factory()->create([
+            'product_id' => $product->id, 'starts_on' => '2026-06-20', 'ends_on' => '2026-06-21', 'unit_price' => 14.0,
+        ]);
+
+        $this->actingAs($this->admin())
+            ->get(route('app.admin.products.pricing', $product->id))
+            ->assertOk()
+            ->assertSee('bg-green-800', false)   // -50% → darkest green
+            ->assertSee('bg-red-600', false);    // +40% → level 3 red
+    }
+
     public function test_calendar_requires_admin(): void
     {
         $product = $this->product();

@@ -9,6 +9,17 @@ export default {
         './resources/views/**/*.blade.php',
     ],
 
+    // Pricing-calendar day shades live in only one view (a PHP class map), so
+    // guarantee they survive every build regardless of content scanning.
+    safelist: [
+        'bg-green-200', 'bg-green-400', 'bg-green-600', 'bg-green-800',
+        'hover:bg-green-300', 'hover:bg-green-500', 'hover:bg-green-700', 'hover:bg-green-900',
+        'text-green-900', 'text-green-950',
+        'bg-red-200', 'bg-red-400', 'bg-red-600', 'bg-red-800',
+        'hover:bg-red-300', 'hover:bg-red-500', 'hover:bg-red-700', 'hover:bg-red-900',
+        'text-red-900', 'text-red-950',
+    ],
+
     theme: {
         extend: {
             fontFamily: {
