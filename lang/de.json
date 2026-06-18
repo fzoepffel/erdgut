@@ -3659,5 +3659,17 @@
     "admin.product_variants.delete_confirm": "Diese Sorte löschen? Bestand dieser Sorte bleibt erhalten, wird aber der Standard-Sorte zugerechnet.",
     "admin.product_variants.saved": "Sorte gespeichert.",
     "admin.product_variants.deleted": "Sorte gelöscht.",
-    "admin.product_variants.inventory_hint": "Bestand pro Sorte verwaltest du im Wochen-Katalog."
+    "admin.product_variants.inventory_hint": "Bestand pro Sorte verwaltest du im Wochen-Katalog.",
+    "admin.product_group_prices.nav_link": "Geschäftspreise",
+    "admin.product_group_prices.title": "Geschäftspreise: :name",
+    "admin.product_group_prices.back_to_product": "← Zurück zum Produkt",
+    "admin.product_group_prices.intro": "Lege einen eigenen Preis für Geschäftskunden (B2B) fest. Er gilt nur für Bestellungen, die im Admin als Geschäftskunde angelegt werden; Privatkunden zahlen den Standardpreis.",
+    "admin.product_group_prices.private_label": "Privatkunden (Standard)",
+    "admin.product_group_prices.business_label": "Geschäftskunden",
+    "admin.product_group_prices.business_hint": "Leer lassen und speichern entfernt den Geschäftspreis nicht — nutze dafür „Entfernen\".",
+    "admin.product_group_prices.note_label": "Notiz",
+    "admin.product_group_prices.save": "Speichern",
+    "admin.product_group_prices.remove": "Geschäftspreis entfernen",
+    "admin.product_group_prices.saved": "Geschäftspreis gespeichert.",
+    "admin.product_group_prices.cleared": "Geschäftspreis entfernt."
 }
