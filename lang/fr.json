@@ -3681,5 +3681,8 @@
     "admin.product_group_prices.save": "Enregistrer",
     "admin.product_group_prices.remove": "Supprimer le prix pro",
     "admin.product_group_prices.saved": "Prix pro enregistré.",
-    "admin.product_group_prices.cleared": "Prix pro supprimé."
+    "admin.product_group_prices.cleared": "Prix pro supprimé.",
+    "admin.product_form.grades_business_price": "Prix pro",
+    "admin.product_pricing.grade_label": "Qualité",
+    "admin.product_pricing.grade_default": "Standard"
 }

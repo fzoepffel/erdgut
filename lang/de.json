@@ -3681,5 +3681,8 @@
     "admin.product_group_prices.save": "Speichern",
     "admin.product_group_prices.remove": "Geschäftspreis entfernen",
     "admin.product_group_prices.saved": "Geschäftspreis gespeichert.",
-    "admin.product_group_prices.cleared": "Geschäftspreis entfernt."
+    "admin.product_group_prices.cleared": "Geschäftspreis entfernt.",
+    "admin.product_form.grades_business_price": "Geschäftspreis",
+    "admin.product_pricing.grade_label": "Sorte",
+    "admin.product_pricing.grade_default": "Standard"
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Shop;
 
+use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
 use App\Models\Producer;
 use App\Models\Product;
@@ -10,6 +11,7 @@ use App\Models\ProductVariant;
 use App\Models\ShopOrderItem;
 use App\Models\User;
 use App\Services\Admin\InventoryService;
+use App\Services\Shop\PriceResolver;
 use App\Services\Shop\ShopOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -232,6 +234,36 @@ class ProductVariantsTest extends TestCase
 
         $business = $product->priceRules()->where('customer_type', 'business')->sole();
         $this->assertEqualsWithDelta(0.0160, (float) $business->unit_price, 1e-6);
+    }
+
+    public function test_product_form_sets_per_grade_business_price(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        // Grade base 7,50 €/kg, grade business 6,00 €/kg → canonical €/g.
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), $this->productFormPayload([
+                'variants' => [
+                    ['id' => '', 'name' => ['de' => 'Dünn', 'en' => 'Thin', 'fr' => 'Fines'], 'unit_price' => '7.50', 'business_price' => '6.00', 'is_active' => '1'],
+                ],
+            ]))->assertRedirect();
+
+        $product = Product::query()->latest('id')->firstOrFail();
+        $variant = ProductVariant::where('product_id', $product->id)->sole();
+
+        $businessRule = $product->priceRules()
+            ->where('customer_type', 'business')
+            ->where('variant_id', $variant->id)
+            ->sole();
+        $this->assertEqualsWithDelta(0.0060, (float) $businessRule->unit_price, 1e-6);
+
+        // The resolver applies it to a business order of that grade. Prices
+        // resolve in canonical units (€/g), so 6,00 €/kg → 0,006 €/g.
+        $resolver = app(PriceResolver::class);
+        $product->refresh()->load('priceRules');
+        $resolved = $resolver->resolve($product, Carbon::today(), CustomerType::Business, null, $variant->id, $variant->fresh());
+        $this->assertEqualsWithDelta(0.006, $resolved->unitPriceEur, 1e-6);
+        $this->assertSame('customer_group', $resolved->reason);
     }
 
     public function test_product_form_removing_a_grade_row_deletes_it(): void

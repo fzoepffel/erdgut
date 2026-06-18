@@ -13,10 +13,10 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
- * Per-product pricing calendar — Phase 1 manages date/period overrides for the
- * default scope (no variant, all customer types). Rules created here are kept
- * non-overlapping so each day has exactly one override; saving a range splits
- * or trims any existing rules it overlaps.
+ * Per-product pricing calendar — manages date/period overrides for one grade
+ * at a time (the default grade or a named variant). Rules created here are kept
+ * non-overlapping per grade so each day has exactly one override; saving a range
+ * splits or trims any existing rules it overlaps within the same grade.
  */
 class ProductPriceRuleController extends Controller
 {
@@ -25,15 +25,73 @@ class ProductPriceRuleController extends Controller
         $this->authorize('admin');
 
         $month = $this->resolveMonth((string) $request->query('month', ''));
+        $variantId = $this->resolveVariant($request, $product);
+        $baseCanonical = $this->baseCanonical($product, $variantId);
 
         return view('admin.products.pricing', [
             'product' => $product,
+            'variantId' => $variantId,
+            'grades' => $this->grades($product),
             // Prices are shown + entered in the display unit (€/kg), matching
-            // the product form; stored canonical (€/g) under the hood.
-            'defaultPrice' => $product->displayUnitPrice(),
+            // the product form; stored canonical (€/g) under the hood. The
+            // comparison ("default") price is the selected grade's base price.
+            'defaultPrice' => round($baseCanonical * $this->displayFactor($product), 2),
             'displayUnit' => $product->price_display_unit ?? $product->unit?->defaultDisplayUnit(),
-            'calendar' => $this->calendarPayload($product, $month),
+            'calendar' => $this->calendarPayload($product, $month, $variantId, $baseCanonical),
         ]);
+    }
+
+    /**
+     * Selectable grades for the calendar: the default grade plus active named
+     * variants. Each carries the key used in the `?variant=` query param.
+     *
+     * @return array<int, array{key: string, id: int|null, label: string, selected_value: string}>
+     */
+    private function grades(Product $product): array
+    {
+        $grades = [[
+            'id' => null,
+            'value' => '',
+            'label' => __('admin.product_pricing.grade_default'),
+        ]];
+
+        foreach ($product->activeVariants() as $variant) {
+            $grades[] = [
+                'id' => $variant->id,
+                'value' => (string) $variant->id,
+                'label' => $variant->localizedName(),
+            ];
+        }
+
+        return $grades;
+    }
+
+    /**
+     * Resolve the selected grade to a variant id owned by the product, or null
+     * for the default grade. Reads the `?variant=` query param (calendar view)
+     * or the `variant_id` body field (store/destroy).
+     */
+    private function resolveVariant(Request $request, Product $product): ?int
+    {
+        $raw = $request->input('variant_id', $request->query('variant'));
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        return $product->variants()->whereKey((int) $raw)->exists() ? (int) $raw : null;
+    }
+
+    /** The canonical base price for a grade: its own price, or the product's. */
+    private function baseCanonical(Product $product, ?int $variantId): float
+    {
+        if ($variantId !== null) {
+            $variant = $product->variants()->find($variantId);
+            if ($variant?->unit_price !== null) {
+                return (float) $variant->unit_price;
+            }
+        }
+
+        return (float) $product->unit_price;
     }
 
     /** Canonical units per display unit (1000 for kg/L, 1 for piece/g/…). */
@@ -58,8 +116,10 @@ class ProductPriceRuleController extends Controller
             'unit_price' => ['required', 'numeric', 'gt:0'],
             'label' => ['nullable', 'string', 'max:120'],
             'month' => ['nullable', 'date_format:Y-m'],
+            'variant_id' => ['nullable', 'integer'],
         ]);
 
+        $variantId = $this->resolveVariant($request, $product);
         $start = Carbon::parse($validated['starts_on'])->startOfDay();
         $end = Carbon::parse($validated['ends_on'])->startOfDay();
 
@@ -70,11 +130,12 @@ class ProductPriceRuleController extends Controller
         // The admin enters a display-unit price (€/kg); store canonical (€/g).
         $canonical = round((float) $validated['unit_price'] / $this->displayFactor($product), 4);
 
-        DB::transaction(function () use ($product, $start, $end, $validated, $request, $canonical): void {
-            $this->clearRange($product, $start, $end);
+        DB::transaction(function () use ($product, $start, $end, $validated, $request, $canonical, $variantId): void {
+            $this->clearRange($product, $start, $end, $variantId);
 
             ProductPriceRule::create([
                 'product_id' => $product->id,
+                'variant_id' => $variantId,
                 'starts_on' => $start->toDateString(),
                 'ends_on' => $end->toDateString(),
                 'unit_price' => $canonical,
@@ -85,7 +146,7 @@ class ProductPriceRuleController extends Controller
         });
 
         return redirect()
-            ->route('app.admin.products.pricing', ['product' => $product->id, 'month' => $validated['month'] ?? $start->format('Y-m')])
+            ->route('app.admin.products.pricing', $this->redirectParams($product, $validated['month'] ?? $start->format('Y-m'), $variantId))
             ->with('status', 'price-rule-saved');
     }
 
@@ -97,16 +158,29 @@ class ProductPriceRuleController extends Controller
             'starts_on' => ['required', 'date'],
             'ends_on' => ['required', 'date', 'after_or_equal:starts_on'],
             'month' => ['nullable', 'date_format:Y-m'],
+            'variant_id' => ['nullable', 'integer'],
         ]);
 
+        $variantId = $this->resolveVariant($request, $product);
         $start = Carbon::parse($validated['starts_on'])->startOfDay();
         $end = Carbon::parse($validated['ends_on'])->startOfDay();
 
-        DB::transaction(fn () => $this->clearRange($product, $start, $end));
+        DB::transaction(fn () => $this->clearRange($product, $start, $end, $variantId));
 
         return redirect()
-            ->route('app.admin.products.pricing', ['product' => $product->id, 'month' => $validated['month'] ?? $start->format('Y-m')])
+            ->route('app.admin.products.pricing', $this->redirectParams($product, $validated['month'] ?? $start->format('Y-m'), $variantId))
             ->with('status', 'price-rule-cleared');
+    }
+
+    /** Redirect params preserving the month and selected grade. */
+    private function redirectParams(Product $product, string $month, ?int $variantId): array
+    {
+        $params = ['product' => $product->id, 'month' => $month];
+        if ($variantId !== null) {
+            $params['variant'] = $variantId;
+        }
+
+        return $params;
     }
 
     /**
@@ -114,9 +188,9 @@ class ProductPriceRuleController extends Controller
      * (default scope), trimming/splitting the remainders so prices outside the
      * window are preserved.
      */
-    private function clearRange(Product $product, Carbon $start, Carbon $end): void
+    private function clearRange(Product $product, Carbon $start, Carbon $end, ?int $variantId): void
     {
-        $overlapping = $this->dateOverrideRules($product)
+        $overlapping = $this->dateOverrideRules($product, $variantId)
             ->where('starts_on', '<=', $end->toDateString())
             ->where('ends_on', '>=', $start->toDateString())
             ->get();
@@ -128,6 +202,7 @@ class ProductPriceRuleController extends Controller
             if ($rule->starts_on->lte($leftEnd)) {
                 ProductPriceRule::create([
                     'product_id' => $product->id,
+                    'variant_id' => $variantId,
                     'starts_on' => $rule->starts_on->toDateString(),
                     'ends_on' => $leftEnd->toDateString(),
                     'unit_price' => $rule->unit_price,
@@ -139,6 +214,7 @@ class ProductPriceRuleController extends Controller
             if ($rule->ends_on->gte($rightStart)) {
                 ProductPriceRule::create([
                     'product_id' => $product->id,
+                    'variant_id' => $variantId,
                     'starts_on' => $rightStart->toDateString(),
                     'ends_on' => $rule->ends_on->toDateString(),
                     'unit_price' => $rule->unit_price,
@@ -152,11 +228,11 @@ class ProductPriceRuleController extends Controller
         }
     }
 
-    /** Date-override rules for the default scope (no variant, all customers). */
-    private function dateOverrideRules(Product $product)
+    /** Date-override rules for one grade (no customer_type / qty scope). */
+    private function dateOverrideRules(Product $product, ?int $variantId)
     {
         return $product->priceRules()
-            ->whereNull('variant_id')
+            ->when($variantId === null, fn ($q) => $q->whereNull('variant_id'), fn ($q) => $q->where('variant_id', $variantId))
             ->whereNull('customer_type')
             ->whereNull('min_quantity')
             ->whereNotNull('starts_on')
@@ -168,16 +244,16 @@ class ProductPriceRuleController extends Controller
      * Build the month grid with each in-month day's override price + colour
      * level (0 default; negative = cheaper/green; positive = dearer/red).
      */
-    private function calendarPayload(Product $product, Carbon $month): array
+    private function calendarPayload(Product $product, Carbon $month, ?int $variantId, float $baseCanonical): array
     {
-        $default = (float) $product->unit_price; // canonical, for the colour ratio
+        $default = $baseCanonical; // canonical base of the selected grade
         $factor = $this->displayFactor($product); // canonical → display for the label
         $start = $month->copy()->startOfMonth();
         $end = $month->copy()->endOfMonth();
 
         // iso => override unit_price for the visible range.
         $priceByIso = [];
-        foreach ($this->dateOverrideRules($product)->get() as $rule) {
+        foreach ($this->dateOverrideRules($product, $variantId)->get() as $rule) {
             $cursor = $rule->starts_on->copy();
             while ($cursor->lte($rule->ends_on)) {
                 if ($cursor->betweenIncluded($start, $end)) {

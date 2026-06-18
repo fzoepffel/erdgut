@@ -5,6 +5,7 @@ namespace Tests\Feature\Shop;
 use App\Enums\ProductUnit;
 use App\Models\Product;
 use App\Models\ProductPriceRule;
+use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Shop\PriceResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -140,6 +141,43 @@ class AdminProductPricingTest extends TestCase
 
         $rule = ProductPriceRule::where('product_id', $product->id)->sole();
         $this->assertEqualsWithDelta(0.015, (float) $rule->unit_price, 1e-6);
+    }
+
+    public function test_store_scopes_override_to_the_selected_grade(): void
+    {
+        $product = $this->product(); // default 10.00 / piece
+        $variant = ProductVariant::factory()->create([
+            'product_id' => $product->id, 'unit_price' => 6.0,
+        ]);
+
+        $this->actingAs($this->admin())
+            ->post(route('app.admin.products.pricing.store', $product->id), [
+                'starts_on' => '2026-06-15',
+                'ends_on' => '2026-06-16',
+                'unit_price' => 4.0,
+                'variant_id' => $variant->id,
+            ])->assertRedirect();
+
+        $rule = ProductPriceRule::where('product_id', $product->id)->whereNotNull('variant_id')->sole();
+        $this->assertSame($variant->id, $rule->variant_id);
+        $this->assertEqualsWithDelta(4.0, (float) $rule->unit_price, 0.001);
+
+        // The default grade's calendar is unaffected (no default-scope rule).
+        $this->assertSame(0, ProductPriceRule::where('product_id', $product->id)->whereNull('variant_id')->count());
+    }
+
+    public function test_calendar_for_a_grade_compares_against_its_base_price(): void
+    {
+        $product = $this->product(); // default 10.00
+        $variant = ProductVariant::factory()->create([
+            'product_id' => $product->id, 'unit_price' => 6.0,
+        ]);
+
+        $this->actingAs($this->admin())
+            ->get(route('app.admin.products.pricing', ['product' => $product->id, 'variant' => $variant->id]))
+            ->assertOk()
+            ->assertViewHas('defaultPrice', 6.0)
+            ->assertViewHas('variantId', $variant->id);
     }
 
     public function test_store_rejects_past_dates(): void
