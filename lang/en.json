@@ -3618,5 +3618,22 @@
     "We buy directly from small farms and stay with them season after season.": "We buy directly from small farms and stay with them season after season.",
     "We seek out rare and heirloom varieties on purpose, to give them space to grow again.": "We seek out rare and heirloom varieties on purpose, to give them space to grow again.",
     "With us, producers keep around 70% of the price on average.": "With us, producers keep around 70% of the price on average.",
-    "A few things on the shelves right now, picked from what our producers are harvesting this week.": "A few things on the shelves right now, picked from what our producers are harvesting this week."
+    "A few things on the shelves right now, picked from what our producers are harvesting this week.": "A few things on the shelves right now, picked from what our producers are harvesting this week.",
+    "admin.product_pricing.title": "Pricing: :name",
+    "admin.product_pricing.back_to_product": "← Back to product",
+    "admin.product_pricing.saved": "Price saved.",
+    "admin.product_pricing.cleared": "Override removed.",
+    "admin.product_pricing.intro": "Default price: :price. Click one date, then a second to choose a range — or the same date twice for a single day.",
+    "admin.product_pricing.calendar_heading": "Price calendar",
+    "admin.product_pricing.legend_lower": "lower",
+    "admin.product_pricing.legend_default": "default",
+    "admin.product_pricing.legend_higher": "higher",
+    "admin.product_pricing.default_compare": "For comparison — default price: :price",
+    "admin.product_pricing.price_label": "Price for this period (€)",
+    "admin.product_pricing.note_label": "Note (optional)",
+    "admin.product_pricing.save": "Save",
+    "admin.product_pricing.cancel": "Cancel",
+    "admin.product_pricing.remove": "Remove override for this period",
+    "admin.product_pricing.validation_past": "Prices can only be set for today or future dates.",
+    "admin.product_pricing.nav_link": "Price calendar"
 }

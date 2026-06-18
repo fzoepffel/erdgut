@@ -38,6 +38,7 @@ class ShopOrderItem extends Model
         'quantity',
         'unit',
         'unit_price_snapshot_eur',
+        'price_rule_id',
         'line_total_eur',
         'vat_rate_snapshot_percent',
         'vat_amount_eur',

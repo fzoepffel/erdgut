@@ -3618,5 +3618,22 @@
     "We buy directly from small farms and stay with them season after season.": "Nous achetons directement à de petites fermes et leur restons fidèles saison après saison.",
     "We seek out rare and heirloom varieties on purpose, to give them space to grow again.": "Nous recherchons volontairement des variétés rares et anciennes, pour leur redonner de la place.",
     "With us, producers keep around 70% of the price on average.": "Chez nous, les producteurs gardent en moyenne environ 70 % du prix.",
-    "A few things on the shelves right now, picked from what our producers are harvesting this week.": "Quelques produits disponibles en ce moment, choisis parmi ce que nos producteurs récoltent cette semaine."
+    "A few things on the shelves right now, picked from what our producers are harvesting this week.": "Quelques produits disponibles en ce moment, choisis parmi ce que nos producteurs récoltent cette semaine.",
+    "admin.product_pricing.title": "Prix : :name",
+    "admin.product_pricing.back_to_product": "← Retour au produit",
+    "admin.product_pricing.saved": "Prix enregistré.",
+    "admin.product_pricing.cleared": "Tarif spécial supprimé.",
+    "admin.product_pricing.intro": "Prix par défaut : :price. Cliquez sur une date puis sur une seconde pour choisir une période, ou deux fois la même date pour un seul jour.",
+    "admin.product_pricing.calendar_heading": "Calendrier des prix",
+    "admin.product_pricing.legend_lower": "plus bas",
+    "admin.product_pricing.legend_default": "par défaut",
+    "admin.product_pricing.legend_higher": "plus élevé",
+    "admin.product_pricing.default_compare": "Pour comparaison — prix par défaut : :price",
+    "admin.product_pricing.price_label": "Prix pour cette période (€)",
+    "admin.product_pricing.note_label": "Note (facultatif)",
+    "admin.product_pricing.save": "Enregistrer",
+    "admin.product_pricing.cancel": "Annuler",
+    "admin.product_pricing.remove": "Supprimer le tarif spécial",
+    "admin.product_pricing.validation_past": "Les prix ne peuvent être définis que pour aujourd’hui ou des dates futures.",
+    "admin.product_pricing.nav_link": "Calendrier des prix"
 }

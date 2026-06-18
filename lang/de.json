@@ -3618,5 +3618,22 @@
     "We buy directly from small farms and stay with them season after season.": "Wir kaufen direkt bei kleinen Höfen und bleiben ihnen Saison für Saison treu.",
     "We seek out rare and heirloom varieties on purpose, to give them space to grow again.": "Wir suchen gezielt seltene und alte Sorten, um ihnen wieder Raum zum Wachsen zu geben.",
     "With us, producers keep around 70% of the price on average.": "Bei uns behalten die Produzenten im Schnitt rund 70 % des Preises.",
-    "A few things on the shelves right now, picked from what our producers are harvesting this week.": "Ein paar Dinge, die gerade im Regal stehen, ausgewählt aus dem, was unsere Produzenten diese Woche ernten."
+    "A few things on the shelves right now, picked from what our producers are harvesting this week.": "Ein paar Dinge, die gerade im Regal stehen, ausgewählt aus dem, was unsere Produzenten diese Woche ernten.",
+    "admin.product_pricing.title": "Preise: :name",
+    "admin.product_pricing.back_to_product": "← Zurück zum Produkt",
+    "admin.product_pricing.saved": "Preis gespeichert.",
+    "admin.product_pricing.cleared": "Sonderpreis entfernt.",
+    "admin.product_pricing.intro": "Standardpreis: :price. Klicke auf ein Datum und dann auf ein zweites, um einen Zeitraum zu wählen – oder zweimal dasselbe Datum für einen einzelnen Tag.",
+    "admin.product_pricing.calendar_heading": "Preiskalender",
+    "admin.product_pricing.legend_lower": "niedriger",
+    "admin.product_pricing.legend_default": "Standard",
+    "admin.product_pricing.legend_higher": "höher",
+    "admin.product_pricing.default_compare": "Zum Vergleich – Standardpreis: :price",
+    "admin.product_pricing.price_label": "Preis für diesen Zeitraum (€)",
+    "admin.product_pricing.note_label": "Notiz (optional)",
+    "admin.product_pricing.save": "Speichern",
+    "admin.product_pricing.cancel": "Abbrechen",
+    "admin.product_pricing.remove": "Sonderpreis für diesen Zeitraum entfernen",
+    "admin.product_pricing.validation_past": "Preise lassen sich nur für heute oder künftige Tage setzen.",
+    "admin.product_pricing.nav_link": "Preiskalender"
 }
