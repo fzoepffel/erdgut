@@ -3637,6 +3637,7 @@
     "admin.product_pricing.note_label": "Notiz (optional)",
     "admin.product_pricing.save": "Speichern",
     "admin.product_pricing.cancel": "Abbrechen",
+    "admin.product_pricing.range_start_pending": "Startdatum gewählt:",
     "admin.product_pricing.remove": "Sonderpreis für diesen Zeitraum entfernen",
     "admin.product_pricing.validation_past": "Preise lassen sich nur für heute oder künftige Tage setzen.",
     "admin.product_pricing.nav_link": "Preiskalender",

@@ -18,6 +18,7 @@
             storeUrl: @js(route('app.admin.products.pricing.store', $product->id)),
             destroyUrl: @js(route('app.admin.products.pricing.destroy', $product->id)),
             csrf: @js(csrf_token()),
+            firstKey: @js('pricing-first-'.$product->id),
          })">
         <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
 
@@ -30,6 +31,14 @@
             <p class="text-sm text-gray-600">
                 {{ __('admin.product_pricing.intro', ['price' => \App\Support\Money::formatEur($defaultPrice)]) }}
             </p>
+
+            {{-- Pending range start — shown while waiting for the end date, even
+                 after navigating to another month, so cross-month ranges are clear. --}}
+            <div x-show="first !== null && ! modalOpen" x-cloak
+                 class="flex items-center justify-between gap-3 rounded-md bg-amber-50 px-4 py-2.5 text-sm text-amber-900 ring-1 ring-amber-200">
+                <span>{{ __('admin.product_pricing.range_start_pending') }} <span class="font-medium tabular-nums" x-text="first"></span></span>
+                <button type="button" @click="cancelFirst()" class="text-xs font-medium text-amber-700 underline-offset-2 hover:underline">{{ __('admin.product_pricing.cancel') }}</button>
+            </div>
 
             <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
                 <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-4 sm:px-6">
@@ -144,20 +153,36 @@
     function pricingCalendar(config) {
         return {
             defaultPrice: config.defaultPrice,
+            // The pending range start. Persisted to sessionStorage so it
+            // survives the full page reload on month navigation — that's what
+            // lets a range span from one month into another (any distance).
+            firstKey: config.firstKey,
             first: null,
             rangeStart: null,
             rangeEnd: null,
             modalOpen: false,
             price: config.defaultPrice,
+            init() {
+                const saved = sessionStorage.getItem(this.firstKey);
+                this.first = saved !== null && saved !== '' ? saved : null;
+            },
+            setFirst(iso) {
+                this.first = iso;
+                if (iso === null) {
+                    sessionStorage.removeItem(this.firstKey);
+                } else {
+                    sessionStorage.setItem(this.firstKey, iso);
+                }
+            },
             pick(iso) {
                 if (this.first === null) {
-                    this.first = iso;
+                    this.setFirst(iso);
                     return;
                 }
                 // Second click (same date = single day) opens the modal.
                 this.rangeStart = this.first < iso ? this.first : iso;
                 this.rangeEnd = this.first < iso ? iso : this.first;
-                this.first = null;
+                this.setFirst(null);
                 this.price = this.defaultPrice;
                 this.modalOpen = true;
             },
@@ -170,9 +195,12 @@
                 if (this.rangeStart === this.rangeEnd) return this.rangeStart;
                 return this.rangeStart + ' → ' + this.rangeEnd;
             },
+            cancelFirst() {
+                this.setFirst(null);
+            },
             close() {
                 this.modalOpen = false;
-                this.first = null;
+                this.setFirst(null);
                 this.rangeStart = null;
                 this.rangeEnd = null;
             },

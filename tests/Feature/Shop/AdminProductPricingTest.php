@@ -96,6 +96,29 @@ class AdminProductPricingTest extends TestCase
         $this->assertSame('Thin batch', $rule->label);
     }
 
+    public function test_store_accepts_a_range_spanning_multiple_months(): void
+    {
+        $product = $this->product();
+
+        // A range from one month well into a later one (cross-month selection).
+        $this->actingAs($this->admin())
+            ->post(route('app.admin.products.pricing.store', $product->id), [
+                'starts_on' => '2026-06-24',
+                'ends_on' => '2026-09-03',
+                'unit_price' => 8.0,
+            ])->assertRedirect();
+
+        $rule = ProductPriceRule::where('product_id', $product->id)->sole();
+        $this->assertSame('2026-06-24', $rule->starts_on->toDateString());
+        $this->assertSame('2026-09-03', $rule->ends_on->toDateString());
+
+        // The override is effective on a day deep inside the range.
+        $resolver = app(\App\Services\Shop\PriceResolver::class);
+        $resolved = $resolver->resolve($product->fresh(), \Illuminate\Support\Carbon::parse('2026-08-01'));
+        $this->assertSame(8.0, $resolved->unitPriceEur);
+        $this->assertSame('period_override', $resolved->reason);
+    }
+
     public function test_store_converts_display_price_to_canonical_for_mass_products(): void
     {
         $product = Product::factory()->create([

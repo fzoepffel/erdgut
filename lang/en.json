@@ -3637,6 +3637,7 @@
     "admin.product_pricing.note_label": "Note (optional)",
     "admin.product_pricing.save": "Save",
     "admin.product_pricing.cancel": "Cancel",
+    "admin.product_pricing.range_start_pending": "Start date selected:",
     "admin.product_pricing.remove": "Remove override for this period",
     "admin.product_pricing.validation_past": "Prices can only be set for today or future dates.",
     "admin.product_pricing.nav_link": "Price calendar",
