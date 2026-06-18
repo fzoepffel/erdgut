@@ -60,6 +60,13 @@ class AdminInventoryController extends Controller
             return [$p->id => $this->inventory->availabilityWindow($p, $start, $end)];
         });
 
+        // Per-grade lanes for products that have grades, so the matrix shows
+        // each grade's own stock under the product total. productId =>
+        // (variantKey => (iso => qty)); variantKey 0 = the default grade.
+        $variantMatrix = $products
+            ->filter(fn (Product $p): bool => $p->variants->isNotEmpty())
+            ->mapWithKeys(fn (Product $p): array => [$p->id => $this->inventory->variantAvailabilityWindow($p, $start, $end)]);
+
         // Inflow batches in the window — used for section A's table.
         $inflows = ProductStockInflow::query()
             ->whereBetween('received_on', [$start->toDateString(), $end->toDateString()])
@@ -75,6 +82,7 @@ class AdminInventoryController extends Controller
             'today' => Carbon::today()->toDateString(),
             'products' => $products,
             'availabilityMatrix' => $availabilityMatrix,
+            'variantMatrix' => $variantMatrix,
             'inflows' => $inflows,
         ]);
     }

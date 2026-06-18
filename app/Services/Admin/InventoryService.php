@@ -158,6 +158,35 @@ class InventoryService
     }
 
     /**
+     * Per-grade availability window for the admin matrix: `[variantKey => [iso
+     * => qty]]` (variantKey 0 = the default/"Standard" grade). Every day in
+     * `[$from, $to]` is present for each grade that has any batch in the window.
+     *
+     * @return array<int, array<string, float>>
+     */
+    public function variantAvailabilityWindow(Product $product, Carbon $from, Carbon $to): array
+    {
+        $from = $from->copy()->startOfDay();
+        $to = $to->copy()->startOfDay();
+
+        $perVariant = $this->productAvailability([$product->id], $from, $to)[$product->id] ?? [];
+
+        $out = [];
+        foreach ($perVariant as $vkey => $row) {
+            $window = [];
+            $cursor = $from->copy();
+            while ($cursor->lte($to)) {
+                $iso = $cursor->toDateString();
+                $window[$iso] = max(0.0, round($row[$iso] ?? 0.0, 4));
+                $cursor->addDay();
+            }
+            $out[(int) $vkey] = $window;
+        }
+
+        return $out;
+    }
+
+    /**
      * Bulk availability for many products over a date window in a constant,
      * tiny number of queries — the storefront's hot path.
      *

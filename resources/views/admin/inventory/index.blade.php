@@ -238,6 +238,44 @@
                                                 </div>
                                             </td>
                                         </tr>
+
+                                        {{-- Per-grade lanes: the product row above is the total; each
+                                             grade (default + variants) gets its own indented lane. --}}
+                                        @php $variantLanes = $variantMatrix[$product->id] ?? null; @endphp
+                                        @if ($variantLanes !== null)
+                                            @php
+                                                $grades = collect([['key' => 0, 'label' => __('admin.inventory.variant_default'), 'active' => true]]);
+                                                foreach ($product->variants as $variant) {
+                                                    $grades->push(['key' => $variant->id, 'label' => $variant->localizedName(), 'active' => (bool) $variant->is_active]);
+                                                }
+                                            @endphp
+                                            @foreach ($grades as $grade)
+                                                @php $laneRow = $variantLanes[$grade['key']] ?? []; @endphp
+                                                <tr class="bg-gray-50/40">
+                                                    <td class="sticky left-0 z-10 bg-gray-50/40 px-3 py-1.5 align-top">
+                                                        <div class="flex items-center gap-1.5 pl-3 text-xs {{ $grade['active'] ? 'text-gray-600' : 'text-gray-400 line-through' }}">
+                                                            <span class="text-gray-300">&#x2514;</span>
+                                                            <span>{{ $grade['label'] }}</span>
+                                                        </div>
+                                                    </td>
+                                                    @foreach ($dateColumns as $date)
+                                                        @php
+                                                            $iso = $date->toDateString();
+                                                            $value = $laneRow[$iso] ?? 0.0;
+                                                            $display = $value / $factor;
+                                                        @endphp
+                                                        <td class="px-2 py-1.5 text-center text-xs tabular-nums {{ $value <= 0 ? 'text-gray-300' : 'text-gray-600' }}">
+                                                            @if ($value <= 0)
+                                                                &mdash;
+                                                            @else
+                                                                {{ rtrim(rtrim(number_format($display, 2, ',', '.'), '0'), ',') }}
+                                                            @endif
+                                                        </td>
+                                                    @endforeach
+                                                    <td class="sticky right-0 z-10 bg-gray-50/40 px-3 py-1.5"></td>
+                                                </tr>
+                                            @endforeach
+                                        @endif
                                     @endforeach
                                 </tbody>
                             </table>

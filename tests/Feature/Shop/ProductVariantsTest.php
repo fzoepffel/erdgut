@@ -88,6 +88,23 @@ class ProductVariantsTest extends TestCase
         $this->assertSame(100.0, $inv->remainingForGrade($product, $date, null));
     }
 
+    public function test_variant_availability_window_splits_by_grade(): void
+    {
+        $product = $this->pieceProduct(10.0);
+        $thin = ProductVariant::factory()->create(['product_id' => $product->id, 'unit_price' => 5.0]);
+        $this->inflow($product, 50);           // default grade
+        $this->inflow($product, 30, $thin->id); // thin grade
+
+        $date = Carbon::parse(self::DELIVERY_DATE);
+        $lanes = app(InventoryService::class)->variantAvailabilityWindow($product, $date, $date);
+        $iso = self::DELIVERY_DATE;
+
+        $this->assertSame(50.0, $lanes[0][$iso]);          // default lane
+        $this->assertSame(30.0, $lanes[$thin->id][$iso]);   // thin lane
+        // Lanes sum to the product total.
+        $this->assertSame(80.0, $lanes[0][$iso] + $lanes[$thin->id][$iso]);
+    }
+
     public function test_checkout_snapshots_grade_and_its_price(): void
     {
         $product = $this->pieceProduct(10.0);
