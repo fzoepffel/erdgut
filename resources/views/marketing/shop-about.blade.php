@@ -6,7 +6,7 @@
         <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8" data-testid="shop-about-founder-letter">
             <div class="mx-auto max-w-3xl text-center">
                 <x-reveal variant="fade-up">
-                    <p class="eyebrow text-chapter-almanach">{{ __('Chapter 1') }}</p>
+                    <p class="eyebrow text-chapter-almanach">{{ __('About us') }}</p>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="100">
                     <h1 id="shop-about-letter-heading" class="mt-4 font-display text-4xl font-semibold leading-tight tracking-tight text-brand-moss sm:text-5xl lg:text-6xl">
