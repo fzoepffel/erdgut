@@ -396,15 +396,23 @@ class ProductVariantsTest extends TestCase
             'is_available' => true, 'is_published' => true,
         ]);
         $variant = ProductVariant::factory()->create(['product_id' => $product->id, 'unit_price' => 0.0075]);
+        ProductPriceRule::create([
+            'product_id' => $product->id, 'variant_id' => $variant->id,
+            'min_quantity' => 1000, 'unit_price' => 0.001, 'is_active' => true,
+        ]);
 
-        // Submit the form with no variants rows → the grade is removed.
+        // Removing the LAST grade in the UI leaves no variant inputs, so the
+        // form posts no `variants` key at all (not an empty array). The grade
+        // and its rules must still be deleted.
+        $payload = $this->productFormPayload(['producer_id' => $product->producer_id ?? Producer::factory()->create()->id]);
+        $this->assertArrayNotHasKey('variants', $payload);
+
         $this->actingAs($admin)
-            ->put(route('app.admin.products.update', $product), $this->productFormPayload([
-                'producer_id' => $product->producer_id ?? Producer::factory()->create()->id,
-                'variants' => [],
-            ]))->assertRedirect();
+            ->put(route('app.admin.products.update', $product), $payload)
+            ->assertRedirect();
 
         $this->assertDatabaseMissing('product_variants', ['id' => $variant->id]);
+        $this->assertSame(0, $product->priceRules()->whereNotNull('min_quantity')->count());
     }
 
     public function test_admin_records_inflow_against_a_grade(): void
