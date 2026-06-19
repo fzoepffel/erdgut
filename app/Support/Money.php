@@ -2,23 +2,22 @@
 
 namespace App\Support;
 
+use App\Enums\ProductUnit;
 use App\Providers\AppServiceProvider;
 
 /**
- * Centralised currency formatting for Erdgut.
+ * Centralised, locale-aware currency formatting for Erdgut.
  *
- * Until now, currency was rendered inline via `number_format()` in 30+ Blade
- * templates with drifting conventions: some used "12.50 €", others "12,50 €",
- * some prefixed with "EUR ", others suffixed with "€". This helper produces
- * one canonical German-style format ("12,50 €") so we don't drift again.
+ * Currency renders in the active locale's number convention so a price reads
+ * naturally in whatever language the page is shown:
+ *   - de → "1.234,50 €"  (period thousands, comma decimal)
+ *   - en → "1,234.50 €"  (comma thousands, period decimal)
+ *   - fr → "1 234,50 €"  (space thousands, comma decimal)
  *
- * Three entry points:
- * - {@see formatEur()} for amounts already in EUR (renders "12,50 €")
- * - {@see formatCents()} for amounts stored as integer cents
- * - {@see format()} for the bare German-formatted number (renders "12,50"),
- *   used as the `:amount` placeholder in translation strings that bake the
- *   "EUR" prefix or "€" suffix into the localised template (DE typically
- *   suffixes "€", EN typically prefixes "EUR ").
+ * This is the single source of truth for number separators: {@see separators()}
+ * is reused by {@see ProductUnit::formatPrice()} and
+ * {@see ProductUnit::formatQuantity()} so prices, per-unit prices and
+ * quantities never mix conventions on the same page.
  *
  * The {@see AppServiceProvider} registers Blade directives `@eur`,
  * `@eurCents`, and `@money` for compactness in views.
@@ -26,37 +25,51 @@ use App\Providers\AppServiceProvider;
 final class Money
 {
     /**
-     * Format a EUR amount as "12,50 €" (comma decimal, period thousand-sep).
+     * Decimal + thousands separators for a locale (defaults to the active one).
+     *
+     * @return array{0: string, 1: string} [decimalSep, thousandsSep]
      */
-    public static function formatEur(float|int|string|null $amount): string
+    public static function separators(?string $locale = null): array
     {
-        if ($amount === null) {
-            return '0,00 €';
-        }
+        $locale ??= app()->getLocale();
 
-        return self::format($amount).' €';
+        return match ($locale) {
+            'de' => [',', '.'],
+            'fr' => [',', ' '],
+            default => ['.', ','],
+        };
+    }
+
+    /**
+     * Format a EUR amount as "12,50 €" in the given (or active) locale.
+     */
+    public static function formatEur(float|int|string|null $amount, ?string $locale = null): string
+    {
+        return self::format($amount, 2, $locale).' €';
     }
 
     /**
      * Format an integer-cents amount as "12,50 €". Accepts null (renders as
      * "0,00 €") because some columns are nullable in the schema.
      */
-    public static function formatCents(int|string|null $cents): string
+    public static function formatCents(int|string|null $cents, ?string $locale = null): string
     {
         if ($cents === null) {
-            return '0,00 €';
+            return self::formatEur(0, $locale);
         }
 
-        return self::formatEur(((int) $cents) / 100);
+        return self::formatEur(((int) $cents) / 100, $locale);
     }
 
     /**
-     * Format a numeric amount as "12,50" (comma decimal, period thousand-sep,
-     * no currency symbol). Use as the `:amount` placeholder in translation
+     * Format a numeric amount with no currency symbol (e.g. "12,50"), in the
+     * given (or active) locale. Use as the `:amount` placeholder in translation
      * strings that already carry the "EUR" prefix or "€" suffix.
      */
-    public static function format(float|int|string|null $amount, int $decimals = 2): string
+    public static function format(float|int|string|null $amount, int $decimals = 2, ?string $locale = null): string
     {
-        return number_format((float) ($amount ?? 0), $decimals, ',', '.');
+        [$decimalSep, $thousandsSep] = self::separators($locale);
+
+        return number_format((float) ($amount ?? 0), $decimals, $decimalSep, $thousandsSep);
     }
 }

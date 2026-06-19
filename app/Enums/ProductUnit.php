@@ -2,6 +2,7 @@
 
 namespace App\Enums;
 
+use App\Support\Money;
 use InvalidArgumentException;
 
 /**
@@ -124,7 +125,7 @@ enum ProductUnit: string
     public function formatQuantity(int|float $canonical, ?string $locale = null): string
     {
         $locale ??= app()->getLocale();
-        [$decimalSep, $thousandsSep] = $locale === 'de' ? [',', '.'] : ['.', ','];
+        [$decimalSep, $thousandsSep] = Money::separators($locale);
 
         if ($this === self::Piece || $this === self::Bunch) {
             $count = (int) round((float) $canonical);
@@ -156,7 +157,7 @@ enum ProductUnit: string
     public function formatPrice(float $pricePerCanonical, string $displayUnit, ?string $locale = null): string
     {
         $locale ??= app()->getLocale();
-        [$decimalSep, $thousandsSep] = $locale === 'de' ? [',', '.'] : ['.', ','];
+        [$decimalSep, $thousandsSep] = Money::separators($locale);
 
         $pricePerDisplay = $pricePerCanonical * $this->canonicalUnitsPerDisplay($displayUnit);
 
