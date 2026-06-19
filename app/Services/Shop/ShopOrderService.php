@@ -8,6 +8,7 @@ use App\Enums\ShopOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Models\Coupon;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use App\Services\Admin\InventoryService;
@@ -46,6 +47,51 @@ class ShopOrderService
         private readonly CouponService $couponService,
         private readonly PriceResolver $priceResolver,
     ) {}
+
+    /**
+     * Normalize the storefront's two quantity maps into clean cart lines —
+     * the single shape {@see quote} and {@see createOrder} expect. The default
+     * grade posts `quantities[productId]`; named grades post
+     * `variant_quantities[variantId]` (product resolved from the variant).
+     * Shared by the checkout request, the quote endpoint and the coupon
+     * preview so they can never disagree on what's in the cart.
+     *
+     * @param  array<int|string, mixed>  $quantities
+     * @param  array<int|string, mixed>  $variantQuantities
+     * @return array<int, array{product_id: int, quantity: float, variant_id: int|null}>
+     */
+    public static function normalizeCartItems(array $quantities, array $variantQuantities): array
+    {
+        $items = [];
+
+        foreach ($quantities as $productId => $quantity) {
+            $qty = (float) $quantity;
+            if ($qty > 0) {
+                $items[] = ['product_id' => (int) $productId, 'quantity' => $qty, 'variant_id' => null];
+            }
+        }
+
+        $variantQuantities = array_filter($variantQuantities, fn ($q): bool => (float) $q > 0);
+        if ($variantQuantities !== []) {
+            $variants = ProductVariant::query()
+                ->whereIn('id', array_map('intval', array_keys($variantQuantities)))
+                ->get(['id', 'product_id'])
+                ->keyBy('id');
+
+            foreach ($variantQuantities as $variantId => $quantity) {
+                $variant = $variants->get((int) $variantId);
+                if ($variant !== null) {
+                    $items[] = [
+                        'product_id' => (int) $variant->product_id,
+                        'quantity' => (float) $quantity,
+                        'variant_id' => (int) $variantId,
+                    ];
+                }
+            }
+        }
+
+        return $items;
+    }
 
     /**
      * Whether the checkout is "done" from the customer's point of view —

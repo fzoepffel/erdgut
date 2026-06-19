@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Shop;
 
+use App\Enums\CustomerType;
 use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ShopOrderRequest;
@@ -15,6 +16,7 @@ use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\ProductRankingService;
 use App\Services\Shop\ShopOrderService;
+use App\Support\Money;
 use App\Support\PickupLocations;
 use App\Support\ShopOrderAdminNotifier;
 use App\Support\SumUpCheckoutLogger;
@@ -199,6 +201,129 @@ class ShopController extends Controller
      * Rejection reasons are mapped to deliberately-coarse localized messages
      * so the endpoint can't be used to enumerate which codes exist.
      */
+    /**
+     * Ground-truth pricing for the storefront. The frontend NEVER computes
+     * prices itself: on every cart / mode / coupon change it posts the cart
+     * here and renders the numbers this returns — the exact same
+     * {@see ShopOrderService::quote} that persists the order at checkout, so
+     * the displayed line totals, summary, VAT and grand total can never drift
+     * from what the customer is actually charged.
+     */
+    public function quote(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'coupon_code' => ['nullable', 'string', 'max:64'],
+            'email' => ['nullable', 'email:rfc', 'max:190'],
+            'fulfillment_mode' => ['required', 'in:pickup,delivery'],
+            'expected_delivery_date' => ['nullable', 'date'],
+        ]);
+
+        $items = ShopOrderService::normalizeCartItems(
+            (array) $request->input('quantities', []),
+            (array) $request->input('variant_quantities', []),
+        );
+
+        $date = filled($data['expected_delivery_date'] ?? null)
+            ? Carbon::parse((string) $data['expected_delivery_date'])->startOfDay()
+            : null;
+
+        $quote = $this->service->quote(
+            $items,
+            (string) $data['fulfillment_mode'],
+            $data['coupon_code'] ?? null,
+            $data['email'] ?? null,
+            $date,
+            CustomerType::Private,
+        );
+
+        // Per-line breakdown keyed exactly like the storefront's cart entries:
+        // the default grade by product id, named grades as "v{variantId}".
+        $lines = [];
+        foreach ($quote['lines'] as $line) {
+            /** @var Product $product */
+            $product = $line['product'];
+            $variantId = $line['variant_id'] ?? null;
+            $key = $variantId !== null ? 'v'.$variantId : (string) $product->id;
+            $name = $product->name.($line['variant_name_snapshot'] ? ' · '.$line['variant_name_snapshot'] : '');
+
+            $lines[$key] = [
+                'name' => $name,
+                'qty_label' => $product->displayQuantity((float) $line['quantity']),
+                'unit_price_label' => $this->formatUnitPrice($product, (float) $line['unit_price_eur']),
+                'line_total' => (float) $line['line_total_eur'],
+                'line_total_label' => Money::formatEur($line['line_total_eur']),
+            ];
+        }
+
+        return response()->json([
+            'lines' => $lines,
+            'items_total' => $quote['items_total_eur'],
+            'items_total_label' => Money::formatEur($quote['items_total_eur']),
+            'delivery_fee' => $quote['delivery_fee_eur'],
+            'delivery_fee_label' => Money::formatEur($quote['delivery_fee_eur']),
+            'has_delivery_fee' => $quote['delivery_fee_eur'] > 0,
+            'discount' => $quote['discount_eur'],
+            'discount_label' => Money::formatEur($quote['discount_eur']),
+            'has_discount' => $quote['discount_eur'] > 0,
+            'total' => $quote['total_amount_eur'],
+            'total_label' => Money::formatEur($quote['total_amount_eur']),
+            'coupon' => [
+                'applied' => $quote['coupon'] !== null,
+                'code' => $quote['coupon_code'],
+                'type' => $quote['coupon']?->type->value,
+                'message' => $quote['coupon'] === null && $quote['coupon_error'] !== null
+                    ? __('coupon.errors.'.$quote['coupon_error'], $quote['coupon_error_params'])
+                    : null,
+            ],
+            'vat_lines' => $this->vatLinesForQuote($quote),
+        ]);
+    }
+
+    /** Format a canonical (€/g) unit price in the product's display unit. */
+    private function formatUnitPrice(Product $product, float $canonical): string
+    {
+        $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit();
+
+        return $product->unit !== null && $displayUnit !== null
+            ? $product->unit->formatPrice($canonical, $displayUnit)
+            : Money::formatEur($canonical);
+    }
+
+    /**
+     * Pre-formatted per-rate VAT summary lines for a quote (gross-inclusive),
+     * grouping line VAT by rate and adding the delivery-fee VAT.
+     *
+     * @param  array<string, mixed>  $quote
+     * @return list<string>
+     */
+    private function vatLinesForQuote(array $quote): array
+    {
+        $byRate = [];
+        foreach ($quote['lines'] as $line) {
+            $rate = (int) $line['vat_rate_percent'];
+            $byRate[$rate] = ($byRate[$rate] ?? 0.0) + (float) $line['vat_amount_eur'];
+        }
+        if ((float) $quote['delivery_fee_vat_amount_eur'] > 0) {
+            $rate = (int) $quote['delivery_fee_vat_rate_percent'];
+            $byRate[$rate] = ($byRate[$rate] ?? 0.0) + (float) $quote['delivery_fee_vat_amount_eur'];
+        }
+        ksort($byRate);
+
+        $lines = [];
+        foreach ($byRate as $rate => $amount) {
+            $lines[] = __('shop.summary_vat_rate_line', [
+                'rate' => $rate,
+                'amount' => Money::formatEur(round($amount, 2)),
+            ]);
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Back-compat coupon preview (returns the legacy aggregate shape). The
+     * storefront now uses {@see quote}; this stays for the coupon test suite.
+     */
     public function couponPreview(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -207,14 +332,10 @@ class ShopController extends Controller
             'fulfillment_mode' => ['required', 'in:pickup,delivery'],
         ]);
 
-        // Normalize the storefront's quantity map into clean cart lines.
-        $items = [];
-        foreach ((array) $request->input('quantities', []) as $productId => $quantity) {
-            $qty = (float) $quantity;
-            if ($qty > 0) {
-                $items[] = ['product_id' => (int) $productId, 'quantity' => $qty];
-            }
-        }
+        $items = ShopOrderService::normalizeCartItems(
+            (array) $request->input('quantities', []),
+            (array) $request->input('variant_quantities', []),
+        );
 
         $previewDate = filled($request->input('expected_delivery_date'))
             ? Carbon::parse((string) $request->input('expected_delivery_date'))->startOfDay()

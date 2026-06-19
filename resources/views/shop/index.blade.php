@@ -178,6 +178,8 @@
             pickupLocation: {{ json_encode(old('pickup_location', '')) }},
             email: {{ json_encode(old('email', '')) }},
             couponPreviewUrl: @js(route('public.shop.coupon.preview')),
+            quoteUrl: @js(route('public.shop.quote')),
+            selectedDate: @js($selectedDate?->toDateString() ?? ''),
             csrf: @js(csrf_token()),
             couponErrorGeneric: @js(__('coupon.errors.generic')),
             subcategoriesByCategory: @js($alpineSubcategories),
@@ -641,7 +643,7 @@
                                                                 >+</button>
                                                             </div>
                                                             <p class="mt-1 font-mono text-xs tabular-nums text-shop-muted" x-show="(quantities[@js($jsId)] || 0) > 0" x-cloak>
-                                                                <span x-text="money(lineTotal(@js($jsId)))"></span>
+                                                                <span x-text="lineLabel(@js($jsId))"></span>
                                                             </p>
                                                             @if (! empty($entry['tiers']))
                                                                 <p class="mt-1 font-mono text-[0.6rem] leading-snug text-shop-muted">
@@ -878,28 +880,30 @@
                                 <input type="hidden" name="coupon_code" :value="couponApplied ? appliedCode : ''">
                             </div>
 
-                            {{-- ── Breakdown (subtotal / discount / delivery) ── --}}
-                            <div class="space-y-2" x-show="couponApplied || effectiveDeliveryFee > 0" x-cloak>
+                            {{-- ── Breakdown (subtotal / discount / delivery) ──
+                                 All values come from the server quote — the
+                                 frontend never computes prices itself. --}}
+                            <div class="space-y-2" x-show="quote && (quote.has_discount || quote.has_delivery_fee)" x-cloak>
                                 <div class="flex items-baseline justify-between gap-4 text-sm text-shop-muted">
                                     <span>{{ __('shop.summary_line_items') }}</span>
-                                    <span class="tabular-nums" x-text="money(itemsTotal)"></span>
+                                    <span class="tabular-nums" x-text="quote?.items_total_label"></span>
                                 </div>
-                                <div class="flex items-baseline justify-between gap-4 text-sm text-shop-primary" x-show="couponApplied" x-cloak data-testid="shop-coupon-discount-line">
+                                <div class="flex items-baseline justify-between gap-4 text-sm text-shop-primary" x-show="quote?.has_discount" x-cloak data-testid="shop-coupon-discount-line">
                                     <span x-text="@js(__('coupon.discount_line')) + ' ' + appliedCode"></span>
-                                    <span class="tabular-nums" x-text="'− ' + money(couponDiscount)"></span>
+                                    <span class="tabular-nums" x-text="'− ' + (quote?.discount_label ?? '')"></span>
                                 </div>
-                                <div class="flex items-baseline justify-between gap-4 text-sm text-shop-muted" x-show="effectiveDeliveryFee > 0" x-cloak>
+                                <div class="flex items-baseline justify-between gap-4 text-sm text-shop-muted" x-show="quote?.has_delivery_fee" x-cloak>
                                     <span>{{ __('shop.summary_line_delivery') }}</span>
-                                    <span class="tabular-nums" x-text="money(effectiveDeliveryFee)"></span>
+                                    <span class="tabular-nums" x-text="quote?.delivery_fee_label"></span>
                                 </div>
                             </div>
 
                             <div class="mt-4 flex items-baseline justify-between gap-4">
                                 <span class="font-display text-2xl">{{ __('shop.summary_line_total') }}</span>
-                                <span class="font-display text-4xl text-shop-primary tabular-nums" x-text="money(total)">{{ \App\Support\Money::format(0) }}</span>
+                                <span class="font-display text-4xl text-shop-primary tabular-nums" x-text="quote?.total_label ?? '{{ \App\Support\Money::formatEur(0) }}'">{{ \App\Support\Money::format(0) }}</span>
                             </div>
-                            <template x-for="rate in vatRates" :key="rate">
-                                <p class="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="vatLine(rate)"></p>
+                            <template x-for="vatLine in (quote?.vat_lines ?? [])" :key="vatLine">
+                                <p class="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="vatLine"></p>
                             </template>
                         </div>
 
@@ -963,7 +967,7 @@
                                             <span x-text="line.name"></span>
                                             <span class="text-shop-muted" x-text="' · ' + line.qty"></span>
                                         </span>
-                                        <span class="text-right tabular-nums text-shop-foreground" x-text="money(line.lineTotal)"></span>
+                                        <span class="text-right tabular-nums text-shop-foreground" x-text="line.lineTotalLabel"></span>
                                     </li>
                                 </template>
                             </ul>
@@ -979,7 +983,7 @@
                             </div>
                             <div class="border-t border-shop-border pt-3 flex items-baseline justify-between gap-4">
                                 <dt class="font-semibold text-shop-foreground" x-text="confirmTotalLabel"></dt>
-                                <dd class="text-right font-semibold tabular-nums text-shop-foreground" x-text="money(total)"></dd>
+                                <dd class="text-right font-semibold tabular-nums text-shop-foreground" x-text="quote?.total_label"></dd>
                             </div>
                         </dl>
                     </div>
@@ -1179,6 +1183,16 @@
                     if (this.activeSubcategoryId && subcategoryId !== this.activeSubcategoryId) return false;
                     return true;
                 },
+                // ── Ground-truth pricing ────────────────────────────────
+                // The server quote is the ONLY source of money on this page:
+                // line totals, summary, VAT and grand total are all read from
+                // `quote` (fetched on every cart/mode/coupon change). The
+                // frontend never multiplies prices itself.
+                quoteUrl: config.quoteUrl,
+                selectedDate: config.selectedDate || '',
+                quote: null,
+                _quoteTimer: null,
+                _quoteSeq: 0,
                 // Coupon state.
                 couponPreviewUrl: config.couponPreviewUrl,
                 csrf: config.csrf,
@@ -1186,7 +1200,6 @@
                 couponCode: '',
                 appliedCode: '',
                 couponApplied: false,
-                couponDiscount: 0,
                 couponType: '',
                 couponMessage: '',
                 applyingCoupon: false,
@@ -1211,15 +1224,15 @@
                 // Cart positions for the review modal: name + display-unit
                 // quantity (e.g. "1,5 kg") + €-line total. Empty when the
                 // cart is empty — caller hides the section in that case.
+                // Confirm-modal positions, straight from the server quote.
                 get cartLines() {
-                    return this.products
-                        .filter((p) => (this.quantities[p.id] || 0) > 0)
-                        .map((p) => ({
-                            id: p.id,
-                            name: p.name,
-                            qty: this.label(p.id),
-                            lineTotal: this.lineTotal(p.id),
-                        }));
+                    const lines = this.quote?.lines ?? {};
+                    return Object.keys(lines).map((id) => ({
+                        id,
+                        name: lines[id].name,
+                        qty: lines[id].qty_label,
+                        lineTotalLabel: lines[id].line_total_label,
+                    }));
                 },
                 requestConfirm(event) {
                     // Only intercept in-person pickup; online/delivery submit normally.
@@ -1231,6 +1244,8 @@
                         return;
                     }
                     event.preventDefault();
+                    // Re-price immediately so the modal shows the current total.
+                    this._fetchQuote();
                     this.showConfirmModal = true;
                 },
                 submitConfirmed() {
@@ -1274,11 +1289,12 @@
                     // Delivery is always paid online.
                     this.$watch('mode', (v) => {
                         if (v === 'delivery') this.payment = 'online';
-                        // Delivery fee never changes a subtotal-only discount,
-                        // but re-validate so caps/min-order stay authoritative.
-                        this.scheduleCouponRefresh();
+                        // Mode changes the delivery fee → re-price server-side.
+                        this.refreshQuote();
                     });
                     this.initEngagementTracking();
+                    // Initial ground-truth prices (covers an old() cart bounce).
+                    this.refreshQuote();
                 },
                 // Observe product cards; the first time one is ≥threshold visible
                 // we queue an impression. Flush batched events via sendBeacon.
@@ -1325,13 +1341,17 @@
                         }
                     } catch (e) { /* tracking must never break the page */ }
                 },
-                // ── Coupon ───────────────────────────────────────────────
-                applyCoupon() {
-                    const code = this.couponCode.trim();
-                    if (code === '' || this.applyingCoupon) return;
-                    this.applyingCoupon = true;
-                    this.couponMessage = '';
-                    fetch(this.couponPreviewUrl, {
+                // ── Ground-truth quote fetch ─────────────────────────────
+                // Re-prices the whole cart server-side and stores the result.
+                // Debounced so rapid +/- clicks coalesce; a sequence guard
+                // drops out-of-order responses.
+                refreshQuote() {
+                    clearTimeout(this._quoteTimer);
+                    this._quoteTimer = setTimeout(() => this._fetchQuote(), 250);
+                },
+                _fetchQuote() {
+                    const seq = ++this._quoteSeq;
+                    fetch(this.quoteUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1339,48 +1359,69 @@
                             'X-CSRF-TOKEN': this.csrf,
                         },
                         body: JSON.stringify({
-                            coupon_code: code,
-                            email: this.email,
                             fulfillment_mode: this.mode,
-                            quantities: this.quantities,
+                            expected_delivery_date: this.selectedDate,
+                            email: this.email,
+                            coupon_code: this.appliedCode,
+                            quantities: this.defaultQuantities(),
+                            variant_quantities: this.variantQuantities(),
                         }),
                     })
                         .then((r) => r.json())
                         .then((d) => {
-                            if (d.applied) {
-                                this.couponApplied = true;
-                                this.appliedCode = d.code;
-                                this.couponDiscount = d.discount_eur;
-                                this.couponType = d.type || '';
-                                this.couponMessage = '';
-                            } else {
-                                this.couponApplied = false;
-                                this.appliedCode = '';
-                                this.couponDiscount = 0;
-                                this.couponType = '';
-                                this.couponMessage = d.message || this.couponErrorGeneric;
+                            if (seq !== this._quoteSeq) return; // stale response
+                            this.quote = d;
+                            // Reconcile coupon state from the authoritative quote.
+                            if (this.appliedCode !== '') {
+                                this.couponApplied = d.coupon.applied;
+                                this.couponType = d.coupon.type || '';
+                                if (d.coupon.applied) {
+                                    this.couponMessage = '';
+                                } else {
+                                    this.couponMessage = d.coupon.message || this.couponErrorGeneric;
+                                    this.appliedCode = '';
+                                }
                             }
                         })
-                        .catch(() => { this.couponMessage = this.couponErrorGeneric; })
-                        .finally(() => { this.applyingCoupon = false; });
+                        .catch(() => { /* keep the last good quote on a transient error */ });
+                },
+                // Split the flat quantities map (keys: product id or "v{id}")
+                // into the two maps the server expects.
+                defaultQuantities() {
+                    const out = {};
+                    Object.keys(this.quantities).forEach((id) => {
+                        if (!id.startsWith('v')) {
+                            const qty = this.quantities[id] || 0;
+                            if (qty > 0) out[id] = qty;
+                        }
+                    });
+                    return out;
+                },
+                variantQuantities() {
+                    const out = {};
+                    Object.keys(this.quantities).forEach((id) => {
+                        if (id.startsWith('v')) {
+                            const qty = this.quantities[id] || 0;
+                            if (qty > 0) out[id.slice(1)] = qty;
+                        }
+                    });
+                    return out;
+                },
+                // ── Coupon ───────────────────────────────────────────────
+                applyCoupon() {
+                    const code = this.couponCode.trim();
+                    if (code === '' || this.applyingCoupon) return;
+                    this.appliedCode = code;
+                    this.couponMessage = '';
+                    this.refreshQuote();
                 },
                 clearCoupon() {
                     this.couponApplied = false;
                     this.appliedCode = '';
-                    this.couponDiscount = 0;
                     this.couponType = '';
                     this.couponCode = '';
                     this.couponMessage = '';
-                },
-                // Re-validate an applied coupon after the cart changes so the
-                // preview stays honest (the server re-checks again at submit).
-                scheduleCouponRefresh() {
-                    if (!this.couponApplied || !this.appliedCode) return;
-                    clearTimeout(this._couponTimer);
-                    this._couponTimer = setTimeout(() => {
-                        this.couponCode = this.appliedCode;
-                        this.applyCoupon();
-                    }, 400);
+                    this.refreshQuote();
                 },
                 product(id) { return this.products.find((p) => p.id === id); },
                 stepIndex(id) {
@@ -1411,7 +1452,7 @@
                         // Only product-level (numeric) ids feed the ranking
                         // bandit; grade entries ("v123") are skipped.
                         if (wasEmpty && typeof id === 'number') this.queueEvent(id, 'add_to_cart');
-                        this.scheduleCouponRefresh();
+                        this.refreshQuote();
                     }
                 },
                 dec(id) {
@@ -1420,70 +1461,16 @@
                     const i = this.stepIndex(id);
                     if (i > 0) {
                         this.quantities[id] = p.steps[i - 1].v;
-                        this.scheduleCouponRefresh();
+                        this.refreshQuote();
                     }
                 },
-                // Effective per-unit price for a quantity: the deepest volume
-                // tier whose threshold is met, else the base price. Mirrors the
-                // server-side resolver so the shown total matches checkout.
-                unitPriceFor(p, qty) {
-                    let price = p.unitPrice;
-                    for (const t of (p.tiers || [])) {
-                        if (qty + 1e-9 >= t.min) price = t.price;
-                    }
-                    return price;
-                },
-                lineTotal(id) {
-                    const p = this.product(id);
-                    if (!p) return 0;
-                    const qty = this.quantities[id] || 0;
-                    return Math.round(this.unitPriceFor(p, qty) * qty * 100) / 100;
-                },
-                get itemsTotal() {
-                    return Math.round(this.products.reduce((sum, p) => sum + this.lineTotal(p.id), 0) * 100) / 100;
+                // Server-resolved line total label for a cart entry (empty
+                // until the first quote returns).
+                lineLabel(id) {
+                    return this.quote?.lines?.[id]?.line_total_label ?? '';
                 },
                 get itemCount() {
                     return this.products.reduce((n, p) => n + ((this.quantities[p.id] || 0) > 0 ? 1 : 0), 0);
-                },
-                get effectiveDeliveryFee() { return this.mode === 'delivery' ? this.deliveryFee : 0; },
-                // Free-delivery coupons waive the fee; all others cut the subtotal.
-                get isFreeDelivery() { return this.couponApplied && this.couponType === 'free_delivery'; },
-                get appliedDiscount() {
-                    if (!this.couponApplied) return 0;
-                    if (this.isFreeDelivery) return this.effectiveDeliveryFee;
-                    return Math.min(this.couponDiscount, this.itemsTotal);
-                },
-                get total() {
-                    if (this.isFreeDelivery) return Math.round(this.itemsTotal * 100) / 100;
-                    return Math.round((Math.max(0, this.itemsTotal - this.appliedDiscount) + this.effectiveDeliveryFee) * 100) / 100;
-                },
-                money(v) { return v.toFixed(2).replace('.', ',') + ' €'; },
-                // ── VAT breakdown (per rate, gross-inclusive) ───────────
-                // Sums the VAT contained in each line + the delivery fee,
-                // grouped by rate. Rendered as one summary line per rate.
-                get vatBreakdown() {
-                    const bd = {};
-                    this.products.forEach((p) => {
-                        const lt = this.lineTotal(p.id);
-                        if (lt > 0) {
-                            const r = p.vatRate;
-                            bd[r] = Math.round(((bd[r] || 0) + lt * r / (100 + r)) * 100) / 100;
-                        }
-                    });
-                    const fee = this.effectiveDeliveryFee;
-                    if (fee > 0) {
-                        const r = this.deliveryVatRate;
-                        bd[r] = Math.round(((bd[r] || 0) + fee * r / (100 + r)) * 100) / 100;
-                    }
-                    return bd;
-                },
-                get vatRates() {
-                    return Object.keys(this.vatBreakdown).map(Number).sort((a, b) => a - b);
-                },
-                vatLine(rate) {
-                    return this.vatLineTemplate
-                        .replace(':rate', rate)
-                        .replace(':amount', this.money(this.vatBreakdown[rate]));
                 },
             };
         }

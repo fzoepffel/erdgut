@@ -338,6 +338,33 @@ class ProductVariantsTest extends TestCase
         $this->assertEqualsWithDelta(0.0070, (float) $tier->unit_price, 1e-6);   // 7,00 €/kg
     }
 
+    public function test_quote_endpoint_returns_tier_price_for_a_grade(): void
+    {
+        $product = $this->pieceProduct(10.0);
+        $thin = ProductVariant::factory()->create([
+            'product_id' => $product->id, 'unit_price' => 8.0,
+            'name' => ['de' => 'Dünn', 'en' => 'Thin', 'fr' => 'Fines'],
+        ]);
+        // Grade tier: ≥5 → 6,00.
+        ProductPriceRule::create([
+            'product_id' => $product->id, 'variant_id' => $thin->id,
+            'min_quantity' => 5, 'unit_price' => 6.0, 'is_active' => true,
+        ]);
+        $this->inflow($product, 100);
+        $this->inflow($product, 100, $thin->id);
+
+        $response = $this->postJson(route('public.shop.quote'), [
+            'fulfillment_mode' => 'pickup',
+            'expected_delivery_date' => self::DELIVERY_DATE,
+            'variant_quantities' => [$thin->id => 6], // ≥ 5 → tier 6,00
+        ])->assertOk();
+
+        $key = 'v'.$thin->id;
+        // Ground truth: 6 × 6,00 = 36,00 for the grade line + grand total.
+        $response->assertJsonPath("lines.$key.line_total_label", '36,00 €');
+        $response->assertJsonPath('total_label', '36,00 €');
+    }
+
     public function test_checkout_applies_a_quantity_tier(): void
     {
         $product = $this->pieceProduct(10.0);

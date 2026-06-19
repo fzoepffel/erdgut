@@ -5,7 +5,6 @@ namespace App\Http\Requests;
 use App\Enums\ProductUnit;
 use App\Enums\ShopStockAudience;
 use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Services\Admin\InventoryService;
 use App\Services\Shop\ShopOrderService;
 use App\Support\PickupLocations;
@@ -46,43 +45,10 @@ class ShopOrderRequest extends FormRequest
         // zero / blank entries. Tests may post `items` directly — leave
         // those untouched.
         if (! $this->has('items') && ($this->has('quantities') || $this->has('variant_quantities'))) {
-            $items = [];
-
-            // Default/"Standard" grade lines: quantities[productId] => qty.
-            foreach ((array) $this->input('quantities', []) as $productId => $quantity) {
-                $qty = (float) $quantity;
-                if ($qty > 0) {
-                    $items[] = [
-                        'product_id' => (int) $productId,
-                        'quantity' => $qty,
-                        'variant_id' => null,
-                    ];
-                }
-            }
-
-            // Named grade lines: variant_quantities[variantId] => qty. Resolve
-            // the owning product_id from the variant so the line is complete.
-            $variantQuantities = (array) $this->input('variant_quantities', []);
-            $variantQuantities = array_filter($variantQuantities, fn ($q): bool => (float) $q > 0);
-            if ($variantQuantities !== []) {
-                $variants = ProductVariant::query()
-                    ->whereIn('id', array_map('intval', array_keys($variantQuantities)))
-                    ->get(['id', 'product_id'])
-                    ->keyBy('id');
-
-                foreach ($variantQuantities as $variantId => $quantity) {
-                    $variant = $variants->get((int) $variantId);
-                    if ($variant !== null) {
-                        $items[] = [
-                            'product_id' => (int) $variant->product_id,
-                            'quantity' => (float) $quantity,
-                            'variant_id' => (int) $variantId,
-                        ];
-                    }
-                }
-            }
-
-            $merge['items'] = $items;
+            $merge['items'] = ShopOrderService::normalizeCartItems(
+                (array) $this->input('quantities', []),
+                (array) $this->input('variant_quantities', []),
+            );
         }
 
         if ($merge !== []) {

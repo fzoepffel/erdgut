@@ -155,10 +155,15 @@ Route::name('public.')->group(function () {
     Route::post('/shop', [ShopController::class, 'store'])
         ->middleware('throttle:20,1')
         ->name('shop.store');
-    // Live coupon preview: re-prices the cart server-side with a typed code
-    // so the discount shown is the authoritative one (the same quote() the
-    // order create + SumUp charge use). Throttled — it's an unauthenticated
-    // endpoint that could otherwise be used to brute-force codes.
+    // Ground-truth cart pricing: the storefront posts its cart here on every
+    // change and renders the returned line totals / summary / VAT / total —
+    // the same quote() the order create + SumUp charge use, so the displayed
+    // price can never drift from what's charged. Throttled (unauthenticated).
+    Route::post('/shop/quote', [ShopController::class, 'quote'])
+        ->middleware('throttle:60,1')
+        ->name('shop.quote');
+    // Live coupon preview (legacy aggregate shape). Throttled — it's an
+    // unauthenticated endpoint that could otherwise be used to brute-force codes.
     Route::post('/shop/coupon/preview', [ShopController::class, 'couponPreview'])
         ->middleware('throttle:20,1')
         ->name('shop.coupon.preview');
