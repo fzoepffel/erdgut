@@ -70,6 +70,18 @@
                     ? (float) $row['remaining']
                     : $inventoryService->remainingForGrade($product, $selectedDate, null);
                 $standardPrice = $resolveFor(null);
+                // Volume tiers for the default grade: {min canonical qty, price
+                // canonical}. Sorted ascending so the deepest applicable tier
+                // wins client-side (mirrors the resolver). Date overrides /
+                // customer-group rules are excluded — those aren't tiers.
+                $tiers = $product->priceRules
+                    ->filter(fn ($r) => $r->is_active && $r->min_quantity !== null
+                        && $r->variant_id === null && $r->customer_type === null
+                        && $r->starts_on === null && $r->ends_on === null)
+                    ->sortBy(fn ($r) => (float) $r->min_quantity)
+                    ->map(fn ($r) => ['min' => (float) $r->min_quantity, 'price' => (float) $r->unit_price])
+                    ->values()
+                    ->all();
                 $entries[] = array_merge($buildSteps($product, $standardRemaining), [
                     'key' => (string) $product->id,
                     'jsId' => $product->id,
@@ -79,6 +91,7 @@
                     'unitPrice' => $standardPrice,
                     'vatRate' => (int) $product->vat_rate_percent,
                     'priceDisplay' => $formatCanonical($product, $standardPrice),
+                    'tiers' => $tiers,
                 ]);
 
                 foreach ($activeVariants as $variant) {
@@ -93,6 +106,7 @@
                         'unitPrice' => $price,
                         'vatRate' => (int) $product->vat_rate_percent,
                         'priceDisplay' => $formatCanonical($product, $price),
+                        'tiers' => [],
                     ]);
                 }
 
@@ -110,6 +124,7 @@
                 'step' => $e['step'],
                 'cap' => $e['cap'],
                 'steps' => $e['steps'],
+                'tiers' => $e['tiers'] ?? [],
             ])
             ->values();
 
@@ -618,6 +633,13 @@
                                                             <p class="mt-1 font-mono text-xs tabular-nums text-shop-muted" x-show="(quantities[@js($jsId)] || 0) > 0" x-cloak>
                                                                 <span x-text="money(lineTotal(@js($jsId)))"></span>
                                                             </p>
+                                                            @if (! empty($entry['tiers']))
+                                                                <p class="mt-1 font-mono text-[0.6rem] leading-snug text-shop-muted">
+                                                                    @foreach ($entry['tiers'] as $tier)
+                                                                        {{ __('shop.tier_from', ['qty' => $product->displayQuantity($tier['min']), 'price' => $formatCanonical($product, $tier['price'])]) }}@if (! $loop->last) · @endif
+                                                                    @endforeach
+                                                                </p>
+                                                            @endif
                                                         </div>
                                                     @endforeach
                                                 </div>
@@ -1391,11 +1413,21 @@
                         this.scheduleCouponRefresh();
                     }
                 },
+                // Effective per-unit price for a quantity: the deepest volume
+                // tier whose threshold is met, else the base price. Mirrors the
+                // server-side resolver so the shown total matches checkout.
+                unitPriceFor(p, qty) {
+                    let price = p.unitPrice;
+                    for (const t of (p.tiers || [])) {
+                        if (qty + 1e-9 >= t.min) price = t.price;
+                    }
+                    return price;
+                },
                 lineTotal(id) {
                     const p = this.product(id);
                     if (!p) return 0;
                     const qty = this.quantities[id] || 0;
-                    return Math.round(p.unitPrice * qty * 100) / 100;
+                    return Math.round(this.unitPriceFor(p, qty) * qty * 100) / 100;
                 },
                 get itemsTotal() {
                     return Math.round(this.products.reduce((sum, p) => sum + this.lineTotal(p.id), 0) * 100) / 100;

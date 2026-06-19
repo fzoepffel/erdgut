@@ -3684,5 +3684,12 @@
     "admin.product_group_prices.cleared": "Geschäftspreis entfernt.",
     "admin.product_form.grades_business_price": "Geschäftspreis",
     "admin.product_pricing.grade_label": "Sorte",
-    "admin.product_pricing.grade_default": "Standard"
+    "admin.product_pricing.grade_default": "Standard",
+    "admin.product_form.tiers_heading": "Mengenstaffeln",
+    "admin.product_form.tiers_hint": "Günstigerer Preis ab einer bestimmten Menge (gilt für die Standard-Sorte). Leer = keine Staffel.",
+    "admin.product_form.tiers_min_quantity": "Ab Menge",
+    "admin.product_form.tiers_price": "Preis",
+    "admin.product_form.tiers_remove": "Entfernen",
+    "admin.product_form.tiers_add": "Staffel hinzufügen",
+    "shop.tier_from": "ab :qty: :price"
 }

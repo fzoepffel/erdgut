@@ -3684,5 +3684,12 @@
     "admin.product_group_prices.cleared": "Prix pro supprimé.",
     "admin.product_form.grades_business_price": "Prix pro",
     "admin.product_pricing.grade_label": "Qualité",
-    "admin.product_pricing.grade_default": "Standard"
+    "admin.product_pricing.grade_default": "Standard",
+    "admin.product_form.tiers_heading": "Paliers de quantité",
+    "admin.product_form.tiers_hint": "Prix réduit à partir d'une certaine quantité (s'applique à la qualité standard). Vide = aucun palier.",
+    "admin.product_form.tiers_min_quantity": "À partir de",
+    "admin.product_form.tiers_price": "Prix",
+    "admin.product_form.tiers_remove": "Supprimer",
+    "admin.product_form.tiers_add": "Ajouter un palier",
+    "shop.tier_from": "dès :qty : :price"
 }

@@ -677,6 +677,48 @@
             </button>
         </div>
 
+        {{-- Quantity tiers: volume discounts on the default grade. Threshold +
+             price are entered in the display unit (kg). --}}
+        @php
+            $tierSeed = old('tiers', collect($existingTiers ?? [])->map(fn ($t) => [
+                'id' => $t['id'],
+                'min_quantity' => rtrim(rtrim(number_format((float) $t['min_quantity'], 3, '.', ''), '0'), '.'),
+                'unit_price' => number_format((float) $t['unit_price'], 2, '.', ''),
+            ])->values()->all());
+        @endphp
+        <div class="border-t border-gray-100 pt-6" x-data="{
+            tiers: @js(array_values($tierSeed)),
+            add() { this.tiers.push({ id: '', min_quantity: '', unit_price: '' }); },
+            remove(i) { this.tiers.splice(i, 1); },
+        }">
+            <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.tiers_heading') }}</h3>
+            <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.tiers_hint') }}</p>
+
+            <div class="mt-3 space-y-2">
+                <template x-for="(t, i) in tiers" :key="i">
+                    <div class="flex flex-wrap items-end gap-3 rounded-md border border-gray-200 p-3">
+                        <input type="hidden" :name="'tiers['+i+'][id]'" :value="t.id">
+                        <label class="block text-xs text-gray-600">
+                            {{ __('admin.product_form.tiers_min_quantity') }}<span x-show="hasDisplay" x-cloak> (<span x-text="displaySymbol"></span>)</span>
+                            <input type="number" step="0.001" min="0.001" x-model="t.min_quantity" :name="'tiers['+i+'][min_quantity]'"
+                                class="mt-1 block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        </label>
+                        <label class="block text-xs text-gray-600">
+                            {{ __('admin.product_form.tiers_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                            <input type="number" step="0.01" min="0.01" x-model="t.unit_price" :name="'tiers['+i+'][unit_price]'"
+                                x-bind:placeholder="document.getElementById('price')?.value || ''"
+                                class="mt-1 block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        </label>
+                        <button type="button" @click="remove(i)" class="ml-auto pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.tiers_remove') }}</button>
+                    </div>
+                </template>
+            </div>
+
+            <button type="button" @click="add()" class="mt-3 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                + {{ __('admin.product_form.tiers_add') }}
+            </button>
+        </div>
+
         @php
             $currentVatRate = (int) old('vat_rate_percent', $product?->vat_rate_percent ?? 7);
         @endphp

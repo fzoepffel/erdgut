@@ -3684,5 +3684,12 @@
     "admin.product_group_prices.cleared": "Business price removed.",
     "admin.product_form.grades_business_price": "Business price",
     "admin.product_pricing.grade_label": "Grade",
-    "admin.product_pricing.grade_default": "Standard"
+    "admin.product_pricing.grade_default": "Standard",
+    "admin.product_form.tiers_heading": "Quantity tiers",
+    "admin.product_form.tiers_hint": "Cheaper price from a given quantity (applies to the standard grade). Empty = no tier.",
+    "admin.product_form.tiers_min_quantity": "From quantity",
+    "admin.product_form.tiers_price": "Price",
+    "admin.product_form.tiers_remove": "Remove",
+    "admin.product_form.tiers_add": "Add tier",
+    "shop.tier_from": "from :qty: :price"
 }

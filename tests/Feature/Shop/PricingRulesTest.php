@@ -204,4 +204,22 @@ class PricingRulesTest extends TestCase
 
         $this->assertSame(5.0, $r->unitPriceEur);
     }
+
+    public function test_quantity_tiers_pick_the_deepest_applicable_threshold(): void
+    {
+        $p = $this->product(2.5);
+        ProductPriceRule::factory()->create(['product_id' => $p->id, 'min_quantity' => 3, 'unit_price' => 2.2]);
+        ProductPriceRule::factory()->create(['product_id' => $p->id, 'min_quantity' => 10, 'unit_price' => 1.9]);
+
+        $resolve = fn (float $qty) => $this->resolver()
+            ->resolve($p->fresh(), Carbon::today(), CustomerType::Private, $qty)->unitPriceEur;
+
+        $this->assertSame(2.5, $resolve(1.0));   // below first tier → base
+        $this->assertSame(2.2, $resolve(3.0));   // first tier
+        $this->assertSame(2.2, $resolve(9.0));   // still first tier
+        $this->assertSame(1.9, $resolve(12.0));  // deepest tier wins
+
+        $r = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, 12.0);
+        $this->assertSame('quantity_tier', $r->reason);
+    }
 }

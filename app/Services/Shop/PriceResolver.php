@@ -98,7 +98,9 @@ class PriceResolver
 
     /**
      * Sort comparator: lower return value sorts first (the winner).
-     * Higher priority wins; then more-specific; then narrower window.
+     * Higher priority wins; then more-specific; then narrower window; then the
+     * highest quantity threshold (so the deepest applicable volume tier wins
+     * when several apply to the ordered quantity).
      */
     private function compare(ProductPriceRule $a, ProductPriceRule $b): int
     {
@@ -108,8 +110,11 @@ class PriceResolver
         if ($this->specificity($a) !== $this->specificity($b)) {
             return $this->specificity($b) <=> $this->specificity($a);
         }
+        if ($this->windowDays($a) !== $this->windowDays($b)) {
+            return $this->windowDays($a) <=> $this->windowDays($b);
+        }
 
-        return $this->windowDays($a) <=> $this->windowDays($b);
+        return (float) $b->min_quantity <=> (float) $a->min_quantity;
     }
 
     private function specificity(ProductPriceRule $rule): int

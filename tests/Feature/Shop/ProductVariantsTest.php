@@ -293,6 +293,49 @@ class ProductVariantsTest extends TestCase
         $this->assertSame('customer_group', $resolved->reason);
     }
 
+    public function test_product_form_creates_quantity_tiers_in_canonical_units(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        // Mass/kg product; admin enters tier "from 3 kg → 2,20 €/kg".
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), $this->productFormPayload([
+                'tiers' => [
+                    ['id' => '', 'min_quantity' => '3', 'unit_price' => '2.20'],
+                    ['id' => '', 'min_quantity' => '', 'unit_price' => ''], // blank → ignored
+                ],
+            ]))->assertRedirect();
+
+        $product = Product::query()->latest('id')->firstOrFail();
+        $tier = $product->priceRules()->whereNotNull('min_quantity')->sole();
+        // 3 kg → 3000 g canonical; 2,20 €/kg → 0,0022 €/g canonical.
+        $this->assertEqualsWithDelta(3000.0, (float) $tier->min_quantity, 1e-6);
+        $this->assertEqualsWithDelta(0.0022, (float) $tier->unit_price, 1e-6);
+    }
+
+    public function test_checkout_applies_a_quantity_tier(): void
+    {
+        $product = $this->pieceProduct(10.0);
+        ProductPriceRule::create([
+            'product_id' => $product->id,
+            'min_quantity' => 5, // piece → canonical == count
+            'unit_price' => 8.0,
+            'is_active' => true,
+        ]);
+        $this->inflow($product, 100);
+
+        $order = app(ShopOrderService::class)->createOrder([
+            'name' => 'Anna', 'email' => 'a@example.com',
+            'fulfillment_mode' => 'pickup', 'pickup_location' => 'karl_kunger',
+            'payment_method' => 'online', 'expected_delivery_date' => self::DELIVERY_DATE,
+            'items' => [['product_id' => $product->id, 'quantity' => 6]], // ≥ 5 → tier
+        ]);
+
+        $item = $order->items()->first();
+        $this->assertEquals(8.0, (float) $item->unit_price_snapshot_eur);
+        $this->assertEquals(48.0, (float) $item->line_total_eur);
+    }
+
     public function test_product_form_removing_a_grade_row_deletes_it(): void
     {
         $admin = User::factory()->admin()->create();

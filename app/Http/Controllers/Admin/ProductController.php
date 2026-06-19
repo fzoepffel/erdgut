@@ -18,6 +18,7 @@ use App\Models\ProductPriceRule;
 use App\Models\ProductTranslation;
 use App\Models\ProductVariant;
 use App\Services\ImageProcessor;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -132,6 +133,7 @@ class ProductController extends Controller
 
             $this->syncBusinessPrice($product, $validated, $request->user()?->id);
             $this->syncVariants($product, $validated, $request->user()?->id);
+            $this->syncQuantityTiers($product, $validated, $request->user()?->id);
 
             if ($request->hasFile('gallery_images')) {
                 $this->storeGalleryUploads($product, $request->file('gallery_images'));
@@ -197,6 +199,7 @@ class ProductController extends Controller
 
             $this->syncBusinessPrice($product, $validated, $request->user()?->id);
             $this->syncVariants($product, $validated, $request->user()?->id);
+            $this->syncQuantityTiers($product, $validated, $request->user()?->id);
 
             $this->removeGalleryImages($validated['gallery_remove'] ?? [], $product);
 
@@ -293,6 +296,15 @@ class ProductController extends Controller
                         : null,
                     'business_price' => $this->businessDisplayPriceFor($product, $v->id),
                     'is_active' => (bool) $v->is_active,
+                ])->all()
+                : [],
+            // Quantity tiers (volume discounts) on the default grade, in the
+            // display unit (threshold = kg, price = €/kg).
+            'existingTiers' => $product !== null
+                ? $this->quantityTierRules($product)->map(fn (ProductPriceRule $r): array => [
+                    'id' => $r->id,
+                    'min_quantity' => round((float) $r->min_quantity / $this->displayFactor($product), 3),
+                    'unit_price' => round((float) $r->unit_price * $this->displayFactor($product), 2),
                 ])->all()
                 : [],
         ];
@@ -433,6 +445,80 @@ class ProductController extends Controller
             $product->priceRules()->whereIn('variant_id', $removedIds)->delete();
             $product->variants()->whereKey($removedIds)->delete();
         }
+    }
+
+    /**
+     * The product's quantity-tier rules (volume discounts on the default
+     * grade): min_quantity set, no date/variant/customer scope.
+     *
+     * @return Collection<int, ProductPriceRule>
+     */
+    private function quantityTierRules(Product $product): Collection
+    {
+        return $product->priceRules()
+            ->whereNull('variant_id')
+            ->whereNull('customer_type')
+            ->whereNull('starts_on')
+            ->whereNull('ends_on')
+            ->whereNotNull('min_quantity')
+            ->orderBy('min_quantity')
+            ->get();
+    }
+
+    /**
+     * Upsert the product's quantity tiers from the form and delete removed
+     * rows. Threshold + price are entered in the display unit; stored
+     * canonical (threshold = €/g quantity, price = €/g).
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function syncQuantityTiers(Product $product, array $validated, ?int $userId): void
+    {
+        $rows = $validated['tiers'] ?? null;
+        if (! is_array($rows)) {
+            return;
+        }
+
+        $factor = $this->displayFactor($product);
+        $keptIds = [];
+
+        foreach ($rows as $row) {
+            $minRaw = $row['min_quantity'] ?? null;
+            $priceRaw = $row['unit_price'] ?? null;
+            if ($minRaw === null || $minRaw === '' || $priceRaw === null || $priceRaw === '') {
+                continue; // incomplete row
+            }
+
+            $attributes = [
+                'min_quantity' => round((float) $minRaw * $factor, 4),
+                'unit_price' => round((float) $priceRaw / $factor, 4),
+                'is_active' => true,
+                'created_by_user_id' => $userId,
+            ];
+
+            $id = isset($row['id']) && $row['id'] !== '' ? (int) $row['id'] : null;
+            $tier = $id !== null
+                ? $product->priceRules()->whereKey($id)->whereNotNull('min_quantity')->first()
+                : null;
+
+            if ($tier !== null) {
+                $tier->update($attributes);
+            } else {
+                $tier = $product->priceRules()->create($attributes);
+            }
+
+            $keptIds[] = $tier->id;
+        }
+
+        // Remove tiers the admin deleted (only quantity-tier rows).
+        $product->priceRules()
+            ->whereNull('variant_id')
+            ->whereNull('customer_type')
+            ->whereNull('starts_on')
+            ->whereNull('ends_on')
+            ->whereNotNull('min_quantity')
+            ->whereNotIn('id', $keptIds ?: [0])
+            ->delete();
     }
 
     /**
