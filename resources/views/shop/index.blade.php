@@ -22,7 +22,17 @@
         // remaining stock, so each gets its own stepper ladder. The card loop
         // below reads $gradeRowsByProduct to render one stepper per grade.
         $inventoryService = app(\App\Services\Admin\InventoryService::class);
+        $priceResolver = app(\App\Services\Shop\PriceResolver::class);
         $locale = app()->getLocale();
+
+        // Format a canonical (€/g) price in the product's display unit (€/kg).
+        $formatCanonical = function ($product, float $canonical) use ($locale) {
+            $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit();
+
+            return $product->unit !== null && $displayUnit !== null
+                ? $product->unit->formatPrice($canonical, $displayUnit, $locale)
+                : number_format($canonical, 2, ',', '.').' €';
+        };
 
         $buildSteps = function ($product, float $remainingRaw) use ($maxQuantity, $maxCount) {
             $step = $product->effectiveQuantityStep();
@@ -41,11 +51,17 @@
 
         $gradeRowsByProduct = $products
             ->filter(fn ($row) => $row['available_on_selected'])
-            ->mapWithKeys(function ($row) use ($buildSteps, $inventoryService, $selectedDate, $locale) {
+            ->mapWithKeys(function ($row) use ($buildSteps, $inventoryService, $priceResolver, $formatCanonical, $selectedDate, $locale) {
                 $product = $row['product'];
-                $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit();
                 $activeVariants = $product->activeVariants();
                 $entries = [];
+
+                // Prices are resolved for the selected delivery date and a
+                // private customer, so date overrides / grade prices show on the
+                // card exactly as they'll be charged at checkout.
+                $resolveFor = fn (?int $variantId, $variant = null): float => $priceResolver
+                    ->resolve($product, $selectedDate, \App\Enums\CustomerType::Private, null, $variantId, $variant)
+                    ->unitPriceEur;
 
                 // Default/"Standard" grade. Its cap is the default grade's own
                 // stock when named grades exist, otherwise the product total
@@ -53,23 +69,21 @@
                 $standardRemaining = $activeVariants->isEmpty()
                     ? (float) $row['remaining']
                     : $inventoryService->remainingForGrade($product, $selectedDate, null);
+                $standardPrice = $resolveFor(null);
                 $entries[] = array_merge($buildSteps($product, $standardRemaining), [
                     'key' => (string) $product->id,
                     'jsId' => $product->id,
                     'formName' => 'quantities['.$product->id.']',
                     'gradeLabel' => $activeVariants->isEmpty() ? null : __('shop.variant.standard'),
                     'name' => $product->name,
-                    'unitPrice' => (float) $product->unit_price,
+                    'unitPrice' => $standardPrice,
                     'vatRate' => (int) $product->vat_rate_percent,
-                    'priceDisplay' => $product->displayPrice(),
+                    'priceDisplay' => $formatCanonical($product, $standardPrice),
                 ]);
 
                 foreach ($activeVariants as $variant) {
                     $remaining = $inventoryService->remainingForGrade($product, $selectedDate, $variant->id);
-                    $price = $variant->effectiveUnitPrice();
-                    $priceDisplay = $product->unit !== null && $displayUnit !== null
-                        ? $product->unit->formatPrice($price, $displayUnit, $locale)
-                        : number_format($price, 2, ',', '.').' €';
+                    $price = $resolveFor($variant->id, $variant);
                     $entries[] = array_merge($buildSteps($product, $remaining), [
                         'key' => 'v'.$variant->id,
                         'jsId' => 'v'.$variant->id,
@@ -78,7 +92,7 @@
                         'name' => $product->name.' · '.$variant->localizedName($locale),
                         'unitPrice' => $price,
                         'vatRate' => (int) $product->vat_rate_percent,
-                        'priceDisplay' => $priceDisplay,
+                        'priceDisplay' => $formatCanonical($product, $price),
                     ]);
                 }
 
@@ -546,7 +560,8 @@
                                                 {{ $product->producer->name }}
                                             </a>
                                         @endif
-                                        <p class="mt-2 font-mono text-xs tabular-nums text-shop-muted">{{ $product->displayPrice() }}</p>
+                                        {{-- Default-grade price resolved for the selected date (matches the Standard stepper). --}}
+                                        <p class="mt-2 font-mono text-xs tabular-nums text-shop-muted">{{ $gradeRowsByProduct[$product->id][0]['priceDisplay'] ?? $product->displayPrice() }}</p>
 
                                         @php($shopTasteTags = $product->shopTasteTags())
                                         @if ($shopTasteTags !== [])

@@ -6,6 +6,7 @@ use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductPriceRule;
 use App\Models\ProductStockInflow;
 use App\Models\ProductVariant;
 use App\Models\ShopOrderItem;
@@ -105,6 +106,30 @@ class ProductVariantsTest extends TestCase
         $this->assertSame(30.0, $lanes[$thin->id][$iso]);   // thin lane
         // Lanes sum to the product total.
         $this->assertSame(80.0, $lanes[0][$iso] + $lanes[$thin->id][$iso]);
+    }
+
+    public function test_storefront_card_shows_date_override_price(): void
+    {
+        $product = $this->pieceProduct(10.0);
+        $this->inflow($product, 100);
+        ProductPriceRule::create([
+            'product_id' => $product->id,
+            'variant_id' => null,
+            'starts_on' => self::DELIVERY_DATE,
+            'ends_on' => self::DELIVERY_DATE,
+            'unit_price' => 7.0, // override for that day (piece → canonical == display)
+            'is_active' => true,
+        ]);
+
+        // Pin the locale so the rendered price format is deterministic.
+        $override = $product->unit->formatPrice(7.0, 'piece', 'de');
+        $base = $product->unit->formatPrice(10.0, 'piece', 'de');
+
+        $this->withSession(['locale' => 'de'])
+            ->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->assertSee($override, false)   // override shows on the card
+            ->assertDontSee($base, false);  // base price no longer shown
     }
 
     public function test_checkout_snapshots_grade_and_its_price(): void

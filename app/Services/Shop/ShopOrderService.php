@@ -397,7 +397,7 @@ class ShopOrderService
 
         $products = Product::query()
             ->visibleInCatalog()
-            ->with(['translations', 'producer.translations', 'images'])
+            ->with(['translations', 'producer.translations', 'images', 'priceRules', 'variants'])
             ->get();
 
         $matrix = $inventory->availabilityMatrix($products, $from, $weekEnd);
