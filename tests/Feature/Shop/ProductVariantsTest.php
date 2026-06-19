@@ -121,12 +121,14 @@ class ProductVariantsTest extends TestCase
             'is_active' => true,
         ]);
 
-        // Pin the locale so the rendered price format is deterministic.
-        $override = $product->unit->formatPrice(7.0, 'piece', 'de');
-        $base = $product->unit->formatPrice(10.0, 'piece', 'de');
+        // Pin the request locale via Accept-Language and compute the expected
+        // price strings under the same locale — formatPrice's unit symbol uses
+        // the active app locale, so both must agree to be deterministic.
+        app()->setLocale('en');
+        $override = $product->unit->formatPrice(7.0, 'piece', 'en');
+        $base = $product->unit->formatPrice(10.0, 'piece', 'en');
 
-        $this->withSession(['locale' => 'de'])
-            ->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+        $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]), ['Accept-Language' => 'en'])
             ->assertOk()
             ->assertSee($override, false)   // override shows on the card
             ->assertDontSee($base, false);  // base price no longer shown
