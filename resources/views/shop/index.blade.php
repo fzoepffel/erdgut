@@ -85,21 +85,30 @@
                     ->map(fn ($r) => ['min' => (float) $r->min_quantity, 'price' => (float) $r->unit_price])
                     ->values()
                     ->all();
-                $entries[] = array_merge($buildSteps($product, $standardRemaining), [
-                    'key' => (string) $product->id,
-                    'jsId' => $product->id,
-                    'formName' => 'quantities['.$product->id.']',
-                    'gradeLabel' => $activeVariants->isEmpty() ? null : __('shop.variant.standard'),
-                    'name' => $product->name,
-                    'unitPrice' => $standardPrice,
-                    'vatRate' => (int) $product->vat_rate_percent,
-                    'priceDisplay' => $formatCanonical($product, $standardPrice),
-                    'tiers' => $tiers,
-                    'tiersApply' => $standardTiersApply,
-                ]);
+                // Only show the default/"Standard" grade when it actually has
+                // stock that day. A product with no named grades is always shown
+                // (its card surfaced because the product total is positive).
+                if ($activeVariants->isEmpty() || $standardRemaining > 0) {
+                    $entries[] = array_merge($buildSteps($product, $standardRemaining), [
+                        'key' => (string) $product->id,
+                        'jsId' => $product->id,
+                        'formName' => 'quantities['.$product->id.']',
+                        'gradeLabel' => $activeVariants->isEmpty() ? null : __('shop.variant.standard'),
+                        'name' => $product->name,
+                        'unitPrice' => $standardPrice,
+                        'vatRate' => (int) $product->vat_rate_percent,
+                        'priceDisplay' => $formatCanonical($product, $standardPrice),
+                        'tiers' => $tiers,
+                        'tiersApply' => $standardTiersApply,
+                    ]);
+                }
 
                 foreach ($activeVariants as $variant) {
                     $remaining = $inventoryService->remainingForGrade($product, $selectedDate, $variant->id);
+                    // Skip grades with no stock on the selected day — no selector.
+                    if ($remaining <= 0) {
+                        continue;
+                    }
                     $resolved = $resolveFor($variant->id, $variant);
                     $price = $resolved->unitPriceEur;
                     $tiersApply = $resolved->reason !== 'period_override';

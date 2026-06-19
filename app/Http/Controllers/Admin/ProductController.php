@@ -393,10 +393,10 @@ class ProductController extends Controller
      */
     private function syncVariants(Product $product, array $validated, ?int $userId): void
     {
-        $rows = $validated['variants'] ?? null;
-        if (! is_array($rows)) {
-            return;
-        }
+        // Absent `variants` means the admin removed every grade (the form sends
+        // no variant inputs then). Treat it as an empty set — NOT a no-op — so
+        // removing the last grade actually deletes it.
+        $rows = is_array($validated['variants'] ?? null) ? $validated['variants'] : [];
 
         $factor = $this->displayFactor($product);
         $keptIds = [];
