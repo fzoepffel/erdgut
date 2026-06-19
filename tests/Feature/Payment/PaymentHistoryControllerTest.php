@@ -82,7 +82,7 @@ class PaymentHistoryControllerTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.payments.history'))
             ->assertOk()
-            ->assertSee('42,50', false)
+            ->assertSee('42.50', false)
             ->assertSee('Drawn', false);
     }
 

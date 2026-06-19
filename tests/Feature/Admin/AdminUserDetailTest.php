@@ -134,6 +134,6 @@ class AdminUserDetailTest extends TestCase
         $this->actingAs($admin)
             ->get(route('app.admin.users.show', $customer))
             ->assertOk()
-            ->assertSee('24,50');
+            ->assertSee('24.50');
     }
 }

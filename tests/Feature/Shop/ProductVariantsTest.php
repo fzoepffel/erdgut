@@ -357,7 +357,7 @@ class ProductVariantsTest extends TestCase
             'fulfillment_mode' => 'pickup',
             'expected_delivery_date' => self::DELIVERY_DATE,
             'variant_quantities' => [$thin->id => 6], // ≥ 5 → tier 6,00
-        ])->assertOk();
+        ], ['Accept-Language' => 'de'])->assertOk();
 
         $key = 'v'.$thin->id;
         // Ground truth: 6 × 6,00 = 36,00 for the grade line + grand total.

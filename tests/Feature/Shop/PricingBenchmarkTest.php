@@ -125,13 +125,16 @@ class PricingBenchmarkTest extends TestCase
 
     public function test_quote_endpoint_matches_resolver(): void
     {
+        // Pin the request to German so the money labels are deterministic.
+        $de = ['Accept-Language' => 'de'];
+
         // Normal day, private cart: default ×5 (tier 6 → 30) + thin ×4 (tier 4 → 16) = 46.
         $this->postJson(route('public.shop.quote'), [
             'fulfillment_mode' => 'pickup',
             'expected_delivery_date' => self::NORMAL,
             'quantities' => [$this->product->id => 5],
             'variant_quantities' => [$this->thin->id => 4],
-        ])->assertOk()
+        ], $de)->assertOk()
             ->assertJsonPath('lines.'.$this->product->id.'.line_total_label', '30,00 €')
             ->assertJsonPath('lines.v'.$this->thin->id.'.line_total_label', '16,00 €')
             ->assertJsonPath('total_label', '46,00 €');
@@ -142,7 +145,7 @@ class PricingBenchmarkTest extends TestCase
             'expected_delivery_date' => self::OVERRIDE,
             'quantities' => [$this->product->id => 5],
             'variant_quantities' => [$this->thin->id => 1],
-        ])->assertOk()
+        ], $de)->assertOk()
             ->assertJsonPath('lines.'.$this->product->id.'.line_total_label', '35,00 €')
             ->assertJsonPath('lines.v'.$this->thin->id.'.line_total_label', '3,50 €')
             ->assertJsonPath('total_label', '38,50 €');
