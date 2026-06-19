@@ -44,6 +44,8 @@ class ShopOrderItem extends Model
         'line_total_eur',
         'vat_rate_snapshot_percent',
         'vat_amount_eur',
+        'packed_at',
+        'packed_by_user_id',
     ];
 
     protected function casts(): array
@@ -54,7 +56,14 @@ class ShopOrderItem extends Model
             'line_total_eur' => 'decimal:2',
             'vat_rate_snapshot_percent' => 'integer',
             'vat_amount_eur' => 'decimal:2',
+            'packed_at' => 'datetime',
         ];
+    }
+
+    /** Whether this line has been packed for fulfilment. */
+    public function isPacked(): bool
+    {
+        return $this->packed_at !== null;
     }
 
     /**
@@ -79,5 +88,13 @@ class ShopOrderItem extends Model
     public function variant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function packedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'packed_by_user_id');
     }
 }

@@ -22,6 +22,11 @@ class OnboardingSummaryComponentTest extends TestCase
     {
         parent::setUp();
 
+        // The summary renders via the blade() helper (no HTTP request → no
+        // SetLocale middleware), so pin the locale its German money assertions
+        // expect; otherwise the active locale leaks from run order.
+        $this->app->setLocale('de');
+
         Config::set('box.included_value_by_size', [
             'small' => 20.0,
             'medium' => 35.0,

@@ -262,15 +262,7 @@ class AdminShopOrderController extends Controller
         $statusEnum = ShopOrderStatus::tryFrom($filter['status']);
 
         return ShopOrder::query()
-            ->when($filter['status'] === self::FILTER_FINALIZED, fn ($q) => $q->where(function ($inner) {
-                $inner->whereIn('status', [
-                    ShopOrderStatus::Paid->value,
-                    ShopOrderStatus::Fulfilled->value,
-                ])->orWhere(function ($pickup) {
-                    $pickup->where('status', ShopOrderStatus::PendingPayment->value)
-                        ->where('payment_method', 'in_person');
-                });
-            }))
+            ->when($filter['status'] === self::FILTER_FINALIZED, fn ($q) => $q->finalized())
             ->when($statusEnum, fn ($q) => $q->where('status', $statusEnum))
             ->when($filter['delivery_from'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '>=', $filter['delivery_from']))
             ->when($filter['delivery_to'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '<=', $filter['delivery_to']));
