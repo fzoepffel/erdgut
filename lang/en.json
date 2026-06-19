@@ -3691,5 +3691,22 @@
     "admin.product_form.tiers_price": "Price",
     "admin.product_form.tiers_remove": "Remove",
     "admin.product_form.tiers_add": "Add tier",
-    "shop.tier_from": "from :qty: :price"
+    "shop.tier_from": "from :qty: :price",
+    "admin.packing.nav_label": "Packing",
+    "admin.packing.title": "Packing",
+    "admin.packing.intro": "Pack product by product: pick a product and drop it into every order that contains it, then move to the next, until every order for the day is done.",
+    "admin.packing.day_progress": ":packed / :total items packed",
+    "admin.packing.no_orders": "No orders to pack for this day.",
+    "admin.packing.products_heading": "Products",
+    "admin.packing.order_lines_heading": "Orders needing this product",
+    "admin.packing.pack_all": "Pack all (:count)",
+    "admin.packing.pack": "Pack",
+    "admin.packing.packed": "Packed",
+    "admin.packing.ready": "Ready",
+    "admin.packing.select_product": "Pick a product on the left to start packing.",
+    "admin.packing.orders_heading": "Orders",
+    "admin.packing.to_pack": "to pack",
+    "admin.packing.pickup": "Pickup",
+    "admin.packing.delivery": "Delivery",
+    "admin.packing.open_order": "Open order"
 }

@@ -3691,5 +3691,22 @@
     "admin.product_form.tiers_price": "Preis",
     "admin.product_form.tiers_remove": "Entfernen",
     "admin.product_form.tiers_add": "Staffel hinzufügen",
-    "shop.tier_from": "ab :qty: :price"
+    "shop.tier_from": "ab :qty: :price",
+    "admin.packing.nav_label": "Packen",
+    "admin.packing.title": "Packen",
+    "admin.packing.intro": "Pack Produkt für Produkt: wähle ein Produkt und leg es in jede Bestellung, die es enthält. Dann zum nächsten Produkt, bis alle Bestellungen des Tages fertig sind.",
+    "admin.packing.day_progress": ":packed / :total Positionen gepackt",
+    "admin.packing.no_orders": "Für diesen Tag gibt es keine zu packenden Bestellungen.",
+    "admin.packing.products_heading": "Produkte",
+    "admin.packing.order_lines_heading": "Bestellungen mit diesem Produkt",
+    "admin.packing.pack_all": "Alle packen (:count)",
+    "admin.packing.pack": "Packen",
+    "admin.packing.packed": "Gepackt",
+    "admin.packing.ready": "Fertig",
+    "admin.packing.select_product": "Wähle links ein Produkt zum Packen.",
+    "admin.packing.orders_heading": "Bestellungen",
+    "admin.packing.to_pack": "zu packen",
+    "admin.packing.pickup": "Abholung",
+    "admin.packing.delivery": "Lieferung",
+    "admin.packing.open_order": "Bestellung öffnen"
 }

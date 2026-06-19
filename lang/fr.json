@@ -3691,5 +3691,22 @@
     "admin.product_form.tiers_price": "Prix",
     "admin.product_form.tiers_remove": "Supprimer",
     "admin.product_form.tiers_add": "Ajouter un palier",
-    "shop.tier_from": "dès :qty : :price"
+    "shop.tier_from": "dès :qty : :price",
+    "admin.packing.nav_label": "Emballage",
+    "admin.packing.title": "Emballage",
+    "admin.packing.intro": "Emballez produit par produit : choisissez un produit et placez-le dans chaque commande qui le contient, puis passez au suivant, jusqu'à ce que toutes les commandes du jour soient prêtes.",
+    "admin.packing.day_progress": ":packed / :total articles emballés",
+    "admin.packing.no_orders": "Aucune commande à emballer pour ce jour.",
+    "admin.packing.products_heading": "Produits",
+    "admin.packing.order_lines_heading": "Commandes contenant ce produit",
+    "admin.packing.pack_all": "Tout emballer (:count)",
+    "admin.packing.pack": "Emballer",
+    "admin.packing.packed": "Emballé",
+    "admin.packing.ready": "Prêt",
+    "admin.packing.select_product": "Choisissez un produit à gauche pour commencer.",
+    "admin.packing.orders_heading": "Commandes",
+    "admin.packing.to_pack": "à emballer",
+    "admin.packing.pickup": "Retrait",
+    "admin.packing.delivery": "Livraison",
+    "admin.packing.open_order": "Ouvrir la commande"
 }

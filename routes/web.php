@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\AdminEmailResendController;
 use App\Http\Controllers\Admin\AdminInflowScheduleController;
 use App\Http\Controllers\Admin\AdminInventoryController;
 use App\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\AdminPackingController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
 use App\Http\Controllers\Admin\AdminSearchController;
@@ -495,6 +496,13 @@ Route::middleware(['auth', 'verified'])
             Route::post('shop-orders', [AdminShopOrderController::class, 'store'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.store');
+            // Product-by-product packing for a delivery day — declared before
+            // the {shopOrder} wildcard so "packing" isn't read as a model id.
+            Route::get('shop-orders/packing', [AdminPackingController::class, 'index'])->name('packing.index');
+            Route::post('shop-orders/packing/items/{item}/toggle', [AdminPackingController::class, 'toggleItem'])
+                ->middleware('throttle:120,1')->name('packing.toggle');
+            Route::post('shop-orders/packing/product', [AdminPackingController::class, 'packProduct'])
+                ->middleware('throttle:120,1')->name('packing.product');
             Route::get('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'show'])->name('shop-orders.show');
             Route::post('shop-orders/{shopOrder}/mark-paid', [AdminShopOrderController::class, 'markPaid'])
                 ->middleware('throttle:30,1')
