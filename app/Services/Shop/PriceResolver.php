@@ -59,6 +59,12 @@ class PriceResolver
             if ($rule->variant_id !== null && $rule->variant_id !== $variantId) {
                 return false;
             }
+            // Quantity tiers are grade-specific: a default (null-variant) tier
+            // applies only to the default grade, never to a named grade — so
+            // each grade's volume discounts stay independent.
+            if ($rule->min_quantity !== null && $rule->variant_id === null && $variantId !== null) {
+                return false;
+            }
             if ($rule->min_quantity !== null && ($quantity === null || $quantity + 1e-9 < (float) $rule->min_quantity)) {
                 return false;
             }

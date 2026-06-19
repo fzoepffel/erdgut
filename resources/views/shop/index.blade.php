@@ -97,6 +97,16 @@
                 foreach ($activeVariants as $variant) {
                     $remaining = $inventoryService->remainingForGrade($product, $selectedDate, $variant->id);
                     $price = $resolveFor($variant->id, $variant);
+                    // This grade's own volume tiers (default tiers don't leak to
+                    // named grades, mirroring the resolver).
+                    $variantTiers = $product->priceRules
+                        ->filter(fn ($r) => $r->is_active && $r->min_quantity !== null
+                            && (int) $r->variant_id === (int) $variant->id && $r->customer_type === null
+                            && $r->starts_on === null && $r->ends_on === null)
+                        ->sortBy(fn ($r) => (float) $r->min_quantity)
+                        ->map(fn ($r) => ['min' => (float) $r->min_quantity, 'price' => (float) $r->unit_price])
+                        ->values()
+                        ->all();
                     $entries[] = array_merge($buildSteps($product, $remaining), [
                         'key' => 'v'.$variant->id,
                         'jsId' => 'v'.$variant->id,
@@ -106,7 +116,7 @@
                         'unitPrice' => $price,
                         'vatRate' => (int) $product->vat_rate_percent,
                         'priceDisplay' => $formatCanonical($product, $price),
-                        'tiers' => [],
+                        'tiers' => $variantTiers,
                     ]);
                 }
 

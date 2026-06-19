@@ -296,17 +296,12 @@ class ProductController extends Controller
                         : null,
                     'business_price' => $this->businessDisplayPriceFor($product, $v->id),
                     'is_active' => (bool) $v->is_active,
+                    'tiers' => $this->tierRowsFor($product, $v->id),
                 ])->all()
                 : [],
-            // Quantity tiers (volume discounts) on the default grade, in the
-            // display unit (threshold = kg, price = €/kg).
-            'existingTiers' => $product !== null
-                ? $this->quantityTierRules($product)->map(fn (ProductPriceRule $r): array => [
-                    'id' => $r->id,
-                    'min_quantity' => round((float) $r->min_quantity / $this->displayFactor($product), 3),
-                    'unit_price' => round((float) $r->unit_price * $this->displayFactor($product), 2),
-                ])->all()
-                : [],
+            // Default-grade quantity tiers (volume discounts), in the display
+            // unit (threshold = kg, price = €/kg).
+            'existingTiers' => $product !== null ? $this->tierRowsFor($product, null) : [],
         ];
     }
 
@@ -434,8 +429,9 @@ class ProductController extends Controller
 
             $keptIds[] = $variant->id;
 
-            // Each grade carries its own optional business price.
+            // Each grade carries its own optional business price + volume tiers.
             $this->upsertBusinessPrice($product, $variant->id, $row['business_price'] ?? null, $factor, $userId);
+            $this->syncTiersFor($product, $variant->id, (array) ($row['tiers'] ?? []), $userId);
         }
 
         // Remove grades the admin deleted from the form, plus any price rules
@@ -448,37 +444,50 @@ class ProductController extends Controller
     }
 
     /**
-     * The product's quantity-tier rules (volume discounts on the default
-     * grade): min_quantity set, no date/variant/customer scope.
+     * Quantity-tier rules (volume discounts) for one grade: min_quantity set,
+     * no date/customer scope. $variantId null = the default grade.
      *
      * @return Collection<int, ProductPriceRule>
      */
-    private function quantityTierRules(Product $product): Collection
+    private function quantityTierRules(Product $product, ?int $variantId = null): Collection
     {
         return $product->priceRules()
-            ->whereNull('variant_id')
             ->whereNull('customer_type')
             ->whereNull('starts_on')
             ->whereNull('ends_on')
             ->whereNotNull('min_quantity')
+            ->when($variantId === null, fn ($q) => $q->whereNull('variant_id'), fn ($q) => $q->where('variant_id', $variantId))
             ->orderBy('min_quantity')
             ->get();
     }
 
-    /**
-     * Upsert the product's quantity tiers from the form and delete removed
-     * rows. Threshold + price are entered in the display unit; stored
-     * canonical (threshold = €/g quantity, price = €/g).
-     *
-     * @param  array<string, mixed>  $validated
-     */
+    /** Display-unit tier rows for a grade, for prefilling the form. */
+    private function tierRowsFor(Product $product, ?int $variantId): array
+    {
+        $factor = $this->displayFactor($product);
+
+        return $this->quantityTierRules($product, $variantId)->map(fn (ProductPriceRule $r): array => [
+            'id' => $r->id,
+            'min_quantity' => round((float) $r->min_quantity / $factor, 3),
+            'unit_price' => round((float) $r->unit_price * $factor, 2),
+        ])->all();
+    }
+
+    /** Default-grade quantity tiers from the top-level form section. */
     private function syncQuantityTiers(Product $product, array $validated, ?int $userId): void
     {
-        $rows = $validated['tiers'] ?? null;
-        if (! is_array($rows)) {
-            return;
-        }
+        $this->syncTiersFor($product, null, (array) ($validated['tiers'] ?? []), $userId);
+    }
 
+    /**
+     * Upsert one grade's quantity tiers and delete removed rows. Threshold +
+     * price are entered in the display unit; stored canonical. $variantId null
+     * = the default grade.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function syncTiersFor(Product $product, ?int $variantId, array $rows, ?int $userId): void
+    {
         $factor = $this->displayFactor($product);
         $keptIds = [];
 
@@ -490,6 +499,7 @@ class ProductController extends Controller
             }
 
             $attributes = [
+                'variant_id' => $variantId,
                 'min_quantity' => round((float) $minRaw * $factor, 4),
                 'unit_price' => round((float) $priceRaw / $factor, 4),
                 'is_active' => true,
@@ -510,13 +520,13 @@ class ProductController extends Controller
             $keptIds[] = $tier->id;
         }
 
-        // Remove tiers the admin deleted (only quantity-tier rows).
+        // Remove tiers the admin deleted from this grade's scope.
         $product->priceRules()
-            ->whereNull('variant_id')
             ->whereNull('customer_type')
             ->whereNull('starts_on')
             ->whereNull('ends_on')
             ->whereNotNull('min_quantity')
+            ->when($variantId === null, fn ($q) => $q->whereNull('variant_id'), fn ($q) => $q->where('variant_id', $variantId))
             ->whereNotIn('id', $keptIds ?: [0])
             ->delete();
     }

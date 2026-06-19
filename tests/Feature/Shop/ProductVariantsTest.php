@@ -313,6 +313,31 @@ class ProductVariantsTest extends TestCase
         $this->assertEqualsWithDelta(0.0022, (float) $tier->unit_price, 1e-6);
     }
 
+    public function test_product_form_creates_per_grade_quantity_tiers(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), $this->productFormPayload([
+                'variants' => [
+                    [
+                        'id' => '', 'name' => ['de' => 'Dünn', 'en' => 'Thin', 'fr' => 'Fines'], 'unit_price' => '8.00', 'is_active' => '1',
+                        'tiers' => [
+                            ['id' => '', 'min_quantity' => '3', 'unit_price' => '7.00'],
+                        ],
+                    ],
+                ],
+            ]))->assertRedirect();
+
+        $product = Product::query()->latest('id')->firstOrFail();
+        $variant = ProductVariant::where('product_id', $product->id)->sole();
+
+        $tier = $product->priceRules()->whereNotNull('min_quantity')->sole();
+        $this->assertSame($variant->id, $tier->variant_id);
+        $this->assertEqualsWithDelta(3000.0, (float) $tier->min_quantity, 1e-6); // 3 kg
+        $this->assertEqualsWithDelta(0.0070, (float) $tier->unit_price, 1e-6);   // 7,00 €/kg
+    }
+
     public function test_checkout_applies_a_quantity_tier(): void
     {
         $product = $this->pieceProduct(10.0);

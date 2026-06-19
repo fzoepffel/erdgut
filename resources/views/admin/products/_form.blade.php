@@ -624,12 +624,19 @@
                 'unit_price' => $v['price'] !== null ? number_format((float) $v['price'], 2, '.', '') : '',
                 'business_price' => ($v['business_price'] ?? null) !== null ? number_format((float) $v['business_price'], 2, '.', '') : '',
                 'is_active' => $v['is_active'],
+                'tiers' => collect($v['tiers'] ?? [])->map(fn ($t) => [
+                    'id' => $t['id'],
+                    'min_quantity' => rtrim(rtrim(number_format((float) $t['min_quantity'], 3, '.', ''), '0'), '.'),
+                    'unit_price' => number_format((float) $t['unit_price'], 2, '.', ''),
+                ])->values()->all(),
             ])->values()->all());
         @endphp
         <div class="border-t border-gray-100 pt-6" x-data="{
             variants: @js(array_values($variantSeed)),
-            add() { this.variants.push({ id: '', name: { de: '', en: '', fr: '' }, unit_price: '', business_price: '', is_active: true }); },
+            add() { this.variants.push({ id: '', name: { de: '', en: '', fr: '' }, unit_price: '', business_price: '', is_active: true, tiers: [] }); },
             remove(i) { this.variants.splice(i, 1); },
+            addTier(i) { this.variants[i].tiers.push({ id: '', min_quantity: '', unit_price: '' }); },
+            removeTier(i, j) { this.variants[i].tiers.splice(j, 1); },
         }">
             <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.grades_heading') }}</h3>
             <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.grades_hint') }}</p>
@@ -667,6 +674,32 @@
                                 {{ __('admin.product_form.grades_active') }}
                             </label>
                             <button type="button" @click="remove(i)" class="ml-auto pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.grades_remove') }}</button>
+                        </div>
+
+                        {{-- Per-grade volume tiers --}}
+                        <div class="mt-3 border-t border-gray-100 pt-3">
+                            <p class="text-[0.7rem] font-medium uppercase tracking-wide text-gray-500">{{ __('admin.product_form.tiers_heading') }}</p>
+                            <div class="mt-2 space-y-2">
+                                <template x-for="(t, j) in v.tiers" :key="j">
+                                    <div class="flex flex-wrap items-end gap-3">
+                                        <input type="hidden" :name="'variants['+i+'][tiers]['+j+'][id]'" :value="t.id">
+                                        <label class="block text-xs text-gray-600">
+                                            {{ __('admin.product_form.tiers_min_quantity') }}<span x-show="hasDisplay" x-cloak> (<span x-text="displaySymbol"></span>)</span>
+                                            <input type="number" step="0.001" min="0.001" x-model="t.min_quantity" :name="'variants['+i+'][tiers]['+j+'][min_quantity]'"
+                                                class="mt-1 block w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                        </label>
+                                        <label class="block text-xs text-gray-600">
+                                            {{ __('admin.product_form.tiers_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                                            <input type="number" step="0.01" min="0.01" x-model="t.unit_price" :name="'variants['+i+'][tiers]['+j+'][unit_price]'"
+                                                class="mt-1 block w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                        </label>
+                                        <button type="button" @click="removeTier(i, j)" class="pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.tiers_remove') }}</button>
+                                    </div>
+                                </template>
+                            </div>
+                            <button type="button" @click="addTier(i)" class="mt-2 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                                + {{ __('admin.product_form.tiers_add') }}
+                            </button>
                         </div>
                     </div>
                 </template>

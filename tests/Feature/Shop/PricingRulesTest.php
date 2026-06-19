@@ -222,4 +222,28 @@ class PricingRulesTest extends TestCase
         $r = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, 12.0);
         $this->assertSame('quantity_tier', $r->reason);
     }
+
+    public function test_quantity_tiers_are_grade_specific(): void
+    {
+        $p = $this->product(10.0);
+        $variant = ProductVariant::factory()->create(['product_id' => $p->id, 'unit_price' => 8.0]);
+        // Default-grade tier and a different grade-specific tier.
+        ProductPriceRule::factory()->create(['product_id' => $p->id, 'min_quantity' => 5, 'unit_price' => 9.0]);
+        ProductPriceRule::factory()->create([
+            'product_id' => $p->id, 'variant_id' => $variant->id, 'min_quantity' => 5, 'unit_price' => 6.0,
+        ]);
+
+        // Ordering the named grade at qty 6 uses ITS tier, not the default one.
+        $grade = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, 6.0, $variant->id, $variant);
+        $this->assertSame(6.0, $grade->unitPriceEur);
+
+        // The default-grade tier still applies to the default line…
+        $default = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, 6.0);
+        $this->assertSame(9.0, $default->unitPriceEur);
+
+        // …and the default tier does NOT leak to a grade without its own tier.
+        $other = ProductVariant::factory()->create(['product_id' => $p->id, 'unit_price' => 8.0]);
+        $otherResolved = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, 6.0, $other->id, $other);
+        $this->assertSame(8.0, $otherResolved->unitPriceEur); // grade base, no tier
+    }
 }

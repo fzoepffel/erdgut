@@ -80,6 +80,11 @@ class UpdateProductRequest extends FormRequest
             'variants.*.business_price' => ['nullable', 'numeric', 'gt:0'],
             'variants.*.is_active' => ['nullable', 'boolean'],
             'variants.*.position' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            // Per-grade quantity tiers (nested in each grade row).
+            'variants.*.tiers' => ['nullable', 'array'],
+            'variants.*.tiers.*.id' => ['nullable', 'integer'],
+            'variants.*.tiers.*.min_quantity' => ['nullable', 'numeric', 'gt:0'],
+            'variants.*.tiers.*.unit_price' => ['nullable', 'numeric', 'gt:0'],
             // Quantity tiers (volume discounts) on the default grade. Threshold
             // + price in the display unit; incomplete rows are dropped server-side.
             'tiers' => ['nullable', 'array'],
