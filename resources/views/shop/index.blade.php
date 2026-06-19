@@ -59,9 +59,8 @@
                 // Prices are resolved for the selected delivery date and a
                 // private customer, so date overrides / grade prices show on the
                 // card exactly as they'll be charged at checkout.
-                $resolveFor = fn (?int $variantId, $variant = null): float => $priceResolver
-                    ->resolve($product, $selectedDate, \App\Enums\CustomerType::Private, null, $variantId, $variant)
-                    ->unitPriceEur;
+                $resolveFor = fn (?int $variantId, $variant = null) => $priceResolver
+                    ->resolve($product, $selectedDate, \App\Enums\CustomerType::Private, null, $variantId, $variant);
 
                 // Default/"Standard" grade. Its cap is the default grade's own
                 // stock when named grades exist, otherwise the product total
@@ -69,7 +68,11 @@
                 $standardRemaining = $activeVariants->isEmpty()
                     ? (float) $row['remaining']
                     : $inventoryService->remainingForGrade($product, $selectedDate, null);
-                $standardPrice = $resolveFor(null);
+                $standardResolved = $resolveFor(null);
+                $standardPrice = $standardResolved->unitPriceEur;
+                // Whether volume tiers are in effect: a date override outranks a
+                // tier, so when one is active the client must not re-apply a tier.
+                $standardTiersApply = $standardResolved->reason !== 'period_override';
                 // Volume tiers for the default grade: {min canonical qty, price
                 // canonical}. Sorted ascending so the deepest applicable tier
                 // wins client-side (mirrors the resolver). Date overrides /
@@ -92,11 +95,14 @@
                     'vatRate' => (int) $product->vat_rate_percent,
                     'priceDisplay' => $formatCanonical($product, $standardPrice),
                     'tiers' => $tiers,
+                    'tiersApply' => $standardTiersApply,
                 ]);
 
                 foreach ($activeVariants as $variant) {
                     $remaining = $inventoryService->remainingForGrade($product, $selectedDate, $variant->id);
-                    $price = $resolveFor($variant->id, $variant);
+                    $resolved = $resolveFor($variant->id, $variant);
+                    $price = $resolved->unitPriceEur;
+                    $tiersApply = $resolved->reason !== 'period_override';
                     // This grade's own volume tiers (default tiers don't leak to
                     // named grades, mirroring the resolver).
                     $variantTiers = $product->priceRules
@@ -117,6 +123,7 @@
                         'vatRate' => (int) $product->vat_rate_percent,
                         'priceDisplay' => $formatCanonical($product, $price),
                         'tiers' => $variantTiers,
+                        'tiersApply' => $tiersApply,
                     ]);
                 }
 
@@ -135,6 +142,7 @@
                 'cap' => $e['cap'],
                 'steps' => $e['steps'],
                 'tiers' => $e['tiers'] ?? [],
+                'tiersApply' => $e['tiersApply'] ?? true,
             ])
             ->values();
 
@@ -180,6 +188,7 @@
             couponPreviewUrl: @js(route('public.shop.coupon.preview')),
             quoteUrl: @js(route('public.shop.quote')),
             selectedDate: @js($selectedDate?->toDateString() ?? ''),
+            numberSep: @js(\App\Support\Money::separators()),
             csrf: @js(csrf_token()),
             couponErrorGeneric: @js(__('coupon.errors.generic')),
             subcategoriesByCategory: @js($alpineSubcategories),
@@ -886,7 +895,7 @@
                             <div class="space-y-2" x-show="quote && (quote.has_discount || quote.has_delivery_fee)" x-cloak>
                                 <div class="flex items-baseline justify-between gap-4 text-sm text-shop-muted">
                                     <span>{{ __('shop.summary_line_items') }}</span>
-                                    <span class="tabular-nums" x-text="quote?.items_total_label"></span>
+                                    <span class="tabular-nums" x-text="itemsTotalLabel()"></span>
                                 </div>
                                 <div class="flex items-baseline justify-between gap-4 text-sm text-shop-primary" x-show="quote?.has_discount" x-cloak data-testid="shop-coupon-discount-line">
                                     <span x-text="@js(__('coupon.discount_line')) + ' ' + appliedCode"></span>
@@ -900,7 +909,7 @@
 
                             <div class="mt-4 flex items-baseline justify-between gap-4">
                                 <span class="font-display text-2xl">{{ __('shop.summary_line_total') }}</span>
-                                <span class="font-display text-4xl text-shop-primary tabular-nums" x-text="quote?.total_label ?? '{{ \App\Support\Money::formatEur(0) }}'">{{ \App\Support\Money::format(0) }}</span>
+                                <span class="font-display text-4xl text-shop-primary tabular-nums" x-text="totalLabel()">{{ \App\Support\Money::format(0) }}</span>
                             </div>
                             <template x-for="vatLine in (quote?.vat_lines ?? [])" :key="vatLine">
                                 <p class="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="vatLine"></p>
@@ -983,7 +992,7 @@
                             </div>
                             <div class="border-t border-shop-border pt-3 flex items-baseline justify-between gap-4">
                                 <dt class="font-semibold text-shop-foreground" x-text="confirmTotalLabel"></dt>
-                                <dd class="text-right font-semibold tabular-nums text-shop-foreground" x-text="quote?.total_label"></dd>
+                                <dd class="text-right font-semibold tabular-nums text-shop-foreground" x-text="totalLabel()"></dd>
                             </div>
                         </dl>
                     </div>
@@ -1184,13 +1193,20 @@
                     return true;
                 },
                 // ── Ground-truth pricing ────────────────────────────────
-                // The server quote is the ONLY source of money on this page:
-                // line totals, summary, VAT and grand total are all read from
-                // `quote` (fetched on every cart/mode/coupon change). The
-                // frontend never multiplies prices itself.
+                // The server quote is the authoritative source of money: when a
+                // fresh quote is in hand it drives every figure shown, and it
+                // creates the order at checkout. While a quote is being
+                // re-fetched (after a cart change) we show an OPTIMISTIC
+                // client-side estimate that mirrors the resolver (base/grade
+                // price + the deepest applicable volume tier, unless a date
+                // override is in effect) so the price updates instantly instead
+                // of lagging the stepper. The estimate and the server value
+                // agree, so reconciliation is seamless.
                 quoteUrl: config.quoteUrl,
                 selectedDate: config.selectedDate || '',
+                numberSep: config.numberSep || ['.', ','],
                 quote: null,
+                quoteStale: true,
                 _quoteTimer: null,
                 _quoteSeq: 0,
                 // Coupon state.
@@ -1224,15 +1240,18 @@
                 // Cart positions for the review modal: name + display-unit
                 // quantity (e.g. "1,5 kg") + €-line total. Empty when the
                 // cart is empty — caller hides the section in that case.
-                // Confirm-modal positions, straight from the server quote.
+                // Confirm-modal positions: the server quote when fresh, else the
+                // instant client estimate (kept consistent with the cart).
                 get cartLines() {
-                    const lines = this.quote?.lines ?? {};
-                    return Object.keys(lines).map((id) => ({
-                        id,
-                        name: lines[id].name,
-                        qty: lines[id].qty_label,
-                        lineTotalLabel: lines[id].line_total_label,
-                    }));
+                    if (!this.quoteStale && this.quote?.lines) {
+                        const lines = this.quote.lines;
+                        return Object.keys(lines).map((id) => ({
+                            id, name: lines[id].name, qty: lines[id].qty_label, lineTotalLabel: lines[id].line_total_label,
+                        }));
+                    }
+                    return this.products
+                        .filter((p) => (this.quantities[p.id] || 0) > 0)
+                        .map((p) => ({ id: p.id, name: p.name, qty: this.label(p.id), lineTotalLabel: this.money(this.lineEstimate(p.id)) }));
                 },
                 requestConfirm(event) {
                     // Only intercept in-person pickup; online/delivery submit normally.
@@ -1344,10 +1363,12 @@
                 // ── Ground-truth quote fetch ─────────────────────────────
                 // Re-prices the whole cart server-side and stores the result.
                 // Debounced so rapid +/- clicks coalesce; a sequence guard
-                // drops out-of-order responses.
+                // drops out-of-order responses. Marks the figures stale so the
+                // UI falls back to the instant optimistic estimate meanwhile.
                 refreshQuote() {
+                    this.quoteStale = true;
                     clearTimeout(this._quoteTimer);
-                    this._quoteTimer = setTimeout(() => this._fetchQuote(), 250);
+                    this._quoteTimer = setTimeout(() => this._fetchQuote(), 200);
                 },
                 _fetchQuote() {
                     const seq = ++this._quoteSeq;
@@ -1371,6 +1392,7 @@
                         .then((d) => {
                             if (seq !== this._quoteSeq) return; // stale response
                             this.quote = d;
+                            this.quoteStale = false;
                             // Reconcile coupon state from the authoritative quote.
                             if (this.appliedCode !== '') {
                                 this.couponApplied = d.coupon.applied;
@@ -1464,10 +1486,49 @@
                         this.refreshQuote();
                     }
                 },
-                // Server-resolved line total label for a cart entry (empty
-                // until the first quote returns).
+                // ── Money: server value when fresh, else instant estimate ──
+                money(v) {
+                    const [dec, thou] = this.numberSep;
+                    const fixed = (Math.round(v * 100) / 100).toFixed(2);
+                    let [whole, frac] = fixed.split('.');
+                    const neg = whole.startsWith('-');
+                    if (neg) whole = whole.slice(1);
+                    whole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, thou);
+                    return (neg ? '-' : '') + whole + dec + frac + ' €';
+                },
+                // Effective per-unit price for a quantity: the deepest volume
+                // tier whose threshold is met (unless a date override is in
+                // effect), else the base/grade price. Mirrors the resolver.
+                unitPriceFor(p, qty) {
+                    let price = p.unitPrice;
+                    if (p.tiersApply !== false) {
+                        for (const t of (p.tiers || [])) {
+                            if (qty + 1e-9 >= t.min) price = t.price;
+                        }
+                    }
+                    return price;
+                },
+                lineEstimate(id) {
+                    const p = this.product(id);
+                    if (!p) return 0;
+                    return Math.round(this.unitPriceFor(p, this.quantities[id] || 0) * (this.quantities[id] || 0) * 100) / 100;
+                },
                 lineLabel(id) {
-                    return this.quote?.lines?.[id]?.line_total_label ?? '';
+                    if (!this.quoteStale && this.quote?.lines?.[id]) return this.quote.lines[id].line_total_label;
+                    const qty = this.quantities[id] || 0;
+                    return qty > 0 ? this.money(this.lineEstimate(id)) : '';
+                },
+                itemsTotalEstimate() {
+                    return Math.round(this.products.reduce((s, p) => s + this.lineEstimate(p.id), 0) * 100) / 100;
+                },
+                itemsTotalLabel() {
+                    return (!this.quoteStale && this.quote) ? this.quote.items_total_label : this.money(this.itemsTotalEstimate());
+                },
+                totalLabel() {
+                    if (!this.quoteStale && this.quote) return this.quote.total_label;
+                    const discount = this.quote?.discount || 0;
+                    const delivery = this.mode === 'delivery' ? this.deliveryFee : 0;
+                    return this.money(Math.max(0, this.itemsTotalEstimate() - discount) + delivery);
                 },
                 get itemCount() {
                     return this.products.reduce((n, p) => n + ((this.quantities[p.id] || 0) > 0 ? 1 : 0), 0);
