@@ -626,7 +626,11 @@
                                             </p>
                                         @endif
 
-                                        <div class="mt-auto pt-4">
+                                        {{-- Quantity selector sits directly under the product content so it
+                                             reads as belonging to this product. (Previously `mt-auto` pinned it
+                                             to the card bottom; with variable-height grade steppers in a row
+                                             that left a big disconnect on single-grade cards.) --}}
+                                        <div class="pt-4">
                                             <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.quantity_label') }}</p>
 
                                             @if ($availableToday)
