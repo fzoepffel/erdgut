@@ -7,6 +7,7 @@ use App\Enums\OrderSource;
 use App\Enums\ProductUnit;
 use App\Enums\ShopOrderStatus;
 use App\Models\Product;
+use App\Models\ProductPriceRule;
 use App\Models\ProductStockInflow;
 use App\Models\ShopOrder;
 use App\Models\User;
@@ -132,6 +133,47 @@ class AdminShopOrderCreateTest extends TestCase
         $ids = collect($response->json())->pluck('id')->all();
         $this->assertContains($this->product->id, $ids);
         $this->assertNotContains($noStock->id, $ids);
+    }
+
+    public function test_available_products_endpoint_returns_tier_aware_prices(): void
+    {
+        // A business-tier rule that drops the price from 5,00 €/Stück to 3,50.
+        ProductPriceRule::create([
+            'product_id' => $this->product->id,
+            'customer_type' => CustomerType::Business->value,
+            'unit_price' => 3.50,
+            'priority' => 0,
+            'is_active' => true,
+        ]);
+
+        $businessResponse = $this->actingAs($this->admin)
+            ->getJson(route('app.admin.shop-orders.available-products', [
+                'date' => self::DELIVERY_DATE,
+                'customer_type' => CustomerType::Business->value,
+            ]));
+        $businessResponse->assertOk();
+        $row = collect($businessResponse->json())->firstWhere('id', $this->product->id);
+        $this->assertNotNull($row);
+        // Business sees 3,50 as the picked tier; price is the per-canonical
+        // float since piece has factor 1, the display price equals it.
+        $this->assertEqualsWithDelta(3.50, (float) $row['unit_price_eur'], 0.01);
+        $this->assertSame('customer_group', $row['price_reason']);
+        // Alt tier (private) falls back to the base unit_price (5,00).
+        $this->assertEqualsWithDelta(5.00, (float) $row['alt_unit_price_eur'], 0.01);
+        $this->assertSame('base', $row['alt_price_reason']);
+
+        $privateResponse = $this->actingAs($this->admin)
+            ->getJson(route('app.admin.shop-orders.available-products', [
+                'date' => self::DELIVERY_DATE,
+                'customer_type' => CustomerType::Private->value,
+            ]));
+        $privateResponse->assertOk();
+        $row = collect($privateResponse->json())->firstWhere('id', $this->product->id);
+        $this->assertEqualsWithDelta(5.00, (float) $row['unit_price_eur'], 0.01);
+        $this->assertSame('base', $row['price_reason']);
+        // Alt tier (business) shows the discount as the comparison hint.
+        $this->assertEqualsWithDelta(3.50, (float) $row['alt_unit_price_eur'], 0.01);
+        $this->assertSame('customer_group', $row['alt_price_reason']);
     }
 
     public function test_quote_endpoint_returns_catalog_defaults(): void

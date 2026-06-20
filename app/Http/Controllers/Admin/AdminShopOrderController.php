@@ -11,9 +11,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
 use App\Mail\ShopOrderWindowMail;
+use App\Models\Product;
 use App\Models\ShopOrder;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
+use App\Services\Shop\PriceResolver;
 use App\Services\Shop\ShopOrderService;
 use App\Support\AuditLogger;
 use App\Support\PickupLocations;
@@ -47,12 +49,17 @@ use Throwable;
  */
 class AdminShopOrderController extends Controller
 {
-    public function __construct(private readonly ShopOrderService $service) {}
+    public function __construct(
+        private readonly ShopOrderService $service,
+        private readonly PriceResolver $priceResolver,
+    ) {}
 
     /**
      * JSON list of products available on a specific date, for the admin order
      * form's date-first product picker. Returns only products with positive
-     * stock on the given date so the admin only sees orderable items.
+     * stock on the given date so the admin only sees orderable items, and
+     * resolves both the customer-tier price and the alt-tier price so the
+     * blade can show the picked price plus a comparison hint inline.
      */
     public function availableProductsForDate(Request $request): JsonResponse
     {
@@ -62,24 +69,64 @@ class AdminShopOrderController extends Controller
         }
 
         $date = Carbon::parse($dateStr)->startOfDay();
-        $customerType = (string) $request->query('customer_type', CustomerType::Private->value);
-        $audience = $customerType === CustomerType::Business->value
+        $customerType = $request->query('customer_type') === CustomerType::Business->value
+            ? CustomerType::Business
+            : CustomerType::Private;
+        $altCustomerType = $customerType === CustomerType::Business
+            ? CustomerType::Private
+            : CustomerType::Business;
+        $audience = $customerType === CustomerType::Business
             ? ShopStockAudience::BusinessTrade
             : ShopStockAudience::Consumer;
 
         return response()->json(
             $this->service->availableProductsForDate($date, $audience)
-                ->map(fn (array $row) => [
-                    'id' => $row['product']->id,
-                    'name' => $row['product']->name,
-                    'producer' => $row['product']->producer?->name ?? '',
-                    'price' => $row['product']->displayPrice(),
-                    'unit' => $row['product']->canonicalUnitLabel(),
-                    'remaining' => $row['remaining'],
-                    'vat_rate_percent' => (int) ($row['product']->vat_rate_percent ?? 7),
-                ])
+                ->map(function (array $row) use ($date, $customerType, $altCustomerType): array {
+                    $product = $row['product'];
+                    // Resolve both tiers so the blade can render "Business
+                    // price 7,50 €/kg (Private: 9,00 €/kg)" without a second
+                    // round-trip on customer-type toggle.
+                    $resolved = $this->priceResolver->resolve($product, $date, $customerType);
+                    $alt = $this->priceResolver->resolve($product, $date, $altCustomerType);
+
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'producer' => $product->producer?->name ?? '',
+                        'unit' => $product->canonicalUnitLabel(),
+                        'remaining' => $row['remaining'],
+                        'vat_rate_percent' => (int) ($product->vat_rate_percent ?? 7),
+                        // Tier-aware display price (string, localized).
+                        'price' => $this->formatDisplayPrice($product, $resolved->unitPriceEur),
+                        // Per-canonical price as a float so the blade can
+                        // autofill quantity * unit price into the line total
+                        // before the quote endpoint resolves the final amount.
+                        'unit_price_eur' => $resolved->unitPriceEur,
+                        'price_reason' => $resolved->reason,
+                        // Same fields, for the OTHER customer tier — used
+                        // only as a comparison hint, never as the autofill.
+                        'alt_price' => $this->formatDisplayPrice($product, $alt->unitPriceEur),
+                        'alt_unit_price_eur' => $alt->unitPriceEur,
+                        'alt_price_reason' => $alt->reason,
+                    ];
+                })
                 ->values()
         );
+    }
+
+    /**
+     * Localized "9,00 €/kg" string for a per-canonical-unit price, using
+     * the product's chosen display unit (kg/L/piece/bunch).
+     */
+    private function formatDisplayPrice(Product $product, float $unitPriceEur): string
+    {
+        if ($product->unit === null) {
+            return number_format($unitPriceEur, 2, ',', '.').' €';
+        }
+
+        $displayUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
+
+        return $product->unit->formatPrice($unitPriceEur, $displayUnit);
     }
 
     /**
@@ -104,7 +151,14 @@ class AdminShopOrderController extends Controller
             ? CustomerType::Business
             : CustomerType::Private;
 
-        $quote = $this->service->quote($items, $fulfillmentMode, $normalizedCoupon, null, $quoteDate, $customerType);
+        $quote = $this->service->quote(
+            $items,
+            $fulfillmentMode,
+            $normalizedCoupon,
+            null,
+            $quoteDate,
+            $customerType,
+        );
 
         if ($quote['lines'] === []) {
             return response()->json(['message' => 'empty cart'], 422);
@@ -262,7 +316,15 @@ class AdminShopOrderController extends Controller
         $statusEnum = ShopOrderStatus::tryFrom($filter['status']);
 
         return ShopOrder::query()
-            ->when($filter['status'] === self::FILTER_FINALIZED, fn ($q) => $q->finalized())
+            ->when($filter['status'] === self::FILTER_FINALIZED, fn ($q) => $q->where(function ($inner) {
+                $inner->whereIn('status', [
+                    ShopOrderStatus::Paid->value,
+                    ShopOrderStatus::Fulfilled->value,
+                ])->orWhere(function ($pickup) {
+                    $pickup->where('status', ShopOrderStatus::PendingPayment->value)
+                        ->where('payment_method', 'in_person');
+                });
+            }))
             ->when($statusEnum, fn ($q) => $q->where('status', $statusEnum))
             ->when($filter['delivery_from'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '>=', $filter['delivery_from']))
             ->when($filter['delivery_to'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '<=', $filter['delivery_to']));

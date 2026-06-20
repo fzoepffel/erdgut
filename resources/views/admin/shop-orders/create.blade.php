@@ -24,6 +24,21 @@
              preselectedDeliveryFee: @js(old('delivery_fee_eur')),
              preselectedDeliveryVatRate: @js(old('delivery_fee_vat_rate_percent', '7')),
              vatLineTemplate: @js(__('shop.summary_vat_rate_line')),
+             priceHintLabels: @js([
+                 'reasons' => [
+                     'base' => __('shop.admin.create_price_reason_base'),
+                     'customer_group' => __('shop.admin.create_price_reason_customer_group'),
+                     'period_override' => __('shop.admin.create_price_reason_period_override'),
+                     'quantity_tier' => __('shop.admin.create_price_reason_quantity_tier'),
+                     'margin_floor' => __('shop.admin.create_price_reason_margin_floor'),
+                 ],
+                 'tiers' => [
+                     'private' => __('shop.admin.customer_type_private'),
+                     'business' => __('shop.admin.customer_type_business'),
+                 ],
+                 'compare_template' => __('shop.admin.create_price_compare'),
+                 'used_template' => __('shop.admin.create_price_used'),
+             ]),
          })">
         <div class="mx-auto max-w-5xl space-y-6 px-4 sm:px-6 lg:px-8">
 
@@ -53,12 +68,43 @@
                     </div>
                 </div>
 
-                {{-- ── Step 2: Products + per-line pricing ──────────────── --}}
+                {{-- ── Step 2: Customer type (controls which tier price is loaded) ── --}}
+                <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
+                     x-show="selectedDate"
+                     x-cloak>
+                    <div class="border-b border-gray-100 px-6 py-4">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">2. {{ __('shop.admin.customer_type_label') }}</h2>
+                    </div>
+                    <div class="space-y-3 p-6">
+                        <p class="text-sm text-gray-600">{{ __('shop.admin.create_customer_type_hint') }}</p>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="customer_type" value="private"
+                                    x-model="customerType"
+                                    @change="onCustomerTypeChange()"
+                                    class="text-emerald-600 focus:ring-emerald-500"
+                                    {{ old('customer_type', 'private') === 'private' ? 'checked' : '' }}>
+                                <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_private') }}</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="customer_type" value="business"
+                                    x-model="customerType"
+                                    @change="onCustomerTypeChange()"
+                                    class="text-emerald-600 focus:ring-emerald-500"
+                                    {{ old('customer_type') === 'business' ? 'checked' : '' }}>
+                                <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_business') }}</span>
+                            </label>
+                        </div>
+                        <x-input-error :messages="$errors->get('customer_type')" class="mt-1" />
+                    </div>
+                </div>
+
+                {{-- ── Step 3: Products + per-line pricing ──────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                      x-show="selectedDate"
                      x-cloak>
                     <div class="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">2. {{ __('shop.admin.create_items_heading') }}</h2>
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">3. {{ __('shop.admin.create_items_heading') }}</h2>
                         <span x-show="loading" class="text-xs text-gray-400">{{ __('Loading') }}…</span>
                     </div>
                     <div class="p-6 space-y-3">
@@ -140,6 +186,12 @@
                                                 {{ __('shop.admin.create_remove_item') }}
                                             </button>
                                         </div>
+                                        {{-- Per-line price-source remark: which tier price the
+                                             autofilled line total uses, plus a comparison with
+                                             the other tier when it differs. --}}
+                                        <div class="sm:col-span-12" x-show="priceHint(item)" x-cloak>
+                                            <p class="text-xs text-gray-500" x-html="priceHint(item)"></p>
+                                        </div>
                                     </div>
                                 </template>
 
@@ -162,37 +214,14 @@
                     </div>
                 </div>
 
-                {{-- ── Step 3: Customer (optional) ──────────────────────── --}}
+                {{-- ── Step 4: Customer details (optional) ──────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                      x-show="selectedDate"
                      x-cloak>
                     <div class="border-b border-gray-100 px-6 py-4">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">3. {{ __('shop.admin.create_customer_heading') }}</h2>
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">4. {{ __('shop.admin.create_customer_heading') }}</h2>
                     </div>
                     <div class="space-y-4 p-6">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('shop.admin.customer_type_label') }}</label>
-                            <div class="flex gap-4">
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="customer_type" value="private"
-                                        x-model="customerType"
-                                        @change="onCustomerTypeChange()"
-                                        class="text-emerald-600 focus:ring-emerald-500"
-                                        {{ old('customer_type', 'private') === 'private' ? 'checked' : '' }}>
-                                    <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_private') }}</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="customer_type" value="business"
-                                        x-model="customerType"
-                                        @change="onCustomerTypeChange()"
-                                        class="text-emerald-600 focus:ring-emerald-500"
-                                        {{ old('customer_type') === 'business' ? 'checked' : '' }}>
-                                    <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_business') }}</span>
-                                </label>
-                            </div>
-                            <x-input-error :messages="$errors->get('customer_type')" class="mt-1" />
-                        </div>
-
                         <div class="grid gap-4 sm:grid-cols-3">
                             <div>
                                 <label for="name" class="block text-sm font-medium text-gray-700">{{ __('Name') }}</label>
@@ -216,12 +245,12 @@
                     </div>
                 </div>
 
-                {{-- ── Step 4: Fulfillment ──────────────────────────────── --}}
+                {{-- ── Step 5: Fulfillment ──────────────────────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                      x-show="selectedDate"
                      x-cloak>
                     <div class="border-b border-gray-100 px-6 py-4">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">4. {{ __('shop.admin.create_fulfillment_heading') }}</h2>
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">5. {{ __('shop.admin.create_fulfillment_heading') }}</h2>
                     </div>
                     <div class="space-y-4 p-6">
                         <div>
@@ -294,12 +323,12 @@
                     </div>
                 </div>
 
-                {{-- ── Step 5: Delivery pricing + summary ───────────────── --}}
+                {{-- ── Step 6: Delivery pricing + summary ───────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                      x-show="selectedDate && hasValidItems"
                      x-cloak>
                     <div class="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">5. {{ __('shop.admin.create_pricing_heading') }}</h2>
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">6. {{ __('shop.admin.create_pricing_heading') }}</h2>
                         <span x-show="quoteLoading" class="text-xs text-gray-400">{{ __('Loading') }}…</span>
                     </div>
                     <div class="space-y-4 p-6">
@@ -379,6 +408,7 @@
             availableProductsUrl: config.availableProductsUrl,
             quoteUrl: config.quoteUrl,
             vatLineTemplate: config.vatLineTemplate || '',
+            priceHintLabels: config.priceHintLabels || { reasons: {}, tiers: {}, compare_template: '', used_template: '' },
             selectedDate: config.preselectedDate || '',
             customerType: config.customerType || 'private',
             availableProducts: [],
@@ -564,6 +594,49 @@
                     return '—';
                 }
                 return n.toFixed(2).replace('.', ',') + ' €';
+            },
+
+            /**
+             * Sub-line under each item row explaining which tier price the
+             * autofilled line total uses (e.g. "Business price 7,50 €/kg") and,
+             * when the other tier has a different price, comparing them.
+             * Empty string when no product is selected — the row hides itself.
+             */
+            priceHint(item) {
+                const product = this.availableProducts.find(
+                    (p) => String(p.id) === String(item.product_id),
+                );
+                if (!product) return '';
+
+                const labels = this.priceHintLabels;
+                const tier = labels.tiers?.[this.customerType] ?? this.customerType;
+                const reasonLabel = labels.reasons?.[product.price_reason] ?? '';
+                const priceLabel = product.price;
+
+                // "Used: {reason} {tier} {price}" — the reason explains *why*
+                // this price applies (base list price, customer-group rule,
+                // date-window override, …).
+                let used = (labels.used_template || ':reason :tier: :price')
+                    .replace(':reason', reasonLabel)
+                    .replace(':tier', tier)
+                    .replace(':price', priceLabel)
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                // Compare with the other tier only when it actually differs —
+                // otherwise the hint becomes noisy on products without a
+                // customer-tier rule.
+                const altUnit = product.alt_unit_price_eur;
+                const ownUnit = product.unit_price_eur;
+                if (altUnit != null && ownUnit != null && Math.abs(altUnit - ownUnit) > 1e-6) {
+                    const altTier = labels.tiers?.[this.customerType === 'business' ? 'private' : 'business']
+                        ?? '';
+                    const compare = (labels.compare_template || '(:tier: :price)')
+                        .replace(':tier', altTier)
+                        .replace(':price', product.alt_price);
+                    used = used + ' ' + compare;
+                }
+                return used;
             },
 
             async fetchProducts() {
