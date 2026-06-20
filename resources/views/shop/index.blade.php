@@ -565,7 +565,11 @@
                                 {{ __('shop.no_products_for_date') }}
                             </div>
                         @else
-                            <div class="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+                            {{-- Subgrid: each card in the same row of the parent grid
+                                 participates in the *same* row tracks, so every card has
+                                 its image, title, producer, tags, "Menge" label and first
+                                 stepper at the same height regardless of variant count. --}}
+                            <div class="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 [grid-auto-rows:auto]">
                                 @foreach ($products as $row)
                                     @php
                                         $product = $row['product'];
@@ -578,74 +582,133 @@
                                         $oldQty = (int) old('quantities.'.$product->id, 0);
                                     @endphp
 
-                                    <div x-show="cardVisible({{ json_encode(mb_strtolower($product->name)) }}, '{{ $product->category }}', {{ $product->subcategory_id ?? 0 }})" data-shop-card data-product-id="{{ $product->id }}">
-                                    @if ($availableToday)
-                                        <article class="group flex h-full flex-col" data-testid="shop-product-card">
-                                    @else
-                                        <article class="group flex h-full flex-col" data-testid="shop-product-card-unavailable">
-                                    @endif
-                                        <a href="{{ route('public.shop.products.show', $product) }}" class="relative block aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}">
-                                            @if ($imageUrl)
-                                                <img src="{{ $imageUrl }}" alt="{{ $product->name }}" width="600" height="600" class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" loading="lazy" />
-                                            @else
-                                                <span class="flex h-full w-full items-center justify-center text-shop-muted" aria-hidden="true">
-                                                    <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 6h16v12H4V6z" /></svg>
-                                                </span>
-                                            @endif
-                                            <span class="absolute left-3 top-3 bg-[oklch(96.5%_0.025_90_/_0.9)] px-2 py-1 font-mono text-[0.65rem] tracking-widest text-shop-primary">№ {{ $badge }}</span>
-                                        </a>
-
-                                        <h3 class="mt-4 font-display text-2xl leading-tight">
-                                            <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline">{{ $product->name }}</a>
-                                        </h3>
-                                        <div class="mt-2 h-px bg-shop-border"></div>
-
-                                        @if ($product->producer)
-                                            <a href="{{ route('public.shop.producers.show', $product->producer) }}" class="mt-3 font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">
-                                                {{ $product->producer->name }}
+                                    @php
+                                        $shopTasteTags = $product->shopTasteTags();
+                                        $gradeRows = $gradeRowsByProduct[$product->id] ?? [];
+                                        $firstGrade = $gradeRows[0] ?? null;
+                                        $extraGrades = array_slice($gradeRows, 1);
+                                        // Unit descriptor (weight/volume per piece) — shown
+                                        // alongside the tags slot when set, otherwise the tags
+                                        // slot is just the tag chips.
+                                        $unitDescriptor = $product->unit_weight_grams || $product->unit_volume_ml
+                                            ? __('ca.').' '.($product->displayUnitWeight() ?? $product->displayUnitVolume()).' '.__('per').' '.$product->localizedUnit()
+                                            : null;
+                                    @endphp
+                                    {{-- Subgrid child: row-span-9 lines this card's 9 slots up
+                                         with the other cards in the same row of the parent grid
+                                         (image, title, producer, tags, "Menge" label, first
+                                         variant header, first stepper, first tier hint, rest). --}}
+                                    <div x-show="cardVisible({{ json_encode(mb_strtolower($product->name)) }}, '{{ $product->category }}', {{ $product->subcategory_id ?? 0 }})"
+                                         data-shop-card
+                                         data-product-id="{{ $product->id }}"
+                                         class="grid grid-rows-subgrid row-span-9">
+                                        <article class="contents group" data-testid="shop-product-card{{ $availableToday ? '' : '-unavailable' }}">
+                                            {{-- Slot 1: Image --}}
+                                            <a href="{{ route('public.shop.products.show', $product) }}" class="relative block aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}">
+                                                @if ($imageUrl)
+                                                    <img src="{{ $imageUrl }}" alt="{{ $product->name }}" width="600" height="600" class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" loading="lazy" />
+                                                @else
+                                                    <span class="flex h-full w-full items-center justify-center text-shop-muted" aria-hidden="true">
+                                                        <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 6h16v12H4V6z" /></svg>
+                                                    </span>
+                                                @endif
+                                                <span class="absolute left-3 top-3 bg-[oklch(96.5%_0.025_90_/_0.9)] px-2 py-1 font-mono text-[0.65rem] tracking-widest text-shop-primary">№ {{ $badge }}</span>
                                             </a>
-                                        @endif
-                                        {{-- Default-grade price resolved for the selected date (matches the Standard stepper). --}}
-                                        <p class="mt-2 font-mono text-xs tabular-nums text-shop-muted">{{ $gradeRowsByProduct[$product->id][0]['priceDisplay'] ?? $product->displayPrice() }}</p>
 
-                                        @php($shopTasteTags = $product->shopTasteTags())
-                                        @if ($shopTasteTags !== [])
-                                            <div class="mt-1.5 flex flex-wrap gap-1" aria-label="{{ __('Taste profile tags') }}">
-                                                @foreach ($shopTasteTags as $tag)
-                                                    <span class="inline-flex items-center border border-shop-border/80 px-1.5 py-px font-mono text-[0.55rem] uppercase tracking-wider text-shop-muted">{{ $tag }}</span>
-                                                @endforeach
+                                            {{-- Slot 2: Title + divider --}}
+                                            <div class="pt-4">
+                                                <h3 class="font-display text-2xl leading-tight">
+                                                    <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline">{{ $product->name }}</a>
+                                                </h3>
+                                                <div class="mt-2 h-px bg-shop-border"></div>
                                             </div>
-                                        @endif
 
-                                        {{-- Unit descriptor: weight/volume per piece or bunch --}}
-                                        @if ($product->unit_weight_grams || $product->unit_volume_ml)
-                                            <p class="mt-1 font-mono text-[0.65rem] text-shop-muted">
-                                                {{ __('ca.') }}
-                                                {{ $product->displayUnitWeight() ?? $product->displayUnitVolume() }}
-                                                {{ __('per') }} {{ $product->localizedUnit() }}
-                                            </p>
-                                        @endif
+                                            {{-- Slot 3: Producer (always reserved, empty if missing) --}}
+                                            <div class="pt-3">
+                                                @if ($product->producer)
+                                                    <a href="{{ route('public.shop.producers.show', $product->producer) }}" class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">
+                                                        {{ $product->producer->name }}
+                                                    </a>
+                                                @endif
+                                            </div>
 
-                                        {{-- Quantity selector sits directly under the product content so it
-                                             reads as belonging to this product. (Previously `mt-auto` pinned it
-                                             to the card bottom; with variable-height grade steppers in a row
-                                             that left a big disconnect on single-grade cards.) --}}
-                                        <div class="pt-4">
-                                            <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.quantity_label') }}</p>
+                                            {{-- Slot 4: Tags + unit descriptor (always reserved) --}}
+                                            <div class="pt-1.5">
+                                                @if ($shopTasteTags !== [])
+                                                    <div class="flex flex-wrap gap-1" aria-label="{{ __('Taste profile tags') }}">
+                                                        @foreach ($shopTasteTags as $tag)
+                                                            <span class="inline-flex items-center border border-shop-border/80 px-1.5 py-px font-mono text-[0.55rem] uppercase tracking-wider text-shop-muted">{{ $tag }}</span>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+                                                @if ($unitDescriptor)
+                                                    <p class="mt-1 font-mono text-[0.65rem] text-shop-muted">{{ $unitDescriptor }}</p>
+                                                @endif
+                                            </div>
 
-                                            @if ($availableToday)
-                                                @php($gradeRows = $gradeRowsByProduct[$product->id] ?? [])
-                                                <div class="mt-2 space-y-3">
-                                                    @foreach ($gradeRows as $entry)
-                                                        @php($jsId = $entry['jsId'])
-                                                        @php($entryOld = (int) old(str_replace(['[', ']'], ['.', ''], $entry['formName']), 0))
+                                            {{-- Slot 5: "Menge" label --}}
+                                            <div class="pt-4">
+                                                <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.quantity_label') }}</p>
+                                            </div>
+
+                                            @if ($availableToday && $firstGrade !== null)
+                                                @php
+                                                    $jsId = $firstGrade['jsId'];
+                                                    $firstOld = (int) old(str_replace(['[', ']'], ['.', ''], $firstGrade['formName']), 0);
+                                                    $firstLabel = $firstGrade['gradeLabel'] ?: __('shop.variant.standard');
+                                                @endphp
+                                                {{-- Slot 6: First variant header (always shown, even for default grade) --}}
+                                                <div class="pt-2 flex items-baseline justify-between gap-2">
+                                                    <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary">{{ $firstLabel }}</span>
+                                                    <span class="font-mono text-[0.65rem] tabular-nums text-shop-muted">{{ $firstGrade['priceDisplay'] }}</span>
+                                                </div>
+                                                {{-- Slot 7: First stepper --}}
+                                                <div class="pt-1">
+                                                    <input type="hidden" id="shop-qty-{{ $jsId }}" name="{{ $firstGrade['formName'] }}" value="{{ $firstOld }}" :value="quantities[@js($jsId)] || 0" data-testid="shop-qty-stepper">
+                                                    <div class="flex items-stretch border border-shop-border bg-shop-background">
+                                                        <button
+                                                            type="button"
+                                                            @click="dec(@js($jsId))"
+                                                            class="w-10 py-3 font-mono text-sm text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                                            :disabled="(quantities[@js($jsId)] || 0) <= 0"
+                                                            aria-label="−"
+                                                        >−</button>
+                                                        <div class="flex flex-1 items-center justify-center border-x border-shop-border py-3 font-mono text-sm tabular-nums" x-text="label(@js($jsId))">{{ $firstOld > 0 ? $product->displayQuantity($firstOld) : __('shop.quantity_none') }}</div>
+                                                        <button
+                                                            type="button"
+                                                            @click="inc(@js($jsId))"
+                                                            class="w-10 py-3 font-mono text-sm text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                                            :disabled="atCap(@js($jsId))"
+                                                            aria-label="+"
+                                                        >+</button>
+                                                    </div>
+                                                    <p class="mt-1 font-mono text-xs tabular-nums text-shop-muted" x-show="(quantities[@js($jsId)] || 0) > 0" x-cloak>
+                                                        <span x-text="lineLabel(@js($jsId))"></span>
+                                                    </p>
+                                                </div>
+                                                {{-- Slot 8: First tier hint (always reserved so cards align) --}}
+                                                <div class="pt-1">
+                                                    @if (! empty($firstGrade['tiers']))
+                                                        <p class="font-mono text-[0.6rem] leading-snug text-shop-muted">
+                                                            @foreach ($firstGrade['tiers'] as $tier)
+                                                                {{ __('shop.tier_from', ['qty' => $product->displayQuantity($tier['min']), 'price' => $formatCanonical($product, $tier['price'])]) }}@if (! $loop->last) · @endif
+                                                            @endforeach
+                                                        </p>
+                                                    @endif
+                                                </div>
+                                                {{-- Slot 9: Additional variants + footer (variable, no alignment) --}}
+                                                <div class="pt-3 space-y-3">
+                                                    @foreach ($extraGrades as $entry)
+                                                        @php
+                                                            $jsId = $entry['jsId'];
+                                                            $entryOld = (int) old(str_replace(['[', ']'], ['.', ''], $entry['formName']), 0);
+                                                            $entryLabel = $entry['gradeLabel'] ?: __('shop.variant.standard');
+                                                        @endphp
                                                         <div>
-                                                            @if (! empty($entry['gradeLabel']))
-                                                                <div class="mb-1 flex items-baseline justify-between gap-2">
-                                                                    <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary">{{ $entry['gradeLabel'] }}</span>
-                                                                    <span class="font-mono text-[0.65rem] tabular-nums text-shop-muted">{{ $entry['priceDisplay'] }}</span>
-                                                                </div>
-                                                            @endif
+                                                            <div class="mb-1 flex items-baseline justify-between gap-2">
+                                                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary">{{ $entryLabel }}</span>
+                                                                <span class="font-mono text-[0.65rem] tabular-nums text-shop-muted">{{ $entry['priceDisplay'] }}</span>
+                                                            </div>
                                                             <input type="hidden" id="shop-qty-{{ $jsId }}" name="{{ $entry['formName'] }}" value="{{ $entryOld }}" :value="quantities[@js($jsId)] || 0" data-testid="shop-qty-stepper">
                                                             <div class="flex items-stretch border border-shop-border bg-shop-background">
                                                                 <button
@@ -678,24 +741,27 @@
                                                     @endforeach
                                                 </div>
                                             @else
-                                                <div class="mt-2 flex items-stretch border border-shop-border bg-shop-paper opacity-60">
-                                                    <div class="w-10 py-3 text-center font-mono text-sm text-shop-muted">−</div>
-                                                    <div class="flex flex-1 items-center justify-center border-x border-shop-border py-3 font-mono text-sm text-shop-muted">{{ __('shop.quantity_none') }}</div>
-                                                    <div class="w-10 py-3 text-center font-mono text-sm text-shop-muted">+</div>
+                                                {{-- Slot 6: Empty variant header --}}
+                                                <div class="pt-2"></div>
+                                                {{-- Slot 7: Disabled stepper --}}
+                                                <div class="pt-1">
+                                                    <div class="flex items-stretch border border-shop-border bg-shop-paper opacity-60">
+                                                        <div class="w-10 py-3 text-center font-mono text-sm text-shop-muted">−</div>
+                                                        <div class="flex flex-1 items-center justify-center border-x border-shop-border py-3 font-mono text-sm text-shop-muted">{{ __('shop.quantity_none') }}</div>
+                                                        <div class="w-10 py-3 text-center font-mono text-sm text-shop-muted">+</div>
+                                                    </div>
+                                                </div>
+                                                {{-- Slot 8: Empty tier hint --}}
+                                                <div class="pt-1"></div>
+                                                {{-- Slot 9: Weekly availability note --}}
+                                                <div class="pt-3">
+                                                    <p class="text-xs leading-relaxed text-shop-muted" data-testid="shop-weekly-note">
+                                                        <span class="font-mono uppercase tracking-widest text-shop-primary">{{ __('shop.weekly_unavailable_label') }}</span><br>
+                                                        {{ __('shop.weekly_available_on', ['dates' => $dateList]) }}
+                                                    </p>
                                                 </div>
                                             @endif
-                                        </div>
-
-                                        {{-- Footer reserved for week-only availability notes. --}}
-                                        <div class="mt-2 min-h-[1.5rem]">
-                                            @unless ($availableToday)
-                                                <p class="text-xs leading-relaxed text-shop-muted" data-testid="shop-weekly-note">
-                                                    <span class="font-mono uppercase tracking-widest text-shop-primary">{{ __('shop.weekly_unavailable_label') }}</span><br>
-                                                    {{ __('shop.weekly_available_on', ['dates' => $dateList]) }}
-                                                </p>
-                                            @endunless
-                                        </div>
-                                    </article>
+                                        </article>
                                     </div>{{-- /cardVisible wrapper --}}
                                 @endforeach
                             </div>
