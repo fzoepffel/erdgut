@@ -565,12 +565,18 @@
                                 {{ __('shop.no_products_for_date') }}
                             </div>
                         @else
-                            {{-- min-h on optional slots (producer, tags, tier hint) reserves
-                                 vertical space when empty, so the structured slots line up
-                                 across cards in the same row without forcing the variable
-                                 "extra variants" section to align (which created huge gaps
-                                 below the stepper on single-variant cards under subgrid). --}}
-                            <div class="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 items-start">
+                            {{-- Conditional min-h on optional slots (producer, tags, tier
+                                 hint): reserve space ONLY when at least one card on the
+                                 page actually carries that content (via :has() below).
+                                 A row with one product that has none of those collapses
+                                 to zero — no dead gap. Structured slots stay aligned
+                                 across heterogeneous rows where some cards do have content. --}}
+                            <style>
+                                .shop-cards-grid:has(.shop-card-producer-fill) .shop-card-producer-slot { min-height: 1rem; }
+                                .shop-cards-grid:has(.shop-card-tags-fill) .shop-card-tags-slot { min-height: 1.5rem; }
+                                .shop-cards-grid:has(.shop-card-tier-fill) .shop-card-tier-slot { min-height: 1rem; }
+                            </style>
+                            <div class="shop-cards-grid grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 items-start">
                                 @foreach ($products as $row)
                                     @php
                                         $product = $row['product'];
@@ -615,27 +621,29 @@
                                             </h3>
                                             <div class="mt-2 h-px bg-shop-border"></div>
 
-                                            {{-- Producer (reserved height so cards w/o producer don't shift). --}}
-                                            <div class="mt-3 min-h-[1rem]">
+                                            {{-- Producer (height reserved by the parent's :has rule
+                                                 only when at least one card has a producer). --}}
+                                            <div class="shop-card-producer-slot mt-3">
                                                 @if ($product->producer)
-                                                    <a href="{{ route('public.shop.producers.show', $product->producer) }}" class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">
+                                                    <a href="{{ route('public.shop.producers.show', $product->producer) }}" class="shop-card-producer-fill font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">
                                                         {{ $product->producer->name }}
                                                     </a>
                                                 @endif
                                             </div>
 
-                                            {{-- Tags + unit descriptor (reserved height so tagless cards
-                                                 keep the same "Menge" Y position as tagged cards). --}}
-                                            <div class="mt-2 min-h-[1.5rem]">
+                                            {{-- Tags + unit descriptor (height reserved by the parent's
+                                                 :has rule only when at least one card has tags or a unit
+                                                 descriptor). --}}
+                                            <div class="shop-card-tags-slot mt-2">
                                                 @if ($shopTasteTags !== [])
-                                                    <div class="flex flex-wrap gap-1" aria-label="{{ __('Taste profile tags') }}">
+                                                    <div class="shop-card-tags-fill flex flex-wrap gap-1" aria-label="{{ __('Taste profile tags') }}">
                                                         @foreach ($shopTasteTags as $tag)
                                                             <span class="inline-flex items-center border border-shop-border/80 px-1.5 py-px font-mono text-[0.55rem] uppercase tracking-wider text-shop-muted">{{ $tag }}</span>
                                                         @endforeach
                                                     </div>
                                                 @endif
                                                 @if ($unitDescriptor)
-                                                    <p class="mt-1 font-mono text-[0.65rem] text-shop-muted">{{ $unitDescriptor }}</p>
+                                                    <p class="shop-card-tags-fill mt-1 font-mono text-[0.65rem] text-shop-muted">{{ $unitDescriptor }}</p>
                                                 @endif
                                             </div>
 
@@ -677,10 +685,11 @@
                                                         <span x-text="lineLabel(@js($jsId))"></span>
                                                     </p>
                                                 </div>
-                                                {{-- First tier hint (reserved height so cards w/o tiers don't shift). --}}
-                                                <div class="mt-1 min-h-[1rem]">
+                                                {{-- First tier hint (height reserved by the parent's :has
+                                                     rule only when at least one card has tiers). --}}
+                                                <div class="shop-card-tier-slot mt-1">
                                                     @if (! empty($firstGrade['tiers']))
-                                                        <p class="font-mono text-[0.6rem] leading-snug text-shop-muted">
+                                                        <p class="shop-card-tier-fill font-mono text-[0.6rem] leading-snug text-shop-muted">
                                                             @foreach ($firstGrade['tiers'] as $tier)
                                                                 {{ __('shop.tier_from', ['qty' => $product->displayQuantity($tier['min']), 'price' => $formatCanonical($product, $tier['price'])]) }}@if (! $loop->last) · @endif
                                                             @endforeach
@@ -741,7 +750,7 @@
                                                     <div class="flex flex-1 items-center justify-center border-x border-shop-border py-3 font-mono text-sm text-shop-muted">{{ __('shop.quantity_none') }}</div>
                                                     <div class="w-10 py-3 text-center font-mono text-sm text-shop-muted">+</div>
                                                 </div>
-                                                <div class="mt-1 min-h-[1rem]"></div>
+                                                <div class="shop-card-tier-slot mt-1"></div>
                                                 <div class="mt-3">
                                                     <p class="text-xs leading-relaxed text-shop-muted" data-testid="shop-weekly-note">
                                                         <span class="font-mono uppercase tracking-widest text-shop-primary">{{ __('shop.weekly_unavailable_label') }}</span><br>
