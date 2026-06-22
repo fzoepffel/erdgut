@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
 use App\Mail\ShopOrderWindowMail;
+use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ShopOrder;
@@ -23,16 +24,21 @@ use App\Support\AuditLogger;
 use App\Support\PickupLocations;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
+use ZipArchive;
 
 /**
  * Proper admin surface for anonymous {@see ShopOrder}s.
@@ -386,6 +392,176 @@ class AdminShopOrderController extends Controller
         $filename = 'erdgut-bestellungen-'.now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(new ShopOrdersExport($orders, $filter), $filename);
+    }
+
+    /**
+     * JSON list of producers that have at least one ordered item in the
+     * currently-filtered orders. Drives the "pick a farm" select in the
+     * Hofbestellung export flow on the orders list page.
+     */
+    public function farmerExportProducers(Request $request): JsonResponse
+    {
+        $filter = $this->resolveFilter($request);
+
+        $producers = Producer::query()
+            ->select('producers.id')
+            ->join('products', 'products.producer_id', '=', 'producers.id')
+            ->join('shop_order_items', 'shop_order_items.product_id', '=', 'products.id')
+            ->whereIn('shop_order_items.shop_order_id', $this->filteredOrdersQuery($filter)->select('shop_orders.id'))
+            ->groupBy('producers.id')
+            ->pluck('id');
+
+        $rows = Producer::query()
+            ->whereIn('id', $producers)
+            ->with('translations')
+            ->get()
+            ->map(fn (Producer $p): array => ['id' => $p->id, 'name' => $p->name])
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->all();
+
+        return response()->json($rows);
+    }
+
+    /**
+     * Build a ZIP holding a PDF and a CSV summarising what Erdgut needs
+     * from one specific farmer over the currently-filtered window. The
+     * CSV is the editable fallback if the admin wants to tweak anything
+     * before sending; the PDF is the "ready to send" copy.
+     */
+    public function farmerExport(Request $request): BinaryFileResponse
+    {
+        $filter = $this->resolveFilter($request);
+        $producerId = (int) $request->query('producer_id', 0);
+        abort_unless($producerId > 0, 422, 'producer_id is required');
+
+        $producer = Producer::with('translations')->find($producerId);
+        abort_unless($producer !== null, 404);
+
+        $orders = $this->filteredOrdersQuery($filter)
+            ->with([
+                'items.product.producer.translations',
+                'items.product.translations',
+                'items.product.variants',
+            ])
+            ->orderBy('expected_delivery_date')
+            ->orderBy('id')
+            ->get();
+
+        $rows = $this->buildFarmerOrderRows($orders, $producerId);
+
+        $slug = Str::slug($producer->name) ?: 'hof';
+        $today = now()->format('Y-m-d');
+        $base = "erdgut-hofbestellung-{$slug}-{$today}";
+
+        $pdfContent = Pdf::loadView('admin.shop-orders.farmer-order-pdf', [
+            'producer' => $producer,
+            'filter' => $filter,
+            'rows' => $rows,
+            'generatedAt' => now(),
+        ])->output();
+
+        $csvContent = $this->buildFarmerOrderCsv($rows);
+
+        $tempZip = tempnam(sys_get_temp_dir(), 'farmer-export-');
+        $zip = new ZipArchive;
+        $zip->open($tempZip, ZipArchive::OVERWRITE | ZipArchive::CREATE);
+        $zip->addFromString($base.'.pdf', $pdfContent);
+        // UTF-8 BOM so Excel opens the CSV with the right encoding by default.
+        $zip->addFromString($base.'.csv', "\xEF\xBB\xBF".$csvContent);
+        $zip->close();
+
+        return Response::download($tempZip, $base.'.zip', [
+            'Content-Type' => 'application/zip',
+        ])->deleteFileAfterSend();
+    }
+
+    /**
+     * Aggregate the filtered orders' items into one row per (date, product,
+     * variant) for a single producer, with the canonical quantity converted
+     * to the product's display unit.
+     *
+     * @param  Collection<int, ShopOrder>  $orders
+     * @return list<array<string, mixed>>
+     */
+    private function buildFarmerOrderRows($orders, int $producerId): array
+    {
+        $buckets = [];
+        foreach ($orders as $order) {
+            foreach ($order->items as $item) {
+                $product = $item->product;
+                if ($product === null || (int) $product->producer_id !== $producerId) {
+                    continue;
+                }
+
+                $variant = $item->variant_id !== null
+                    ? $product->variants->firstWhere('id', $item->variant_id)
+                    : null;
+                $variantName = $variant?->localizedName();
+
+                $unit = $product->unit;
+                $displayUnit = $product->price_display_unit ?? $unit?->defaultDisplayUnit();
+                $factor = $unit !== null && $displayUnit !== null
+                    ? $unit->canonicalUnitsPerDisplay($displayUnit)
+                    : 1;
+                $displaySymbol = $product->localizedUnit();
+
+                $dateKey = $order->expected_delivery_date->toDateString();
+                $key = $dateKey.'|'.$product->id.'|'.($item->variant_id ?? 0);
+
+                if (! isset($buckets[$key])) {
+                    $buckets[$key] = [
+                        'date' => $order->expected_delivery_date,
+                        'product_name' => $product->name,
+                        'variant_name' => $variantName,
+                        'qty_display' => 0.0,
+                        'unit' => $displaySymbol,
+                    ];
+                }
+                $buckets[$key]['qty_display'] += $factor > 0
+                    ? (float) $item->quantity / $factor
+                    : (float) $item->quantity;
+            }
+        }
+
+        $rows = array_values($buckets);
+        usort($rows, function (array $a, array $b): int {
+            return [$a['date']->toDateString(), $a['product_name'], (string) ($a['variant_name'] ?? '')]
+                <=> [$b['date']->toDateString(), $b['product_name'], (string) ($b['variant_name'] ?? '')];
+        });
+
+        return array_map(fn (array $r): array => array_merge($r, [
+            'qty_display' => round($r['qty_display'], 4),
+        ]), $rows);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function buildFarmerOrderCsv(array $rows): string
+    {
+        $handle = fopen('php://temp', 'r+');
+        fputcsv($handle, [
+            __('shop.admin.farmer_export_col_date'),
+            __('shop.admin.farmer_export_col_product'),
+            __('shop.admin.farmer_export_col_variant'),
+            __('shop.admin.farmer_export_col_quantity'),
+            __('shop.admin.farmer_export_col_unit'),
+        ]);
+        foreach ($rows as $row) {
+            fputcsv($handle, [
+                $row['date']->format('Y-m-d'),
+                $row['product_name'],
+                (string) ($row['variant_name'] ?? ''),
+                number_format((float) $row['qty_display'], 4, '.', ''),
+                (string) $row['unit'],
+            ]);
+        }
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return is_string($csv) ? $csv : '';
     }
 
     /**

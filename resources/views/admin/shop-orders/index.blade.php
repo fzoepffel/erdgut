@@ -5,12 +5,83 @@
                 <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('shop.admin.heading') }}</h1>
                 <span class="text-sm text-gray-500">{{ __('shop.admin.subheading', ['count' => $orders->total()]) }}</span>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2"
+                 x-data="{
+                     open: false,
+                     producers: [],
+                     loading: false,
+                     picked: '',
+                     async openPicker() {
+                         this.open = !this.open;
+                         if (this.open && this.producers.length === 0) {
+                             this.loading = true;
+                             try {
+                                 const params = new URLSearchParams(@js(request()->query() ?: new \stdClass));
+                                 const res = await fetch(@js(route('app.admin.shop-orders.farmer-export.producers')) + '?' + params.toString(), {
+                                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                                 });
+                                 const data = await res.json();
+                                 this.producers = Array.isArray(data) ? data : [];
+                             } catch (e) {
+                                 this.producers = [];
+                             } finally {
+                                 this.loading = false;
+                             }
+                         }
+                     },
+                     downloadHref() {
+                         if (!this.picked) return '#';
+                         const params = new URLSearchParams(@js(request()->query() ?: new \stdClass));
+                         params.set('producer_id', this.picked);
+                         return @js(route('app.admin.shop-orders.farmer-export')) + '?' + params.toString();
+                     }
+                 }"
+                 @click.outside="open = false"
+            >
                 <a href="{{ route('app.admin.shop-orders.export', request()->query()) }}"
                    class="inline-flex items-center gap-1.5 rounded-sm border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                    data-testid="shop-admin-export-link">
                     {{ __('shop.admin.action_export') }}
                 </a>
+                <div class="relative">
+                    <button type="button"
+                            @click="openPicker()"
+                            class="inline-flex items-center gap-1.5 rounded-sm border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                            data-testid="shop-admin-farmer-export-button">
+                        {{ __('shop.admin.action_farmer_export') }}
+                    </button>
+                    <div x-show="open" x-cloak
+                         class="absolute right-0 z-30 mt-2 w-80 rounded-md border border-gray-200 bg-white p-4 shadow-lg"
+                         data-testid="shop-admin-farmer-export-panel">
+                        <label class="mb-1 block text-xs font-medium text-gray-600">
+                            {{ __('shop.admin.farmer_export_pick_label') }}
+                        </label>
+                        <select x-model="picked"
+                                :disabled="loading"
+                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                            <option value="">— —</option>
+                            <template x-for="p in producers" :key="p.id">
+                                <option :value="p.id" x-text="p.name"></option>
+                            </template>
+                        </select>
+                        <p class="mt-2 text-xs text-gray-500"
+                           x-show="!loading && producers.length === 0" x-cloak>
+                            {{ __('shop.admin.farmer_export_no_producers') }}
+                        </p>
+                        <p class="mt-2 text-xs text-gray-400" x-show="loading" x-cloak>
+                            {{ __('Loading') }}…
+                        </p>
+                        <a :href="downloadHref()"
+                           @click="if (!picked) { $event.preventDefault(); }"
+                           :class="picked
+                               ? 'mt-3 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-gray-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700'
+                               : 'mt-3 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-gray-300 px-4 py-2 text-sm font-semibold text-white cursor-not-allowed'"
+                           :aria-disabled="!picked"
+                           data-testid="shop-admin-farmer-export-download">
+                            {{ __('shop.admin.farmer_export_download') }}
+                        </a>
+                    </div>
+                </div>
                 <a href="{{ route('app.admin.shop-orders.create') }}"
                    class="inline-flex items-center gap-1.5 rounded-sm bg-gray-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700"
                    data-testid="shop-admin-create-link">
