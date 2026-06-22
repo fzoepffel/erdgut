@@ -60,6 +60,7 @@ use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\Shop\ShopCatalogController;
+use App\Http\Controllers\Shop\ShopCheckoutController;
 use App\Http\Controllers\Shop\ShopController;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Controllers\SpargelOrderController;
@@ -156,6 +157,24 @@ Route::name('public.')->group(function () {
     Route::post('/shop', [ShopController::class, 'store'])
         ->middleware('throttle:20,1')
         ->name('shop.store');
+    // Three-step storefront checkout. /shop builds the basket; the routes
+    // below carry the customer through fulfillment + payment + contact +
+    // review before {@see ShopCheckoutController::place} creates the order
+    // via the same ShopOrderService::createOrder path the legacy single-shot
+    // POST /shop uses. State persists in the session via CheckoutDraft.
+    Route::post('/shop/checkout/start', [ShopCheckoutController::class, 'start'])
+        ->middleware('throttle:20,1')
+        ->name('shop.checkout.start');
+    Route::get('/shop/checkout/details', [ShopCheckoutController::class, 'details'])
+        ->name('shop.checkout.details');
+    Route::post('/shop/checkout/details', [ShopCheckoutController::class, 'storeDetails'])
+        ->middleware('throttle:20,1')
+        ->name('shop.checkout.details.store');
+    Route::get('/shop/checkout/review', [ShopCheckoutController::class, 'review'])
+        ->name('shop.checkout.review');
+    Route::post('/shop/checkout/place', [ShopCheckoutController::class, 'place'])
+        ->middleware('throttle:20,1')
+        ->name('shop.checkout.place');
     // Ground-truth cart pricing: the storefront posts its cart here on every
     // change and renders the returned line totals / summary / VAT / total —
     // the same quote() the order create + SumUp charge use, so the displayed
