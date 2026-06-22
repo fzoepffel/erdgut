@@ -14,7 +14,9 @@
              customerType: '{{ old('customer_type', 'private') }}',
              preselectedDate: '{{ old('expected_delivery_date', '') }}',
              preselectedItems: @js(collect(old('items', []))->map(fn ($i) => [
+                 'grade_key' => (string) ($i['product_id'] ?? '').(isset($i['variant_id']) && $i['variant_id'] !== '' ? ':'.$i['variant_id'] : ''),
                  'product_id' => (string) ($i['product_id'] ?? ''),
+                 'variant_id' => isset($i['variant_id']) && $i['variant_id'] !== '' ? (string) $i['variant_id'] : '',
                  'quantity' => (string) ($i['quantity'] ?? ''),
                  'line_total_eur' => isset($i['line_total_eur']) ? (string) $i['line_total_eur'] : '',
                  'vat_rate_percent' => (string) ($i['vat_rate_percent'] ?? '7'),
@@ -124,18 +126,21 @@
                                     <div class="grid grid-cols-1 gap-3 rounded-md border border-gray-100 p-3 sm:grid-cols-12 sm:items-start sm:border-0 sm:p-0">
                                         <div class="sm:col-span-5">
                                             <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('admin.select_product') }}</label>
-                                            <select :name="'items[' + i + '][product_id]'"
-                                                x-model="item.product_id"
+                                            <select x-model="item.grade_key"
                                                 @change="onLineProductChange(item)"
                                                 class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                 required>
                                                 <option value="">{{ __('admin.select_product') }}</option>
                                                 <template x-for="p in availableProducts" :key="p.id">
                                                     <option :value="String(p.id)"
-                                                            :selected="String(p.id) === String(item.product_id)"
-                                                            x-text="p.name + (p.producer ? ' (' + p.producer + ')' : '') + ' — ' + p.price + ' / ' + p.unit"></option>
+                                                            :selected="String(p.id) === String(item.grade_key)"
+                                                            x-text="p.name + (p.producer ? ' (' + p.producer + ')' : '') + ' — ' + p.price + ' / ' + p.display_unit"></option>
                                                 </template>
                                             </select>
+                                            {{-- Hidden inputs split the grade key back into the
+                                                 (product_id, variant_id) the backend expects. --}}
+                                            <input type="hidden" :name="'items[' + i + '][product_id]'" :value="item.product_id">
+                                            <input type="hidden" :name="'items[' + i + '][variant_id]'" :value="item.variant_id">
                                         </div>
                                         <div class="sm:col-span-2">
                                             <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('admin.quantity') }}</label>
@@ -149,7 +154,7 @@
                                                     class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                     required>
                                                 <span class="shrink-0 text-xs text-gray-500 tabular-nums"
-                                                      x-text="availableProducts.find(p => String(p.id) === String(item.product_id))?.unit ?? ''"></span>
+                                                      x-text="availableProducts.find(p => String(p.id) === String(item.grade_key))?.unit ?? ''"></span>
                                             </div>
                                         </div>
                                         <div class="sm:col-span-2">
@@ -510,8 +515,27 @@
             },
 
             onLineProductChange(item) {
+                // The dropdown stores a grade key ("123" for default, "123:7"
+                // when a variant is picked) — split it back into the two
+                // fields the backend expects.
+                const key = String(item.grade_key || '');
+                if (key === '') {
+                    item.product_id = '';
+                    item.variant_id = '';
+                } else if (key.includes(':')) {
+                    const [pid, vid] = key.split(':');
+                    item.product_id = pid;
+                    item.variant_id = vid;
+                } else {
+                    item.product_id = key;
+                    item.variant_id = '';
+                }
+                // Customer-tier autofill is allowed to overwrite a previously
+                // quoted line — admin changed the product, the old amount is
+                // stale by definition.
+                item.lineTouched = false;
                 const product = this.availableProducts.find(
-                    (p) => String(p.id) === String(item.product_id),
+                    (p) => String(p.id) === String(item.grade_key),
                 );
                 if (product && !item.vatTouched) {
                     item.vat_rate_percent = String(product.vat_rate_percent ?? 7);
@@ -539,9 +563,19 @@
                 try {
                     const params = new URLSearchParams();
                     params.set('fulfillment_mode', this.mode);
+                    // Customer type + date drive PriceResolver — without them
+                    // every quote came back at the Private base price even
+                    // when "Business customer" was picked.
+                    params.set('customer_type', this.customerType);
+                    if (this.selectedDate) {
+                        params.set('expected_delivery_date', this.selectedDate);
+                    }
                     validIndices.forEach((itemIndex, i) => {
                         const item = this.items[itemIndex];
                         params.set(`items[${i}][product_id]`, item.product_id);
+                        if (item.variant_id) {
+                            params.set(`items[${i}][variant_id]`, item.variant_id);
+                        }
                         params.set(`items[${i}][quantity]`, item.quantity);
                     });
                     const res = await fetch(this.quoteUrl + '?' + params.toString(), {
@@ -597,46 +631,55 @@
             },
 
             /**
-             * Sub-line under each item row explaining which tier price the
-             * autofilled line total uses (e.g. "Business price 7,50 €/kg") and,
-             * when the other tier has a different price, comparing them.
-             * Empty string when no product is selected — the row hides itself.
+             * Full price breakdown rendered as a small HTML block under the
+             * item row: which price was auto-filled, the alternative
+             * customer-type price, and any private-only volume tiers that
+             * exist on this grade. Returns '' (so x-show hides the row)
+             * when no product is selected.
              */
             priceHint(item) {
                 const product = this.availableProducts.find(
-                    (p) => String(p.id) === String(item.product_id),
+                    (p) => String(p.id) === String(item.grade_key),
                 );
                 if (!product) return '';
 
                 const labels = this.priceHintLabels;
-                const tier = labels.tiers?.[this.customerType] ?? this.customerType;
-                const reasonLabel = labels.reasons?.[product.price_reason] ?? '';
-                const priceLabel = product.price;
+                const privateLabel = labels.tiers?.private ?? 'Private';
+                const businessLabel = labels.tiers?.business ?? 'Business';
+                const isBusiness = this.customerType === 'business';
 
-                // "Used: {reason} {tier} {price}" — the reason explains *why*
-                // this price applies (base list price, customer-group rule,
-                // date-window override, …).
-                let used = (labels.used_template || ':reason :tier: :price')
-                    .replace(':reason', reasonLabel)
-                    .replace(':tier', tier)
-                    .replace(':price', priceLabel)
-                    .replace(/\s+/g, ' ')
-                    .trim();
+                // Which line is the "used" price (bolded) and which is the alt?
+                const usedLabel = isBusiness ? businessLabel : privateLabel;
+                const usedPrice = product.price;
+                const altLabel = isBusiness ? privateLabel : businessLabel;
+                const altPrice = product.alt_price;
 
-                // Compare with the other tier only when it actually differs —
-                // otherwise the hint becomes noisy on products without a
-                // customer-tier rule.
-                const altUnit = product.alt_unit_price_eur;
-                const ownUnit = product.unit_price_eur;
-                if (altUnit != null && ownUnit != null && Math.abs(altUnit - ownUnit) > 1e-6) {
-                    const altTier = labels.tiers?.[this.customerType === 'business' ? 'private' : 'business']
-                        ?? '';
-                    const compare = (labels.compare_template || '(:tier: :price)')
-                        .replace(':tier', altTier)
-                        .replace(':price', product.alt_price);
-                    used = used + ' ' + compare;
+                const lines = [];
+                lines.push(
+                    '<strong>' + this._esc(usedLabel) + ':</strong> ' + this._esc(usedPrice)
+                );
+                lines.push(
+                    this._esc(altLabel) + ': ' + this._esc(altPrice)
+                );
+                // Private-only volume tiers, when set. Skip on business — the
+                // resolver doesn't apply them and we don't want to mislead.
+                const tiers = Array.isArray(product.private_tiers) ? product.private_tiers : [];
+                if (tiers.length > 0) {
+                    const tierLine = tiers.map((t) => this._esc(t.label)).join(' · ');
+                    const prefix = isBusiness
+                        ? this._esc(privateLabel) + ': '
+                        : '';
+                    lines.push(prefix + tierLine);
                 }
-                return used;
+                return lines.join('<br>');
+            },
+
+            _esc(s) {
+                if (s == null) return '';
+                return String(s)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
             },
 
             async fetchProducts() {

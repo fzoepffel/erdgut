@@ -65,6 +65,13 @@ class PriceResolver
             if ($rule->min_quantity !== null && $rule->variant_id === null && $variantId !== null) {
                 return false;
             }
+            // Untyped volume tiers are a *private-customer* mechanism. Business
+            // trade gets a flat customer-group price and never stacks a tier on
+            // top of it (only an explicit Business-typed tier would apply, which
+            // doesn't trip the null-customer_type check).
+            if ($rule->min_quantity !== null && $rule->customer_type === null && $customerType === CustomerType::Business) {
+                return false;
+            }
             if ($rule->min_quantity !== null && ($quantity === null || $quantity + 1e-9 < (float) $rule->min_quantity)) {
                 return false;
             }

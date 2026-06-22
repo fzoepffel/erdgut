@@ -12,7 +12,9 @@ use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
 use App\Mail\ShopOrderWindowMail;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\ShopOrder;
+use App\Services\Admin\InventoryService;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\PriceResolver;
@@ -52,14 +54,15 @@ class AdminShopOrderController extends Controller
     public function __construct(
         private readonly ShopOrderService $service,
         private readonly PriceResolver $priceResolver,
+        private readonly InventoryService $inventory,
     ) {}
 
     /**
-     * JSON list of products available on a specific date, for the admin order
-     * form's date-first product picker. Returns only products with positive
-     * stock on the given date so the admin only sees orderable items, and
-     * resolves both the customer-tier price and the alt-tier price so the
-     * blade can show the picked price plus a comparison hint inline.
+     * JSON list of orderable grades (product × optional variant) for a
+     * specific date. Each entry carries the full pricing breakdown
+     * needed by the admin order form: both customer-type base prices,
+     * the tiers that apply to each customer type, the VAT rate, and
+     * the canonical-unit prices used for line-total auto-fill.
      */
     public function availableProductsForDate(Request $request): JsonResponse
     {
@@ -72,46 +75,135 @@ class AdminShopOrderController extends Controller
         $customerType = $request->query('customer_type') === CustomerType::Business->value
             ? CustomerType::Business
             : CustomerType::Private;
-        $altCustomerType = $customerType === CustomerType::Business
-            ? CustomerType::Private
-            : CustomerType::Business;
         $audience = $customerType === CustomerType::Business
             ? ShopStockAudience::BusinessTrade
             : ShopStockAudience::Consumer;
 
-        return response()->json(
-            $this->service->availableProductsForDate($date, $audience)
-                ->map(function (array $row) use ($date, $customerType, $altCustomerType): array {
-                    $product = $row['product'];
-                    // Resolve both tiers so the blade can render "Business
-                    // price 7,50 €/kg (Private: 9,00 €/kg)" without a second
-                    // round-trip on customer-type toggle.
-                    $resolved = $this->priceResolver->resolve($product, $date, $customerType);
-                    $alt = $this->priceResolver->resolve($product, $date, $altCustomerType);
+        $grades = [];
+        foreach ($this->service->availableProductsForDate($date, $audience) as $row) {
+            /** @var Product $product */
+            $product = $row['product'];
+            $product->loadMissing('priceRules', 'variants.translations');
+            $variants = $product->activeVariants();
 
-                    return [
-                        'id' => $product->id,
-                        'name' => $product->name,
-                        'producer' => $product->producer?->name ?? '',
-                        'unit' => $product->canonicalUnitLabel(),
-                        'remaining' => $row['remaining'],
-                        'vat_rate_percent' => (int) ($product->vat_rate_percent ?? 7),
-                        // Tier-aware display price (string, localized).
-                        'price' => $this->formatDisplayPrice($product, $resolved->unitPriceEur),
-                        // Per-canonical price as a float so the blade can
-                        // autofill quantity * unit price into the line total
-                        // before the quote endpoint resolves the final amount.
-                        'unit_price_eur' => $resolved->unitPriceEur,
-                        'price_reason' => $resolved->reason,
-                        // Same fields, for the OTHER customer tier — used
-                        // only as a comparison hint, never as the autofill.
-                        'alt_price' => $this->formatDisplayPrice($product, $alt->unitPriceEur),
-                        'alt_unit_price_eur' => $alt->unitPriceEur,
-                        'alt_price_reason' => $alt->reason,
-                    ];
-                })
-                ->values()
+            // Default grade: present when the product has no named variants,
+            // or when the default itself has stock that day.
+            $defaultRemaining = $variants->isEmpty()
+                ? (float) $row['remaining']
+                : (float) $this->inventory->remainingForGrade($product, $date, null);
+            if ($variants->isEmpty() || $defaultRemaining > 0) {
+                $grades[] = $this->buildGrade($product, null, $defaultRemaining, $date, $customerType);
+            }
+
+            // Named grades.
+            foreach ($variants as $variant) {
+                $remaining = (float) $this->inventory->remainingForGrade($product, $date, $variant->id);
+                if ($remaining <= 0) {
+                    continue;
+                }
+                $grades[] = $this->buildGrade($product, $variant, $remaining, $date, $customerType);
+            }
+        }
+
+        return response()->json($grades);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildGrade(
+        Product $product,
+        ?ProductVariant $variant,
+        float $remaining,
+        Carbon $date,
+        CustomerType $customerType,
+    ): array {
+        $altCustomerType = $customerType === CustomerType::Business
+            ? CustomerType::Private
+            : CustomerType::Business;
+
+        $privateResolved = $this->priceResolver->resolve(
+            $product, $date, CustomerType::Private, null, $variant?->id, $variant,
         );
+        $businessResolved = $this->priceResolver->resolve(
+            $product, $date, CustomerType::Business, null, $variant?->id, $variant,
+        );
+        // The picked tier is whichever the current customer type maps to.
+        $picked = $customerType === CustomerType::Business ? $businessResolved : $privateResolved;
+        $alt = $altCustomerType === CustomerType::Business ? $businessResolved : $privateResolved;
+
+        $gradeKey = $variant !== null ? $product->id.':'.$variant->id : (string) $product->id;
+        $gradeLabel = $variant?->localizedName();
+        $displayName = $variant !== null ? $product->name.' · '.$gradeLabel : $product->name;
+
+        return [
+            'key' => $gradeKey,
+            'id' => $gradeKey, // dropdown <option value=...>
+            'product_id' => $product->id,
+            'variant_id' => $variant?->id,
+            'grade_label' => $gradeLabel,
+            'name' => $displayName,
+            'producer' => $product->producer?->name ?? '',
+            'unit' => $product->canonicalUnitLabel(),
+            'display_unit' => $product->localizedUnit(),
+            'remaining' => $remaining,
+            'vat_rate_percent' => (int) ($product->vat_rate_percent ?? 7),
+            // Tier-aware display price for the CURRENTLY selected customer
+            // type — drives the line-total autofill.
+            'price' => $this->formatDisplayPrice($product, $picked->unitPriceEur),
+            'unit_price_eur' => $picked->unitPriceEur,
+            'price_reason' => $picked->reason,
+            // Same fields for the OTHER customer type — for the comparison
+            // line of the price breakdown.
+            'alt_price' => $this->formatDisplayPrice($product, $alt->unitPriceEur),
+            'alt_unit_price_eur' => $alt->unitPriceEur,
+            'alt_price_reason' => $alt->reason,
+            // Untyped volume tiers (the standard "ab 1 kg: 1,00 €/kg" rules)
+            // apply to private customers only; business gets the flat
+            // customer-group price. The breakdown surfaces those tiers next
+            // to the private base so the admin can sanity-check at a glance.
+            'private_tiers' => $this->tiersFor($product, $variant, formatted: true),
+        ];
+    }
+
+    /**
+     * Untyped (date-open, customer-type-null) volume tiers for the given
+     * grade — these are private-customer discounts; business orders never
+     * get them. Returned as a list of localized strings already formatted
+     * (e.g. "ab 1 kg: 1,00 €/kg") so the admin form can render them
+     * directly in the breakdown.
+     *
+     * @return list<array{min_qty: float, price_per_unit_eur: float, label: string}>
+     */
+    private function tiersFor(Product $product, ?ProductVariant $variant, bool $formatted = false): array
+    {
+        $variantId = $variant?->id;
+
+        return $product->priceRules
+            ->filter(function ($r) use ($variantId): bool {
+                if (! $r->is_active) {
+                    return false;
+                }
+                if ($r->customer_type !== null || $r->starts_on !== null || $r->ends_on !== null) {
+                    return false;
+                }
+                if ($r->min_quantity === null) {
+                    return false;
+                }
+
+                return ((int) $r->variant_id) === ((int) $variantId);
+            })
+            ->sortBy(fn ($r) => (float) $r->min_quantity)
+            ->map(fn ($r) => [
+                'min_qty' => (float) $r->min_quantity,
+                'price_per_unit_eur' => (float) $r->unit_price,
+                'label' => $formatted ? __('shop.tier_from', [
+                    'qty' => $product->displayQuantity((float) $r->min_quantity),
+                    'price' => $this->formatDisplayPrice($product, (float) $r->unit_price),
+                ]) : '',
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -180,6 +272,8 @@ class AdminShopOrderController extends Controller
             'lines' => collect($quote['lines'])
                 ->map(fn (array $line): array => [
                     'product_id' => $line['product']->id,
+                    'variant_id' => $line['variant_id'] ?? null,
+                    'unit_price_eur' => $line['unit_price_eur'] ?? null,
                     'line_total_eur' => $line['line_total_eur'],
                     'vat_rate_percent' => $line['vat_rate_percent'],
                     'vat_amount_eur' => $line['vat_amount_eur'],
