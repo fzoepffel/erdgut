@@ -1687,10 +1687,17 @@
                     return v?.tiersHint || '';
                 },
                 get pickerSubtotal() {
+                    // Iterate the variants directly so we keep their typed `id`
+                    // (number for default grades, "vNN" string for named ones).
+                    // Going via Object.entries(pickerLocalQty) stringifies every
+                    // key, which makes the strict-equality lookup against the
+                    // products array miss numeric ids → sum stays at 0 → Add to
+                    // basket gets disabled even after the customer picked a
+                    // quantity for one variant.
                     let sum = 0;
-                    Object.entries(this.pickerLocalQty).forEach(([jsId, qty]) => {
-                        const v = this.products.find((p) => p.id === jsId);
-                        if (!v || !qty) return;
+                    this.pickerVariants.forEach((v) => {
+                        const qty = this.pickerLocalQty[v.id] || 0;
+                        if (!qty) return;
                         const eff = this._effectiveUnitPriceFor(v, qty);
                         sum += eff * qty;
                     });
