@@ -746,10 +746,13 @@
                                                        x-cloak>
                                                         <span x-text="cartLabelFor({{ $product->id }})"></span>
                                                     </p>
+                                                    {{-- Same explicit height as the single-variant stepper on
+                                                         the sister card so the two read as the same control
+                                                         when shown side-by-side in a row. --}}
                                                     <button
                                                         type="button"
                                                         @click="openPicker({{ $product->id }})"
-                                                        class="touch-manipulation mt-3 inline-flex w-full items-center justify-center gap-2 border border-shop-primary bg-shop-primary px-5 py-3 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover"
+                                                        class="touch-manipulation mt-3 inline-flex h-[3.25rem] w-full items-center justify-center gap-2 border border-shop-primary bg-shop-primary px-5 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover"
                                                         data-testid="shop-card-pick-{{ $product->id }}"
                                                     >
                                                         <span x-show="!cartLabelFor({{ $product->id }})">{{ __('shop.card_cta_pick') }}</span>
@@ -765,7 +768,7 @@
                                                          picker (iOS wheel / Android sheet / desktop dropdown) —
                                                          the OS handles positioning + scrolling, so no z-index
                                                          fights with sections below and no scroll-chain issues. --}}
-                                                    <div class="mt-3 flex items-stretch border border-shop-border bg-shop-background" data-testid="shop-card-stepper-{{ $product->id }}">
+                                                    <div class="mt-3 flex h-[3.25rem] items-stretch border border-shop-border bg-shop-background" data-testid="shop-card-stepper-{{ $product->id }}">
                                                         <button
                                                             type="button"
                                                             @click="dec(@js($singleJsId))"
