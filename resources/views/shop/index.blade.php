@@ -776,10 +776,15 @@
                                                             class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
                                                             aria-label="−"
                                                         >−</button>
-                                                        <div class="relative flex flex-1 border-x border-shop-border">
-                                                            <div class="pointer-events-none flex w-full items-center justify-center gap-2 py-3 font-mono text-sm tabular-nums">
+                                                        {{-- Middle area uses bg-shop-paper + a prominent chevron
+                                                             so it visually reads as a dropdown control distinct
+                                                             from the outline-only −/+ buttons next to it. --}}
+                                                        <div class="relative flex flex-1 border-x border-shop-border bg-shop-paper">
+                                                            <div class="pointer-events-none flex w-full items-center justify-between gap-3 px-3 py-3 font-mono text-sm tabular-nums">
                                                                 <span x-text="label(@js($singleJsId)) || @js(__('shop.quantity_none'))">{{ __('shop.quantity_none') }}</span>
-                                                                <span class="text-shop-muted text-xs" aria-hidden="true">▾</span>
+                                                                <svg class="h-4 w-4 shrink-0 text-shop-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25" aria-hidden="true">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+                                                                </svg>
                                                             </div>
                                                             <select
                                                                 aria-label="{{ __('shop.quantity_label') }}"
@@ -1141,10 +1146,15 @@
                                             class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
                                             aria-label="−"
                                         >−</button>
-                                        <div class="relative flex flex-1 border-x border-shop-border">
-                                            <div class="pointer-events-none flex w-full items-center justify-center gap-2 py-3 font-mono text-sm tabular-nums">
+                                        {{-- Middle area uses bg-shop-paper + a prominent chevron
+                                             so it visually reads as a dropdown control distinct
+                                             from the outline-only −/+ buttons next to it. --}}
+                                        <div class="relative flex flex-1 border-x border-shop-border bg-shop-paper">
+                                            <div class="pointer-events-none flex w-full items-center justify-between gap-3 px-3 py-3 font-mono text-sm tabular-nums">
                                                 <span x-text="pickerCurrentLabel(v.id) || @js(__('shop.quantity_none'))"></span>
-                                                <span class="text-shop-muted text-xs" aria-hidden="true">▾</span>
+                                                <svg class="h-4 w-4 shrink-0 text-shop-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+                                                </svg>
                                             </div>
                                             <select
                                                 :aria-label="@js(__('shop.quantity_label'))"
