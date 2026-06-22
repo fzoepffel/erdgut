@@ -34,12 +34,18 @@
                 : number_format($canonical, 2, ',', '.').' €';
         };
 
-        $buildSteps = function ($product, float $remainingRaw) use ($maxQuantity, $maxCount) {
+        $buildSteps = function ($product, float $remainingRaw) {
             $step = $product->effectiveQuantityStep();
             $remaining = (int) floor($remainingRaw);
+            // Cap = real remaining stock (floored to a step boundary for
+            // mass/volume so the last option is reachable). The shop's
+            // max_quantity / max_count config used to clip this further to
+            // keep the +/− stepper sane, but with the native <select>
+            // dropdown the user wants the full range — 500 g, 1 kg, …, 50 kg
+            // for a 50 kg lot with a 500 g step.
             $cap = in_array($product->unit?->value, ['piece', 'bunch'], true)
-                ? min($remaining, (int) $maxCount)
-                : min((int) (floor($remaining / $step) * $step), (int) $maxQuantity);
+                ? $remaining
+                : (int) (floor($remaining / $step) * $step);
 
             $steps = [['v' => 0, 'l' => __('shop.quantity_none')]];
             for ($q = $step; $q <= $cap; $q += $step) {
