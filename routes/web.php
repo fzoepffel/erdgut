@@ -493,6 +493,13 @@ Route::middleware(['auth', 'verified'])
             Route::get('shop-orders/export', [AdminShopOrderController::class, 'export'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.export');
+            // Farmer-order export: the producer picker + the PDF/CSV ZIP.
+            // Declared before the {shopOrder} wildcard for the same reason.
+            Route::get('shop-orders/farmer-export/producers', [AdminShopOrderController::class, 'farmerExportProducers'])
+                ->name('shop-orders.farmer-export.producers');
+            Route::get('shop-orders/farmer-export', [AdminShopOrderController::class, 'farmerExport'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.farmer-export');
             Route::post('shop-orders', [AdminShopOrderController::class, 'store'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.store');
