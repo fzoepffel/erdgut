@@ -789,7 +789,7 @@
                                                             <select
                                                                 aria-label="{{ __('shop.quantity_label') }}"
                                                                 :value="String(quantities[@js($singleJsId)] || 0)"
-                                                                @change="quantities[@js($singleJsId)] = +$event.target.value; scheduleQuote && scheduleQuote(); scheduleCouponRefresh && scheduleCouponRefresh()"
+                                                                @change="quantities[@js($singleJsId)] = +$event.target.value; refreshQuote(); scheduleCouponRefresh()"
                                                                 class="touch-manipulation absolute inset-0 w-full cursor-pointer appearance-none border-0 bg-transparent font-mono opacity-0 focus:outline-none"
                                                             >
                                                                 <option value="0">{{ __('shop.quantity_none') }}</option>
