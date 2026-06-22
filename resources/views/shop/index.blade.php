@@ -345,9 +345,7 @@
                 <template x-for="(line, i) in basket.lines" :key="line.jsId">
                     <div>
                         <input type="hidden" :name="`items[${i}][product_id]`" :value="line.productId">
-                        <template x-if="line.variantId !== null">
-                            <input type="hidden" :name="`items[${i}][variant_id]`" :value="line.variantId">
-                        </template>
+                        <input type="hidden" :name="`items[${i}][variant_id]`" :value="line.variantId ?? ''">
                         <input type="hidden" :name="`items[${i}][quantity]`" :value="line.quantity">
                     </div>
                 </template>
@@ -1768,12 +1766,24 @@
                     this.pickerLocalQty = {};
                 },
                 confirmPicker() {
-                    Object.entries(this.pickerLocalQty).forEach(([jsId, qty]) => {
-                        const n = Number(qty) || 0;
-                        this._setQuantity(jsId, n);
+                    // Iterate the picker's variants directly (their typed
+                    // jsId — numeric for default-grade, "vNN" string for
+                    // named grades). Object.entries(this.pickerLocalQty)
+                    // would stringify every key, which is fine for storage
+                    // but misses the typed-id round-trip with `add_to_cart`
+                    // analytics below.
+                    let added = false;
+                    this.pickerVariants.forEach((v) => {
+                        const n = Number(this.pickerLocalQty[v.id] || 0);
+                        const wasEmpty = (this.quantities[v.id] || 0) <= 0;
+                        this.basket.set(v.id, n);
+                        if (wasEmpty && n > 0) {
+                            added = true;
+                            if (typeof v.id === 'number') this.queueEvent(v.id, 'add_to_cart');
+                        }
                     });
-                    this.scheduleQuote && this.scheduleQuote();
-                    this.scheduleCouponRefresh && this.scheduleCouponRefresh();
+                    this.refreshQuote();
+                    if (added) this._pulseChip();
                     this.closePicker();
                 },
                 _setQuantity(jsId, qty) {
