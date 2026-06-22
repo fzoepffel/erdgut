@@ -754,55 +754,43 @@
                                                          on the card (no modal needed since there's nothing to
                                                          choose between). --}}
                                                     @php($singleJsId = $firstGrade['jsId'])
-                                                    <div class="relative mt-3" data-testid="shop-card-stepper-{{ $product->id }}"
-                                                         @click.outside="cardDropdownFor === @js($singleJsId) && (cardDropdownFor = '')">
-                                                        <div class="flex items-stretch border border-shop-border bg-shop-background">
-                                                            <button
-                                                                type="button"
-                                                                @click="dec(@js($singleJsId))"
-                                                                :disabled="(quantities[@js($singleJsId)] || 0) <= 0"
-                                                                class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
-                                                                aria-label="−"
-                                                            >−</button>
-                                                            <button
-                                                                type="button"
-                                                                @click="cardDropdownFor = (cardDropdownFor === @js($singleJsId) ? '' : @js($singleJsId))"
-                                                                class="touch-manipulation flex flex-1 items-center justify-center gap-2 border-x border-shop-border py-3 font-mono text-sm tabular-nums hover:bg-shop-paper"
-                                                                :aria-expanded="cardDropdownFor === @js($singleJsId)"
-                                                            >
+                                                    {{-- The middle "value" is an invisible native <select> sitting
+                                                         on top of the rendered label. Tapping it opens the OS
+                                                         picker (iOS wheel / Android sheet / desktop dropdown) —
+                                                         the OS handles positioning + scrolling, so no z-index
+                                                         fights with sections below and no scroll-chain issues. --}}
+                                                    <div class="mt-3 flex items-stretch border border-shop-border bg-shop-background" data-testid="shop-card-stepper-{{ $product->id }}">
+                                                        <button
+                                                            type="button"
+                                                            @click="dec(@js($singleJsId))"
+                                                            :disabled="(quantities[@js($singleJsId)] || 0) <= 0"
+                                                            class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                                            aria-label="−"
+                                                        >−</button>
+                                                        <div class="relative flex flex-1 border-x border-shop-border">
+                                                            <div class="pointer-events-none flex w-full items-center justify-center gap-2 py-3 font-mono text-sm tabular-nums">
                                                                 <span x-text="label(@js($singleJsId)) || @js(__('shop.quantity_none'))">{{ __('shop.quantity_none') }}</span>
                                                                 <span class="text-shop-muted text-xs" aria-hidden="true">▾</span>
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                @click="inc(@js($singleJsId))"
-                                                                :disabled="atCap(@js($singleJsId))"
-                                                                class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
-                                                                aria-label="+"
-                                                            >+</button>
+                                                            </div>
+                                                            <select
+                                                                aria-label="{{ __('shop.quantity_label') }}"
+                                                                :value="String(quantities[@js($singleJsId)] || 0)"
+                                                                @change="quantities[@js($singleJsId)] = +$event.target.value; scheduleQuote && scheduleQuote(); scheduleCouponRefresh && scheduleCouponRefresh()"
+                                                                class="touch-manipulation absolute inset-0 w-full cursor-pointer appearance-none border-0 bg-transparent font-mono opacity-0 focus:outline-none"
+                                                            >
+                                                                <option value="0">{{ __('shop.quantity_none') }}</option>
+                                                                <template x-for="step in cardStepOptions(@js($singleJsId))" :key="step.v">
+                                                                    <option :value="String(step.v)" x-text="step.l"></option>
+                                                                </template>
+                                                            </select>
                                                         </div>
-                                                        {{-- Dropdown: all valid step values. --}}
-                                                        <div
-                                                            x-show="cardDropdownFor === @js($singleJsId)"
-                                                            x-cloak
-                                                            x-transition.opacity.duration.100ms
-                                                            class="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto border border-shop-border bg-shop-background shadow-lg"
-                                                            role="listbox"
-                                                        >
-                                                            <template x-for="step in cardStepOptions(@js($singleJsId))" :key="step.v">
-                                                                <button
-                                                                    type="button"
-                                                                    @click="quantities[@js($singleJsId)] = step.v; cardDropdownFor = ''; scheduleQuote && scheduleQuote(); scheduleCouponRefresh && scheduleCouponRefresh()"
-                                                                    class="touch-manipulation block w-full px-4 py-2 text-left font-mono text-sm tabular-nums transition"
-                                                                    :class="(quantities[@js($singleJsId)] || 0) === step.v
-                                                                        ? 'bg-shop-primary text-shop-primary-foreground'
-                                                                        : 'text-shop-foreground hover:bg-shop-paper'"
-                                                                    role="option"
-                                                                    :aria-selected="(quantities[@js($singleJsId)] || 0) === step.v"
-                                                                    x-text="step.l"
-                                                                ></button>
-                                                            </template>
-                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            @click="inc(@js($singleJsId))"
+                                                            :disabled="atCap(@js($singleJsId))"
+                                                            class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                                            aria-label="+"
+                                                        >+</button>
                                                     </div>
                                                     {{-- Live subtotal line under the stepper. --}}
                                                     <p class="mt-1 font-mono text-xs tabular-nums text-shop-muted"
@@ -1122,7 +1110,7 @@
                              middle value is clickable to open a dropdown that lists
                              every valid step value at once (one tap to jump to any
                              quantity instead of pressing + dozens of times). --}}
-                        <div class="mt-6 space-y-6" data-testid="shop-picker-variants" @click.outside="pickerDropdownFor = ''">
+                        <div class="mt-6 space-y-6" data-testid="shop-picker-variants">
                             <template x-for="(v, idx) in pickerVariants" :key="v.id">
                                 <div :class="idx > 0 ? 'pt-6 border-t border-shop-border' : ''">
                                     <div class="flex items-baseline justify-between gap-2">
@@ -1131,58 +1119,44 @@
                                         <span class="font-mono text-sm tabular-nums text-shop-muted" x-text="v.priceDisplay"></span>
                                     </div>
 
-                                    {{-- Stepper with clickable centre. --}}
-                                    <div class="relative mt-3" data-testid="shop-picker-stepper">
-                                        <div class="flex items-stretch border border-shop-border bg-shop-background">
-                                            <button
-                                                type="button"
-                                                @click="pickerDec(v.id)"
-                                                :disabled="(pickerLocalQty[v.id] || 0) <= 0"
-                                                class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
-                                                aria-label="−"
-                                            >−</button>
-                                            <button
-                                                type="button"
-                                                @click="pickerDropdownFor = (pickerDropdownFor === v.id ? '' : v.id)"
-                                                class="touch-manipulation flex flex-1 items-center justify-center gap-2 border-x border-shop-border py-3 font-mono text-sm tabular-nums hover:bg-shop-paper"
-                                                :aria-expanded="pickerDropdownFor === v.id"
-                                                data-testid="shop-picker-step-open"
-                                            >
+                                    {{-- Stepper: −/value/+ — the middle "value" is an
+                                         invisible native <select> overlay so tapping it
+                                         shows the OS picker (iOS wheel / Android sheet)
+                                         instead of a custom dropdown that fights for
+                                         z-index and steals scroll. --}}
+                                    <div class="mt-3 flex items-stretch border border-shop-border bg-shop-background" data-testid="shop-picker-stepper">
+                                        <button
+                                            type="button"
+                                            @click="pickerDec(v.id)"
+                                            :disabled="(pickerLocalQty[v.id] || 0) <= 0"
+                                            class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                            aria-label="−"
+                                        >−</button>
+                                        <div class="relative flex flex-1 border-x border-shop-border">
+                                            <div class="pointer-events-none flex w-full items-center justify-center gap-2 py-3 font-mono text-sm tabular-nums">
                                                 <span x-text="pickerCurrentLabel(v.id) || @js(__('shop.quantity_none'))"></span>
                                                 <span class="text-shop-muted text-xs" aria-hidden="true">▾</span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                @click="pickerInc(v.id)"
-                                                :disabled="pickerAtCap(v.id)"
-                                                class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
-                                                aria-label="+"
-                                            >+</button>
+                                            </div>
+                                            <select
+                                                :aria-label="@js(__('shop.quantity_label'))"
+                                                :value="String(pickerLocalQty[v.id] || 0)"
+                                                @change="pickerSet(v.id, +$event.target.value)"
+                                                class="touch-manipulation absolute inset-0 w-full cursor-pointer appearance-none border-0 bg-transparent font-mono opacity-0 focus:outline-none"
+                                                data-testid="shop-picker-step-open"
+                                            >
+                                                <option value="0">{{ __('shop.quantity_none') }}</option>
+                                                <template x-for="step in pickerStepOptions(v)" :key="step.v">
+                                                    <option :value="String(step.v)" x-text="step.l"></option>
+                                                </template>
+                                            </select>
                                         </div>
-
-                                        {{-- Dropdown: scrollable list of every step value. --}}
-                                        <div
-                                            x-show="pickerDropdownFor === v.id"
-                                            x-cloak
-                                            x-transition.opacity.duration.100ms
-                                            class="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto border border-shop-border bg-shop-background shadow-lg"
-                                            role="listbox"
-                                            data-testid="shop-picker-step-dropdown"
-                                        >
-                                            <template x-for="step in pickerStepOptions(v)" :key="step.v">
-                                                <button
-                                                    type="button"
-                                                    @click="pickerSet(v.id, step.v); pickerDropdownFor = ''"
-                                                    class="touch-manipulation block w-full px-4 py-2 text-left font-mono text-sm tabular-nums transition"
-                                                    :class="(pickerLocalQty[v.id] || 0) === step.v
-                                                        ? 'bg-shop-primary text-shop-primary-foreground'
-                                                        : 'text-shop-foreground hover:bg-shop-paper'"
-                                                    role="option"
-                                                    :aria-selected="(pickerLocalQty[v.id] || 0) === step.v"
-                                                    x-text="step.l"
-                                                ></button>
-                                            </template>
-                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="pickerInc(v.id)"
+                                            :disabled="pickerAtCap(v.id)"
+                                            class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                            aria-label="+"
+                                        >+</button>
                                     </div>
 
                                     {{-- Live per-variant subtotal once a qty is picked. --}}
@@ -1540,9 +1514,8 @@
                         .map((p) => ({ id: p.id, name: p.name, qty: this.label(p.id), lineTotalLabel: this.money(this.lineEstimate(p.id)) }));
                 },
                 // ── Inline card stepper (single-variant products) ─────────
-                // Which on-card stepper's dropdown is currently open (empty = none).
-                // String form so click-outside compare is straightforward.
-                cardDropdownFor: '',
+                // Step values feed the native <select> options under each
+                // stepper — same source of truth as the +/− buttons.
                 cardStepOptions(jsId) {
                     const v = this.products.find((p) => p.id === jsId);
                     if (!v || !v.steps) return [];
@@ -1553,12 +1526,10 @@
                 pickerOpen: false,
                 pickerProductId: null,
                 pickerLocalQty: {},   // jsId -> canonical quantity, modal-local
-                pickerDropdownFor: '', // jsId whose step dropdown is open (empty = none)
                 openPicker(productId) {
                     this.pickerProductId = productId;
                     const variants = this.products.filter((p) => p.productId === productId);
                     this.pickerLocalQty = {};
-                    this.pickerDropdownFor = '';
                     variants.forEach((v) => {
                         this.pickerLocalQty[v.id] = this.quantities[v.id] || 0;
                     });
@@ -1568,7 +1539,6 @@
                     this.pickerOpen = false;
                     this.pickerProductId = null;
                     this.pickerLocalQty = {};
-                    this.pickerDropdownFor = '';
                 },
                 confirmPicker() {
                     Object.entries(this.pickerLocalQty).forEach(([jsId, qty]) => {
