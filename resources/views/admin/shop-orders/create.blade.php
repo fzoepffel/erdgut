@@ -692,7 +692,16 @@
                     const res = await fetch(this.availableProductsUrl + '?' + params.toString(), {
                         headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     });
-                    this.availableProducts = await res.json();
+                    if (!res.ok) {
+                        this.availableProducts = [];
+                        return;
+                    }
+                    const data = await res.json();
+                    // Defend against the endpoint returning an error object
+                    // ({message: …}) instead of an array — without this guard
+                    // the products list silently empties out (both x-if/.length
+                    // checks fail) and the section appears blank.
+                    this.availableProducts = Array.isArray(data) ? data : [];
                 } catch (e) {
                     this.availableProducts = [];
                 } finally {
@@ -715,7 +724,9 @@
 
     function emptyLine() {
         return {
+            grade_key: '',
             product_id: '',
+            variant_id: '',
             quantity: '',
             line_total_eur: '',
             vat_rate_percent: '7',

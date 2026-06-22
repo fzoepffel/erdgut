@@ -83,7 +83,10 @@ class AdminShopOrderController extends Controller
         foreach ($this->service->availableProductsForDate($date, $audience) as $row) {
             /** @var Product $product */
             $product = $row['product'];
-            $product->loadMissing('priceRules', 'variants.translations');
+            // priceRules + variants are needed for grade enumeration and tier
+            // resolution. variant_translations doesn't exist as a relation —
+            // variant names live on a JSON column read by localizedName().
+            $product->loadMissing('priceRules', 'variants');
             $variants = $product->activeVariants();
 
             // Default grade: present when the product has no named variants,
