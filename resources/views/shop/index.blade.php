@@ -89,9 +89,26 @@
                 // stock that day. A product with no named grades is always shown
                 // (its card surfaced because the product total is positive).
                 if ($activeVariants->isEmpty() || $standardRemaining > 0) {
+                    $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit();
+                    $displayFactor = $product->unit && $displayUnit
+                        ? $product->unit->canonicalUnitsPerDisplay($displayUnit)
+                        : 1;
+                    $tiersHint = $tiers !== [] ? collect($tiers)
+                        ->map(fn ($t) => __('shop.tier_from', [
+                            'qty' => $product->displayQuantity($t['min']),
+                            'price' => $formatCanonical($product, $t['price']),
+                        ]))
+                        ->implode(' · ') : null;
                     $entries[] = array_merge($buildSteps($product, $standardRemaining), [
                         'key' => (string) $product->id,
                         'jsId' => $product->id,
+                        'productId' => $product->id,
+                        'productName' => $product->name,
+                        'producerName' => $product->producer?->name,
+                        'unitKind' => $product->unit?->value,
+                        'unitSymbol' => $product->canonicalUnitLabel(),
+                        'displaySymbol' => $product->localizedUnit(),
+                        'displayFactor' => $displayFactor,
                         'formName' => 'quantities['.$product->id.']',
                         'gradeLabel' => $activeVariants->isEmpty() ? null : __('shop.variant.standard'),
                         'name' => $product->name,
@@ -100,6 +117,7 @@
                         'priceDisplay' => $formatCanonical($product, $standardPrice),
                         'tiers' => $tiers,
                         'tiersApply' => $standardTiersApply,
+                        'tiersHint' => $tiersHint,
                     ]);
                 }
 
@@ -122,9 +140,26 @@
                         ->map(fn ($r) => ['min' => (float) $r->min_quantity, 'price' => (float) $r->unit_price])
                         ->values()
                         ->all();
+                    $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit();
+                    $displayFactor = $product->unit && $displayUnit
+                        ? $product->unit->canonicalUnitsPerDisplay($displayUnit)
+                        : 1;
+                    $variantTiersHint = $variantTiers !== [] ? collect($variantTiers)
+                        ->map(fn ($t) => __('shop.tier_from', [
+                            'qty' => $product->displayQuantity($t['min']),
+                            'price' => $formatCanonical($product, $t['price']),
+                        ]))
+                        ->implode(' · ') : null;
                     $entries[] = array_merge($buildSteps($product, $remaining), [
                         'key' => 'v'.$variant->id,
                         'jsId' => 'v'.$variant->id,
+                        'productId' => $product->id,
+                        'productName' => $product->name,
+                        'producerName' => $product->producer?->name,
+                        'unitKind' => $product->unit?->value,
+                        'unitSymbol' => $product->canonicalUnitLabel(),
+                        'displaySymbol' => $product->localizedUnit(),
+                        'displayFactor' => $displayFactor,
                         'formName' => 'variant_quantities['.$variant->id.']',
                         'gradeLabel' => $variant->localizedName($locale),
                         'name' => $product->name.' · '.$variant->localizedName($locale),
@@ -133,6 +168,7 @@
                         'priceDisplay' => $formatCanonical($product, $price),
                         'tiers' => $variantTiers,
                         'tiersApply' => $tiersApply,
+                        'tiersHint' => $variantTiersHint,
                     ]);
                 }
 
@@ -144,14 +180,24 @@
             ->flatten(1)
             ->map(fn ($e) => [
                 'id' => $e['jsId'],
+                'productId' => $e['productId'],
+                'productName' => $e['productName'],
+                'producerName' => $e['producerName'],
+                'gradeLabel' => $e['gradeLabel'],
                 'name' => $e['name'],
+                'unitKind' => $e['unitKind'],
+                'unitSymbol' => $e['unitSymbol'],
+                'displaySymbol' => $e['displaySymbol'],
+                'displayFactor' => $e['displayFactor'],
                 'unitPrice' => $e['unitPrice'],
+                'priceDisplay' => $e['priceDisplay'],
                 'vatRate' => $e['vatRate'],
                 'step' => $e['step'],
                 'cap' => $e['cap'],
                 'steps' => $e['steps'],
                 'tiers' => $e['tiers'] ?? [],
                 'tiersApply' => $e['tiersApply'] ?? true,
+                'tiersHint' => $e['tiersHint'] ?? null,
             ])
             ->values();
 
@@ -647,44 +693,22 @@
                                                 @endif
                                             </div>
 
-                                            {{-- "Menge" label --}}
-                                            <p class="mt-4 font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.quantity_label') }}</p>
-
                                             @if ($availableToday && $firstGrade !== null)
                                                 @php
-                                                    $jsId = $firstGrade['jsId'];
-                                                    $firstOld = (int) old(str_replace(['[', ']'], ['.', ''], $firstGrade['formName']), 0);
-                                                    $firstLabel = $firstGrade['gradeLabel'] ?: __('shop.variant.standard');
+                                                    // Cheapest grade drives the "ab" headline price; for a
+                                                    // single grade it's just that grade's price.
+                                                    $cheapestGrade = collect($gradeRows)->sortBy('unitPrice')->first() ?? $firstGrade;
                                                 @endphp
-                                                {{-- First variant header (always shown — "Standard" for default grade). --}}
-                                                <div class="mt-2 flex items-baseline justify-between gap-2">
-                                                    <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary">{{ $firstLabel }}</span>
-                                                    <span class="font-mono text-[0.65rem] tabular-nums text-shop-muted">{{ $firstGrade['priceDisplay'] }}</span>
-                                                </div>
-                                                {{-- First stepper --}}
-                                                <div class="mt-1">
-                                                    <input type="hidden" id="shop-qty-{{ $jsId }}" name="{{ $firstGrade['formName'] }}" value="{{ $firstOld }}" :value="quantities[@js($jsId)] || 0" data-testid="shop-qty-stepper">
-                                                    <div class="flex items-stretch border border-shop-border bg-shop-background">
-                                                        <button
-                                                            type="button"
-                                                            @click="dec(@js($jsId))"
-                                                            class="w-10 py-3 font-mono text-sm text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
-                                                            :disabled="(quantities[@js($jsId)] || 0) <= 0"
-                                                            aria-label="−"
-                                                        >−</button>
-                                                        <div class="flex flex-1 items-center justify-center border-x border-shop-border py-3 font-mono text-sm tabular-nums" x-text="label(@js($jsId))">{{ $firstOld > 0 ? $product->displayQuantity($firstOld) : __('shop.quantity_none') }}</div>
-                                                        <button
-                                                            type="button"
-                                                            @click="inc(@js($jsId))"
-                                                            class="w-10 py-3 font-mono text-sm text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
-                                                            :disabled="atCap(@js($jsId))"
-                                                            aria-label="+"
-                                                        >+</button>
-                                                    </div>
-                                                    <p class="mt-1 font-mono text-xs tabular-nums text-shop-muted" x-show="(quantities[@js($jsId)] || 0) > 0" x-cloak>
-                                                        <span x-text="lineLabel(@js($jsId))"></span>
-                                                    </p>
-                                                </div>
+
+                                                {{-- Headline price (cheapest grade; or just the only grade). --}}
+                                                <p class="mt-4 font-mono text-sm tabular-nums text-shop-foreground">
+                                                    @if (count($gradeRows) > 1)
+                                                        {{ __('shop.price_from_label', ['price' => $cheapestGrade['priceDisplay']]) }}
+                                                    @else
+                                                        {{ $cheapestGrade['priceDisplay'] }}
+                                                    @endif
+                                                </p>
+
                                                 {{-- First tier hint (height reserved by the parent's :has
                                                      rule only when at least one card has tiers). --}}
                                                 <div class="shop-card-tier-slot mt-1">
@@ -696,62 +720,101 @@
                                                         </p>
                                                     @endif
                                                 </div>
-                                                {{-- Extra variants (variable; cards with extras simply grow). --}}
-                                                @if ($extraGrades !== [])
-                                                    <div class="mt-3 space-y-3">
-                                                        @foreach ($extraGrades as $entry)
-                                                            @php
-                                                                $jsId = $entry['jsId'];
-                                                                $entryOld = (int) old(str_replace(['[', ']'], ['.', ''], $entry['formName']), 0);
-                                                                $entryLabel = $entry['gradeLabel'] ?: __('shop.variant.standard');
-                                                            @endphp
-                                                            <div>
-                                                                <div class="mb-1 flex items-baseline justify-between gap-2">
-                                                                    <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary">{{ $entryLabel }}</span>
-                                                                    <span class="font-mono text-[0.65rem] tabular-nums text-shop-muted">{{ $entry['priceDisplay'] }}</span>
-                                                                </div>
-                                                                <input type="hidden" id="shop-qty-{{ $jsId }}" name="{{ $entry['formName'] }}" value="{{ $entryOld }}" :value="quantities[@js($jsId)] || 0" data-testid="shop-qty-stepper">
-                                                                <div class="flex items-stretch border border-shop-border bg-shop-background">
-                                                                    <button
-                                                                        type="button"
-                                                                        @click="dec(@js($jsId))"
-                                                                        class="w-10 py-3 font-mono text-sm text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
-                                                                        :disabled="(quantities[@js($jsId)] || 0) <= 0"
-                                                                        aria-label="−"
-                                                                    >−</button>
-                                                                    <div class="flex flex-1 items-center justify-center border-x border-shop-border py-3 font-mono text-sm tabular-nums" x-text="label(@js($jsId))">{{ $entryOld > 0 ? $product->displayQuantity($entryOld) : __('shop.quantity_none') }}</div>
-                                                                    <button
-                                                                        type="button"
-                                                                        @click="inc(@js($jsId))"
-                                                                        class="w-10 py-3 font-mono text-sm text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
-                                                                        :disabled="atCap(@js($jsId))"
-                                                                        aria-label="+"
-                                                                    >+</button>
-                                                                </div>
-                                                                <p class="mt-1 font-mono text-xs tabular-nums text-shop-muted" x-show="(quantities[@js($jsId)] || 0) > 0" x-cloak>
-                                                                    <span x-text="lineLabel(@js($jsId))"></span>
-                                                                </p>
-                                                                @if (! empty($entry['tiers']))
-                                                                    <p class="mt-1 font-mono text-[0.6rem] leading-snug text-shop-muted">
-                                                                        @foreach ($entry['tiers'] as $tier)
-                                                                            {{ __('shop.tier_from', ['qty' => $product->displayQuantity($tier['min']), 'price' => $formatCanonical($product, $tier['price'])]) }}@if (! $loop->last) · @endif
-                                                                        @endforeach
-                                                                    </p>
-                                                                @endif
-                                                            </div>
-                                                        @endforeach
+
+                                                {{-- Hidden form inputs — one per grade — so the existing
+                                                     POST /shop payload shape stays identical. They mirror
+                                                     `quantities[jsId]` which the picker modal sets on confirm. --}}
+                                                @foreach ($gradeRows as $entry)
+                                                    @php
+                                                        $jsId = $entry['jsId'];
+                                                        $entryOld = (int) old(str_replace(['[', ']'], ['.', ''], $entry['formName']), 0);
+                                                    @endphp
+                                                    <input type="hidden" id="shop-qty-{{ $jsId }}" name="{{ $entry['formName'] }}" value="{{ $entryOld }}" :value="quantities[@js($jsId)] || 0" data-testid="shop-qty-stepper">
+                                                @endforeach
+
+                                                @if (count($gradeRows) > 1)
+                                                    {{-- Multi-variant: a short status line + the modal CTA so
+                                                         the picker can show every variant at once. --}}
+                                                    <p class="mt-4 font-mono text-xs tabular-nums text-shop-muted"
+                                                       x-show="cartLabelFor({{ $product->id }})"
+                                                       x-cloak>
+                                                        <span x-text="cartLabelFor({{ $product->id }})"></span>
+                                                    </p>
+                                                    <button
+                                                        type="button"
+                                                        @click="openPicker({{ $product->id }})"
+                                                        class="touch-manipulation mt-3 inline-flex w-full items-center justify-center gap-2 border border-shop-primary bg-shop-primary px-5 py-3 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover"
+                                                        data-testid="shop-card-pick-{{ $product->id }}"
+                                                    >
+                                                        <span x-show="!cartLabelFor({{ $product->id }})">{{ __('shop.card_cta_pick') }}</span>
+                                                        <span x-show="cartLabelFor({{ $product->id }})" x-cloak>{{ __('shop.card_cta_edit') }}</span>
+                                                    </button>
+                                                @else
+                                                    {{-- Single-variant: inline stepper-with-dropdown directly
+                                                         on the card (no modal needed since there's nothing to
+                                                         choose between). --}}
+                                                    @php($singleJsId = $firstGrade['jsId'])
+                                                    <div class="relative mt-3" data-testid="shop-card-stepper-{{ $product->id }}"
+                                                         @click.outside="cardDropdownFor === @js($singleJsId) && (cardDropdownFor = '')">
+                                                        <div class="flex items-stretch border border-shop-border bg-shop-background">
+                                                            <button
+                                                                type="button"
+                                                                @click="dec(@js($singleJsId))"
+                                                                :disabled="(quantities[@js($singleJsId)] || 0) <= 0"
+                                                                class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                                                aria-label="−"
+                                                            >−</button>
+                                                            <button
+                                                                type="button"
+                                                                @click="cardDropdownFor = (cardDropdownFor === @js($singleJsId) ? '' : @js($singleJsId))"
+                                                                class="touch-manipulation flex flex-1 items-center justify-center gap-2 border-x border-shop-border py-3 font-mono text-sm tabular-nums hover:bg-shop-paper"
+                                                                :aria-expanded="cardDropdownFor === @js($singleJsId)"
+                                                            >
+                                                                <span x-text="label(@js($singleJsId)) || @js(__('shop.quantity_none'))">{{ __('shop.quantity_none') }}</span>
+                                                                <span class="text-shop-muted text-xs" aria-hidden="true">▾</span>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                @click="inc(@js($singleJsId))"
+                                                                :disabled="atCap(@js($singleJsId))"
+                                                                class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                                                aria-label="+"
+                                                            >+</button>
+                                                        </div>
+                                                        {{-- Dropdown: all valid step values. --}}
+                                                        <div
+                                                            x-show="cardDropdownFor === @js($singleJsId)"
+                                                            x-cloak
+                                                            x-transition.opacity.duration.100ms
+                                                            class="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto border border-shop-border bg-shop-background shadow-lg"
+                                                            role="listbox"
+                                                        >
+                                                            <template x-for="step in cardStepOptions(@js($singleJsId))" :key="step.v">
+                                                                <button
+                                                                    type="button"
+                                                                    @click="quantities[@js($singleJsId)] = step.v; cardDropdownFor = ''; scheduleQuote && scheduleQuote(); scheduleCouponRefresh && scheduleCouponRefresh()"
+                                                                    class="touch-manipulation block w-full px-4 py-2 text-left font-mono text-sm tabular-nums transition"
+                                                                    :class="(quantities[@js($singleJsId)] || 0) === step.v
+                                                                        ? 'bg-shop-primary text-shop-primary-foreground'
+                                                                        : 'text-shop-foreground hover:bg-shop-paper'"
+                                                                    role="option"
+                                                                    :aria-selected="(quantities[@js($singleJsId)] || 0) === step.v"
+                                                                    x-text="step.l"
+                                                                ></button>
+                                                            </template>
+                                                        </div>
                                                     </div>
+                                                    {{-- Live subtotal line under the stepper. --}}
+                                                    <p class="mt-1 font-mono text-xs tabular-nums text-shop-muted"
+                                                       x-show="(quantities[@js($singleJsId)] || 0) > 0"
+                                                       x-cloak>
+                                                        <span x-text="lineLabel(@js($singleJsId))"></span>
+                                                    </p>
                                                 @endif
                                             @else
-                                                {{-- Unavailable state: empty header, disabled stepper, weekly note. --}}
-                                                <div class="mt-2 min-h-[1.25rem]"></div>
-                                                <div class="mt-1 flex items-stretch border border-shop-border bg-shop-paper opacity-60">
-                                                    <div class="w-10 py-3 text-center font-mono text-sm text-shop-muted">−</div>
-                                                    <div class="flex flex-1 items-center justify-center border-x border-shop-border py-3 font-mono text-sm text-shop-muted">{{ __('shop.quantity_none') }}</div>
-                                                    <div class="w-10 py-3 text-center font-mono text-sm text-shop-muted">+</div>
-                                                </div>
+                                                {{-- Unavailable: dim placeholder + weekly availability note. --}}
                                                 <div class="shop-card-tier-slot mt-1"></div>
-                                                <div class="mt-3">
+                                                <div class="mt-4">
                                                     <p class="text-xs leading-relaxed text-shop-muted" data-testid="shop-weekly-note">
                                                         <span class="font-mono uppercase tracking-widest text-shop-primary">{{ __('shop.weekly_unavailable_label') }}</span><br>
                                                         {{ __('shop.weekly_available_on', ['dates' => $dateList]) }}
@@ -1018,6 +1081,153 @@
                     </div>
                 </x-reveal>
             </form>
+
+            {{-- ── Variant + quantity picker modal ─────────────────────── --}}
+            <div
+                x-show="pickerOpen"
+                x-cloak
+                class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+                role="dialog"
+                aria-modal="true"
+                :aria-label="pickerTitleFor()"
+                data-testid="shop-picker-modal"
+            >
+                {{-- Backdrop --}}
+                <div class="absolute inset-0 bg-brand-ink/60 backdrop-blur-sm" @click="closePicker()"></div>
+
+                {{-- Panel --}}
+                <div class="relative w-full sm:max-w-xl max-h-[92vh] overflow-y-auto bg-shop-paper shadow-xl" data-testid="shop-picker-panel">
+                    <div class="p-6 sm:p-8">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary">{{ __('shop.picker_eyebrow') }}</p>
+                                <h2 class="mt-2 font-display text-3xl leading-tight text-shop-foreground" x-text="pickerTitleFor()"></h2>
+                                <p class="mt-1 font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted"
+                                   x-show="pickerProducerName()"
+                                   x-cloak
+                                   x-text="@js(__('shop.picker_producer_prefix')) + ' ' + pickerProducerName()"></p>
+                            </div>
+                            <button
+                                type="button"
+                                @click="closePicker()"
+                                class="touch-manipulation -mt-2 -mr-2 p-2 font-mono text-xl text-shop-muted hover:text-shop-foreground"
+                                aria-label="{{ __('shop.picker_close') }}"
+                                data-testid="shop-picker-close-x"
+                            >×</button>
+                        </div>
+
+                        <p class="mt-5 text-sm leading-relaxed text-shop-muted" x-text="pickerIntro()"></p>
+
+                        {{-- Variant rows: each grade gets a −/value/+ stepper. The
+                             middle value is clickable to open a dropdown that lists
+                             every valid step value at once (one tap to jump to any
+                             quantity instead of pressing + dozens of times). --}}
+                        <div class="mt-6 space-y-6" data-testid="shop-picker-variants" @click.outside="pickerDropdownFor = ''">
+                            <template x-for="(v, idx) in pickerVariants" :key="v.id">
+                                <div :class="idx > 0 ? 'pt-6 border-t border-shop-border' : ''">
+                                    <div class="flex items-baseline justify-between gap-2">
+                                        <span class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary"
+                                              x-text="v.gradeLabel || @js(__('shop.variant.standard'))"></span>
+                                        <span class="font-mono text-sm tabular-nums text-shop-muted" x-text="v.priceDisplay"></span>
+                                    </div>
+
+                                    {{-- Stepper with clickable centre. --}}
+                                    <div class="relative mt-3" data-testid="shop-picker-stepper">
+                                        <div class="flex items-stretch border border-shop-border bg-shop-background">
+                                            <button
+                                                type="button"
+                                                @click="pickerDec(v.id)"
+                                                :disabled="(pickerLocalQty[v.id] || 0) <= 0"
+                                                class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                                aria-label="−"
+                                            >−</button>
+                                            <button
+                                                type="button"
+                                                @click="pickerDropdownFor = (pickerDropdownFor === v.id ? '' : v.id)"
+                                                class="touch-manipulation flex flex-1 items-center justify-center gap-2 border-x border-shop-border py-3 font-mono text-sm tabular-nums hover:bg-shop-paper"
+                                                :aria-expanded="pickerDropdownFor === v.id"
+                                                data-testid="shop-picker-step-open"
+                                            >
+                                                <span x-text="pickerCurrentLabel(v.id) || @js(__('shop.quantity_none'))"></span>
+                                                <span class="text-shop-muted text-xs" aria-hidden="true">▾</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="pickerInc(v.id)"
+                                                :disabled="pickerAtCap(v.id)"
+                                                class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                                aria-label="+"
+                                            >+</button>
+                                        </div>
+
+                                        {{-- Dropdown: scrollable list of every step value. --}}
+                                        <div
+                                            x-show="pickerDropdownFor === v.id"
+                                            x-cloak
+                                            x-transition.opacity.duration.100ms
+                                            class="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto border border-shop-border bg-shop-background shadow-lg"
+                                            role="listbox"
+                                            data-testid="shop-picker-step-dropdown"
+                                        >
+                                            <template x-for="step in pickerStepOptions(v)" :key="step.v">
+                                                <button
+                                                    type="button"
+                                                    @click="pickerSet(v.id, step.v); pickerDropdownFor = ''"
+                                                    class="touch-manipulation block w-full px-4 py-2 text-left font-mono text-sm tabular-nums transition"
+                                                    :class="(pickerLocalQty[v.id] || 0) === step.v
+                                                        ? 'bg-shop-primary text-shop-primary-foreground'
+                                                        : 'text-shop-foreground hover:bg-shop-paper'"
+                                                    role="option"
+                                                    :aria-selected="(pickerLocalQty[v.id] || 0) === step.v"
+                                                    x-text="step.l"
+                                                ></button>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    {{-- Live per-variant subtotal once a qty is picked. --}}
+                                    <p class="mt-2 font-mono text-xs tabular-nums text-shop-muted"
+                                       x-show="(pickerLocalQty[v.id] || 0) > 0"
+                                       x-cloak>
+                                        <span x-text="pickerLineLabelFor(v)"></span>
+                                    </p>
+
+                                    {{-- Volume tiers for this variant. --}}
+                                    <p class="mt-1 font-mono text-[0.6rem] leading-snug text-shop-muted"
+                                       x-show="v.tiers && v.tiers.length > 0"
+                                       x-cloak
+                                       x-text="pickerTierHintFor(v)"></p>
+                                </div>
+                            </template>
+                        </div>
+
+                        {{-- Cross-variant subtotal. --}}
+                        <div class="mt-8 border-t border-shop-border pt-5 flex items-baseline justify-between gap-4">
+                            <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">{{ __('shop.picker_subtotal') }}</span>
+                            <span class="font-display text-2xl tabular-nums text-shop-foreground" x-text="formatMoney(pickerSubtotal)"></span>
+                        </div>
+
+                        {{-- Actions --}}
+                        <div class="mt-6 flex flex-wrap items-center gap-3">
+                            <button
+                                type="button"
+                                @click="confirmPicker()"
+                                :disabled="pickerSubtotal <= 0"
+                                class="touch-manipulation inline-flex items-center justify-center gap-2 bg-shop-primary px-6 py-3 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+                                data-testid="shop-picker-confirm"
+                            >
+                                {{ __('shop.picker_confirm') }}
+                            </button>
+                            <button
+                                type="button"
+                                @click="closePicker()"
+                                class="touch-manipulation font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:underline"
+                                data-testid="shop-picker-cancel"
+                            >{{ __('shop.picker_cancel') }}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             {{-- ── In-person order confirmation modal ──────────────────── --}}
             <div
@@ -1328,6 +1538,179 @@
                     return this.products
                         .filter((p) => (this.quantities[p.id] || 0) > 0)
                         .map((p) => ({ id: p.id, name: p.name, qty: this.label(p.id), lineTotalLabel: this.money(this.lineEstimate(p.id)) }));
+                },
+                // ── Inline card stepper (single-variant products) ─────────
+                // Which on-card stepper's dropdown is currently open (empty = none).
+                // String form so click-outside compare is straightforward.
+                cardDropdownFor: '',
+                cardStepOptions(jsId) {
+                    const v = this.products.find((p) => p.id === jsId);
+                    if (!v || !v.steps) return [];
+                    return v.steps.filter((s) => s.v > 0);
+                },
+
+                // ── Variant + quantity picker modal ────────────────────────
+                pickerOpen: false,
+                pickerProductId: null,
+                pickerLocalQty: {},   // jsId -> canonical quantity, modal-local
+                pickerDropdownFor: '', // jsId whose step dropdown is open (empty = none)
+                openPicker(productId) {
+                    this.pickerProductId = productId;
+                    const variants = this.products.filter((p) => p.productId === productId);
+                    this.pickerLocalQty = {};
+                    this.pickerDropdownFor = '';
+                    variants.forEach((v) => {
+                        this.pickerLocalQty[v.id] = this.quantities[v.id] || 0;
+                    });
+                    this.pickerOpen = true;
+                },
+                closePicker() {
+                    this.pickerOpen = false;
+                    this.pickerProductId = null;
+                    this.pickerLocalQty = {};
+                    this.pickerDropdownFor = '';
+                },
+                confirmPicker() {
+                    Object.entries(this.pickerLocalQty).forEach(([jsId, qty]) => {
+                        const n = Number(qty) || 0;
+                        this._setQuantity(jsId, n);
+                    });
+                    this.scheduleQuote && this.scheduleQuote();
+                    this.scheduleCouponRefresh && this.scheduleCouponRefresh();
+                    this.closePicker();
+                },
+                _setQuantity(jsId, qty) {
+                    this.quantities[jsId] = qty;
+                },
+                get pickerVariants() {
+                    if (this.pickerProductId === null) return [];
+                    return this.products.filter((p) => p.productId === this.pickerProductId);
+                },
+                pickerTitleFor() {
+                    const v = this.pickerVariants[0];
+                    return v ? v.productName : '';
+                },
+                pickerProducerName() {
+                    const v = this.pickerVariants[0];
+                    return v ? (v.producerName || '') : '';
+                },
+                pickerIntro() {
+                    const count = this.pickerVariants.length;
+                    return count > 1
+                        ? @js(__('shop.picker_intro_multi'))
+                        : @js(__('shop.picker_intro_single'));
+                },
+                pickerSet(jsId, canonicalValue) {
+                    const v = this.products.find((p) => p.id === jsId);
+                    if (!v) return;
+                    const clamped = Math.max(0, Math.min(v.cap, canonicalValue));
+                    const snapped = v.step > 0 ? Math.round(clamped / v.step) * v.step : clamped;
+                    this.pickerLocalQty[jsId] = snapped;
+                },
+                // Stepper +/− walk through the product's pre-computed steps array.
+                pickerInc(jsId) {
+                    const v = this.products.find((p) => p.id === jsId);
+                    if (!v || !v.steps) return;
+                    const current = this.pickerLocalQty[jsId] || 0;
+                    let i = v.steps.findIndex((s) => s.v === current);
+                    if (i < 0) {
+                        // Off-step value (shouldn't normally happen) — snap up.
+                        i = v.steps.findIndex((s) => s.v > current) - 1;
+                    }
+                    if (i < v.steps.length - 1) {
+                        this.pickerLocalQty[jsId] = v.steps[i + 1].v;
+                    }
+                },
+                pickerDec(jsId) {
+                    const v = this.products.find((p) => p.id === jsId);
+                    if (!v || !v.steps) return;
+                    const current = this.pickerLocalQty[jsId] || 0;
+                    const i = v.steps.findIndex((s) => s.v === current);
+                    if (i > 0) {
+                        this.pickerLocalQty[jsId] = v.steps[i - 1].v;
+                    }
+                },
+                pickerAtCap(jsId) {
+                    const v = this.products.find((p) => p.id === jsId);
+                    if (!v || !v.steps) return true;
+                    const current = this.pickerLocalQty[jsId] || 0;
+                    const i = v.steps.findIndex((s) => s.v === current);
+                    return i >= v.steps.length - 1;
+                },
+                pickerCurrentLabel(jsId) {
+                    const v = this.products.find((p) => p.id === jsId);
+                    if (!v || !v.steps) return '';
+                    const current = this.pickerLocalQty[jsId] || 0;
+                    const step = v.steps.find((s) => s.v === current);
+                    return step ? step.l : '';
+                },
+                // Options for the click-to-open dropdown — all step values
+                // (excluding 0, which is reachable via stepper down).
+                pickerStepOptions(v) {
+                    if (!v || !v.steps) return [];
+                    return v.steps.filter((s) => s.v > 0);
+                },
+                // Fallback helpers for off-step values (the picker normally
+                // only stores values present in the steps array, but
+                // cartLabelFor and pickerLineLabelFor stay defensive in case
+                // a quantity arrives from somewhere else).
+                _canonicalToDisplay(v, canonical) {
+                    const factor = v.displayFactor || 1;
+                    const display = canonical / factor;
+                    return Number.isInteger(display) ? String(display) : Number(display.toFixed(4)).toString();
+                },
+                pickerInputUnit(v) {
+                    return v?.displaySymbol || v?.unitSymbol || '';
+                },
+                pickerLineLabelFor(v) {
+                    const qty = this.pickerLocalQty[v.id] || 0;
+                    if (qty <= 0) return '';
+                    // Look up exact label from steps when possible; else fall back
+                    // to "<display> <symbol>" formatting.
+                    const match = v.steps?.find((s) => s.v === qty);
+                    const qtyLabel = match ? match.l : (this._canonicalToDisplay(v, qty) + ' ' + this.pickerInputUnit(v));
+                    const eff = this._effectiveUnitPriceFor(v, qty);
+                    const line = Math.round(eff * qty * 100) / 100;
+                    return qtyLabel + ' · ' + this.money(line);
+                },
+                // Apply the deepest active volume tier <= qty (mirrors the server
+                // resolver) so the live line preview reflects the price the
+                // customer would actually pay.
+                _effectiveUnitPriceFor(v, qty) {
+                    if (!v.tiersApply || !v.tiers || v.tiers.length === 0) return v.unitPrice;
+                    let best = v.unitPrice;
+                    for (const t of v.tiers) {
+                        if (qty + 1e-9 >= t.min) best = t.price;
+                    }
+                    return best;
+                },
+                pickerTierHintFor(v) {
+                    return v?.tiersHint || '';
+                },
+                get pickerSubtotal() {
+                    let sum = 0;
+                    Object.entries(this.pickerLocalQty).forEach(([jsId, qty]) => {
+                        const v = this.products.find((p) => p.id === jsId);
+                        if (!v || !qty) return;
+                        const eff = this._effectiveUnitPriceFor(v, qty);
+                        sum += eff * qty;
+                    });
+                    return Math.round(sum * 100) / 100;
+                },
+                // Card-level "what's currently in the cart for this product" line.
+                // Returns "" when nothing is selected so x-show hides the row.
+                cartLabelFor(productId) {
+                    const variants = this.products.filter((p) => p.productId === productId);
+                    const filled = variants.filter((v) => (this.quantities[v.id] || 0) > 0);
+                    if (filled.length === 0) return '';
+                    return filled
+                        .map((v) => {
+                            const qty = this.quantities[v.id];
+                            const match = v.steps?.find((s) => s.v === qty);
+                            const qtyLabel = match ? match.l : this._canonicalToDisplay(v, qty) + ' ' + this.pickerInputUnit(v);
+                            return v.gradeLabel ? qtyLabel + ' ' + v.gradeLabel : qtyLabel;
+                        })
+                        .join(' · ') + ' ' + @js(__('shop.picker_in_cart_suffix'));
                 },
                 requestConfirm(event) {
                     // Only intercept in-person pickup; online/delivery submit normally.
