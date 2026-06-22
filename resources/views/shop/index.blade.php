@@ -327,12 +327,11 @@
                 </div>
             </div>
         @else
+            @include('shop._partials.checkout-progress', ['active' => 1])
             <form
                 method="POST"
-                action="{{ route('public.shop.store') }}"
+                action="{{ route('public.shop.checkout.start') }}"
                 data-testid="shop-form"
-                x-ref="shopForm"
-                @submit="requestConfirm($event)"
             >
                 @csrf
                 <input type="hidden" name="expected_delivery_date" value="{{ $selectedDate?->toDateString() }}">
@@ -897,252 +896,19 @@
                     </div>
                 </x-reveal>
 
-                {{-- ── Fulfillment ───────────────────────────────────── --}}
-                <x-reveal as="section" class="border-b border-shop-border py-14" id="shop-checkout">
+                {{-- ── Step 1 → 2 continue ───────────────────────────── --}}
+                <x-reveal as="section" class="py-14" id="shop-checkout">
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
-                        <header class="mb-8">
-                            <p class="{{ $eyebrow }}">{{ __('shop.section_fulfillment') }}</p>
-                        </header>
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <label
-                                class="flex cursor-pointer flex-col items-start gap-3 border bg-shop-background px-5 py-5 text-left transition"
-                                :class="mode === 'pickup' ? 'border-shop-primary' : 'border-shop-border hover:border-shop-primary'"
-                            >
-                                <input type="radio" name="fulfillment_mode" value="pickup" x-model="mode" class="sr-only" @checked(old('fulfillment_mode', 'pickup') === 'pickup')>
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.fulfillment_pickup_eyebrow') }}</span>
-                                <span class="font-display text-2xl leading-tight">{{ __('shop.fulfillment_pickup') }}</span>
-                                <span class="text-sm leading-relaxed text-shop-muted">{{ __('shop.fulfillment_pickup_hint') }}</span>
-                                <span class="mt-1 font-mono text-[0.6rem] uppercase tracking-widest" :class="mode === 'pickup' ? 'text-shop-primary' : 'text-shop-muted'" x-text="mode === 'pickup' ? @js(__('shop.option_selected')) : @js(__('shop.option_select'))"></span>
-                            </label>
-                            <label
-                                class="flex cursor-pointer flex-col items-start gap-3 border bg-shop-background px-5 py-5 text-left transition"
-                                :class="mode === 'delivery' ? 'border-shop-primary' : 'border-shop-border hover:border-shop-primary'"
-                            >
-                                <input type="radio" name="fulfillment_mode" value="delivery" x-model="mode" class="sr-only" @checked(old('fulfillment_mode') === 'delivery')>
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.fulfillment_delivery_eyebrow') }}</span>
-                                <span class="font-display text-2xl leading-tight">{{ __('shop.fulfillment_delivery') }}</span>
-                                <span class="text-sm leading-relaxed text-shop-muted">{{ __('shop.fulfillment_delivery_hint', ['fee' => \App\Support\Money::format($deliveryFeeEur)]) }}</span>
-                                <span class="mt-1 font-mono text-[0.6rem] uppercase tracking-widest" :class="mode === 'delivery' ? 'text-shop-primary' : 'text-shop-muted'" x-text="mode === 'delivery' ? @js(__('shop.option_selected')) : @js(__('shop.option_select'))"></span>
-                            </label>
-                        </div>
-                        <x-input-error :messages="$errors->get('fulfillment_mode')" class="mt-4" />
-                    </div>
-                </x-reveal>
-
-                {{-- ── Pickup location (pickup only) ─────────────────── --}}
-                <x-reveal as="section" class="border-b border-shop-border py-14" x-show="mode === 'pickup'" x-cloak>
-                    <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
-                        <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
-                            <div>
-                                <p class="{{ $eyebrow }}">{{ __('shop.pickup_location_section') }}</p>
-                            </div>
-                            <p class="max-w-md text-sm leading-relaxed text-shop-muted">{{ __('shop.pickup_location_hint') }}</p>
-                        </header>
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            @foreach ($pickupLocations as $key => $loc)
-                                <label
-                                    class="flex cursor-pointer flex-col items-start gap-3 border bg-shop-background px-5 py-5 text-left transition"
-                                    :class="pickupLocation === @js((string) $key) ? 'border-shop-primary' : 'border-shop-border hover:border-shop-primary'"
-                                >
-                                    <input type="radio" name="pickup_location" value="{{ $key }}" x-model="pickupLocation" class="sr-only" @checked(old('pickup_location') === $key)>
-                                    <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.pickup_location_eyebrow', ['index' => $loop->iteration]) }}</span>
-                                    <span class="font-display text-2xl leading-snug">{{ $loc['street'] }}</span>
-                                    <span class="text-sm leading-relaxed text-shop-muted">{{ $loc['postal_code'] }} {{ $loc['city'] }}</span>
-                                </label>
-                            @endforeach
-                        </div>
-                        <x-input-error :messages="$errors->get('pickup_location')" class="mt-4" />
-                    </div>
-                </x-reveal>
-
-                {{-- ── Payment (pickup only; delivery is always online) ── --}}
-                <x-reveal as="section" class="border-b border-shop-border py-14" x-show="mode === 'pickup'" x-cloak>
-                    <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
-                        <header class="mb-8">
-                            <p class="{{ $eyebrow }}">{{ __('shop.section_payment') }}</p>
-                        </header>
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <label
-                                class="flex cursor-pointer flex-col items-start gap-3 border bg-shop-background px-5 py-5 text-left transition"
-                                :class="payment === 'online' ? 'border-shop-primary' : 'border-shop-border hover:border-shop-primary'"
-                            >
-                                <input type="radio" name="payment_method" value="online" x-model="payment" class="sr-only" @checked(old('payment_method', 'online') === 'online')>
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.payment_online_eyebrow') }}</span>
-                                <span class="font-display text-2xl leading-tight">{{ __('shop.payment_online') }}</span>
-                                <span class="text-sm leading-relaxed text-shop-muted">{{ __('shop.payment_online_hint') }}</span>
-                            </label>
-                            <label
-                                class="flex cursor-pointer flex-col items-start gap-3 border bg-shop-background px-5 py-5 text-left transition"
-                                :class="payment === 'in_person' ? 'border-shop-primary' : 'border-shop-border hover:border-shop-primary'"
-                            >
-                                <input type="radio" name="payment_method" value="in_person" x-model="payment" class="sr-only" @checked(old('payment_method') === 'in_person')>
-                                <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.payment_in_person_eyebrow') }}</span>
-                                <span class="font-display text-2xl leading-tight">{{ __('shop.payment_in_person') }}</span>
-                                <span class="text-sm leading-relaxed text-shop-muted">{{ __('shop.payment_in_person_hint') }}</span>
-                            </label>
-                        </div>
-                        <template x-if="mode === 'delivery'">
-                            <input type="hidden" name="payment_method" value="online">
-                        </template>
-                        <x-input-error :messages="$errors->get('payment_method')" class="mt-4" />
-                    </div>
-                </x-reveal>
-
-                {{-- ── Contact ───────────────────────────────────────── --}}
-                <x-reveal as="section" class="border-b border-shop-border py-14">
-                    <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
-                        <header class="mb-8">
-                            <p class="{{ $eyebrow }}">{{ __('shop.section_contact') }}</p>
-                        </header>
-                        <div class="grid gap-6 sm:grid-cols-2">
-                            <label class="block sm:col-span-2">
-                                <span class="{{ $fieldLabel }}">{{ __('Name') }}</span>
-                                <input type="text" name="name" value="{{ old('name') }}" required autocomplete="name" class="{{ $inputClass }}" />
-                                <x-input-error :messages="$errors->get('name')" class="mt-2" />
-                            </label>
-                            <label class="block">
-                                <span class="{{ $fieldLabel }}">{{ __('Email') }}</span>
-                                <input type="email" name="email" value="{{ old('email') }}" x-model="email" required autocomplete="email" class="{{ $inputClass }}" />
-                                <x-input-error :messages="$errors->get('email')" class="mt-2" />
-                            </label>
-                            <label class="block">
-                                <span class="{{ $fieldLabel }}">
-                                    {{ __('Phone') }}<span class="ml-2 text-sm font-normal text-shop-muted" x-cloak><span x-show="mode === 'delivery'">{{ __('required') }}</span><span x-show="mode !== 'delivery'">({{ __('optional') }})</span></span>
-                                </span>
-                                <input type="tel" name="phone" value="{{ old('phone') }}" autocomplete="tel" class="{{ $inputClass }}" />
-                                <x-input-error :messages="$errors->get('phone')" class="mt-2" />
-                            </label>
-                        </div>
-                    </div>
-                </x-reveal>
-
-                {{-- ── Delivery address (delivery only) ──────────────── --}}
-                <x-reveal as="section" class="border-b border-shop-border py-14" x-show="mode === 'delivery'" x-cloak>
-                    <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
-                        <header class="mb-8">
-                            <p class="{{ $eyebrow }}">{{ __('shop.section_address') }}</p>
-                        </header>
-                        <div class="grid gap-6 sm:grid-cols-2">
-                            <label class="block sm:col-span-2">
-                                <span class="{{ $fieldLabel }}">{{ __('shop.delivery_street') }}</span>
-                                <input type="text" name="delivery_street" value="{{ old('delivery_street') }}" autocomplete="street-address" class="{{ $inputClass }}" />
-                                <x-input-error :messages="$errors->get('delivery_street')" class="mt-2" />
-                            </label>
-                            <label class="block">
-                                <span class="{{ $fieldLabel }}">{{ __('shop.delivery_postal_code') }}</span>
-                                <input type="text" name="delivery_postal_code" value="{{ old('delivery_postal_code') }}" autocomplete="postal-code" class="{{ $inputClass }}" />
-                                <x-input-error :messages="$errors->get('delivery_postal_code')" class="mt-2" />
-                            </label>
-                            <label class="block">
-                                <span class="{{ $fieldLabel }}">{{ __('shop.delivery_city') }}</span>
-                                <input type="text" name="delivery_city" value="{{ old('delivery_city') }}" autocomplete="address-level2" class="{{ $inputClass }}" />
-                                <x-input-error :messages="$errors->get('delivery_city')" class="mt-2" />
-                            </label>
-                            <label class="block sm:col-span-2">
-                                <span class="{{ $fieldLabel }}">{{ __('shop.delivery_notes') }} <span class="font-normal text-shop-muted">({{ __('optional') }})</span></span>
-                                <textarea name="delivery_notes" rows="2" class="{{ $inputClass }}">{{ old('delivery_notes') }}</textarea>
-                                <x-input-error :messages="$errors->get('delivery_notes')" class="mt-2" />
-                            </label>
-                        </div>
-                    </div>
-                </x-reveal>
-
-                {{-- ── Summary + submit ──────────────────────────────── --}}
-                <x-reveal as="section" class="py-14">
-                    <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
-                        <p class="{{ $eyebrow }}">{{ __('shop.summary_heading') }}</p>
-                        <div class="mt-6 border-y border-shop-border py-6">
-                            {{-- ── Coupon code ─────────────────────────── --}}
-                            <div class="mb-6" data-testid="shop-coupon">
-                                <span class="{{ $fieldLabel }}">{{ __('coupon.field_label') }}</span>
-
-                                {{-- Entry row (hidden once a code is applied) --}}
-                                <div class="mt-2 flex flex-wrap items-stretch gap-3" x-show="!couponApplied">
-                                    <input
-                                        type="text"
-                                        x-model="couponCode"
-                                        @keydown.enter.prevent="applyCoupon()"
-                                        placeholder="{{ __('coupon.field_placeholder') }}"
-                                        autocapitalize="characters"
-                                        class="{{ $inputClass }} flex-1"
-                                        data-testid="shop-coupon-input"
-                                    />
-                                    <button
-                                        type="button"
-                                        @click="applyCoupon()"
-                                        :disabled="applyingCoupon || couponCode.trim() === ''"
-                                        class="shrink-0 rounded-sm border border-shop-border px-5 py-2 font-mono text-[0.7rem] uppercase tracking-widest text-shop-foreground transition hover:border-shop-primary hover:text-shop-primary disabled:cursor-not-allowed disabled:opacity-40"
-                                        data-testid="shop-coupon-apply"
-                                    >
-                                        <span x-show="!applyingCoupon">{{ __('coupon.apply') }}</span>
-                                        <span x-show="applyingCoupon" x-cloak>{{ __('coupon.applying') }}</span>
-                                    </button>
-                                </div>
-
-                                {{-- Applied row --}}
-                                <div class="mt-2 flex items-center justify-between gap-3 border border-shop-primary/40 bg-shop-primary/5 px-4 py-3" x-show="couponApplied" x-cloak data-testid="shop-coupon-applied">
-                                    <span class="font-mono text-[0.75rem] uppercase tracking-widest text-shop-primary" x-text="appliedCode"></span>
-                                    <button
-                                        type="button"
-                                        @click="clearCoupon()"
-                                        class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:text-shop-foreground hover:underline"
-                                        data-testid="shop-coupon-remove"
-                                    >{{ __('coupon.remove') }}</button>
-                                </div>
-
-                                <p class="mt-2 text-sm leading-relaxed text-red-600" x-show="couponMessage" x-cloak x-text="couponMessage" data-testid="shop-coupon-message"></p>
-
-                                <input type="hidden" name="coupon_code" :value="couponApplied ? appliedCode : ''">
-                            </div>
-
-                            {{-- ── Breakdown (subtotal / discount / delivery) ──
-                                 All values come from the server quote — the
-                                 frontend never computes prices itself. --}}
-                            <div class="space-y-2" x-show="quote && (quote.has_discount || quote.has_delivery_fee)" x-cloak>
-                                <div class="flex items-baseline justify-between gap-4 text-sm text-shop-muted">
-                                    <span>{{ __('shop.summary_line_items') }}</span>
-                                    <span class="tabular-nums" x-text="itemsTotalLabel()"></span>
-                                </div>
-                                <div class="flex items-baseline justify-between gap-4 text-sm text-shop-primary" x-show="quote?.has_discount" x-cloak data-testid="shop-coupon-discount-line">
-                                    <span x-text="@js(__('coupon.discount_line')) + ' ' + appliedCode"></span>
-                                    <span class="tabular-nums" x-text="'− ' + (quote?.discount_label ?? '')"></span>
-                                </div>
-                                <div class="flex items-baseline justify-between gap-4 text-sm text-shop-muted" x-show="quote?.has_delivery_fee" x-cloak>
-                                    <span>{{ __('shop.summary_line_delivery') }}</span>
-                                    <span class="tabular-nums" x-text="quote?.delivery_fee_label"></span>
-                                </div>
-                            </div>
-
-                            <div class="mt-4 flex items-baseline justify-between gap-4">
-                                <span class="font-display text-2xl">{{ __('shop.summary_line_total') }}</span>
-                                <span class="font-display text-4xl text-shop-primary tabular-nums" x-text="totalLabel()">{{ \App\Support\Money::format(0) }}</span>
-                            </div>
-                            <template x-for="vatLine in (quote?.vat_lines ?? [])" :key="vatLine">
-                                <p class="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="vatLine"></p>
-                            </template>
-                        </div>
-
-                        <label class="mt-10 flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-shop-muted">
-                            <input type="checkbox" name="consent" value="1" @checked(old('consent')) required class="mt-1 h-4 w-4 accent-shop-primary">
-                            <span>
-                                {!! __('shop.consent_text', ['privacy' => '<a href="'.route('public.privacy').'" class="text-shop-foreground underline-offset-4 hover:underline" target="_blank" rel="noopener">'.e(__('shop.consent_privacy_link')).'</a>', 'terms' => '<a href="'.route('public.shop.terms').'" class="text-shop-foreground underline-offset-4 hover:underline" target="_blank" rel="noopener">'.e(__('shop.consent_terms_link')).'</a>']) !!}
-                            </span>
-                        </label>
-                        <x-input-error :messages="$errors->get('consent')" class="mt-2" />
-
-                        <div class="mt-10 flex flex-wrap items-center gap-5">
+                        <div class="flex flex-wrap items-center gap-5">
                             <button
                                 type="submit"
                                 class="rounded-sm bg-shop-primary px-7 py-3 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
-                                :disabled="itemCount === 0"
+                                :disabled="basket.itemCount === 0"
                                 data-testid="shop-submit"
-                            >
-                                <span x-show="mode === 'delivery' || payment === 'online'">{{ __('shop.cta_continue_to_payment') }} →</span>
-                                <span x-show="mode === 'pickup' && payment === 'in_person'" x-cloak>{{ __('shop.cta_place_order') }} →</span>
-                            </button>
-                            <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">
-                                <span x-show="payment !== 'in_person'">{{ __('shop.cta_helper') }}</span>
-                                <span x-show="payment === 'in_person'" x-cloak>{{ __('shop.cta_helper_in_person') }}</span>
+                            >{{ __('shop.checkout.start_button') }}</button>
+                            <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted"
+                                  x-show="basket.itemCount === 0">
+                                {{ __('shop.checkout.start_disabled_hint') }}
                             </span>
                         </div>
                     </div>
@@ -1150,6 +916,7 @@
             </form>
 
             @include('shop._partials.basket-chip')
+
 
             {{-- ── Variant + quantity picker modal ─────────────────────── --}}
             <div
@@ -1285,85 +1052,6 @@
                                 data-testid="shop-picker-cancel"
                             >{{ __('shop.picker_cancel') }}</button>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- ── In-person order confirmation modal ──────────────────── --}}
-            <div
-                x-show="showConfirmModal"
-                x-cloak
-                class="fixed inset-0 z-50 flex items-center justify-center p-4"
-                role="dialog"
-                aria-modal="true"
-                :aria-label="confirmTitle"
-                data-testid="shop-confirm-modal"
-            >
-                {{-- Backdrop --}}
-                <div class="absolute inset-0 bg-brand-ink/60 backdrop-blur-sm" @click="showConfirmModal = false"></div>
-
-                {{-- Panel --}}
-                <div class="relative w-full max-w-md bg-shop-paper p-8 shadow-xl">
-                    <p class="{{ $eyebrow }} mb-4" x-text="confirmTitle"></p>
-                    <p class="mb-6 text-sm leading-relaxed text-shop-muted" x-text="confirmBody"></p>
-
-                    {{-- Summary --}}
-                    <div class="mb-6 border border-shop-border p-4 text-sm" data-testid="shop-confirm-summary">
-                        {{-- Cart positions: one row per line, name + qty on
-                             the left, line € on the right. Hidden when the
-                             cart is empty (the submit guard catches that
-                             elsewhere). --}}
-                        <div class="mb-3 space-y-2 border-b border-shop-border pb-3" x-show="cartLines.length > 0" x-cloak>
-                            <p class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="confirmPositionsLabel"></p>
-                            <ul class="space-y-1.5" data-testid="shop-confirm-positions">
-                                <template x-for="line in cartLines" :key="line.id">
-                                    <li class="flex items-baseline justify-between gap-4">
-                                        <span class="text-shop-foreground">
-                                            <span x-text="line.name"></span>
-                                            <span class="text-shop-muted" x-text="' · ' + line.qty"></span>
-                                        </span>
-                                        <span class="text-right tabular-nums text-shop-foreground" x-text="line.lineTotalLabel"></span>
-                                    </li>
-                                </template>
-                            </ul>
-                        </div>
-                        <dl class="space-y-3">
-                            <div class="flex items-baseline justify-between gap-4">
-                                <dt class="text-shop-muted" x-text="confirmDateLabel"></dt>
-                                <dd class="text-right font-medium text-shop-foreground" x-text="selectedDateLabel"></dd>
-                            </div>
-                            <div class="flex items-baseline justify-between gap-4">
-                                <dt class="text-shop-muted" x-text="confirmLocationLabel"></dt>
-                                <dd class="text-right font-medium text-shop-foreground" x-text="confirmPickupName"></dd>
-                            </div>
-                            <div class="border-t border-shop-border pt-3 flex items-baseline justify-between gap-4">
-                                <dt class="font-semibold text-shop-foreground" x-text="confirmTotalLabel"></dt>
-                                <dd class="text-right font-semibold tabular-nums text-shop-foreground" x-text="totalLabel()"></dd>
-                            </div>
-                        </dl>
-                    </div>
-
-                    {{-- Actions --}}
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button
-                            type="button"
-                            class="rounded-sm bg-shop-primary px-6 py-3 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
-                            :disabled="confirmSubmitting"
-                            @click="submitConfirmed()"
-                            data-testid="shop-confirm-submit"
-                        >
-                            <span x-show="!confirmSubmitting" x-text="confirmSubmitLabel"></span>
-                            <span x-show="confirmSubmitting" x-cloak>…</span>
-                        </button>
-                        <button
-                            type="button"
-                            class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:underline"
-                            :disabled="confirmSubmitting"
-                            @click="showConfirmModal = false"
-                            data-testid="shop-confirm-cancel"
-                        >
-                            <span x-text="confirmCancelLabel"></span>
-                        </button>
                     </div>
                 </div>
             </div>
