@@ -199,6 +199,59 @@ class AdminShopOrderExportTest extends TestCase
         $this->assertSame(26.4, $row[17]);
     }
 
+    public function test_picklist_positions_include_variant_snapshot_when_present(): void
+    {
+        $farm = Producer::factory()->create();
+        $tomato = Product::factory()->create([
+            'producer_id' => $farm->id,
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+        ]);
+
+        $order = ShopOrder::factory()->paid()->create([
+            'fulfillment_mode' => 'pickup',
+            'pickup_location' => 'bornsdorf',
+            'expected_delivery_date' => '2026-06-10',
+        ]);
+
+        // Two lines for the same product on the order, distinct grades.
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $tomato->id,
+            'variant_id' => null,
+            'variant_name_snapshot' => 'STANDARD',
+            'quantity' => 1000,
+            'unit' => 'g',
+            'unit_price_snapshot_eur' => 0.009,
+            'line_total_eur' => 9.0,
+        ]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $tomato->id,
+            'variant_id' => null,
+            'variant_name_snapshot' => 'YDA',
+            'quantity' => 500,
+            'unit' => 'g',
+            'unit_price_snapshot_eur' => 0.012,
+            'line_total_eur' => 6.0,
+        ]);
+
+        $sheet = new ShopOrderPicklistSheet(
+            Collection::make([$order->fresh(['items.product.producer.translations'])])
+        );
+        $rows = $sheet->array();
+
+        $this->assertCount(1, $rows);
+        $expected = sprintf(
+            "%s · STANDARD (%s)\n%s · YDA (%s)",
+            $tomato->name,
+            $farm->name,
+            $tomato->name,
+            $farm->name,
+        );
+        $this->assertSame($expected, $rows[0][9]);
+    }
+
     public function test_farm_totals_sheet_aggregates_with_cost_and_margin(): void
     {
         $farm = Producer::factory()->create();
