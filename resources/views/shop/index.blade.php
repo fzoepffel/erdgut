@@ -715,12 +715,22 @@
                                                     @endif
                                                 </p>
 
-                                                {{-- First tier hint (height reserved by the parent's :has
-                                                     rule only when at least one card has tiers). --}}
+                                                {{-- Tier hint. Surfaces the Standard grade's own tier when it
+                                                     has one; otherwise falls back to the first named variant
+                                                     that does — with the variant's label as a small eyebrow
+                                                     so it's clear which grade the discount applies to. --}}
+                                                @php
+                                                    $tieredGrade = ! empty($firstGrade['tiers'])
+                                                        ? $firstGrade
+                                                        : collect($gradeRows)->skip(1)->first(fn ($g) => ! empty($g['tiers']));
+                                                @endphp
                                                 <div class="shop-card-tier-slot mt-1">
-                                                    @if (! empty($firstGrade['tiers']))
+                                                    @if ($tieredGrade !== null)
                                                         <p class="shop-card-tier-fill font-mono text-[0.6rem] leading-snug text-shop-muted">
-                                                            @foreach ($firstGrade['tiers'] as $tier)
+                                                            @if ($tieredGrade !== $firstGrade)
+                                                                <span class="font-mono uppercase tracking-wider text-shop-primary">{{ $tieredGrade['gradeLabel'] }}</span>
+                                                            @endif
+                                                            @foreach ($tieredGrade['tiers'] as $tier)
                                                                 {{ __('shop.tier_from', ['qty' => $product->displayQuantity($tier['min']), 'price' => $formatCanonical($product, $tier['price'])]) }}@if (! $loop->last) · @endif
                                                             @endforeach
                                                         </p>
