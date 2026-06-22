@@ -235,6 +235,27 @@
             'producer' => $p['producer'],
             'dateCount' => $p['date_count'],
         ])->values();
+
+        // On a validation bounce, the form may resubmit either the legacy
+        // `quantities[]` / `variant_quantities[]` maps (kept for backwards
+        // compat) OR the canonical `items[]` shape that the basket emits.
+        // Build a lookup so the per-card hidden inputs can rehydrate from
+        // either: keyed by "<productId>" for default grades, "v<variantId>"
+        // for named grades — matching the Alpine jsId scheme.
+        $oldItemQuantitiesByJsId = [];
+        foreach ((array) old('items', []) as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+            $pid = (int) ($line['product_id'] ?? 0);
+            $vid = isset($line['variant_id']) && $line['variant_id'] !== '' ? (int) $line['variant_id'] : null;
+            $qty = (float) ($line['quantity'] ?? 0);
+            if ($pid <= 0 || $qty <= 0) {
+                continue;
+            }
+            $key = $vid !== null ? 'v'.$vid : (string) $pid;
+            $oldItemQuantitiesByJsId[$key] = $qty;
+        }
     @endphp
 
     <div
@@ -315,6 +336,21 @@
             >
                 @csrf
                 <input type="hidden" name="expected_delivery_date" value="{{ $selectedDate?->toDateString() }}">
+                {{-- Canonical cart payload driven by the basket. The backend
+                     prefers `items[]` over the legacy `quantities[]` /
+                     `variant_quantities[]` maps (see ShopOrderRequest), so
+                     this is the single source of truth on submit. The
+                     per-card hidden inputs remain in place to drive
+                     old() rehydration on a validation bounce. --}}
+                <template x-for="(line, i) in basket.lines" :key="line.jsId">
+                    <div>
+                        <input type="hidden" :name="`items[${i}][product_id]`" :value="line.productId">
+                        <template x-if="line.variantId !== null">
+                            <input type="hidden" :name="`items[${i}][variant_id]`" :value="line.variantId">
+                        </template>
+                        <input type="hidden" :name="`items[${i}][quantity]`" :value="line.quantity">
+                    </div>
+                </template>
 
                 {{-- ── Delivery-date picker + product filter ─────────── --}}
                 <x-reveal as="section" class="relative z-10 border-b border-shop-border py-14" data-testid="shop-date-picker">
@@ -743,7 +779,10 @@
                                                 @foreach ($gradeRows as $entry)
                                                     @php
                                                         $jsId = $entry['jsId'];
-                                                        $entryOld = (int) old(str_replace(['[', ']'], ['.', ''], $entry['formName']), 0);
+                                                        $entryOld = (float) old(
+                                                            str_replace(['[', ']'], ['.', ''], $entry['formName']),
+                                                            $oldItemQuantitiesByJsId[(string) $jsId] ?? 0,
+                                                        );
                                                     @endphp
                                                     <input type="hidden" id="shop-qty-{{ $jsId }}" name="{{ $entry['formName'] }}" value="{{ $entryOld }}" :value="quantities[@js($jsId)] || 0" data-testid="shop-qty-stepper">
                                                 @endforeach
@@ -773,33 +812,29 @@
                                                          on the card (no modal needed since there's nothing to
                                                          choose between). --}}
                                                     @php($singleJsId = $firstGrade['jsId'])
-                                                    {{-- The middle "value" is an invisible native <select> sitting
-                                                         on top of the rendered label. Tapping it opens the OS
-                                                         picker (iOS wheel / Android sheet / desktop dropdown) —
-                                                         the OS handles positioning + scrolling, so no z-index
-                                                         fights with sections below and no scroll-chain issues. --}}
+                                                    {{-- Stepper drives the staged value before the customer adds
+                                                         to the basket; after that it edits the in-basket line
+                                                         live (Amazon-style — no re-confirm). cardState() decides
+                                                         which side of that line we're on. --}}
                                                     <div class="mt-3 flex h-[3.25rem] items-stretch border border-shop-border bg-shop-background" data-testid="shop-card-stepper-{{ $product->id }}">
                                                         <button
                                                             type="button"
-                                                            @click="dec(@js($singleJsId))"
-                                                            :disabled="(quantities[@js($singleJsId)] || 0) <= 0"
+                                                            @click="cardState({{ $product->id }}) === 'in_basket' ? dec(@js($singleJsId)) : stageDec({{ $product->id }}, @js($singleJsId))"
+                                                            :disabled="cardState({{ $product->id }}) === 'in_basket' ? (quantities[@js($singleJsId)] || 0) <= 0 : stageQty({{ $product->id }}) <= 0"
                                                             class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
                                                             aria-label="−"
                                                         >−</button>
-                                                        {{-- Middle area uses bg-shop-paper + a prominent chevron
-                                                             so it visually reads as a dropdown control distinct
-                                                             from the outline-only −/+ buttons next to it. --}}
                                                         <div class="relative flex flex-1 border-x border-shop-border bg-shop-paper">
                                                             <div class="pointer-events-none flex w-full items-center justify-between gap-3 px-3 py-3 font-mono text-sm tabular-nums">
-                                                                <span x-text="label(@js($singleJsId)) || @js(__('shop.quantity_none'))">{{ __('shop.quantity_none') }}</span>
+                                                                <span x-text="cardState({{ $product->id }}) === 'in_basket' ? (label(@js($singleJsId)) || @js(__('shop.quantity_none'))) : (stagedLabel({{ $product->id }}, @js($singleJsId)) || @js(__('shop.quantity_none')))">{{ __('shop.quantity_none') }}</span>
                                                                 <svg class="h-4 w-4 shrink-0 text-shop-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25" aria-hidden="true">
                                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
                                                                 </svg>
                                                             </div>
                                                             <select
                                                                 aria-label="{{ __('shop.quantity_label') }}"
-                                                                :value="String(quantities[@js($singleJsId)] || 0)"
-                                                                @change="quantities[@js($singleJsId)] = +$event.target.value; refreshQuote(); scheduleCouponRefresh()"
+                                                                :value="cardState({{ $product->id }}) === 'in_basket' ? String(quantities[@js($singleJsId)] || 0) : String(stageQty({{ $product->id }}))"
+                                                                @change="cardState({{ $product->id }}) === 'in_basket' ? (quantities[@js($singleJsId)] = +$event.target.value, +$event.target.value <= 0 ? removeFromBasketByProduct({{ $product->id }}) : (refreshQuote(), scheduleCouponRefresh())) : setStage({{ $product->id }}, +$event.target.value)"
                                                                 class="touch-manipulation absolute inset-0 w-full cursor-pointer appearance-none border-0 bg-transparent font-mono opacity-0 focus:outline-none"
                                                             >
                                                                 <option value="0">{{ __('shop.quantity_none') }}</option>
@@ -810,18 +845,40 @@
                                                         </div>
                                                         <button
                                                             type="button"
-                                                            @click="inc(@js($singleJsId))"
-                                                            :disabled="atCap(@js($singleJsId))"
+                                                            @click="cardState({{ $product->id }}) === 'in_basket' ? inc(@js($singleJsId)) : stageInc({{ $product->id }}, @js($singleJsId))"
+                                                            :disabled="cardState({{ $product->id }}) === 'in_basket' ? atCap(@js($singleJsId)) : stagedAtCap({{ $product->id }}, @js($singleJsId))"
                                                             class="touch-manipulation w-12 py-3 font-mono text-lg text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
                                                             aria-label="+"
                                                         >+</button>
                                                     </div>
-                                                    {{-- Live subtotal line under the stepper. --}}
-                                                    <p class="mt-1 font-mono text-xs tabular-nums text-shop-muted"
-                                                       x-show="(quantities[@js($singleJsId)] || 0) > 0"
-                                                       x-cloak>
-                                                        <span x-text="lineLabel(@js($singleJsId))"></span>
-                                                    </p>
+
+                                                    {{-- Staged but not yet in basket → explicit Add-to-basket CTA
+                                                         so the customer always confirms the first time. --}}
+                                                    <button
+                                                        type="button"
+                                                        x-show="cardState({{ $product->id }}) === 'staged'"
+                                                        x-cloak
+                                                        @click="commitStage({{ $product->id }})"
+                                                        class="touch-manipulation mt-3 inline-flex h-[3.25rem] w-full items-center justify-center gap-2 border border-shop-primary bg-shop-primary px-5 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover"
+                                                        data-testid="shop-card-add-{{ $product->id }}"
+                                                    >{{ __('shop.basket_add') }}</button>
+
+                                                    {{-- Already in basket → status row with subtotal + remove. --}}
+                                                    <div x-show="cardState({{ $product->id }}) === 'in_basket'"
+                                                         x-cloak
+                                                         class="mt-3 flex flex-wrap items-center justify-between gap-2 font-mono text-xs tabular-nums text-shop-muted">
+                                                        <span>
+                                                            <span x-text="label(@js($singleJsId))"></span>
+                                                            <span class="text-shop-foreground/60">{{ __('shop.basket_in_cart_label') }}</span>
+                                                            <span class="ml-1 text-shop-foreground" x-text="lineLabel(@js($singleJsId))"></span>
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            @click="removeFromBasketByProduct({{ $product->id }})"
+                                                            class="touch-manipulation underline-offset-2 text-shop-primary hover:underline"
+                                                            data-testid="shop-card-remove-{{ $product->id }}"
+                                                        >{{ __('shop.basket_remove') }}</button>
+                                                    </div>
                                                 @endif
                                             @else
                                                 {{-- Unavailable: dim placeholder + weekly availability note. --}}
@@ -843,7 +900,7 @@
                 </x-reveal>
 
                 {{-- ── Fulfillment ───────────────────────────────────── --}}
-                <x-reveal as="section" class="border-b border-shop-border py-14">
+                <x-reveal as="section" class="border-b border-shop-border py-14" id="shop-checkout">
                     <div class="mx-auto max-w-[1100px] px-6 lg:px-12">
                         <header class="mb-8">
                             <p class="{{ $eyebrow }}">{{ __('shop.section_fulfillment') }}</p>
@@ -1093,6 +1150,8 @@
                     </div>
                 </x-reveal>
             </form>
+
+            @include('shop._partials.basket-chip')
 
             {{-- ── Variant + quantity picker modal ─────────────────────── --}}
             <div
@@ -1460,6 +1519,13 @@
                 payment: config.payment || 'online',
                 pickupLocation: config.pickupLocation || '',
                 quantities: {},
+                // Single-variant cards stage a candidate quantity before the
+                // customer commits with "+ In den Korb". The map is keyed by
+                // catalog product id (not the Alpine jsId), since each card
+                // has at most one staged value pre-commit. Once committed,
+                // the value moves into `quantities` and the stepper writes
+                // there live (Amazon-style edit-after-add).
+                _stagedByProduct: {},
                 email: config.email || '',
                 // ── Grid filters ───────────────────────────────────────
                 nameQuery: '',
@@ -1538,9 +1604,141 @@
                             id, name: lines[id].name, qty: lines[id].qty_label, lineTotalLabel: lines[id].line_total_label,
                         }));
                     }
-                    return this.products
-                        .filter((p) => (this.quantities[p.id] || 0) > 0)
-                        .map((p) => ({ id: p.id, name: p.name, qty: this.label(p.id), lineTotalLabel: this.money(this.lineEstimate(p.id)) }));
+                    return this.basket.lines.map((line) => {
+                        const p = this.products.find((pp) => pp.id === line.jsId);
+                        const name = line.gradeLabel
+                            ? line.productName + ' · ' + line.gradeLabel
+                            : (p?.name || line.productName);
+                        return { id: line.jsId, name, qty: this.label(line.jsId), lineTotalLabel: this.money(this.lineEstimate(line.jsId)) };
+                    });
+                },
+                // ── Basket: the single source of cart structure ───────────
+                // Every read of "what's in the cart" — the confirm modal,
+                // the mini-basket chip, the hidden items[] inputs, the live
+                // /shop/quote payload — goes through this object. Writes
+                // route through `set()` / `remove()` so the underlying
+                // `quantities` map stays consistent (and the picker modal
+                // commits without re-implementing the per-line projection).
+                get basket() {
+                    const self = this;
+                    return {
+                        get lines() {
+                            const out = [];
+                            self.products.forEach((v) => {
+                                const qty = self.quantities[v.id] || 0;
+                                if (qty <= 0) return;
+                                const variantId = (typeof v.id === 'string' && v.id.startsWith('v'))
+                                    ? parseInt(v.id.slice(1), 10)
+                                    : null;
+                                out.push({
+                                    productId: v.productId,
+                                    variantId,
+                                    productName: v.productName,
+                                    gradeLabel: v.gradeLabel || '',
+                                    quantity: qty,
+                                    jsId: v.id,
+                                });
+                            });
+                            return out;
+                        },
+                        find(productId, variantId) {
+                            return this.lines.find((l) => l.productId === productId && (l.variantId ?? null) === (variantId ?? null)) || null;
+                        },
+                        has(productId, variantId) {
+                            return this.find(productId, variantId) !== null;
+                        },
+                        set(jsId, qty) {
+                            self._setQuantity(jsId, Math.max(0, Number(qty) || 0));
+                        },
+                        remove(jsId) {
+                            self._setQuantity(jsId, 0);
+                        },
+                        get itemCount() { return this.lines.length; },
+                        get totalEstimate() { return self.itemsTotalEstimate(); },
+                    };
+                },
+                // Single-variant card state machine:
+                //   'empty'     — no staged value, nothing in basket
+                //   'staged'    — staged > 0 but not yet committed
+                //   'in_basket' — basket has a line for this product
+                cardState(productId) {
+                    const v = this.products.find((p) => p.productId === productId);
+                    if (!v) return 'empty';
+                    if ((this.quantities[v.id] || 0) > 0) return 'in_basket';
+                    if ((this._stagedByProduct[productId] || 0) > 0) return 'staged';
+                    return 'empty';
+                },
+                stageQty(productId) {
+                    return this._stagedByProduct[productId] || 0;
+                },
+                stagedLabel(productId, jsId) {
+                    const p = this.products.find((pp) => pp.id === jsId);
+                    if (!p || !p.steps) return '';
+                    const qty = this._stagedByProduct[productId] || 0;
+                    const step = p.steps.find((s) => s.v === qty);
+                    return step ? step.l : '';
+                },
+                stageInc(productId, jsId) {
+                    const p = this.products.find((pp) => pp.id === jsId);
+                    if (!p || !p.steps) return;
+                    const current = this._stagedByProduct[productId] || 0;
+                    let i = p.steps.findIndex((s) => s.v === current);
+                    if (i < 0) i = p.steps.findIndex((s) => s.v > current) - 1;
+                    if (i < p.steps.length - 1) {
+                        this._stagedByProduct[productId] = p.steps[i + 1].v;
+                    }
+                },
+                stageDec(productId, jsId) {
+                    const p = this.products.find((pp) => pp.id === jsId);
+                    if (!p || !p.steps) return;
+                    const current = this._stagedByProduct[productId] || 0;
+                    const i = p.steps.findIndex((s) => s.v === current);
+                    if (i > 0) {
+                        this._stagedByProduct[productId] = p.steps[i - 1].v;
+                    } else if (i === 0) {
+                        this._stagedByProduct[productId] = 0;
+                    }
+                },
+                stagedAtCap(productId, jsId) {
+                    const p = this.products.find((pp) => pp.id === jsId);
+                    if (!p || !p.steps) return true;
+                    const current = this._stagedByProduct[productId] || 0;
+                    const i = p.steps.findIndex((s) => s.v === current);
+                    return i >= p.steps.length - 1;
+                },
+                setStage(productId, qty) {
+                    const v = this.products.find((p) => p.productId === productId);
+                    if (!v) return;
+                    const n = Math.max(0, Number(qty) || 0);
+                    this._stagedByProduct[productId] = n;
+                },
+                commitStage(productId) {
+                    const v = this.products.find((p) => p.productId === productId);
+                    if (!v) return;
+                    const n = this._stagedByProduct[productId] || 0;
+                    if (n <= 0) return;
+                    const wasEmpty = (this.quantities[v.id] || 0) <= 0;
+                    this.quantities[v.id] = n;
+                    this._stagedByProduct[productId] = 0;
+                    if (wasEmpty && typeof v.id === 'number') this.queueEvent(v.id, 'add_to_cart');
+                    this.refreshQuote();
+                    this.scheduleCouponRefresh && this.scheduleCouponRefresh();
+                    this._pulseChip();
+                },
+                removeFromBasketByProduct(productId) {
+                    const v = this.products.find((p) => p.productId === productId);
+                    if (!v) return;
+                    this.quantities[v.id] = 0;
+                    this._stagedByProduct[productId] = 0;
+                    this.refreshQuote();
+                    this.scheduleCouponRefresh && this.scheduleCouponRefresh();
+                },
+                // ── Mini-basket chip ──────────────────────────────────────
+                chipOpen: false,
+                chipPulse: false,
+                _pulseChip() {
+                    this.chipPulse = true;
+                    setTimeout(() => { this.chipPulse = false; }, 700);
                 },
                 // ── Inline card stepper (single-variant products) ─────────
                 // Step values feed the native <select> options under each

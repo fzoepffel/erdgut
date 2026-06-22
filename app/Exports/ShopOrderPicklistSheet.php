@@ -89,6 +89,11 @@ class ShopOrderPicklistSheet implements FromArray, WithColumnWidths, WithHeading
             foreach ($order->items as $item) {
                 $product = $item->product;
                 $name = $product?->name ?? (string) __('shop.admin.deleted_product');
+                // Surface the variant grade alongside the product name so
+                // packers can tell STANDARD vs YDA on a multi-variant order.
+                if ($item->variant_name_snapshot !== null && $item->variant_name_snapshot !== '') {
+                    $name .= ' · '.$item->variant_name_snapshot;
+                }
                 $producer = $product?->producer?->name;
                 $positions[] = $producer ? sprintf('%s (%s)', $name, $producer) : $name;
 

@@ -10,6 +10,7 @@ use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ShopOrder;
+use App\Models\ShopOrderItem;
 use App\Models\User;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\ShopOrderService;
@@ -470,6 +471,28 @@ class ShopOrderFlowTest extends TestCase
             ->assertSee(__('shop.pay_heading'));
 
         $this->assertSame('co_test_shop_abc', $order->fresh()->sumup_checkout_id);
+    }
+
+    public function test_pay_page_renders_variant_name_next_to_product_name(): void
+    {
+        $order = ShopOrder::factory()->create([
+            'total_amount_eur' => 8.00,
+            'payment_method' => 'online',
+            'status' => ShopOrderStatus::PendingPayment,
+        ]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'variant_id' => null,
+            'variant_name_snapshot' => 'YDA',
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldReceive('createOneTimeCheckout')->andReturn((object) ['id' => 'co_variant_pay']);
+        $this->app->instance('sumup.spargel', $sumUp);
+
+        $this->get(route('public.shop.pay', ['shopOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee('YDA', escape: false);
     }
 
     public function test_return_marks_order_paid_and_queues_confirmation_when_sumup_confirms(): void
@@ -965,6 +988,19 @@ class ShopOrderFlowTest extends TestCase
             (string) $response->getContent(),
             'submitConfirmed must use requestSubmit so validation and POST run normally.',
         );
+    }
+
+    public function test_storefront_renders_basket_chip_and_canonical_items_template(): void
+    {
+        $response = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]));
+        $response->assertOk();
+        // Floating basket chip is in the markup (it shows only when
+        // the basket is non-empty, but the element ships either way).
+        $response->assertSee('data-testid="shop-basket-chip"', false);
+        // Canonical cart payload — the basket emits items[i][product_id/variant_id/quantity]
+        // hidden inputs that the backend prefers over the legacy two-map shape.
+        $response->assertSee('items[${i}][product_id]', false);
+        $response->assertSee('items[${i}][quantity]', false);
     }
 
     public function test_storefront_does_not_show_product_from_b2b_only_inflow_alone(): void
