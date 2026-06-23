@@ -31,34 +31,6 @@
 
         <div class="mx-auto grid max-w-[1100px] gap-10 px-6 py-10 lg:grid-cols-[1fr_22rem] lg:px-12 lg:py-14">
             <div class="space-y-10">
-                {{-- ── Basket review ─────────────────────────────────── --}}
-                <section class="border border-shop-border bg-shop-paper p-5">
-                    <header class="flex items-center justify-between gap-3">
-                        <p class="{{ $eyebrow }}">{{ __('shop.checkout.review_section_basket') }}</p>
-                        <a href="{{ route('public.shop.index') }}"
-                           class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline"
-                           data-testid="shop-checkout-review-edit-basket">
-                            {{ __('shop.checkout.review_edit_basket') }}
-                        </a>
-                    </header>
-                    <dl class="mt-4 divide-y divide-shop-border/40 text-sm">
-                        @foreach ((array) ($lines['lines'] ?? []) as $item)
-                            @php $product = $item['product'] ?? null; @endphp
-                            <div class="flex items-start justify-between gap-4 py-3">
-                                <dt>
-                                    <span class="text-shop-foreground">
-                                        {{ $product?->name ?? __('shop.admin.deleted_product') }}@if (! empty($item['variant_name_snapshot']))<span class="text-shop-muted"> · {{ $item['variant_name_snapshot'] }}</span>@endif
-                                    </span>
-                                    <span class="mt-1 block font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted">
-                                        {{ $product?->displayQuantity((float) ($item['quantity'] ?? 0)) }}
-                                    </span>
-                                </dt>
-                                <dd class="tabular-nums text-shop-foreground">@eur($item['line_total_eur'] ?? 0)</dd>
-                            </div>
-                        @endforeach
-                    </dl>
-                </section>
-
                 {{-- ── Details review ────────────────────────────────── --}}
                 <section class="border border-shop-border bg-shop-paper p-5">
                     <header class="flex items-center justify-between gap-3">

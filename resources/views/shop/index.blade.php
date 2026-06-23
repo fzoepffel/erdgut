@@ -256,6 +256,25 @@
             $key = $vid !== null ? 'v'.$vid : (string) $pid;
             $oldItemQuantitiesByJsId[$key] = $qty;
         }
+        // Fallback: the customer is "editing" their basket from step 2/3 —
+        // pull the items out of the persisted checkout draft so they see
+        // their cart instead of an empty grid. old('items') (a validation
+        // bounce) still wins.
+        foreach ((array) ($draftItems ?? []) as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+            $pid = (int) ($line['product_id'] ?? 0);
+            $vid = isset($line['variant_id']) && $line['variant_id'] !== null && $line['variant_id'] !== '' ? (int) $line['variant_id'] : null;
+            $qty = (float) ($line['quantity'] ?? 0);
+            if ($pid <= 0 || $qty <= 0) {
+                continue;
+            }
+            $key = $vid !== null ? 'v'.$vid : (string) $pid;
+            if (! isset($oldItemQuantitiesByJsId[$key])) {
+                $oldItemQuantitiesByJsId[$key] = $qty;
+            }
+        }
     @endphp
 
     <div
