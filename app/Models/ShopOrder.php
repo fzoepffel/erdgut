@@ -103,6 +103,7 @@ class ShopOrder extends Model
         'is_test',
         'order_source',
         'customer_type',
+        'locale',
     ];
 
     /**

@@ -535,6 +535,13 @@ class ShopController extends Controller
             'items.product.producer',
         ]);
 
+        // Render the receipt in the language the order was placed in — not the
+        // locale of whoever is downloading it (e.g. an admin on an English
+        // session), so product names + units stay in the customer's language.
+        if ($order->locale) {
+            app()->setLocale($order->locale);
+        }
+
         $pdf = Pdf::loadView('shop.pdf.receipt', [
             'order' => $order,
             'vatByRate' => ShopOrderService::vatByRate($order),

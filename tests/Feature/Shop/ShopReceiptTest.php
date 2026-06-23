@@ -73,6 +73,22 @@ class ShopReceiptTest extends TestCase
             ->assertSee('shop-receipt-download', false);
     }
 
+    public function test_receipt_renders_in_the_orders_locale_not_the_downloaders(): void
+    {
+        // Simulate an admin downloading from an English session.
+        app()->setLocale('en');
+
+        $order = ShopOrder::factory()->paid()->create([
+            'locale' => 'fr',
+        ]);
+
+        $this->get($this->signedReceiptUrl($order))->assertOk();
+
+        // The receipt controller pins rendering to the order's language so the
+        // customer's document stays consistent regardless of who downloads it.
+        $this->assertSame('fr', app()->getLocale());
+    }
+
     public function test_confirmation_email_has_pdf_attachment(): void
     {
         $order = ShopOrder::factory()->paid()->create([

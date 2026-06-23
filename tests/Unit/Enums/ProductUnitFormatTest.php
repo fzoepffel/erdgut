@@ -23,6 +23,20 @@ class ProductUnitFormatTest extends TestCase
         $this->assertSame('10 kg', ProductUnit::Mass->formatQuantity(10000, 'de'));
     }
 
+    public function test_adjacent_fifty_gram_steps_render_distinct_labels(): void
+    {
+        // Regression: with 1-decimal kg, 1050 g and 1100 g both rendered
+        // "1,1 kg", producing duplicate-looking options in the stepper.
+        $this->assertSame('1,05 kg', ProductUnit::Mass->formatQuantity(1050, 'de'));
+        $this->assertSame('1,1 kg', ProductUnit::Mass->formatQuantity(1100, 'de'));
+        $this->assertSame('1,15 kg', ProductUnit::Mass->formatQuantity(1150, 'de'));
+        $this->assertSame('1,2 kg', ProductUnit::Mass->formatQuantity(1200, 'de'));
+        $this->assertNotSame(
+            ProductUnit::Mass->formatQuantity(1050, 'de'),
+            ProductUnit::Mass->formatQuantity(1100, 'de'),
+        );
+    }
+
     public function test_volume_quantity_threshold_matches_mass(): void
     {
         $this->assertSame('999 ml', ProductUnit::Volume->formatQuantity(999, 'de'));

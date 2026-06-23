@@ -861,6 +861,10 @@ class ShopOrderService
                 // sending these keys; the admin creation path passes them explicitly.
                 'order_source' => $payload['order_source'] ?? OrderSource::Storefront->value,
                 'customer_type' => $payload['customer_type'] ?? CustomerType::Private->value,
+                // Pin the locale the order was placed in so customer documents
+                // (receipt, confirmation email) stay in the customer's language
+                // even when generated later from a different locale context.
+                'locale' => $payload['locale'] ?? app()->getLocale(),
             ]);
 
             foreach ($quote['lines'] as $line) {
