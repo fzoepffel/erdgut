@@ -1050,7 +1050,7 @@
                         {{-- Cross-variant subtotal. --}}
                         <div class="mt-8 border-t border-shop-border pt-5 flex items-baseline justify-between gap-4">
                             <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">{{ __('shop.picker_subtotal') }}</span>
-                            <span class="font-display text-2xl tabular-nums text-shop-foreground" x-text="formatMoney(pickerSubtotal)"></span>
+                            <span class="font-display text-2xl tabular-nums text-shop-foreground" x-text="money(pickerSubtotal)"></span>
                         </div>
 
                         {{-- Actions --}}

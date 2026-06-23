@@ -971,6 +971,20 @@ class ShopOrderFlowTest extends TestCase
         $response->assertSee('data-testid="shop-submit"', false);
     }
 
+    public function test_storefront_does_not_call_undefined_alpine_methods(): void
+    {
+        // Regression: the picker subtotal used `formatMoney(pickerSubtotal)`
+        // for a stretch, but the actual storefront helper is `money()`. The
+        // misnomer threw a ReferenceError every time the picker subtotal
+        // re-evaluated, which broke Alpine reactivity downstream (the
+        // canonical items[] template + the basket chip occasionally stopped
+        // updating). Guard against the typo creeping back in.
+        $html = (string) $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringNotContainsString('formatMoney(', $html, 'formatMoney() is not defined on the storefront Alpine component — use money() instead.');
+    }
+
     public function test_storefront_renders_basket_chip_and_canonical_items_template(): void
     {
         $response = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]));
