@@ -146,6 +146,34 @@ class ShopCheckoutWizardTest extends TestCase
             ->assertSessionHasErrors(['expected_delivery_date']);
     }
 
+    public function test_shop_index_rehydrates_basket_from_session_draft(): void
+    {
+        // Click-back-to-edit path: the customer is on step 2 or 3 and clicks
+        // "Warenkorb bearbeiten" → lands on /shop. The basket must come back
+        // with the items the draft already holds, otherwise the customer
+        // sees an empty grid and reads it as "my cart vanished".
+        $this->seedBasket();
+
+        $response = $this->get(route('public.shop.index'))->assertOk();
+        // The per-card hidden input mirrors quantities — confirm it ships the
+        // draft quantity, not 0.
+        $expected = sprintf('id="shop-qty-%d" name="quantities[%d]" value="3"', $this->product->id, $this->product->id);
+        $this->assertStringContainsString($expected, (string) $response->getContent());
+    }
+
+    public function test_shop_index_opens_on_draft_date_when_no_query_param(): void
+    {
+        $this->seedBasket();
+
+        $response = $this->get(route('public.shop.index'))->assertOk();
+        // The hidden date input mirrors $selectedDate — confirm the draft
+        // date won over the default-first-available pick.
+        $this->assertStringContainsString(
+            'name="expected_delivery_date" value="'.self::DELIVERY_DATE.'"',
+            (string) $response->getContent(),
+        );
+    }
+
     // ── Step 2: GET /shop/checkout/details ────────────────────────────
 
     public function test_details_redirects_to_shop_when_basket_missing(): void

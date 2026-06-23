@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\ProductEngagementDaily;
 use App\Models\ProductSubcategory;
 use App\Models\ShopOrder;
+use App\Services\Shop\CheckoutDraft;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\ProductRankingService;
@@ -48,6 +49,7 @@ class ShopController extends Controller
         private readonly ShopOrderService $service,
         private readonly CouponService $coupons,
         private readonly ProductRankingService $ranking,
+        private readonly CheckoutDraft $draft,
     ) {}
 
     public function index(Request $request): View
@@ -56,15 +58,22 @@ class ShopController extends Controller
         $availableDates = $index['dates'];
         $filterProducts = $index['products'];
 
-        // Resolve the active date: the `?date=` query param if it's still
-        // on the menu, else the first available date. Null when the shop
-        // has no stock at all (empty-state view).
+        // Resolve the active date. Priority:
+        //   1. `?date=` query param if it's still on the menu (deep-link),
+        //   2. the date held in the current checkout draft (so "edit basket"
+        //      from steps 2–3 reopens on the same day),
+        //   3. the first available date.
+        // Null when the shop has no stock at all (empty-state view).
         $selectedDate = null;
         $requested = (string) $request->query('date', '');
         $menu = $availableDates->map(fn (array $row): string => $row['date']->toDateString())->all();
+        $draftState = $this->draft->current();
+        $draftDate = isset($draftState['expected_delivery_date']) ? (string) $draftState['expected_delivery_date'] : '';
 
         if ($requested !== '' && in_array($requested, $menu, true)) {
             $selectedDate = Carbon::parse($requested)->startOfDay();
+        } elseif ($draftDate !== '' && in_array($draftDate, $menu, true)) {
+            $selectedDate = Carbon::parse($draftDate)->startOfDay();
         } elseif ($availableDates->isNotEmpty()) {
             $selectedDate = $availableDates->first()['date'];
         }
@@ -128,6 +137,14 @@ class ShopController extends Controller
             ])->values()->all())
             ->all();
 
+        // Draft items rehydrate the basket on return visits: the per-card
+        // hidden quantity inputs read from this lookup (keyed by Alpine jsId
+        // — "<productId>" for default grade, "v<variantId>" for named) when
+        // neither old('quantities.<id>') nor old('items') seeded a value.
+        $draftItems = $selectedDate !== null && ($draftState['expected_delivery_date'] ?? null) === $selectedDate->toDateString()
+            ? (array) ($draftState['items'] ?? [])
+            : [];
+
         return view('shop.index', [
             'availableDates' => $availableDates,
             'filterProducts' => $filterProducts,
@@ -142,6 +159,7 @@ class ShopController extends Controller
             'quantityStep' => (int) config('shop.quantity_step', 50),
             'maxQuantity' => (int) config('shop.max_quantity', 3000),
             'maxCount' => (int) config('shop.max_count', 12),
+            'draftItems' => $draftItems,
         ]);
     }
 
