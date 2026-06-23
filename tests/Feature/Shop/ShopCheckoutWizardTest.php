@@ -334,6 +334,35 @@ class ShopCheckoutWizardTest extends TestCase
         $this->assertArrayNotHasKey('placed_order_id', $draft);
     }
 
+    public function test_place_cancels_previous_orphan_so_a_retry_succeeds_without_a_bounce(): void
+    {
+        // Customer placed an order, hit the SumUp widget, used the browser
+        // back button to land on /shop/checkout/review (skipping /shop GET),
+        // and clicked Place a second time. Without cancelling the orphan
+        // first, the previous order would still hold the stock and
+        // createOrder would throw InsufficientStockException → bounce to
+        // /shop with an "out of stock" flash. The retry must just work.
+        Mail::fake();
+        $sumUp = Mockery::mock(SumUpService::class);
+        $this->app->instance('sumup.spargel', $sumUp);
+
+        $this->seedFullDraft();
+        $this->post(route('public.shop.checkout.place'), ['consent' => '1']);
+        $firstOrder = ShopOrder::query()->latest('id')->first();
+        $this->assertNotNull($firstOrder);
+
+        // Re-place without ever hitting /shop GET — review page is still
+        // valid (draft is alive), so the customer can submit again.
+        $response = $this->post(route('public.shop.checkout.place'), ['consent' => '1']);
+
+        $secondOrder = ShopOrder::query()->latest('id')->first();
+        $this->assertNotSame($firstOrder->id, $secondOrder->id, 'A second place should produce a brand-new order.');
+        $response->assertRedirect(route('public.shop.pay', ['shopOrder' => $secondOrder->id]));
+        $firstOrder->refresh();
+        $this->assertSame(ShopOrderStatus::Cancelled, $firstOrder->status, 'Previous orphan must be cancelled so its stock is freed.');
+        $this->assertSame(ShopOrderStatus::PendingPayment, $secondOrder->status);
+    }
+
     public function test_return_clears_draft_for_in_person_orders(): void
     {
         Mail::fake();

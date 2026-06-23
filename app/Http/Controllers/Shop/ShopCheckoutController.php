@@ -131,6 +131,14 @@ class ShopCheckoutController extends Controller
                 ->with('error', __('shop.errors.checkout_date_unavailable'));
         }
 
+        // Customer hit Back from the SumUp widget straight onto the review
+        // page and is now placing again — the previous attempt left an
+        // orphan PendingPayment ShopOrder holding stock. Cancel it before
+        // we try createOrder, or the very next availability check would
+        // throw InsufficientStockException. Without this, the customer
+        // sees the "out of stock" bounce once before a retry works.
+        $this->cancelPreviousPlacedOrderIfPending();
+
         // Dedup the in-person back-button replay path the same way the
         // legacy POST /shop does (same email + date + window). Online
         // orders rely on the idempotent SumUp checkout URL instead.
@@ -237,5 +245,26 @@ class ShopCheckoutController extends Controller
         Mail::to($order->email)
             ->locale(app()->getLocale())
             ->queue(new ShopOrderConfirmationMail($order));
+    }
+
+    /**
+     * Cancel the customer's previously-placed PendingPayment order, if any,
+     * so its stock is back in circulation before we try to create a new one.
+     * Used by {@see self::place} on a retry; also runs in
+     * {@see ShopController::index} when the customer revisits /shop. The
+     * draft's placed_order_id marker is dropped either way.
+     */
+    private function cancelPreviousPlacedOrderIfPending(): void
+    {
+        $placedOrderId = $this->draft->placedOrderId();
+        if ($placedOrderId === null) {
+            return;
+        }
+        $stale = ShopOrder::query()->find($placedOrderId);
+        if ($stale !== null && $stale->status === ShopOrderStatus::PendingPayment) {
+            $stale->status = ShopOrderStatus::Cancelled;
+            $stale->save();
+        }
+        $this->draft->forgetPlacedOrderId();
     }
 }
