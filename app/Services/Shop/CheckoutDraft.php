@@ -123,6 +123,41 @@ class CheckoutDraft
             && ! empty($draft['email']);
     }
 
+    /**
+     * Remember which ShopOrder this draft produced. We keep the draft alive
+     * after {@see ShopCheckoutController::place} so the customer's basket
+     * survives an abandoned SumUp checkout. The id lets /shop find the
+     * orphan and release its stock when the customer returns mid-flow.
+     */
+    public function setPlacedOrderId(int $orderId): void
+    {
+        $draft = $this->current();
+        if ($draft === []) {
+            return;
+        }
+        $draft['placed_order_id'] = $orderId;
+        $draft['updated_at'] = CarbonImmutable::now()->toIso8601String();
+        $this->session->put(self::KEY, $draft);
+    }
+
+    public function placedOrderId(): ?int
+    {
+        $draft = $this->current();
+        $id = $draft['placed_order_id'] ?? null;
+
+        return is_numeric($id) ? (int) $id : null;
+    }
+
+    public function forgetPlacedOrderId(): void
+    {
+        $draft = $this->current();
+        if ($draft === []) {
+            return;
+        }
+        unset($draft['placed_order_id']);
+        $this->session->put(self::KEY, $draft);
+    }
+
     public function clear(): void
     {
         $this->session->forget(self::KEY);

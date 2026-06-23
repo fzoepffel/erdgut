@@ -52,6 +52,15 @@ class InventoryService
     private const BATCH_OVERLAP_BUFFER_DAYS = 60;
 
     /**
+     * Grace window for an abandoned online checkout. A ShopOrder created
+     * older than this and still in {@see ShopOrderStatus::PendingPayment}
+     * stops counting against available stock — the customer walked away
+     * from the SumUp widget and we'd rather sell the inventory than hold
+     * it hostage indefinitely.
+     */
+    public const ABANDONED_PENDING_PAYMENT_MINUTES = 30;
+
+    /**
      * Remaining available quantity for delivery on `$date`, accounting for
      * batch depletion across each inflow's whole freshness window (FEFO).
      *
@@ -526,6 +535,13 @@ class InventoryService
         string $toIso,
         ?CustomerType $customerType = null,
     ): void {
+        // Abandoned-checkout grace window: a PendingPayment order that hasn't
+        // been paid in this many minutes is treated as abandoned and its
+        // quantities are released back into the available pool. The SumUp
+        // hosted widget itself stays valid much longer, but holding inventory
+        // for hours after the customer walks away starves real shoppers.
+        $abandonedAfter = now()->subMinutes(self::ABANDONED_PENDING_PAYMENT_MINUTES);
+
         ShopOrderItem::query()
             ->join('shop_orders', 'shop_orders.id', '=', 'shop_order_items.shop_order_id')
             ->whereIn('shop_order_items.product_id', $productIds)
@@ -536,6 +552,12 @@ class InventoryService
                 ShopOrderStatus::Cancelled->value,
                 ShopOrderStatus::Refunded->value,
             ])
+            ->where(function ($q) use ($abandonedAfter): void {
+                // Live-filter abandoned PendingPayment orders so freed stock
+                // shows up to the next visitor without a cleanup cron.
+                $q->where('shop_orders.status', '!=', ShopOrderStatus::PendingPayment->value)
+                    ->orWhere('shop_orders.created_at', '>=', $abandonedAfter);
+            })
             ->groupBy('shop_order_items.product_id', 'shop_order_items.variant_id', 'shop_orders.expected_delivery_date')
             ->get([
                 'shop_order_items.product_id as product_id',

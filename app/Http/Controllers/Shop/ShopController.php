@@ -54,6 +54,23 @@ class ShopController extends Controller
 
     public function index(Request $request): View
     {
+        // Abandoned-online-checkout recovery: the customer reached the SumUp
+        // widget, didn't pay, and came back to /shop to edit. The draft still
+        // remembers the placed order id (kept around so the basket can be
+        // restored); if that order is still PendingPayment, the customer is
+        // clearly starting over, so we cancel it to release its stock
+        // immediately. Without this, they'd see their own basket as
+        // "ausverkauft" for the next 30 minutes of the live-filter window.
+        $placedOrderId = $this->draft->placedOrderId();
+        if ($placedOrderId !== null) {
+            $stale = ShopOrder::query()->find($placedOrderId);
+            if ($stale !== null && $stale->status === ShopOrderStatus::PendingPayment) {
+                $stale->status = ShopOrderStatus::Cancelled;
+                $stale->save();
+            }
+            $this->draft->forgetPlacedOrderId();
+        }
+
         $index = $this->service->availabilityIndex();
         $availableDates = $index['dates'];
         $filterProducts = $index['products'];
@@ -456,6 +473,13 @@ class ShopController extends Controller
             if ($outcome === ShopOrderService::VERIFY_PAID) {
                 $this->queueConfirmationMail($shopOrder);
             }
+        }
+
+        // The checkout draft was kept alive across the SumUp redirect so a
+        // failed/abandoned payment would restore the basket. The order is
+        // now settled (paid, failed, or pay-in-person), so the draft can go.
+        if ($this->draft->placedOrderId() === $shopOrder->id) {
+            $this->draft->clear();
         }
 
         // Ask customers (once, ever) whether they'd like to hear when the

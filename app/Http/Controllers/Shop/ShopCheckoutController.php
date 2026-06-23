@@ -158,15 +158,22 @@ class ShopCheckoutController extends Controller
                 ->with('error', __('shop.errors.stock_vanished', ['name' => $e->product->name]));
         }
 
-        $this->draft->clear();
-
         if ($order->payment_method === 'in_person') {
+            // In-person orders are finalized the moment the order row exists —
+            // nothing to abandon, so it's safe to drop the draft right away.
+            $this->draft->clear();
             $this->queueConfirmationMail($order);
             $this->coupons->finalizeRedemption($order);
             ShopOrderAdminNotifier::finalized($order);
 
             return redirect()->route('public.shop.return', ['shopOrder' => $order->id]);
         }
+
+        // Online payment: the customer is about to land in the SumUp widget
+        // and may walk away without paying. Keep the draft so their basket
+        // survives a revisit to /shop, and remember the placed order id so
+        // we can release its stock if they abandon.
+        $this->draft->setPlacedOrderId($order->id);
 
         return redirect()->route('public.shop.pay', ['shopOrder' => $order->id]);
     }

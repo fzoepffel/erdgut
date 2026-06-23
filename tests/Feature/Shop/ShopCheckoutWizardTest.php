@@ -301,7 +301,47 @@ class ShopCheckoutWizardTest extends TestCase
         $this->assertSame(1, $order->items->count());
         $this->assertSame($this->product->id, $order->items->first()->product_id);
 
-        // Draft is cleared after a successful create.
+        // Draft survives so the customer's basket can be restored if they
+        // walk away from the SumUp widget without paying. The placed order
+        // id is recorded so /shop can release its stock on revisit.
+        $draft = (array) session(CheckoutDraft::KEY);
+        $this->assertSame($order->id, $draft['placed_order_id'] ?? null);
+    }
+
+    public function test_shop_index_cancels_orphan_pending_payment_order_on_revisit(): void
+    {
+        // The customer placed an order, hit the SumUp widget, then went back
+        // to /shop without paying. /shop should cancel the orphan and keep
+        // the draft basket intact so the customer can edit and retry.
+        $this->seedFullDraft();
+        Mail::fake();
+        $sumUp = Mockery::mock(SumUpService::class);
+        $this->app->instance('sumup.spargel', $sumUp);
+        $this->post(route('public.shop.checkout.place'), ['consent' => '1']);
+        $order = ShopOrder::query()->latest('id')->first();
+        $this->assertSame(ShopOrderStatus::PendingPayment, $order->status);
+
+        // Revisit /shop.
+        $this->get(route('public.shop.index'))->assertOk();
+
+        $order->refresh();
+        $this->assertSame(ShopOrderStatus::Cancelled, $order->status, 'Orphan PendingPayment order should be cancelled on /shop revisit.');
+
+        // The basket draft is still there (items + date), but the
+        // placed_order_id marker is gone.
+        $draft = (array) session(CheckoutDraft::KEY);
+        $this->assertNotEmpty($draft['items'] ?? []);
+        $this->assertArrayNotHasKey('placed_order_id', $draft);
+    }
+
+    public function test_return_clears_draft_for_in_person_orders(): void
+    {
+        Mail::fake();
+        $this->seedFullDraft(['payment_method' => 'in_person']);
+
+        $this->post(route('public.shop.checkout.place'), ['consent' => '1']);
+
+        // In-person flow drops the draft immediately on place (it's a sale).
         $this->assertNull(session(CheckoutDraft::KEY));
     }
 
