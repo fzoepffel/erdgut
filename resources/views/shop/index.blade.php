@@ -348,6 +348,7 @@
         @else
             @include('shop._partials.checkout-progress', ['active' => 1])
             <form
+                id="shop-checkout-form"
                 method="POST"
                 action="{{ route('public.shop.checkout.start') }}"
                 data-testid="shop-form"

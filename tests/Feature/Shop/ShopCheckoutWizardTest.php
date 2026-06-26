@@ -164,6 +164,22 @@ class ShopCheckoutWizardTest extends TestCase
         $this->assertStringContainsString($expected, (string) $response->getContent());
     }
 
+    public function test_basket_chip_checkout_cta_submits_the_checkout_form(): void
+    {
+        // The floating basket's checkout CTA must advance straight to step 2,
+        // not just scroll to an in-page anchor. It lives outside the <form>
+        // and drives it via the HTML5 `form` attribute, so assert both the
+        // form id and a submit button bound to it — and that the old
+        // scroll-only anchor (#shop-checkout) is gone.
+        $this->seedBasket();
+
+        $content = (string) $this->get(route('public.shop.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('id="shop-checkout-form"', $content);
+        $this->assertStringContainsString('form="shop-checkout-form"', $content);
+        $this->assertStringNotContainsString('href="#shop-checkout"', $content);
+    }
+
     public function test_shop_index_opens_on_draft_date_when_no_query_param(): void
     {
         $this->seedBasket();

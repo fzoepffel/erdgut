@@ -2,7 +2,9 @@
      while the customer shops, reads from the basket object on the
      parent `shopStorefront` Alpine component. Tapping it opens a small
      summary panel that lists every line and the running estimate, with
-     a "Zum Bezahlen" CTA that scrolls to the checkout section.
+     a CTA that submits the basket and advances straight to step 2
+     (checkout details). The button sits outside the checkout <form> but
+     drives it via the HTML5 `form` attribute, so no extra JS is needed.
 
      Hidden when the cart is empty; pulses briefly when a line is added
      so the customer sees where it landed. --}}
@@ -56,10 +58,11 @@
             <span class="text-shop-muted">{{ __('shop.confirm_order_total') }}</span>
             <span class="text-shop-foreground" x-text="totalLabel()"></span>
         </div>
-        <a
-            href="#shop-checkout"
+        <button
+            type="submit"
+            form="shop-checkout-form"
             @click="chipOpen = false"
             class="touch-manipulation mt-4 inline-flex h-[3rem] w-full items-center justify-center border border-shop-primary bg-shop-primary px-5 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover"
-        >{{ __('shop.basket_chip_checkout_cta') }}</a>
+        >{{ __('shop.basket_chip_checkout_cta') }}</button>
     </div>
 </div>
