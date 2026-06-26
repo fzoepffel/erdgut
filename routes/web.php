@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\AdminEmailResendController;
 use App\Http\Controllers\Admin\AdminInflowScheduleController;
 use App\Http\Controllers\Admin\AdminInventoryController;
 use App\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\AdminPackingController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
 use App\Http\Controllers\Admin\AdminSearchController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\Admin\AdminUpcomingChargeController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ProducerController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ProductPriceRuleController;
 use App\Http\Controllers\Admin\SubcategoryController;
 use App\Http\Controllers\BoxController;
 use App\Http\Controllers\BoxWaitlistController;
@@ -58,6 +60,7 @@ use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\Shop\ShopCatalogController;
+use App\Http\Controllers\Shop\ShopCheckoutController;
 use App\Http\Controllers\Shop\ShopController;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Controllers\SpargelOrderController;
@@ -154,10 +157,33 @@ Route::name('public.')->group(function () {
     Route::post('/shop', [ShopController::class, 'store'])
         ->middleware('throttle:20,1')
         ->name('shop.store');
-    // Live coupon preview: re-prices the cart server-side with a typed code
-    // so the discount shown is the authoritative one (the same quote() the
-    // order create + SumUp charge use). Throttled — it's an unauthenticated
-    // endpoint that could otherwise be used to brute-force codes.
+    // Three-step storefront checkout. /shop builds the basket; the routes
+    // below carry the customer through fulfillment + payment + contact +
+    // review before {@see ShopCheckoutController::place} creates the order
+    // via the same ShopOrderService::createOrder path the legacy single-shot
+    // POST /shop uses. State persists in the session via CheckoutDraft.
+    Route::post('/shop/checkout/start', [ShopCheckoutController::class, 'start'])
+        ->middleware('throttle:20,1')
+        ->name('shop.checkout.start');
+    Route::get('/shop/checkout/details', [ShopCheckoutController::class, 'details'])
+        ->name('shop.checkout.details');
+    Route::post('/shop/checkout/details', [ShopCheckoutController::class, 'storeDetails'])
+        ->middleware('throttle:20,1')
+        ->name('shop.checkout.details.store');
+    Route::get('/shop/checkout/review', [ShopCheckoutController::class, 'review'])
+        ->name('shop.checkout.review');
+    Route::post('/shop/checkout/place', [ShopCheckoutController::class, 'place'])
+        ->middleware('throttle:20,1')
+        ->name('shop.checkout.place');
+    // Ground-truth cart pricing: the storefront posts its cart here on every
+    // change and renders the returned line totals / summary / VAT / total —
+    // the same quote() the order create + SumUp charge use, so the displayed
+    // price can never drift from what's charged. Throttled (unauthenticated).
+    Route::post('/shop/quote', [ShopController::class, 'quote'])
+        ->middleware('throttle:60,1')
+        ->name('shop.quote');
+    // Live coupon preview (legacy aggregate shape). Throttled — it's an
+    // unauthenticated endpoint that could otherwise be used to brute-force codes.
     Route::post('/shop/coupon/preview', [ShopController::class, 'couponPreview'])
         ->middleware('throttle:20,1')
         ->name('shop.coupon.preview');
@@ -446,6 +472,10 @@ Route::middleware(['auth', 'verified'])
                 ->name('inflow-schedules.adjust');
 
             Route::resource('products', ProductController::class)->except(['show']);
+            // Per-product pricing calendar (date/period price overrides).
+            Route::get('products/{product}/pricing', [ProductPriceRuleController::class, 'calendar'])->name('products.pricing');
+            Route::post('products/{product}/pricing', [ProductPriceRuleController::class, 'store'])->name('products.pricing.store');
+            Route::delete('products/{product}/pricing', [ProductPriceRuleController::class, 'destroy'])->name('products.pricing.destroy');
             Route::resource('subcategories', SubcategoryController::class)->except(['show']);
 
             Route::get('orders/create', [AdminOrderController::class, 'create'])->name('orders.create');
@@ -482,9 +512,23 @@ Route::middleware(['auth', 'verified'])
             Route::get('shop-orders/export', [AdminShopOrderController::class, 'export'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.export');
+            // Farmer-order export: the producer picker + the PDF/CSV ZIP.
+            // Declared before the {shopOrder} wildcard for the same reason.
+            Route::get('shop-orders/farmer-export/producers', [AdminShopOrderController::class, 'farmerExportProducers'])
+                ->name('shop-orders.farmer-export.producers');
+            Route::get('shop-orders/farmer-export', [AdminShopOrderController::class, 'farmerExport'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.farmer-export');
             Route::post('shop-orders', [AdminShopOrderController::class, 'store'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.store');
+            // Product-by-product packing for a delivery day — declared before
+            // the {shopOrder} wildcard so "packing" isn't read as a model id.
+            Route::get('shop-orders/packing', [AdminPackingController::class, 'index'])->name('packing.index');
+            Route::post('shop-orders/packing/items/{item}/toggle', [AdminPackingController::class, 'toggleItem'])
+                ->middleware('throttle:120,1')->name('packing.toggle');
+            Route::post('shop-orders/packing/product', [AdminPackingController::class, 'packProduct'])
+                ->middleware('throttle:120,1')->name('packing.product');
             Route::get('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'show'])->name('shop-orders.show');
             Route::post('shop-orders/{shopOrder}/mark-paid', [AdminShopOrderController::class, 'markPaid'])
                 ->middleware('throttle:30,1')

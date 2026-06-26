@@ -2,6 +2,7 @@
 
 namespace App\Enums;
 
+use App\Support\Money;
 use InvalidArgumentException;
 
 /**
@@ -124,7 +125,7 @@ enum ProductUnit: string
     public function formatQuantity(int|float $canonical, ?string $locale = null): string
     {
         $locale ??= app()->getLocale();
-        [$decimalSep, $thousandsSep] = $locale === 'de' ? [',', '.'] : ['.', ','];
+        [$decimalSep, $thousandsSep] = Money::separators($locale);
 
         if ($this === self::Piece || $this === self::Bunch) {
             $count = (int) round((float) $canonical);
@@ -142,11 +143,17 @@ enum ProductUnit: string
         }
 
         $large = $value / 1000;
-        $whole = (int) floor(abs($large));
-        $hasFractional = abs(abs($large) - $whole) >= 0.05;
-        $decimals = $hasFractional ? 1 : 0;
+        // Render up to 2 decimals (10 g / 10 ml granularity) and strip
+        // trailing zeros. Clean values stay short ("1 kg", "1,5 kg") while
+        // adjacent 50 g steps stay distinct ("1,05 kg" vs "1,1 kg") instead
+        // of both rounding to the same "1,1 kg".
+        $formatted = number_format($large, 2, $decimalSep, $thousandsSep);
+        if (str_contains($formatted, $decimalSep)) {
+            $formatted = rtrim($formatted, '0');
+            $formatted = rtrim($formatted, $decimalSep);
+        }
 
-        return number_format($large, $decimals, $decimalSep, $thousandsSep).' '.self::displaySymbol($largeSymbol);
+        return $formatted.' '.self::displaySymbol($largeSymbol);
     }
 
     /**
@@ -156,7 +163,7 @@ enum ProductUnit: string
     public function formatPrice(float $pricePerCanonical, string $displayUnit, ?string $locale = null): string
     {
         $locale ??= app()->getLocale();
-        [$decimalSep, $thousandsSep] = $locale === 'de' ? [',', '.'] : ['.', ','];
+        [$decimalSep, $thousandsSep] = Money::separators($locale);
 
         $pricePerDisplay = $pricePerCanonical * $this->canonicalUnitsPerDisplay($displayUnit);
 

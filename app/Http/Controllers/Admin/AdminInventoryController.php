@@ -43,7 +43,7 @@ class AdminInventoryController extends Controller
         // currently published, so admin can see lingering inventory
         // for an unpublished product.
         $products = Product::query()
-            ->with(['translations', 'producer.translations'])
+            ->with(['translations', 'producer.translations', 'variants'])
             ->where(function ($q) use ($start, $end): void {
                 $q->where(function ($vis): void {
                     $vis->where('is_available', true)->where('is_published', true);
@@ -60,10 +60,17 @@ class AdminInventoryController extends Controller
             return [$p->id => $this->inventory->availabilityWindow($p, $start, $end)];
         });
 
+        // Per-grade lanes for products that have grades, so the matrix shows
+        // each grade's own stock under the product total. productId =>
+        // (variantKey => (iso => qty)); variantKey 0 = the default grade.
+        $variantMatrix = $products
+            ->filter(fn (Product $p): bool => $p->variants->isNotEmpty())
+            ->mapWithKeys(fn (Product $p): array => [$p->id => $this->inventory->variantAvailabilityWindow($p, $start, $end)]);
+
         // Inflow batches in the window — used for section A's table.
         $inflows = ProductStockInflow::query()
             ->whereBetween('received_on', [$start->toDateString(), $end->toDateString()])
-            ->with(['product.translations', 'sourceSchedule'])
+            ->with(['product.translations', 'product.variants', 'sourceSchedule'])
             ->orderBy('received_on')
             ->get();
 
@@ -75,6 +82,7 @@ class AdminInventoryController extends Controller
             'today' => Carbon::today()->toDateString(),
             'products' => $products,
             'availabilityMatrix' => $availabilityMatrix,
+            'variantMatrix' => $variantMatrix,
             'inflows' => $inflows,
         ]);
     }
@@ -92,6 +100,8 @@ class AdminInventoryController extends Controller
             ? $unit->canonicalUnitsPerDisplay($displayUnit)
             : 1;
 
+        $variantId = $this->resolveVariantId($product, $validated['variant_id'] ?? null);
+
         $this->inventory->recordInflow(
             product: $product,
             receivedOn: Carbon::parse($validated['received_on']),
@@ -101,6 +111,7 @@ class AdminInventoryController extends Controller
             notes: $validated['notes'] ?? null,
             createdByUserId: (int) $request->user()->id,
             b2bOnly: (bool) ($validated['b2b_only'] ?? false),
+            variantId: $variantId,
         );
 
         return $this->redirectToInventory($request, $validated['received_on'], __('admin.inventory.flash_inflow_created'));
@@ -126,6 +137,7 @@ class AdminInventoryController extends Controller
         // an admin moves it to a different day.
         $inflow->fill([
             'received_on' => Carbon::parse($validated['received_on'])->startOfDay()->toDateString(),
+            'variant_id' => $this->resolveVariantId($product, $validated['variant_id'] ?? null),
             'quantity' => round((float) $validated['quantity'] * $factor, 4),
             'freshness_window_days' => max(1, (int) (
                 $validated['freshness_window_days']
@@ -149,6 +161,23 @@ class AdminInventoryController extends Controller
         $inflow->delete();
 
         return $this->redirectToInventory($request, $receivedOn, __('admin.inventory.flash_inflow_deleted'));
+    }
+
+    /**
+     * Validate that a chosen grade belongs to the product (and is real),
+     * returning its id or NULL for the default grade. Rejects a variant from
+     * another product so an inflow can't be mis-attributed.
+     */
+    private function resolveVariantId(?Product $product, int|string|null $variantId): ?int
+    {
+        if ($variantId === null || $variantId === '' || $product === null) {
+            return null;
+        }
+
+        $belongs = $product->variants()->whereKey((int) $variantId)->exists();
+        abort_unless($belongs, 422, 'The selected grade does not belong to this product.');
+
+        return (int) $variantId;
     }
 
     private function redirectToInventory(Request $request, ?string $contextDate, string $flash): RedirectResponse

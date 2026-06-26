@@ -11,24 +11,34 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
 use App\Mail\ShopOrderWindowMail;
+use App\Models\Producer;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\ShopOrder;
+use App\Services\Admin\InventoryService;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
+use App\Services\Shop\PriceResolver;
 use App\Services\Shop\ShopOrderService;
 use App\Support\AuditLogger;
 use App\Support\PickupLocations;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
+use ZipArchive;
 
 /**
  * Proper admin surface for anonymous {@see ShopOrder}s.
@@ -47,12 +57,18 @@ use Throwable;
  */
 class AdminShopOrderController extends Controller
 {
-    public function __construct(private readonly ShopOrderService $service) {}
+    public function __construct(
+        private readonly ShopOrderService $service,
+        private readonly PriceResolver $priceResolver,
+        private readonly InventoryService $inventory,
+    ) {}
 
     /**
-     * JSON list of products available on a specific date, for the admin order
-     * form's date-first product picker. Returns only products with positive
-     * stock on the given date so the admin only sees orderable items.
+     * JSON list of orderable grades (product × optional variant) for a
+     * specific date. Each entry carries the full pricing breakdown
+     * needed by the admin order form: both customer-type base prices,
+     * the tiers that apply to each customer type, the VAT rate, and
+     * the canonical-unit prices used for line-total auto-fill.
      */
     public function availableProductsForDate(Request $request): JsonResponse
     {
@@ -62,24 +78,156 @@ class AdminShopOrderController extends Controller
         }
 
         $date = Carbon::parse($dateStr)->startOfDay();
-        $customerType = (string) $request->query('customer_type', CustomerType::Private->value);
-        $audience = $customerType === CustomerType::Business->value
+        $customerType = $request->query('customer_type') === CustomerType::Business->value
+            ? CustomerType::Business
+            : CustomerType::Private;
+        $audience = $customerType === CustomerType::Business
             ? ShopStockAudience::BusinessTrade
             : ShopStockAudience::Consumer;
 
-        return response()->json(
-            $this->service->availableProductsForDate($date, $audience)
-                ->map(fn (array $row) => [
-                    'id' => $row['product']->id,
-                    'name' => $row['product']->name,
-                    'producer' => $row['product']->producer?->name ?? '',
-                    'price' => $row['product']->displayPrice(),
-                    'unit' => $row['product']->canonicalUnitLabel(),
-                    'remaining' => $row['remaining'],
-                    'vat_rate_percent' => (int) ($row['product']->vat_rate_percent ?? 7),
-                ])
-                ->values()
+        $grades = [];
+        foreach ($this->service->availableProductsForDate($date, $audience) as $row) {
+            /** @var Product $product */
+            $product = $row['product'];
+            // priceRules + variants are needed for grade enumeration and tier
+            // resolution. variant_translations doesn't exist as a relation —
+            // variant names live on a JSON column read by localizedName().
+            $product->loadMissing('priceRules', 'variants');
+            $variants = $product->activeVariants();
+
+            // Default grade: present when the product has no named variants,
+            // or when the default itself has stock that day.
+            $defaultRemaining = $variants->isEmpty()
+                ? (float) $row['remaining']
+                : (float) $this->inventory->remainingForGrade($product, $date, null);
+            if ($variants->isEmpty() || $defaultRemaining > 0) {
+                $grades[] = $this->buildGrade($product, null, $defaultRemaining, $date, $customerType);
+            }
+
+            // Named grades.
+            foreach ($variants as $variant) {
+                $remaining = (float) $this->inventory->remainingForGrade($product, $date, $variant->id);
+                if ($remaining <= 0) {
+                    continue;
+                }
+                $grades[] = $this->buildGrade($product, $variant, $remaining, $date, $customerType);
+            }
+        }
+
+        return response()->json($grades);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildGrade(
+        Product $product,
+        ?ProductVariant $variant,
+        float $remaining,
+        Carbon $date,
+        CustomerType $customerType,
+    ): array {
+        $altCustomerType = $customerType === CustomerType::Business
+            ? CustomerType::Private
+            : CustomerType::Business;
+
+        $privateResolved = $this->priceResolver->resolve(
+            $product, $date, CustomerType::Private, null, $variant?->id, $variant,
         );
+        $businessResolved = $this->priceResolver->resolve(
+            $product, $date, CustomerType::Business, null, $variant?->id, $variant,
+        );
+        // The picked tier is whichever the current customer type maps to.
+        $picked = $customerType === CustomerType::Business ? $businessResolved : $privateResolved;
+        $alt = $altCustomerType === CustomerType::Business ? $businessResolved : $privateResolved;
+
+        $gradeKey = $variant !== null ? $product->id.':'.$variant->id : (string) $product->id;
+        $gradeLabel = $variant?->localizedName();
+        $displayName = $variant !== null ? $product->name.' · '.$gradeLabel : $product->name;
+
+        return [
+            'key' => $gradeKey,
+            'id' => $gradeKey, // dropdown <option value=...>
+            'product_id' => $product->id,
+            'variant_id' => $variant?->id,
+            'grade_label' => $gradeLabel,
+            'name' => $displayName,
+            'producer' => $product->producer?->name ?? '',
+            'unit' => $product->canonicalUnitLabel(),
+            'display_unit' => $product->localizedUnit(),
+            'remaining' => $remaining,
+            'vat_rate_percent' => (int) ($product->vat_rate_percent ?? 7),
+            // Tier-aware display price for the CURRENTLY selected customer
+            // type — drives the line-total autofill.
+            'price' => $this->formatDisplayPrice($product, $picked->unitPriceEur),
+            'unit_price_eur' => $picked->unitPriceEur,
+            'price_reason' => $picked->reason,
+            // Same fields for the OTHER customer type — for the comparison
+            // line of the price breakdown.
+            'alt_price' => $this->formatDisplayPrice($product, $alt->unitPriceEur),
+            'alt_unit_price_eur' => $alt->unitPriceEur,
+            'alt_price_reason' => $alt->reason,
+            // Untyped volume tiers (the standard "ab 1 kg: 1,00 €/kg" rules)
+            // apply to private customers only; business gets the flat
+            // customer-group price. The breakdown surfaces those tiers next
+            // to the private base so the admin can sanity-check at a glance.
+            'private_tiers' => $this->tiersFor($product, $variant, formatted: true),
+        ];
+    }
+
+    /**
+     * Untyped (date-open, customer-type-null) volume tiers for the given
+     * grade — these are private-customer discounts; business orders never
+     * get them. Returned as a list of localized strings already formatted
+     * (e.g. "ab 1 kg: 1,00 €/kg") so the admin form can render them
+     * directly in the breakdown.
+     *
+     * @return list<array{min_qty: float, price_per_unit_eur: float, label: string}>
+     */
+    private function tiersFor(Product $product, ?ProductVariant $variant, bool $formatted = false): array
+    {
+        $variantId = $variant?->id;
+
+        return $product->priceRules
+            ->filter(function ($r) use ($variantId): bool {
+                if (! $r->is_active) {
+                    return false;
+                }
+                if ($r->customer_type !== null || $r->starts_on !== null || $r->ends_on !== null) {
+                    return false;
+                }
+                if ($r->min_quantity === null) {
+                    return false;
+                }
+
+                return ((int) $r->variant_id) === ((int) $variantId);
+            })
+            ->sortBy(fn ($r) => (float) $r->min_quantity)
+            ->map(fn ($r) => [
+                'min_qty' => (float) $r->min_quantity,
+                'price_per_unit_eur' => (float) $r->unit_price,
+                'label' => $formatted ? __('shop.tier_from', [
+                    'qty' => $product->displayQuantity((float) $r->min_quantity),
+                    'price' => $this->formatDisplayPrice($product, (float) $r->unit_price),
+                ]) : '',
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Localized "9,00 €/kg" string for a per-canonical-unit price, using
+     * the product's chosen display unit (kg/L/piece/bunch).
+     */
+    private function formatDisplayPrice(Product $product, float $unitPriceEur): string
+    {
+        if ($product->unit === null) {
+            return number_format($unitPriceEur, 2, ',', '.').' €';
+        }
+
+        $displayUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
+
+        return $product->unit->formatPrice($unitPriceEur, $displayUnit);
     }
 
     /**
@@ -97,7 +245,21 @@ class AdminShopOrderController extends Controller
         $couponCode = $request->input('coupon_code');
         $normalizedCoupon = is_string($couponCode) && trim($couponCode) !== '' ? trim($couponCode) : null;
 
-        $quote = $this->service->quote($items, $fulfillmentMode, $normalizedCoupon);
+        $quoteDate = filled($request->input('expected_delivery_date'))
+            ? Carbon::parse((string) $request->input('expected_delivery_date'))->startOfDay()
+            : null;
+        $customerType = $request->input('customer_type') === CustomerType::Business->value
+            ? CustomerType::Business
+            : CustomerType::Private;
+
+        $quote = $this->service->quote(
+            $items,
+            $fulfillmentMode,
+            $normalizedCoupon,
+            null,
+            $quoteDate,
+            $customerType,
+        );
 
         if ($quote['lines'] === []) {
             return response()->json(['message' => 'empty cart'], 422);
@@ -119,6 +281,8 @@ class AdminShopOrderController extends Controller
             'lines' => collect($quote['lines'])
                 ->map(fn (array $line): array => [
                     'product_id' => $line['product']->id,
+                    'variant_id' => $line['variant_id'] ?? null,
+                    'unit_price_eur' => $line['unit_price_eur'] ?? null,
                     'line_total_eur' => $line['line_total_eur'],
                     'vat_rate_percent' => $line['vat_rate_percent'],
                     'vat_amount_eur' => $line['vat_amount_eur'],
@@ -228,6 +392,176 @@ class AdminShopOrderController extends Controller
         $filename = 'erdgut-bestellungen-'.now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(new ShopOrdersExport($orders, $filter), $filename);
+    }
+
+    /**
+     * JSON list of producers that have at least one ordered item in the
+     * currently-filtered orders. Drives the "pick a farm" select in the
+     * Hofbestellung export flow on the orders list page.
+     */
+    public function farmerExportProducers(Request $request): JsonResponse
+    {
+        $filter = $this->resolveFilter($request);
+
+        $producers = Producer::query()
+            ->select('producers.id')
+            ->join('products', 'products.producer_id', '=', 'producers.id')
+            ->join('shop_order_items', 'shop_order_items.product_id', '=', 'products.id')
+            ->whereIn('shop_order_items.shop_order_id', $this->filteredOrdersQuery($filter)->select('shop_orders.id'))
+            ->groupBy('producers.id')
+            ->pluck('id');
+
+        $rows = Producer::query()
+            ->whereIn('id', $producers)
+            ->with('translations')
+            ->get()
+            ->map(fn (Producer $p): array => ['id' => $p->id, 'name' => $p->name])
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->all();
+
+        return response()->json($rows);
+    }
+
+    /**
+     * Build a ZIP holding a PDF and a CSV summarising what Erdgut needs
+     * from one specific farmer over the currently-filtered window. The
+     * CSV is the editable fallback if the admin wants to tweak anything
+     * before sending; the PDF is the "ready to send" copy.
+     */
+    public function farmerExport(Request $request): BinaryFileResponse
+    {
+        $filter = $this->resolveFilter($request);
+        $producerId = (int) $request->query('producer_id', 0);
+        abort_unless($producerId > 0, 422, 'producer_id is required');
+
+        $producer = Producer::with('translations')->find($producerId);
+        abort_unless($producer !== null, 404);
+
+        $orders = $this->filteredOrdersQuery($filter)
+            ->with([
+                'items.product.producer.translations',
+                'items.product.translations',
+                'items.product.variants',
+            ])
+            ->orderBy('expected_delivery_date')
+            ->orderBy('id')
+            ->get();
+
+        $rows = $this->buildFarmerOrderRows($orders, $producerId);
+
+        $slug = Str::slug($producer->name) ?: 'hof';
+        $today = now()->format('Y-m-d');
+        $base = "erdgut-hofbestellung-{$slug}-{$today}";
+
+        $pdfContent = Pdf::loadView('admin.shop-orders.farmer-order-pdf', [
+            'producer' => $producer,
+            'filter' => $filter,
+            'rows' => $rows,
+            'generatedAt' => now(),
+        ])->output();
+
+        $csvContent = $this->buildFarmerOrderCsv($rows);
+
+        $tempZip = tempnam(sys_get_temp_dir(), 'farmer-export-');
+        $zip = new ZipArchive;
+        $zip->open($tempZip, ZipArchive::OVERWRITE | ZipArchive::CREATE);
+        $zip->addFromString($base.'.pdf', $pdfContent);
+        // UTF-8 BOM so Excel opens the CSV with the right encoding by default.
+        $zip->addFromString($base.'.csv', "\xEF\xBB\xBF".$csvContent);
+        $zip->close();
+
+        return Response::download($tempZip, $base.'.zip', [
+            'Content-Type' => 'application/zip',
+        ])->deleteFileAfterSend();
+    }
+
+    /**
+     * Aggregate the filtered orders' items into one row per (date, product,
+     * variant) for a single producer, with the canonical quantity converted
+     * to the product's display unit.
+     *
+     * @param  Collection<int, ShopOrder>  $orders
+     * @return list<array<string, mixed>>
+     */
+    private function buildFarmerOrderRows($orders, int $producerId): array
+    {
+        $buckets = [];
+        foreach ($orders as $order) {
+            foreach ($order->items as $item) {
+                $product = $item->product;
+                if ($product === null || (int) $product->producer_id !== $producerId) {
+                    continue;
+                }
+
+                $variant = $item->variant_id !== null
+                    ? $product->variants->firstWhere('id', $item->variant_id)
+                    : null;
+                $variantName = $variant?->localizedName();
+
+                $unit = $product->unit;
+                $displayUnit = $product->price_display_unit ?? $unit?->defaultDisplayUnit();
+                $factor = $unit !== null && $displayUnit !== null
+                    ? $unit->canonicalUnitsPerDisplay($displayUnit)
+                    : 1;
+                $displaySymbol = $product->localizedUnit();
+
+                $dateKey = $order->expected_delivery_date->toDateString();
+                $key = $dateKey.'|'.$product->id.'|'.($item->variant_id ?? 0);
+
+                if (! isset($buckets[$key])) {
+                    $buckets[$key] = [
+                        'date' => $order->expected_delivery_date,
+                        'product_name' => $product->name,
+                        'variant_name' => $variantName,
+                        'qty_display' => 0.0,
+                        'unit' => $displaySymbol,
+                    ];
+                }
+                $buckets[$key]['qty_display'] += $factor > 0
+                    ? (float) $item->quantity / $factor
+                    : (float) $item->quantity;
+            }
+        }
+
+        $rows = array_values($buckets);
+        usort($rows, function (array $a, array $b): int {
+            return [$a['date']->toDateString(), $a['product_name'], (string) ($a['variant_name'] ?? '')]
+                <=> [$b['date']->toDateString(), $b['product_name'], (string) ($b['variant_name'] ?? '')];
+        });
+
+        return array_map(fn (array $r): array => array_merge($r, [
+            'qty_display' => round($r['qty_display'], 4),
+        ]), $rows);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function buildFarmerOrderCsv(array $rows): string
+    {
+        $handle = fopen('php://temp', 'r+');
+        fputcsv($handle, [
+            __('shop.admin.farmer_export_col_date'),
+            __('shop.admin.farmer_export_col_product'),
+            __('shop.admin.farmer_export_col_variant'),
+            __('shop.admin.farmer_export_col_quantity'),
+            __('shop.admin.farmer_export_col_unit'),
+        ]);
+        foreach ($rows as $row) {
+            fputcsv($handle, [
+                $row['date']->format('Y-m-d'),
+                $row['product_name'],
+                (string) ($row['variant_name'] ?? ''),
+                number_format((float) $row['qty_display'], 4, '.', ''),
+                (string) $row['unit'],
+            ]);
+        }
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return is_string($csv) ? $csv : '';
     }
 
     /**

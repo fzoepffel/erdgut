@@ -68,6 +68,44 @@ class InventoryServiceTest extends TestCase
         ]);
     }
 
+    public function test_abandoned_pending_payment_releases_stock_after_grace_window(): void
+    {
+        $product = Product::factory()->create();
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => '2026-08-12',
+            'quantity' => 100,
+            'freshness_window_days' => 4,
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-08-10 10:00:00'));
+
+        $fresh = ShopOrder::create([
+            'name' => 'C', 'email' => 'c@example.com', 'phone' => null,
+            'fulfillment_mode' => 'pickup', 'pickup_location' => 'karl_kunger',
+            'expected_delivery_date' => '2026-08-12',
+            'items_total_eur' => 0, 'delivery_fee_eur' => 0, 'total_amount_eur' => 0,
+            'payment_method' => 'online', 'status' => ShopOrderStatus::PendingPayment,
+        ]);
+        $fresh->items()->create([
+            'product_id' => $product->id, 'quantity' => 30, 'unit' => 'piece',
+            'unit_price_snapshot_eur' => 1, 'line_total_eur' => 30,
+            'vat_rate_snapshot_percent' => 7, 'vat_amount_eur' => 0,
+        ]);
+        // Fresh pending-payment order (just created) holds stock — 70 remain.
+        $this->assertEqualsWithDelta(70.0, $this->service->availableOnDate($product, Carbon::parse('2026-08-12')), 0.001);
+
+        // Backdate the order beyond the abandonment grace window — stock
+        // should flow back to the available pool. Eloquent guards created_at
+        // by default, so bypass with the query builder.
+        ShopOrder::query()
+            ->where('id', $fresh->id)
+            ->update(['created_at' => Carbon::now()->subMinutes(InventoryService::ABANDONED_PENDING_PAYMENT_MINUTES + 1)]);
+        $this->assertEqualsWithDelta(100.0, $this->service->availableOnDate($product, Carbon::parse('2026-08-12')), 0.001);
+
+        Carbon::setTestNow(null);
+    }
+
     public function test_batch_depletion_carries_across_the_whole_freshness_window(): void
     {
         // Reported bug: inflow 100, freshness 4 (Aug 12–15); a sale of 10 on the

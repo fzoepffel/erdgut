@@ -199,6 +199,59 @@ class AdminShopOrderExportTest extends TestCase
         $this->assertSame(26.4, $row[17]);
     }
 
+    public function test_picklist_positions_include_variant_snapshot_when_present(): void
+    {
+        $farm = Producer::factory()->create();
+        $tomato = Product::factory()->create([
+            'producer_id' => $farm->id,
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+        ]);
+
+        $order = ShopOrder::factory()->paid()->create([
+            'fulfillment_mode' => 'pickup',
+            'pickup_location' => 'bornsdorf',
+            'expected_delivery_date' => '2026-06-10',
+        ]);
+
+        // Two lines for the same product on the order, distinct grades.
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $tomato->id,
+            'variant_id' => null,
+            'variant_name_snapshot' => 'STANDARD',
+            'quantity' => 1000,
+            'unit' => 'g',
+            'unit_price_snapshot_eur' => 0.009,
+            'line_total_eur' => 9.0,
+        ]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $tomato->id,
+            'variant_id' => null,
+            'variant_name_snapshot' => 'YDA',
+            'quantity' => 500,
+            'unit' => 'g',
+            'unit_price_snapshot_eur' => 0.012,
+            'line_total_eur' => 6.0,
+        ]);
+
+        $sheet = new ShopOrderPicklistSheet(
+            Collection::make([$order->fresh(['items.product.producer.translations'])])
+        );
+        $rows = $sheet->array();
+
+        $this->assertCount(1, $rows);
+        $expected = sprintf(
+            "%s · STANDARD (%s)\n%s · YDA (%s)",
+            $tomato->name,
+            $farm->name,
+            $tomato->name,
+            $farm->name,
+        );
+        $this->assertSame($expected, $rows[0][9]);
+    }
+
     public function test_farm_totals_sheet_aggregates_with_cost_and_margin(): void
     {
         $farm = Producer::factory()->create();
@@ -411,5 +464,91 @@ class AdminShopOrderExportTest extends TestCase
         $response->assertSee('status='.ShopOrderStatus::Paid->value, false);
         $response->assertSee('delivery_from=2026-06-10', false);
         $response->assertSee('delivery_to=2026-06-12', false);
+    }
+
+    public function test_farmer_export_requires_admin(): void
+    {
+        // Guest → 401 from the JSON middleware on the producers endpoint;
+        // a logged-in non-admin → 403 from the admin gate.
+        $this->getJson(route('app.admin.shop-orders.farmer-export.producers'))->assertUnauthorized();
+        $user = User::factory()->create(['is_admin' => false]);
+        $this->actingAs($user)
+            ->getJson(route('app.admin.shop-orders.farmer-export.producers'))
+            ->assertForbidden();
+    }
+
+    public function test_farmer_export_producers_lists_only_producers_in_filter(): void
+    {
+        $admin = User::factory()->admin()->create();
+        // Producer A: has an order in range. Producer B: has one outside.
+        $producerA = Producer::factory()->create();
+        $producerB = Producer::factory()->create();
+        $productA = Product::factory()->create([
+            'producer_id' => $producerA->id,
+            'unit' => ProductUnit::Mass->value,
+        ]);
+        $productB = Product::factory()->create([
+            'producer_id' => $producerB->id,
+            'unit' => ProductUnit::Mass->value,
+        ]);
+
+        $inWindow = ShopOrder::factory()->paid()->create(['expected_delivery_date' => '2026-06-10']);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $inWindow->id,
+            'product_id' => $productA->id,
+        ]);
+        $outOfWindow = ShopOrder::factory()->paid()->create(['expected_delivery_date' => '2026-07-30']);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $outOfWindow->id,
+            'product_id' => $productB->id,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->getJson(route('app.admin.shop-orders.farmer-export.producers', [
+                'delivery_from' => '2026-06-01',
+                'delivery_to' => '2026-06-30',
+            ]));
+        $response->assertOk();
+        $ids = collect($response->json())->pluck('id')->all();
+        $this->assertContains($producerA->id, $ids);
+        $this->assertNotContains($producerB->id, $ids);
+    }
+
+    public function test_farmer_export_returns_zip(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.01,
+        ]);
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => '2026-06-10']);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $product->id,
+            'variant_id' => null,
+            'quantity' => 3000,
+            'unit' => 'g',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.farmer-export', [
+                'producer_id' => $producer->id,
+                'delivery_from' => '2026-06-01',
+                'delivery_to' => '2026-06-30',
+            ]));
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/zip');
+        $this->assertStringContainsString('erdgut-hofbestellung-', $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_farmer_export_requires_producer_id(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.farmer-export'))
+            ->assertStatus(422);
     }
 }

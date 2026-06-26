@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Shop;
 
+use App\Enums\CustomerType;
 use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ShopOrderRequest;
@@ -11,10 +12,12 @@ use App\Models\Product;
 use App\Models\ProductEngagementDaily;
 use App\Models\ProductSubcategory;
 use App\Models\ShopOrder;
+use App\Services\Shop\CheckoutDraft;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\ProductRankingService;
 use App\Services\Shop\ShopOrderService;
+use App\Support\Money;
 use App\Support\PickupLocations;
 use App\Support\ShopOrderAdminNotifier;
 use App\Support\SumUpCheckoutLogger;
@@ -46,23 +49,48 @@ class ShopController extends Controller
         private readonly ShopOrderService $service,
         private readonly CouponService $coupons,
         private readonly ProductRankingService $ranking,
+        private readonly CheckoutDraft $draft,
     ) {}
 
     public function index(Request $request): View
     {
+        // Abandoned-online-checkout recovery: the customer reached the SumUp
+        // widget, didn't pay, and came back to /shop to edit. The draft still
+        // remembers the placed order id (kept around so the basket can be
+        // restored); if that order is still PendingPayment, the customer is
+        // clearly starting over, so we cancel it to release its stock
+        // immediately. Without this, they'd see their own basket as
+        // "ausverkauft" for the next 30 minutes of the live-filter window.
+        $placedOrderId = $this->draft->placedOrderId();
+        if ($placedOrderId !== null) {
+            $stale = ShopOrder::query()->find($placedOrderId);
+            if ($stale !== null && $stale->status === ShopOrderStatus::PendingPayment) {
+                $stale->status = ShopOrderStatus::Cancelled;
+                $stale->save();
+            }
+            $this->draft->forgetPlacedOrderId();
+        }
+
         $index = $this->service->availabilityIndex();
         $availableDates = $index['dates'];
         $filterProducts = $index['products'];
 
-        // Resolve the active date: the `?date=` query param if it's still
-        // on the menu, else the first available date. Null when the shop
-        // has no stock at all (empty-state view).
+        // Resolve the active date. Priority:
+        //   1. `?date=` query param if it's still on the menu (deep-link),
+        //   2. the date held in the current checkout draft (so "edit basket"
+        //      from steps 2–3 reopens on the same day),
+        //   3. the first available date.
+        // Null when the shop has no stock at all (empty-state view).
         $selectedDate = null;
         $requested = (string) $request->query('date', '');
         $menu = $availableDates->map(fn (array $row): string => $row['date']->toDateString())->all();
+        $draftState = $this->draft->current();
+        $draftDate = isset($draftState['expected_delivery_date']) ? (string) $draftState['expected_delivery_date'] : '';
 
         if ($requested !== '' && in_array($requested, $menu, true)) {
             $selectedDate = Carbon::parse($requested)->startOfDay();
+        } elseif ($draftDate !== '' && in_array($draftDate, $menu, true)) {
+            $selectedDate = Carbon::parse($draftDate)->startOfDay();
         } elseif ($availableDates->isNotEmpty()) {
             $selectedDate = $availableDates->first()['date'];
         }
@@ -126,6 +154,14 @@ class ShopController extends Controller
             ])->values()->all())
             ->all();
 
+        // Draft items rehydrate the basket on return visits: the per-card
+        // hidden quantity inputs read from this lookup (keyed by Alpine jsId
+        // — "<productId>" for default grade, "v<variantId>" for named) when
+        // neither old('quantities.<id>') nor old('items') seeded a value.
+        $draftItems = $selectedDate !== null && ($draftState['expected_delivery_date'] ?? null) === $selectedDate->toDateString()
+            ? (array) ($draftState['items'] ?? [])
+            : [];
+
         return view('shop.index', [
             'availableDates' => $availableDates,
             'filterProducts' => $filterProducts,
@@ -140,6 +176,7 @@ class ShopController extends Controller
             'quantityStep' => (int) config('shop.quantity_step', 50),
             'maxQuantity' => (int) config('shop.max_quantity', 3000),
             'maxCount' => (int) config('shop.max_count', 12),
+            'draftItems' => $draftItems,
         ]);
     }
 
@@ -199,6 +236,129 @@ class ShopController extends Controller
      * Rejection reasons are mapped to deliberately-coarse localized messages
      * so the endpoint can't be used to enumerate which codes exist.
      */
+    /**
+     * Ground-truth pricing for the storefront. The frontend NEVER computes
+     * prices itself: on every cart / mode / coupon change it posts the cart
+     * here and renders the numbers this returns — the exact same
+     * {@see ShopOrderService::quote} that persists the order at checkout, so
+     * the displayed line totals, summary, VAT and grand total can never drift
+     * from what the customer is actually charged.
+     */
+    public function quote(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'coupon_code' => ['nullable', 'string', 'max:64'],
+            'email' => ['nullable', 'email:rfc', 'max:190'],
+            'fulfillment_mode' => ['required', 'in:pickup,delivery'],
+            'expected_delivery_date' => ['nullable', 'date'],
+        ]);
+
+        $items = ShopOrderService::normalizeCartItems(
+            (array) $request->input('quantities', []),
+            (array) $request->input('variant_quantities', []),
+        );
+
+        $date = filled($data['expected_delivery_date'] ?? null)
+            ? Carbon::parse((string) $data['expected_delivery_date'])->startOfDay()
+            : null;
+
+        $quote = $this->service->quote(
+            $items,
+            (string) $data['fulfillment_mode'],
+            $data['coupon_code'] ?? null,
+            $data['email'] ?? null,
+            $date,
+            CustomerType::Private,
+        );
+
+        // Per-line breakdown keyed exactly like the storefront's cart entries:
+        // the default grade by product id, named grades as "v{variantId}".
+        $lines = [];
+        foreach ($quote['lines'] as $line) {
+            /** @var Product $product */
+            $product = $line['product'];
+            $variantId = $line['variant_id'] ?? null;
+            $key = $variantId !== null ? 'v'.$variantId : (string) $product->id;
+            $name = $product->name.($line['variant_name_snapshot'] ? ' · '.$line['variant_name_snapshot'] : '');
+
+            $lines[$key] = [
+                'name' => $name,
+                'qty_label' => $product->displayQuantity((float) $line['quantity']),
+                'unit_price_label' => $this->formatUnitPrice($product, (float) $line['unit_price_eur']),
+                'line_total' => (float) $line['line_total_eur'],
+                'line_total_label' => Money::formatEur($line['line_total_eur']),
+            ];
+        }
+
+        return response()->json([
+            'lines' => $lines,
+            'items_total' => $quote['items_total_eur'],
+            'items_total_label' => Money::formatEur($quote['items_total_eur']),
+            'delivery_fee' => $quote['delivery_fee_eur'],
+            'delivery_fee_label' => Money::formatEur($quote['delivery_fee_eur']),
+            'has_delivery_fee' => $quote['delivery_fee_eur'] > 0,
+            'discount' => $quote['discount_eur'],
+            'discount_label' => Money::formatEur($quote['discount_eur']),
+            'has_discount' => $quote['discount_eur'] > 0,
+            'total' => $quote['total_amount_eur'],
+            'total_label' => Money::formatEur($quote['total_amount_eur']),
+            'coupon' => [
+                'applied' => $quote['coupon'] !== null,
+                'code' => $quote['coupon_code'],
+                'type' => $quote['coupon']?->type->value,
+                'message' => $quote['coupon'] === null && $quote['coupon_error'] !== null
+                    ? __('coupon.errors.'.$quote['coupon_error'], $quote['coupon_error_params'])
+                    : null,
+            ],
+            'vat_lines' => $this->vatLinesForQuote($quote),
+        ]);
+    }
+
+    /** Format a canonical (€/g) unit price in the product's display unit. */
+    private function formatUnitPrice(Product $product, float $canonical): string
+    {
+        $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit();
+
+        return $product->unit !== null && $displayUnit !== null
+            ? $product->unit->formatPrice($canonical, $displayUnit)
+            : Money::formatEur($canonical);
+    }
+
+    /**
+     * Pre-formatted per-rate VAT summary lines for a quote (gross-inclusive),
+     * grouping line VAT by rate and adding the delivery-fee VAT.
+     *
+     * @param  array<string, mixed>  $quote
+     * @return list<string>
+     */
+    private function vatLinesForQuote(array $quote): array
+    {
+        $byRate = [];
+        foreach ($quote['lines'] as $line) {
+            $rate = (int) $line['vat_rate_percent'];
+            $byRate[$rate] = ($byRate[$rate] ?? 0.0) + (float) $line['vat_amount_eur'];
+        }
+        if ((float) $quote['delivery_fee_vat_amount_eur'] > 0) {
+            $rate = (int) $quote['delivery_fee_vat_rate_percent'];
+            $byRate[$rate] = ($byRate[$rate] ?? 0.0) + (float) $quote['delivery_fee_vat_amount_eur'];
+        }
+        ksort($byRate);
+
+        $lines = [];
+        foreach ($byRate as $rate => $amount) {
+            $lines[] = __('shop.summary_vat_rate_line', [
+                'rate' => $rate,
+                'amount' => Money::formatEur(round($amount, 2)),
+            ]);
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Back-compat coupon preview (returns the legacy aggregate shape). The
+     * storefront now uses {@see quote}; this stays for the coupon test suite.
+     */
     public function couponPreview(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -207,20 +367,21 @@ class ShopController extends Controller
             'fulfillment_mode' => ['required', 'in:pickup,delivery'],
         ]);
 
-        // Normalize the storefront's quantity map into clean cart lines.
-        $items = [];
-        foreach ((array) $request->input('quantities', []) as $productId => $quantity) {
-            $qty = (float) $quantity;
-            if ($qty > 0) {
-                $items[] = ['product_id' => (int) $productId, 'quantity' => $qty];
-            }
-        }
+        $items = ShopOrderService::normalizeCartItems(
+            (array) $request->input('quantities', []),
+            (array) $request->input('variant_quantities', []),
+        );
+
+        $previewDate = filled($request->input('expected_delivery_date'))
+            ? Carbon::parse((string) $request->input('expected_delivery_date'))->startOfDay()
+            : null;
 
         $quote = $this->service->quote(
             $items,
             (string) $data['fulfillment_mode'],
             $data['coupon_code'] ?? null,
             $data['email'] ?? null,
+            $previewDate,
         );
 
         $applied = $quote['coupon'] !== null;
@@ -314,6 +475,13 @@ class ShopController extends Controller
             }
         }
 
+        // The checkout draft was kept alive across the SumUp redirect so a
+        // failed/abandoned payment would restore the basket. The order is
+        // now settled (paid, failed, or pay-in-person), so the draft can go.
+        if ($this->draft->placedOrderId() === $shopOrder->id) {
+            $this->draft->clear();
+        }
+
         // Ask customers (once, ever) whether they'd like to hear when the
         // subscription boxes launch. Shown on any completed order — online
         // (Paid) or pay-in-person (which stays PendingPayment until handed
@@ -366,6 +534,13 @@ class ShopController extends Controller
             'items.product.translations',
             'items.product.producer',
         ]);
+
+        // Render the receipt in the language the order was placed in — not the
+        // locale of whoever is downloading it (e.g. an admin on an English
+        // session), so product names + units stay in the customer's language.
+        if ($order->locale) {
+            app()->setLocale($order->locale);
+        }
 
         $pdf = Pdf::loadView('shop.pdf.receipt', [
             'order' => $order,

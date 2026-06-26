@@ -20,7 +20,7 @@
         @foreach ($order->items as $item)
             <div class="flex items-center justify-between gap-4 border-b border-brand-ink/10 py-2">
                 <dt class="eyebrow text-brand-ink/60">
-                    {{ $item->product?->displayQuantity((float) $item->quantity) }} · {{ $item->product?->name }}
+                    {{ $item->product?->displayQuantity((float) $item->quantity) }} · {{ $item->product?->name }}@if ($item->variant_name_snapshot) <span class="text-brand-ink/45">· {{ $item->variant_name_snapshot }}</span>@endif
                 </dt>
                 <dd class="tabular-nums text-brand-ink">@eur($item->line_total_eur)</dd>
             </div>

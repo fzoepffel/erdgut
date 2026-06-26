@@ -10,7 +10,9 @@ use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ShopOrder;
+use App\Models\ShopOrderItem;
 use App\Models\User;
+use App\Services\Shop\CheckoutDraft;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\ShopOrderService;
 use App\Support\Money;
@@ -179,7 +181,20 @@ class ShopOrderFlowTest extends TestCase
 
     public function test_storefront_consent_links_to_shop_terms_not_box_terms(): void
     {
-        $this->get(route('public.shop.index'))
+        // Consent has moved off the storefront onto the checkout review page
+        // (step 3 of the new wizard). Seed a complete draft so we can render it.
+        session()->put(CheckoutDraft::KEY, [
+            'items' => [['product_id' => $this->product->id, 'quantity' => 2]],
+            'expected_delivery_date' => self::DELIVERY_DATE,
+            'fulfillment_mode' => 'pickup',
+            'payment_method' => 'online',
+            'pickup_location' => 'bornsdorf',
+            'name' => 'Anna Tester',
+            'email' => 'a@example.com',
+            'updated_at' => now()->toIso8601String(),
+        ]);
+
+        $this->get(route('public.shop.checkout.review'))
             ->assertOk()
             ->assertSee('href="'.route('public.shop.terms').'"', false)
             ->assertDontSee('href="'.route('public.terms').'"', false);
@@ -470,6 +485,28 @@ class ShopOrderFlowTest extends TestCase
             ->assertSee(__('shop.pay_heading'));
 
         $this->assertSame('co_test_shop_abc', $order->fresh()->sumup_checkout_id);
+    }
+
+    public function test_pay_page_renders_variant_name_next_to_product_name(): void
+    {
+        $order = ShopOrder::factory()->create([
+            'total_amount_eur' => 8.00,
+            'payment_method' => 'online',
+            'status' => ShopOrderStatus::PendingPayment,
+        ]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'variant_id' => null,
+            'variant_name_snapshot' => 'YDA',
+        ]);
+
+        $sumUp = Mockery::mock(SumUpService::class);
+        $sumUp->shouldReceive('createOneTimeCheckout')->andReturn((object) ['id' => 'co_variant_pay']);
+        $this->app->instance('sumup.spargel', $sumUp);
+
+        $this->get(route('public.shop.pay', ['shopOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee('YDA', escape: false);
     }
 
     public function test_return_marks_order_paid_and_queues_confirmation_when_sumup_confirms(): void
@@ -921,50 +958,44 @@ class ShopOrderFlowTest extends TestCase
         $this->assertSame($countBefore + 1, ShopOrder::query()->count(), 'Expected a new order after dedup window expired.');
     }
 
-    public function test_storefront_renders_confirmation_modal_markup(): void
+    public function test_storefront_step_one_points_to_checkout_start_route(): void
+    {
+        // The legacy "in-person confirmation modal" lived on /shop and is now
+        // gone — the wizard's review page (step 3) is where consent and the
+        // in-person confirmation happen. /shop only has to render the
+        // products + basket plus a submit button that POSTs to /shop/checkout/start.
+        $response = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]));
+        $response->assertOk();
+        $response->assertSee('action="'.route('public.shop.checkout.start').'"', false);
+        $response->assertSee('data-testid="shop-checkout-progress"', false);
+        $response->assertSee('data-testid="shop-submit"', false);
+    }
+
+    public function test_storefront_does_not_call_undefined_alpine_methods(): void
+    {
+        // Regression: the picker subtotal used `formatMoney(pickerSubtotal)`
+        // for a stretch, but the actual storefront helper is `money()`. The
+        // misnomer threw a ReferenceError every time the picker subtotal
+        // re-evaluated, which broke Alpine reactivity downstream (the
+        // canonical items[] template + the basket chip occasionally stopped
+        // updating). Guard against the typo creeping back in.
+        $html = (string) $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringNotContainsString('formatMoney(', $html, 'formatMoney() is not defined on the storefront Alpine component — use money() instead.');
+    }
+
+    public function test_storefront_renders_basket_chip_and_canonical_items_template(): void
     {
         $response = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]));
         $response->assertOk();
-        $response->assertSee('data-testid="shop-confirm-modal"', false);
-        $response->assertSee('data-testid="shop-confirm-submit"', false);
-        $response->assertSee('data-testid="shop-confirm-cancel"', false);
-        // Cart positions list inside the modal — driven by Alpine cartLines.
-        $response->assertSee('data-testid="shop-confirm-positions"', false);
-        $response->assertSee('confirmPositionsLabel', false);
-        $response->assertSee(__('shop.confirm_order_positions'));
-        // Each orderable product must ship a `name` field into the Alpine
-        // products registry — otherwise the modal renders "· qty" with no
-        // product name (regression check for the cart-line getter). `@js()`
-        // emits the JSON wrapped in JSON.parse('…'), with each `"` rendered
-        // as the Unicode escape `"` so the inner JSON survives the
-        // outer single-quoted JS string; assert against that exact form.
-        $q = '\u0022';
-        $this->assertStringContainsString(
-            $q.'id'.$q.':'.$this->product->id.','.$q.'name'.$q.':',
-            (string) $response->getContent(),
-            'Expected each Alpine product entry to carry a `name` field for the confirm-modal cart lines.',
-        );
-        // Regression: submitConfirmed must reach the shop form via Alpine
-        // x-ref (form is a descendant of the x-data root, not an ancestor),
-        // then re-submit through requestSubmit + _confirmBypass — not
-        // closest('form') (null) or raw form.submit() (silent no-op when the
-        // submit IDL is shadowed by the type=submit button).
-        $response->assertSee('x-ref="shopForm"', false);
-        $this->assertStringContainsString(
-            'this.$refs.shopForm',
-            (string) $response->getContent(),
-            'submitConfirmed must resolve the shop form via Alpine x-ref.',
-        );
-        $this->assertStringContainsString(
-            '_confirmBypass',
-            (string) $response->getContent(),
-            'submitConfirmed must bypass the modal interceptor on the second submit pass.',
-        );
-        $this->assertStringContainsString(
-            'requestSubmit',
-            (string) $response->getContent(),
-            'submitConfirmed must use requestSubmit so validation and POST run normally.',
-        );
+        // Floating basket chip is in the markup (it shows only when
+        // the basket is non-empty, but the element ships either way).
+        $response->assertSee('data-testid="shop-basket-chip"', false);
+        // Canonical cart payload — the basket emits items[i][product_id/variant_id/quantity]
+        // hidden inputs that the backend prefers over the legacy two-map shape.
+        $response->assertSee('items[${i}][product_id]', false);
+        $response->assertSee('items[${i}][quantity]', false);
     }
 
     public function test_storefront_does_not_show_product_from_b2b_only_inflow_alone(): void

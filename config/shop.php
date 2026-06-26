@@ -26,6 +26,11 @@ return [
     // the gross unit prices, surfaced on receipts as an informational line.
     'vat_rate_percent' => env('SHOP_VAT_RATE_PERCENT', 7),
 
+    // Margin floor for the PriceResolver: the minimum fraction above buying
+    // price that any resolved price must keep (0.0 = never sell below cost).
+    // A price rule that would drop below this floor is clamped + logged.
+    'price_min_margin' => (float) env('SHOP_PRICE_MIN_MARGIN', 0.0),
+
     // Quantity step (in canonical units) offered for mass/volume products
     // in the per-product picker — 50 g / 50 ml increments. Piece + bunch
     // products always step by 1 (whole counts).

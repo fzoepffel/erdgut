@@ -4,7 +4,10 @@ namespace Tests\Feature\Shop;
 
 use App\Enums\ShopOrderStatus;
 use App\Mail\ShopOrderWindowMail;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\ShopOrder;
+use App\Models\ShopOrderItem;
 use App\Models\User;
 use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -171,6 +174,40 @@ class AdminShopOrderTest extends TestCase
             ->assertSee('Beispielweg 42')
             ->assertSee('10999')
             ->assertSee('Karl-Kunger-Straße 9');
+    }
+
+    public function test_index_shows_variant_count_per_order(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $product = Product::factory()->create();
+        $standard = ProductVariant::factory()->create(['product_id' => $product->id]);
+        $yda = ProductVariant::factory()->create(['product_id' => $product->id]);
+
+        $variantOrder = ShopOrder::factory()->paid()->create();
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $variantOrder->id,
+            'product_id' => $product->id,
+            'variant_id' => $standard->id,
+            'variant_name_snapshot' => 'STANDARD',
+        ]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $variantOrder->id,
+            'product_id' => $product->id,
+            'variant_id' => $yda->id,
+            'variant_name_snapshot' => 'YDA',
+        ]);
+
+        $plainOrder = ShopOrder::factory()->paid()->create();
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $plainOrder->id,
+            'variant_id' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.index'))
+            ->assertOk()
+            ->assertSee(__('shop.admin.col_variant_count'));
     }
 
     public function test_index_filters_by_delivery_date_range(): void

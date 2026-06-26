@@ -8,6 +8,7 @@ use App\Enums\ShopOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Models\Coupon;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use App\Services\Admin\InventoryService;
@@ -44,7 +45,53 @@ class ShopOrderService
     public function __construct(
         private readonly SumUpService $sumUpService,
         private readonly CouponService $couponService,
+        private readonly PriceResolver $priceResolver,
     ) {}
+
+    /**
+     * Normalize the storefront's two quantity maps into clean cart lines —
+     * the single shape {@see quote} and {@see createOrder} expect. The default
+     * grade posts `quantities[productId]`; named grades post
+     * `variant_quantities[variantId]` (product resolved from the variant).
+     * Shared by the checkout request, the quote endpoint and the coupon
+     * preview so they can never disagree on what's in the cart.
+     *
+     * @param  array<int|string, mixed>  $quantities
+     * @param  array<int|string, mixed>  $variantQuantities
+     * @return array<int, array{product_id: int, quantity: float, variant_id: int|null}>
+     */
+    public static function normalizeCartItems(array $quantities, array $variantQuantities): array
+    {
+        $items = [];
+
+        foreach ($quantities as $productId => $quantity) {
+            $qty = (float) $quantity;
+            if ($qty > 0) {
+                $items[] = ['product_id' => (int) $productId, 'quantity' => $qty, 'variant_id' => null];
+            }
+        }
+
+        $variantQuantities = array_filter($variantQuantities, fn ($q): bool => (float) $q > 0);
+        if ($variantQuantities !== []) {
+            $variants = ProductVariant::query()
+                ->whereIn('id', array_map('intval', array_keys($variantQuantities)))
+                ->get(['id', 'product_id'])
+                ->keyBy('id');
+
+            foreach ($variantQuantities as $variantId => $quantity) {
+                $variant = $variants->get((int) $variantId);
+                if ($variant !== null) {
+                    $items[] = [
+                        'product_id' => (int) $variant->product_id,
+                        'quantity' => (float) $quantity,
+                        'variant_id' => (int) $variantId,
+                    ];
+                }
+            }
+        }
+
+        return $items;
+    }
 
     /**
      * Whether the checkout is "done" from the customer's point of view —
@@ -396,7 +443,7 @@ class ShopOrderService
 
         $products = Product::query()
             ->visibleInCatalog()
-            ->with(['translations', 'producer.translations', 'images'])
+            ->with(['translations', 'producer.translations', 'images', 'priceRules', 'variants'])
             ->get();
 
         $matrix = $inventory->availabilityMatrix($products, $from, $weekEnd);
@@ -523,6 +570,8 @@ class ShopOrderService
         string $fulfillmentMode,
         ?string $couponCode = null,
         ?string $email = null,
+        ?Carbon $deliveryDate = null,
+        CustomerType $customerType = CustomerType::Private,
     ): array {
         $productIds = collect($cartLines)
             ->pluck('product_id')
@@ -532,6 +581,7 @@ class ShopOrderService
 
         $products = Product::query()
             ->visibleInCatalog()
+            ->with(['priceRules', 'variants'])
             ->whereIn('id', $productIds)
             ->get()
             ->keyBy('id');
@@ -547,7 +597,24 @@ class ShopOrderService
                 continue;
             }
 
-            $unitPrice = (float) $product->unit_price;
+            // Optional grade (variant). A line referencing an unknown or
+            // inactive grade is dropped — the Request layer rejects those
+            // before persist, but quote() stays defensive for the preview.
+            $variantId = isset($line['variant_id']) && $line['variant_id'] !== null
+                ? (int) $line['variant_id']
+                : null;
+            $variant = $variantId !== null
+                ? $product->variants->firstWhere('id', $variantId)
+                : null;
+            if ($variantId !== null && ($variant === null || ! $variant->is_active)) {
+                continue;
+            }
+
+            // Effective price for this date / customer / quantity / grade.
+            // Falls back to the grade's (or product's) base price when no rule
+            // applies.
+            $resolved = $this->priceResolver->resolve($product, $deliveryDate, $customerType, $quantity, $variantId, $variant);
+            $unitPrice = $resolved->unitPriceEur;
             $lineTotal = round($unitPrice * $quantity, 2);
             $itemsTotal += $lineTotal;
 
@@ -558,9 +625,12 @@ class ShopOrderService
 
             $lines[] = [
                 'product' => $product,
+                'variant_id' => $variantId,
+                'variant_name_snapshot' => $variant?->localizedName(),
                 'quantity' => $quantity,
                 'unit' => $product->unit->value,
                 'unit_price_eur' => $unitPrice,
+                'price_rule_id' => $resolved->ruleId,
                 'line_total_eur' => $lineTotal,
                 'vat_rate_percent' => $vatRate,
                 'vat_amount_eur' => $vatAmount,
@@ -652,6 +722,8 @@ class ShopOrderService
                 'vat_rate_percent' => $vatRate,
                 'unit_price_eur' => $quantity > 0 ? round($lineTotal / $quantity, 4) : 0.0,
                 'vat_amount_eur' => self::vatAmountFromGross($lineTotal, $vatRate),
+                // Manual admin pricing is authoritative; no rule provenance.
+                'price_rule_id' => null,
             ]);
             $itemsTotal += $lineTotal;
         }
@@ -716,11 +788,17 @@ class ShopOrderService
 
         // Re-resolve the coupon at persist time against the live subtotal +
         // email so a stale preview can't lock in a bigger discount.
+        $customerType = ($payload['customer_type'] ?? null) === CustomerType::Business->value
+            ? CustomerType::Business
+            : CustomerType::Private;
+
         $quote = $this->quote(
             $cartLines,
             $fulfillmentMode,
             isset($payload['coupon_code']) ? (string) $payload['coupon_code'] : null,
             isset($payload['email']) ? (string) $payload['email'] : null,
+            $deliveryDate,
+            $customerType,
         );
         if ($quote['lines'] === []) {
             throw new \InvalidArgumentException('Cart is empty.');
@@ -744,7 +822,9 @@ class ShopOrderService
                 $product = $line['product'];
                 Product::query()->lockForUpdate()->find($product->id);
 
-                $remaining = $inventory->availableOnDate($product, $deliveryDate, $audience);
+                // Cap against the chosen grade's own stock (NULL line → the
+                // default grade, key 0), so grades deplete independently.
+                $remaining = $inventory->availableOnDate($product, $deliveryDate, $audience, $line['variant_id'] ?? 0);
                 if ($line['quantity'] > $remaining + 1e-6) {
                     throw new InsufficientStockException(
                         $product,
@@ -781,6 +861,10 @@ class ShopOrderService
                 // sending these keys; the admin creation path passes them explicitly.
                 'order_source' => $payload['order_source'] ?? OrderSource::Storefront->value,
                 'customer_type' => $payload['customer_type'] ?? CustomerType::Private->value,
+                // Pin the locale the order was placed in so customer documents
+                // (receipt, confirmation email) stay in the customer's language
+                // even when generated later from a different locale context.
+                'locale' => $payload['locale'] ?? app()->getLocale(),
             ]);
 
             foreach ($quote['lines'] as $line) {
@@ -788,9 +872,12 @@ class ShopOrderService
                 $product = $line['product'];
                 $order->items()->create([
                     'product_id' => $product->id,
+                    'variant_id' => $line['variant_id'] ?? null,
+                    'variant_name_snapshot' => $line['variant_name_snapshot'] ?? null,
                     'quantity' => $line['quantity'],
                     'unit' => $line['unit'],
                     'unit_price_snapshot_eur' => $line['unit_price_eur'],
+                    'price_rule_id' => $line['price_rule_id'] ?? null,
                     'line_total_eur' => $line['line_total_eur'],
                     'vat_rate_snapshot_percent' => $line['vat_rate_percent'],
                     'vat_amount_eur' => $line['vat_amount_eur'],

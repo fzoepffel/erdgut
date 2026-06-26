@@ -51,6 +51,7 @@ class AdminCreateShopOrderRequest extends FormRequest
 
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'items.*.variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
             'items.*.line_total_eur' => ['required', 'numeric', 'min:0', 'max:99999.99'],
             'items.*.vat_rate_percent' => ['required', 'integer', Rule::in([7, 19])],

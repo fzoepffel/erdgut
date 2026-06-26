@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\Allergen;
+use App\Enums\CustomerType;
 use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
@@ -13,8 +14,11 @@ use App\Http\Requests\Admin\UpdateProductRequest;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductPriceRule;
 use App\Models\ProductTranslation;
+use App\Models\ProductVariant;
 use App\Services\ImageProcessor;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -127,6 +131,10 @@ class ProductController extends Controller
 
             $this->syncPairings($product, $validated['pairings'] ?? []);
 
+            $this->syncBusinessPrice($product, $validated, $request->user()?->id);
+            $this->syncVariants($product, $validated, $request->user()?->id);
+            $this->syncQuantityTiers($product, $validated, $request->user()?->id);
+
             if ($request->hasFile('gallery_images')) {
                 $this->storeGalleryUploads($product, $request->file('gallery_images'));
             }
@@ -188,6 +196,10 @@ class ProductController extends Controller
             }
 
             $this->syncPairings($product, $validated['pairings'] ?? []);
+
+            $this->syncBusinessPrice($product, $validated, $request->user()?->id);
+            $this->syncVariants($product, $validated, $request->user()?->id);
+            $this->syncQuantityTiers($product, $validated, $request->user()?->id);
 
             $this->removeGalleryImages($validated['gallery_remove'] ?? [], $product);
 
@@ -272,7 +284,270 @@ class ProductController extends Controller
             'dietaryCases' => DietaryTag::cases(),
             'tasteCases' => TasteProfile::cases(),
             'pairableProducts' => $pairableProducts,
+            // Customer-group (business) price + grades, edited inline on the
+            // product form. Both prices are shown in the display unit (€/kg).
+            'businessPrice' => $product !== null ? $this->businessDisplayPriceFor($product, null) : null,
+            'existingVariants' => $product !== null
+                ? $product->variants()->get()->map(fn (ProductVariant $v): array => [
+                    'id' => $v->id,
+                    'name' => (array) $v->name,
+                    'price' => $v->unit_price !== null
+                        ? round((float) $v->unit_price * $this->displayFactor($product), 2)
+                        : null,
+                    'business_price' => $this->businessDisplayPriceFor($product, $v->id),
+                    'is_active' => (bool) $v->is_active,
+                    'tiers' => $this->tierRowsFor($product, $v->id),
+                ])->all()
+                : [],
+            // Default-grade quantity tiers (volume discounts), in the display
+            // unit (threshold = kg, price = €/kg).
+            'existingTiers' => $product !== null ? $this->tierRowsFor($product, null) : [],
         ];
+    }
+
+    /** Canonical units per display unit (1000 for kg/L, 1 for piece/g/…). */
+    private function displayFactor(Product $product): int
+    {
+        if ($product->unit === null) {
+            return 1;
+        }
+        $displayUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
+        $factor = $product->unit->canonicalUnitsPerDisplay($displayUnit);
+
+        return $factor > 0 ? $factor : 1;
+    }
+
+    /**
+     * The plain business price rule for a product grade (no date/qty scope).
+     * $variantId null = the default grade (the product itself).
+     */
+    private function businessRuleFor(Product $product, ?int $variantId): ?ProductPriceRule
+    {
+        return $product->priceRules()
+            ->where('customer_type', CustomerType::Business->value)
+            ->whereNull('starts_on')
+            ->whereNull('ends_on')
+            ->whereNull('min_quantity')
+            ->when($variantId === null, fn ($q) => $q->whereNull('variant_id'), fn ($q) => $q->where('variant_id', $variantId))
+            ->first();
+    }
+
+    /** A grade's business price in the display unit (€/kg), or null when unset. */
+    private function businessDisplayPriceFor(Product $product, ?int $variantId): ?float
+    {
+        $rule = $this->businessRuleFor($product, $variantId);
+
+        return $rule === null ? null : round((float) $rule->unit_price * $this->displayFactor($product), 2);
+    }
+
+    /**
+     * Set/clear a grade's plain business price. $raw is a display-unit price;
+     * empty clears it. $variantId null = the default grade.
+     */
+    private function upsertBusinessPrice(Product $product, ?int $variantId, mixed $raw, float $factor, ?int $userId): void
+    {
+        $existing = $this->businessRuleFor($product, $variantId);
+
+        if ($raw === null || $raw === '') {
+            $existing?->delete();
+
+            return;
+        }
+
+        $canonical = round((float) $raw / $factor, 4);
+
+        if ($existing !== null) {
+            $existing->update(['unit_price' => $canonical, 'is_active' => true]);
+
+            return;
+        }
+
+        $product->priceRules()->create([
+            'variant_id' => $variantId,
+            'customer_type' => CustomerType::Business->value,
+            'unit_price' => $canonical,
+            'is_active' => true,
+            'created_by_user_id' => $userId,
+        ]);
+    }
+
+    /**
+     * Persist the optional customer-group (business) price from the product
+     * form. An empty value clears it; a value (display unit) is stored as a
+     * single plain business {@see ProductPriceRule} (canonical units).
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function syncBusinessPrice(Product $product, array $validated, ?int $userId): void
+    {
+        // Product-level field = the default grade's business price.
+        $this->upsertBusinessPrice($product, null, $validated['business_price'] ?? null, $this->displayFactor($product), $userId);
+    }
+
+    /**
+     * Upsert the product's grades from the form's repeater and delete any the
+     * admin removed. Rows with no name in any locale are ignored. Prices are
+     * entered in the display unit; an empty price inherits the base price.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function syncVariants(Product $product, array $validated, ?int $userId): void
+    {
+        // Absent `variants` means the admin removed every grade (the form sends
+        // no variant inputs then). Treat it as an empty set — NOT a no-op — so
+        // removing the last grade actually deletes it.
+        $rows = is_array($validated['variants'] ?? null) ? $validated['variants'] : [];
+
+        $factor = $this->displayFactor($product);
+        $keptIds = [];
+
+        foreach (array_values($rows) as $index => $row) {
+            $name = $this->cleanVariantName((array) ($row['name'] ?? []));
+            if ($name === []) {
+                continue; // blank row
+            }
+
+            $price = ($row['unit_price'] ?? null) === null || $row['unit_price'] === ''
+                ? null
+                : round((float) $row['unit_price'] / $factor, 4);
+
+            $attributes = [
+                'name' => $name,
+                'unit_price' => $price,
+                'is_active' => (bool) ($row['is_active'] ?? true),
+                'position' => (int) ($row['position'] ?? $index),
+            ];
+
+            $id = isset($row['id']) && $row['id'] !== '' ? (int) $row['id'] : null;
+            $variant = $id !== null ? $product->variants()->whereKey($id)->first() : null;
+
+            if ($variant !== null) {
+                $variant->update($attributes);
+            } else {
+                $variant = $product->variants()->create($attributes);
+            }
+
+            $keptIds[] = $variant->id;
+
+            // Each grade carries its own optional business price + volume tiers.
+            $this->upsertBusinessPrice($product, $variant->id, $row['business_price'] ?? null, $factor, $userId);
+            $this->syncTiersFor($product, $variant->id, (array) ($row['tiers'] ?? []), $userId);
+        }
+
+        // Remove grades the admin deleted from the form, plus any price rules
+        // scoped to them (the variant_id column isn't a DB-level FK).
+        $removedIds = $product->variants()->whereNotIn('id', $keptIds ?: [0])->pluck('id');
+        if ($removedIds->isNotEmpty()) {
+            $product->priceRules()->whereIn('variant_id', $removedIds)->delete();
+            $product->variants()->whereKey($removedIds)->delete();
+        }
+    }
+
+    /**
+     * Quantity-tier rules (volume discounts) for one grade: min_quantity set,
+     * no date/customer scope. $variantId null = the default grade.
+     *
+     * @return Collection<int, ProductPriceRule>
+     */
+    private function quantityTierRules(Product $product, ?int $variantId = null): Collection
+    {
+        return $product->priceRules()
+            ->whereNull('customer_type')
+            ->whereNull('starts_on')
+            ->whereNull('ends_on')
+            ->whereNotNull('min_quantity')
+            ->when($variantId === null, fn ($q) => $q->whereNull('variant_id'), fn ($q) => $q->where('variant_id', $variantId))
+            ->orderBy('min_quantity')
+            ->get();
+    }
+
+    /** Display-unit tier rows for a grade, for prefilling the form. */
+    private function tierRowsFor(Product $product, ?int $variantId): array
+    {
+        $factor = $this->displayFactor($product);
+
+        return $this->quantityTierRules($product, $variantId)->map(fn (ProductPriceRule $r): array => [
+            'id' => $r->id,
+            'min_quantity' => round((float) $r->min_quantity / $factor, 3),
+            'unit_price' => round((float) $r->unit_price * $factor, 2),
+        ])->all();
+    }
+
+    /** Default-grade quantity tiers from the top-level form section. */
+    private function syncQuantityTiers(Product $product, array $validated, ?int $userId): void
+    {
+        $this->syncTiersFor($product, null, (array) ($validated['tiers'] ?? []), $userId);
+    }
+
+    /**
+     * Upsert one grade's quantity tiers and delete removed rows. Threshold +
+     * price are entered in the display unit; stored canonical. $variantId null
+     * = the default grade.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function syncTiersFor(Product $product, ?int $variantId, array $rows, ?int $userId): void
+    {
+        $factor = $this->displayFactor($product);
+        $keptIds = [];
+
+        foreach ($rows as $row) {
+            $minRaw = $row['min_quantity'] ?? null;
+            $priceRaw = $row['unit_price'] ?? null;
+            if ($minRaw === null || $minRaw === '' || $priceRaw === null || $priceRaw === '') {
+                continue; // incomplete row
+            }
+
+            $attributes = [
+                'variant_id' => $variantId,
+                'min_quantity' => round((float) $minRaw * $factor, 4),
+                'unit_price' => round((float) $priceRaw / $factor, 4),
+                'is_active' => true,
+                'created_by_user_id' => $userId,
+            ];
+
+            $id = isset($row['id']) && $row['id'] !== '' ? (int) $row['id'] : null;
+            $tier = $id !== null
+                ? $product->priceRules()->whereKey($id)->whereNotNull('min_quantity')->first()
+                : null;
+
+            if ($tier !== null) {
+                $tier->update($attributes);
+            } else {
+                $tier = $product->priceRules()->create($attributes);
+            }
+
+            $keptIds[] = $tier->id;
+        }
+
+        // Remove tiers the admin deleted from this grade's scope.
+        $product->priceRules()
+            ->whereNull('customer_type')
+            ->whereNull('starts_on')
+            ->whereNull('ends_on')
+            ->whereNotNull('min_quantity')
+            ->when($variantId === null, fn ($q) => $q->whereNull('variant_id'), fn ($q) => $q->where('variant_id', $variantId))
+            ->whereNotIn('id', $keptIds ?: [0])
+            ->delete();
+    }
+
+    /**
+     * Keep only non-empty locale strings for a grade name.
+     *
+     * @param  array<string, mixed>  $name
+     * @return array<string, string>
+     */
+    private function cleanVariantName(array $name): array
+    {
+        $clean = [];
+        foreach (['de', 'en', 'fr'] as $locale) {
+            $value = isset($name[$locale]) ? trim((string) $name[$locale]) : '';
+            if ($value !== '') {
+                $clean[$locale] = $value;
+            }
+        }
+
+        return $clean;
     }
 
     /**

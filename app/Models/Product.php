@@ -115,6 +115,42 @@ class Product extends Model
         return $this->hasMany(ProductTranslation::class);
     }
 
+    /**
+     * Conditional price rules (date overrides, customer-group prices, …).
+     *
+     * @return HasManyRelation<ProductPriceRule, $this>
+     */
+    public function priceRules(): HasManyRelation
+    {
+        return $this->hasMany(ProductPriceRule::class);
+    }
+
+    /**
+     * Named grades of this product (e.g. "Thin"). The product itself is the
+     * implicit default/"Standard" grade, so this only holds the extra grades.
+     *
+     * @return HasManyRelation<ProductVariant, $this>
+     */
+    public function variants(): HasManyRelation
+    {
+        return $this->hasMany(ProductVariant::class)->orderBy('position')->orderBy('id');
+    }
+
+    /**
+     * Active named grades, ready for the storefront grade selector.
+     *
+     * @return Collection<int, ProductVariant>
+     */
+    public function activeVariants(): Collection
+    {
+        $loaded = $this->getRelationValue('variants');
+        if ($loaded instanceof Collection) {
+            return $loaded->where('is_active', true)->values();
+        }
+
+        return $this->variants()->where('is_active', true)->get();
+    }
+
     public function translationFor(?string $locale = null): ?ProductTranslation
     {
         $locale = $locale ?? app()->getLocale();

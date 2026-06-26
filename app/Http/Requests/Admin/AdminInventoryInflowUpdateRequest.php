@@ -32,6 +32,8 @@ class AdminInventoryInflowUpdateRequest extends FormRequest
     {
         return [
             'received_on' => ['required', 'date'],
+            // Optional grade this batch belongs to. NULL = the default grade.
+            'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'quantity' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
             'freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
             'notes' => ['nullable', 'string', 'max:500'],

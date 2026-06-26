@@ -14,7 +14,9 @@
              customerType: '{{ old('customer_type', 'private') }}',
              preselectedDate: '{{ old('expected_delivery_date', '') }}',
              preselectedItems: @js(collect(old('items', []))->map(fn ($i) => [
+                 'grade_key' => (string) ($i['product_id'] ?? '').(isset($i['variant_id']) && $i['variant_id'] !== '' ? ':'.$i['variant_id'] : ''),
                  'product_id' => (string) ($i['product_id'] ?? ''),
+                 'variant_id' => isset($i['variant_id']) && $i['variant_id'] !== '' ? (string) $i['variant_id'] : '',
                  'quantity' => (string) ($i['quantity'] ?? ''),
                  'line_total_eur' => isset($i['line_total_eur']) ? (string) $i['line_total_eur'] : '',
                  'vat_rate_percent' => (string) ($i['vat_rate_percent'] ?? '7'),
@@ -24,6 +26,21 @@
              preselectedDeliveryFee: @js(old('delivery_fee_eur')),
              preselectedDeliveryVatRate: @js(old('delivery_fee_vat_rate_percent', '7')),
              vatLineTemplate: @js(__('shop.summary_vat_rate_line')),
+             priceHintLabels: @js([
+                 'reasons' => [
+                     'base' => __('shop.admin.create_price_reason_base'),
+                     'customer_group' => __('shop.admin.create_price_reason_customer_group'),
+                     'period_override' => __('shop.admin.create_price_reason_period_override'),
+                     'quantity_tier' => __('shop.admin.create_price_reason_quantity_tier'),
+                     'margin_floor' => __('shop.admin.create_price_reason_margin_floor'),
+                 ],
+                 'tiers' => [
+                     'private' => __('shop.admin.customer_type_private'),
+                     'business' => __('shop.admin.customer_type_business'),
+                 ],
+                 'compare_template' => __('shop.admin.create_price_compare'),
+                 'used_template' => __('shop.admin.create_price_used'),
+             ]),
          })">
         <div class="mx-auto max-w-5xl space-y-6 px-4 sm:px-6 lg:px-8">
 
@@ -53,12 +70,43 @@
                     </div>
                 </div>
 
-                {{-- ── Step 2: Products + per-line pricing ──────────────── --}}
+                {{-- ── Step 2: Customer type (controls which tier price is loaded) ── --}}
+                <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
+                     x-show="selectedDate"
+                     x-cloak>
+                    <div class="border-b border-gray-100 px-6 py-4">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">2. {{ __('shop.admin.customer_type_label') }}</h2>
+                    </div>
+                    <div class="space-y-3 p-6">
+                        <p class="text-sm text-gray-600">{{ __('shop.admin.create_customer_type_hint') }}</p>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="customer_type" value="private"
+                                    x-model="customerType"
+                                    @change="onCustomerTypeChange()"
+                                    class="text-emerald-600 focus:ring-emerald-500"
+                                    {{ old('customer_type', 'private') === 'private' ? 'checked' : '' }}>
+                                <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_private') }}</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="customer_type" value="business"
+                                    x-model="customerType"
+                                    @change="onCustomerTypeChange()"
+                                    class="text-emerald-600 focus:ring-emerald-500"
+                                    {{ old('customer_type') === 'business' ? 'checked' : '' }}>
+                                <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_business') }}</span>
+                            </label>
+                        </div>
+                        <x-input-error :messages="$errors->get('customer_type')" class="mt-1" />
+                    </div>
+                </div>
+
+                {{-- ── Step 3: Products + per-line pricing ──────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                      x-show="selectedDate"
                      x-cloak>
                     <div class="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">2. {{ __('shop.admin.create_items_heading') }}</h2>
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">3. {{ __('shop.admin.create_items_heading') }}</h2>
                         <span x-show="loading" class="text-xs text-gray-400">{{ __('Loading') }}…</span>
                     </div>
                     <div class="p-6 space-y-3">
@@ -78,18 +126,21 @@
                                     <div class="grid grid-cols-1 gap-3 rounded-md border border-gray-100 p-3 sm:grid-cols-12 sm:items-start sm:border-0 sm:p-0">
                                         <div class="sm:col-span-5">
                                             <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('admin.select_product') }}</label>
-                                            <select :name="'items[' + i + '][product_id]'"
-                                                x-model="item.product_id"
+                                            <select x-model="item.grade_key"
                                                 @change="onLineProductChange(item)"
                                                 class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                 required>
                                                 <option value="">{{ __('admin.select_product') }}</option>
                                                 <template x-for="p in availableProducts" :key="p.id">
                                                     <option :value="String(p.id)"
-                                                            :selected="String(p.id) === String(item.product_id)"
-                                                            x-text="p.name + (p.producer ? ' (' + p.producer + ')' : '') + ' — ' + p.price + ' / ' + p.unit"></option>
+                                                            :selected="String(p.id) === String(item.grade_key)"
+                                                            x-text="p.name + (p.producer ? ' (' + p.producer + ')' : '') + ' — ' + p.price + ' / ' + p.display_unit"></option>
                                                 </template>
                                             </select>
+                                            {{-- Hidden inputs split the grade key back into the
+                                                 (product_id, variant_id) the backend expects. --}}
+                                            <input type="hidden" :name="'items[' + i + '][product_id]'" :value="item.product_id">
+                                            <input type="hidden" :name="'items[' + i + '][variant_id]'" :value="item.variant_id">
                                         </div>
                                         <div class="sm:col-span-2">
                                             <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('admin.quantity') }}</label>
@@ -103,7 +154,7 @@
                                                     class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                     required>
                                                 <span class="shrink-0 text-xs text-gray-500 tabular-nums"
-                                                      x-text="availableProducts.find(p => String(p.id) === String(item.product_id))?.unit ?? ''"></span>
+                                                      x-text="availableProducts.find(p => String(p.id) === String(item.grade_key))?.unit ?? ''"></span>
                                             </div>
                                         </div>
                                         <div class="sm:col-span-2">
@@ -140,6 +191,12 @@
                                                 {{ __('shop.admin.create_remove_item') }}
                                             </button>
                                         </div>
+                                        {{-- Per-line price-source remark: which tier price the
+                                             autofilled line total uses, plus a comparison with
+                                             the other tier when it differs. --}}
+                                        <div class="sm:col-span-12" x-show="priceHint(item)" x-cloak>
+                                            <p class="text-xs text-gray-500" x-html="priceHint(item)"></p>
+                                        </div>
                                     </div>
                                 </template>
 
@@ -162,37 +219,14 @@
                     </div>
                 </div>
 
-                {{-- ── Step 3: Customer (optional) ──────────────────────── --}}
+                {{-- ── Step 4: Customer details (optional) ──────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                      x-show="selectedDate"
                      x-cloak>
                     <div class="border-b border-gray-100 px-6 py-4">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">3. {{ __('shop.admin.create_customer_heading') }}</h2>
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">4. {{ __('shop.admin.create_customer_heading') }}</h2>
                     </div>
                     <div class="space-y-4 p-6">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('shop.admin.customer_type_label') }}</label>
-                            <div class="flex gap-4">
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="customer_type" value="private"
-                                        x-model="customerType"
-                                        @change="onCustomerTypeChange()"
-                                        class="text-emerald-600 focus:ring-emerald-500"
-                                        {{ old('customer_type', 'private') === 'private' ? 'checked' : '' }}>
-                                    <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_private') }}</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="customer_type" value="business"
-                                        x-model="customerType"
-                                        @change="onCustomerTypeChange()"
-                                        class="text-emerald-600 focus:ring-emerald-500"
-                                        {{ old('customer_type') === 'business' ? 'checked' : '' }}>
-                                    <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_business') }}</span>
-                                </label>
-                            </div>
-                            <x-input-error :messages="$errors->get('customer_type')" class="mt-1" />
-                        </div>
-
                         <div class="grid gap-4 sm:grid-cols-3">
                             <div>
                                 <label for="name" class="block text-sm font-medium text-gray-700">{{ __('Name') }}</label>
@@ -216,12 +250,12 @@
                     </div>
                 </div>
 
-                {{-- ── Step 4: Fulfillment ──────────────────────────────── --}}
+                {{-- ── Step 5: Fulfillment ──────────────────────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                      x-show="selectedDate"
                      x-cloak>
                     <div class="border-b border-gray-100 px-6 py-4">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">4. {{ __('shop.admin.create_fulfillment_heading') }}</h2>
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">5. {{ __('shop.admin.create_fulfillment_heading') }}</h2>
                     </div>
                     <div class="space-y-4 p-6">
                         <div>
@@ -294,12 +328,12 @@
                     </div>
                 </div>
 
-                {{-- ── Step 5: Delivery pricing + summary ───────────────── --}}
+                {{-- ── Step 6: Delivery pricing + summary ───────────────── --}}
                 <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
                      x-show="selectedDate && hasValidItems"
                      x-cloak>
                     <div class="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">5. {{ __('shop.admin.create_pricing_heading') }}</h2>
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">6. {{ __('shop.admin.create_pricing_heading') }}</h2>
                         <span x-show="quoteLoading" class="text-xs text-gray-400">{{ __('Loading') }}…</span>
                     </div>
                     <div class="space-y-4 p-6">
@@ -379,6 +413,7 @@
             availableProductsUrl: config.availableProductsUrl,
             quoteUrl: config.quoteUrl,
             vatLineTemplate: config.vatLineTemplate || '',
+            priceHintLabels: config.priceHintLabels || { reasons: {}, tiers: {}, compare_template: '', used_template: '' },
             selectedDate: config.preselectedDate || '',
             customerType: config.customerType || 'private',
             availableProducts: [],
@@ -480,8 +515,27 @@
             },
 
             onLineProductChange(item) {
+                // The dropdown stores a grade key ("123" for default, "123:7"
+                // when a variant is picked) — split it back into the two
+                // fields the backend expects.
+                const key = String(item.grade_key || '');
+                if (key === '') {
+                    item.product_id = '';
+                    item.variant_id = '';
+                } else if (key.includes(':')) {
+                    const [pid, vid] = key.split(':');
+                    item.product_id = pid;
+                    item.variant_id = vid;
+                } else {
+                    item.product_id = key;
+                    item.variant_id = '';
+                }
+                // Customer-tier autofill is allowed to overwrite a previously
+                // quoted line — admin changed the product, the old amount is
+                // stale by definition.
+                item.lineTouched = false;
                 const product = this.availableProducts.find(
-                    (p) => String(p.id) === String(item.product_id),
+                    (p) => String(p.id) === String(item.grade_key),
                 );
                 if (product && !item.vatTouched) {
                     item.vat_rate_percent = String(product.vat_rate_percent ?? 7);
@@ -509,9 +563,19 @@
                 try {
                     const params = new URLSearchParams();
                     params.set('fulfillment_mode', this.mode);
+                    // Customer type + date drive PriceResolver — without them
+                    // every quote came back at the Private base price even
+                    // when "Business customer" was picked.
+                    params.set('customer_type', this.customerType);
+                    if (this.selectedDate) {
+                        params.set('expected_delivery_date', this.selectedDate);
+                    }
                     validIndices.forEach((itemIndex, i) => {
                         const item = this.items[itemIndex];
                         params.set(`items[${i}][product_id]`, item.product_id);
+                        if (item.variant_id) {
+                            params.set(`items[${i}][variant_id]`, item.variant_id);
+                        }
                         params.set(`items[${i}][quantity]`, item.quantity);
                     });
                     const res = await fetch(this.quoteUrl + '?' + params.toString(), {
@@ -566,6 +630,58 @@
                 return n.toFixed(2).replace('.', ',') + ' €';
             },
 
+            /**
+             * Full price breakdown rendered as a small HTML block under the
+             * item row: which price was auto-filled, the alternative
+             * customer-type price, and any private-only volume tiers that
+             * exist on this grade. Returns '' (so x-show hides the row)
+             * when no product is selected.
+             */
+            priceHint(item) {
+                const product = this.availableProducts.find(
+                    (p) => String(p.id) === String(item.grade_key),
+                );
+                if (!product) return '';
+
+                const labels = this.priceHintLabels;
+                const privateLabel = labels.tiers?.private ?? 'Private';
+                const businessLabel = labels.tiers?.business ?? 'Business';
+                const isBusiness = this.customerType === 'business';
+
+                // Which line is the "used" price (bolded) and which is the alt?
+                const usedLabel = isBusiness ? businessLabel : privateLabel;
+                const usedPrice = product.price;
+                const altLabel = isBusiness ? privateLabel : businessLabel;
+                const altPrice = product.alt_price;
+
+                const lines = [];
+                lines.push(
+                    '<strong>' + this._esc(usedLabel) + ':</strong> ' + this._esc(usedPrice)
+                );
+                lines.push(
+                    this._esc(altLabel) + ': ' + this._esc(altPrice)
+                );
+                // Private-only volume tiers, when set. Skip on business — the
+                // resolver doesn't apply them and we don't want to mislead.
+                const tiers = Array.isArray(product.private_tiers) ? product.private_tiers : [];
+                if (tiers.length > 0) {
+                    const tierLine = tiers.map((t) => this._esc(t.label)).join(' · ');
+                    const prefix = isBusiness
+                        ? this._esc(privateLabel) + ': '
+                        : '';
+                    lines.push(prefix + tierLine);
+                }
+                return lines.join('<br>');
+            },
+
+            _esc(s) {
+                if (s == null) return '';
+                return String(s)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            },
+
             async fetchProducts() {
                 this.loading = true;
                 try {
@@ -576,7 +692,16 @@
                     const res = await fetch(this.availableProductsUrl + '?' + params.toString(), {
                         headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     });
-                    this.availableProducts = await res.json();
+                    if (!res.ok) {
+                        this.availableProducts = [];
+                        return;
+                    }
+                    const data = await res.json();
+                    // Defend against the endpoint returning an error object
+                    // ({message: …}) instead of an array — without this guard
+                    // the products list silently empties out (both x-if/.length
+                    // checks fail) and the section appears blank.
+                    this.availableProducts = Array.isArray(data) ? data : [];
                 } catch (e) {
                     this.availableProducts = [];
                 } finally {
@@ -599,7 +724,9 @@
 
     function emptyLine() {
         return {
+            grade_key: '',
             product_id: '',
+            variant_id: '',
             quantity: '',
             line_total_eur: '',
             vat_rate_percent: '7',

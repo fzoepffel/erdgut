@@ -596,6 +596,162 @@
             </div>
         </div>
 
+        {{-- Optional customer-group (business / B2B) price, in the display unit.
+             Empty = business customers pay the standard price. --}}
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <label for="business_price" class="block text-sm font-medium text-gray-700">
+                    {{ __('admin.product_form.business_price_label') }}
+                    <span x-show="hasDisplay" x-cloak>(€/<span x-text="displaySymbol"></span>)</span>
+                </label>
+                <x-text-input id="business_price" name="business_price" type="number" step="0.01" min="0" class="mt-1 block w-full"
+                    :value="old('business_price', $businessPrice !== null ? number_format($businessPrice, 2, '.', '') : '')" />
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.business_price_hint') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('business_price')" />
+            </div>
+        </div>
+
+        {{-- Grades / variants: same product sold in several qualities, each with
+             its own price (and, via the weekly catalog, its own stock). --}}
+        @php
+            $variantSeed = old('variants', collect($existingVariants ?? [])->map(fn ($v) => [
+                'id' => $v['id'],
+                'name' => [
+                    'de' => $v['name']['de'] ?? '',
+                    'en' => $v['name']['en'] ?? '',
+                    'fr' => $v['name']['fr'] ?? '',
+                ],
+                'unit_price' => $v['price'] !== null ? number_format((float) $v['price'], 2, '.', '') : '',
+                'business_price' => ($v['business_price'] ?? null) !== null ? number_format((float) $v['business_price'], 2, '.', '') : '',
+                'is_active' => $v['is_active'],
+                'tiers' => collect($v['tiers'] ?? [])->map(fn ($t) => [
+                    'id' => $t['id'],
+                    'min_quantity' => rtrim(rtrim(number_format((float) $t['min_quantity'], 3, '.', ''), '0'), '.'),
+                    'unit_price' => number_format((float) $t['unit_price'], 2, '.', ''),
+                ])->values()->all(),
+            ])->values()->all());
+        @endphp
+        <div class="border-t border-gray-100 pt-6" x-data="{
+            variants: @js(array_values($variantSeed)),
+            add() { this.variants.push({ id: '', name: { de: '', en: '', fr: '' }, unit_price: '', business_price: '', is_active: true, tiers: [] }); },
+            remove(i) { this.variants.splice(i, 1); },
+            addTier(i) { this.variants[i].tiers.push({ id: '', min_quantity: '', unit_price: '' }); },
+            removeTier(i, j) { this.variants[i].tiers.splice(j, 1); },
+        }">
+            <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.grades_heading') }}</h3>
+            <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.grades_hint') }}</p>
+
+            <div class="mt-3 space-y-3">
+                <template x-for="(v, i) in variants" :key="i">
+                    <div class="rounded-md border border-gray-200 p-3">
+                        <input type="hidden" :name="'variants['+i+'][id]'" :value="v.id">
+                        <input type="hidden" :name="'variants['+i+'][is_active]'" :value="v.is_active ? 1 : 0">
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <label class="block text-xs text-gray-600">{{ __('admin.product_form.grades_name') }} (DE)
+                                <input type="text" maxlength="120" x-model="v.name.de" :name="'variants['+i+'][name][de]'" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                            <label class="block text-xs text-gray-600">{{ __('admin.product_form.grades_name') }} (EN)
+                                <input type="text" maxlength="120" x-model="v.name.en" :name="'variants['+i+'][name][en]'" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                            <label class="block text-xs text-gray-600">{{ __('admin.product_form.grades_name') }} (FR)
+                                <input type="text" maxlength="120" x-model="v.name.fr" :name="'variants['+i+'][name][fr]'" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                        </div>
+                        <div class="mt-2 flex flex-wrap items-end gap-4">
+                            <label class="block text-xs text-gray-600">
+                                {{ __('admin.product_form.grades_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                                <input type="number" step="0.01" min="0.01" x-model="v.unit_price" :name="'variants['+i+'][unit_price]'"
+                                    x-bind:placeholder="document.getElementById('price')?.value || ''"
+                                    class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                            <label class="block text-xs text-gray-600">
+                                {{ __('admin.product_form.grades_business_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                                <input type="number" step="0.01" min="0.01" x-model="v.business_price" :name="'variants['+i+'][business_price]'"
+                                    class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                            <label class="flex items-center gap-2 pb-2 text-xs text-gray-700">
+                                <input type="checkbox" x-model="v.is_active" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600">
+                                {{ __('admin.product_form.grades_active') }}
+                            </label>
+                            <button type="button" @click="remove(i)" class="ml-auto pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.grades_remove') }}</button>
+                        </div>
+
+                        {{-- Per-grade volume tiers --}}
+                        <div class="mt-3 border-t border-gray-100 pt-3">
+                            <p class="text-[0.7rem] font-medium uppercase tracking-wide text-gray-500">{{ __('admin.product_form.tiers_heading') }}</p>
+                            <div class="mt-2 space-y-2">
+                                <template x-for="(t, j) in v.tiers" :key="j">
+                                    <div class="flex flex-wrap items-end gap-3">
+                                        <input type="hidden" :name="'variants['+i+'][tiers]['+j+'][id]'" :value="t.id">
+                                        <label class="block text-xs text-gray-600">
+                                            {{ __('admin.product_form.tiers_min_quantity') }}<span x-show="hasDisplay" x-cloak> (<span x-text="displaySymbol"></span>)</span>
+                                            <input type="number" step="0.001" min="0.001" x-model="t.min_quantity" :name="'variants['+i+'][tiers]['+j+'][min_quantity]'"
+                                                class="mt-1 block w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                        </label>
+                                        <label class="block text-xs text-gray-600">
+                                            {{ __('admin.product_form.tiers_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                                            <input type="number" step="0.01" min="0.01" x-model="t.unit_price" :name="'variants['+i+'][tiers]['+j+'][unit_price]'"
+                                                class="mt-1 block w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                        </label>
+                                        <button type="button" @click="removeTier(i, j)" class="pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.tiers_remove') }}</button>
+                                    </div>
+                                </template>
+                            </div>
+                            <button type="button" @click="addTier(i)" class="mt-2 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                                + {{ __('admin.product_form.tiers_add') }}
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <button type="button" @click="add()" class="mt-3 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                + {{ __('admin.product_form.grades_add') }}
+            </button>
+        </div>
+
+        {{-- Quantity tiers: volume discounts on the default grade. Threshold +
+             price are entered in the display unit (kg). --}}
+        @php
+            $tierSeed = old('tiers', collect($existingTiers ?? [])->map(fn ($t) => [
+                'id' => $t['id'],
+                'min_quantity' => rtrim(rtrim(number_format((float) $t['min_quantity'], 3, '.', ''), '0'), '.'),
+                'unit_price' => number_format((float) $t['unit_price'], 2, '.', ''),
+            ])->values()->all());
+        @endphp
+        <div class="border-t border-gray-100 pt-6" x-data="{
+            tiers: @js(array_values($tierSeed)),
+            add() { this.tiers.push({ id: '', min_quantity: '', unit_price: '' }); },
+            remove(i) { this.tiers.splice(i, 1); },
+        }">
+            <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.tiers_heading') }}</h3>
+            <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.tiers_hint') }}</p>
+
+            <div class="mt-3 space-y-2">
+                <template x-for="(t, i) in tiers" :key="i">
+                    <div class="flex flex-wrap items-end gap-3 rounded-md border border-gray-200 p-3">
+                        <input type="hidden" :name="'tiers['+i+'][id]'" :value="t.id">
+                        <label class="block text-xs text-gray-600">
+                            {{ __('admin.product_form.tiers_min_quantity') }}<span x-show="hasDisplay" x-cloak> (<span x-text="displaySymbol"></span>)</span>
+                            <input type="number" step="0.001" min="0.001" x-model="t.min_quantity" :name="'tiers['+i+'][min_quantity]'"
+                                class="mt-1 block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        </label>
+                        <label class="block text-xs text-gray-600">
+                            {{ __('admin.product_form.tiers_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                            <input type="number" step="0.01" min="0.01" x-model="t.unit_price" :name="'tiers['+i+'][unit_price]'"
+                                x-bind:placeholder="document.getElementById('price')?.value || ''"
+                                class="mt-1 block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        </label>
+                        <button type="button" @click="remove(i)" class="ml-auto pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.tiers_remove') }}</button>
+                    </div>
+                </template>
+            </div>
+
+            <button type="button" @click="add()" class="mt-3 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                + {{ __('admin.product_form.tiers_add') }}
+            </button>
+        </div>
+
         @php
             $currentVatRate = (int) old('vat_rate_percent', $product?->vat_rate_percent ?? 7);
         @endphp

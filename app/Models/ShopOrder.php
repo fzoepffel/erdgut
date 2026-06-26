@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CustomerType;
 use App\Enums\OrderSource;
 use App\Enums\ShopOrderStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -102,6 +103,7 @@ class ShopOrder extends Model
         'is_test',
         'order_source',
         'customer_type',
+        'locale',
     ];
 
     /**
@@ -148,6 +150,27 @@ class ShopOrder extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ShopOrderItem::class);
+    }
+
+    /**
+     * "Finalized" orders — confirmed sales the team acts on: paid and
+     * already-fulfilled orders, plus in-person ones still awaiting payment at
+     * pickup. Excludes abandoned/failed/cancelled/refunded. Shared by the
+     * orders list and the packing screen so both mean the same thing.
+     *
+     * @param  Builder<ShopOrder>  $query
+     */
+    public function scopeFinalized(Builder $query): void
+    {
+        $query->where(function ($inner): void {
+            $inner->whereIn('status', [
+                ShopOrderStatus::Paid->value,
+                ShopOrderStatus::Fulfilled->value,
+            ])->orWhere(function ($pickup): void {
+                $pickup->where('status', ShopOrderStatus::PendingPayment->value)
+                    ->where('payment_method', 'in_person');
+            });
+        });
     }
 
     /**

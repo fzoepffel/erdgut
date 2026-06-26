@@ -71,6 +71,31 @@ class StoreProductRequest extends FormRequest
             // per product if storage allows.
             'default_freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            // Optional customer-group (business) price, in the display unit.
+            'business_price' => ['nullable', 'numeric', 'gt:0', 'decimal:0,2'],
+            // Inline grades/variants repeater. Blank rows (no name) are dropped
+            // server-side; price is in the display unit, empty inherits base.
+            'variants' => ['nullable', 'array'],
+            'variants.*.id' => ['nullable', 'integer'],
+            'variants.*.name' => ['nullable', 'array'],
+            'variants.*.name.de' => ['nullable', 'string', 'max:120'],
+            'variants.*.name.en' => ['nullable', 'string', 'max:120'],
+            'variants.*.name.fr' => ['nullable', 'string', 'max:120'],
+            'variants.*.unit_price' => ['nullable', 'numeric', 'gt:0'],
+            'variants.*.business_price' => ['nullable', 'numeric', 'gt:0'],
+            'variants.*.is_active' => ['nullable', 'boolean'],
+            'variants.*.position' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            // Per-grade quantity tiers (nested in each grade row).
+            'variants.*.tiers' => ['nullable', 'array'],
+            'variants.*.tiers.*.id' => ['nullable', 'integer'],
+            'variants.*.tiers.*.min_quantity' => ['nullable', 'numeric', 'gt:0'],
+            'variants.*.tiers.*.unit_price' => ['nullable', 'numeric', 'gt:0'],
+            // Quantity tiers (volume discounts) on the default grade. Threshold
+            // + price in the display unit; incomplete rows are dropped server-side.
+            'tiers' => ['nullable', 'array'],
+            'tiers.*.id' => ['nullable', 'integer'],
+            'tiers.*.min_quantity' => ['nullable', 'numeric', 'gt:0'],
+            'tiers.*.unit_price' => ['nullable', 'numeric', 'gt:0'],
             'is_seasonal' => ['boolean'],
             'is_available' => ['boolean'],
             'is_published' => ['boolean'],

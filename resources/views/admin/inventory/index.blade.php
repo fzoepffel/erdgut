@@ -38,6 +38,11 @@
             'display_unit_symbol' => \App\Enums\ProductUnit::displaySymbol($displayUnit),
             'default_freshness' => (int) ($product->default_freshness_window_days ?? 1),
             'schedule_count' => $product->stockInflowSchedules->count(),
+            'variants' => $product->variants->map(fn ($v) => [
+                'id' => $v->id,
+                'name' => $v->localizedName(),
+                'is_active' => (bool) $v->is_active,
+            ])->values()->all(),
         ]];
     })->all();
 @endphp
@@ -233,6 +238,44 @@
                                                 </div>
                                             </td>
                                         </tr>
+
+                                        {{-- Per-grade lanes: the product row above is the total; each
+                                             grade (default + variants) gets its own indented lane. --}}
+                                        @php $variantLanes = $variantMatrix[$product->id] ?? null; @endphp
+                                        @if ($variantLanes !== null)
+                                            @php
+                                                $grades = collect([['key' => 0, 'label' => __('admin.inventory.variant_default'), 'active' => true]]);
+                                                foreach ($product->variants as $variant) {
+                                                    $grades->push(['key' => $variant->id, 'label' => $variant->localizedName(), 'active' => (bool) $variant->is_active]);
+                                                }
+                                            @endphp
+                                            @foreach ($grades as $grade)
+                                                @php $laneRow = $variantLanes[$grade['key']] ?? []; @endphp
+                                                <tr class="bg-gray-50/40">
+                                                    <td class="sticky left-0 z-10 bg-gray-50/40 px-3 py-1.5 align-top">
+                                                        <div class="flex items-center gap-1.5 pl-3 text-xs {{ $grade['active'] ? 'text-gray-600' : 'text-gray-400 line-through' }}">
+                                                            <span class="text-gray-300">&#x2514;</span>
+                                                            <span>{{ $grade['label'] }}</span>
+                                                        </div>
+                                                    </td>
+                                                    @foreach ($dateColumns as $date)
+                                                        @php
+                                                            $iso = $date->toDateString();
+                                                            $value = $laneRow[$iso] ?? 0.0;
+                                                            $display = $value / $factor;
+                                                        @endphp
+                                                        <td class="px-2 py-1.5 text-center text-xs tabular-nums {{ $value <= 0 ? 'text-gray-300' : 'text-gray-600' }}">
+                                                            @if ($value <= 0)
+                                                                &mdash;
+                                                            @else
+                                                                {{ rtrim(rtrim(number_format($display, 2, ',', '.'), '0'), ',') }}
+                                                            @endif
+                                                        </td>
+                                                    @endforeach
+                                                    <td class="sticky right-0 z-10 bg-gray-50/40 px-3 py-1.5"></td>
+                                                </tr>
+                                            @endforeach
+                                        @endif
                                     @endforeach
                                 </tbody>
                             </table>
@@ -316,6 +359,8 @@
                                                             freshness_window_days: {{ (int) $inflow->freshness_window_days }},
                                                             b2b_only: @js((bool) $inflow->b2b_only),
                                                             notes: @js((string) ($inflow->notes ?? '')),
+                                                            variant_id: @js($inflow->variant_id !== null ? (int) $inflow->variant_id : ''),
+                                                            variants: @js($product?->variants->map(fn ($v) => ['id' => $v->id, 'name' => $v->localizedName(), 'is_active' => (bool) $v->is_active])->values()->all() ?? []),
                                                             update_url: @js(route('app.admin.inventory.inflows.update', $inflow)),
                                                         })"
                                                         class="text-xs font-semibold text-emerald-700 hover:underline"
@@ -378,6 +423,15 @@
                             <span x-text="'{{ __('admin.inventory.manual_quantity') }}' + (ctx?.display_unit_symbol ? ' (' + ctx.display_unit_symbol + ')' : '')"></span>
                             <input type="number" name="quantity" required step="0.01" min="0.01" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
                         </label>
+                        <label class="text-xs text-gray-700 sm:col-span-2" x-show="(ctx?.variants?.length ?? 0) > 0" x-cloak>
+                            {{ __('admin.inventory.manual_variant') }}
+                            <select name="variant_id" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                <option value="">{{ __('admin.inventory.variant_default') }}</option>
+                                <template x-for="v in (ctx?.variants ?? [])" :key="v.id">
+                                    <option :value="v.id" x-text="v.name" :disabled="! v.is_active"></option>
+                                </template>
+                            </select>
+                        </label>
                         <label class="text-xs text-gray-700 sm:col-span-2">
                             {{ __('admin.inventory.manual_freshness') }}
                             <input type="number" name="freshness_window_days" min="1" max="60" :value="ctx?.default_freshness ?? 1" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
@@ -436,6 +490,15 @@
                         <label class="text-xs text-gray-700">
                             <span x-text="'{{ __('admin.inventory.manual_quantity') }}' + (ctx?.display_unit_symbol ? ' (' + ctx.display_unit_symbol + ')' : '')"></span>
                             <input type="number" name="quantity" required step="0.01" min="0.01" :value="ctx?.quantity" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
+                        </label>
+                        <label class="text-xs text-gray-700 sm:col-span-2" x-show="(ctx?.variants?.length ?? 0) > 0" x-cloak>
+                            {{ __('admin.inventory.manual_variant') }}
+                            <select name="variant_id" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                <option value="" :selected="! ctx?.variant_id">{{ __('admin.inventory.variant_default') }}</option>
+                                <template x-for="v in (ctx?.variants ?? [])" :key="v.id">
+                                    <option :value="v.id" x-text="v.name" :selected="String(ctx?.variant_id) === String(v.id)" :disabled="! v.is_active"></option>
+                                </template>
+                            </select>
                         </label>
                         <label class="text-xs text-gray-700 sm:col-span-2">
                             {{ __('admin.inventory.manual_freshness') }}
