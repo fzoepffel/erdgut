@@ -16,6 +16,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use Symfony\Component\Mailer\Exception\TransportException;
+use Symfony\Component\Mailer\SentMessage;
+use Symfony\Component\Mailer\Transport\AbstractTransport;
 use Tests\TestCase;
 
 /**
@@ -306,6 +309,42 @@ class ShopCheckoutWizardTest extends TestCase
         // id is recorded so /shop can release its stock on revisit.
         $draft = (array) session(CheckoutDraft::KEY);
         $this->assertSame($order->id, $draft['placed_order_id'] ?? null);
+    }
+
+    public function test_place_in_person_succeeds_even_when_confirmation_email_fails(): void
+    {
+        // Regression (staging 500): the host runs the `sync` queue driver, so
+        // ->queue() sends the confirmation mail INLINE during place(). When the
+        // SMTP credentials are invalid the transport throws — that must never
+        // 500 the customer, because the order row is already committed (a 500
+        // here makes shoppers re-order and pile up duplicate orders).
+        config([
+            'queue.default' => 'sync',
+            'mail.default' => 'qa_throwing',
+            'mail.mailers.qa_throwing' => ['transport' => 'qa_throwing'],
+        ]);
+        Mail::extend('qa_throwing', fn () => new class extends AbstractTransport
+        {
+            protected function doSend(SentMessage $message): void
+            {
+                throw new TransportException('535 Authentication credentials invalid');
+            }
+
+            public function __toString(): string
+            {
+                return 'qa_throwing://';
+            }
+        });
+
+        $this->seedFullDraft(['payment_method' => 'in_person']);
+
+        $response = $this->post(route('public.shop.checkout.place'), ['consent' => '1']);
+
+        $order = ShopOrder::query()->latest('id')->first();
+        $this->assertNotNull($order, 'Order must be created even when the confirmation email fails to send.');
+        $response->assertRedirect(route('public.shop.return', ['shopOrder' => $order->id]));
+        $this->assertSame('in_person', $order->payment_method);
+        $this->assertSame(ShopOrderStatus::PendingPayment, $order->status);
     }
 
     public function test_shop_index_cancels_orphan_pending_payment_order_on_revisit(): void

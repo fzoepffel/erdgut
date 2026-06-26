@@ -18,7 +18,9 @@ use App\Support\ShopOrderAdminNotifier;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * Three-step storefront checkout: the customer first builds a basket on
@@ -242,9 +244,26 @@ class ShopCheckoutController extends Controller
         // Mirrors ShopController::queueConfirmationMail. Pulling the
         // implementation back here would couple two controllers; the
         // mailable + service are stateless, so the duplication is cheap.
-        Mail::to($order->email)
-            ->locale(app()->getLocale())
-            ->queue(new ShopOrderConfirmationMail($order));
+        //
+        // A failed send must never break checkout: the order row is already
+        // committed by the time we get here, so letting a mail/SMTP error
+        // bubble up would 500 the customer (who may then re-order) for an
+        // order that actually exists. On hosts using the `sync` queue driver
+        // `->queue()` sends inline, so a transport failure (e.g. bad SMTP
+        // credentials) surfaces right here — swallow and log it, exactly as
+        // ShopController::queueConfirmationMail already does.
+        try {
+            Mail::to($order->email)
+                ->locale(app()->getLocale())
+                ->queue(new ShopOrderConfirmationMail($order));
+        } catch (Throwable $e) {
+            report($e);
+            Log::warning('shop.confirmation_mail.queue_failed', [
+                'shop_order_id' => $order->id,
+                'exception_class' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
