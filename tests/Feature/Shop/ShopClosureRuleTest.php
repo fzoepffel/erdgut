@@ -10,6 +10,7 @@ use App\Models\ShopClosureRule;
 use App\Models\ShopForcedOpenDay;
 use App\Models\User;
 use App\Services\Shop\ShopClosureService;
+use App\Services\Shop\ShopOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -196,6 +197,40 @@ class ShopClosureRuleTest extends TestCase
         $response = $this->get(route('public.shop.index'))->assertOk();
         $response->assertDontSee('value="'.self::WED.'"', false);
         $response->assertSee('value="'.self::THU.'"', false);
+    }
+
+    public function test_availability_index_carries_open_until_for_known_closures(): void
+    {
+        $this->makeWednesdayRule(); // cutoff Monday 18:00 for the 06-03 Wednesday
+
+        $dates = app(ShopOrderService::class)->availabilityIndex()['dates'];
+
+        // Pending rule day: open, but with a known cutoff to show the customer.
+        $wed = $dates->firstWhere(fn (array $r): bool => $r['date']->toDateString() === self::WED);
+        $this->assertNotNull($wed);
+        $this->assertNotNull($wed['open_until']);
+        $this->assertSame('2026-06-01 18:00', $wed['open_until']->format('Y-m-d H:i'));
+
+        // A plainly-open day (no rule) carries no cutoff.
+        $thu = $dates->firstWhere(fn (array $r): bool => $r['date']->toDateString() === self::THU);
+        $this->assertNotNull($thu);
+        $this->assertNull($thu['open_until']);
+
+        // A one-off scheduled close surfaces its own cutoff.
+        $this->service()->setClosingTime(Carbon::parse(self::THU), Carbon::parse('2026-06-03 09:00:00'), $this->admin->id);
+        $thu = app(ShopOrderService::class)->availabilityIndex()['dates']
+            ->firstWhere(fn (array $r): bool => $r['date']->toDateString() === self::THU);
+        $this->assertSame('2026-06-03 09:00', $thu['open_until']->format('Y-m-d H:i'));
+    }
+
+    public function test_storefront_dropdown_shows_open_until_label(): void
+    {
+        $this->makeWednesdayRule();
+
+        // The picker data carries the cutoff label (locale falls back to en).
+        $this->get(route('public.shop.index'))
+            ->assertOk()
+            ->assertSee('orderable until', false);
     }
 
     public function test_store_rejects_rule_closed_date_after_cutoff(): void

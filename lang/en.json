@@ -2799,6 +2799,7 @@
     "shop.date_picker_intro": "Pick the day your order should arrive. Only days with available stock appear here.",
     "shop.date_picker_label": "Delivery day",
     "shop.date_product_count": ":count product|:count products",
+    "shop.date_open_until": "orderable until :when",
     "shop.delivery_city": "City",
     "shop.delivery_notes": "Delivery notes",
     "shop.delivery_postal_code": "Postal code",
