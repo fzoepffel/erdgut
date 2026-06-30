@@ -3886,5 +3886,15 @@
     "restaurant.email.approved_cta": "Jetzt anmelden",
     "restaurant.email.rejected_subject": "Ihre Erdgut-Anfrage",
     "restaurant.email.rejected_heading": "Anfrage abgelehnt",
-    "restaurant.email.rejected_body": "Leider können wir Ihre Anfrage für ein Restaurantkonto derzeit nicht annehmen."
+    "restaurant.email.rejected_body": "Leider können wir Ihre Anfrage für ein Restaurantkonto derzeit nicht annehmen.",
+    "product.season_window_label": "Saison-Zeitraum",
+    "product.season_hint": "Wiederholt sich jedes Jahr. Ein Zeitraum darf den Jahreswechsel überspannen (z. B. Nov → Feb).",
+    "product.season_from": "Saison von",
+    "product.season_to": "Saison bis",
+    "product.season_month": "Monat",
+    "product.season_day": "Tag",
+    "product.season_badge": "Saisonal",
+    "product.season_badge_label": "Saison :range",
+    "product.season_window_incomplete": "Bitte Start- und Endmonat samt Tag angeben.",
+    "product.season_window_invalid_day": "Ungültiger Tag für den gewählten Monat."
 }

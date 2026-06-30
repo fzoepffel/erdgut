@@ -226,6 +226,11 @@
                                                 @else
                                                     <span class="text-amber-800">{{ __('Draft') }}</span>
                                                 @endif
+                                                @if ($product->is_seasonal)
+                                                    <span class="mt-1 block w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                                                        {{ $product->seasonLabel() ? __('product.season_badge_label', ['range' => $product->seasonLabel()]) : __('product.season_badge') }}
+                                                    </span>
+                                                @endif
                                             </td>
                                             <td class="py-3 pe-4 text-xs text-gray-500 tabular-nums" title="{{ $product->updated_at?->timezone(config('app.timezone'))->format('Y-m-d H:i') }}">
                                                 {{ $product->updated_at?->diffForHumans() ?? '—' }}

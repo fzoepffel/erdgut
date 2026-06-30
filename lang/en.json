@@ -3886,5 +3886,15 @@
     "restaurant.email.approved_cta": "Log in now",
     "restaurant.email.rejected_subject": "Your Erdgut application",
     "restaurant.email.rejected_heading": "Application rejected",
-    "restaurant.email.rejected_body": "Unfortunately we cannot accept your application for a restaurant account at this time."
+    "restaurant.email.rejected_body": "Unfortunately we cannot accept your application for a restaurant account at this time.",
+    "product.season_window_label": "Season window",
+    "product.season_hint": "Repeats every year. A window may wrap the year boundary (e.g. Nov → Feb).",
+    "product.season_from": "Season from",
+    "product.season_to": "Season to",
+    "product.season_month": "Month",
+    "product.season_day": "Day",
+    "product.season_badge": "Seasonal",
+    "product.season_badge_label": "Season :range",
+    "product.season_window_incomplete": "Please provide both start and end month with day.",
+    "product.season_window_invalid_day": "Invalid day for the selected month."
 }
