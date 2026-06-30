@@ -3896,5 +3896,17 @@
     "product.season_badge": "Saisonal",
     "product.season_badge_label": "Saison :range",
     "product.season_window_incomplete": "Bitte Start- und Endmonat samt Tag angeben.",
-    "product.season_window_invalid_day": "Ungültiger Tag für den gewählten Monat."
+    "product.season_window_invalid_day": "Ungültiger Tag für den gewählten Monat.",
+    "restaurant.catalog_eyebrow": "Sortiment",
+    "restaurant.catalog_title": "Bestellung vorbereiten",
+    "restaurant.catalog_date_label": "Liefertermin",
+    "restaurant.orderable_until": "bestellbar bis :time",
+    "restaurant.in_stock": "Auf Lager",
+    "restaurant.on_request": "Auf Anfrage",
+    "restaurant.net_suffix": "netto",
+    "restaurant.vat_note": "zzgl. :rate % MwSt.",
+    "restaurant.price_from": "ab",
+    "restaurant.catalog_empty": "Für diesen Termin sind aktuell keine Produkte verfügbar.",
+    "restaurant.no_open_days": "Derzeit sind keine Liefertermine buchbar.",
+    "restaurant.dashboard_cta": "Zum Sortiment"
 }

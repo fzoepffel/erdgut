@@ -60,6 +60,7 @@ use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\Restaurant\RestaurantCatalogController;
 use App\Http\Controllers\Restaurant\RestaurantDashboardController;
 use App\Http\Controllers\Restaurant\RestaurantRegisterController;
 use App\Http\Controllers\Restaurant\RestaurantVerificationController;
@@ -327,6 +328,7 @@ Route::middleware('auth')
 
         Route::middleware('restaurant')->group(function () {
             Route::get('/', [RestaurantDashboardController::class, 'index'])->name('dashboard');
+            Route::get('catalog', [RestaurantCatalogController::class, 'index'])->name('catalog');
         });
     });
 

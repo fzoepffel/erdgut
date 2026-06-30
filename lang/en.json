@@ -3896,5 +3896,17 @@
     "product.season_badge": "Seasonal",
     "product.season_badge_label": "Season :range",
     "product.season_window_incomplete": "Please provide both start and end month with day.",
-    "product.season_window_invalid_day": "Invalid day for the selected month."
+    "product.season_window_invalid_day": "Invalid day for the selected month.",
+    "restaurant.catalog_eyebrow": "Range",
+    "restaurant.catalog_title": "Prepare an order",
+    "restaurant.catalog_date_label": "Delivery date",
+    "restaurant.orderable_until": "orderable until :time",
+    "restaurant.in_stock": "In stock",
+    "restaurant.on_request": "On request",
+    "restaurant.net_suffix": "net",
+    "restaurant.vat_note": "plus :rate% VAT",
+    "restaurant.price_from": "from",
+    "restaurant.catalog_empty": "No products are available for this date right now.",
+    "restaurant.no_open_days": "No delivery dates are currently bookable.",
+    "restaurant.dashboard_cta": "Browse the range"
 }
