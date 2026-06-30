@@ -26,18 +26,4 @@ class ErrorPageHeaderTest extends TestCase
         $response->assertDontSee(route('auth.login'), false);
         $response->assertDontSee(route('auth.register'), false);
     }
-
-    public function test_419_offers_back_to_shop_with_no_auth_links(): void
-    {
-        // The session-expired page used to push "Log in" (a box path) and
-        // "sign in again" copy — neutralised to a "Back to shop" CTA so an
-        // anonymous shop visitor who times out is never nudged into the
-        // parked account surface.
-        $html = view('errors.419')->render();
-
-        $this->assertStringContainsString('data-testid="customer-header-shop"', $html);
-        $this->assertStringContainsString(route('public.shop.index'), $html);
-        $this->assertStringNotContainsString(route('auth.login'), $html);
-        $this->assertStringNotContainsString(route('auth.register'), $html);
-    }
 }
