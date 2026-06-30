@@ -501,6 +501,15 @@ Route::middleware(['auth', 'verified'])
             Route::post('shop-closures/toggle', [AdminShopClosureController::class, 'toggle'])
                 ->middleware('throttle:60,1')
                 ->name('shop-closures.toggle');
+            Route::post('shop-closures/reset', [AdminShopClosureController::class, 'reset'])
+                ->middleware('throttle:60,1')
+                ->name('shop-closures.reset');
+            Route::post('shop-closures/rules', [AdminShopClosureController::class, 'rulesStore'])
+                ->middleware('throttle:60,1')
+                ->name('shop-closures.rules.store');
+            Route::delete('shop-closures/rules/{rule}', [AdminShopClosureController::class, 'rulesDestroy'])
+                ->middleware('throttle:60,1')
+                ->name('shop-closures.rules.destroy');
 
             Route::get('shop-orders', [AdminShopOrderController::class, 'index'])->name('shop-orders.index');
             // Manual order creation — declared before {shopOrder} wildcard.
