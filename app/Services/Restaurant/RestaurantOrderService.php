@@ -141,6 +141,38 @@ class RestaurantOrderService
     }
 
     /**
+     * Admin transitions. Each is a guarded single status write — InventoryService
+     * recomputes reservations from the status, so no stock mutation is needed
+     * (declining a request releases its hold; confirming/fulfilling keeps it).
+     * Returns whether the transition applied.
+     */
+    public function confirm(RestaurantOrder $order): bool
+    {
+        return $this->transition($order, RestaurantOrderStatus::Submitted, RestaurantOrderStatus::Confirmed);
+    }
+
+    public function decline(RestaurantOrder $order): bool
+    {
+        return $this->transition($order, RestaurantOrderStatus::Submitted, RestaurantOrderStatus::Declined);
+    }
+
+    public function fulfil(RestaurantOrder $order): bool
+    {
+        return $this->transition($order, RestaurantOrderStatus::Confirmed, RestaurantOrderStatus::Fulfilled);
+    }
+
+    private function transition(RestaurantOrder $order, RestaurantOrderStatus $from, RestaurantOrderStatus $to): bool
+    {
+        if ($order->status !== $from) {
+            return false;
+        }
+
+        $order->forceFill(['status' => $to])->save();
+
+        return true;
+    }
+
+    /**
      * Sum duplicate product+grade lines so the sequential row-locked recheck
      * sees one quantity per grade.
      *
