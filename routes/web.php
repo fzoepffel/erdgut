@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPackingController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
+use App\Http\Controllers\Admin\AdminRestaurantAccountController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminShopClosureController;
 use App\Http\Controllers\Admin\AdminShopOrderController;
@@ -59,6 +60,9 @@ use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\Restaurant\RestaurantDashboardController;
+use App\Http\Controllers\Restaurant\RestaurantRegisterController;
+use App\Http\Controllers\Restaurant\RestaurantVerificationController;
 use App\Http\Controllers\Shop\ShopCatalogController;
 use App\Http\Controllers\Shop\ShopCheckoutController;
 use App\Http\Controllers\Shop\ShopController;
@@ -289,6 +293,43 @@ Route::name('app.onboarding.')
         });
     });
 
+// ── Restaurant (B2B) accounts ───────────────────────────────────────────────
+// Public application (guests apply; admin verifies before the account opens).
+Route::middleware('guest')->group(function () {
+    Route::get('restaurant/register', [RestaurantRegisterController::class, 'create'])->name('restaurant.register');
+    Route::post('restaurant/register', [RestaurantRegisterController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('restaurant.register.store');
+});
+Route::get('restaurant/register/submitted', [RestaurantRegisterController::class, 'submitted'])
+    ->name('restaurant.register.submitted');
+
+// Admin verify/reject via signed email links (no login required — "just click").
+Route::middleware('signed')->group(function () {
+    Route::get('restaurant-applications/{restaurantProfile}/review', [RestaurantVerificationController::class, 'review'])
+        ->name('restaurant.verify.review');
+    Route::post('restaurant-applications/{restaurantProfile}/verify', [RestaurantVerificationController::class, 'approve'])
+        ->name('restaurant.verify.approve');
+    Route::post('restaurant-applications/{restaurantProfile}/reject', [RestaurantVerificationController::class, 'reject'])
+        ->name('restaurant.verify.reject');
+});
+Route::get('restaurant-applications/reviewed', [RestaurantVerificationController::class, 'done'])
+    ->name('restaurant.verify.done');
+
+// Verified-restaurant area. Not behind the box `verified` (email) gate —
+// admin approval is the gate; the pending page sits outside `restaurant` so
+// awaiting accounts don't redirect-loop.
+Route::middleware('auth')
+    ->prefix('app/restaurant')
+    ->name('app.restaurant.')
+    ->group(function () {
+        Route::get('pending', [RestaurantDashboardController::class, 'pending'])->name('pending');
+
+        Route::middleware('restaurant')->group(function () {
+            Route::get('/', [RestaurantDashboardController::class, 'index'])->name('dashboard');
+        });
+    });
+
 Route::middleware(['auth', 'verified'])
     ->prefix('app')
     ->name('app.')
@@ -346,6 +387,7 @@ Route::middleware(['auth', 'verified'])
 
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+            Route::get('restaurant-accounts', [AdminRestaurantAccountController::class, 'index'])->name('restaurant-accounts.index');
             Route::get('audit-events', [AdminAuditEventController::class, 'index'])->name('audit-events.index');
             Route::get('search', AdminSearchController::class)
                 ->middleware('throttle:60,1')

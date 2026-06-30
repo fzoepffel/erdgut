@@ -18,6 +18,10 @@ class DashboardController extends Controller
             return redirect()->route('app.admin.dashboard');
         }
 
+        if ($request->user()->isRestaurant()) {
+            return redirect()->route('app.restaurant.dashboard');
+        }
+
         $user = $request->user();
 
         if (SubscriberAccess::shouldShowWelcomeDashboard($user)) {

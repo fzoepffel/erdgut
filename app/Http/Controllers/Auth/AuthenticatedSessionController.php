@@ -32,6 +32,13 @@ class AuthenticatedSessionController extends Controller
 
         $user = Auth::user();
 
+        // Restaurant (B2B) accounts have their own area; verified ones land on
+        // the restaurant dashboard, pending ones get bounced to the pending
+        // page by the `restaurant` guard.
+        if ($user !== null && $user->isRestaurant()) {
+            return redirect()->intended(route('app.restaurant.dashboard', absolute: false));
+        }
+
         // B3 (UX notes): if the user logged out mid-onboarding (active
         // draft, no finalised subscription yet) and is unverified, the
         // default `app.dashboard` target bounces them off the verified

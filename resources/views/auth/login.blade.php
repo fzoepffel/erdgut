@@ -45,4 +45,9 @@
         {{ __('New to Erdgut?') }}
         <a href="{{ route('auth.register') }}" class="font-semibold text-brand-ink underline-offset-4 hover:underline">{{ __('Create an account') }}</a>
     </p>
+
+    <p class="mt-3 text-center text-sm text-brand-ink/70">
+        {{ __('restaurant.login_prompt') }}
+        <a href="{{ route('restaurant.register') }}" class="font-semibold text-brand-ink underline-offset-4 hover:underline">{{ __('restaurant.login_prompt_link') }}</a>
+    </p>
 </x-guest-layout>
