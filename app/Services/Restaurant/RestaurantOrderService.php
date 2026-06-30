@@ -180,7 +180,18 @@ class RestaurantOrderService
      */
     public function confirm(RestaurantOrder $order): bool
     {
-        return $this->transition($order, RestaurantOrderStatus::Submitted, RestaurantOrderStatus::Confirmed);
+        $applied = $this->transition($order, RestaurantOrderStatus::Submitted, RestaurantOrderStatus::Confirmed);
+
+        // Confirming the first order of a recurring delivery activates the whole
+        // standing order — subsequent weeks then auto-confirm.
+        if ($applied && $order->source_standing_order_id !== null) {
+            $standing = $order->standingOrder()->first();
+            if ($standing !== null && $standing->isPending()) {
+                app(RestaurantStandingOrderService::class)->activate($standing, null);
+            }
+        }
+
+        return $applied;
     }
 
     public function decline(RestaurantOrder $order): bool

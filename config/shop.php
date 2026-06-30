@@ -78,6 +78,10 @@ return [
     'restaurant_invoice_prefix' => env('SHOP_RESTAURANT_INVOICE_PREFIX', 'RG'),
     'restaurant_invoice_due_days' => (int) env('SHOP_RESTAURANT_INVOICE_DUE_DAYS', 14),
 
+    // How many days ahead the scheduler generates the next recurring restaurant
+    // (standing) order — stock is reserved + prices resolved this close to delivery.
+    'restaurant_standing_lead_days' => (int) env('SHOP_RESTAURANT_STANDING_LEAD_DAYS', 9),
+
     /*
     |--------------------------------------------------------------------------
     | Pickup locations

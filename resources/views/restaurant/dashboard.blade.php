@@ -23,6 +23,10 @@
                class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:text-shop-primary hover:underline">
                 {{ __('restaurant.my_requests') }}
             </a>
+            <a href="{{ route('app.restaurant.standing-orders.index') }}"
+               class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:text-shop-primary hover:underline">
+                {{ __('restaurant.standing_title') }}
+            </a>
         </div>
     </div>
 </x-shop-layout>

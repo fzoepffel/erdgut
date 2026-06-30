@@ -65,6 +65,7 @@ use App\Http\Controllers\Restaurant\RestaurantCatalogController;
 use App\Http\Controllers\Restaurant\RestaurantDashboardController;
 use App\Http\Controllers\Restaurant\RestaurantOrderController;
 use App\Http\Controllers\Restaurant\RestaurantRegisterController;
+use App\Http\Controllers\Restaurant\RestaurantStandingOrderController;
 use App\Http\Controllers\Restaurant\RestaurantVerificationController;
 use App\Http\Controllers\Shop\ShopCatalogController;
 use App\Http\Controllers\Shop\ShopCheckoutController;
@@ -337,6 +338,11 @@ Route::middleware('auth')
             Route::get('orders/{restaurantOrder}', [RestaurantOrderController::class, 'show'])->name('orders.show');
             Route::get('orders/{restaurantOrder}/invoice.pdf', [RestaurantOrderController::class, 'invoicePdf'])->name('orders.invoice-pdf');
             Route::post('orders/{restaurantOrder}/cancel', [RestaurantOrderController::class, 'cancel'])->name('orders.cancel');
+
+            Route::get('standing-orders', [RestaurantStandingOrderController::class, 'index'])->name('standing-orders.index');
+            Route::post('standing-orders/{standingOrder}/pause', [RestaurantStandingOrderController::class, 'pause'])->name('standing-orders.pause');
+            Route::post('standing-orders/{standingOrder}/resume', [RestaurantStandingOrderController::class, 'resume'])->name('standing-orders.resume');
+            Route::delete('standing-orders/{standingOrder}', [RestaurantStandingOrderController::class, 'destroy'])->name('standing-orders.destroy');
         });
     });
 

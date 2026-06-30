@@ -34,6 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // schedules so the admin always sees ≥4 weeks of buffered rows
         // ahead. See {@see App\Services\Admin\InventoryService::CRON_MATERIALIZE_WEEKS_AHEAD}.
         $schedule->command('stock:materialize-inflow-schedules')->weeklyOn(1, '03:00')->withoutOverlapping();
+        // Generate upcoming recurring restaurant (B2B) orders from active standing orders.
+        $schedule->command('restaurant-orders:materialize-standing')->dailyAt('04:00')->withoutOverlapping();
         $schedule->command('boxes:lock')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('subscriptions:charge')->dailyAt('06:00')->withoutOverlapping();
         $schedule->command('payments:retry')->dailyAt('08:00')->withoutOverlapping();
