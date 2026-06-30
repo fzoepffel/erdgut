@@ -81,7 +81,7 @@
                                         <p class="text-xs text-gray-500" x-text="'{{ __('admin.packing.order_lines_heading') }} · ' + selected().total_qty_label"></p>
                                     </div>
                                     <button type="button" @click="packAll(selected())"
-                                            x-show="!selected().done"
+                                            x-show="!selected().done && !selected().is_custom"
                                             class="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
                                             x-text="'{{ __('admin.packing.pack_all', ['count' => '__C__']) }}'.replace('__C__', selected().total_count - selected().packed_count)"></button>
                                 </div>

@@ -136,8 +136,9 @@
                     <tbody class="divide-y divide-gray-100">
                         @foreach ($order->items as $item)
                             <tr>
-                                <td class="px-4 py-2 text-gray-800">{{ $item->product?->name ?? __('shop.admin.deleted_product') }}@if ($item->variant_name_snapshot) <span class="text-gray-500">· {{ $item->variant_name_snapshot }}</span>@endif</td>
-                                <td class="px-4 py-2 text-gray-600">{{ $item->product?->displayQuantity((float) $item->quantity) ?? (rtrim(rtrim((string) $item->quantity, '0'), '.') . ' ' . $item->unit) }}</td>
+                                <td class="px-4 py-2 text-gray-800">{{ $item->displayName() }}@if ($item->variant_name_snapshot) <span class="text-gray-500">· {{ $item->variant_name_snapshot }}</span>@endif
+                                    @if ($item->isCustom())<span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide text-gray-500">{{ __('shop.admin.custom_line_tag') }}</span>@endif</td>
+                                <td class="px-4 py-2 text-gray-600">{{ $item->displayQuantityLabel() }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ $item->vat_rate_snapshot_percent }}%</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($item->line_total_eur)</td>
                             </tr>
