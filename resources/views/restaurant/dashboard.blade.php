@@ -14,9 +14,15 @@
 
     <div class="shop-card mt-8 p-8">
         <p class="text-base leading-relaxed text-shop-muted">{{ __('restaurant.dashboard_placeholder') }}</p>
-        <a href="{{ route('app.restaurant.catalog') }}"
-           class="mt-6 inline-flex h-[3rem] items-center justify-center border border-shop-primary bg-shop-primary px-6 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover">
-            {{ __('restaurant.dashboard_cta') }}
-        </a>
+        <div class="mt-6 flex flex-wrap items-center gap-4">
+            <a href="{{ route('app.restaurant.catalog') }}"
+               class="inline-flex h-[3rem] items-center justify-center border border-shop-primary bg-shop-primary px-6 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover">
+                {{ __('restaurant.dashboard_cta') }}
+            </a>
+            <a href="{{ route('app.restaurant.orders.index') }}"
+               class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:text-shop-primary hover:underline">
+                {{ __('restaurant.my_requests') }}
+            </a>
+        </div>
     </div>
 </x-shop-layout>

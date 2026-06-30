@@ -62,6 +62,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\Restaurant\RestaurantCatalogController;
 use App\Http\Controllers\Restaurant\RestaurantDashboardController;
+use App\Http\Controllers\Restaurant\RestaurantOrderController;
 use App\Http\Controllers\Restaurant\RestaurantRegisterController;
 use App\Http\Controllers\Restaurant\RestaurantVerificationController;
 use App\Http\Controllers\Shop\ShopCatalogController;
@@ -329,6 +330,11 @@ Route::middleware('auth')
         Route::middleware('restaurant')->group(function () {
             Route::get('/', [RestaurantDashboardController::class, 'index'])->name('dashboard');
             Route::get('catalog', [RestaurantCatalogController::class, 'index'])->name('catalog');
+
+            Route::get('orders', [RestaurantOrderController::class, 'index'])->name('orders.index');
+            Route::post('orders', [RestaurantOrderController::class, 'store'])->name('orders.store');
+            Route::get('orders/{restaurantOrder}', [RestaurantOrderController::class, 'show'])->name('orders.show');
+            Route::post('orders/{restaurantOrder}/cancel', [RestaurantOrderController::class, 'cancel'])->name('orders.cancel');
         });
     });
 

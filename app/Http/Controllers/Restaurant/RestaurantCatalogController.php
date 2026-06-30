@@ -9,9 +9,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 /**
- * Read-only B2B catalog for verified restaurants. For the selected delivery
- * date it lists the products available to order (in stock for business trade,
- * or in season) at net business prices. Ordering/requests are a later ticket.
+ * B2B catalog + order builder for verified restaurants. For the selected
+ * delivery date it lists products available to order (in stock for business
+ * trade, or in season) at net business prices; the restaurant builds a request
+ * and submits it (see RestaurantOrderController).
  */
 class RestaurantCatalogController extends Controller
 {
@@ -35,6 +36,7 @@ class RestaurantCatalogController extends Controller
             'selectableDates' => $selectableDates,
             'selectedDate' => $selectedDate,
             'products' => $products,
+            'profile' => $request->user()->restaurantProfile,
         ]);
     }
 }
