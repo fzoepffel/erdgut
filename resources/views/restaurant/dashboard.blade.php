@@ -14,5 +14,9 @@
 
     <div class="shop-card mt-8 p-8">
         <p class="text-base leading-relaxed text-shop-muted">{{ __('restaurant.dashboard_placeholder') }}</p>
+        <a href="{{ route('app.restaurant.catalog') }}"
+           class="mt-6 inline-flex h-[3rem] items-center justify-center border border-shop-primary bg-shop-primary px-6 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover">
+            {{ __('restaurant.dashboard_cta') }}
+        </a>
     </div>
 </x-shop-layout>

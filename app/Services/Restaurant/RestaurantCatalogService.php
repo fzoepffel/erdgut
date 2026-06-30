@@ -1,0 +1,140 @@
+<?php
+
+namespace App\Services\Restaurant;
+
+use App\Enums\CustomerType;
+use App\Enums\ShopStockAudience;
+use App\Models\Product;
+use App\Services\Admin\InventoryService;
+use App\Services\Shop\PriceResolver;
+use App\Services\Shop\ShopClosureService;
+use App\Services\Shop\ShopOrderService;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+
+/**
+ * Builds the restaurant (B2B) catalog: for a chosen delivery date, the products
+ * a verified restaurant can order, priced at the business net price.
+ *
+ * The product set is "in stock for business trade OR in season" — so in-season
+ * items surface even when temporarily out of stock (flagged "on request"). This
+ * is read-only browsing; ordering/requests are a later ticket.
+ */
+class RestaurantCatalogService
+{
+    public function __construct(
+        private readonly InventoryService $inventory,
+        private readonly PriceResolver $priceResolver,
+        private readonly ShopClosureService $closures,
+    ) {}
+
+    /**
+     * Open delivery days from tomorrow through the booking horizon, each with
+     * its "orderable until" cutoff label (when a closure rule sets one). Closed
+     * days are excluded. In-season "on request" items keep every open day valid,
+     * so days are NOT filtered by stock.
+     *
+     * @return Collection<int, array{date: Carbon, cutoff_label: ?string}>
+     */
+    public function selectableDates(): Collection
+    {
+        $start = Carbon::tomorrow();
+        $weeks = (int) config('shop.horizon_weeks', 8);
+        $end = $start->copy()->addWeeks(max(1, $weeks));
+
+        $states = $this->closures->statesForRange($start, $end);
+
+        return collect($states)
+            ->reject(fn (array $state): bool => $state['closed'])
+            ->map(fn (array $state, string $iso): array => [
+                'date' => Carbon::parse($iso),
+                'cutoff_label' => $state['cutoff_label'],
+            ])
+            ->values();
+    }
+
+    /**
+     * Catalog rows for a delivery date. Each row carries the business gross and
+     * net per display unit, the VAT rate, and stock/season flags.
+     *
+     * @return Collection<int, array{
+     *     product: Product, inStock: bool, inSeason: bool,
+     *     grossPerDisplay: float, netPerDisplay: float, vatRate: int,
+     *     displayUnit: string, priceFrom: bool
+     * }>
+     */
+    public function productsForDate(Carbon $date): Collection
+    {
+        $date = $date->copy()->startOfDay();
+
+        $products = Product::query()
+            ->visibleInCatalog()
+            ->with(['translations', 'producer.translations', 'images', 'variants', 'priceRules'])
+            ->get();
+
+        $matrix = $this->inventory->availabilityMatrix($products, $date, $date, ShopStockAudience::BusinessTrade);
+        $iso = $date->toDateString();
+
+        return $products
+            ->map(function (Product $product) use ($matrix, $iso, $date): ?array {
+                $remaining = (float) ($matrix[$product->id][$iso] ?? 0.0);
+                $inStock = $remaining > 0;
+                // The "on request" track is for genuinely seasonal items that
+                // are currently in their window but out of stock. Non-seasonal
+                // (year-round) products show only when actually in stock, so the
+                // catalog isn't flooded with always-"on request" staples.
+                $inSeason = $product->is_seasonal && $product->isInSeason($date);
+
+                if (! $inStock && ! $inSeason) {
+                    return null;
+                }
+
+                return $this->row($product, $date, $inStock, $inSeason);
+            })
+            ->filter()
+            ->values();
+    }
+
+    /**
+     * @return array{
+     *     product: Product, inStock: bool, inSeason: bool,
+     *     grossPerDisplay: float, netPerDisplay: float, vatRate: int,
+     *     displayUnit: string, priceFrom: bool
+     * }
+     */
+    private function row(Product $product, Carbon $date, bool $inStock, bool $inSeason): array
+    {
+        $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit() ?? 'piece';
+        $factor = $product->unit?->canonicalUnitsPerDisplay($displayUnit) ?? 1;
+
+        // Cheapest active grade drives the headline price; the default grade is
+        // the product itself (no variant). "from" prefix when grades vary.
+        $variants = $product->activeVariants();
+        $grossCanonicalCandidates = [
+            $this->priceResolver->resolve($product, $date, CustomerType::Business)->unitPriceEur,
+        ];
+        foreach ($variants as $variant) {
+            $grossCanonicalCandidates[] = $this->priceResolver
+                ->resolve($product, $date, CustomerType::Business, null, $variant->id, $variant)
+                ->unitPriceEur;
+        }
+        $grossCanonical = min($grossCanonicalCandidates);
+        $priceFrom = count($grossCanonicalCandidates) > 1
+            && max($grossCanonicalCandidates) !== min($grossCanonicalCandidates);
+
+        $vatRate = (int) $product->vat_rate_percent;
+        $grossPerDisplay = round($grossCanonical * $factor, 2);
+        $netPerDisplay = round($grossPerDisplay - ShopOrderService::vatAmountFromGross($grossPerDisplay, $vatRate), 2);
+
+        return [
+            'product' => $product,
+            'inStock' => $inStock,
+            'inSeason' => $inSeason,
+            'grossPerDisplay' => $grossPerDisplay,
+            'netPerDisplay' => $netPerDisplay,
+            'vatRate' => $vatRate,
+            'displayUnit' => $displayUnit,
+            'priceFrom' => $priceFrom,
+        ];
+    }
+}
