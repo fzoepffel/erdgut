@@ -58,6 +58,37 @@ class AdminShopClosureController extends Controller
     }
 
     /**
+     * Set a single day's state: a one-off closing time, an immediate close,
+     * keep-open, or reset to the rule. Manual choices override any rule.
+     */
+    public function setDay(Request $request): JsonResponse
+    {
+        $this->authorize('admin');
+
+        $validated = $request->validate([
+            'date' => ['required', 'date'],
+            'action' => ['required', 'in:closes_at,close_now,keep_open,reset'],
+            'closes_at' => ['nullable', 'required_if:action,closes_at', 'date'],
+            'month' => ['nullable', 'date_format:Y-m'],
+        ]);
+
+        $date = Carbon::parse($validated['date'])->startOfDay();
+        $this->assertManageable($date);
+        $userId = (int) $request->user()->id;
+
+        match ($validated['action']) {
+            'closes_at' => $this->closures->setClosingTime($date, Carbon::parse($validated['closes_at']), $userId),
+            'close_now' => $this->closures->closeNow($date, $userId),
+            'keep_open' => $this->closures->keepOpen($date, $userId),
+            'reset' => $this->closures->clearOverride($date),
+        };
+
+        $month = $this->resolveMonth((string) ($validated['month'] ?? $date->format('Y-m')));
+
+        return $this->payloadResponse($month);
+    }
+
+    /**
      * Drop any manual override on a day so it follows its rule again.
      */
     public function reset(Request $request): JsonResponse
@@ -214,6 +245,8 @@ class AdminShopClosureController extends Controller
                     'has_rule' => (bool) ($st['has_rule'] ?? false),
                     'has_override' => ! $isDisabled && (bool) ($st['has_override'] ?? false),
                     'cutoff_label' => $st['cutoff_label'] ?? null,
+                    'closes_at' => $st['closes_at'] ?? null,
+                    'rule_cutoff' => $st['rule_cutoff'] ?? null,
                     'is_today' => $iso === $today,
                     'is_disabled' => $isDisabled,
                 ];

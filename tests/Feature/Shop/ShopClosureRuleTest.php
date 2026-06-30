@@ -264,6 +264,87 @@ class ShopClosureRuleTest extends TestCase
         $this->assertTrue($this->service()->isClosed(Carbon::parse(self::WED)));
     }
 
+    public function test_per_day_closing_time_overrides_rule_to_close_earlier(): void
+    {
+        $this->makeWednesdayRule(); // rule cutoff = Monday 18:00
+        // One-off cutoff Monday 10:00 — earlier than the rule.
+        $this->service()->setClosingTime(Carbon::parse(self::WED), Carbon::parse('2026-06-01 10:00:00'), $this->admin->id);
+
+        // now Monday 09:00 → before the one-off cutoff → open
+        $this->assertFalse($this->service()->isClosed(Carbon::parse(self::WED)));
+
+        // Monday 11:00 → past the one-off cutoff, even though the rule's 18:00 hasn't passed
+        Carbon::setTestNow(Carbon::parse('2026-06-01 11:00:00'));
+        $this->assertTrue($this->service()->isClosed(Carbon::parse(self::WED)));
+    }
+
+    public function test_per_day_closing_time_overrides_rule_to_stay_open_later(): void
+    {
+        $this->makeWednesdayRule(); // rule cutoff = Monday 18:00
+        // One-off cutoff Tuesday 12:00 — later than the rule.
+        $this->service()->setClosingTime(Carbon::parse(self::WED), Carbon::parse('2026-06-02 12:00:00'), $this->admin->id);
+
+        // Monday 19:00 — the rule would have closed it, but the one-off keeps it open.
+        Carbon::setTestNow(Carbon::parse('2026-06-01 19:00:00'));
+        $this->assertFalse($this->service()->isClosed(Carbon::parse(self::WED)));
+
+        // Tuesday 13:00 — past the one-off cutoff → closed.
+        Carbon::setTestNow(Carbon::parse('2026-06-02 13:00:00'));
+        $this->assertTrue($this->service()->isClosed(Carbon::parse(self::WED)));
+    }
+
+    public function test_states_for_range_reports_manual_scheduled_then_closed(): void
+    {
+        $this->makeWednesdayRule();
+        $this->service()->setClosingTime(Carbon::parse(self::WED), Carbon::parse('2026-06-02 12:00:00'), $this->admin->id);
+
+        $scheduled = $this->service()->statesForRange(Carbon::parse(self::WED), Carbon::parse(self::WED))[self::WED];
+        $this->assertSame('manual_scheduled', $scheduled['state']);
+        $this->assertFalse($scheduled['closed']);
+        $this->assertTrue($scheduled['has_override']);
+        $this->assertSame('2026-06-02T12:00', $scheduled['closes_at']);
+        $this->assertNotNull($scheduled['cutoff_label']);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-02 13:00:00'));
+        $closed = $this->service()->statesForRange(Carbon::parse(self::WED), Carbon::parse(self::WED))[self::WED];
+        $this->assertSame('manual_closed', $closed['state']);
+        $this->assertTrue($closed['closed']);
+    }
+
+    public function test_set_day_endpoint_actions(): void
+    {
+        $this->makeWednesdayRule();
+
+        // closes_at → one-off cutoff stored
+        $this->actingAs($this->admin)
+            ->postJson(route('app.admin.shop-closures.set-day'), [
+                'date' => self::WED, 'action' => 'closes_at', 'closes_at' => '2026-06-02T12:00', 'month' => '2026-06',
+            ])->assertOk();
+        $row = ShopClosedDay::query()->whereDate('closed_on', self::WED)->first();
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->closes_at);
+
+        // keep_open → forced-open, no closed row
+        $this->actingAs($this->admin)
+            ->postJson(route('app.admin.shop-closures.set-day'), ['date' => self::WED, 'action' => 'keep_open'])
+            ->assertOk();
+        $this->assertDatabaseHas('shop_forced_open_days', ['forced_open_on' => self::WED]);
+        $this->assertDatabaseMissing('shop_closed_days', ['closed_on' => self::WED]);
+
+        // close_now → closed row with null closes_at, no forced-open
+        $this->actingAs($this->admin)
+            ->postJson(route('app.admin.shop-closures.set-day'), ['date' => self::WED, 'action' => 'close_now'])
+            ->assertOk();
+        $this->assertDatabaseHas('shop_closed_days', ['closed_on' => self::WED, 'closes_at' => null]);
+        $this->assertDatabaseMissing('shop_forced_open_days', ['forced_open_on' => self::WED]);
+
+        // reset → follows the rule again
+        $this->actingAs($this->admin)
+            ->postJson(route('app.admin.shop-closures.set-day'), ['date' => self::WED, 'action' => 'reset'])
+            ->assertOk();
+        $this->assertDatabaseMissing('shop_closed_days', ['closed_on' => self::WED]);
+    }
+
     public function test_purge_removes_past_forced_open_days(): void
     {
         ShopForcedOpenDay::query()->create(['forced_open_on' => '2026-05-20', 'created_by_user_id' => $this->admin->id]);

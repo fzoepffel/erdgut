@@ -105,8 +105,11 @@ class ShopClosureService
 
         $iso = $date->toDateString();
 
-        if (ShopClosedDay::query()->whereDate('closed_on', $iso)->exists()) {
-            return true; // manual close wins
+        $closed = ShopClosedDay::query()->whereDate('closed_on', $iso)->first();
+        if ($closed !== null) {
+            // A manual row wins over any rule. closes_at null = closed now;
+            // otherwise it's a one-off cutoff: open until then.
+            return $closed->closes_at === null || Carbon::now()->gte($closed->closes_at);
         }
 
         if (ShopForcedOpenDay::query()->whereDate('forced_open_on', $iso)->exists()) {
@@ -159,6 +162,63 @@ class ShopClosureService
     }
 
     /**
+     * Set a one-off closing time for a single day (open until $closesAt, then
+     * closed). Overrides any recurring rule for that date.
+     */
+    public function setClosingTime(Carbon $date, Carbon $closesAt, ?int $createdByUserId = null): void
+    {
+        $date = $this->requireManageable($date);
+        $iso = $date->toDateString();
+
+        ShopForcedOpenDay::query()->whereDate('forced_open_on', $iso)->delete();
+        ShopClosedDay::query()->updateOrCreate(
+            ['closed_on' => $iso],
+            ['closes_at' => $closesAt, 'created_by_user_id' => $createdByUserId],
+        );
+    }
+
+    /**
+     * Close a day immediately (manual close, no cutoff time).
+     */
+    public function closeNow(Carbon $date, ?int $createdByUserId = null): void
+    {
+        $date = $this->requireManageable($date);
+        $iso = $date->toDateString();
+
+        ShopForcedOpenDay::query()->whereDate('forced_open_on', $iso)->delete();
+        ShopClosedDay::query()->updateOrCreate(
+            ['closed_on' => $iso],
+            ['closes_at' => null, 'created_by_user_id' => $createdByUserId],
+        );
+    }
+
+    /**
+     * Keep a day open, overriding any rule that would close it.
+     */
+    public function keepOpen(Carbon $date, ?int $createdByUserId = null): void
+    {
+        $date = $this->requireManageable($date);
+        $iso = $date->toDateString();
+
+        ShopClosedDay::query()->whereDate('closed_on', $iso)->delete();
+        ShopForcedOpenDay::query()->firstOrCreate(
+            ['forced_open_on' => $iso],
+            ['created_by_user_id' => $createdByUserId],
+        );
+    }
+
+    private function requireManageable(Carbon $date): Carbon
+    {
+        $date = $date->copy()->startOfDay();
+
+        if (! $this->isManageableDate($date)) {
+            throw new \InvalidArgumentException('Closure date must be tomorrow or later.');
+        }
+
+        return $date;
+    }
+
+    /**
      * Drop any manual override on a day so it follows its rule again.
      */
     public function clearOverride(Carbon $date): void
@@ -185,22 +245,21 @@ class ShopClosureService
      * manual overrides + active rules. Used by the admin calendar and (via
      * {@see effectiveClosedIsoDatesBetween}) the storefront date picker.
      *
-     * @return array<string, array{state: string, closed: bool, has_rule: bool, has_override: bool, cutoff_label: ?string}>
+     * @return array<string, array{state: string, closed: bool, has_rule: bool, has_override: bool, cutoff_label: ?string, closes_at: ?string, rule_cutoff: ?string}>
      */
     public function statesForRange(Carbon $from, Carbon $to): array
     {
         $from = $from->copy()->startOfDay();
         $to = $to->copy()->startOfDay();
 
-        $closedSet = array_fill_keys(
-            ShopClosedDay::query()
-                ->whereDate('closed_on', '>=', $from->toDateString())
-                ->whereDate('closed_on', '<=', $to->toDateString())
-                ->pluck('closed_on')
-                ->map(fn ($d) => Carbon::parse($d)->toDateString())
-                ->all(),
-            true,
-        );
+        // iso => closes_at (Carbon|null). Presence of the key = a manual close row.
+        $closedMap = [];
+        foreach (ShopClosedDay::query()
+            ->whereDate('closed_on', '>=', $from->toDateString())
+            ->whereDate('closed_on', '<=', $to->toDateString())
+            ->get() as $row) {
+            $closedMap[Carbon::parse($row->closed_on)->toDateString()] = $row->closes_at;
+        }
         $forcedOpenSet = array_fill_keys(
             ShopForcedOpenDay::query()
                 ->whereDate('forced_open_on', '>=', $from->toDateString())
@@ -221,29 +280,37 @@ class ShopClosureService
             $iso = $cursor->toDateString();
             $rule = $rules->get((int) $cursor->dayOfWeek);
             $hasRule = $rule !== null;
-            $manualClosed = isset($closedSet[$iso]);
+            $manualClosed = array_key_exists($iso, $closedMap);
+            $closesAt = $manualClosed ? $closedMap[$iso] : null; // Carbon|null
             $forcedOpen = isset($forcedOpenSet[$iso]);
             $cutoffLabel = null;
+            $ruleCutoff = $hasRule ? $this->cutoffFor($cursor, $rule) : null;
 
             if ($cursor->lt($earliest)) {
                 // Past/today: not bookable; left to the caller to mark disabled.
                 $state = 'open';
                 $closed = true;
             } elseif ($manualClosed) {
-                $state = 'manual_closed';
-                $closed = true;
+                if ($closesAt !== null && $now->lt($closesAt)) {
+                    // One-off cutoff still in the future → open until then.
+                    $state = 'manual_scheduled';
+                    $closed = false;
+                    $cutoffLabel = $closesAt->translatedFormat('D, H:i');
+                } else {
+                    $state = 'manual_closed';
+                    $closed = true;
+                }
             } elseif ($forcedOpen) {
                 $state = 'forced_open';
                 $closed = false;
             } elseif ($hasRule) {
-                $cutoff = $this->cutoffFor($cursor, $rule);
-                if ($now->gte($cutoff)) {
+                if ($now->gte($ruleCutoff)) {
                     $state = 'rule_closed';
                     $closed = true;
                 } else {
                     $state = 'rule_pending';
                     $closed = false;
-                    $cutoffLabel = $cutoff->translatedFormat('D, H:i');
+                    $cutoffLabel = $ruleCutoff->translatedFormat('D, H:i');
                 }
             } else {
                 $state = 'open';
@@ -256,6 +323,8 @@ class ShopClosureService
                 'has_rule' => $hasRule,
                 'has_override' => $manualClosed || $forcedOpen,
                 'cutoff_label' => $cutoffLabel,
+                'closes_at' => $closesAt?->format('Y-m-d\TH:i'),
+                'rule_cutoff' => $ruleCutoff?->format('Y-m-d\TH:i'),
             ];
 
             $cursor->addDay();

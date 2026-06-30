@@ -28,6 +28,7 @@
              initialRules: @js($rules),
              toggleUrl: @js(route('app.admin.shop-closures.toggle')),
              resetUrl: @js(route('app.admin.shop-closures.reset')),
+             setDayUrl: @js(route('app.admin.shop-closures.set-day')),
              rulesUrl: @js(route('app.admin.shop-closures.rules.store')),
              rulesDestroyBase: @js(url('app/admin/shop-closures/rules')),
              indexUrl: @js(route('app.admin.shop-closures.index')),
@@ -133,7 +134,7 @@
                                 <template x-for="cell in week" :key="`${renderKey}-${cell.iso}`">
                                     <div class="relative aspect-square">
                                         <button type="button"
-                                                @click="!cell.is_disabled && toggleDay(cell.iso)"
+                                                @click="!cell.is_disabled && openDayEditor(cell)"
                                                 :disabled="cell.is_disabled || loadingDate === cell.iso"
                                                 :aria-pressed="cell.closed ? 'true' : 'false'"
                                                 :aria-disabled="cell.is_disabled ? 'true' : 'false'"
@@ -144,6 +145,7 @@
                                                     'bg-red-100 text-red-900 ring-1 ring-red-200 hover:bg-red-200': cell.state === 'manual_closed' && cell.in_month,
                                                     'bg-rose-300 text-rose-950 ring-1 ring-rose-400 hover:bg-rose-400': cell.state === 'rule_closed' && cell.in_month,
                                                     'bg-amber-100 text-amber-900 ring-1 ring-amber-300 hover:bg-amber-200': cell.state === 'rule_pending' && cell.in_month,
+                                                    'bg-amber-50 text-amber-900 ring-2 ring-amber-400 hover:bg-amber-100': cell.state === 'manual_scheduled' && cell.in_month,
                                                     'bg-white text-emerald-800 ring-2 ring-emerald-400 hover:bg-emerald-50': cell.state === 'forced_open' && cell.in_month,
                                                     'bg-white text-gray-800 hover:bg-gray-50 ring-1 ring-gray-100': cell.state === 'open' && cell.in_month && !cell.is_disabled,
                                                     'bg-gray-100 text-gray-300 ring-1 ring-gray-100': cell.is_disabled && cell.in_month,
@@ -184,6 +186,10 @@
                             {{ __('admin.shop_closures.legend_rule_pending') }}
                         </span>
                         <span class="inline-flex items-center gap-2">
+                            <span class="inline-block h-4 w-4 rounded bg-amber-50 ring-2 ring-amber-400"></span>
+                            {{ __('admin.shop_closures.legend_scheduled') }}
+                        </span>
+                        <span class="inline-flex items-center gap-2">
                             <span class="inline-block h-4 w-4 rounded bg-white ring-2 ring-emerald-400"></span>
                             {{ __('admin.shop_closures.legend_forced_open') }}
                         </span>
@@ -196,6 +202,49 @@
             </div>
 
         </div>
+
+        {{-- ── Day editor (set a one-off closing time, close now, keep open) ── --}}
+        <div x-show="dayEditor.open" x-cloak
+             class="fixed inset-0 z-50 flex items-center justify-center p-4"
+             @keydown.escape.window="closeDayEditor()">
+            <div class="absolute inset-0 bg-black/30" @click="closeDayEditor()"></div>
+            <div class="relative w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+                <h3 class="text-sm font-semibold text-gray-900" x-text="dayEditor.label"></h3>
+                <p class="mt-1 text-xs text-gray-500" x-show="dayEditor.has_rule" x-cloak>
+                    {{ __('admin.shop_closures.editor_rule_note') }}
+                </p>
+
+                <label class="mt-4 block text-xs text-gray-600">
+                    {{ __('admin.shop_closures.editor_closes_at') }}
+                    <input type="datetime-local" x-model="dayEditor.closesAt"
+                           class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                </label>
+                <button type="button" @click="applyDay('closes_at')"
+                        class="mt-3 w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                    {{ __('admin.shop_closures.editor_set_closing') }}
+                </button>
+
+                <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4">
+                    <button type="button" @click="applyDay('close_now')"
+                            class="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
+                        {{ __('admin.shop_closures.editor_close_now') }}
+                    </button>
+                    <button type="button" @click="applyDay('keep_open')"
+                            class="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                        {{ __('admin.shop_closures.editor_keep_open') }}
+                    </button>
+                    <button type="button" x-show="dayEditor.has_rule || dayEditor.has_override" x-cloak
+                            @click="applyDay('reset')"
+                            class="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                        {{ __('admin.shop_closures.follow_rule') }}
+                    </button>
+                    <button type="button" @click="closeDayEditor()"
+                            class="ml-auto px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700">
+                        {{ __('admin.shop_closures.editor_cancel') }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -207,6 +256,7 @@
             loadingDate: null,
             renderKey: 0,
             form: { weekday: 3, lead_days: 2, cutoff_time: '18:00' },
+            dayEditor: { open: false, iso: null, label: '', closesAt: '', has_rule: false, has_override: false },
 
             goMonth(month) {
                 window.location.href = config.indexUrl + '?month=' + encodeURIComponent(month);
@@ -254,6 +304,39 @@
                 this.loadingDate = iso;
                 try {
                     const data = await this.post(config.resetUrl, { date: iso, month: this.calendar.month });
+                    if (data) this.applyResponse(data);
+                } finally {
+                    this.loadingDate = null;
+                }
+            },
+
+            openDayEditor(cell) {
+                this.dayEditor = {
+                    open: true,
+                    iso: cell.iso,
+                    label: cell.iso,
+                    closesAt: cell.closes_at || cell.rule_cutoff || (cell.iso + 'T18:00'),
+                    has_rule: !! cell.has_rule,
+                    has_override: !! cell.has_override,
+                };
+            },
+
+            closeDayEditor() {
+                this.dayEditor.open = false;
+            },
+
+            async applyDay(action) {
+                const iso = this.dayEditor.iso;
+                if (! iso) return;
+                this.closeDayEditor();
+                this.loadingDate = iso;
+                try {
+                    const data = await this.post(config.setDayUrl, {
+                        date: iso,
+                        action,
+                        closes_at: action === 'closes_at' ? this.dayEditor.closesAt : null,
+                        month: this.calendar.month,
+                    });
                     if (data) this.applyResponse(data);
                 } finally {
                     this.loadingDate = null;

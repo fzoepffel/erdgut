@@ -504,6 +504,9 @@ Route::middleware(['auth', 'verified'])
             Route::post('shop-closures/reset', [AdminShopClosureController::class, 'reset'])
                 ->middleware('throttle:60,1')
                 ->name('shop-closures.reset');
+            Route::post('shop-closures/set-day', [AdminShopClosureController::class, 'setDay'])
+                ->middleware('throttle:60,1')
+                ->name('shop-closures.set-day');
             Route::post('shop-closures/rules', [AdminShopClosureController::class, 'rulesStore'])
                 ->middleware('throttle:60,1')
                 ->name('shop-closures.rules.store');
