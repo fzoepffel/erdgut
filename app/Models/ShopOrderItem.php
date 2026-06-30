@@ -96,8 +96,14 @@ class ShopOrderItem extends Model
         }
 
         $qty = rtrim(rtrim(number_format((float) $this->quantity, 4, '.', ''), '0'), '.');
+        $unit = (string) ($this->unit ?? '');
+        $unitLabel = match ($unit) {
+            'piece', 'bunch' => (string) __('units.'.$unit, [], $locale),
+            'l' => 'L',
+            default => $unit, // kg, g, ml, or any legacy free-text value
+        };
 
-        return trim($qty.' '.(string) ($this->unit ?? ''));
+        return trim($qty.' '.$unitLabel);
     }
 
     /**

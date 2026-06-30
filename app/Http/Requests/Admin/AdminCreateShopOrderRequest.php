@@ -55,7 +55,7 @@ class AdminCreateShopOrderRequest extends FormRequest
             'items.*.product_id' => ['nullable', 'integer', 'exists:products,id'],
             'items.*.variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'items.*.name' => ['nullable', 'string', 'max:160'],
-            'items.*.unit' => ['nullable', 'string', 'max:40'],
+            'items.*.unit' => ['nullable', 'string', Rule::in(['piece', 'bunch', 'kg', 'g', 'l', 'ml'])],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
             'items.*.line_total_eur' => ['required', 'numeric', 'min:0', 'max:99999.99'],
             'items.*.vat_rate_percent' => ['required', 'integer', Rule::in([7, 19])],
