@@ -3959,5 +3959,16 @@
     "restaurant.order_email.confirmed_cta": "Voir la demande",
     "restaurant.order_email.declined_subject": "Votre demande Erdgut n° :id",
     "restaurant.order_email.declined_heading": "Demande refusée",
-    "restaurant.order_email.declined_body": "Malheureusement, nous ne pouvons pas accepter votre demande pour le :date."
+    "restaurant.order_email.declined_body": "Malheureusement, nous ne pouvons pas accepter votre demande pour le :date.",
+    "restaurant.special_title": "Demandes spéciales",
+    "restaurant.special_hint": "Produits hors assortiment (p. ex. herbes sauvages, pousses de pois). Nous reviendrons vers vous avec un prix.",
+    "restaurant.special_add": "Ajouter",
+    "restaurant.special_name": "Que souhaitez-vous ?",
+    "restaurant.special_qty": "Qté",
+    "restaurant.special_unit": "Unité",
+    "restaurant.special_remove": "Retirer",
+    "restaurant.special_empty": "Aucune demande spéciale pour le moment.",
+    "restaurant.price_on_request": "Prix sur demande",
+    "restaurant.order_line_needs_product_or_name": "Veuillez choisir un produit ou saisir un nom.",
+    "restaurant.order_line_needs_unit": "Veuillez choisir une unité."
 }

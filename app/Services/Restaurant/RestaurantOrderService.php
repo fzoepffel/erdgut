@@ -38,8 +38,14 @@ class RestaurantOrderService
     public function submit(User $user, array $payload): RestaurantOrder
     {
         $date = Carbon::parse($payload['expected_delivery_date'])->startOfDay();
-        $lines = $this->mergeLines($payload['items'] ?? []);
-        if ($lines === []) {
+
+        // Catalog lines carry a product_id; free-form "special request" lines
+        // carry only a name. They take different paths (custom lines never
+        // reserve and aren't priced at submit), so split before merging —
+        // mergeLines() drops product-less lines.
+        [$productItems, $customItems] = $this->splitLines($payload['items'] ?? []);
+        $lines = $this->mergeLines($productItems);
+        if ($lines === [] && $customItems === []) {
             throw new InvalidArgumentException('A restaurant order needs at least one line.');
         }
 
@@ -50,7 +56,7 @@ class RestaurantOrderService
             ->get()
             ->keyBy('id');
 
-        return DB::transaction(function () use ($user, $payload, $date, $lines, $products): RestaurantOrder {
+        return DB::transaction(function () use ($user, $payload, $date, $lines, $customItems, $products): RestaurantOrder {
             $inventory = app(InventoryService::class);
 
             $order = RestaurantOrder::create([
@@ -120,6 +126,32 @@ class RestaurantOrderService
                 $totalVat += $vatAmount;
             }
 
+            // Free-form special requests: no catalog product, no stock hold, no
+            // price at submit (the admin prices them at the invoice step). Always
+            // a "request".
+            foreach ($customItems as $custom) {
+                $name = trim((string) ($custom['name'] ?? ''));
+                $qty = (float) ($custom['quantity'] ?? 0);
+                if ($name === '' || $qty <= 0) {
+                    continue;
+                }
+
+                $order->items()->create([
+                    'product_id' => null,
+                    'variant_id' => null,
+                    'variant_name_snapshot' => null,
+                    'name_snapshot' => $name,
+                    'quantity' => $qty,
+                    'unit' => trim((string) ($custom['unit'] ?? '')) ?: null,
+                    'track' => RestaurantOrderItemTrack::Requested,
+                    'unit_price_snapshot_eur' => 0,
+                    'vat_rate_snapshot_percent' => (int) config('shop.vat_rate_percent', 7),
+                    'line_total_eur' => 0,
+                    'vat_amount_eur' => 0,
+                    'price_rule_id' => null,
+                ]);
+            }
+
             if ($order->items()->count() === 0) {
                 throw new InvalidArgumentException('None of the submitted lines are orderable.');
             }
@@ -170,6 +202,30 @@ class RestaurantOrderService
         $order->forceFill(['status' => $to])->save();
 
         return true;
+    }
+
+    /**
+     * Partition raw payload items into catalog lines (have a product_id) and
+     * free-form custom lines (no product_id but a name). Lines with neither are
+     * dropped.
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    private function splitLines(array $items): array
+    {
+        $product = [];
+        $custom = [];
+        foreach ($items as $item) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            if ($productId > 0) {
+                $product[] = $item;
+            } elseif (trim((string) ($item['name'] ?? '')) !== '') {
+                $custom[] = $item;
+            }
+        }
+
+        return [$product, $custom];
     }
 
     /**

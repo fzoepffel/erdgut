@@ -58,10 +58,11 @@
 
         @if ($selectableDates->isEmpty())
             <div class="shop-card mt-10 p-8 text-center text-shop-muted">{{ __('restaurant.no_open_days') }}</div>
-        @elseif ($products->isEmpty())
-            <div class="shop-card mt-10 p-8 text-center text-shop-muted">{{ __('restaurant.catalog_empty') }}</div>
         @else
-            <div class="mt-10 grid gap-4 pb-28 sm:grid-cols-2 lg:grid-cols-3">
+            @if ($products->isEmpty())
+                <div class="shop-card mt-10 p-8 text-center text-shop-muted">{{ __('restaurant.catalog_empty') }}</div>
+            @else
+            <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($products as $row)
                     @php $product = $row['product']; @endphp
                     <div class="shop-card flex flex-col gap-3 p-5" data-testid="restaurant-catalog-item">
@@ -98,13 +99,47 @@
                     </div>
                 @endforeach
             </div>
+            @endif
+
+            {{-- Special requests (off-catalog: wild herbs, pea tops, …) --}}
+            <div class="shop-card mt-6 p-5">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="font-display text-lg text-shop-foreground">{{ __('restaurant.special_title') }}</h2>
+                        <p class="text-xs text-shop-muted">{{ __('restaurant.special_hint') }}</p>
+                    </div>
+                    <button type="button" @click="addSpecialRequest()" data-testid="restaurant-add-special"
+                            class="shrink-0 border border-shop-border px-3 py-1.5 font-mono text-[0.7rem] uppercase tracking-widest text-shop-foreground hover:border-shop-primary">
+                        {{ __('restaurant.special_add') }}
+                    </button>
+                </div>
+                <div class="mt-4 space-y-3">
+                    <template x-for="(s, i) in specialRequests" :key="i">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input type="text" x-model="s.name" maxlength="160" placeholder="{{ __('restaurant.special_name') }}"
+                                   class="min-w-[10rem] flex-1 border border-shop-border bg-shop-background px-3 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                            <input type="text" inputmode="decimal" x-model="s.quantity" placeholder="{{ __('restaurant.special_qty') }}"
+                                   class="w-20 border border-shop-border bg-shop-background px-2 py-2 text-center text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                            <select x-model="s.unit" class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                @foreach (['piece', 'bunch', 'kg', 'g', 'l', 'ml'] as $u)
+                                    <option value="{{ $u }}">{{ \App\Enums\ProductUnit::displaySymbol($u) }}</option>
+                                @endforeach
+                            </select>
+                            <button type="button" @click="removeSpecialRequest(i)" class="px-2 text-shop-muted hover:text-chapter-meat" aria-label="{{ __('restaurant.special_remove') }}">✕</button>
+                        </div>
+                    </template>
+                    <p x-show="specialRequests.length === 0" class="text-sm text-shop-muted">{{ __('restaurant.special_empty') }}</p>
+                </div>
+            </div>
+
+            <div aria-hidden="true" class="h-24"></div>
 
             {{-- Sticky basket bar --}}
-            <div x-show="lineCount > 0" x-cloak
+            <div x-show="hasAnything" x-cloak
                  class="fixed inset-x-0 bottom-0 z-30 border-t border-shop-border bg-shop-background/95 backdrop-blur">
                 <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
                     <p class="text-sm text-shop-foreground">
-                        <span x-text="lineCount"></span> <span x-text="lineCount === 1 ? @js(__('restaurant.cart_line')) : @js(__('restaurant.cart_lines'))"></span>
+                        <span x-text="totalCount"></span> <span x-text="totalCount === 1 ? @js(__('restaurant.cart_line')) : @js(__('restaurant.cart_lines'))"></span>
                         · <span class="font-mono" x-text="formatEur(netTotal)"></span> <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}</span>
                     </p>
                     <button type="button" @click="openSubmit = true"
@@ -126,6 +161,13 @@
                             <input type="hidden" :name="`items[${line.i}][quantity]`" :value="line.quantity">
                         </div>
                     </template>
+                    <template x-for="s in filledSpecials" :key="'s'+s.j">
+                        <div>
+                            <input type="hidden" :name="`items[${basketLines.length + s.j}][name]`" :value="s.name">
+                            <input type="hidden" :name="`items[${basketLines.length + s.j}][unit]`" :value="s.unit">
+                            <input type="hidden" :name="`items[${basketLines.length + s.j}][quantity]`" :value="s.quantity">
+                        </div>
+                    </template>
 
                     <h2 class="font-display text-2xl text-shop-foreground">{{ __('restaurant.cart_review_title') }}</h2>
                     <p class="mt-1 text-sm text-shop-muted">{{ __('restaurant.cart_review_intro') }}</p>
@@ -135,6 +177,12 @@
                             <li class="flex justify-between gap-3 py-2">
                                 <span class="text-shop-foreground" x-text="`${line.displayQty} ${line.unitSymbol} · ${line.name}`"></span>
                                 <span class="font-mono text-shop-muted" x-text="formatEur(line.net)"></span>
+                            </li>
+                        </template>
+                        <template x-for="s in filledSpecials" :key="'rs'+s.j">
+                            <li class="flex justify-between gap-3 py-2">
+                                <span class="text-shop-foreground" x-text="`${s.quantity} ${s.unit} · ${s.name}`"></span>
+                                <span class="font-mono text-shop-muted">{{ __('restaurant.price_on_request') }}</span>
                             </li>
                         </template>
                     </ul>
@@ -167,8 +215,17 @@
                 return {
                     rows: config.rows,
                     quantities: {},
+                    specialRequests: [],
                     openSubmit: false,
                     details: { street: config.prefill.street, postal: config.prefill.postal, city: config.prefill.city },
+                    addSpecialRequest() { this.specialRequests.push({ name: '', unit: 'piece', quantity: '' }); },
+                    removeSpecialRequest(i) { this.specialRequests.splice(i, 1); },
+                    get filledSpecials() {
+                        return this.specialRequests
+                            .map((s) => ({ name: (s.name || '').trim(), unit: s.unit, quantity: parseFloat(String(s.quantity).replace(',', '.')) || 0 }))
+                            .filter((s) => s.name !== '' && s.quantity > 0)
+                            .map((s, j) => ({ ...s, j }));
+                    },
                     rowFor(key) { return this.rows.find(r => r.key === key); },
                     clamp(key, q) {
                         const r = this.rowFor(key);
@@ -205,6 +262,8 @@
                             });
                     },
                     get lineCount() { return this.basketLines.length; },
+                    get totalCount() { return this.lineCount + this.filledSpecials.length; },
+                    get hasAnything() { return this.totalCount > 0; },
                     get netTotal() { return this.basketLines.reduce((s, l) => s + l.net, 0); },
                     formatEur(v) { return (v || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }); },
                 };

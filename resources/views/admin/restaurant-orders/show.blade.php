@@ -83,7 +83,7 @@
                                         <span class="text-amber-700">{{ __('restaurant.on_request') }}</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3 text-right font-mono text-gray-700">@eur($item->lineNetEur())</td>
+                                <td class="px-4 py-3 text-right text-gray-700">@if ($item->isCustom())<span class="text-gray-500">{{ __('restaurant.price_on_request') }}</span>@else<span class="font-mono">@eur($item->lineNetEur())</span>@endif</td>
                             </tr>
                         @endforeach
                     </tbody>

@@ -3959,5 +3959,16 @@
     "restaurant.order_email.confirmed_cta": "Anfrage ansehen",
     "restaurant.order_email.declined_subject": "Ihre Erdgut-Anfrage #:id",
     "restaurant.order_email.declined_heading": "Anfrage abgelehnt",
-    "restaurant.order_email.declined_body": "Leider können wir Ihre Anfrage für den :date nicht annehmen."
+    "restaurant.order_email.declined_body": "Leider können wir Ihre Anfrage für den :date nicht annehmen.",
+    "restaurant.special_title": "Sonderwünsche",
+    "restaurant.special_hint": "Produkte außerhalb des Sortiments (z. B. Wildkräuter, Erbsentriebe). Wir melden uns mit dem Preis.",
+    "restaurant.special_add": "Hinzufügen",
+    "restaurant.special_name": "Was möchten Sie?",
+    "restaurant.special_qty": "Menge",
+    "restaurant.special_unit": "Einheit",
+    "restaurant.special_remove": "Entfernen",
+    "restaurant.special_empty": "Noch keine Sonderwünsche.",
+    "restaurant.price_on_request": "Preis auf Anfrage",
+    "restaurant.order_line_needs_product_or_name": "Bitte ein Produkt wählen oder einen Namen angeben.",
+    "restaurant.order_line_needs_unit": "Bitte eine Einheit wählen."
 }
