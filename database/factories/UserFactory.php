@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\AccountType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -42,6 +43,16 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'is_admin' => true,
+        ]);
+    }
+
+    /**
+     * Indicate the user is a restaurant (B2B) account.
+     */
+    public function restaurant(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'account_type' => AccountType::Restaurant,
         ]);
     }
 

@@ -74,6 +74,9 @@
         <x-admin.nav-link :href="route('app.admin.packing.index')" matches="app.admin.packing.*">
             {{ __('admin.packing.nav_label') }}
         </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.restaurant-accounts.index')" matches="app.admin.restaurant-accounts.*">
+            {{ __('restaurant.nav_label') }}
+        </x-admin.nav-link>
         <x-admin.nav-link :href="route('app.admin.shop-closures.index')" matches="app.admin.shop-closures.*">
             {{ __('admin.shop_closures.nav_label') }}
         </x-admin.nav-link>

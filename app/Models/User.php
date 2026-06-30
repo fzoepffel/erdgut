@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AccountType;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Translation\HasLocalePreference;
@@ -71,6 +72,7 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
             'profile_preferences' => 'array',
             'is_test' => 'boolean',
             'is_admin' => 'boolean',
+            'account_type' => AccountType::class,
             'password' => 'hashed',
         ];
     }
@@ -82,6 +84,28 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     public function isAdmin(): bool
     {
         return (bool) $this->is_admin;
+    }
+
+    /** A restaurant (B2B) account, regardless of verification state. */
+    public function isRestaurant(): bool
+    {
+        return $this->account_type === AccountType::Restaurant;
+    }
+
+    /** A restaurant account an admin has verified — may enter /app/restaurant. */
+    public function isVerifiedRestaurant(): bool
+    {
+        return $this->isRestaurant() && (bool) $this->restaurantProfile?->isVerified();
+    }
+
+    /**
+     * Business details + verification state for a restaurant account.
+     *
+     * @return HasOne<RestaurantProfile, $this>
+     */
+    public function restaurantProfile(): HasOne
+    {
+        return $this->hasOne(RestaurantProfile::class);
     }
 
     /**
