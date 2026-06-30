@@ -774,6 +774,55 @@ class ShopOrderService
     }
 
     /**
+     * Append admin-entered off-catalog ("custom") lines to a quote: a free
+     * name, an informational quantity + unit, and a manual gross total + VAT.
+     * No product, no stock check, no price resolution. Adjusts the items total
+     * and grand total accordingly. Admin orders only.
+     *
+     * @param  array<int, array<string, mixed>>  $customItems
+     * @return array<string, mixed>
+     */
+    public function appendCustomLines(array $quote, array $customItems): array
+    {
+        $itemsTotal = (float) $quote['items_total_eur'];
+
+        foreach ($customItems as $item) {
+            $name = trim((string) ($item['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $quantity = round((float) ($item['quantity'] ?? 0), 4);
+            $lineTotal = round((float) ($item['line_total_eur'] ?? 0), 2);
+            $vatRate = (int) ($item['vat_rate_percent'] ?? (int) config('shop.vat_rate_percent', 7));
+            $unit = trim((string) ($item['unit'] ?? ''));
+
+            $quote['lines'][] = [
+                'product' => null,
+                'name_snapshot' => $name,
+                'variant_id' => null,
+                'variant_name_snapshot' => null,
+                'quantity' => $quantity,
+                'unit' => $unit !== '' ? $unit : null,
+                'unit_price_eur' => $quantity > 0 ? round($lineTotal / $quantity, 4) : 0.0,
+                'price_rule_id' => null,
+                'line_total_eur' => $lineTotal,
+                'vat_rate_percent' => $vatRate,
+                'vat_amount_eur' => self::vatAmountFromGross($lineTotal, $vatRate),
+            ];
+            $itemsTotal += $lineTotal;
+        }
+
+        $quote['items_total_eur'] = round($itemsTotal, 2);
+        $quote['total_amount_eur'] = round(
+            (float) $quote['items_total_eur'] - (float) $quote['discount_eur'] + (float) $quote['delivery_fee_eur'],
+            2,
+        );
+
+        return $quote;
+    }
+
+    /**
      * VAT contained in a gross (tax-inclusive) amount.
      */
     public static function vatAmountFromGross(float $gross, int $ratePercent): float
@@ -811,21 +860,41 @@ class ShopOrderService
             ? CustomerType::Business
             : CustomerType::Private;
 
+        $orderSource = (string) ($payload['order_source'] ?? OrderSource::Storefront->value);
+        $isAdmin = $orderSource === OrderSource::Admin->value;
+
+        // Admin orders may carry off-catalog "custom" lines (no product_id, a
+        // free-text name) for ad-hoc items. Split them out so quote() only ever
+        // sees catalog products and stays shared with the storefront path.
+        $productItems = $cartLines;
+        $customItems = [];
+        if ($isAdmin) {
+            $productItems = [];
+            foreach ($cartLines as $item) {
+                if (! empty($item['product_id'])) {
+                    $productItems[] = $item;
+                } elseif (trim((string) ($item['name'] ?? '')) !== '') {
+                    $customItems[] = $item;
+                }
+            }
+        }
+
         $quote = $this->quote(
-            $cartLines,
+            $productItems,
             $fulfillmentMode,
             isset($payload['coupon_code']) ? (string) $payload['coupon_code'] : null,
             isset($payload['email']) ? (string) $payload['email'] : null,
             $deliveryDate,
             $customerType,
         );
-        if ($quote['lines'] === []) {
-            throw new \InvalidArgumentException('Cart is empty.');
+
+        if ($isAdmin) {
+            $quote = $this->applyAdminLinePricing($quote, array_merge($payload, ['items' => $productItems]));
+            $quote = $this->appendCustomLines($quote, $customItems);
         }
 
-        $orderSource = (string) ($payload['order_source'] ?? OrderSource::Storefront->value);
-        if ($orderSource === OrderSource::Admin->value) {
-            $quote = $this->applyAdminLinePricing($quote, $payload);
+        if ($quote['lines'] === []) {
+            throw new \InvalidArgumentException('Cart is empty.');
         }
 
         $audience = $this->stockAudienceForPayload($payload);
@@ -837,8 +906,10 @@ class ShopOrderService
             // commit. Lock the product rows so a concurrent order can't
             // read the same "remaining" and double-book.
             foreach ($quote['lines'] as $line) {
-                /** @var Product $product */
-                $product = $line['product'];
+                $product = $line['product'] ?? null;
+                if ($product === null) {
+                    continue; // custom line — no catalog stock to check
+                }
                 Product::query()->lockForUpdate()->find($product->id);
 
                 // Cap against the chosen grade's own stock (NULL line → the
@@ -887,12 +958,12 @@ class ShopOrderService
             ]);
 
             foreach ($quote['lines'] as $line) {
-                /** @var Product $product */
-                $product = $line['product'];
+                $product = $line['product'] ?? null;
                 $order->items()->create([
-                    'product_id' => $product->id,
+                    'product_id' => $product?->id,
                     'variant_id' => $line['variant_id'] ?? null,
                     'variant_name_snapshot' => $line['variant_name_snapshot'] ?? null,
+                    'name_snapshot' => $line['name_snapshot'] ?? null,
                     'quantity' => $line['quantity'],
                     'unit' => $line['unit'],
                     'unit_price_snapshot_eur' => $line['unit_price_eur'],

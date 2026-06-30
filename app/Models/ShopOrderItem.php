@@ -37,6 +37,7 @@ class ShopOrderItem extends Model
         'product_id',
         'variant_id',
         'variant_name_snapshot',
+        'name_snapshot',
         'quantity',
         'unit',
         'unit_price_snapshot_eur',
@@ -64,6 +65,39 @@ class ShopOrderItem extends Model
     public function isPacked(): bool
     {
         return $this->packed_at !== null;
+    }
+
+    /** An off-catalog (custom) line carries its own name and has no product. */
+    public function isCustom(): bool
+    {
+        return $this->product_id === null;
+    }
+
+    /**
+     * Display name for the line: the catalog product, else the snapshotted
+     * custom name, else a fallback for a since-deleted product.
+     */
+    public function displayName(?string $locale = null): string
+    {
+        return $this->product?->name
+            ?? ($this->name_snapshot !== null && $this->name_snapshot !== ''
+                ? $this->name_snapshot
+                : (string) __('shop.admin.deleted_product'));
+    }
+
+    /**
+     * Human quantity label. Catalog lines use the product's unit formatting;
+     * custom lines render the entered amount + their free-text unit.
+     */
+    public function displayQuantityLabel(?string $locale = null): string
+    {
+        if ($this->product !== null) {
+            return $this->product->displayQuantity((float) $this->quantity, $locale);
+        }
+
+        $qty = rtrim(rtrim(number_format((float) $this->quantity, 4, '.', ''), '0'), '.');
+
+        return trim($qty.' '.(string) ($this->unit ?? ''));
     }
 
     /**
