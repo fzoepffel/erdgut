@@ -129,19 +129,26 @@ class AdminPackingController extends Controller
         foreach ($orders as $order) {
             foreach ($order->items as $item) {
                 $product = $item->product;
+                $isCustom = $item->product_id === null;
                 $variantId = $item->variant_id !== null ? (int) $item->variant_id : null;
-                $key = $item->product_id.'-'.($variantId ?? 0);
+                // Catalog lines group by product+grade; custom lines group by
+                // their name so identically-named ad-hoc items pool together.
+                $key = $isCustom
+                    ? 'c-'.md5(mb_strtolower((string) $item->name_snapshot))
+                    : $item->product_id.'-'.($variantId ?? 0);
 
                 if (! isset($groups[$key])) {
-                    $name = ($product?->name ?? __('shop.admin.deleted_product'))
+                    $name = $item->displayName()
                         .($item->variant_name_snapshot ? ' · '.$item->variant_name_snapshot : '');
                     $groups[$key] = [
                         'key' => $key,
-                        'product_id' => (int) $item->product_id,
+                        'product_id' => (int) ($item->product_id ?? 0),
                         'variant_id' => $variantId,
+                        'is_custom' => $isCustom,
                         'name' => $name,
                         'producer' => $product?->producer?->name ?? '',
                         'unit' => $product,
+                        'custom_unit' => $isCustom ? (string) ($item->unit ?? '') : '',
                         'total_qty' => 0.0,
                         'lines' => [],
                         'packed_count' => 0,
@@ -157,8 +164,7 @@ class AdminPackingController extends Controller
                     'item_id' => $item->id,
                     'order_id' => $order->id,
                     'customer' => $order->name ?? '—',
-                    'qty_label' => $product?->displayQuantity((float) $item->quantity)
-                        ?? rtrim(rtrim((string) $item->quantity, '0'), '.').' '.$item->unit,
+                    'qty_label' => $item->displayQuantityLabel(),
                     'fulfillment' => $this->fulfillmentLabel($order),
                     'window' => $order->hasDeliveryWindow()
                         ? substr((string) $order->delivery_window_from, 0, 5).'–'.substr((string) $order->delivery_window_to, 0, 5)
@@ -171,10 +177,16 @@ class AdminPackingController extends Controller
         // Finalize: display-unit total, counts, sort unpacked-first then name.
         $out = array_map(function (array $g): array {
             $product = $g['unit'];
-            $g['total_qty_label'] = $product?->displayQuantity($g['total_qty']) ?? (string) $g['total_qty'];
+            if ($product !== null) {
+                $g['total_qty_label'] = $product->displayQuantity($g['total_qty']);
+            } else {
+                // Custom group: sum the entered amounts + the free-text unit.
+                $sum = rtrim(rtrim(number_format($g['total_qty'], 4, '.', ''), '0'), '.');
+                $g['total_qty_label'] = trim($sum.' '.$g['custom_unit']);
+            }
             $g['total_count'] = count($g['lines']);
             $g['done'] = $g['packed_count'] >= $g['total_count'];
-            unset($g['unit'], $g['total_qty']);
+            unset($g['unit'], $g['total_qty'], $g['custom_unit']);
 
             return $g;
         }, array_values($groups));

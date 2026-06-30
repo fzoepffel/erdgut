@@ -50,8 +50,12 @@ class AdminCreateShopOrderRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:40'],
 
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            // product_id is optional: a line with no product but a `name` is an
+            // off-catalog custom line (cross-checked in withValidator()).
+            'items.*.product_id' => ['nullable', 'integer', 'exists:products,id'],
             'items.*.variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
+            'items.*.name' => ['nullable', 'string', 'max:160'],
+            'items.*.unit' => ['nullable', 'string', Rule::in(['piece', 'bunch', 'kg', 'g', 'l', 'ml'])],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
             'items.*.line_total_eur' => ['required', 'numeric', 'min:0', 'max:99999.99'],
             'items.*.vat_rate_percent' => ['required', 'integer', Rule::in([7, 19])],
@@ -105,8 +109,21 @@ class AdminCreateShopOrderRequest extends FormRequest
             foreach ($items as $index => $line) {
                 $productId = (int) ($line['product_id'] ?? 0);
                 $quantity = (float) ($line['quantity'] ?? 0);
+                $hasName = trim((string) ($line['name'] ?? '')) !== '';
+
+                // Every line must be either a catalog product or a named custom line.
+                if ($productId === 0 && ! $hasName) {
+                    $v->errors()->add(
+                        "items.$index.name",
+                        __('shop.admin.errors.line_needs_product_or_name'),
+                    );
+
+                    continue;
+                }
+
                 $product = $products->get($productId);
 
+                // Custom line (no product) — nothing to stock-check.
                 if ($product === null) {
                     continue;
                 }

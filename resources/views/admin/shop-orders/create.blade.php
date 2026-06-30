@@ -6,6 +6,19 @@
         </div>
     </x-slot>
 
+    @php
+        // Allowed units for a custom (off-catalog) line — the catalog's own
+        // display units, so custom-line data stays in the same vocabulary.
+        $customUnitOptions = [
+            ['v' => 'piece', 'l' => __('units.piece')],
+            ['v' => 'bunch', 'l' => __('units.bunch')],
+            ['v' => 'kg', 'l' => 'kg'],
+            ['v' => 'g', 'l' => 'g'],
+            ['v' => 'l', 'l' => 'L'],
+            ['v' => 'ml', 'l' => 'ml'],
+        ];
+    @endphp
+
     <div class="py-8 sm:py-12"
          x-data="adminOrderForm({
              availableProductsUrl: @js($availableProductsUrl),
@@ -14,9 +27,12 @@
              customerType: '{{ old('customer_type', 'private') }}',
              preselectedDate: '{{ old('expected_delivery_date', '') }}',
              preselectedItems: @js(collect(old('items', []))->map(fn ($i) => [
+                 'custom' => empty($i['product_id']) && trim((string) ($i['name'] ?? '')) !== '',
                  'grade_key' => (string) ($i['product_id'] ?? '').(isset($i['variant_id']) && $i['variant_id'] !== '' ? ':'.$i['variant_id'] : ''),
                  'product_id' => (string) ($i['product_id'] ?? ''),
                  'variant_id' => isset($i['variant_id']) && $i['variant_id'] !== '' ? (string) $i['variant_id'] : '',
+                 'name' => (string) ($i['name'] ?? ''),
+                 'unit' => (string) ($i['unit'] ?? ''),
                  'quantity' => (string) ($i['quantity'] ?? ''),
                  'line_total_eur' => isset($i['line_total_eur']) ? (string) $i['line_total_eur'] : '',
                  'vat_rate_percent' => (string) ($i['vat_rate_percent'] ?? '7'),
@@ -126,19 +142,33 @@
                                     <div class="grid grid-cols-1 gap-3 rounded-md border border-gray-100 p-3 sm:grid-cols-12 sm:items-start sm:border-0 sm:p-0">
                                         <div class="sm:col-span-5">
                                             <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('admin.select_product') }}</label>
-                                            <select x-model="item.grade_key"
-                                                @change="onLineProductChange(item)"
-                                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                                required>
-                                                <option value="">{{ __('admin.select_product') }}</option>
-                                                <template x-for="p in availableProducts" :key="p.id">
-                                                    <option :value="String(p.id)"
-                                                            :selected="String(p.id) === String(item.grade_key)"
-                                                            x-text="p.name + (p.producer ? ' (' + p.producer + ')' : '') + ' — ' + p.price + ' / ' + p.display_unit"></option>
-                                                </template>
-                                            </select>
+                                            {{-- Catalog line: pick a product/grade. --}}
+                                            <template x-if="!item.custom">
+                                                <select x-model="item.grade_key"
+                                                    @change="onLineProductChange(item)"
+                                                    class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                    required>
+                                                    <option value="">{{ __('admin.select_product') }}</option>
+                                                    <template x-for="p in availableProducts" :key="p.id">
+                                                        <option :value="String(p.id)"
+                                                                :selected="String(p.id) === String(item.grade_key)"
+                                                                x-text="p.name + (p.producer ? ' (' + p.producer + ')' : '') + ' — ' + p.price + ' / ' + p.display_unit"></option>
+                                                    </template>
+                                                </select>
+                                            </template>
+                                            {{-- Custom (off-catalog) line: free-text name. --}}
+                                            <template x-if="item.custom">
+                                                <input type="text"
+                                                    :name="'items[' + i + '][name]'"
+                                                    x-model="item.name"
+                                                    maxlength="160"
+                                                    placeholder="{{ __('shop.admin.create_custom_name_placeholder') }}"
+                                                    class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                    required>
+                                            </template>
                                             {{-- Hidden inputs split the grade key back into the
-                                                 (product_id, variant_id) the backend expects. --}}
+                                                 (product_id, variant_id) the backend expects. Empty
+                                                 product_id on a custom line flags it off-catalog. --}}
                                             <input type="hidden" :name="'items[' + i + '][product_id]'" :value="item.product_id">
                                             <input type="hidden" :name="'items[' + i + '][variant_id]'" :value="item.variant_id">
                                         </div>
@@ -153,9 +183,18 @@
                                                     placeholder="{{ __('admin.quantity') }}"
                                                     class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                     required>
-                                                <span class="shrink-0 text-xs text-gray-500 tabular-nums"
+                                                <span x-show="!item.custom" class="shrink-0 text-xs text-gray-500 tabular-nums"
                                                       x-text="availableProducts.find(p => String(p.id) === String(item.grade_key))?.unit ?? ''"></span>
                                             </div>
+                                            {{-- Custom line unit: constrained to the catalog's display units. --}}
+                                            <select x-show="item.custom" x-cloak
+                                                :name="item.custom ? 'items[' + i + '][unit]' : null"
+                                                x-model="item.unit"
+                                                class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                                @foreach ($customUnitOptions as $opt)
+                                                    <option value="{{ $opt['v'] }}">{{ $opt['l'] }}</option>
+                                                @endforeach
+                                            </select>
                                         </div>
                                         <div class="sm:col-span-2">
                                             <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('shop.admin.create_line_total_label') }}</label>
@@ -206,10 +245,16 @@
                                     @endif
                                 @endforeach
 
-                                <button type="button" @click="addItem()"
-                                    class="mt-1 text-sm text-emerald-700 hover:text-emerald-900">
-                                    {{ __('shop.admin.create_add_item') }}
-                                </button>
+                                <div class="mt-1 flex flex-wrap gap-4">
+                                    <button type="button" @click="addItem()"
+                                        class="text-sm text-emerald-700 hover:text-emerald-900">
+                                        {{ __('shop.admin.create_add_item') }}
+                                    </button>
+                                    <button type="button" @click="addCustomLine()"
+                                        class="text-sm text-gray-600 hover:text-gray-900">
+                                        {{ __('shop.admin.create_add_custom_line') }}
+                                    </button>
+                                </div>
                             </div>
                         </template>
 
@@ -431,7 +476,10 @@
             _quoteTimer: null,
 
             get hasValidItems() {
-                return this.items.some((item) => item.product_id && parseFloat(item.quantity) > 0);
+                return this.items.some((item) =>
+                    parseFloat(item.quantity) > 0
+                    && (item.product_id || (item.custom && (item.name || '').trim() !== ''))
+                );
             },
 
             get itemsSubtotal() {
@@ -713,6 +761,10 @@
                 this.items.push(emptyLine());
             },
 
+            addCustomLine() {
+                this.items.push(customLine());
+            },
+
             removeItem(i) {
                 if (this.items.length > 1) {
                     this.items.splice(i, 1);
@@ -724,14 +776,36 @@
 
     function emptyLine() {
         return {
+            custom: false,
             grade_key: '',
             product_id: '',
             variant_id: '',
+            name: '',
+            unit: '',
             quantity: '',
             line_total_eur: '',
             vat_rate_percent: '7',
             lineTouched: false,
             vatTouched: false,
+        };
+    }
+
+    // Off-catalog line: no product, manual name/unit/total. lineTouched is set
+    // so the quote endpoint (which only sees catalog products) never clobbers
+    // the amount the admin typed.
+    function customLine() {
+        return {
+            custom: true,
+            grade_key: '',
+            product_id: '',
+            variant_id: '',
+            name: '',
+            unit: 'piece',
+            quantity: '',
+            line_total_eur: '',
+            vat_rate_percent: '7',
+            lineTouched: true,
+            vatTouched: true,
         };
     }
     </script>

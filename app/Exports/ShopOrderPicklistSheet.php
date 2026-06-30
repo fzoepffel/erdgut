@@ -88,7 +88,7 @@ class ShopOrderPicklistSheet implements FromArray, WithColumnWidths, WithHeading
 
             foreach ($order->items as $item) {
                 $product = $item->product;
-                $name = $product?->name ?? (string) __('shop.admin.deleted_product');
+                $name = $item->displayName();
                 // Surface the variant grade alongside the product name so
                 // packers can tell STANDARD vs YDA on a multi-variant order.
                 if ($item->variant_name_snapshot !== null && $item->variant_name_snapshot !== '') {
@@ -97,12 +97,17 @@ class ShopOrderPicklistSheet implements FromArray, WithColumnWidths, WithHeading
                 $producer = $product?->producer?->name;
                 $positions[] = $producer ? sprintf('%s (%s)', $name, $producer) : $name;
 
-                [$qtyDisplay, $unitLabel] = $this->displayQuantity(
-                    $product?->unit,
-                    $product?->price_display_unit,
-                    (float) $item->quantity,
-                );
-                $quantities[] = trim(number_format($qtyDisplay, 2, '.', '').' '.$unitLabel);
+                if ($product !== null) {
+                    [$qtyDisplay, $unitLabel] = $this->displayQuantity(
+                        $product->unit,
+                        $product->price_display_unit,
+                        (float) $item->quantity,
+                    );
+                    $quantities[] = trim(number_format($qtyDisplay, 2, '.', '').' '.$unitLabel);
+                } else {
+                    // Custom line — entered quantity + free-text unit, no conversion.
+                    $quantities[] = $item->displayQuantityLabel();
+                }
 
                 $unitPriceDisplay = $product?->unit !== null
                     ? round(

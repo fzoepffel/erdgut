@@ -540,6 +540,90 @@ class AdminShopOrderCreateTest extends TestCase
             ->assertSee('data-testid="shop-admin-create-link"', false);
     }
 
+    // ── Custom (off-catalog) lines ────────────────────────────────────────────
+
+    public function test_admin_can_add_a_custom_off_catalog_line(): void
+    {
+        Mail::fake();
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), [
+                'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DELIVERY_DATE,
+                'customer_type' => 'business',
+                'items' => [[
+                    'name' => 'Wild herbs',
+                    'quantity' => 3,
+                    'unit' => 'bunch',
+                    'line_total_eur' => 12.00,
+                    'vat_rate_percent' => 7,
+                ]],
+            ])
+            ->assertRedirect();
+
+        $order = ShopOrder::query()->latest('id')->with('items')->first();
+        $this->assertSame('12.00', (string) $order->items_total_eur);
+        $this->assertSame('12.00', (string) $order->total_amount_eur);
+
+        $item = $order->items->first();
+        $this->assertNull($item->product_id);
+        $this->assertSame('Wild herbs', $item->name_snapshot);
+        $this->assertSame('bunch', $item->unit);
+        $this->assertSame('12.00', (string) $item->line_total_eur);
+        $this->assertSame(7, $item->vat_rate_snapshot_percent);
+        $this->assertSame('0.79', (string) $item->vat_amount_eur); // 12 * 7/107, gross-inclusive
+        $this->assertTrue($item->isCustom());
+        $this->assertSame('Wild herbs', $item->displayName());
+        // Unit token is localized for display (en → "Bunch").
+        $this->assertSame('3 Bunch', $item->displayQuantityLabel());
+    }
+
+    public function test_admin_can_mix_product_and_custom_lines(): void
+    {
+        Mail::fake();
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), [
+                'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DELIVERY_DATE,
+                'customer_type' => 'business',
+                'items' => [
+                    ['product_id' => $this->product->id, 'quantity' => 3, 'line_total_eur' => 15.00, 'vat_rate_percent' => 7],
+                    ['name' => 'Pea tops', 'quantity' => 2, 'unit' => 'bunch', 'line_total_eur' => 8.00, 'vat_rate_percent' => 7],
+                ],
+            ])
+            ->assertRedirect();
+
+        $order = ShopOrder::query()->latest('id')->with('items')->first();
+        $this->assertSame(2, $order->items->count());
+        $this->assertSame('23.00', (string) $order->items_total_eur);
+
+        $custom = $order->items->firstWhere('product_id', null);
+        $this->assertSame('Pea tops', $custom->name_snapshot);
+        $catalog = $order->items->firstWhere('product_id', $this->product->id);
+        $this->assertNotNull($catalog);
+    }
+
+    public function test_line_without_product_or_name_is_rejected(): void
+    {
+        $this->actingAs($this->admin)
+            ->from(route('app.admin.shop-orders.create'))
+            ->post(route('app.admin.shop-orders.store'), [
+                'fulfillment_mode' => 'pickup',
+                'pickup_location' => 'karl_kunger',
+                'expected_delivery_date' => self::DELIVERY_DATE,
+                'customer_type' => 'business',
+                'items' => [[
+                    'quantity' => 1,
+                    'line_total_eur' => 5.00,
+                    'vat_rate_percent' => 7,
+                ]],
+            ])
+            ->assertSessionHasErrors('items.0.name');
+    }
+
     // ── Storefront defaults ───────────────────────────────────────────────────
 
     public function test_storefront_orders_default_to_storefront_source_and_private_type(): void
