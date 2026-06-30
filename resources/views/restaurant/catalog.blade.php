@@ -80,18 +80,30 @@
 
                         <div class="mt-1 space-y-2">
                             @foreach ($row['grades'] as $grade)
-                                <div class="flex items-center justify-between gap-3 border-t border-shop-border/60 pt-2 first:border-t-0 first:pt-0">
-                                    <div class="min-w-0">
-                                        @if ($grade['label'])<p class="truncate text-sm text-shop-foreground">{{ $grade['label'] }}</p>@endif
-                                        <p class="font-mono text-sm text-shop-foreground">@eur($grade['netPerDisplay']) <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}/{{ $grade['unitSymbol'] }}</span></p>
+                                <div class="border-t border-shop-border/60 pt-2 first:border-t-0 first:pt-0">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <div class="min-w-0">
+                                            @if ($grade['label'])<p class="truncate text-sm text-shop-foreground">{{ $grade['label'] }}</p>@endif
+                                            <p class="font-mono text-sm text-shop-foreground">@eur($grade['netPerDisplay']) <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}/{{ $grade['unitSymbol'] }}</span></p>
+                                        </div>
+                                        <div class="flex shrink-0 items-center gap-1">
+                                            <button type="button" @click="dec(@js($grade['key']))" class="h-8 w-8 border border-shop-border text-shop-foreground hover:border-shop-primary">−</button>
+                                            <input type="text" inputmode="decimal" :value="displayValue(@js($grade['key']))"
+                                                   @change="setFromDisplay(@js($grade['key']), $event.target.value)"
+                                                   class="w-20 border border-shop-border bg-shop-background px-2 py-1 text-center text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                            <button type="button" @click="inc(@js($grade['key']))" class="h-8 w-8 border border-shop-border text-shop-foreground hover:border-shop-primary">+</button>
+                                            <span class="w-8 text-xs text-shop-muted">{{ $grade['unitSymbol'] }}</span>
+                                        </div>
                                     </div>
-                                    <div class="flex shrink-0 items-center gap-1">
-                                        <button type="button" @click="dec(@js($grade['key']))" class="h-8 w-8 border border-shop-border text-shop-foreground hover:border-shop-primary">−</button>
-                                        <input type="text" inputmode="decimal" :value="displayValue(@js($grade['key']))"
-                                               @change="setFromDisplay(@js($grade['key']), $event.target.value)"
-                                               class="w-20 border border-shop-border bg-shop-background px-2 py-1 text-center text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
-                                        <button type="button" @click="inc(@js($grade['key']))" class="h-8 w-8 border border-shop-border text-shop-foreground hover:border-shop-primary">+</button>
-                                        <span class="w-8 text-xs text-shop-muted">{{ $grade['unitSymbol'] }}</span>
+                                    <div x-show="(quantities[@js($grade['key'])] || 0) > 0" x-cloak class="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                                        <select x-model="recurrence[@js($grade['key'])]" class="border border-shop-border bg-shop-background px-2 py-1 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                            <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
+                                            <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
+                                        </select>
+                                        <label x-show="recurrence[@js($grade['key'])] === 'weekly'" class="flex items-center gap-1 text-shop-muted">
+                                            {{ __('restaurant.recurrence_until') }}
+                                            <input type="date" x-model="until[@js($grade['key'])]" class="border border-shop-border bg-shop-background px-1 py-0.5 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                        </label>
                                     </div>
                                 </div>
                             @endforeach
@@ -125,6 +137,12 @@
                                     <option value="{{ $u }}">{{ \App\Enums\ProductUnit::displaySymbol($u) }}</option>
                                 @endforeach
                             </select>
+                            <select x-model="s.recurrence" class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
+                                <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
+                            </select>
+                            <input x-show="s.recurrence === 'weekly'" type="date" x-model="s.until"
+                                   class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
                             <button type="button" @click="removeSpecialRequest(i)" class="px-2 text-shop-muted hover:text-chapter-meat" aria-label="{{ __('restaurant.special_remove') }}">✕</button>
                         </div>
                     </template>
@@ -159,6 +177,8 @@
                             <input type="hidden" :name="`items[${line.i}][product_id]`" :value="line.productId">
                             <input type="hidden" :name="`items[${line.i}][variant_id]`" :value="line.variantId ?? ''">
                             <input type="hidden" :name="`items[${line.i}][quantity]`" :value="line.quantity">
+                            <input type="hidden" :name="`items[${line.i}][recurrence]`" :value="line.recurrence">
+                            <input type="hidden" :name="`items[${line.i}][until]`" :value="line.until">
                         </div>
                     </template>
                     <template x-for="s in filledSpecials" :key="'s'+s.j">
@@ -166,6 +186,8 @@
                             <input type="hidden" :name="`items[${basketLines.length + s.j}][name]`" :value="s.name">
                             <input type="hidden" :name="`items[${basketLines.length + s.j}][unit]`" :value="s.unit">
                             <input type="hidden" :name="`items[${basketLines.length + s.j}][quantity]`" :value="s.quantity">
+                            <input type="hidden" :name="`items[${basketLines.length + s.j}][recurrence]`" :value="s.recurrence">
+                            <input type="hidden" :name="`items[${basketLines.length + s.j}][until]`" :value="s.until">
                         </div>
                     </template>
 
@@ -215,14 +237,16 @@
                 return {
                     rows: config.rows,
                     quantities: {},
+                    recurrence: {},
+                    until: {},
                     specialRequests: [],
                     openSubmit: false,
                     details: { street: config.prefill.street, postal: config.prefill.postal, city: config.prefill.city },
-                    addSpecialRequest() { this.specialRequests.push({ name: '', unit: 'piece', quantity: '' }); },
+                    addSpecialRequest() { this.specialRequests.push({ name: '', unit: 'piece', quantity: '', recurrence: 'one_time', until: '' }); },
                     removeSpecialRequest(i) { this.specialRequests.splice(i, 1); },
                     get filledSpecials() {
                         return this.specialRequests
-                            .map((s) => ({ name: (s.name || '').trim(), unit: s.unit, quantity: parseFloat(String(s.quantity).replace(',', '.')) || 0 }))
+                            .map((s) => ({ name: (s.name || '').trim(), unit: s.unit, quantity: parseFloat(String(s.quantity).replace(',', '.')) || 0, recurrence: s.recurrence || 'one_time', until: s.recurrence === 'weekly' ? (s.until || '') : '' }))
                             .filter((s) => s.name !== '' && s.quantity > 0)
                             .map((s, j) => ({ ...s, j }));
                     },
@@ -253,9 +277,11 @@
                             .filter(r => (this.quantities[r.key] || 0) > 0)
                             .map(r => {
                                 const q = this.quantities[r.key];
+                                const rec = this.recurrence[r.key] || 'one_time';
                                 return {
                                     i: i++, key: r.key, productId: r.productId, variantId: r.variantId,
                                     quantity: q, name: r.name, unitSymbol: r.unitSymbol,
+                                    recurrence: rec, until: rec === 'weekly' ? (this.until[r.key] || '') : '',
                                     displayQty: (q / r.factor).toLocaleString('de-DE', { maximumFractionDigits: 3 }),
                                     net: Math.round((q / r.factor) * r.net * 100) / 100,
                                 };

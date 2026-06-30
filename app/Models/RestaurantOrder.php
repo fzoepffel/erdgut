@@ -18,8 +18,10 @@ class RestaurantOrder extends Model
     /** @var list<string> */
     protected $fillable = [
         'user_id',
+        'source_standing_order_id',
         'status',
         'expected_delivery_date',
+        'original_delivery_date',
         'delivery_street',
         'delivery_postal_code',
         'delivery_city',
@@ -39,6 +41,7 @@ class RestaurantOrder extends Model
         return [
             'status' => RestaurantOrderStatus::class,
             'expected_delivery_date' => 'date',
+            'original_delivery_date' => 'date',
             'items_total_net_eur' => 'decimal:2',
             'items_total_gross_eur' => 'decimal:2',
             'vat_total_eur' => 'decimal:2',
@@ -58,6 +61,12 @@ class RestaurantOrder extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsTo<RestaurantStandingOrder, $this> */
+    public function standingOrder(): BelongsTo
+    {
+        return $this->belongsTo(RestaurantStandingOrder::class, 'source_standing_order_id');
     }
 
     public function isSubmitted(): bool

@@ -9,6 +9,7 @@ use App\Mail\RestaurantOrderSubmittedMail;
 use App\Models\RestaurantOrder;
 use App\Services\Restaurant\RestaurantInvoiceService;
 use App\Services\Restaurant\RestaurantOrderService;
+use App\Services\Restaurant\RestaurantStandingOrderService;
 use App\Support\RestaurantOrderAdminNotifier;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -35,10 +36,12 @@ class RestaurantOrderController extends Controller
         return view('restaurant.orders.index', ['orders' => $orders]);
     }
 
-    public function store(RestaurantOrderRequest $request): RedirectResponse
+    public function store(RestaurantOrderRequest $request, RestaurantStandingOrderService $standing): RedirectResponse
     {
+        $items = $request->validated('items');
+
         $order = $this->orders->submit($request->user(), [
-            'items' => $request->validated('items'),
+            'items' => $items,
             'expected_delivery_date' => $request->validated('expected_delivery_date'),
             'delivery_street' => $request->validated('delivery_street'),
             'delivery_postal_code' => $request->validated('delivery_postal_code'),
@@ -46,6 +49,16 @@ class RestaurantOrderController extends Controller
             'delivery_notes' => $request->validated('delivery_notes'),
             'locale' => app()->getLocale(),
         ]);
+
+        // Weekly lines become a recurring standing order (Pending until the
+        // admin confirms this first order). One-time lines stay on this order only.
+        $weeklyLines = array_values(array_filter(
+            $items,
+            fn ($line) => ($line['recurrence'] ?? 'one_time') === 'weekly',
+        ));
+        if ($weeklyLines !== []) {
+            $standing->createFromOrder($order, $weeklyLines);
+        }
 
         // Confirmation to the restaurant + admin notification. Both are
         // failure-tolerant: staging runs the sync queue, so a mail error must

@@ -28,6 +28,9 @@ class RestaurantOrderRequest extends FormRequest
             'items.*.name' => ['nullable', 'string', 'max:160'],
             'items.*.unit' => ['nullable', 'string', Rule::in(['piece', 'bunch', 'kg', 'g', 'l', 'ml'])],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            // Per-line recurrence (R7): one-time, or weekly with an optional end date.
+            'items.*.recurrence' => ['nullable', 'string', Rule::in(['one_time', 'weekly'])],
+            'items.*.until' => ['nullable', 'date', 'after_or_equal:expected_delivery_date'],
             'expected_delivery_date' => ['required', 'date'],
             'delivery_street' => ['required', 'string', 'max:255'],
             'delivery_postal_code' => ['required', 'string', 'max:16'],

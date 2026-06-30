@@ -21,6 +21,10 @@
                 <div role="status" class="border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">{{ session('status') }}</div>
             @endif
 
+            @if ($order->source_standing_order_id !== null && optional($order->standingOrder)->isPending())
+                <div class="border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">{{ __('restaurant.admin_recurring_note') }}</div>
+            @endif
+
             {{-- Actions --}}
             @if ($order->isSubmitted() || $order->status === \App\Enums\RestaurantOrderStatus::Confirmed)
                 <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">

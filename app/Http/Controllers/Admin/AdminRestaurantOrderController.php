@@ -58,7 +58,7 @@ class AdminRestaurantOrderController extends Controller
     {
         $this->authorize('admin');
 
-        $restaurantOrder->load(['user.restaurantProfile', 'items.product.translations', 'items.product.producer.translations']);
+        $restaurantOrder->load(['user.restaurantProfile', 'standingOrder', 'items.product.translations', 'items.product.producer.translations']);
 
         return view('admin.restaurant-orders.show', ['order' => $restaurantOrder]);
     }
