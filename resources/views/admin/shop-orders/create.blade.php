@@ -6,6 +6,19 @@
         </div>
     </x-slot>
 
+    @php
+        // Allowed units for a custom (off-catalog) line — the catalog's own
+        // display units, so custom-line data stays in the same vocabulary.
+        $customUnitOptions = [
+            ['v' => 'piece', 'l' => __('units.piece')],
+            ['v' => 'bunch', 'l' => __('units.bunch')],
+            ['v' => 'kg', 'l' => 'kg'],
+            ['v' => 'g', 'l' => 'g'],
+            ['v' => 'l', 'l' => 'L'],
+            ['v' => 'ml', 'l' => 'ml'],
+        ];
+    @endphp
+
     <div class="py-8 sm:py-12"
          x-data="adminOrderForm({
              availableProductsUrl: @js($availableProductsUrl),
@@ -14,9 +27,12 @@
              customerType: '{{ old('customer_type', 'private') }}',
              preselectedDate: '{{ old('expected_delivery_date', '') }}',
              preselectedItems: @js(collect(old('items', []))->map(fn ($i) => [
+                 'custom' => empty($i['product_id']) && trim((string) ($i['name'] ?? '')) !== '',
                  'grade_key' => (string) ($i['product_id'] ?? '').(isset($i['variant_id']) && $i['variant_id'] !== '' ? ':'.$i['variant_id'] : ''),
                  'product_id' => (string) ($i['product_id'] ?? ''),
                  'variant_id' => isset($i['variant_id']) && $i['variant_id'] !== '' ? (string) $i['variant_id'] : '',
+                 'name' => (string) ($i['name'] ?? ''),
+                 'unit' => (string) ($i['unit'] ?? ''),
                  'quantity' => (string) ($i['quantity'] ?? ''),
                  'line_total_eur' => isset($i['line_total_eur']) ? (string) $i['line_total_eur'] : '',
                  'vat_rate_percent' => (string) ($i['vat_rate_percent'] ?? '7'),
@@ -169,13 +185,16 @@
                                                     required>
                                                 <span x-show="!item.custom" class="shrink-0 text-xs text-gray-500 tabular-nums"
                                                       x-text="availableProducts.find(p => String(p.id) === String(item.grade_key))?.unit ?? ''"></span>
-                                                <input x-show="item.custom" x-cloak type="text"
-                                                    :name="item.custom ? 'items[' + i + '][unit]' : null"
-                                                    x-model="item.unit"
-                                                    maxlength="40"
-                                                    placeholder="{{ __('shop.admin.create_custom_unit_placeholder') }}"
-                                                    class="w-20 shrink-0 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
                                             </div>
+                                            {{-- Custom line unit: constrained to the catalog's display units. --}}
+                                            <select x-show="item.custom" x-cloak
+                                                :name="item.custom ? 'items[' + i + '][unit]' : null"
+                                                x-model="item.unit"
+                                                class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                                @foreach ($customUnitOptions as $opt)
+                                                    <option value="{{ $opt['v'] }}">{{ $opt['l'] }}</option>
+                                                @endforeach
+                                            </select>
                                         </div>
                                         <div class="sm:col-span-2">
                                             <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('shop.admin.create_line_total_label') }}</label>
@@ -781,7 +800,7 @@
             product_id: '',
             variant_id: '',
             name: '',
-            unit: '',
+            unit: 'piece',
             quantity: '',
             line_total_eur: '',
             vat_rate_percent: '7',

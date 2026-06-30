@@ -555,7 +555,7 @@ class AdminShopOrderCreateTest extends TestCase
                 'items' => [[
                     'name' => 'Wild herbs',
                     'quantity' => 3,
-                    'unit' => 'Bund',
+                    'unit' => 'bunch',
                     'line_total_eur' => 12.00,
                     'vat_rate_percent' => 7,
                 ]],
@@ -569,13 +569,14 @@ class AdminShopOrderCreateTest extends TestCase
         $item = $order->items->first();
         $this->assertNull($item->product_id);
         $this->assertSame('Wild herbs', $item->name_snapshot);
-        $this->assertSame('Bund', $item->unit);
+        $this->assertSame('bunch', $item->unit);
         $this->assertSame('12.00', (string) $item->line_total_eur);
         $this->assertSame(7, $item->vat_rate_snapshot_percent);
         $this->assertSame('0.79', (string) $item->vat_amount_eur); // 12 * 7/107, gross-inclusive
         $this->assertTrue($item->isCustom());
         $this->assertSame('Wild herbs', $item->displayName());
-        $this->assertSame('3 Bund', $item->displayQuantityLabel());
+        // Unit token is localized for display (en → "Bunch").
+        $this->assertSame('3 Bunch', $item->displayQuantityLabel());
     }
 
     public function test_admin_can_mix_product_and_custom_lines(): void
@@ -590,7 +591,7 @@ class AdminShopOrderCreateTest extends TestCase
                 'customer_type' => 'business',
                 'items' => [
                     ['product_id' => $this->product->id, 'quantity' => 3, 'line_total_eur' => 15.00, 'vat_rate_percent' => 7],
-                    ['name' => 'Pea tops', 'quantity' => 2, 'unit' => 'Bund', 'line_total_eur' => 8.00, 'vat_rate_percent' => 7],
+                    ['name' => 'Pea tops', 'quantity' => 2, 'unit' => 'bunch', 'line_total_eur' => 8.00, 'vat_rate_percent' => 7],
                 ],
             ])
             ->assertRedirect();
