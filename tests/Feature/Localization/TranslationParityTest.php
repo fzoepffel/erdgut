@@ -65,6 +65,9 @@ class TranslationParityTest extends TestCase
         'restaurant.',
         'restaurant.status_',
         'restaurant.order_status_',
+        // AdminRestaurantOrderController builds 'restaurant.admin_orders_flash_'.$action
+        // (confirm|decline|fulfil). Concrete variants exist.
+        'restaurant.admin_orders_flash_',
     ];
 
     public function test_every_translation_key_used_in_source_exists_in_every_locale(): void

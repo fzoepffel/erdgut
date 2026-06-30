@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\AdminPackingController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
 use App\Http\Controllers\Admin\AdminRestaurantAccountController;
+use App\Http\Controllers\Admin\AdminRestaurantOrderController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminShopClosureController;
 use App\Http\Controllers\Admin\AdminShopOrderController;
@@ -396,6 +397,12 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
             Route::get('restaurant-accounts', [AdminRestaurantAccountController::class, 'index'])->name('restaurant-accounts.index');
+
+            Route::get('restaurant-orders', [AdminRestaurantOrderController::class, 'index'])->name('restaurant-orders.index');
+            Route::get('restaurant-orders/{restaurantOrder}', [AdminRestaurantOrderController::class, 'show'])->name('restaurant-orders.show');
+            Route::post('restaurant-orders/{restaurantOrder}/confirm', [AdminRestaurantOrderController::class, 'confirm'])->name('restaurant-orders.confirm');
+            Route::post('restaurant-orders/{restaurantOrder}/decline', [AdminRestaurantOrderController::class, 'decline'])->name('restaurant-orders.decline');
+            Route::post('restaurant-orders/{restaurantOrder}/fulfil', [AdminRestaurantOrderController::class, 'fulfil'])->name('restaurant-orders.fulfil');
             Route::get('audit-events', [AdminAuditEventController::class, 'index'])->name('audit-events.index');
             Route::get('search', AdminSearchController::class)
                 ->middleware('throttle:60,1')
