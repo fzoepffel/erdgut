@@ -8,6 +8,7 @@ use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
 use App\Http\Requests\Admin\Concerns\NormalizesProductTranslationInput;
+use App\Http\Requests\Admin\Concerns\ValidatesProductSeasonWindow;
 use App\Models\Product;
 use App\Models\ProductSubcategory;
 use Illuminate\Foundation\Http\FormRequest;
@@ -17,6 +18,7 @@ use Illuminate\Validation\Validator;
 class UpdateProductRequest extends FormRequest
 {
     use NormalizesProductTranslationInput;
+    use ValidatesProductSeasonWindow;
 
     /**
      * @return list<string>
@@ -92,6 +94,7 @@ class UpdateProductRequest extends FormRequest
             'tiers.*.min_quantity' => ['nullable', 'numeric', 'gt:0'],
             'tiers.*.unit_price' => ['nullable', 'numeric', 'gt:0'],
             'is_seasonal' => ['boolean'],
+            ...$this->seasonWindowRules(),
             'is_available' => ['boolean'],
             'is_published' => ['boolean'],
             'is_egg_addon' => ['boolean'],
@@ -140,6 +143,7 @@ class UpdateProductRequest extends FormRequest
             'is_egg_addon' => $this->boolean('is_egg_addon'),
             'is_test' => $this->boolean('is_test'),
             'remove_image' => $this->boolean('remove_image'),
+            ...$this->seasonWindowInput(),
         ]);
 
         $this->normalizeProductTranslationInput();
@@ -148,6 +152,8 @@ class UpdateProductRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $v): void {
+            $this->validateSeasonWindow($v);
+
             $unit = $this->input('unit');
             $display = $this->input('price_display_unit');
             if (! is_string($unit) || ! is_string($display)) {

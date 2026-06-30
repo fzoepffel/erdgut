@@ -610,6 +610,16 @@ class ProductController extends Controller
             ? (int) $validated['unit_volume_ml']
             : null;
 
+        // Recurring yearly season window. Only persisted when the product is
+        // flagged seasonal; cleared otherwise so a toggled-off product doesn't
+        // keep a stale window.
+        $seasonFields = ['season_start_month', 'season_start_day', 'season_end_month', 'season_end_day'];
+        foreach ($seasonFields as $field) {
+            $payload[$field] = $payload['is_seasonal'] && isset($validated[$field]) && $validated[$field] !== ''
+                ? (int) $validated[$field]
+                : null;
+        }
+
         return $payload;
     }
 

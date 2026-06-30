@@ -7,6 +7,7 @@ use App\Enums\TasteProfile;
 use App\Services\Admin\InventoryService;
 use App\Services\ImageProcessor;
 use App\Support\HumanText;
+use Carbon\CarbonInterface;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -41,6 +42,10 @@ class Product extends Model
         'default_freshness_window_days',
         'buying_price_cents',
         'is_seasonal',
+        'season_start_month',
+        'season_start_day',
+        'season_end_month',
+        'season_end_day',
         'is_available',
         'is_published',
         'is_egg_addon',
@@ -79,6 +84,10 @@ class Product extends Model
             'default_freshness_window_days' => 'integer',
             'buying_price_cents' => 'integer',
             'is_seasonal' => 'boolean',
+            'season_start_month' => 'integer',
+            'season_start_day' => 'integer',
+            'season_end_month' => 'integer',
+            'season_end_day' => 'integer',
             'is_available' => 'boolean',
             'is_published' => 'boolean',
             'is_egg_addon' => 'boolean',
@@ -613,6 +622,89 @@ class Product extends Model
     public function scopeEggAddOns(Builder $query): void
     {
         $query->where('is_egg_addon', true);
+    }
+
+    /**
+     * Whether the product is in its recurring yearly season window on a given
+     * date (defaults to now). Non-seasonal products are always in season; a
+     * seasonal product with no/incomplete window is treated as in season
+     * year-round. Windows may wrap the year boundary (e.g. Nov 15 – Feb 28).
+     *
+     * Drives the restaurant (B2B) catalog (in-stock OR in-season); the
+     * consumer storefront does not use this.
+     */
+    public function isInSeason(?CarbonInterface $on = null): bool
+    {
+        if (! $this->is_seasonal) {
+            return true;
+        }
+
+        $sm = $this->season_start_month;
+        $sd = $this->season_start_day;
+        $em = $this->season_end_month;
+        $ed = $this->season_end_day;
+
+        if ($sm === null || $sd === null || $em === null || $ed === null) {
+            return true;
+        }
+
+        $on ??= Carbon::now();
+        $start = $sm * 100 + $sd;
+        $end = $em * 100 + $ed;
+        $cur = $on->month * 100 + $on->day;
+
+        return $start <= $end
+            ? ($cur >= $start && $cur <= $end)
+            : ($cur >= $start || $cur <= $end);
+    }
+
+    /**
+     * Products that are in season on the given date (defaults to now): not
+     * seasonal, or seasonal with no window, or seasonal with a window that
+     * contains the date (wrap-aware). SQL mirror of {@see isInSeason()}.
+     */
+    public function scopeInSeason(Builder $query, ?CarbonInterface $on = null): void
+    {
+        $on ??= Carbon::now();
+        $cur = $on->month * 100 + $on->day;
+
+        $query->where(function (Builder $q) use ($cur): void {
+            $q->where('is_seasonal', false)
+                ->orWhereNull('season_start_month')
+                ->orWhere(function (Builder $q) use ($cur): void {
+                    $start = '(season_start_month * 100 + season_start_day)';
+                    $end = '(season_end_month * 100 + season_end_day)';
+                    $q->whereNotNull('season_start_day')
+                        ->whereNotNull('season_end_month')
+                        ->whereNotNull('season_end_day')
+                        ->whereRaw(
+                            "(($start <= $end AND ? BETWEEN $start AND $end)"
+                            ." OR ($start > $end AND (? >= $start OR ? <= $end)))",
+                            [$cur, $cur, $cur],
+                        );
+                });
+        });
+    }
+
+    /**
+     * Human-readable season window for the admin badge, e.g. "1.4.–24.6.".
+     * Null when the product is not seasonal or has no window set.
+     */
+    public function seasonLabel(): ?string
+    {
+        if (! $this->is_seasonal
+            || $this->season_start_month === null || $this->season_start_day === null
+            || $this->season_end_month === null || $this->season_end_day === null) {
+            return null;
+        }
+
+        return sprintf(
+            '%d.%d.–%d.%d.',
+            $this->season_start_day,
+            $this->season_start_month,
+            $this->season_end_day,
+            $this->season_end_month,
+        );
     }
 
     /**

@@ -1031,9 +1031,10 @@
         <x-input-error class="mt-2" :messages="$errors->get('pairings')" />
     </div>
 
+    <div x-data="{ seasonal: {{ old('is_seasonal', $product?->is_seasonal) ? 'true' : 'false' }} }">
     <div class="flex flex-col gap-2 sm:flex-row sm:gap-8">
         <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_seasonal" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_seasonal', $product?->is_seasonal))>
+            <input type="checkbox" name="is_seasonal" value="1" x-model="seasonal" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_seasonal', $product?->is_seasonal))>
             <span class="text-sm text-gray-700">{{ __('Seasonal') }}</span>
         </label>
         {{-- Both publication flags default to FALSE on create — operators
@@ -1057,6 +1058,44 @@
         </label>
     </div>
     <x-input-error class="mt-2" :messages="$errors->get('is_seasonal')" />
+
+    {{-- Recurring yearly season window (month + day). Only shown when the
+         product is flagged seasonal; the window repeats every year and may
+         wrap the year boundary (e.g. Nov → Feb). Consumed by the restaurant
+         (B2B) shop, not the consumer storefront. --}}
+    <div x-show="seasonal" x-cloak class="mt-3 rounded-md border border-gray-200 bg-gray-50 p-4">
+        <p class="text-sm font-semibold text-gray-800">{{ __('product.season_window_label') }}</p>
+        <p class="mt-1 text-xs text-gray-600">{{ __('product.season_hint') }}</p>
+        @php
+            $seasonMonths = [];
+            for ($m = 1; $m <= 12; $m++) {
+                $seasonMonths[$m] = \Illuminate\Support\Carbon::create(2024, $m, 1)->locale(app()->getLocale())->isoFormat('MMMM');
+            }
+        @endphp
+        <div class="mt-3 grid gap-4 sm:grid-cols-2">
+            @foreach (['start' => __('product.season_from'), 'end' => __('product.season_to')] as $key => $label)
+                <div>
+                    <label class="block text-xs font-medium uppercase tracking-wide text-gray-500">{{ $label }}</label>
+                    <div class="mt-1 flex gap-2">
+                        <select name="season_{{ $key }}_month" class="block w-full rounded border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600 text-sm">
+                            <option value="">{{ __('product.season_month') }}</option>
+                            @foreach ($seasonMonths as $num => $name)
+                                <option value="{{ $num }}" @selected((int) old('season_'.$key.'_month', $product?->{'season_'.$key.'_month'}) === $num)>{{ $name }}</option>
+                            @endforeach
+                        </select>
+                        <input type="number" min="1" max="31" name="season_{{ $key }}_day"
+                               placeholder="{{ __('product.season_day') }}"
+                               value="{{ old('season_'.$key.'_day', $product?->{'season_'.$key.'_day'}) }}"
+                               class="w-24 rounded border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600 text-sm">
+                    </div>
+                    <x-input-error class="mt-1" :messages="$errors->get('season_'.$key.'_month')" />
+                    <x-input-error class="mt-1" :messages="$errors->get('season_'.$key.'_day')" />
+                </div>
+            @endforeach
+        </div>
+    </div>
+    </div>
+
     <p class="text-xs text-amber-700 -mt-1 sm:col-span-full">{{ __('admin.products.is_egg_addon_hint') }}</p>
 
     {{-- F5 (UX notes): the boolean trio (Published + Available + Seasonal)

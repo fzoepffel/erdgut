@@ -3886,5 +3886,15 @@
     "restaurant.email.approved_cta": "Se connecter",
     "restaurant.email.rejected_subject": "Votre demande Erdgut",
     "restaurant.email.rejected_heading": "Demande refusée",
-    "restaurant.email.rejected_body": "Malheureusement, nous ne pouvons pas accepter votre demande de compte restaurant pour le moment."
+    "restaurant.email.rejected_body": "Malheureusement, nous ne pouvons pas accepter votre demande de compte restaurant pour le moment.",
+    "product.season_window_label": "Période de saison",
+    "product.season_hint": "Se répète chaque année. Une période peut chevaucher la fin d'année (p. ex. nov. → févr.).",
+    "product.season_from": "Saison du",
+    "product.season_to": "Saison au",
+    "product.season_month": "Mois",
+    "product.season_day": "Jour",
+    "product.season_badge": "Saisonnier",
+    "product.season_badge_label": "Saison :range",
+    "product.season_window_incomplete": "Veuillez indiquer le mois de début et de fin avec le jour.",
+    "product.season_window_invalid_day": "Jour invalide pour le mois sélectionné."
 }
