@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ProductUnit;
 use App\Enums\RestaurantOrderItemTrack;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,7 @@ class RestaurantOrderItem extends Model
         'product_id',
         'variant_id',
         'variant_name_snapshot',
+        'name_snapshot',
         'quantity',
         'unit',
         'track',
@@ -64,16 +66,31 @@ class RestaurantOrderItem extends Model
         return $this->track === RestaurantOrderItemTrack::Reserved;
     }
 
-    public function displayName(): string
+    /** A free-form "special request" line — no catalog product. */
+    public function isCustom(): bool
     {
-        return $this->product?->name ?? '';
+        return $this->product_id === null;
     }
 
-    /** Human quantity label using the product's unit formatting. */
+    public function displayName(): string
+    {
+        return $this->product?->name ?? $this->name_snapshot ?? '';
+    }
+
+    /**
+     * Human quantity label. Catalog lines use the product's unit formatting;
+     * custom lines render the entered amount + the chosen unit symbol.
+     */
     public function displayQuantityLabel(?string $locale = null): string
     {
-        return $this->product?->displayQuantity((float) $this->quantity, $locale)
-            ?? rtrim(rtrim(number_format((float) $this->quantity, 4, '.', ''), '0'), '.');
+        if ($this->product !== null) {
+            return $this->product->displayQuantity((float) $this->quantity, $locale);
+        }
+
+        $qty = rtrim(rtrim(number_format((float) $this->quantity, 4, '.', ''), '0'), '.');
+        $unit = (string) ($this->unit ?? '');
+
+        return trim($qty.' '.($unit !== '' ? ProductUnit::displaySymbol($unit) : ''));
     }
 
     /** Net (excl. VAT) line total derived from the gross snapshot. */

@@ -3959,5 +3959,16 @@
     "restaurant.order_email.confirmed_cta": "View request",
     "restaurant.order_email.declined_subject": "Your Erdgut request #:id",
     "restaurant.order_email.declined_heading": "Request declined",
-    "restaurant.order_email.declined_body": "Unfortunately we can't accept your request for :date."
+    "restaurant.order_email.declined_body": "Unfortunately we can't accept your request for :date.",
+    "restaurant.special_title": "Special requests",
+    "restaurant.special_hint": "Items outside the range (e.g. wild herbs, pea tops). We'll get back to you with a price.",
+    "restaurant.special_add": "Add",
+    "restaurant.special_name": "What would you like?",
+    "restaurant.special_qty": "Qty",
+    "restaurant.special_unit": "Unit",
+    "restaurant.special_remove": "Remove",
+    "restaurant.special_empty": "No special requests yet.",
+    "restaurant.price_on_request": "Price on request",
+    "restaurant.order_line_needs_product_or_name": "Please pick a product or enter a name.",
+    "restaurant.order_line_needs_unit": "Please choose a unit."
 }

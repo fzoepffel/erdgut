@@ -20,7 +20,7 @@
                     @endif
                 </td>
                 <td style="padding: 6px 0; border-bottom: 1px solid #eee; text-align: right;">
-                    {{ \App\Support\Money::formatEur($item->lineNetEur(), $order->locale) }}
+                    @if ($item->isCustom()){{ __('restaurant.price_on_request') }}@else{{ \App\Support\Money::formatEur($item->lineNetEur(), $order->locale) }}@endif
                 </td>
             </tr>
         @endforeach

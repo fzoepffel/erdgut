@@ -24,7 +24,11 @@
                         <span class="text-[11px] font-medium text-amber-700">{{ __('restaurant.on_request') }}</span>
                     @endif
                 </div>
-                <p class="shrink-0 font-mono text-sm text-shop-foreground">@eur($item->lineNetEur()) <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}</span></p>
+                @if ($item->isCustom())
+                    <p class="shrink-0 text-sm text-shop-muted">{{ __('restaurant.price_on_request') }}</p>
+                @else
+                    <p class="shrink-0 font-mono text-sm text-shop-foreground">@eur($item->lineNetEur()) <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}</span></p>
+                @endif
             </div>
         @endforeach
         <div class="flex items-center justify-between px-5 py-3">
