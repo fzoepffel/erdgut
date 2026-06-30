@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\RestaurantOrderStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminPriceRestaurantOrderRequest;
 use App\Mail\RestaurantOrderConfirmedMail;
 use App\Mail\RestaurantOrderDeclinedMail;
+use App\Mail\RestaurantOrderInvoicedMail;
 use App\Models\RestaurantOrder;
+use App\Services\Restaurant\RestaurantInvoiceService;
 use App\Services\Restaurant\RestaurantOrderService;
 use App\Support\AuditLogger;
 use Illuminate\Contracts\View\View;
@@ -14,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Mail;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
  * Admin queue + management of restaurant (B2B) requests. Order-level only:
@@ -22,7 +26,10 @@ use Illuminate\Support\Facades\Mail;
  */
 class AdminRestaurantOrderController extends Controller
 {
-    public function __construct(private readonly RestaurantOrderService $orders) {}
+    public function __construct(
+        private readonly RestaurantOrderService $orders,
+        private readonly RestaurantInvoiceService $invoices,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -51,7 +58,7 @@ class AdminRestaurantOrderController extends Controller
     {
         $this->authorize('admin');
 
-        $restaurantOrder->load(['user', 'items.product.translations', 'items.product.producer.translations']);
+        $restaurantOrder->load(['user.restaurantProfile', 'items.product.translations', 'items.product.producer.translations']);
 
         return view('admin.restaurant-orders.show', ['order' => $restaurantOrder]);
     }
@@ -124,5 +131,67 @@ class AdminRestaurantOrderController extends Controller
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    // --- Invoice (R6) ---------------------------------------------------
+
+    public function updatePricing(AdminPriceRestaurantOrderRequest $request, RestaurantOrder $restaurantOrder): RedirectResponse
+    {
+        abort_if($restaurantOrder->isInvoiced(), 403);
+        abort_unless($restaurantOrder->isInvoiceable(), 403);
+
+        $this->invoices->updatePricing($restaurantOrder, $request->validated('items'));
+
+        return redirect()
+            ->route('app.admin.restaurant-orders.show', $restaurantOrder)
+            ->with('status', __('restaurant.admin_invoice_priced_flash'));
+    }
+
+    public function issueInvoice(Request $request, RestaurantOrder $restaurantOrder): RedirectResponse
+    {
+        $this->authorize('admin');
+        abort_if($restaurantOrder->isInvoiced(), 403);
+        abort_unless($restaurantOrder->isInvoiceable(), 403);
+
+        try {
+            $this->invoices->issueInvoice($restaurantOrder);
+        } catch (\RuntimeException $e) {
+            return redirect()
+                ->route('app.admin.restaurant-orders.show', $restaurantOrder)
+                ->with('status', $e->getMessage());
+        }
+
+        AuditLogger::log(
+            entityType: 'restaurant_order',
+            entityId: (int) $restaurantOrder->id,
+            action: 'invoice',
+            fromState: $restaurantOrder->status->value,
+            toState: $restaurantOrder->status->value,
+            metadata: ['channel' => 'admin', 'invoice_number' => $restaurantOrder->invoice_number],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        if ($restaurantOrder->user !== null) {
+            try {
+                Mail::to($restaurantOrder->user->email)
+                    ->locale($restaurantOrder->locale ?? app()->getLocale())
+                    ->send(new RestaurantOrderInvoicedMail($restaurantOrder));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return redirect()
+            ->route('app.admin.restaurant-orders.show', $restaurantOrder)
+            ->with('status', __('restaurant.admin_invoice_issued_flash', ['number' => $restaurantOrder->invoice_number]));
+    }
+
+    public function invoicePdf(RestaurantOrder $restaurantOrder): SymfonyResponse
+    {
+        $this->authorize('admin');
+        abort_unless($restaurantOrder->isInvoiced(), 404);
+
+        return $this->invoices->renderPdf($restaurantOrder)
+            ->download('erdgut-rechnung-'.$restaurantOrder->invoice_number.'.pdf');
     }
 }

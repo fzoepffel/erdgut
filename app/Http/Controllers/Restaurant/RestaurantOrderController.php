@@ -7,12 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Restaurant\RestaurantOrderRequest;
 use App\Mail\RestaurantOrderSubmittedMail;
 use App\Models\RestaurantOrder;
+use App\Services\Restaurant\RestaurantInvoiceService;
 use App\Services\Restaurant\RestaurantOrderService;
 use App\Support\RestaurantOrderAdminNotifier;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
  * Restaurant (B2B) order/request submission + "my requests" area. All actions
@@ -82,5 +84,14 @@ class RestaurantOrderController extends Controller
         return redirect()
             ->route('app.restaurant.orders.show', $restaurantOrder)
             ->with('status', 'restaurant-order-cancelled');
+    }
+
+    public function invoicePdf(Request $request, RestaurantOrder $restaurantOrder, RestaurantInvoiceService $invoices): SymfonyResponse
+    {
+        abort_unless($restaurantOrder->user_id === $request->user()->id, 403);
+        abort_unless($restaurantOrder->isInvoiced(), 404);
+
+        return $invoices->renderPdf($restaurantOrder)
+            ->download('erdgut-rechnung-'.$restaurantOrder->invoice_number.'.pdf');
     }
 }

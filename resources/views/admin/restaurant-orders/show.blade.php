@@ -62,39 +62,105 @@
                 </div>
             </div>
 
-            {{-- Items --}}
-            <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        <tr>
-                            <th class="px-4 py-3">{{ __('restaurant.admin_orders_item') }}</th>
-                            <th class="px-4 py-3">{{ __('restaurant.admin_status') }}</th>
-                            <th class="px-4 py-3 text-right">{{ __('restaurant.net_suffix') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @foreach ($order->items as $item)
+            @if ($order->isInvoiced())
+                {{-- Invoiced: frozen, with a download link --}}
+                <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
+                    <p class="font-semibold">{{ __('restaurant.admin_invoice_issued', ['number' => $order->invoice_number]) }}</p>
+                    <p class="mt-1">{{ __('restaurant.admin_invoice_dated', ['date' => optional($order->invoiced_at)->format('d.m.Y'), 'due' => optional($order->invoice_due_date)->format('d.m.Y')]) }}</p>
+                    <a href="{{ route('app.admin.restaurant-orders.invoice-pdf', $order) }}" class="mt-2 inline-block font-medium text-emerald-800 underline">{{ __('restaurant.invoice_download') }}</a>
+                </div>
+            @endif
+
+            {{-- Items / pricing --}}
+            @if ($order->isInvoiceable())
+                <form method="POST" action="{{ route('app.admin.restaurant-orders.pricing', $order) }}"
+                      class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+                    @csrf
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                             <tr>
-                                <td class="px-4 py-3 text-gray-800">{{ $item->displayQuantityLabel($order->locale) }} · {{ $item->displayName() }}</td>
-                                <td class="px-4 py-3">
-                                    @if ($item->isReserved())
-                                        <span class="text-emerald-700">{{ __('restaurant.in_stock') }}</span>
-                                    @else
-                                        <span class="text-amber-700">{{ __('restaurant.on_request') }}</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 text-right text-gray-700">@if ($item->isCustom())<span class="text-gray-500">{{ __('restaurant.price_on_request') }}</span>@else<span class="font-mono">@eur($item->lineNetEur())</span>@endif</td>
+                                <th class="px-4 py-3">{{ __('restaurant.admin_orders_item') }}</th>
+                                <th class="px-4 py-3">{{ __('restaurant.admin_orders_qty') }}</th>
+                                <th class="px-4 py-3">{{ __('restaurant.admin_orders_net') }}</th>
+                                <th class="px-4 py-3">{{ __('restaurant.admin_status') }}</th>
+                                <th class="px-4 py-3">{{ __('restaurant.admin_orders_drop') }}</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                    <tfoot>
-                        <tr class="border-t border-gray-200 font-semibold">
-                            <td class="px-4 py-3" colspan="2">{{ __('restaurant.order_net_total') }}</td>
-                            <td class="px-4 py-3 text-right font-mono">@eur($order->items_total_net_eur)</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach ($order->items as $i => $item)
+                                <tr>
+                                    <td class="px-4 py-3 text-gray-800">
+                                        {{ $item->displayName() }}
+                                        <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}">
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-1">
+                                            <input type="number" step="0.0001" min="0" name="items[{{ $i }}][quantity]" value="{{ rtrim(rtrim(number_format((float) $item->quantity, 4, '.', ''), '0'), '.') }}" class="w-24 rounded border-gray-300 text-sm">
+                                            <span class="text-xs text-gray-500">{{ $item->isCustom() ? \App\Enums\ProductUnit::displaySymbol((string) $item->unit) : $item->product?->canonicalUnitLabel() }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <input type="number" step="0.01" min="0" name="items[{{ $i }}][net_total_eur]" value="{{ number_format($item->lineNetEur(), 2, '.', '') }}" class="w-24 rounded border-gray-300 text-sm" placeholder="0.00">
+                                            <select name="items[{{ $i }}][vat_rate_percent]" class="rounded border-gray-300 text-sm">
+                                                <option value="7" @selected($item->vat_rate_snapshot_percent === 7)>7 %</option>
+                                                <option value="19" @selected($item->vat_rate_snapshot_percent === 19)>19 %</option>
+                                            </select>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        @if ($item->isReserved())<span class="text-emerald-700">{{ __('restaurant.in_stock') }}</span>@else<span class="text-amber-700">{{ __('restaurant.on_request') }}</span>@endif
+                                    </td>
+                                    <td class="px-4 py-3"><input type="checkbox" name="items[{{ $i }}][remove]" value="1" class="rounded border-gray-300"></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t border-gray-200 font-semibold">
+                                <td class="px-4 py-3" colspan="2">{{ __('restaurant.order_net_total') }}</td>
+                                <td class="px-4 py-3 font-mono">@eur($order->items_total_net_eur)</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <div class="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-4 py-3">
+                        <button type="submit" data-testid="restaurant-order-save-pricing" class="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-white">{{ __('restaurant.admin_invoice_save') }}</button>
+                    </div>
+                </form>
+
+                <form method="POST" action="{{ route('app.admin.restaurant-orders.invoice', $order) }}"
+                      onsubmit="return confirm(@js(__('restaurant.admin_invoice_issue_confirm')))">
+                    @csrf
+                    <button type="submit" data-testid="restaurant-order-issue-invoice" class="rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">{{ __('restaurant.admin_invoice_issue') }}</button>
+                </form>
+            @else
+                <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                            <tr>
+                                <th class="px-4 py-3">{{ __('restaurant.admin_orders_item') }}</th>
+                                <th class="px-4 py-3">{{ __('restaurant.admin_status') }}</th>
+                                <th class="px-4 py-3 text-right">{{ __('restaurant.net_suffix') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach ($order->items as $item)
+                                <tr>
+                                    <td class="px-4 py-3 text-gray-800">{{ $item->displayQuantityLabel($order->locale) }} · {{ $item->displayName() }}</td>
+                                    <td class="px-4 py-3">@if ($item->isReserved())<span class="text-emerald-700">{{ __('restaurant.in_stock') }}</span>@else<span class="text-amber-700">{{ __('restaurant.on_request') }}</span>@endif</td>
+                                    <td class="px-4 py-3 text-right text-gray-700">@if ($item->isCustom() && ! $order->isInvoiced())<span class="text-gray-500">{{ __('restaurant.price_on_request') }}</span>@else<span class="font-mono">@eur($item->lineNetEur())</span>@endif</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t border-gray-200 font-semibold">
+                                <td class="px-4 py-3" colspan="2">{{ __('restaurant.order_net_total') }}</td>
+                                <td class="px-4 py-3 text-right font-mono">@eur($order->items_total_net_eur)</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            @endif
         </div>
     </div>
 </x-admin-layout>

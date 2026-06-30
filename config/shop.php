@@ -67,6 +67,16 @@ return [
     'company_email' => env('SHOP_COMPANY_EMAIL', 'kontakt@erd-gut.de'),
     // Umsatzsteuer-Identifikationsnummer or Steuernummer of the seller.
     'company_vat_id' => env('SHOP_COMPANY_VAT_ID', ''),
+    // Additional seller details required on a full B2B invoice (§ 14 UStG):
+    // Steuernummer, bank/IBAN for payment, and Handelsregister entry.
+    'company_tax_number' => env('SHOP_COMPANY_TAX_NUMBER', ''),
+    'company_iban' => env('SHOP_COMPANY_IBAN', ''),
+    'company_bank' => env('SHOP_COMPANY_BANK', ''),
+    'company_register' => env('SHOP_COMPANY_REGISTER', ''),
+
+    // Restaurant (B2B) invoice numbering + terms.
+    'restaurant_invoice_prefix' => env('SHOP_RESTAURANT_INVOICE_PREFIX', 'RG'),
+    'restaurant_invoice_due_days' => (int) env('SHOP_RESTAURANT_INVOICE_DUE_DAYS', 14),
 
     /*
     |--------------------------------------------------------------------------

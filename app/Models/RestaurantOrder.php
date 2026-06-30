@@ -27,6 +27,9 @@ class RestaurantOrder extends Model
         'items_total_net_eur',
         'items_total_gross_eur',
         'vat_total_eur',
+        'invoice_number',
+        'invoiced_at',
+        'invoice_due_date',
         'locale',
         'submitted_at',
     ];
@@ -39,6 +42,8 @@ class RestaurantOrder extends Model
             'items_total_net_eur' => 'decimal:2',
             'items_total_gross_eur' => 'decimal:2',
             'vat_total_eur' => 'decimal:2',
+            'invoiced_at' => 'datetime',
+            'invoice_due_date' => 'date',
             'submitted_at' => 'datetime',
         ];
     }
@@ -58,6 +63,19 @@ class RestaurantOrder extends Model
     public function isSubmitted(): bool
     {
         return $this->status === RestaurantOrderStatus::Submitted;
+    }
+
+    /** An invoice has been issued — the order's lines/prices are frozen. */
+    public function isInvoiced(): bool
+    {
+        return $this->invoice_number !== null;
+    }
+
+    /** Whether an admin may still price/edit + issue (confirmed/fulfilled, not yet invoiced). */
+    public function isInvoiceable(): bool
+    {
+        return ! $this->isInvoiced()
+            && in_array($this->status, [RestaurantOrderStatus::Confirmed, RestaurantOrderStatus::Fulfilled], true);
     }
 
     /** Orders whose reserved lines still hold stock. */

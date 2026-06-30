@@ -335,6 +335,7 @@ Route::middleware('auth')
             Route::get('orders', [RestaurantOrderController::class, 'index'])->name('orders.index');
             Route::post('orders', [RestaurantOrderController::class, 'store'])->name('orders.store');
             Route::get('orders/{restaurantOrder}', [RestaurantOrderController::class, 'show'])->name('orders.show');
+            Route::get('orders/{restaurantOrder}/invoice.pdf', [RestaurantOrderController::class, 'invoicePdf'])->name('orders.invoice-pdf');
             Route::post('orders/{restaurantOrder}/cancel', [RestaurantOrderController::class, 'cancel'])->name('orders.cancel');
         });
     });
@@ -400,9 +401,12 @@ Route::middleware(['auth', 'verified'])
 
             Route::get('restaurant-orders', [AdminRestaurantOrderController::class, 'index'])->name('restaurant-orders.index');
             Route::get('restaurant-orders/{restaurantOrder}', [AdminRestaurantOrderController::class, 'show'])->name('restaurant-orders.show');
+            Route::get('restaurant-orders/{restaurantOrder}/invoice.pdf', [AdminRestaurantOrderController::class, 'invoicePdf'])->name('restaurant-orders.invoice-pdf');
             Route::post('restaurant-orders/{restaurantOrder}/confirm', [AdminRestaurantOrderController::class, 'confirm'])->name('restaurant-orders.confirm');
             Route::post('restaurant-orders/{restaurantOrder}/decline', [AdminRestaurantOrderController::class, 'decline'])->name('restaurant-orders.decline');
             Route::post('restaurant-orders/{restaurantOrder}/fulfil', [AdminRestaurantOrderController::class, 'fulfil'])->name('restaurant-orders.fulfil');
+            Route::post('restaurant-orders/{restaurantOrder}/pricing', [AdminRestaurantOrderController::class, 'updatePricing'])->name('restaurant-orders.pricing');
+            Route::post('restaurant-orders/{restaurantOrder}/invoice', [AdminRestaurantOrderController::class, 'issueInvoice'])->name('restaurant-orders.invoice');
             Route::get('audit-events', [AdminAuditEventController::class, 'index'])->name('audit-events.index');
             Route::get('search', AdminSearchController::class)
                 ->middleware('throttle:60,1')

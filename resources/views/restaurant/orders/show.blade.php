@@ -43,6 +43,17 @@
         @if ($order->delivery_notes)<p class="mt-1">{{ $order->delivery_notes }}</p>@endif
     </div>
 
+    @if ($order->isInvoiced())
+        <div class="shop-card mt-6 p-5">
+            <p class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.invoice') }}</p>
+            <p class="mt-1 text-sm text-shop-foreground">{{ $order->invoice_number }} · {{ __('restaurant.invoice_due', ['date' => optional($order->invoice_due_date)->format('d.m.Y')]) }}</p>
+            <a href="{{ route('app.restaurant.orders.invoice-pdf', $order) }}"
+               class="mt-3 inline-flex h-[3rem] items-center justify-center border border-shop-primary bg-shop-primary px-6 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover">
+                {{ __('restaurant.invoice_download') }}
+            </a>
+        </div>
+    @endif
+
     @if ($order->isSubmitted())
         <form method="POST" action="{{ route('app.restaurant.orders.cancel', $order) }}" class="mt-8"
               onsubmit="return confirm(@js(__('restaurant.order_cancel_confirm')))">
