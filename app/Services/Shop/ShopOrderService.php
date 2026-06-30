@@ -255,7 +255,7 @@ class ShopOrderService
      *                carrying `id`, `name`, `producer` (string), `date_count`.
      *
      * @return array{
-     *     dates: Collection<int, array{date: Carbon, product_count: int, product_ids: int[]}>,
+     *     dates: Collection<int, array{date: Carbon, product_count: int, product_ids: int[], open_until: ?Carbon}>,
      *     products: Collection<int, array{id: int, name: string, producer: string, date_count: int}>,
      * }
      */
@@ -277,6 +277,7 @@ class ShopOrderService
         // One bulk pass over all products × the whole horizon (a few queries),
         // then accumulate per-date product IDs and per-product date counts.
         $matrix = $inventory->availabilityMatrix($products, $start, $end);
+        $states = $closures->statesForRange($start, $end);
         $closedIso = array_fill_keys($closures->effectiveClosedIsoDatesBetween($start, $end), true);
 
         $dateProductIds = [];    // iso => int[]
@@ -298,11 +299,25 @@ class ShopOrderService
         ksort($dateProductIds);
 
         $dates = collect($dateProductIds)
-            ->map(fn (array $ids, string $iso): array => [
-                'date' => Carbon::parse($iso)->startOfDay(),
-                'product_count' => count($ids),
-                'product_ids' => $ids,
-            ])
+            ->map(function (array $ids, string $iso) use ($states): array {
+                // Surface a known ordering cutoff so the storefront can tell
+                // the customer until when this delivery day stays open. Only
+                // days with a pending rule or a one-off scheduled close carry
+                // a future cutoff; plainly-open days do not.
+                $st = $states[$iso] ?? null;
+                $openUntilIso = match ($st['state'] ?? null) {
+                    'manual_scheduled' => $st['closes_at'] ?? null,
+                    'rule_pending' => $st['rule_cutoff'] ?? null,
+                    default => null,
+                };
+
+                return [
+                    'date' => Carbon::parse($iso)->startOfDay(),
+                    'product_count' => count($ids),
+                    'product_ids' => $ids,
+                    'open_until' => $openUntilIso !== null ? Carbon::parse($openUntilIso) : null,
+                ];
+            })
             ->values();
 
         $catalogProducts = $products

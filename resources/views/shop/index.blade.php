@@ -225,6 +225,9 @@
             'kw' => $row['date']->isoWeek(),
             'productCount' => $row['product_count'],
             'productCountLabel' => trans_choice('shop.date_product_count', $row['product_count'], ['count' => $row['product_count']]),
+            'openUntilLabel' => ($row['open_until'] ?? null)
+                ? __('shop.date_open_until', ['when' => $row['open_until']->locale(app()->getLocale())->isoFormat('dd, D. MMM, HH:mm')])
+                : null,
             'productIds' => $row['product_ids'],
         ])->values();
 
@@ -475,7 +478,10 @@
                                                         <span x-show="d.iso === selectedIso" class="text-shop-primary" aria-hidden="true">&#9679;</span>
                                                         <span class="font-display text-xl" x-text="d.label"></span>
                                                     </span>
-                                                    <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" x-text="d.productCountLabel + ' ' + availableSuffix"></span>
+                                                    <span class="flex flex-col items-end gap-0.5 text-right font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">
+                                                        <span x-text="d.productCountLabel + ' ' + availableSuffix"></span>
+                                                        <span x-show="d.openUntilLabel" x-cloak class="normal-case tracking-normal text-shop-primary" x-text="d.openUntilLabel"></span>
+                                                    </span>
                                                 </button>
                                             </template>
                                         </div>
