@@ -277,6 +277,7 @@ class ShopOrderService
         // One bulk pass over all products × the whole horizon (a few queries),
         // then accumulate per-date product IDs and per-product date counts.
         $matrix = $inventory->availabilityMatrix($products, $start, $end);
+        $closedIso = array_fill_keys($closures->effectiveClosedIsoDatesBetween($start, $end), true);
 
         $dateProductIds = [];    // iso => int[]
         $productDateCount = [];  // product_id => int
@@ -285,7 +286,7 @@ class ShopOrderService
             $datesForProduct = 0;
 
             foreach ($matrix[$product->id] ?? [] as $iso => $remaining) {
-                if ($remaining > 0 && ! $closures->isClosed(Carbon::parse($iso))) {
+                if ($remaining > 0 && ! isset($closedIso[$iso])) {
                     $dateProductIds[$iso][] = $product->id;
                     $datesForProduct++;
                 }
@@ -344,12 +345,13 @@ class ShopOrderService
         $end = Carbon::today()->addDays(7 * $horizonWeeks);
 
         $matrix = $inventory->availabilityMatrix($products, $start, $end);
+        $closedIso = array_fill_keys($closures->effectiveClosedIsoDatesBetween($start, $end), true);
 
         // Tally, per ISO date, how many products have positive stock.
         $counts = [];
         foreach ($products as $product) {
             foreach ($matrix[$product->id] ?? [] as $iso => $remaining) {
-                if ($remaining > 0 && ! $closures->isClosed(Carbon::parse($iso))) {
+                if ($remaining > 0 && ! isset($closedIso[$iso])) {
                     $counts[$iso] = ($counts[$iso] ?? 0) + 1;
                 }
             }
@@ -447,15 +449,16 @@ class ShopOrderService
             ->get();
 
         $matrix = $inventory->availabilityMatrix($products, $from, $weekEnd);
+        $closedIso = array_fill_keys($closures->effectiveClosedIsoDatesBetween($from, $weekEnd), true);
 
         return $products
-            ->map(function (Product $product) use ($matrix, $selectedIso, $selectedClosed, $closures): array {
+            ->map(function (Product $product) use ($matrix, $selectedIso, $selectedClosed, $closedIso): array {
                 $window = $matrix[$product->id] ?? [];
                 ksort($window);
 
                 $dates = [];
                 foreach ($window as $iso => $remaining) {
-                    if ($remaining > 0 && ! $closures->isClosed(Carbon::parse($iso))) {
+                    if ($remaining > 0 && ! isset($closedIso[$iso])) {
                         $dates[] = [
                             'date' => Carbon::parse($iso)->startOfDay(),
                             'remaining' => $remaining,
@@ -509,9 +512,10 @@ class ShopOrderService
         $cursor = Carbon::today()->addDay();
         $twoWeekEnd = Carbon::today()->endOfWeek(Carbon::SUNDAY)->addWeek();
         $horizonEnd = Carbon::today()->addDays(7 * $horizonWeeks);
+        $closedIso = array_fill_keys($closures->effectiveClosedIsoDatesBetween($cursor, $horizonEnd), true);
 
         while ($cursor->lte($horizonEnd)) {
-            if (! $closures->isClosed($cursor) && $inventory->availableOnDate($product, $cursor) > 0) {
+            if (! isset($closedIso[$cursor->toDateString()]) && $inventory->availableOnDate($product, $cursor) > 0) {
                 return [
                     'state' => $cursor->lte($twoWeekEnd) ? 'this_week' : 'future',
                     'date' => $cursor->copy()->startOfDay(),

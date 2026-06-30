@@ -15,6 +15,7 @@ class ShopClosedDay extends Model
      */
     protected $fillable = [
         'closed_on',
+        'closes_at',
         'created_by_user_id',
     ];
 
@@ -22,6 +23,7 @@ class ShopClosedDay extends Model
     {
         return [
             'closed_on' => 'date:Y-m-d',
+            'closes_at' => 'datetime',
         ];
     }
 
