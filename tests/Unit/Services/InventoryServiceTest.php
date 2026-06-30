@@ -13,6 +13,7 @@ use App\Models\BoxItem;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ProductStockInflowSchedule;
+use App\Models\RestaurantOrder;
 use App\Models\ShopOrder;
 use App\Models\SpargelOrder;
 use App\Models\Subscription;
@@ -505,5 +506,87 @@ class InventoryServiceTest extends TestCase
 
         $this->assertEqualsWithDelta(70.0, $this->service->availableOnDate($product, $date, ShopStockAudience::Consumer), 0.001);
         $this->assertEqualsWithDelta(70.0, $this->service->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.001);
+    }
+
+    /** Create a restaurant order with one line on $product for $date. */
+    private function restaurantLine(Product $product, float $qty, string $date, string $track, string $status = 'submitted'): RestaurantOrder
+    {
+        $user = User::factory()->restaurant()->create();
+        $order = RestaurantOrder::create([
+            'user_id' => $user->id,
+            'status' => $status,
+            'expected_delivery_date' => $date,
+            'delivery_street' => 'S 1', 'delivery_postal_code' => '10115', 'delivery_city' => 'Berlin',
+            'items_total_net_eur' => 0, 'items_total_gross_eur' => 0, 'vat_total_eur' => 0,
+        ]);
+        $order->items()->create([
+            'product_id' => $product->id, 'quantity' => $qty, 'unit' => 'piece', 'track' => $track,
+            'unit_price_snapshot_eur' => 1, 'vat_rate_snapshot_percent' => 7, 'line_total_eur' => $qty, 'vat_amount_eur' => 0,
+        ]);
+
+        return $order;
+    }
+
+    public function test_reserved_restaurant_line_depletes_both_audiences_like_a_business_shop_order(): void
+    {
+        $product = Product::factory()->create();
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'received_on' => '2026-06-10',
+            'quantity' => 100, 'freshness_window_days' => 1, 'b2b_only' => false,
+        ]);
+        $this->restaurantLine($product, 30, '2026-06-10', 'reserved');
+
+        $date = Carbon::parse('2026-06-10');
+        // Reserved line draws shared stock → visible to BOTH audiences (parity with a business shop line).
+        $this->assertEqualsWithDelta(70.0, $this->service->availableOnDate($product, $date, ShopStockAudience::Consumer), 0.001);
+        $this->assertEqualsWithDelta(70.0, $this->service->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.001);
+    }
+
+    public function test_requested_restaurant_line_reserves_nothing(): void
+    {
+        $product = Product::factory()->create();
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'received_on' => '2026-06-10',
+            'quantity' => 100, 'freshness_window_days' => 1, 'b2b_only' => false,
+        ]);
+        $this->restaurantLine($product, 30, '2026-06-10', 'requested');
+
+        $date = Carbon::parse('2026-06-10');
+        $this->assertEqualsWithDelta(100.0, $this->service->availableOnDate($product, $date, ShopStockAudience::Consumer), 0.001);
+        $this->assertEqualsWithDelta(100.0, $this->service->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.001);
+    }
+
+    public function test_cancelling_restaurant_order_releases_reservation(): void
+    {
+        $product = Product::factory()->create();
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'received_on' => '2026-06-10',
+            'quantity' => 100, 'freshness_window_days' => 1, 'b2b_only' => false,
+        ]);
+        $order = $this->restaurantLine($product, 30, '2026-06-10', 'reserved');
+        $date = Carbon::parse('2026-06-10');
+        $this->assertEqualsWithDelta(70.0, $this->service->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.001);
+
+        $order->forceFill(['status' => 'cancelled'])->save();
+        $this->assertEqualsWithDelta(100.0, $this->service->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.001);
+    }
+
+    public function test_reserved_restaurant_line_draws_both_shared_and_b2b_pools(): void
+    {
+        $product = Product::factory()->create();
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'received_on' => '2026-06-10',
+            'quantity' => 100, 'freshness_window_days' => 1, 'b2b_only' => false,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'received_on' => '2026-06-10',
+            'quantity' => 40, 'freshness_window_days' => 1, 'b2b_only' => true,
+        ]);
+        $this->restaurantLine($product, 30, '2026-06-10', 'reserved');
+
+        $date = Carbon::parse('2026-06-10');
+        // Shared drained to 70 (Consumer sees this); BusinessTrade = (100−30) + (40−30) = 80.
+        $this->assertEqualsWithDelta(70.0, $this->service->availableOnDate($product, $date, ShopStockAudience::Consumer), 0.001);
+        $this->assertEqualsWithDelta(80.0, $this->service->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.001);
     }
 }

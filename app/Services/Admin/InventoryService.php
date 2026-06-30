@@ -3,12 +3,14 @@
 namespace App\Services\Admin;
 
 use App\Enums\CustomerType;
+use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Enums\SpargelOrderStatus;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ProductStockInflowSchedule;
+use App\Models\RestaurantOrderItem;
 use App\Models\ShopOrderItem;
 use App\Models\SpargelOrder;
 use App\Support\BoxDeliveryDateResolver;
@@ -335,6 +337,15 @@ class InventoryService
                 $spanTo->toDateString(),
                 CustomerType::Business,
             );
+            // Reserved restaurant lines also draw the B2B-exclusive pool, exactly
+            // like a customer_type=business shop line. (They are already in the
+            // shared bucket above, so this mirrors the shop's dual-pool model.)
+            $this->accumulateRestaurantCommitments(
+                $businessShopCommitted,
+                $productIds,
+                $spanFrom->toDateString(),
+                $spanTo->toDateString(),
+            );
         }
 
         $out = [];
@@ -514,6 +525,7 @@ class InventoryService
     {
         $committed = [];
         $this->accumulateShopCommitments($committed, $productIds, $from->toDateString(), $to->toDateString());
+        $this->accumulateRestaurantCommitments($committed, $productIds, $from->toDateString(), $to->toDateString());
         $this->accumulateSpargelCommitments($committed, $productIds, $from->toDateString(), $to->toDateString());
         $this->accumulateBoxCommitments($committed, $productIds, $from, $to);
 
@@ -564,6 +576,47 @@ class InventoryService
                 'shop_order_items.variant_id as variant_id',
                 'shop_orders.expected_delivery_date as iso',
                 DB::raw('SUM(shop_order_items.quantity) as total'),
+            ])
+            ->each(function ($row) use (&$committed): void {
+                $iso = Carbon::parse($row->iso)->toDateString();
+                $pid = (int) $row->product_id;
+                $vkey = (int) ($row->variant_id ?? 0);
+                $committed[$pid][$vkey][$iso] = ($committed[$pid][$vkey][$iso] ?? 0.0) + (float) $row->total;
+            });
+    }
+
+    /**
+     * Add restaurant (B2B) order commitments to the bucket. Only `reserved`
+     * lines hold stock (`requested` lines are out-of-stock requests that reserve
+     * nothing). A line reserves while its order is not Cancelled/Declined. There
+     * is no abandoned-grace clause — a restaurant submit is an immediate hold.
+     *
+     * Mirrors {@see accumulateShopCommitments}; the caller decides which pool
+     * (shared and/or B2B-exclusive) to fold these into, so reserved restaurant
+     * lines behave identically to a customer_type=business shop line.
+     *
+     * @param  array<int, array<int, array<string, float>>>  $committed
+     * @param  list<int>  $productIds
+     */
+    private function accumulateRestaurantCommitments(
+        array &$committed,
+        array $productIds,
+        string $fromIso,
+        string $toIso,
+    ): void {
+        RestaurantOrderItem::query()
+            ->join('restaurant_orders', 'restaurant_orders.id', '=', 'restaurant_order_items.restaurant_order_id')
+            ->whereIn('restaurant_order_items.product_id', $productIds)
+            ->where('restaurant_order_items.track', 'reserved')
+            ->whereDate('restaurant_orders.expected_delivery_date', '>=', $fromIso)
+            ->whereDate('restaurant_orders.expected_delivery_date', '<=', $toIso)
+            ->whereIn('restaurant_orders.status', RestaurantOrderStatus::reservingValues())
+            ->groupBy('restaurant_order_items.product_id', 'restaurant_order_items.variant_id', 'restaurant_orders.expected_delivery_date')
+            ->get([
+                'restaurant_order_items.product_id as product_id',
+                'restaurant_order_items.variant_id as variant_id',
+                'restaurant_orders.expected_delivery_date as iso',
+                DB::raw('SUM(restaurant_order_items.quantity) as total'),
             ])
             ->each(function ($row) use (&$committed): void {
                 $iso = Carbon::parse($row->iso)->toDateString();

@@ -3,6 +3,7 @@
 namespace App\Services\Restaurant;
 
 use App\Enums\CustomerType;
+use App\Enums\ProductUnit;
 use App\Enums\ShopStockAudience;
 use App\Models\Product;
 use App\Services\Admin\InventoryService;
@@ -135,6 +136,66 @@ class RestaurantCatalogService
             'vatRate' => $vatRate,
             'displayUnit' => $displayUnit,
             'priceFrom' => $priceFrom,
+            'grades' => $this->gradesFor($product, $date, $displayUnit, $factor, $vatRate, $inSeason),
         ];
+    }
+
+    /**
+     * Orderable grades for a product: the default grade plus each active
+     * variant, each with its business net price per display unit, the canonical
+     * quantity step, and a cap. In-stock grades cap at the grade's remaining
+     * (floored to the step); seasonal products have no cap (over-ordering
+     * becomes an "on request" line at submit). Grades with no stock on a
+     * non-seasonal product are dropped (nothing to order).
+     *
+     * @return list<array{key:string, variantId:?int, label:?string, netPerDisplay:float,
+     *     step:int, cap:?float, displayFactor:int, unitSymbol:string, unitKind:string}>
+     */
+    private function gradesFor(Product $product, Carbon $date, string $displayUnit, int $factor, int $vatRate, bool $inSeason): array
+    {
+        $step = max(1, $product->effectiveQuantityStep());
+        $unitSymbol = ProductUnit::displaySymbol($displayUnit);
+        $unitKind = $product->unit?->value ?? 'piece';
+
+        $build = function (?int $variantId, ?string $label, float $grossCanonical) use ($product, $date, $factor, $vatRate, $step, $unitSymbol, $unitKind, $inSeason): ?array {
+            $remaining = $this->inventory->remainingForGrade($product, $date, $variantId, ShopStockAudience::BusinessTrade);
+            $cap = $inSeason ? null : floor($remaining / $step) * $step;
+            if ($cap !== null && $cap <= 0) {
+                return null; // no stock, not seasonal → not orderable
+            }
+
+            $grossPerDisplay = round($grossCanonical * $factor, 2);
+            $netPerDisplay = round($grossPerDisplay - ShopOrderService::vatAmountFromGross($grossPerDisplay, $vatRate), 2);
+
+            return [
+                'key' => $variantId === null ? (string) $product->id : 'v'.$variantId,
+                'variantId' => $variantId,
+                'label' => $label,
+                'netPerDisplay' => $netPerDisplay,
+                'step' => $step,
+                'cap' => $cap,
+                'displayFactor' => $factor,
+                'unitSymbol' => $unitSymbol,
+                'unitKind' => $unitKind,
+            ];
+        };
+
+        $grades = [];
+        $default = $build(null, null, $this->priceResolver->resolve($product, $date, CustomerType::Business)->unitPriceEur);
+        if ($default !== null) {
+            $grades[] = $default;
+        }
+        foreach ($product->activeVariants() as $variant) {
+            $row = $build(
+                $variant->id,
+                $variant->localizedName(),
+                $this->priceResolver->resolve($product, $date, CustomerType::Business, null, $variant->id, $variant)->unitPriceEur,
+            );
+            if ($row !== null) {
+                $grades[] = $row;
+            }
+        }
+
+        return $grades;
     }
 }

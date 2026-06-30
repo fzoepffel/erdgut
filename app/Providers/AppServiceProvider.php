@@ -11,6 +11,8 @@ use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ProductStockInflowSchedule;
+use App\Models\RestaurantOrder;
+use App\Models\RestaurantOrderItem;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use App\Models\SpargelOrder;
@@ -88,6 +90,8 @@ class AppServiceProvider extends ServiceProvider
             ProductStockInflowSchedule::class,
             ShopOrder::class,
             ShopOrderItem::class,
+            RestaurantOrder::class,
+            RestaurantOrderItem::class,
             SpargelOrder::class,
             BoxItem::class,
             Product::class,

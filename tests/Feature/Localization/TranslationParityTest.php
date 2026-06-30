@@ -57,6 +57,14 @@ class TranslationParityTest extends TestCase
         // Onboarding layout builds hero keys like 'onboarding.hero.'.$heroKey.'.eyebrow'
         // (address|box|schedule|payment). Concrete variants live in lang/{de,en,fr}.json.
         'onboarding.hero.',
+        // Restaurant (B2B) views build keys dynamically: the signup/review forms
+        // use 'restaurant.field_'.$name and 'restaurant.'.$labelKey; the admin
+        // account queue uses 'restaurant.status_'.$status; the order views use
+        // 'restaurant.order_status_'.$status->value. All concrete variants exist.
+        'restaurant.field_',
+        'restaurant.',
+        'restaurant.status_',
+        'restaurant.order_status_',
     ];
 
     public function test_every_translation_key_used_in_source_exists_in_every_locale(): void
