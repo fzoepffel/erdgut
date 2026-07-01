@@ -83,7 +83,7 @@ class ShopStorefrontPerfTest extends TestCase
         $this->assertStringContainsString('stepsOpen ? cardStepOptions', $html);
     }
 
-    public function test_shop_cards_use_content_visibility(): void
+    public function test_shop_does_not_use_content_visibility_on_cards(): void
     {
         $this->stockSingleVariantProduct();
 
@@ -91,7 +91,9 @@ class ShopStorefrontPerfTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        // Fix 3: off-screen cards skip layout/paint (and free render memory).
-        $this->assertStringContainsString('content-visibility: auto', $html);
+        // content-visibility:auto was removed: on older mobile WebKit/Chrome it
+        // left product cards' boxes unpainted (blank grid) on product-heavy days.
+        // The de-reactive catalog + lazy dropdowns are the real crash fix.
+        $this->assertStringNotContainsString('content-visibility', $html);
     }
 }
