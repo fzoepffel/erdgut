@@ -17,6 +17,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('restaurant_standing_orders')) {
+            return;
+        }
+
         Schema::create('restaurant_standing_orders', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->restrictOnDelete();
