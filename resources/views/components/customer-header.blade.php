@@ -56,6 +56,9 @@
             ['route' => 'public.shop.producers.index', 'active' => 'public.shop.producers.*', 'label' => __('shop.nav_producers')],
             ['route' => 'public.shop.products.index', 'active' => 'public.shop.products.*', 'label' => __('shop.nav_products')],
             ['route' => 'public.shop-contact', 'active' => 'public.shop-contact', 'label' => __('Contact')],
+            // B2B door: a quiet nav item to the dedicated "Geschäftskunden" page
+            // (which carries the restaurant login). Consumers never see a login.
+            ['route' => 'restaurant.landing', 'active' => 'restaurant.landing', 'label' => __('restaurant.nav_public')],
         ],
         default => [],
     };
@@ -71,44 +74,6 @@
     style="background-color: {{ $bg }}; border-color: rgba(33, 52, 29, 0.15);"
     data-testid="customer-header-{{ $variant }}"
 >
-    {{-- Utility strip: a thin, subtly-toned band above the consumer nav holding
-         the "other audience" (B2B / Gastronomie) + account access in a compact
-         "Konto" menu, so they never compete with the primary "Zum Hofladen" CTA.
-         Desktop only; the mobile menu carries the same links. --}}
-    @if ($variant === 'shop')
-        <div class="hidden border-b md:block" style="background-color: rgba(20, 32, 17, 0.16); border-color: rgba(20, 32, 17, 0.22);">
-            <div class="mx-auto flex max-w-7xl items-center justify-end gap-3 px-4 py-0.5 text-[10px] sm:px-6 lg:px-8" style="color: {{ $ink }};">
-                <x-language-selector variant="compact" />
-                <div class="relative" x-data="{ konto: false }" @keydown.escape="konto = false">
-                    <button type="button" @click="konto = !konto" :aria-expanded="konto" data-testid="header-account-menu"
-                            class="inline-flex items-center gap-1 rounded px-1 py-0.5 font-medium transition hover:opacity-80" style="color: {{ $ink }};">
-                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.1a7.5 7.5 0 0 1 15 0A17.9 17.9 0 0 1 12 21.75c-2.68 0-5.22-.584-7.5-1.632Z" /></svg>
-                        {{ __('restaurant.account_menu') }}
-                        <svg class="h-2.5 w-2.5 transition" :class="konto && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-                    </button>
-                    <div x-show="konto" x-cloak x-transition.origin.top @click.outside="konto = false"
-                         class="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-brand-ink/10 bg-brand-cream shadow-xl">
-                        <a href="{{ route('restaurant.landing') }}" class="flex items-start gap-3 px-4 py-3 transition hover:bg-brand-ink/5" data-testid="header-restaurant-link">
-                            <svg class="mt-0.5 h-5 w-5 shrink-0 text-chapter-produce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 21h19.5M6.75 21V6.75A1.5 1.5 0 0 1 8.25 5.25h7.5a1.5 1.5 0 0 1 1.5 1.5V21M9.75 8.25h.75m-.75 3h.75m3-3h.75m-.75 3h.75m-4.5 9.75v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21" /></svg>
-                            <span>
-                                <span class="block text-sm font-semibold text-brand-ink">{{ __('restaurant.nav_public') }}</span>
-                                <span class="block text-xs text-brand-ink/60">{{ __('restaurant.account_menu_restaurant_sub') }}</span>
-                            </span>
-                        </a>
-                        <div class="border-t border-brand-ink/10"></div>
-                        <a href="{{ route('auth.login') }}" class="flex items-start gap-3 px-4 py-3 transition hover:bg-brand-ink/5">
-                            <svg class="mt-0.5 h-5 w-5 shrink-0 text-chapter-produce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
-                            <span>
-                                <span class="block text-sm font-semibold text-brand-ink">{{ __('Log in') }}</span>
-                                <span class="block text-xs text-brand-ink/60">{{ __('restaurant.account_menu_login_sub') }}</span>
-                            </span>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
-
     <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         {{-- Logo: same chapter-produce-ink mask treatment everywhere. --}}
         <a href="{{ $homeRoute }}" class="flex items-center gap-3">
@@ -136,11 +101,7 @@
 
         @if ($variant !== 'wizard')
             <div class="hidden items-center gap-3 md:flex" style="color: {{ $ink }};">
-                {{-- Shop keeps only the primary CTA here; language + B2B/login
-                     sit in the utility strip above. --}}
-                @if ($variant !== 'shop')
-                    <x-language-selector />
-                @endif
+                <x-language-selector />
                 @if ($variant === 'shop')
                     <a href="{{ route('public.shop.index') }}" @if (request()->routeIs('public.shop.index')) aria-current="page" @endif class="inline-flex items-center justify-center gap-2 px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: {{ $ink }}; color: {{ $cream }};" data-testid="shop-nav-cta">
                         {{ __('Visit the shop') }}
@@ -203,8 +164,6 @@
                     <x-language-selector align="left" />
                 </div>
                 @if ($variant === 'shop')
-                    <a href="{{ route('restaurant.landing') }}" class="mb-3 block text-sm font-medium" style="color: {{ $inkSubtle }};">{{ __('restaurant.nav_public') }}</a>
-                    <a href="{{ route('auth.login') }}" class="mb-3 block text-sm font-medium" style="color: {{ $inkSubtle }};">{{ __('Log in') }}</a>
                     <a href="{{ route('public.shop.index') }}" class="inline-flex w-full items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: {{ $ink }}; color: {{ $cream }};" data-testid="shop-nav-cta-mobile">
                         {{ __('Visit the shop') }}
                         <span aria-hidden="true">&rarr;</span>
