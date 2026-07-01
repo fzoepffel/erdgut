@@ -686,6 +686,11 @@
                                 .shop-cards-grid:has(.shop-card-producer-fill) .shop-card-producer-slot { min-height: 1rem; }
                                 .shop-cards-grid:has(.shop-card-tags-fill) .shop-card-tags-slot { min-height: 1.5rem; }
                                 .shop-cards-grid:has(.shop-card-tier-fill) .shop-card-tier-slot { min-height: 1rem; }
+                                /* Perf: let the browser skip layout/paint (and free render memory)
+                                   for cards scrolled off-screen on product-heavy days. The size hint
+                                   reserves scroll height so the scrollbar stays stable; browsers
+                                   without support just ignore it. Supported (Safari 15.4+, Chrome). */
+                                [data-shop-card] { content-visibility: auto; contain-intrinsic-size: auto 32rem; }
                             </style>
                             <div class="shop-cards-grid grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 items-start">
                                 @foreach ($products as $row)
@@ -854,14 +859,25 @@
                                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
                                                                 </svg>
                                                             </div>
+                                                            {{-- The quantity option list (up to ~60 entries for a
+                                                                 weight product) is built LAZILY — only once the
+                                                                 customer opens this dropdown. Rendering it eagerly
+                                                                 for every card was a large DOM/memory cost on
+                                                                 product-heavy days (see the perf note atop the
+                                                                 storefront JS). The +/− buttons and the visible
+                                                                 quantity don't depend on these <option>s, so the
+                                                                 card is fully usable before the list exists. --}}
                                                             <select
+                                                                x-data="{ stepsOpen: false }"
+                                                                @pointerdown="stepsOpen = true"
+                                                                @focus="stepsOpen = true"
                                                                 aria-label="{{ __('shop.quantity_label') }}"
                                                                 :value="cardState({{ $product->id }}) === 'in_basket' ? String(quantities[@js($singleJsId)] || 0) : String(stageQty({{ $product->id }}))"
                                                                 @change="cardState({{ $product->id }}) === 'in_basket' ? (quantities[@js($singleJsId)] = +$event.target.value, +$event.target.value <= 0 ? removeFromBasketByProduct({{ $product->id }}) : (refreshQuote(), scheduleCouponRefresh())) : setStage({{ $product->id }}, +$event.target.value)"
                                                                 class="touch-manipulation absolute inset-0 w-full cursor-pointer appearance-none border-0 bg-transparent font-mono opacity-0 focus:outline-none"
                                                             >
                                                                 <option value="0">{{ __('shop.quantity_none') }}</option>
-                                                                <template x-for="step in cardStepOptions(@js($singleJsId))" :key="step.v">
+                                                                <template x-for="step in (stepsOpen ? cardStepOptions(@js($singleJsId)) : [])" :key="step.v">
                                                                     <option :value="String(step.v)" x-text="step.l"></option>
                                                                 </template>
                                                             </select>
@@ -1224,8 +1240,13 @@
         }
 
         function shopStorefront(config) {
+            // Catalog data is READ-ONLY and large (every product × grade × up to
+            // 60 quantity steps). Keep it in a closure const so Alpine never wraps
+            // it in a reactive proxy — deep-proxying the whole catalog was the
+            // memory bomb that crashed low-RAM phones on product-heavy days. Cart
+            // state (quantities / _stagedByProduct) stays reactive on the object.
+            const products = config.products || [];
             return {
-                products: config.products,
                 deliveryFee: config.deliveryFee,
                 mode: config.mode || 'pickup',
                 payment: config.payment || 'online',
@@ -1317,7 +1338,7 @@
                         }));
                     }
                     return this.basket.lines.map((line) => {
-                        const p = this.products.find((pp) => pp.id === line.jsId);
+                        const p = products.find((pp) => pp.id === line.jsId);
                         const name = line.gradeLabel
                             ? line.productName + ' · ' + line.gradeLabel
                             : (p?.name || line.productName);
@@ -1336,7 +1357,7 @@
                     return {
                         get lines() {
                             const out = [];
-                            self.products.forEach((v) => {
+                            products.forEach((v) => {
                                 const qty = self.quantities[v.id] || 0;
                                 if (qty <= 0) return;
                                 const variantId = (typeof v.id === 'string' && v.id.startsWith('v'))
@@ -1374,7 +1395,7 @@
                 //   'staged'    — staged > 0 but not yet committed
                 //   'in_basket' — basket has a line for this product
                 cardState(productId) {
-                    const v = this.products.find((p) => p.productId === productId);
+                    const v = products.find((p) => p.productId === productId);
                     if (!v) return 'empty';
                     if ((this.quantities[v.id] || 0) > 0) return 'in_basket';
                     if ((this._stagedByProduct[productId] || 0) > 0) return 'staged';
@@ -1384,14 +1405,14 @@
                     return this._stagedByProduct[productId] || 0;
                 },
                 stagedLabel(productId, jsId) {
-                    const p = this.products.find((pp) => pp.id === jsId);
+                    const p = products.find((pp) => pp.id === jsId);
                     if (!p || !p.steps) return '';
                     const qty = this._stagedByProduct[productId] || 0;
                     const step = p.steps.find((s) => s.v === qty);
                     return step ? step.l : '';
                 },
                 stageInc(productId, jsId) {
-                    const p = this.products.find((pp) => pp.id === jsId);
+                    const p = products.find((pp) => pp.id === jsId);
                     if (!p || !p.steps) return;
                     const current = this._stagedByProduct[productId] || 0;
                     let i = p.steps.findIndex((s) => s.v === current);
@@ -1401,7 +1422,7 @@
                     }
                 },
                 stageDec(productId, jsId) {
-                    const p = this.products.find((pp) => pp.id === jsId);
+                    const p = products.find((pp) => pp.id === jsId);
                     if (!p || !p.steps) return;
                     const current = this._stagedByProduct[productId] || 0;
                     const i = p.steps.findIndex((s) => s.v === current);
@@ -1412,20 +1433,20 @@
                     }
                 },
                 stagedAtCap(productId, jsId) {
-                    const p = this.products.find((pp) => pp.id === jsId);
+                    const p = products.find((pp) => pp.id === jsId);
                     if (!p || !p.steps) return true;
                     const current = this._stagedByProduct[productId] || 0;
                     const i = p.steps.findIndex((s) => s.v === current);
                     return i >= p.steps.length - 1;
                 },
                 setStage(productId, qty) {
-                    const v = this.products.find((p) => p.productId === productId);
+                    const v = products.find((p) => p.productId === productId);
                     if (!v) return;
                     const n = Math.max(0, Number(qty) || 0);
                     this._stagedByProduct[productId] = n;
                 },
                 commitStage(productId) {
-                    const v = this.products.find((p) => p.productId === productId);
+                    const v = products.find((p) => p.productId === productId);
                     if (!v) return;
                     const n = this._stagedByProduct[productId] || 0;
                     if (n <= 0) return;
@@ -1438,7 +1459,7 @@
                     this._pulseChip();
                 },
                 removeFromBasketByProduct(productId) {
-                    const v = this.products.find((p) => p.productId === productId);
+                    const v = products.find((p) => p.productId === productId);
                     if (!v) return;
                     this.quantities[v.id] = 0;
                     this._stagedByProduct[productId] = 0;
@@ -1456,7 +1477,7 @@
                 // Step values feed the native <select> options under each
                 // stepper — same source of truth as the +/− buttons.
                 cardStepOptions(jsId) {
-                    const v = this.products.find((p) => p.id === jsId);
+                    const v = products.find((p) => p.id === jsId);
                     if (!v || !v.steps) return [];
                     return v.steps.filter((s) => s.v > 0);
                 },
@@ -1467,7 +1488,7 @@
                 pickerLocalQty: {},   // jsId -> canonical quantity, modal-local
                 openPicker(productId) {
                     this.pickerProductId = productId;
-                    const variants = this.products.filter((p) => p.productId === productId);
+                    const variants = products.filter((p) => p.productId === productId);
                     this.pickerLocalQty = {};
                     variants.forEach((v) => {
                         this.pickerLocalQty[v.id] = this.quantities[v.id] || 0;
@@ -1505,7 +1526,7 @@
                 },
                 get pickerVariants() {
                     if (this.pickerProductId === null) return [];
-                    return this.products.filter((p) => p.productId === this.pickerProductId);
+                    return products.filter((p) => p.productId === this.pickerProductId);
                 },
                 pickerTitleFor() {
                     const v = this.pickerVariants[0];
@@ -1522,7 +1543,7 @@
                         : @js(__('shop.picker_intro_single'));
                 },
                 pickerSet(jsId, canonicalValue) {
-                    const v = this.products.find((p) => p.id === jsId);
+                    const v = products.find((p) => p.id === jsId);
                     if (!v) return;
                     const clamped = Math.max(0, Math.min(v.cap, canonicalValue));
                     const snapped = v.step > 0 ? Math.round(clamped / v.step) * v.step : clamped;
@@ -1530,7 +1551,7 @@
                 },
                 // Stepper +/− walk through the product's pre-computed steps array.
                 pickerInc(jsId) {
-                    const v = this.products.find((p) => p.id === jsId);
+                    const v = products.find((p) => p.id === jsId);
                     if (!v || !v.steps) return;
                     const current = this.pickerLocalQty[jsId] || 0;
                     let i = v.steps.findIndex((s) => s.v === current);
@@ -1543,7 +1564,7 @@
                     }
                 },
                 pickerDec(jsId) {
-                    const v = this.products.find((p) => p.id === jsId);
+                    const v = products.find((p) => p.id === jsId);
                     if (!v || !v.steps) return;
                     const current = this.pickerLocalQty[jsId] || 0;
                     const i = v.steps.findIndex((s) => s.v === current);
@@ -1552,14 +1573,14 @@
                     }
                 },
                 pickerAtCap(jsId) {
-                    const v = this.products.find((p) => p.id === jsId);
+                    const v = products.find((p) => p.id === jsId);
                     if (!v || !v.steps) return true;
                     const current = this.pickerLocalQty[jsId] || 0;
                     const i = v.steps.findIndex((s) => s.v === current);
                     return i >= v.steps.length - 1;
                 },
                 pickerCurrentLabel(jsId) {
-                    const v = this.products.find((p) => p.id === jsId);
+                    const v = products.find((p) => p.id === jsId);
                     if (!v || !v.steps) return '';
                     const current = this.pickerLocalQty[jsId] || 0;
                     const step = v.steps.find((s) => s.v === current);
@@ -1628,7 +1649,7 @@
                 // Card-level "what's currently in the cart for this product" line.
                 // Returns "" when nothing is selected so x-show hides the row.
                 cartLabelFor(productId) {
-                    const variants = this.products.filter((p) => p.productId === productId);
+                    const variants = products.filter((p) => p.productId === productId);
                     const filled = variants.filter((v) => (this.quantities[v.id] || 0) > 0);
                     if (filled.length === 0) return '';
                     return filled
@@ -1688,7 +1709,7 @@
                 init() {
                     // Seed quantities from the rendered hidden inputs so a
                     // validation bounce (old() values) keeps the cart.
-                    this.products.forEach((p) => {
+                    products.forEach((p) => {
                         const el = document.getElementById('shop-qty-' + p.id);
                         this.quantities[p.id] = el ? (parseFloat(el.value) || 0) : 0;
                     });
@@ -1832,7 +1853,7 @@
                     this.couponMessage = '';
                     this.refreshQuote();
                 },
-                product(id) { return this.products.find((p) => p.id === id); },
+                product(id) { return products.find((p) => p.id === id); },
                 stepIndex(id) {
                     const p = this.product(id);
                     if (!p) return 0;
@@ -1906,7 +1927,7 @@
                     return qty > 0 ? this.money(this.lineEstimate(id)) : '';
                 },
                 itemsTotalEstimate() {
-                    return Math.round(this.products.reduce((s, p) => s + this.lineEstimate(p.id), 0) * 100) / 100;
+                    return Math.round(products.reduce((s, p) => s + this.lineEstimate(p.id), 0) * 100) / 100;
                 },
                 itemsTotalLabel() {
                     return (!this.quoteStale && this.quote) ? this.quote.items_total_label : this.money(this.itemsTotalEstimate());
@@ -1918,7 +1939,7 @@
                     return this.money(Math.max(0, this.itemsTotalEstimate() - discount) + delivery);
                 },
                 get itemCount() {
-                    return this.products.reduce((n, p) => n + ((this.quantities[p.id] || 0) > 0 ? 1 : 0), 0);
+                    return products.reduce((n, p) => n + ((this.quantities[p.id] || 0) > 0 ? 1 : 0), 0);
                 },
             };
         }
