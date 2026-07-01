@@ -15,12 +15,20 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('restaurant_orders', function (Blueprint $table) {
-            $table->foreignId('source_standing_order_id')->nullable()->after('id')
-                ->constrained('restaurant_standing_orders')->nullOnDelete();
-            $table->date('original_delivery_date')->nullable()->after('expected_delivery_date');
-
-            $table->index(['source_standing_order_id', 'original_delivery_date'], 'restaurant_orders_recurrence_idx');
+            if (! Schema::hasColumn('restaurant_orders', 'source_standing_order_id')) {
+                $table->foreignId('source_standing_order_id')->nullable()->after('id')
+                    ->constrained('restaurant_standing_orders')->nullOnDelete();
+            }
+            if (! Schema::hasColumn('restaurant_orders', 'original_delivery_date')) {
+                $table->date('original_delivery_date')->nullable()->after('expected_delivery_date');
+            }
         });
+
+        if (! Schema::hasIndex('restaurant_orders', 'restaurant_orders_recurrence_idx')) {
+            Schema::table('restaurant_orders', function (Blueprint $table) {
+                $table->index(['source_standing_order_id', 'original_delivery_date'], 'restaurant_orders_recurrence_idx');
+            });
+        }
     }
 
     public function down(): void
