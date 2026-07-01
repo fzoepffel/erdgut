@@ -9,13 +9,22 @@ class RestaurantEntryPointTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_shop_surface_links_to_restaurant_register(): void
+    public function test_shop_surface_links_to_gastronomie_landing(): void
     {
-        // Shop home carries the shop header + marketing footer.
+        // Shop home carries the utility strip + marketing footer, both → landing.
         $this->get(route('public.home'))
             ->assertOk()
-            ->assertSee(route('restaurant.register'), false)
+            ->assertSee(route('restaurant.landing'), false)
             ->assertSee(__('restaurant.nav_public'));
+    }
+
+    public function test_landing_page_links_to_apply_and_login(): void
+    {
+        $this->get(route('restaurant.landing'))
+            ->assertOk()
+            ->assertSee(route('restaurant.register'), false)
+            ->assertSee(route('auth.login'), false)
+            ->assertSee(__('restaurant.landing_title'));
     }
 
     public function test_register_page_cross_links_to_login(): void

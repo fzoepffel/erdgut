@@ -72,6 +72,8 @@ class TranslationParityTest extends TestCase
         // 'restaurant.standing_flash_'.session('status'). Concrete variants exist.
         'restaurant.standing_status_',
         'restaurant.standing_flash_',
+        // The Gastronomie landing builds 'restaurant.landing_step'.$n.'_title'/'_body'.
+        'restaurant.landing_step',
     ];
 
     public function test_every_translation_key_used_in_source_exists_in_every_locale(): void

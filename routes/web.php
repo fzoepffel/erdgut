@@ -298,6 +298,10 @@ Route::name('app.onboarding.')
     });
 
 // ── Restaurant (B2B) accounts ───────────────────────────────────────────────
+// Public "Für Gastronomie" landing page — explains the B2B offering and routes
+// to apply / log in. Reachable by guests and logged-in visitors alike.
+Route::view('gastronomie', 'restaurant.landing')->name('restaurant.landing');
+
 // Public application (guests apply; admin verifies before the account opens).
 Route::middleware('guest')->group(function () {
     Route::get('restaurant/register', [RestaurantRegisterController::class, 'create'])->name('restaurant.register');
