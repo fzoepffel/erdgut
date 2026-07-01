@@ -1,4 +1,4 @@
-<x-shop-layout :title="__('restaurant.order_ref', ['id' => $order->id])" :narrow="true">
+<x-shop-layout :title="__('restaurant.order_ref', ['id' => $order->id])" :narrow="true" restaurant-nav="orders">
     @if (session('status') === 'restaurant-order-submitted')
         <div class="mb-6 border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">{{ __('restaurant.order_submitted_flash') }}</div>
     @elseif (session('status') === 'restaurant-order-cancelled')

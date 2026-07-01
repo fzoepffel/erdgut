@@ -39,6 +39,22 @@ class RestaurantCatalogTest extends TestCase
         return $product;
     }
 
+    /** Seasonal product with no stock → surfaces "on request" (season tab). */
+    private function seasonalOnRequestProduct(): Product
+    {
+        Producer::factory()->create();
+
+        return Product::factory()->create([
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 10.00,
+            'vat_rate_percent' => 7,
+            'is_seasonal' => true, // null window → always in season
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+    }
+
     public function test_guest_is_redirected_to_login(): void
     {
         $this->get(route('app.restaurant.catalog'))->assertRedirect(route('auth.login'));
@@ -95,5 +111,43 @@ class RestaurantCatalogTest extends TestCase
             ->get(route('app.restaurant.catalog', ['date' => Carbon::tomorrow()->toDateString()]))
             ->assertOk()
             ->assertDontSee($product->name);
+    }
+
+    public function test_catalog_has_shop_style_chrome_tabs_nav_and_filters(): void
+    {
+        $this->app->setLocale('de');
+        $this->inStockProduct(Carbon::tomorrow());
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $profile->user->forceFill(['locale' => 'de'])->save();
+
+        $this->actingAs($profile->user)
+            ->get(route('app.restaurant.catalog'))
+            ->assertOk()
+            ->assertSee('data-testid="restaurant-nav"', false)
+            ->assertSee('data-testid="restaurant-date-picker"', false)
+            ->assertSee('data-testid="restaurant-tabs"', false)
+            ->assertSee('data-testid="restaurant-name-filter"', false)
+            ->assertSee(__('restaurant.tab_in_stock'))
+            ->assertSee(__('restaurant.tab_on_request'))
+            ->assertSee(__('restaurant.tab_special'))
+            // nav links to the two previously-buried destinations
+            ->assertSee(route('app.restaurant.orders.index'), false)
+            ->assertSee(route('app.restaurant.standing-orders.index'), false);
+    }
+
+    public function test_seasonal_out_of_stock_product_shows_on_request(): void
+    {
+        $this->app->setLocale('de');
+        $product = $this->seasonalOnRequestProduct();
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $profile->user->forceFill(['locale' => 'de'])->save();
+
+        $this->actingAs($profile->user)
+            ->get(route('app.restaurant.catalog'))
+            ->assertOk()
+            ->assertSee($product->name)
+            ->assertSee(__('restaurant.on_request')) // "auf Anfrage" badge
+            // tagged into the season tab, not the in-stock tab
+            ->assertSee('data-tab="season"', false);
     }
 }

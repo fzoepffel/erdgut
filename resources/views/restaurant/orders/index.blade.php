@@ -1,4 +1,4 @@
-<x-shop-layout :title="__('restaurant.my_requests')" :narrow="true">
+<x-shop-layout :title="__('restaurant.my_requests')" :narrow="true" restaurant-nav="orders">
     <div class="flex items-center justify-between">
         <div>
             <p class="eyebrow text-shop-primary">{{ __('restaurant.catalog_eyebrow') }}</p>

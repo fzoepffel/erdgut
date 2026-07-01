@@ -4032,5 +4032,14 @@
     "restaurant.landing_step3_title": "Commander & recevoir une facture",
     "restaurant.landing_step3_body": "Commandez dans l'assortiment B2B ; nous confirmons, livrons et facturons.",
     "restaurant.landing_closing_title": "Prêt pour la qualité régionale ?",
-    "restaurant.landing_closing_body": "Demandez un compte professionnel — l'activation ne prend généralement qu'un instant."
+    "restaurant.landing_closing_body": "Demandez un compte professionnel — l'activation ne prend généralement qu'un instant.",
+    "restaurant.nav_shop": "Boutique",
+    "restaurant.tab_in_stock": "En stock",
+    "restaurant.tab_on_request": "De saison · sur demande",
+    "restaurant.tab_special": "Demande spéciale",
+    "restaurant.tab_in_stock_empty": "Rien en stock ce jour-là. Voir « De saison » ou choisir un autre jour.",
+    "restaurant.tab_on_request_empty": "Rien de saison sur demande pour le moment.",
+    "restaurant.recurrence_label": "Livraison",
+    "restaurant.date_in_stock_suffix": "en stock",
+    "restaurant.date_on_request_only": "sur demande uniquement"
 }

@@ -31,11 +31,12 @@ class RestaurantCatalogService
 
     /**
      * Open delivery days from tomorrow through the booking horizon, each with
-     * its "orderable until" cutoff label (when a closure rule sets one). Closed
-     * days are excluded. In-season "on request" items keep every open day valid,
-     * so days are NOT filtered by stock.
+     * its "orderable until" cutoff label (when a closure rule sets one) and the
+     * count of products in stock that day. Closed days are excluded. In-season
+     * "on request" items keep every open day valid, so days are NOT filtered by
+     * stock — but the count lets the picker promote days that have stock.
      *
-     * @return Collection<int, array{date: Carbon, cutoff_label: ?string}>
+     * @return Collection<int, array{date: Carbon, cutoff_label: ?string, in_stock_count: int}>
      */
     public function selectableDates(): Collection
     {
@@ -45,12 +46,23 @@ class RestaurantCatalogService
 
         $states = $this->closures->statesForRange($start, $end);
 
+        // One matrix pass over the whole horizon (cached) → per-day in-stock count.
+        $products = Product::query()->visibleInCatalog()->with('variants')->get();
+        $matrix = $this->inventory->availabilityMatrix($products, $start, $end, ShopStockAudience::BusinessTrade);
+
         return collect($states)
             ->reject(fn (array $state): bool => $state['closed'])
-            ->map(fn (array $state, string $iso): array => [
-                'date' => Carbon::parse($iso),
-                'cutoff_label' => $state['cutoff_label'],
-            ])
+            ->map(function (array $state, string $iso) use ($matrix, $products): array {
+                $count = $products->filter(
+                    fn (Product $p): bool => (float) ($matrix[$p->id][$iso] ?? 0.0) > 0.0
+                )->count();
+
+                return [
+                    'date' => Carbon::parse($iso),
+                    'cutoff_label' => $state['cutoff_label'],
+                    'in_stock_count' => $count,
+                ];
+            })
             ->values();
     }
 
@@ -131,6 +143,8 @@ class RestaurantCatalogService
             'product' => $product,
             'inStock' => $inStock,
             'inSeason' => $inSeason,
+            // Key ProductRankingService reads to rank orderable rows first.
+            'available_on_selected' => $inStock,
             'grossPerDisplay' => $grossPerDisplay,
             'netPerDisplay' => $netPerDisplay,
             'vatRate' => $vatRate,

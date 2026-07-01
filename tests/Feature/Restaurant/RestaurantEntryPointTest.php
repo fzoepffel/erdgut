@@ -2,12 +2,34 @@
 
 namespace Tests\Feature\Restaurant;
 
+use App\Models\RestaurantProfile;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class RestaurantEntryPointTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_verified_restaurant_is_redirected_from_geschaeftskunden_to_app(): void
+    {
+        $profile = RestaurantProfile::factory()->verified()->create();
+
+        $this->actingAs($profile->user)
+            ->get(route('restaurant.landing'))
+            ->assertRedirect(route('app.restaurant.dashboard'));
+    }
+
+    public function test_guest_and_consumer_see_the_geschaeftskunden_landing(): void
+    {
+        $this->get(route('restaurant.landing'))->assertOk()->assertSee(__('restaurant.landing_title'));
+
+        // A logged-in non-restaurant (box consumer) still sees the pitch, not a redirect.
+        $this->actingAs(User::factory()->create())
+            ->get(route('restaurant.landing'))
+            ->assertOk()
+            ->assertSee(__('restaurant.landing_title'));
+    }
 
     public function test_shop_surface_links_to_geschaeftskunden_landing(): void
     {
