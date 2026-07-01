@@ -71,17 +71,40 @@
     style="background-color: {{ $bg }}; border-color: rgba(33, 52, 29, 0.15);"
     data-testid="customer-header-{{ $variant }}"
 >
-    {{-- Utility strip: the "other audience" (B2B / Gastronomie) + account access
-         live here, above and visually separate from the consumer nav, so they
-         never compete with the primary "Zum Hofladen" CTA. Desktop only; the
-         mobile menu carries the same links. --}}
+    {{-- Utility strip: a thin, subtly-toned band above the consumer nav holding
+         the "other audience" (B2B / Gastronomie) + account access in a compact
+         "Konto" menu, so they never compete with the primary "Zum Hofladen" CTA.
+         Desktop only; the mobile menu carries the same links. --}}
     @if ($variant === 'shop')
-        <div class="hidden border-b md:block" style="border-color: rgba(33, 52, 29, 0.12);">
-            <div class="mx-auto flex max-w-7xl items-center justify-end gap-4 px-4 py-1.5 text-xs sm:px-6 lg:px-8">
-                <a href="{{ route('restaurant.landing') }}" class="font-medium transition hover:opacity-80" style="color: {{ $inkSubtle }};" data-testid="header-restaurant-link">{{ __('restaurant.nav_public') }}</a>
-                <span aria-hidden="true" style="color: {{ $inkSubtle }}; opacity: 0.45;">·</span>
-                <a href="{{ route('auth.login') }}" class="font-medium transition hover:opacity-80" style="color: {{ $inkSubtle }};">{{ __('Log in') }}</a>
+        <div class="hidden border-b md:block" style="background-color: rgba(33, 52, 29, 0.07); border-color: rgba(33, 52, 29, 0.10);">
+            <div class="mx-auto flex max-w-7xl items-center justify-end gap-4 px-4 py-1 text-[11px] sm:px-6 lg:px-8" style="color: {{ $inkSubtle }};">
                 <x-language-selector />
+                <div class="relative" x-data="{ konto: false }" @keydown.escape="konto = false">
+                    <button type="button" @click="konto = !konto" :aria-expanded="konto" data-testid="header-account-menu"
+                            class="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-medium transition hover:opacity-80" style="color: {{ $inkSubtle }};">
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.1a7.5 7.5 0 0 1 15 0A17.9 17.9 0 0 1 12 21.75c-2.68 0-5.22-.584-7.5-1.632Z" /></svg>
+                        {{ __('restaurant.account_menu') }}
+                        <svg class="h-3 w-3 transition" :class="konto && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                    </button>
+                    <div x-show="konto" x-cloak x-transition.origin.top @click.outside="konto = false"
+                         class="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-brand-ink/10 bg-brand-cream shadow-xl">
+                        <a href="{{ route('restaurant.landing') }}" class="flex items-start gap-3 px-4 py-3 transition hover:bg-brand-ink/5" data-testid="header-restaurant-link">
+                            <svg class="mt-0.5 h-5 w-5 shrink-0 text-chapter-produce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 21h19.5M6.75 21V6.75A1.5 1.5 0 0 1 8.25 5.25h7.5a1.5 1.5 0 0 1 1.5 1.5V21M9.75 8.25h.75m-.75 3h.75m3-3h.75m-.75 3h.75m-4.5 9.75v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21" /></svg>
+                            <span>
+                                <span class="block text-sm font-semibold text-brand-ink">{{ __('restaurant.nav_public') }}</span>
+                                <span class="block text-xs text-brand-ink/60">{{ __('restaurant.account_menu_restaurant_sub') }}</span>
+                            </span>
+                        </a>
+                        <div class="border-t border-brand-ink/10"></div>
+                        <a href="{{ route('auth.login') }}" class="flex items-start gap-3 px-4 py-3 transition hover:bg-brand-ink/5">
+                            <svg class="mt-0.5 h-5 w-5 shrink-0 text-chapter-produce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
+                            <span>
+                                <span class="block text-sm font-semibold text-brand-ink">{{ __('Log in') }}</span>
+                                <span class="block text-xs text-brand-ink/60">{{ __('restaurant.account_menu_login_sub') }}</span>
+                            </span>
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     @endif

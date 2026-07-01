@@ -4032,5 +4032,8 @@
     "restaurant.landing_step3_title": "Commander & recevoir une facture",
     "restaurant.landing_step3_body": "Commandez dans l'assortiment B2B ; nous confirmons, livrons et facturons.",
     "restaurant.landing_closing_title": "Prêt pour la qualité régionale ?",
-    "restaurant.landing_closing_body": "Demandez un compte professionnel — l'activation ne prend généralement qu'un instant."
+    "restaurant.landing_closing_body": "Demandez un compte professionnel — l'activation ne prend généralement qu'un instant.",
+    "restaurant.account_menu": "Compte",
+    "restaurant.account_menu_restaurant_sub": "Livrons-nous votre restaurant ?",
+    "restaurant.account_menu_login_sub": "Connexion client professionnel"
 }

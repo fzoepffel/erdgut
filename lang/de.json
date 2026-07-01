@@ -4032,5 +4032,8 @@
     "restaurant.landing_step3_title": "Bestellen & auf Rechnung erhalten",
     "restaurant.landing_step3_body": "Bestellen Sie im B2B-Sortiment; wir bestätigen, liefern und stellen die Rechnung.",
     "restaurant.landing_closing_title": "Bereit für regionale Qualität?",
-    "restaurant.landing_closing_body": "Beantragen Sie ein Geschäftskonto – die Freischaltung dauert in der Regel nur kurz."
+    "restaurant.landing_closing_body": "Beantragen Sie ein Geschäftskonto – die Freischaltung dauert in der Regel nur kurz.",
+    "restaurant.account_menu": "Konto",
+    "restaurant.account_menu_restaurant_sub": "Beliefern wir Ihr Restaurant?",
+    "restaurant.account_menu_login_sub": "Zum Geschäftskunden-Login"
 }

@@ -4032,5 +4032,8 @@
     "restaurant.landing_step3_title": "Order & receive an invoice",
     "restaurant.landing_step3_body": "Order from the B2B range; we confirm, deliver and invoice.",
     "restaurant.landing_closing_title": "Ready for regional quality?",
-    "restaurant.landing_closing_body": "Apply for a business account — approval usually only takes a moment."
+    "restaurant.landing_closing_body": "Apply for a business account — approval usually only takes a moment.",
+    "restaurant.account_menu": "Account",
+    "restaurant.account_menu_restaurant_sub": "Should we supply your restaurant?",
+    "restaurant.account_menu_login_sub": "Business customer login"
 }
