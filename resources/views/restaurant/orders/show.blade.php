@@ -1,6 +1,8 @@
 <x-shop-layout :title="__('restaurant.order_ref', ['id' => $order->id])" :narrow="true" restaurant-nav="orders">
     @if (session('status') === 'restaurant-order-submitted')
-        <div class="mb-6 border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">{{ __('restaurant.order_submitted_flash') }}</div>
+        <div class="mb-6 border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">
+            {{ $order->status === \App\Enums\RestaurantOrderStatus::Confirmed ? __('restaurant.order_confirmed_flash') : __('restaurant.order_pending_flash') }}
+        </div>
     @elseif (session('status') === 'restaurant-order-cancelled')
         <div class="mb-6 border border-shop-border bg-shop-card p-4 text-sm text-shop-foreground">{{ __('restaurant.order_cancelled_flash') }}</div>
     @endif
@@ -18,10 +20,17 @@
             <div class="flex items-center justify-between gap-3 px-5 py-3">
                 <div class="min-w-0">
                     <p class="truncate text-sm text-shop-foreground">{{ $item->displayQuantityLabel($order->locale) }} · {{ $item->displayName() }}</p>
-                    @if ($item->isReserved())
+                    @if ($item->isDeclined())
+                        <span class="text-[11px] font-medium text-shop-muted line-through">{{ __('restaurant.line_declined') }}</span>
+                    @elseif ($item->isPending())
+                        <span class="text-[11px] font-medium text-amber-700">{{ __('restaurant.line_pending') }}</span>
+                    @elseif ($item->isReserved())
                         <span class="text-[11px] font-medium text-emerald-700">{{ __('restaurant.in_stock') }}</span>
                     @else
                         <span class="text-[11px] font-medium text-amber-700">{{ __('restaurant.on_request') }}</span>
+                    @endif
+                    @if ($item->isWeekly())
+                        <span class="ml-2 text-[11px] font-medium text-shop-primary">{{ __('restaurant.recurrence_weekly') }}@if ($item->recurrence_until) · {{ __('restaurant.recurrence_until') }} {{ $item->recurrence_until->format('d.m.Y') }}@endif</span>
                     @endif
                 </div>
                 @if ($item->isCustom())
@@ -54,7 +63,14 @@
         </div>
     @endif
 
-    @if ($order->isSubmitted())
+    @if ($order->source_standing_order_id !== null)
+        <div class="mt-6 border-l-2 border-shop-primary bg-shop-paper px-4 py-3 text-sm text-shop-foreground">
+            {{ __('restaurant.order_recurring_note') }}
+            <a href="{{ route('app.restaurant.standing-orders.index') }}" class="text-shop-primary underline underline-offset-2">{{ __('restaurant.standing_title') }}</a>
+        </div>
+    @endif
+
+    @if (! $order->isInvoiced() && in_array($order->status, [\App\Enums\RestaurantOrderStatus::Submitted, \App\Enums\RestaurantOrderStatus::Confirmed], true))
         <form method="POST" action="{{ route('app.restaurant.orders.cancel', $order) }}" class="mt-8"
               onsubmit="return confirm(@js(__('restaurant.order_cancel_confirm')))">
             @csrf

@@ -26,28 +26,63 @@
             @endif
 
             {{-- Actions --}}
+            @php
+                $pendingLines = $order->items->filter(fn ($i) => $i->isPending());
+                $canCancel = ! $order->isInvoiced() && in_array($order->status, [\App\Enums\RestaurantOrderStatus::Submitted, \App\Enums\RestaurantOrderStatus::Confirmed], true);
+            @endphp
             @if ($order->isSubmitted() || $order->status === \App\Enums\RestaurantOrderStatus::Confirmed)
-                <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-                    @if ($order->isSubmitted())
-                        <div class="grid gap-4 sm:grid-cols-2">
-                            <form method="POST" action="{{ route('app.admin.restaurant-orders.confirm', $order) }}" class="space-y-2">
+                <div class="space-y-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                    {{-- On-request lines the admin must accept or decline, one by one --}}
+                    @if ($pendingLines->isNotEmpty())
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wider text-gray-500">{{ __('restaurant.admin_pending_lines_title') }}</p>
+                            <ul class="mt-2 divide-y divide-gray-100">
+                                @foreach ($pendingLines as $item)
+                                    <li class="flex flex-wrap items-center justify-between gap-3 py-2">
+                                        <span class="text-sm text-gray-800">{{ $item->displayQuantityLabel($order->locale) }} · {{ $item->displayName() }}</span>
+                                        <span class="flex items-center gap-2">
+                                            <form method="POST" action="{{ route('app.admin.restaurant-orders.accept-line', [$order, $item]) }}">
+                                                @csrf
+                                                <button type="submit" data-testid="restaurant-line-accept-{{ $item->id }}" class="rounded bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800">{{ __('restaurant.admin_line_accept') }}</button>
+                                            </form>
+                                            <form method="POST" action="{{ route('app.admin.restaurant-orders.decline-line', [$order, $item]) }}">
+                                                @csrf
+                                                <button type="submit" data-testid="restaurant-line-decline-{{ $item->id }}" class="rounded border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50">{{ __('restaurant.admin_line_decline') }}</button>
+                                            </form>
+                                        </span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        @if ($order->isSubmitted())
+                            {{-- Convenience: resolve every pending line at once --}}
+                            <form method="POST" action="{{ route('app.admin.restaurant-orders.confirm', $order) }}">
                                 @csrf
-                                <textarea name="note" rows="2" placeholder="{{ __('restaurant.admin_orders_note') }}" class="block w-full rounded border-gray-300 text-sm"></textarea>
-                                <button type="submit" data-testid="restaurant-order-confirm" class="w-full rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">{{ __('restaurant.admin_orders_confirm') }}</button>
+                                <button type="submit" data-testid="restaurant-order-confirm" class="rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">{{ __('restaurant.admin_orders_confirm') }}</button>
                             </form>
-                            <form method="POST" action="{{ route('app.admin.restaurant-orders.decline', $order) }}" class="space-y-2"
+                            <form method="POST" action="{{ route('app.admin.restaurant-orders.decline', $order) }}"
                                   onsubmit="return confirm(@js(__('restaurant.admin_orders_decline_confirm')))">
                                 @csrf
-                                <textarea name="note" rows="2" placeholder="{{ __('restaurant.admin_orders_note') }}" class="block w-full rounded border-gray-300 text-sm"></textarea>
-                                <button type="submit" data-testid="restaurant-order-decline" class="w-full rounded border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50">{{ __('restaurant.admin_orders_decline') }}</button>
+                                <button type="submit" data-testid="restaurant-order-decline" class="rounded border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50">{{ __('restaurant.admin_orders_decline') }}</button>
                             </form>
-                        </div>
-                    @else
-                        <form method="POST" action="{{ route('app.admin.restaurant-orders.fulfil', $order) }}">
-                            @csrf
-                            <button type="submit" data-testid="restaurant-order-fulfil" class="rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">{{ __('restaurant.admin_orders_fulfil') }}</button>
-                        </form>
-                    @endif
+                        @else
+                            <form method="POST" action="{{ route('app.admin.restaurant-orders.fulfil', $order) }}">
+                                @csrf
+                                <button type="submit" data-testid="restaurant-order-fulfil" class="rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">{{ __('restaurant.admin_orders_fulfil') }}</button>
+                            </form>
+                        @endif
+
+                        @if ($canCancel)
+                            <form method="POST" action="{{ route('app.admin.restaurant-orders.cancel', $order) }}" class="ml-auto"
+                                  onsubmit="return confirm(@js(__('restaurant.admin_orders_cancel_confirm')))">
+                                @csrf
+                                <button type="submit" data-testid="restaurant-order-cancel" class="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">{{ __('restaurant.admin_orders_cancel') }}</button>
+                            </form>
+                        @endif
+                    </div>
                 </div>
             @endif
 

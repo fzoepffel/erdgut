@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ProductUnit;
 use App\Enums\RestaurantOrderItemTrack;
+use App\Enums\RestaurantOrderLineStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,9 @@ class RestaurantOrderItem extends Model
         'quantity',
         'unit',
         'track',
+        'line_status',
+        'recurrence',
+        'recurrence_until',
         'unit_price_snapshot_eur',
         'vat_rate_snapshot_percent',
         'line_total_eur',
@@ -35,6 +39,8 @@ class RestaurantOrderItem extends Model
     {
         return [
             'track' => RestaurantOrderItemTrack::class,
+            'line_status' => RestaurantOrderLineStatus::class,
+            'recurrence_until' => 'date',
             'quantity' => 'decimal:4',
             'unit_price_snapshot_eur' => 'decimal:4',
             'vat_rate_snapshot_percent' => 'integer',
@@ -64,6 +70,28 @@ class RestaurantOrderItem extends Model
     public function isReserved(): bool
     {
         return $this->track === RestaurantOrderItemTrack::Reserved;
+    }
+
+    /** Awaiting an admin accept/decline decision (on-request / special line). */
+    public function isPending(): bool
+    {
+        return $this->line_status === RestaurantOrderLineStatus::Requested;
+    }
+
+    public function isDeclined(): bool
+    {
+        return $this->line_status === RestaurantOrderLineStatus::Declined;
+    }
+
+    /** A firm order line (in-stock, or an admin-accepted request). */
+    public function isConfirmedLine(): bool
+    {
+        return $this->line_status === RestaurantOrderLineStatus::Confirmed;
+    }
+
+    public function isWeekly(): bool
+    {
+        return $this->recurrence === 'weekly';
     }
 
     /** A free-form "special request" line — no catalog product. */

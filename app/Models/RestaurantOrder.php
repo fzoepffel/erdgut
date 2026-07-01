@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -72,6 +73,20 @@ class RestaurantOrder extends Model
     public function isSubmitted(): bool
     {
         return $this->status === RestaurantOrderStatus::Submitted;
+    }
+
+    /**
+     * At least one line is still awaiting an admin accept/decline (on-request /
+     * special). An order is confirmable once none remain. Uses the loaded items
+     * collection when available, else a scoped exists() query.
+     */
+    public function hasPendingLines(): bool
+    {
+        if ($this->relationLoaded('items')) {
+            return $this->items->contains(fn (RestaurantOrderItem $i): bool => $i->isPending());
+        }
+
+        return $this->items()->where('line_status', RestaurantOrderLineStatus::Requested->value)->exists();
     }
 
     /** An invoice has been issued — the order's lines/prices are frozen. */

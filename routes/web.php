@@ -423,7 +423,10 @@ Route::middleware(['auth', 'verified'])
             Route::get('restaurant-orders/{restaurantOrder}/invoice.pdf', [AdminRestaurantOrderController::class, 'invoicePdf'])->name('restaurant-orders.invoice-pdf');
             Route::post('restaurant-orders/{restaurantOrder}/confirm', [AdminRestaurantOrderController::class, 'confirm'])->name('restaurant-orders.confirm');
             Route::post('restaurant-orders/{restaurantOrder}/decline', [AdminRestaurantOrderController::class, 'decline'])->name('restaurant-orders.decline');
+            Route::post('restaurant-orders/{restaurantOrder}/cancel', [AdminRestaurantOrderController::class, 'cancel'])->name('restaurant-orders.cancel');
             Route::post('restaurant-orders/{restaurantOrder}/fulfil', [AdminRestaurantOrderController::class, 'fulfil'])->name('restaurant-orders.fulfil');
+            Route::post('restaurant-orders/{restaurantOrder}/items/{item}/accept', [AdminRestaurantOrderController::class, 'acceptLine'])->name('restaurant-orders.accept-line');
+            Route::post('restaurant-orders/{restaurantOrder}/items/{item}/decline', [AdminRestaurantOrderController::class, 'declineLine'])->name('restaurant-orders.decline-line');
             Route::post('restaurant-orders/{restaurantOrder}/pricing', [AdminRestaurantOrderController::class, 'updatePricing'])->name('restaurant-orders.pricing');
             Route::post('restaurant-orders/{restaurantOrder}/invoice', [AdminRestaurantOrderController::class, 'issueInvoice'])->name('restaurant-orders.invoice');
             Route::get('audit-events', [AdminAuditEventController::class, 'index'])->name('audit-events.index');

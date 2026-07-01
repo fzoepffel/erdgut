@@ -3,8 +3,10 @@
 namespace Tests\Feature\Admin;
 
 use App\Enums\ProductUnit;
+use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopStockAudience;
+use App\Mail\RestaurantOrderCancelledMail;
 use App\Mail\RestaurantOrderConfirmedMail;
 use App\Mail\RestaurantOrderDeclinedMail;
 use App\Models\Producer;
@@ -28,6 +30,8 @@ class AdminRestaurantOrderTest extends TestCase
 
     private Product $product;
 
+    private Product $onRequestProduct;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -42,14 +46,26 @@ class AdminRestaurantOrderTest extends TestCase
             'product_id' => $this->product->id, 'received_on' => $this->date->toDateString(),
             'quantity' => 50, 'freshness_window_days' => 3,
         ]);
+
+        // A seasonal, out-of-stock product → an on-request line, so a submitted
+        // order genuinely stays Submitted (has a pending line for the admin).
+        $this->onRequestProduct = Product::factory()->create([
+            'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece',
+            'unit_price' => 8.00, 'vat_rate_percent' => 7,
+            'is_seasonal' => true, 'is_available' => true, 'is_published' => true,
+        ]);
     }
 
+    /** Mixed order: an in-stock line (reserved) + an on-request line (pending). */
     private function submittedOrder(): RestaurantOrder
     {
         $profile = RestaurantProfile::factory()->verified()->create();
 
         return app(RestaurantOrderService::class)->submit($profile->user, [
-            'items' => [['product_id' => $this->product->id, 'variant_id' => null, 'quantity' => 10]],
+            'items' => [
+                ['product_id' => $this->product->id, 'variant_id' => null, 'quantity' => 10],
+                ['product_id' => $this->onRequestProduct->id, 'variant_id' => null, 'quantity' => 3],
+            ],
             'expected_delivery_date' => $this->date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
         ]);
@@ -139,6 +155,59 @@ class AdminRestaurantOrderTest extends TestCase
 
         Mail::assertNotSent(RestaurantOrderConfirmedMail::class);
         Mail::assertNotSent(RestaurantOrderDeclinedMail::class);
+    }
+
+    public function test_accept_line_settles_order_to_confirmed(): void
+    {
+        Mail::fake();
+        $order = $this->submittedOrder(); // in-stock (confirmed) + on-request (pending)
+        $admin = User::factory()->admin()->create();
+        $pending = $order->items->first(fn ($i) => $i->line_status === RestaurantOrderLineStatus::Requested);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.restaurant-orders.accept-line', [$order, $pending]))
+            ->assertRedirect(route('app.admin.restaurant-orders.show', $order));
+
+        $this->assertSame(RestaurantOrderLineStatus::Confirmed, $pending->fresh()->line_status);
+        // Last pending line resolved → the whole order confirms + the restaurant is mailed.
+        $this->assertSame(RestaurantOrderStatus::Confirmed, $order->fresh()->status);
+        Mail::assertSent(RestaurantOrderConfirmedMail::class);
+    }
+
+    public function test_decline_line_keeps_order_confirmed_when_in_stock_line_survives(): void
+    {
+        $order = $this->submittedOrder();
+        $admin = User::factory()->admin()->create();
+        $pending = $order->items->first(fn ($i) => $i->line_status === RestaurantOrderLineStatus::Requested);
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.restaurant-orders.decline-line', [$order, $pending]))
+            ->assertRedirect();
+
+        $this->assertSame(RestaurantOrderLineStatus::Declined, $pending->fresh()->line_status);
+        // The in-stock line survives, so the order still confirms.
+        $this->assertSame(RestaurantOrderStatus::Confirmed, $order->fresh()->status);
+    }
+
+    public function test_admin_cancel_confirmed_order_releases_reservation_and_mails(): void
+    {
+        Mail::fake();
+        // All-in-stock order → auto-confirmed.
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $order = app(RestaurantOrderService::class)->submit($profile->user, [
+            'items' => [['product_id' => $this->product->id, 'variant_id' => null, 'quantity' => 10]],
+            'expected_delivery_date' => $this->date->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ]);
+        $this->assertSame(RestaurantOrderStatus::Confirmed, $order->status);
+        $this->assertEqualsWithDelta(40.0, $this->remaining(), 0.01);
+
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin)->post(route('app.admin.restaurant-orders.cancel', $order))->assertRedirect();
+
+        $this->assertSame(RestaurantOrderStatus::Cancelled, $order->fresh()->status);
+        $this->assertEqualsWithDelta(50.0, $this->remaining(), 0.01); // reservation released
+        Mail::assertSent(RestaurantOrderCancelledMail::class, fn ($m) => $m->hasTo($order->user->email));
     }
 
     public function test_confirm_is_noop_on_non_submitted_order(): void

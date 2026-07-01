@@ -71,7 +71,9 @@ class RestaurantStandingOrderTest extends TestCase
         $order = $this->submitRecurring($user, $weekly, $oneTime, $date);
 
         $standing = RestaurantStandingOrder::firstOrFail();
-        $this->assertSame(RestaurantStandingOrderStatus::Pending, $standing->status);
+        // The weekly line is in stock → the first order auto-confirms, which
+        // activates the recurring delivery immediately (no admin step needed).
+        $this->assertSame(RestaurantStandingOrderStatus::Active, $standing->status);
         $this->assertSame($date->dayOfWeek, $standing->delivery_weekday);
         $this->assertSame($standing->id, $order->source_standing_order_id);
         // Only the weekly line is in the standing order; recurrence starts next week.

@@ -91,6 +91,13 @@ class RestaurantInvoiceService
             }
 
             $this->rerollTotals($fresh);
+
+            // Every billable (non-declined) line must be priced — don't let a
+            // special line the admin forgot to price land on the Rechnung at €0.
+            $unpriced = $fresh->items->first(fn ($i) => ! $i->isDeclined() && (float) $i->line_total_eur <= 0.0);
+            if ($unpriced !== null) {
+                throw new RuntimeException(__('restaurant.admin_invoice_unpriced_line'));
+            }
             if ((float) $fresh->items_total_gross_eur <= 0) {
                 throw new RuntimeException('Cannot invoice a zero-total order.');
             }
@@ -152,8 +159,10 @@ class RestaurantInvoiceService
     private function rerollTotals(RestaurantOrder $order): void
     {
         $order->load('items');
-        $gross = round((float) $order->items->sum(fn ($i) => (float) $i->line_total_eur), 2);
-        $vat = round((float) $order->items->sum(fn ($i) => (float) $i->vat_amount_eur), 2);
+        // Declined lines never bill.
+        $live = $order->items->reject(fn ($i) => $i->isDeclined());
+        $gross = round((float) $live->sum(fn ($i) => (float) $i->line_total_eur), 2);
+        $vat = round((float) $live->sum(fn ($i) => (float) $i->vat_amount_eur), 2);
 
         $order->forceFill([
             'items_total_gross_eur' => $gross,

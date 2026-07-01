@@ -28,6 +28,8 @@
             date: @js($selectedDate?->toDateString()),
             subcategoriesByCategory: @js($alpineSubcategories),
             defaultShopCategory: @js($defaultShopCategory),
+            weeklyLabel: @js(__('restaurant.recurrence_weekly')),
+            untilLabel: @js(__('restaurant.recurrence_until')),
             prefill: {{ Illuminate\Support\Js::from([
                 'street' => $profile?->billing_street ?? '',
                 'postal' => $profile?->billing_postal_code ?? '',
@@ -324,16 +326,29 @@
                     <h2 class="font-display text-2xl text-shop-foreground">{{ __('restaurant.cart_review_title') }}</h2>
                     <p class="mt-1 text-sm text-shop-muted">{{ __('restaurant.cart_review_intro') }}</p>
 
+                    {{-- One cohesive list: catalog + special lines together, each
+                         showing its own delivery schedule (weekly lines carry a badge). --}}
                     <ul class="mt-4 divide-y divide-shop-border text-sm">
                         <template x-for="line in basketLines" :key="'r'+line.key">
                             <li class="flex justify-between gap-3 py-2">
-                                <span class="text-shop-foreground" x-text="`${line.displayQty} ${line.unitSymbol} · ${line.name}`"></span>
+                                <span class="text-shop-foreground">
+                                    <span x-text="`${line.displayQty} ${line.unitSymbol} · ${line.name}`"></span>
+                                    <template x-if="line.recurrence === 'weekly'">
+                                        <span class="ml-2 inline-block bg-shop-primary/10 px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary" x-text="weeklyBadge(line.until)"></span>
+                                    </template>
+                                </span>
                                 <span class="font-mono text-shop-muted" x-text="formatEur(line.net)"></span>
                             </li>
                         </template>
                         <template x-for="s in filledSpecials" :key="'rs'+s.j">
                             <li class="flex justify-between gap-3 py-2">
-                                <span class="text-shop-foreground" x-text="`${s.quantity} ${s.unit} · ${s.name}`"></span>
+                                <span class="text-shop-foreground">
+                                    <span x-text="`${s.quantity} ${s.unit} · ${s.name}`"></span>
+                                    <span class="ml-2 inline-block bg-amber-100 px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-widest text-amber-800">{{ __('restaurant.on_request') }}</span>
+                                    <template x-if="s.recurrence === 'weekly'">
+                                        <span class="ml-1 inline-block bg-shop-primary/10 px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary" x-text="weeklyBadge(s.until)"></span>
+                                    </template>
+                                </span>
                                 <span class="font-mono text-shop-muted">{{ __('restaurant.price_on_request') }}</span>
                             </li>
                         </template>
@@ -404,6 +419,16 @@
                 openSubmit: false,
                 // ── Tabs + grid filters (mirrors the consumer storefront) ──
                 activeTab: 'stock',
+                weeklyLabel: config.weeklyLabel || 'Wöchentlich',
+                untilLabel: config.untilLabel || 'bis',
+                weeklyBadge(until) {
+                    let s = this.weeklyLabel;
+                    if (until) {
+                        const d = new Date(until + 'T00:00:00');
+                        s += ' · ' + this.untilLabel + ' ' + d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                    }
+                    return s;
+                },
                 nameQuery: '',
                 activeCategory: config.defaultShopCategory || '',
                 activeSubcategoryId: 0,
