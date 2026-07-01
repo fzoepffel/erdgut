@@ -4009,5 +4009,7 @@
     "restaurant.standing_flash_standing-paused": "Livraison récurrente mise en pause.",
     "restaurant.standing_flash_standing-resumed": "Livraison récurrente reprise.",
     "restaurant.standing_flash_standing-cancelled": "Livraison récurrente terminée.",
-    "restaurant.admin_recurring_note": "Cette commande démarre une livraison récurrente. La confirmer génère automatiquement les semaines suivantes."
+    "restaurant.admin_recurring_note": "Cette commande démarre une livraison récurrente. La confirmer génère automatiquement les semaines suivantes.",
+    "restaurant.nav_public": "Pour la restauration",
+    "restaurant.register_have_account": "Déjà activé ?"
 }
