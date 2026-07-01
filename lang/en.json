@@ -3821,5 +3821,6 @@
     "admin.packing.to_pack": "to pack",
     "admin.packing.pickup": "Pickup",
     "admin.packing.delivery": "Delivery",
-    "admin.packing.open_order": "Open order"
+    "admin.packing.open_order": "Open order",
+    "shop.grid_show_more": "Show more"
 }

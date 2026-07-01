@@ -3821,5 +3821,6 @@
     "admin.packing.to_pack": "à emballer",
     "admin.packing.pickup": "Retrait",
     "admin.packing.delivery": "Livraison",
-    "admin.packing.open_order": "Ouvrir la commande"
+    "admin.packing.open_order": "Ouvrir la commande",
+    "shop.grid_show_more": "Afficher plus"
 }

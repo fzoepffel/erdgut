@@ -96,4 +96,20 @@ class ShopStorefrontPerfTest extends TestCase
         // The de-reactive catalog + lazy dropdowns are the real crash fix.
         $this->assertStringNotContainsString('content-visibility', $html);
     }
+
+    public function test_product_grid_is_render_limited(): void
+    {
+        $this->stockSingleVariantProduct();
+
+        $html = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->getContent();
+
+        // Cards are gated by the render limit (only the first N paint; the rest
+        // stay display:none so their images never load on low-end phones), with
+        // a "show more" control to reveal the remainder.
+        $this->assertStringContainsString('cardOnGrid(', $html);
+        $this->assertStringContainsString('showMoreProducts()', $html);
+        $this->assertStringContainsString('data-testid="shop-show-more"', $html);
+    }
 }

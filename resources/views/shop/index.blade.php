@@ -207,6 +207,15 @@
             ])
             ->values();
 
+        // Per-card filter metadata in render order, for the "show first N" grid
+        // limit (keeps low-end phones from painting/decoding 30+ cards at once).
+        $alpineCards = $products->map(fn ($row) => [
+            'id' => $row['product']->id,
+            'name' => mb_strtolower($row['product']->name),
+            'category' => $row['product']->category,
+            'subcat' => (int) ($row['product']->subcategory_id ?? 0),
+        ])->values();
+
         // Date-stamp in the hero corner: MONTH · YEAR · HOFLADEN.
         $stampDate = $selectedDate ?? now();
         $monthStamp = mb_strtoupper($stampDate->locale(app()->getLocale())->isoFormat('MMMM')).' · '.$stampDate->format('Y').' · HOFLADEN';
@@ -313,7 +322,9 @@
             confirmTotalLabel: @js(__('shop.confirm_order_total')),
             confirmSubmitLabel: @js(__('shop.confirm_order_submit')),
             confirmCancelLabel: @js(__('shop.confirm_order_cancel')),
+            cards: @js($alpineCards),
         })"
+        x-init="$watch('nameQuery', () => gridLimit = gridInitial); $watch('activeCategory', () => gridLimit = gridInitial); $watch('activeSubcategoryId', () => gridLimit = gridInitial)"
     >
         {{-- ── Hero ──────────────────────────────────────────────────── --}}
         <x-reveal as="section" class="relative border-b border-shop-border">
@@ -718,7 +729,7 @@
                                             ? __('ca.').' '.($product->displayUnitWeight() ?? $product->displayUnitVolume()).' '.__('per').' '.$product->localizedUnit()
                                             : null;
                                     @endphp
-                                    <div x-show="cardVisible({{ json_encode(mb_strtolower($product->name)) }}, '{{ $product->category }}', {{ $product->subcategory_id ?? 0 }})" data-shop-card data-product-id="{{ $product->id }}">
+                                    <div x-show="cardOnGrid({{ $product->id }})" data-shop-card data-product-id="{{ $product->id }}">
                                         <article class="group flex flex-col" data-testid="shop-product-card{{ $availableToday ? '' : '-unavailable' }}">
                                             {{-- Image --}}
                                             <a href="{{ route('public.shop.products.show', $product) }}" class="relative block aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}">
@@ -931,8 +942,17 @@
                                                 </div>
                                             @endif
                                         </article>
-                                    </div>{{-- /cardVisible wrapper --}}
+                                    </div>{{-- /card wrapper --}}
                                 @endforeach
+                            </div>
+                            {{-- Grid limit: only the first N matching cards are shown (rest are
+                                 display:none, so their images never load) — keeps product-heavy
+                                 days light enough to paint on low-end phones. --}}
+                            <div x-show="gridHasMore" x-cloak class="mt-12 text-center">
+                                <button type="button" @click="showMoreProducts()" data-testid="shop-show-more"
+                                        class="inline-flex items-center justify-center border border-shop-foreground px-8 py-3 font-mono text-[0.7rem] uppercase tracking-widest text-shop-foreground transition hover:bg-shop-foreground hover:text-shop-background">
+                                    <span x-text="@js(__('shop.grid_show_more')) + ' (' + gridHiddenCount + ')'"></span>
+                                </button>
                             </div>
                             <x-input-error :messages="$errors->get('items')" class="mt-4" />
                         @endif
@@ -1281,6 +1301,26 @@
                     if (this.activeSubcategoryId && subcategoryId !== this.activeSubcategoryId) return false;
                     return true;
                 },
+                // ── Grid render limit ──────────────────────────────────
+                // Only the first `gridLimit` matching cards are shown; the rest
+                // stay in the DOM (so filters still search everything) but
+                // display:none, so their images never load and a weak phone only
+                // ever paints ~12 cards regardless of how many the day has.
+                cards: config.cards || [],
+                gridInitial: 12,
+                gridLimit: 12,
+                get matchingCards() {
+                    return this.cards.filter((c) => this.cardVisible(c.name, c.category, c.subcat));
+                },
+                get gridHasMore() { return this.matchingCards.length > this.gridLimit; },
+                get gridHiddenCount() { return Math.max(0, this.matchingCards.length - this.gridLimit); },
+                cardOnGrid(id) {
+                    const m = this.matchingCards;
+                    const upto = Math.min(this.gridLimit, m.length);
+                    for (let i = 0; i < upto; i++) if (m[i].id === id) return true;
+                    return false;
+                },
+                showMoreProducts() { this.gridLimit += this.gridInitial; },
                 // ── Ground-truth pricing ────────────────────────────────
                 // The server quote is the authoritative source of money: when a
                 // fresh quote is in hand it drives every figure shown, and it
