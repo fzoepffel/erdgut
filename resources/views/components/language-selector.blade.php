@@ -26,10 +26,10 @@
             <x-slot name="trigger">
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-full px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-ink/80 transition hover:text-brand-ink focus:outline-none"
+                    class="inline-flex items-center font-semibold uppercase tracking-wide text-brand-ink/80 transition hover:text-brand-ink focus:outline-none {{ $isCompact ? 'gap-1.5 rounded px-1 py-0.5 text-[10px]' : 'gap-2 rounded-full px-2.5 py-1.5 text-xs' }}"
                     aria-label="{{ __('Language') }}"
                 >
-                    <x-flag :locale="$current" class="h-4 w-6 shrink-0 overflow-hidden rounded-sm ring-1 ring-brand-ink/10" />
+                    <x-flag :locale="$current" class="{{ $isCompact ? 'h-3 w-[18px]' : 'h-4 w-6' }} shrink-0 overflow-hidden rounded-sm ring-1 ring-brand-ink/10" />
                     <span>{{ strtoupper($current) }}</span>
                     @unless ($isCompact)
                         <svg class="h-3 w-3 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" aria-hidden="true">

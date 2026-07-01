@@ -76,15 +76,15 @@
          "Konto" menu, so they never compete with the primary "Zum Hofladen" CTA.
          Desktop only; the mobile menu carries the same links. --}}
     @if ($variant === 'shop')
-        <div class="hidden border-b md:block" style="background-color: rgba(33, 52, 29, 0.07); border-color: rgba(33, 52, 29, 0.10);">
-            <div class="mx-auto flex max-w-7xl items-center justify-end gap-4 px-4 py-1 text-[11px] sm:px-6 lg:px-8" style="color: {{ $inkSubtle }};">
-                <x-language-selector />
+        <div class="hidden border-b md:block" style="background-color: rgba(20, 32, 17, 0.16); border-color: rgba(20, 32, 17, 0.22);">
+            <div class="mx-auto flex max-w-7xl items-center justify-end gap-3 px-4 py-0.5 text-[10px] sm:px-6 lg:px-8" style="color: {{ $ink }};">
+                <x-language-selector variant="compact" />
                 <div class="relative" x-data="{ konto: false }" @keydown.escape="konto = false">
                     <button type="button" @click="konto = !konto" :aria-expanded="konto" data-testid="header-account-menu"
-                            class="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-medium transition hover:opacity-80" style="color: {{ $inkSubtle }};">
-                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.1a7.5 7.5 0 0 1 15 0A17.9 17.9 0 0 1 12 21.75c-2.68 0-5.22-.584-7.5-1.632Z" /></svg>
+                            class="inline-flex items-center gap-1 rounded px-1 py-0.5 font-medium transition hover:opacity-80" style="color: {{ $ink }};">
+                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.1a7.5 7.5 0 0 1 15 0A17.9 17.9 0 0 1 12 21.75c-2.68 0-5.22-.584-7.5-1.632Z" /></svg>
                         {{ __('restaurant.account_menu') }}
-                        <svg class="h-3 w-3 transition" :class="konto && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                        <svg class="h-2.5 w-2.5 transition" :class="konto && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
                     </button>
                     <div x-show="konto" x-cloak x-transition.origin.top @click.outside="konto = false"
                          class="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-brand-ink/10 bg-brand-cream shadow-xl">

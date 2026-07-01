@@ -95,6 +95,24 @@ class RestaurantAccountTest extends TestCase
         Mail::assertSent(RestaurantApprovedMail::class, fn ($mail) => $mail->hasTo($profile->user->email));
     }
 
+    public function test_verify_still_succeeds_when_the_welcome_mail_fails(): void
+    {
+        // Staging runs the sync queue with flaky SMTP; a send failure must not
+        // 500 the approval (the account is verified before the mail).
+        Mail::shouldReceive('to')->andReturnSelf();
+        Mail::shouldReceive('locale')->andReturnSelf();
+        Mail::shouldReceive('send')->andThrow(new \RuntimeException('SMTP 535'));
+
+        $admin = User::factory()->admin()->create();
+        $profile = RestaurantProfile::factory()->create();
+        $url = URL::signedRoute('restaurant.verify.approve', [
+            'restaurantProfile' => $profile->id, 'admin' => $admin->id,
+        ]);
+
+        $this->post($url)->assertRedirect(route('restaurant.verify.done', ['result' => 'verified']));
+        $this->assertSame(RestaurantVerificationStatus::Verified, $profile->refresh()->verification_status);
+    }
+
     public function test_verify_is_idempotent(): void
     {
         Mail::fake();
