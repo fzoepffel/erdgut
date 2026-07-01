@@ -9,9 +9,10 @@ class RestaurantEntryPointTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_shop_surface_links_to_gastronomie_landing(): void
+    public function test_shop_surface_links_to_geschaeftskunden_landing(): void
     {
-        // Shop home carries the utility strip + marketing footer, both → landing.
+        // A quiet "Geschäftskunden" nav item + the footer both point to the
+        // B2B landing page (which carries the login) — never a header login.
         $this->get(route('public.home'))
             ->assertOk()
             ->assertSee(route('restaurant.landing'), false)

@@ -4010,7 +4010,7 @@
     "restaurant.standing_flash_standing-resumed": "Wiederkehrende Lieferung fortgesetzt.",
     "restaurant.standing_flash_standing-cancelled": "Wiederkehrende Lieferung beendet.",
     "restaurant.admin_recurring_note": "Diese Bestellung startet eine wiederkehrende Lieferung. Mit der Bestätigung werden die folgenden Wochen automatisch erzeugt.",
-    "restaurant.nav_public": "Für Gastronomie",
+    "restaurant.nav_public": "Geschäftskunden",
     "restaurant.register_have_account": "Bereits freigeschaltet?",
     "restaurant.landing_title": "Erdgut für Ihr Restaurant",
     "restaurant.landing_intro": "Regionale, saisonale Zutaten von kleinen Höfen rund um Berlin – zu Geschäftskonditionen, mit fester Liefertermin-Planung und Abrechnung auf Rechnung. Für Restaurants, Cafés und Caterer.",
@@ -4032,8 +4032,5 @@
     "restaurant.landing_step3_title": "Bestellen & auf Rechnung erhalten",
     "restaurant.landing_step3_body": "Bestellen Sie im B2B-Sortiment; wir bestätigen, liefern und stellen die Rechnung.",
     "restaurant.landing_closing_title": "Bereit für regionale Qualität?",
-    "restaurant.landing_closing_body": "Beantragen Sie ein Geschäftskonto – die Freischaltung dauert in der Regel nur kurz.",
-    "restaurant.account_menu": "Konto",
-    "restaurant.account_menu_restaurant_sub": "Beliefern wir Ihr Restaurant?",
-    "restaurant.account_menu_login_sub": "Zum Geschäftskunden-Login"
+    "restaurant.landing_closing_body": "Beantragen Sie ein Geschäftskonto – die Freischaltung dauert in der Regel nur kurz."
 }

@@ -4010,7 +4010,7 @@
     "restaurant.standing_flash_standing-resumed": "Recurring delivery resumed.",
     "restaurant.standing_flash_standing-cancelled": "Recurring delivery ended.",
     "restaurant.admin_recurring_note": "This order starts a recurring delivery. Confirming it auto-generates the following weeks.",
-    "restaurant.nav_public": "For restaurants",
+    "restaurant.nav_public": "Business customers",
     "restaurant.register_have_account": "Already approved?",
     "restaurant.landing_title": "Erdgut for your restaurant",
     "restaurant.landing_intro": "Regional, seasonal ingredients from small farms around Berlin — at business rates, with fixed delivery scheduling and payment by invoice. For restaurants, cafés and caterers.",
@@ -4032,8 +4032,5 @@
     "restaurant.landing_step3_title": "Order & receive an invoice",
     "restaurant.landing_step3_body": "Order from the B2B range; we confirm, deliver and invoice.",
     "restaurant.landing_closing_title": "Ready for regional quality?",
-    "restaurant.landing_closing_body": "Apply for a business account — approval usually only takes a moment.",
-    "restaurant.account_menu": "Account",
-    "restaurant.account_menu_restaurant_sub": "Should we supply your restaurant?",
-    "restaurant.account_menu_login_sub": "Business customer login"
+    "restaurant.landing_closing_body": "Apply for a business account — approval usually only takes a moment."
 }

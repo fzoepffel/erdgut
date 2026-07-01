@@ -4010,7 +4010,7 @@
     "restaurant.standing_flash_standing-resumed": "Livraison récurrente reprise.",
     "restaurant.standing_flash_standing-cancelled": "Livraison récurrente terminée.",
     "restaurant.admin_recurring_note": "Cette commande démarre une livraison récurrente. La confirmer génère automatiquement les semaines suivantes.",
-    "restaurant.nav_public": "Pour la restauration",
+    "restaurant.nav_public": "Clients professionnels",
     "restaurant.register_have_account": "Déjà activé ?",
     "restaurant.landing_title": "Erdgut pour votre restaurant",
     "restaurant.landing_intro": "Des ingrédients régionaux et de saison, issus de petites fermes autour de Berlin — à des conditions professionnelles, avec une planification de livraison fixe et un paiement sur facture. Pour restaurants, cafés et traiteurs.",
@@ -4032,8 +4032,5 @@
     "restaurant.landing_step3_title": "Commander & recevoir une facture",
     "restaurant.landing_step3_body": "Commandez dans l'assortiment B2B ; nous confirmons, livrons et facturons.",
     "restaurant.landing_closing_title": "Prêt pour la qualité régionale ?",
-    "restaurant.landing_closing_body": "Demandez un compte professionnel — l'activation ne prend généralement qu'un instant.",
-    "restaurant.account_menu": "Compte",
-    "restaurant.account_menu_restaurant_sub": "Livrons-nous votre restaurant ?",
-    "restaurant.account_menu_login_sub": "Connexion client professionnel"
+    "restaurant.landing_closing_body": "Demandez un compte professionnel — l'activation ne prend généralement qu'un instant."
 }

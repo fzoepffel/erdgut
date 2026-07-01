@@ -298,9 +298,10 @@ Route::name('app.onboarding.')
     });
 
 // ── Restaurant (B2B) accounts ───────────────────────────────────────────────
-// Public "Für Gastronomie" landing page — explains the B2B offering and routes
-// to apply / log in. Reachable by guests and logged-in visitors alike.
-Route::view('gastronomie', 'restaurant.landing')->name('restaurant.landing');
+// Public "Geschäftskunden" (B2B) landing page — explains the offering and
+// carries the restaurant login + apply CTAs. Reachable by guests and logged-in
+// visitors alike; consumers reach it via a quiet nav item, never a header login.
+Route::view('geschaeftskunden', 'restaurant.landing')->name('restaurant.landing');
 
 // Public application (guests apply; admin verifies before the account opens).
 Route::middleware('guest')->group(function () {
