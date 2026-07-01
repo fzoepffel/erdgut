@@ -56,4 +56,9 @@
         </button>
         <p class="text-xs text-shop-muted">{{ __('restaurant.register_after_note') }}</p>
     </form>
+
+    <p class="mt-8 border-t border-shop-border pt-6 text-sm text-shop-muted">
+        {{ __('restaurant.register_have_account') }}
+        <a href="{{ route('auth.login') }}" class="font-semibold text-shop-foreground underline-offset-4 hover:underline">{{ __('Log in') }}</a>
+    </p>
 </x-shop-layout>

@@ -100,6 +100,9 @@
             <div class="hidden items-center gap-3 md:flex" style="color: {{ $ink }};">
                 <x-language-selector />
                 @if ($variant === 'shop')
+                    <a href="{{ route('restaurant.register') }}" class="text-sm font-medium transition hover:opacity-80" style="color: {{ $inkSubtle }};" data-testid="shop-nav-restaurant">
+                        {{ __('restaurant.nav_public') }}
+                    </a>
                     <a href="{{ route('public.shop.index') }}" @if (request()->routeIs('public.shop.index')) aria-current="page" @endif class="inline-flex items-center justify-center gap-2 px-5 py-2 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: {{ $ink }}; color: {{ $cream }};" data-testid="shop-nav-cta">
                         {{ __('Visit the shop') }}
                         <span aria-hidden="true">&rarr;</span>
@@ -161,6 +164,7 @@
                     <x-language-selector align="left" />
                 </div>
                 @if ($variant === 'shop')
+                    <a href="{{ route('restaurant.register') }}" class="mb-3 block text-sm font-medium" style="color: {{ $inkSubtle }};">{{ __('restaurant.nav_public') }}</a>
                     <a href="{{ route('public.shop.index') }}" class="inline-flex w-full items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold uppercase tracking-eyebrow transition hover:opacity-90" style="background-color: {{ $ink }}; color: {{ $cream }};" data-testid="shop-nav-cta-mobile">
                         {{ __('Visit the shop') }}
                         <span aria-hidden="true">&rarr;</span>

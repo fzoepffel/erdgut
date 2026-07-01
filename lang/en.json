@@ -4009,5 +4009,7 @@
     "restaurant.standing_flash_standing-paused": "Recurring delivery paused.",
     "restaurant.standing_flash_standing-resumed": "Recurring delivery resumed.",
     "restaurant.standing_flash_standing-cancelled": "Recurring delivery ended.",
-    "restaurant.admin_recurring_note": "This order starts a recurring delivery. Confirming it auto-generates the following weeks."
+    "restaurant.admin_recurring_note": "This order starts a recurring delivery. Confirming it auto-generates the following weeks.",
+    "restaurant.nav_public": "For restaurants",
+    "restaurant.register_have_account": "Already approved?"
 }

@@ -4009,5 +4009,7 @@
     "restaurant.standing_flash_standing-paused": "Wiederkehrende Lieferung pausiert.",
     "restaurant.standing_flash_standing-resumed": "Wiederkehrende Lieferung fortgesetzt.",
     "restaurant.standing_flash_standing-cancelled": "Wiederkehrende Lieferung beendet.",
-    "restaurant.admin_recurring_note": "Diese Bestellung startet eine wiederkehrende Lieferung. Mit der Bestätigung werden die folgenden Wochen automatisch erzeugt."
+    "restaurant.admin_recurring_note": "Diese Bestellung startet eine wiederkehrende Lieferung. Mit der Bestätigung werden die folgenden Wochen automatisch erzeugt.",
+    "restaurant.nav_public": "Für Gastronomie",
+    "restaurant.register_have_account": "Bereits freigeschaltet?"
 }
