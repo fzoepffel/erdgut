@@ -16,6 +16,9 @@
     // | null. Drives active styling. The landing / About / Kontakt items
     // live on the shop-marketing surface and are never active here.
     'navActive' => null,
+    // When set (to 'shop' | 'orders' | 'standing' | any truthy key), renders the
+    // persistent restaurant (B2B) nav below the header, full-width.
+    'restaurantNav' => null,
 ])
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -40,6 +43,10 @@
              About / Kontakt pages). Active state is derived from the route,
              so the legacy `navActive` prop is no longer needed. --}}
         <x-customer-header variant="shop" />
+
+        @if ($restaurantNav)
+            <x-restaurant-nav :active="$restaurantNav" />
+        @endif
 
         <main id="main" class="flex-1">
             @if ($narrow)

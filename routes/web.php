@@ -299,9 +299,17 @@ Route::name('app.onboarding.')
 
 // ── Restaurant (B2B) accounts ───────────────────────────────────────────────
 // Public "Geschäftskunden" (B2B) landing page — explains the offering and
-// carries the restaurant login + apply CTAs. Reachable by guests and logged-in
-// visitors alike; consumers reach it via a quiet nav item, never a header login.
-Route::view('geschaeftskunden', 'restaurant.landing')->name('restaurant.landing');
+// carries the restaurant login + apply CTAs. A logged-in verified restaurant
+// skips the pitch and lands straight in its ordering area; everyone else
+// (guests, consumers, unverified applicants) sees the landing.
+Route::get('geschaeftskunden', function () {
+    $user = auth()->user();
+    if ($user !== null && $user->isVerifiedRestaurant()) {
+        return redirect()->route('app.restaurant.dashboard');
+    }
+
+    return view('restaurant.landing');
+})->name('restaurant.landing');
 
 // Public application (guests apply; admin verifies before the account opens).
 Route::middleware('guest')->group(function () {

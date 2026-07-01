@@ -4032,5 +4032,14 @@
     "restaurant.landing_step3_title": "Bestellen & auf Rechnung erhalten",
     "restaurant.landing_step3_body": "Bestellen Sie im B2B-Sortiment; wir bestätigen, liefern und stellen die Rechnung.",
     "restaurant.landing_closing_title": "Bereit für regionale Qualität?",
-    "restaurant.landing_closing_body": "Beantragen Sie ein Geschäftskonto – die Freischaltung dauert in der Regel nur kurz."
+    "restaurant.landing_closing_body": "Beantragen Sie ein Geschäftskonto – die Freischaltung dauert in der Regel nur kurz.",
+    "restaurant.nav_shop": "Shop",
+    "restaurant.tab_in_stock": "Auf Lager",
+    "restaurant.tab_on_request": "In Saison · auf Anfrage",
+    "restaurant.tab_special": "Sonderwunsch",
+    "restaurant.tab_in_stock_empty": "An diesem Tag ist nichts auf Lager. Schau in „In Saison“ oder wähle einen anderen Tag.",
+    "restaurant.tab_on_request_empty": "Aktuell nichts in Saison auf Anfrage.",
+    "restaurant.recurrence_label": "Lieferung",
+    "restaurant.date_in_stock_suffix": "auf Lager",
+    "restaurant.date_on_request_only": "nur auf Anfrage"
 }
