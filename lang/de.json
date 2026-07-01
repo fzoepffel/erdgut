@@ -4059,5 +4059,9 @@
     "restaurant.line_pending": "wird geprüft",
     "restaurant.order_recurring_note": "Diese Bestellung gehört zu einer wiederkehrenden Lieferung:",
     "restaurant.order_confirmed_flash": "Ihre Bestellung ist bestätigt.",
-    "restaurant.order_pending_flash": "Ihre Bestellung ist eingegangen. Positionen auf Anfrage bestätigen wir in Kürze."
+    "restaurant.order_pending_flash": "Ihre Bestellung ist eingegangen. Positionen auf Anfrage bestätigen wir in Kürze.",
+    "restaurant.amount_on_request": "nur auf Anfrage",
+    "restaurant.recurrence_open_ended": "Unbegrenzt",
+    "restaurant.week_legend_in_stock": "auf Lager",
+    "restaurant.week_legend_on_request": "auf Anfrage"
 }

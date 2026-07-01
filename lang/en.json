@@ -4059,5 +4059,9 @@
     "restaurant.line_pending": "under review",
     "restaurant.order_recurring_note": "This order is part of a recurring delivery:",
     "restaurant.order_confirmed_flash": "Your order is confirmed.",
-    "restaurant.order_pending_flash": "Your order has arrived. We'll confirm the on-request lines shortly."
+    "restaurant.order_pending_flash": "Your order has arrived. We'll confirm the on-request lines shortly.",
+    "restaurant.amount_on_request": "on request only",
+    "restaurant.recurrence_open_ended": "Open-ended",
+    "restaurant.week_legend_in_stock": "in stock",
+    "restaurant.week_legend_on_request": "on request"
 }

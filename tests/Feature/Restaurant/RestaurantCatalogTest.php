@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\RestaurantProfile;
 use App\Models\User;
+use App\Services\Restaurant\RestaurantCatalogService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -133,6 +134,46 @@ class RestaurantCatalogTest extends TestCase
             // nav links to the two previously-buried destinations
             ->assertSee(route('app.restaurant.orders.index'), false)
             ->assertSee(route('app.restaurant.standing-orders.index'), false);
+    }
+
+    public function test_recurrence_weeks_carry_per_product_stock_for_the_until_picker(): void
+    {
+        $selected = Carbon::tomorrow();
+        $product = $this->inStockProduct($selected); // stock only this week (freshness 3d)
+        // Add stock for the SAME weekday next week too.
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => $selected->copy()->addWeek()->toDateString(),
+            'quantity' => 20, 'freshness_window_days' => 1,
+        ]);
+
+        $weeks = app(RestaurantCatalogService::class)->recurrenceWeeks($selected);
+        $this->assertTrue($weeks->isNotEmpty());
+
+        // Next week has the fresh inflow → in stock; a later week has none → 0 (amber).
+        $nextWeek = $weeks->firstWhere('iso', $selected->copy()->addWeek()->toDateString());
+        $this->assertNotNull($nextWeek);
+        $this->assertEqualsWithDelta(20.0, $nextWeek['remainingByProduct'][$product->id], 0.01);
+
+        $laterWeek = $weeks->firstWhere('iso', $selected->copy()->addWeeks(3)->toDateString());
+        $this->assertNotNull($laterWeek);
+        $this->assertSame(0.0, $laterWeek['remainingByProduct'][$product->id]);
+    }
+
+    public function test_catalog_ships_the_week_picker_and_over_stock_cue(): void
+    {
+        $this->app->setLocale('de');
+        $this->inStockProduct(Carbon::tomorrow());
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $profile->user->forceFill(['locale' => 'de'])->save();
+
+        $this->actingAs($profile->user)
+            ->get(route('app.restaurant.catalog'))
+            ->assertOk()
+            ->assertSee('recurrenceWeeks:', false)      // week data shipped to Alpine
+            ->assertSee('overStock(', false)            // amount over-stock cue wired
+            ->assertSee(__('restaurant.amount_on_request'))
+            ->assertSee(__('restaurant.recurrence_open_ended'));
     }
 
     public function test_seasonal_out_of_stock_product_shows_on_request(): void

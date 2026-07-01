@@ -39,6 +39,12 @@ class RestaurantCatalogController extends Controller
             ? $this->catalog->productsForDate($selectedDate)
             : collect();
 
+        // Upcoming weekly-delivery weeks (for the recurrence "until" picker), each
+        // with per-product stock so the picker can colour weeks in stock / on request.
+        $recurrenceWeeks = $selectedDate instanceof Carbon
+            ? $this->catalog->recurrenceWeeks($selectedDate)
+            : collect();
+
         // Sort like the storefront: the margin-per-impression bandit ranks the
         // orderable (in-stock) rows; the rest keep a stable seeded order. Seed is
         // per session+day so ordering is stable within a visit.
@@ -81,6 +87,7 @@ class RestaurantCatalogController extends Controller
             'selectableDates' => $selectableDates,
             'selectedDate' => $selectedDate,
             'products' => $products,
+            'recurrenceWeeks' => $recurrenceWeeks,
             'alpineDates' => $alpineDates,
             'availableCategories' => $availableCategories,
             'defaultShopCategory' => $defaultShopCategory,
