@@ -686,11 +686,12 @@
                                 .shop-cards-grid:has(.shop-card-producer-fill) .shop-card-producer-slot { min-height: 1rem; }
                                 .shop-cards-grid:has(.shop-card-tags-fill) .shop-card-tags-slot { min-height: 1.5rem; }
                                 .shop-cards-grid:has(.shop-card-tier-fill) .shop-card-tier-slot { min-height: 1rem; }
-                                /* Perf: let the browser skip layout/paint (and free render memory)
-                                   for cards scrolled off-screen on product-heavy days. The size hint
-                                   reserves scroll height so the scrollbar stays stable; browsers
-                                   without support just ignore it. Supported (Safari 15.4+, Chrome). */
-                                [data-shop-card] { content-visibility: auto; contain-intrinsic-size: auto 32rem; }
+                                {{-- NOTE: content-visibility:auto was tried here to cut render cost on
+                                     product-heavy days, but on older mobile WebKit/Chrome it reserved the
+                                     card's box without painting its contents — the grid showed as blank
+                                     page background on 30-product days (fine on light days). Removed. The
+                                     de-reactive catalog + lazy quantity dropdowns are what fix the crash;
+                                     if huge days still strain low-end devices, paginate instead. --}}
                             </style>
                             <div class="shop-cards-grid grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 items-start">
                                 @foreach ($products as $row)
