@@ -4041,5 +4041,6 @@
     "restaurant.tab_on_request_empty": "Nothing in season on request right now.",
     "restaurant.recurrence_label": "Delivery",
     "restaurant.date_in_stock_suffix": "in stock",
-    "restaurant.date_on_request_only": "on request only"
+    "restaurant.date_on_request_only": "on request only",
+    "shop.grid_show_more": "Show more"
 }
