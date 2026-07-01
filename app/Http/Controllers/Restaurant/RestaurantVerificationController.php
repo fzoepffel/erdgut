@@ -66,10 +66,16 @@ class RestaurantVerificationController extends Controller
             actorUserId: $request->integer('admin') ?: null,
         );
 
+        // Failure-tolerant: staging runs the sync queue, so a mail/SMTP error
+        // must not 500 the approval — the account is already verified above.
         if ($restaurantProfile->user !== null) {
-            Mail::to($restaurantProfile->user->email)
-                ->locale($restaurantProfile->user->preferredLocale())
-                ->send(new RestaurantApprovedMail($restaurantProfile));
+            try {
+                Mail::to($restaurantProfile->user->email)
+                    ->locale($restaurantProfile->user->preferredLocale())
+                    ->send(new RestaurantApprovedMail($restaurantProfile));
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return redirect()->route('restaurant.verify.done', ['result' => 'verified']);
@@ -97,8 +103,13 @@ class RestaurantVerificationController extends Controller
         // Reject = delete the application (profile cascades with the user).
         $user?->delete();
 
+        // Failure-tolerant (see approve()): the account is already deleted above.
         if ($email !== null) {
-            Mail::to($email)->locale($locale)->send(new RestaurantRejectedMail($businessName, $reason));
+            try {
+                Mail::to($email)->locale($locale)->send(new RestaurantRejectedMail($businessName, $reason));
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return redirect()->route('restaurant.verify.done', ['result' => 'rejected']);
