@@ -34,6 +34,11 @@ class RestaurantEntryPointTest extends TestCase
             ->assertSee(route('auth.login'), false);
     }
 
+    public function test_register_submitted_page_renders(): void
+    {
+        $this->get(route('restaurant.register.submitted'))->assertOk();
+    }
+
     public function test_login_page_still_links_to_register(): void
     {
         $this->get(route('auth.login'))
