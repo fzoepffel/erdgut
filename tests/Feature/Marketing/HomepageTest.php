@@ -100,8 +100,10 @@ class HomepageTest extends TestCase
         $response->assertSee('href="'.route('public.shop.index').'"', false);
         $response->assertSee('href="'.route('public.shop-contact').'"', false);
 
-        // The shop surface must not expose sign-up / sign-in (box-only for now).
-        $response->assertDontSee('href="'.route('auth.login').'"', false);
+        // The shop header carries a utility strip: Für Gastronomie (B2B landing)
+        // + Log in. It must NOT expose the parked box consumer sign-up.
+        $response->assertSee('href="'.route('restaurant.landing').'"', false);
+        $response->assertSee('href="'.route('auth.login').'"', false);
         $response->assertDontSee('href="'.route('auth.register').'"', false);
     }
 

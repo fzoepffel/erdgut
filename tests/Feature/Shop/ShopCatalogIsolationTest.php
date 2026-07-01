@@ -161,8 +161,9 @@ class ShopCatalogIsolationTest extends TestCase
         $response->assertDontSee('href="'.route('public.producers').'"', false);
         $response->assertDontSee(route('public.producers.show', $producer->fresh()), false);
         $response->assertDontSee(route('app.products.index'), false);
+        // Box consumer sign-up stays off the shop; the header utility strip's
+        // Log in link is allowed (site-wide shop chrome).
         $response->assertDontSee(route('auth.register'), false);
-        $response->assertDontSee(route('auth.login'), false);
         $response->assertDontSee('href="'.route('public.contact').'"', false);
     }
 
