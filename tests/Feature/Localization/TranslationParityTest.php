@@ -66,8 +66,10 @@ class TranslationParityTest extends TestCase
         'restaurant.status_',
         'restaurant.order_status_',
         // AdminRestaurantOrderController builds 'restaurant.admin_orders_flash_'.$action
-        // (confirm|decline|fulfil). Concrete variants exist.
+        // (confirm|decline|fulfil|cancel) and 'restaurant.admin_line_flash_'.$action
+        // (accept|decline). Concrete variants exist.
         'restaurant.admin_orders_flash_',
+        'restaurant.admin_line_flash_',
         // Standing-order views build 'restaurant.standing_status_'.$status and
         // 'restaurant.standing_flash_'.session('status'). Concrete variants exist.
         'restaurant.standing_status_',

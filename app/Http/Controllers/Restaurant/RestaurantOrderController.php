@@ -57,7 +57,15 @@ class RestaurantOrderController extends Controller
             fn ($line) => ($line['recurrence'] ?? 'one_time') === 'weekly',
         ));
         if ($weeklyLines !== []) {
-            $standing->createFromOrder($order, $weeklyLines);
+            $standingOrder = $standing->createFromOrder($order, $weeklyLines);
+            // If the first order auto-confirmed (all weekly lines were in stock),
+            // activate the recurring delivery now — the admin-confirm path that
+            // normally activates it (RestaurantOrderService::confirm) never runs.
+            if ($standingOrder !== null
+                && $order->status === RestaurantOrderStatus::Confirmed
+                && $standingOrder->isPending()) {
+                $standing->activate($standingOrder, null);
+            }
         }
 
         // Confirmation to the restaurant + admin notification. Both are
@@ -90,7 +98,15 @@ class RestaurantOrderController extends Controller
     {
         abort_unless($restaurantOrder->user_id === $request->user()->id, 403);
 
-        if ($restaurantOrder->status === RestaurantOrderStatus::Submitted) {
+        // The restaurant may cancel its own order any time before it's delivered
+        // or invoiced — including an auto-confirmed in-stock order. Cancelling
+        // releases the reserved stock (status leaves the reserving set).
+        $cancellable = in_array($restaurantOrder->status, [
+            RestaurantOrderStatus::Submitted,
+            RestaurantOrderStatus::Confirmed,
+        ], true) && ! $restaurantOrder->isInvoiced();
+
+        if ($cancellable) {
             $this->orders->cancel($restaurantOrder);
         }
 

@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\RestaurantOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminPriceRestaurantOrderRequest;
+use App\Mail\RestaurantOrderCancelledMail;
 use App\Mail\RestaurantOrderConfirmedMail;
 use App\Mail\RestaurantOrderDeclinedMail;
 use App\Mail\RestaurantOrderInvoicedMail;
 use App\Models\RestaurantOrder;
+use App\Models\RestaurantOrderItem;
 use App\Services\Restaurant\RestaurantInvoiceService;
 use App\Services\Restaurant\RestaurantOrderService;
 use App\Support\AuditLogger;
@@ -76,6 +78,90 @@ class AdminRestaurantOrderController extends Controller
     public function fulfil(Request $request, RestaurantOrder $restaurantOrder): RedirectResponse
     {
         return $this->act($request, $restaurantOrder, 'fulfil');
+    }
+
+    /** Accept a single on-request/special line. Order settles to Confirmed once none pend. */
+    public function acceptLine(Request $request, RestaurantOrder $restaurantOrder, RestaurantOrderItem $item): RedirectResponse
+    {
+        return $this->actOnLine($request, $restaurantOrder, $item, 'accept');
+    }
+
+    /** Decline a single on-request/special line. */
+    public function declineLine(Request $request, RestaurantOrder $restaurantOrder, RestaurantOrderItem $item): RedirectResponse
+    {
+        return $this->actOnLine($request, $restaurantOrder, $item, 'decline');
+    }
+
+    private function actOnLine(Request $request, RestaurantOrder $order, RestaurantOrderItem $item, string $action): RedirectResponse
+    {
+        $this->authorize('admin');
+        abort_unless($item->restaurant_order_id === $order->id, 404);
+
+        $from = $order->status->value;
+        $applied = $action === 'accept'
+            ? $this->orders->acceptLine($item)
+            : $this->orders->declineLine($item);
+
+        if ($applied) {
+            AuditLogger::log(
+                entityType: 'restaurant_order',
+                entityId: (int) $order->id,
+                action: $action.'_line',
+                fromState: $from,
+                toState: $order->fresh()->status->value,
+                metadata: ['channel' => 'admin', 'item_id' => (int) $item->id],
+                actorUserId: (int) $request->user()->id,
+            );
+
+            // If resolving this line settled the whole order, tell the restaurant.
+            $order->refresh();
+            if ($from === RestaurantOrderStatus::Submitted->value) {
+                if ($order->status === RestaurantOrderStatus::Confirmed) {
+                    $this->notify($order, 'confirm', null);
+                } elseif ($order->status === RestaurantOrderStatus::Declined) {
+                    $this->notify($order, 'decline', null);
+                }
+            }
+        }
+
+        return redirect()
+            ->route('app.admin.restaurant-orders.show', $order)
+            ->with('status', __('restaurant.admin_line_flash_'.$action));
+    }
+
+    /** Cancel an order before delivery/invoice (releases the reservation). */
+    public function cancel(Request $request, RestaurantOrder $restaurantOrder): RedirectResponse
+    {
+        $this->authorize('admin');
+        $note = trim((string) $request->input('note')) ?: null;
+        $from = $restaurantOrder->status->value;
+
+        if ($this->orders->adminCancel($restaurantOrder)) {
+            AuditLogger::log(
+                entityType: 'restaurant_order',
+                entityId: (int) $restaurantOrder->id,
+                action: 'cancel',
+                fromState: $from,
+                toState: $restaurantOrder->status->value,
+                reason: $note,
+                metadata: ['channel' => 'admin'],
+                actorUserId: (int) $request->user()->id,
+            );
+
+            if ($restaurantOrder->user !== null) {
+                try {
+                    Mail::to($restaurantOrder->user->email)
+                        ->locale($restaurantOrder->locale ?? app()->getLocale())
+                        ->send(new RestaurantOrderCancelledMail($restaurantOrder, $note));
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+        }
+
+        return redirect()
+            ->route('app.admin.restaurant-orders.show', $restaurantOrder)
+            ->with('status', __('restaurant.admin_orders_flash_cancel', ['id' => $restaurantOrder->id]));
     }
 
     private function act(Request $request, RestaurantOrder $order, string $action): RedirectResponse

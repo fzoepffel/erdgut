@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Enums\RestaurantOrderStatus;
 use App\Models\RestaurantOrder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -21,9 +22,13 @@ class RestaurantOrderSubmittedMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(
-            subject: __('restaurant.order_email.submitted_subject', ['id' => $this->order->id]),
-        );
+        // An all-in-stock order auto-confirms → "confirmed"; anything with an
+        // on-request line stays "received / under review".
+        $key = $this->order->status === RestaurantOrderStatus::Confirmed
+            ? 'restaurant.order_email.confirmed_subject'
+            : 'restaurant.order_email.submitted_subject';
+
+        return new Envelope(subject: __($key, ['id' => $this->order->id]));
     }
 
     public function content(): Content

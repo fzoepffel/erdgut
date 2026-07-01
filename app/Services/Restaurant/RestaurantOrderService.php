@@ -4,10 +4,12 @@ namespace App\Services\Restaurant;
 
 use App\Enums\CustomerType;
 use App\Enums\RestaurantOrderItemTrack;
+use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Models\Product;
 use App\Models\RestaurantOrder;
+use App\Models\RestaurantOrderItem;
 use App\Models\User;
 use App\Services\Admin\InventoryService;
 use App\Services\Shop\PriceResolver;
@@ -102,6 +104,12 @@ class RestaurantOrderService
                     ? RestaurantOrderItemTrack::Reserved
                     : RestaurantOrderItemTrack::Requested;
 
+                // In-stock lines are a firm order line immediately; out-of-stock
+                // lines wait for the admin to accept/decline them.
+                $lineStatus = $track === RestaurantOrderItemTrack::Reserved
+                    ? RestaurantOrderLineStatus::Confirmed
+                    : RestaurantOrderLineStatus::Requested;
+
                 $resolved = $this->priceResolver->resolve($product, $date, CustomerType::Business, $qty, $variantId, $variant);
                 $unitGross = $resolved->unitPriceEur; // gross per canonical unit
                 $lineGross = round($unitGross * $qty, 2);
@@ -115,6 +123,9 @@ class RestaurantOrderService
                     'quantity' => $qty,
                     'unit' => $product->unit?->value,
                     'track' => $track,
+                    'line_status' => $lineStatus,
+                    'recurrence' => $line['recurrence'] ?? 'one_time',
+                    'recurrence_until' => $line['until'] ?? null,
                     'unit_price_snapshot_eur' => $unitGross,
                     'vat_rate_snapshot_percent' => $vatRate,
                     'line_total_eur' => $lineGross,
@@ -135,6 +146,7 @@ class RestaurantOrderService
                 if ($name === '' || $qty <= 0) {
                     continue;
                 }
+                [$recurrence, $until] = $this->normalizeRecurrence($custom);
 
                 $order->items()->create([
                     'product_id' => null,
@@ -144,6 +156,9 @@ class RestaurantOrderService
                     'quantity' => $qty,
                     'unit' => trim((string) ($custom['unit'] ?? '')) ?: null,
                     'track' => RestaurantOrderItemTrack::Requested,
+                    'line_status' => RestaurantOrderLineStatus::Requested,
+                    'recurrence' => $recurrence,
+                    'recurrence_until' => $until,
                     'unit_price_snapshot_eur' => 0,
                     'vat_rate_snapshot_percent' => (int) config('shop.vat_rate_percent', 7),
                     'line_total_eur' => 0,
@@ -156,7 +171,15 @@ class RestaurantOrderService
                 throw new InvalidArgumentException('None of the submitted lines are orderable.');
             }
 
+            // Auto-confirm when every line is a firm in-stock order line; if any
+            // line is still on request, the order waits for the admin to accept
+            // (only) those lines. In-stock lines are already reserved either way.
+            $status = $order->hasPendingLines()
+                ? RestaurantOrderStatus::Submitted
+                : RestaurantOrderStatus::Confirmed;
+
             $order->forceFill([
+                'status' => $status,
                 'items_total_gross_eur' => round($totalGross, 2),
                 'vat_total_eur' => round($totalVat, 2),
                 'items_total_net_eur' => round($totalGross - $totalVat, 2),
@@ -173,35 +196,121 @@ class RestaurantOrderService
     }
 
     /**
-     * Admin transitions. Each is a guarded single status write — InventoryService
-     * recomputes reservations from the status, so no stock mutation is needed
-     * (declining a request releases its hold; confirming/fulfilling keeps it).
-     * Returns whether the transition applied.
+     * Admin: accept the whole order — every still-pending (on-request/special)
+     * line becomes a firm line and the order is confirmed. In-stock lines were
+     * already confirmed at submit. Only from Submitted.
      */
     public function confirm(RestaurantOrder $order): bool
     {
-        $applied = $this->transition($order, RestaurantOrderStatus::Submitted, RestaurantOrderStatus::Confirmed);
-
-        // Confirming the first order of a recurring delivery activates the whole
-        // standing order — subsequent weeks then auto-confirm.
-        if ($applied && $order->source_standing_order_id !== null) {
-            $standing = $order->standingOrder()->first();
-            if ($standing !== null && $standing->isPending()) {
-                app(RestaurantStandingOrderService::class)->activate($standing, null);
-            }
+        if ($order->status !== RestaurantOrderStatus::Submitted) {
+            return false;
         }
 
-        return $applied;
+        $order->items()
+            ->where('line_status', RestaurantOrderLineStatus::Requested->value)
+            ->update(['line_status' => RestaurantOrderLineStatus::Confirmed->value]);
+        $order->forceFill(['status' => RestaurantOrderStatus::Confirmed])->save();
+
+        $this->activateStandingIfPending($order);
+
+        return true;
     }
 
+    /**
+     * Admin: reject the whole order — all lines declined, order declined,
+     * reservations released (status leaves the reserving set). Only from Submitted.
+     */
     public function decline(RestaurantOrder $order): bool
     {
-        return $this->transition($order, RestaurantOrderStatus::Submitted, RestaurantOrderStatus::Declined);
+        if ($order->status !== RestaurantOrderStatus::Submitted) {
+            return false;
+        }
+
+        $order->items()->update(['line_status' => RestaurantOrderLineStatus::Declined->value]);
+        $order->forceFill(['status' => RestaurantOrderStatus::Declined])->save();
+
+        return true;
+    }
+
+    /** Admin: accept a single pending (on-request/special) line; settle the order. */
+    public function acceptLine(RestaurantOrderItem $item): bool
+    {
+        if ($item->line_status !== RestaurantOrderLineStatus::Requested) {
+            return false;
+        }
+        $item->forceFill(['line_status' => RestaurantOrderLineStatus::Confirmed])->save();
+        $this->settle($item->restaurantOrder()->first());
+
+        return true;
+    }
+
+    /** Admin: decline a single pending line; settle the order. Its hold (none) releases. */
+    public function declineLine(RestaurantOrderItem $item): bool
+    {
+        if ($item->line_status !== RestaurantOrderLineStatus::Requested) {
+            return false;
+        }
+        $item->forceFill(['line_status' => RestaurantOrderLineStatus::Declined])->save();
+        $this->settle($item->restaurantOrder()->first());
+
+        return true;
     }
 
     public function fulfil(RestaurantOrder $order): bool
     {
         return $this->transition($order, RestaurantOrderStatus::Confirmed, RestaurantOrderStatus::Fulfilled);
+    }
+
+    /**
+     * Admin: cancel an order before it's delivered/invoiced (Submitted or the
+     * auto-confirmed Confirmed). Releases reservations. Not once invoiced.
+     */
+    public function adminCancel(RestaurantOrder $order): bool
+    {
+        if ($order->isInvoiced()) {
+            return false;
+        }
+        if (! in_array($order->status, [RestaurantOrderStatus::Submitted, RestaurantOrderStatus::Confirmed], true)) {
+            return false;
+        }
+
+        $order->forceFill(['status' => RestaurantOrderStatus::Cancelled])->save();
+
+        return true;
+    }
+
+    /**
+     * After a per-line decision, advance a Submitted order once no line is still
+     * pending: confirm it if any line survives, else decline the whole order.
+     */
+    private function settle(?RestaurantOrder $order): void
+    {
+        if ($order === null || $order->status !== RestaurantOrderStatus::Submitted) {
+            return;
+        }
+        if ($order->hasPendingLines()) {
+            return;
+        }
+
+        $anyLive = $order->items()->where('line_status', '!=', RestaurantOrderLineStatus::Declined->value)->exists();
+        if ($anyLive) {
+            $order->forceFill(['status' => RestaurantOrderStatus::Confirmed])->save();
+            $this->activateStandingIfPending($order);
+        } else {
+            $order->forceFill(['status' => RestaurantOrderStatus::Declined])->save();
+        }
+    }
+
+    /** Confirming the first recurring order activates the standing order. */
+    private function activateStandingIfPending(RestaurantOrder $order): void
+    {
+        if ($order->source_standing_order_id === null) {
+            return;
+        }
+        $standing = $order->standingOrder()->first();
+        if ($standing !== null && $standing->isPending()) {
+            app(RestaurantStandingOrderService::class)->activate($standing, null);
+        }
     }
 
     private function transition(RestaurantOrder $order, RestaurantOrderStatus $from, RestaurantOrderStatus $to): bool
@@ -258,14 +367,35 @@ class RestaurantOrderService
             $variantId = isset($item['variant_id']) && $item['variant_id'] !== '' && $item['variant_id'] !== null
                 ? (int) $item['variant_id']
                 : null;
+            [$recurrence, $until] = $this->normalizeRecurrence($item);
             $key = $productId.':'.($variantId ?? 0);
             if (isset($merged[$key])) {
                 $merged[$key]['quantity'] += $qty;
+                // On a merge collision, a weekly line wins (keeps the schedule).
+                if ($recurrence === 'weekly' && $merged[$key]['recurrence'] !== 'weekly') {
+                    $merged[$key]['recurrence'] = 'weekly';
+                    $merged[$key]['until'] = $until;
+                }
             } else {
-                $merged[$key] = ['product_id' => $productId, 'variant_id' => $variantId, 'quantity' => $qty];
+                $merged[$key] = ['product_id' => $productId, 'variant_id' => $variantId, 'quantity' => $qty, 'recurrence' => $recurrence, 'until' => $until];
             }
         }
 
         return array_values($merged);
+    }
+
+    /**
+     * Normalize a raw payload line's recurrence to ('one_time'|'weekly', ?until).
+     * `until` is kept only for weekly lines.
+     *
+     * @param  array<string, mixed>  $item
+     * @return array{0: string, 1: ?string}
+     */
+    private function normalizeRecurrence(array $item): array
+    {
+        $recurrence = ($item['recurrence'] ?? 'one_time') === 'weekly' ? 'weekly' : 'one_time';
+        $until = $recurrence === 'weekly' && ! empty($item['until']) ? (string) $item['until'] : null;
+
+        return [$recurrence, $until];
     }
 }

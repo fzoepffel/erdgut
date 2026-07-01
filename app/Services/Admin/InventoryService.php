@@ -608,6 +608,9 @@ class InventoryService
             ->join('restaurant_orders', 'restaurant_orders.id', '=', 'restaurant_order_items.restaurant_order_id')
             ->whereIn('restaurant_order_items.product_id', $productIds)
             ->where('restaurant_order_items.track', 'reserved')
+            // A declined line never holds stock (redundant with track=reserved
+            // today, but keeps the reservation count correct if that ever changes).
+            ->where('restaurant_order_items.line_status', '!=', 'declined')
             ->whereDate('restaurant_orders.expected_delivery_date', '>=', $fromIso)
             ->whereDate('restaurant_orders.expected_delivery_date', '<=', $toIso)
             ->whereIn('restaurant_orders.status', RestaurantOrderStatus::reservingValues())

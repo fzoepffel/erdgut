@@ -5,6 +5,7 @@ namespace Tests\Feature\Restaurant;
 use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
 use App\Enums\RestaurantOrderItemTrack;
+use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Mail\RestaurantOrderAdminNotification;
@@ -103,9 +104,11 @@ class RestaurantOrderTest extends TestCase
         $response->assertRedirect(route('app.restaurant.orders.show', $order));
 
         $this->assertSame($user->id, $order->user_id);
-        $this->assertSame(RestaurantOrderStatus::Submitted, $order->status);
+        // All lines in stock → the order is a firm, auto-confirmed "Bestellung".
+        $this->assertSame(RestaurantOrderStatus::Confirmed, $order->status);
         $item = $order->items()->firstOrFail();
         $this->assertSame(RestaurantOrderItemTrack::Reserved, $item->track);
+        $this->assertSame(RestaurantOrderLineStatus::Confirmed, $item->line_status);
         // 12 × €10 gross = €120; net = 120 − 120*7/107 = 112.15
         $this->assertEqualsWithDelta(112.15, (float) $order->items_total_net_eur, 0.01);
 
@@ -217,6 +220,7 @@ class RestaurantOrderTest extends TestCase
         $other = $this->verifiedRestaurant();
         $this->actingAs($other)->get(route('app.restaurant.orders.show', $order))->assertForbidden();
         $this->actingAs($other)->post(route('app.restaurant.orders.cancel', $order))->assertForbidden();
-        $this->assertSame(RestaurantOrderStatus::Submitted, $order->fresh()->status);
+        // In-stock order auto-confirms; the non-owner's blocked cancel left it untouched.
+        $this->assertSame(RestaurantOrderStatus::Confirmed, $order->fresh()->status);
     }
 }

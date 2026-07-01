@@ -1,11 +1,16 @@
 @extends('emails.layout')
 
+@php
+    $confirmed = $order->status === \App\Enums\RestaurantOrderStatus::Confirmed;
+    $headingKey = $confirmed ? 'restaurant.order_email.confirmed_heading' : 'restaurant.order_email.submitted_heading';
+    $bodyKey = $confirmed ? 'restaurant.order_email.confirmed_body' : 'restaurant.order_email.submitted_body';
+@endphp
 @section('content')
     <h2 style="margin: 0 0 12px 0; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 600; color: #2c241c;">
-        {{ __('restaurant.order_email.submitted_heading') }}
+        {{ __($headingKey) }}
     </h2>
     <p style="margin: 0 0 16px 0; font-size: 15px; color: #2c241c;">
-        {{ __('restaurant.order_email.submitted_body', ['date' => $order->expected_delivery_date->translatedFormat('d.m.Y')]) }}
+        {{ __($bodyKey, ['date' => $order->expected_delivery_date->translatedFormat('d.m.Y')]) }}
     </p>
 
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 8px 0 16px 0; border-collapse: collapse; font-size: 14px; color: #2c241c;">

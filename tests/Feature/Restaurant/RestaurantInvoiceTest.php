@@ -3,6 +3,7 @@
 namespace Tests\Feature\Restaurant;
 
 use App\Enums\ProductUnit;
+use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Mail\RestaurantOrderInvoicedMail;
 use App\Models\Producer;
@@ -141,13 +142,20 @@ class RestaurantInvoiceTest extends TestCase
 
     public function test_cannot_invoice_submitted_or_zero_total(): void
     {
-        // Submitted (not confirmed) → guard.
+        // Submitted (not confirmed) → guard. A seasonal out-of-stock line keeps
+        // the order pending (an all-in-stock order would auto-confirm).
+        $seasonal = Product::factory()->create([
+            'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece',
+            'unit_price' => 5.00, 'vat_rate_percent' => 7,
+            'is_seasonal' => true, 'is_available' => true, 'is_published' => true,
+        ]);
         $profile = RestaurantProfile::factory()->verified()->create();
         $submitted = app(RestaurantOrderService::class)->submit($profile->user, [
-            'items' => [['product_id' => $this->product->id, 'variant_id' => null, 'quantity' => 1]],
+            'items' => [['product_id' => $seasonal->id, 'variant_id' => null, 'quantity' => 1]],
             'expected_delivery_date' => $this->date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
         ]);
+        $this->assertSame(RestaurantOrderStatus::Submitted, $submitted->status);
         try {
             app(RestaurantInvoiceService::class)->issueInvoice($submitted);
             $this->fail('Expected RuntimeException for a submitted order');
