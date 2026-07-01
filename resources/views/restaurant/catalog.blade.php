@@ -30,12 +30,17 @@
             defaultShopCategory: @js($defaultShopCategory),
             weeklyLabel: @js(__('restaurant.recurrence_weekly')),
             untilLabel: @js(__('restaurant.recurrence_until')),
+            openEndedLabel: @js(__('restaurant.recurrence_open_ended')),
+            recurrenceWeeks: {{ Illuminate\Support\Js::from($recurrenceWeeks) }},
             prefill: {{ Illuminate\Support\Js::from([
                 'street' => $profile?->billing_street ?? '',
                 'postal' => $profile?->billing_postal_code ?? '',
                 'city' => $profile?->billing_city ?? '',
             ]) }},
             csrf: @js(csrf_token()),
+            {{-- Generous ceiling in canonical units — B2B may order well over stock
+                 (it just goes on request); this only stops runaway values. --}}
+            maxQuantity: 1000000,
         })"
     >
         {{-- ── Delivery-day picker ─────────────────────────────────────── --}}
@@ -207,11 +212,15 @@
                                                         <button type="button" @click="dec(@js($grade['key']))" class="h-9 w-9 border border-shop-border text-shop-foreground transition hover:border-shop-primary" aria-label="−">−</button>
                                                         <input type="text" inputmode="decimal" :value="displayValue(@js($grade['key']))"
                                                                @change="setFromDisplay(@js($grade['key']), $event.target.value)"
-                                                               class="w-16 border border-shop-border bg-shop-background px-2 py-1.5 text-center text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                                               data-testid="restaurant-qty-{{ $grade['key'] }}"
+                                                               class="w-16 border px-2 py-1.5 text-center text-sm focus:outline-none"
+                                                               :class="overStock(@js($grade['key'])) ? 'border-amber-400 bg-amber-50 text-amber-800 focus:border-amber-500' : 'border-shop-border bg-shop-background text-shop-foreground focus:border-shop-primary'">
                                                         <button type="button" @click="inc(@js($grade['key']))" class="h-9 w-9 border border-shop-border text-shop-foreground transition hover:border-shop-primary" aria-label="+">+</button>
                                                         <span class="w-7 text-xs text-shop-muted">{{ $grade['unitSymbol'] }}</span>
                                                     </div>
                                                 </div>
+                                                {{-- Ordering more than we have in stock is allowed — it just goes on request. --}}
+                                                <p x-show="overStock(@js($grade['key']))" x-cloak class="mt-1 text-[0.65rem] font-medium text-amber-700" data-testid="restaurant-over-stock-{{ $grade['key'] }}">{{ __('restaurant.amount_on_request') }}</p>
                                                 {{-- Per-product recurrence, surfaced the moment a quantity is added --}}
                                                 <div x-show="(quantities[@js($grade['key'])] || 0) > 0" x-cloak
                                                      class="mt-2 flex flex-wrap items-center gap-2 border-l-2 border-shop-primary/40 pl-3 text-xs">
@@ -220,10 +229,36 @@
                                                         <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
                                                         <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
                                                     </select>
-                                                    <label x-show="recurrence[@js($grade['key'])] === 'weekly'" class="flex items-center gap-1 text-shop-muted">
-                                                        {{ __('restaurant.recurrence_until') }}
-                                                        <input type="date" x-model="until[@js($grade['key'])]" class="border border-shop-border bg-shop-background px-1 py-0.5 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
-                                                    </label>
+                                                    {{-- End of the weekly delivery: a WEEK picker (we deliver one day
+                                                         per week), each week coloured by whether we'll have stock then. --}}
+                                                    <div x-show="recurrence[@js($grade['key'])] === 'weekly'" class="flex items-center gap-1 text-shop-muted"
+                                                         x-data="{ wkOpen: false }" @keydown.escape="wkOpen = false" @click.outside="wkOpen = false">
+                                                        <span>{{ __('restaurant.recurrence_until') }}</span>
+                                                        <div class="relative">
+                                                            <button type="button" @click="wkOpen = !wkOpen" :aria-expanded="wkOpen"
+                                                                    data-testid="restaurant-until-{{ $grade['key'] }}"
+                                                                    class="border border-shop-border bg-shop-background px-2 py-0.5 text-xs text-shop-foreground hover:border-shop-primary"
+                                                                    x-text="untilLabel(@js($grade['key']))"></button>
+                                                            <div x-show="wkOpen" x-cloak x-transition.origin.top
+                                                                 class="absolute left-0 z-30 mt-1 max-h-64 w-56 overflow-y-auto border border-shop-border bg-shop-card shadow-lg">
+                                                                <button type="button" @click="setUntil(@js($grade['key']), ''); wkOpen = false"
+                                                                        class="block w-full px-3 py-2 text-left text-xs text-shop-foreground hover:bg-shop-paper">{{ __('restaurant.recurrence_open_ended') }}</button>
+                                                                <template x-for="w in recurrenceWeeks" :key="w.iso">
+                                                                    <button type="button" @click="setUntil(@js($grade['key']), w.iso); wkOpen = false"
+                                                                            class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-shop-paper"
+                                                                            :class="until[@js($grade['key'])] === w.iso ? 'bg-shop-paper' : ''">
+                                                                        <span class="text-shop-foreground" x-text="'KW ' + w.kw + ' · ' + w.label"></span>
+                                                                        <span class="font-medium" :class="weekInStock(@js($grade['key']), w) ? 'text-emerald-700' : 'text-amber-700'"
+                                                                              x-text="weekInStock(@js($grade['key']), w) ? @js(__('restaurant.week_legend_in_stock')) : @js(__('restaurant.week_legend_on_request'))"></span>
+                                                                    </button>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                        <span class="ml-1 text-[0.6rem] text-shop-muted">
+                                                            <span class="text-emerald-700">&#9679;</span> {{ __('restaurant.week_legend_in_stock') }}
+                                                            · <span class="text-amber-700">&#9679;</span> {{ __('restaurant.week_legend_on_request') }}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         @endforeach
@@ -270,8 +305,14 @@
                                             <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
                                             <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
                                         </select>
-                                        <input x-show="s.recurrence === 'weekly'" type="date" x-model="s.until"
-                                               class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                        {{-- Special lines are always on request, so no stock colouring — just pick the end week. --}}
+                                        <select x-show="s.recurrence === 'weekly'" x-model="s.until"
+                                                class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                            <option value="">{{ __('restaurant.recurrence_open_ended') }}</option>
+                                            <template x-for="w in recurrenceWeeks" :key="w.iso">
+                                                <option :value="w.iso" x-text="'KW ' + w.kw + ' · ' + w.label"></option>
+                                            </template>
+                                        </select>
                                         <button type="button" @click="removeSpecialRequest(i)" class="px-2 text-shop-muted hover:text-chapter-meat" aria-label="{{ __('restaurant.special_remove') }}">✕</button>
                                     </div>
                                 </template>
@@ -459,9 +500,37 @@
                 clamp(key, q) {
                     const r = this.rowFor(key);
                     if (!r) return 0;
+                    // Round to the step and clamp only to a sane ceiling — the
+                    // restaurant MAY order more than we have in stock; anything
+                    // above `cap` (the in-stock quantity) just goes on request.
                     q = Math.max(0, Math.round(q / r.step) * r.step);
-                    if (r.cap !== null && q > r.cap) q = r.cap;
+                    const ceiling = config.maxQuantity || 100000;
+                    if (q > ceiling) q = ceiling;
                     return q;
+                },
+                // True when the ordered amount passes the in-stock quantity (cap)
+                // for an otherwise-in-stock grade → the line becomes "on request".
+                overStock(key) {
+                    const r = this.rowFor(key);
+                    return !!r && r.cap !== null && (this.quantities[key] || 0) > r.cap;
+                },
+                // ── Weekly "until" week picker ─────────────────────────────
+                recurrenceWeeks: config.recurrenceWeeks || [],
+                openEndedLabel: config.openEndedLabel || 'Unbegrenzt',
+                setUntil(key, iso) { this.until[key] = iso; },
+                // A week is "in stock" for this grade when the product's remaining
+                // that week covers the ordered quantity; otherwise it's on request.
+                weekInStock(key, w) {
+                    const r = this.rowFor(key);
+                    if (!r) return false;
+                    const remaining = (w.remainingByProduct && w.remainingByProduct[r.productId]) || 0;
+                    return remaining >= (this.quantities[key] || 0) && remaining > 0;
+                },
+                untilLabel(key) {
+                    const iso = this.until[key] || '';
+                    if (!iso) return this.openEndedLabel;
+                    const w = this.recurrenceWeeks.find((x) => x.iso === iso);
+                    return w ? ('KW ' + w.kw + ' · ' + w.label) : this.openEndedLabel;
                 },
                 inc(key) { const r = this.rowFor(key); this.quantities[key] = this.clamp(key, (this.quantities[key] || 0) + r.step); },
                 dec(key) { const r = this.rowFor(key); this.quantities[key] = this.clamp(key, (this.quantities[key] || 0) - r.step); },

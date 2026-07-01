@@ -67,6 +67,49 @@ class RestaurantCatalogService
     }
 
     /**
+     * Upcoming weekly-delivery occurrences (same weekday as $selectedDate, from
+     * next week through the horizon, open days only), each with the remaining
+     * business stock per product so the "until" week picker can colour weeks
+     * green (in stock) vs amber (on request).
+     *
+     * @return Collection<int, array{iso: string, kw: int, label: string, remainingByProduct: array<int, float>}>
+     */
+    public function recurrenceWeeks(Carbon $selectedDate): Collection
+    {
+        $selectedDate = $selectedDate->copy()->startOfDay();
+        $weeks = (int) config('shop.horizon_weeks', 8);
+        $start = $selectedDate->copy()->addWeek();
+        $end = $selectedDate->copy()->addWeeks(max(1, $weeks));
+
+        $products = Product::query()->visibleInCatalog()->with('variants')->get();
+        $matrix = $this->inventory->availabilityMatrix($products, $start, $end, ShopStockAudience::BusinessTrade);
+        $states = $this->closures->statesForRange($start, $end);
+        $locale = app()->getLocale();
+
+        $out = collect();
+        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addWeek()) {
+            $iso = $cursor->toDateString();
+            if (isset($states[$iso]) && $states[$iso]['closed']) {
+                continue; // that weekday is closed this week — not deliverable
+            }
+
+            $remaining = [];
+            foreach ($products as $product) {
+                $remaining[$product->id] = (float) ($matrix[$product->id][$iso] ?? 0.0);
+            }
+
+            $out->push([
+                'iso' => $iso,
+                'kw' => $cursor->isoWeek(),
+                'label' => $cursor->locale($locale)->isoFormat('dd, D. MMM'),
+                'remainingByProduct' => $remaining,
+            ]);
+        }
+
+        return $out->values();
+    }
+
+    /**
      * Catalog rows for a delivery date. Each row carries the business gross and
      * net per display unit, the VAT rate, and stock/season flags.
      *

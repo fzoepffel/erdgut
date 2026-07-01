@@ -4059,5 +4059,9 @@
     "restaurant.line_pending": "en cours d'examen",
     "restaurant.order_recurring_note": "Cette commande fait partie d'une livraison récurrente :",
     "restaurant.order_confirmed_flash": "Votre commande est confirmée.",
-    "restaurant.order_pending_flash": "Votre commande est arrivée. Nous confirmerons les lignes sur demande sous peu."
+    "restaurant.order_pending_flash": "Votre commande est arrivée. Nous confirmerons les lignes sur demande sous peu.",
+    "restaurant.amount_on_request": "sur demande uniquement",
+    "restaurant.recurrence_open_ended": "Sans fin",
+    "restaurant.week_legend_in_stock": "en stock",
+    "restaurant.week_legend_on_request": "sur demande"
 }
