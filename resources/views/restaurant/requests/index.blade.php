@@ -225,6 +225,7 @@
                     </template>
 
                     <h2 class="font-display text-2xl text-shop-foreground">{{ __('restaurant.request_review_title') }}</h2>
+                    <p class="mt-1 text-sm text-shop-foreground"><span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.checkout_delivery_on') }}</span> {{ $selectedDate?->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY') }}</p>
                     <p class="mt-1 text-sm text-shop-muted">{{ __('restaurant.request_review_intro') }}</p>
 
                     <ul class="mt-4 divide-y divide-shop-border text-sm">

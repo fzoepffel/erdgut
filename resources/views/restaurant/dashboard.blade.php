@@ -32,7 +32,13 @@
         </div>
     </section>
 
+    @php
+        // A fresh account has nothing to report yet — skip the zero stats and
+        // four empty cards so the opportunity tiles lead instead.
+        $isFresh = $upcoming->isEmpty() && $openRequests->isEmpty() && $standing->isEmpty() && $recent->isEmpty() && $invoices->isEmpty();
+    @endphp
     <div class="mx-auto max-w-[1100px] px-4 py-12 sm:px-6 lg:px-12">
+        @unless ($isFresh)
         {{-- ── Stat row ─────────────────────────────────────────────────── --}}
         <dl class="reveal-stagger grid gap-8 sm:grid-cols-3">
             <x-reveal as="div" style="--i:0">
@@ -138,8 +144,10 @@
             </div>
         @endif
 
+        @endunless
+
         {{-- ── Opportunity tiles: what you can do here ─────────────────── --}}
-        <div class="mt-14">
+        <div class="{{ $isFresh ? 'mt-2' : 'mt-14' }}">
             <p class="eyebrow text-shop-primary">{{ __('restaurant.dashboard_opportunities_eyebrow') }}</p>
             <div class="reveal-stagger mt-4 grid gap-6 sm:grid-cols-3">
                 <x-reveal as="a" href="{{ route('app.restaurant.catalog') }}" style="--i:0" class="group border-t-2 border-chapter-produce pt-5">

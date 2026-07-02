@@ -221,9 +221,13 @@
                                                 <div x-show="(quantities[@js($grade['key'])] || 0) > 0" x-cloak
                                                      class="mt-2 flex flex-wrap items-center gap-2 border-l-2 border-shop-primary/40 pl-3 text-xs">
                                                     <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.recurrence_label') }}</span>
+                                                    {{-- "Wöchentlich" is only offered while a future week still has
+                                                         stock — the shop never sells a schedule it can't see. --}}
                                                     <select x-model="recurrence[@js($grade['key'])]" class="border border-shop-border bg-shop-background px-2 py-1 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
                                                         <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
-                                                        <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
+                                                        <template x-if="weeksFor(@js($grade['key'])).length > 0">
+                                                            <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
+                                                        </template>
                                                     </select>
                                                     {{-- End of the weekly delivery: a WEEK picker, coloured by stock. --}}
                                                     <div x-show="recurrence[@js($grade['key'])] === 'weekly'" class="flex items-center gap-1 text-shop-muted"
@@ -318,6 +322,7 @@
                     </template>
 
                     <h2 class="font-display text-2xl text-shop-foreground">{{ __('restaurant.cart_review_title') }}</h2>
+                    <p class="mt-1 text-sm text-shop-foreground"><span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.checkout_delivery_on') }}</span> {{ $selectedDate?->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY') }}</p>
                     <p class="mt-1 text-sm text-emerald-700">{{ __('restaurant.cart_trust_line') }}</p>
 
                     <ul class="mt-4 divide-y divide-shop-border text-sm">
