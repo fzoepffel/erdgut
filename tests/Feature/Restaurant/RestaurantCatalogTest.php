@@ -106,11 +106,13 @@ class RestaurantCatalogTest extends TestCase
             ->assertOk()
             ->assertSee($product->name);
 
-        // A non-seasonal product with no stock on tomorrow is absent there.
+        // Tomorrow has NO stock — the shop's picker no longer offers it, so the
+        // request falls back to the first stocked day (still showing the product).
         $this->actingAs($profile->user)
             ->get(route('app.restaurant.catalog', ['date' => Carbon::tomorrow()->toDateString()]))
             ->assertOk()
-            ->assertDontSee($product->name);
+            ->assertSee($stockDay->locale('de')->isoFormat('dddd'))
+            ->assertSee($product->name);
     }
 
     public function test_catalog_is_shop_only_with_nav_and_filters(): void
@@ -174,6 +176,24 @@ class RestaurantCatalogTest extends TestCase
             ->assertSee(__('restaurant.recurrence_open_ended'));
     }
 
+    public function test_seasonal_product_with_stock_sells_in_the_shop_with_real_cap(): void
+    {
+        // Regression: a product that is seasonal AND in stock used to ship cap 0
+        // (the old "seasonal = uncapped" rule), leaving an empty amount dropdown.
+        $date = Carbon::tomorrow();
+        $product = $this->inStockProduct($date, ['is_seasonal' => true]);
+        $profile = RestaurantProfile::factory()->verified()->create();
+
+        $html = $this->actingAs($profile->user)
+            ->get(route('app.restaurant.catalog'))
+            ->assertOk()
+            ->assertSee('data-product-id="'.$product->id.'"', false)
+            ->getContent();
+
+        // The grade registry carries the real stock cap (50), not 0/null.
+        $this->assertStringContainsString('\u0022cap\u0022:50', $html);
+    }
+
     public function test_seasonal_out_of_stock_product_lives_in_the_requests_area(): void
     {
         $this->app->setLocale('de');
@@ -181,12 +201,14 @@ class RestaurantCatalogTest extends TestCase
         $profile = RestaurantProfile::factory()->verified()->create();
         $profile->user->forceFill(['locale' => 'de'])->save();
 
-        // NOT in the shop — the shop only teases the season count.
+        // With no stocked day at all the shop shows its empty state and points
+        // to the Anfragen area instead of listing anything.
         $this->actingAs($profile->user)
             ->get(route('app.restaurant.catalog'))
             ->assertOk()
             ->assertDontSee('data-product-id="'.$product->id.'"', false)
-            ->assertSee('data-testid="restaurant-season-teaser"', false);
+            ->assertSee('data-testid="restaurant-no-stock-days"', false)
+            ->assertSee(route('app.restaurant.requests.index'), false);
 
         // But requestable in the Anfragen area.
         $this->actingAs($profile->user)

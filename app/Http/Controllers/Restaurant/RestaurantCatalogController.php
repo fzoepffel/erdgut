@@ -27,7 +27,14 @@ class RestaurantCatalogController extends Controller
     public function index(Request $request): View
     {
         $locale = app()->getLocale();
-        $selectableDates = $this->catalog->selectableDates();
+
+        // The shop sells only what's in stock — its date picker offers only days
+        // that actually have stock (the Anfragen area keeps every open day).
+        $allOpenDates = $this->catalog->selectableDates();
+        $selectableDates = $allOpenDates
+            ->filter(fn (array $row): bool => $row['in_stock_count'] > 0)
+            ->values();
+        $hasOpenDays = $allOpenDates->isNotEmpty();
 
         $requested = (string) $request->query('date', '');
         $selectedDate = $selectableDates
@@ -90,6 +97,7 @@ class RestaurantCatalogController extends Controller
 
         return view('restaurant.catalog', [
             'selectableDates' => $selectableDates,
+            'hasOpenDays' => $hasOpenDays,
             'selectedDate' => $selectedDate,
             'products' => $products,
             'seasonCount' => $seasonCount,
