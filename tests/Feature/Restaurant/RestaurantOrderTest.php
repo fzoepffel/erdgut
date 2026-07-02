@@ -205,6 +205,37 @@ class RestaurantOrderTest extends TestCase
         $this->assertEqualsWithDelta(50.0, app(InventoryService::class)->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.01);
     }
 
+    public function test_reorder_creates_a_new_order_for_the_next_open_day(): void
+    {
+        $date = Carbon::tomorrow();
+        $product = $this->product();
+        $this->stock($product, $date, 50);
+        $user = $this->verifiedRestaurant();
+        $original = app(RestaurantOrderService::class)->submit($user, [
+            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 10]],
+            'expected_delivery_date' => $date->toDateString(),
+            'delivery_street' => 'Marktstr. 1', 'delivery_postal_code' => '10115', 'delivery_city' => 'Berlin',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('app.restaurant.orders.reorder', $original))
+            ->assertRedirect();
+
+        $this->assertSame(2, RestaurantOrder::count());
+        $new = RestaurantOrder::latest('id')->firstOrFail();
+        $this->assertNotSame($original->id, $new->id);
+        $item = $new->items()->firstOrFail();
+        $this->assertSame($product->id, $item->product_id);
+        $this->assertEqualsWithDelta(10.0, (float) $item->quantity, 0.001);
+        // Address copied; recurrence never carries over.
+        $this->assertSame('Marktstr. 1', $new->delivery_street);
+        $this->assertSame('one_time', $item->recurrence);
+
+        // Owner-gated.
+        $other = $this->verifiedRestaurant();
+        $this->actingAs($other)->post(route('app.restaurant.orders.reorder', $original))->assertForbidden();
+    }
+
     public function test_non_owner_cannot_view_or_cancel(): void
     {
         $date = Carbon::tomorrow();

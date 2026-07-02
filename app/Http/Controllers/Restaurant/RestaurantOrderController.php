@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Restaurant;
 
+use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Restaurant\RestaurantOrderRequest;
 use App\Mail\RestaurantOrderSubmittedMail;
 use App\Models\RestaurantOrder;
+use App\Services\Restaurant\RestaurantCatalogService;
 use App\Services\Restaurant\RestaurantInvoiceService;
 use App\Services\Restaurant\RestaurantOrderService;
 use App\Services\Restaurant\RestaurantStandingOrderService;
@@ -71,6 +73,56 @@ class RestaurantOrderController extends Controller
         // Confirmation to the restaurant + admin notification. Both are
         // failure-tolerant: staging runs the sync queue, so a mail error must
         // not 500 the submission.
+        try {
+            Mail::to($request->user()->email)
+                ->locale($order->locale ?? app()->getLocale())
+                ->send(new RestaurantOrderSubmittedMail($order));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+        RestaurantOrderAdminNotifier::submitted($order);
+
+        return redirect()
+            ->route('app.restaurant.orders.show', $order)
+            ->with('status', 'restaurant-order-submitted');
+    }
+
+    /**
+     * One-click reorder: copy a previous order's lines into a NEW order for the
+     * next open delivery day. Prices and stock are resolved fresh by the normal
+     * submit() path (in-stock lines confirm instantly, the rest go on request).
+     * Declined lines are skipped; recurrence never carries over (one-time).
+     */
+    public function reorder(Request $request, RestaurantOrder $restaurantOrder, RestaurantCatalogService $catalog): RedirectResponse
+    {
+        abort_unless($restaurantOrder->user_id === $request->user()->id, 403);
+
+        $nextDay = $catalog->selectableDates()->first();
+        abort_unless($nextDay !== null, 422);
+
+        $items = $restaurantOrder->items()
+            ->where('line_status', '!=', RestaurantOrderLineStatus::Declined->value)
+            ->get()
+            ->map(fn ($item) => $item->product_id !== null
+                ? ['product_id' => $item->product_id, 'variant_id' => $item->variant_id, 'quantity' => (float) $item->quantity]
+                : ['name' => $item->name_snapshot, 'unit' => $item->unit, 'quantity' => (float) $item->quantity])
+            ->values()
+            ->all();
+
+        if ($items === []) {
+            return redirect()->route('app.restaurant.orders.show', $restaurantOrder);
+        }
+
+        $order = $this->orders->submit($request->user(), [
+            'items' => $items,
+            'expected_delivery_date' => $nextDay['date']->toDateString(),
+            'delivery_street' => $restaurantOrder->delivery_street,
+            'delivery_postal_code' => $restaurantOrder->delivery_postal_code,
+            'delivery_city' => $restaurantOrder->delivery_city,
+            'delivery_notes' => $restaurantOrder->delivery_notes,
+            'locale' => app()->getLocale(),
+        ]);
+
         try {
             Mail::to($request->user()->email)
                 ->locale($order->locale ?? app()->getLocale())

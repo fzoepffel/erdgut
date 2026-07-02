@@ -1,61 +1,95 @@
 <x-shop-layout :title="__('restaurant.landing_title')">
-    {{-- Hero --}}
-    <section class="mx-auto max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
-        <p class="eyebrow text-shop-primary">{{ __('restaurant.nav_public') }}</p>
-        <h1 class="mt-3 max-w-3xl font-display text-4xl leading-tight text-shop-foreground sm:text-5xl">{{ __('restaurant.landing_title') }}</h1>
-        <p class="mt-5 max-w-2xl text-lg leading-relaxed text-shop-muted">{{ __('restaurant.landing_intro') }}</p>
-
-        <div class="mt-8 flex flex-wrap items-center gap-4">
-            <a href="{{ route('restaurant.register') }}" class="inline-flex h-[3.25rem] items-center justify-center border border-shop-primary bg-shop-primary px-7 font-mono text-[0.72rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover">
-                {{ __('restaurant.landing_cta_apply') }}
-            </a>
-            <a href="{{ route('auth.login') }}" class="inline-flex h-[3.25rem] items-center justify-center border border-shop-border px-7 font-mono text-[0.72rem] uppercase tracking-widest text-shop-foreground transition hover:border-shop-primary hover:text-shop-primary">
-                {{ __('restaurant.landing_cta_login') }}
-            </a>
-        </div>
-    </section>
-
-    {{-- Value props --}}
-    <section class="border-t border-shop-border bg-shop-card/40">
-        <div class="mx-auto grid max-w-5xl gap-6 px-4 py-16 sm:grid-cols-2 sm:px-6">
-            @foreach ([
-                'prices' => ['title' => __('restaurant.landing_feature_prices_title'), 'body' => __('restaurant.landing_feature_prices_body')],
-                'range' => ['title' => __('restaurant.landing_feature_range_title'), 'body' => __('restaurant.landing_feature_range_body')],
-                'delivery' => ['title' => __('restaurant.landing_feature_delivery_title'), 'body' => __('restaurant.landing_feature_delivery_body')],
-                'invoice' => ['title' => __('restaurant.landing_feature_invoice_title'), 'body' => __('restaurant.landing_feature_invoice_body')],
-            ] as $feature)
-                <div class="shop-card p-6">
-                    <h2 class="font-display text-xl text-shop-foreground">{{ $feature['title'] }}</h2>
-                    <p class="mt-2 text-sm leading-relaxed text-shop-muted">{{ $feature['body'] }}</p>
+    {{-- ── Hero: moss band, editorial headline ─────────────────────────── --}}
+    <section class="border-b border-brand-ink/10 bg-brand-moss py-20 text-brand-cream sm:py-28">
+        <div class="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-12">
+            <x-reveal variant="fade-up">
+                <p class="eyebrow text-brand-cream/70">{{ __('restaurant.nav_public') }}</p>
+            </x-reveal>
+            <x-reveal variant="fade-up" :delay="100">
+                <h1 class="mt-4 max-w-3xl font-display text-5xl leading-[1.05] tracking-tight sm:text-6xl">{{ __('restaurant.landing_title') }}</h1>
+            </x-reveal>
+            <x-reveal variant="fade-up" :delay="200">
+                <p class="mt-6 max-w-2xl text-lg leading-relaxed text-brand-cream/85">{{ __('restaurant.landing_intro') }}</p>
+            </x-reveal>
+            <x-reveal variant="fade-up" :delay="300">
+                <div class="mt-9 flex flex-wrap items-center gap-5">
+                    <a href="{{ route('restaurant.register') }}"
+                       class="inline-flex items-center justify-center border border-brand-cream bg-brand-cream px-7 py-3 font-mono text-[0.7rem] uppercase tracking-eyebrow text-brand-ink transition hover:bg-transparent hover:text-brand-cream">
+                        {{ __('restaurant.landing_cta_apply') }} &rarr;
+                    </a>
+                    <a href="{{ route('auth.login') }}" class="font-mono text-[0.7rem] uppercase tracking-eyebrow text-brand-cream underline underline-offset-4 hover:opacity-80">
+                        {{ __('restaurant.landing_cta_login') }}
+                    </a>
                 </div>
-            @endforeach
+            </x-reveal>
         </div>
     </section>
 
-    {{-- How it works --}}
-    <section class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-        <h2 class="font-display text-2xl text-shop-foreground sm:text-3xl">{{ __('restaurant.landing_how_title') }}</h2>
-        <ol class="mt-8 grid gap-6 sm:grid-cols-3">
-            @foreach (['1', '2', '3'] as $step)
-                <li class="border-t-2 border-shop-primary pt-4">
-                    <span class="font-mono text-sm text-shop-primary">0{{ $step }}</span>
-                    <h3 class="mt-1 font-display text-lg text-shop-foreground">{{ __('restaurant.landing_step'.$step.'_title') }}</h3>
-                    <p class="mt-1 text-sm leading-relaxed text-shop-muted">{{ __('restaurant.landing_step'.$step.'_body') }}</p>
-                </li>
-            @endforeach
-        </ol>
+    {{-- ── Opportunities: what your kitchen can do here ─────────────────── --}}
+    <section class="border-b border-brand-ink/10 py-20 sm:py-24">
+        <div class="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-12">
+            <x-section-heading
+                :eyebrow="__('restaurant.landing_features_eyebrow')"
+                :title="__('restaurant.landing_features_title')"
+                color="produce"
+            />
+            <div class="reveal-stagger mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+                {{-- Full literal class names (Tailwind's scanner can't see interpolated fragments). --}}
+                @foreach ([
+                    ['border' => 'border-chapter-produce', 'text' => 'text-chapter-produce', 'title' => __('restaurant.landing_feature_prices_title'), 'body' => __('restaurant.landing_feature_prices_body')],
+                    ['border' => 'border-chapter-eggdairy', 'text' => 'text-chapter-eggdairy', 'title' => __('restaurant.opportunity_weekly_title'), 'body' => __('restaurant.opportunity_weekly_body')],
+                    ['border' => 'border-chapter-bread', 'text' => 'text-chapter-bread', 'title' => __('restaurant.opportunity_amounts_title'), 'body' => __('restaurant.opportunity_amounts_body')],
+                    ['border' => 'border-chapter-almanach', 'text' => 'text-chapter-almanach', 'title' => __('restaurant.opportunity_special_title'), 'body' => __('restaurant.opportunity_special_body')],
+                ] as $i => $f)
+                    <x-reveal as="div" style="--i:{{ $i }}" class="border-t-2 {{ $f['border'] }} pt-5">
+                        <p class="eyebrow {{ $f['text'] }}">{{ str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) }}</p>
+                        <h3 class="mt-2 font-display text-2xl text-brand-ink">{{ $f['title'] }}</h3>
+                        <p class="mt-2 text-sm leading-relaxed text-brand-ink/70">{{ $f['body'] }}</p>
+                    </x-reveal>
+                @endforeach
+            </div>
+        </div>
     </section>
 
-    {{-- Closing CTA --}}
-    <section class="border-t border-shop-border">
-        <div class="mx-auto flex max-w-5xl flex-col items-start gap-5 px-4 py-16 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div>
-                <h2 class="font-display text-2xl text-shop-foreground">{{ __('restaurant.landing_closing_title') }}</h2>
-                <p class="mt-2 text-sm text-shop-muted">{{ __('restaurant.landing_closing_body') }}</p>
-            </div>
-            <a href="{{ route('restaurant.register') }}" class="shrink-0 inline-flex h-[3.25rem] items-center justify-center border border-shop-primary bg-shop-primary px-7 font-mono text-[0.72rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover">
-                {{ __('restaurant.landing_cta_apply') }}
-            </a>
+    {{-- ── How it works: 4 steps ────────────────────────────────────────── --}}
+    <section class="border-b border-brand-ink/10 bg-brand-paper py-20 sm:py-24">
+        <div class="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-12">
+            <x-section-heading
+                :eyebrow="__('restaurant.landing_how_eyebrow')"
+                :title="__('restaurant.landing_how_title')"
+                :lead="__('restaurant.landing_how_lead')"
+                color="fish"
+            />
+            <ol class="reveal-stagger mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach (['1', '2', '3', '4'] as $i => $step)
+                    <x-reveal as="li" style="--i:{{ $i }}" class="border-t-2 border-chapter-fish pt-5">
+                        <p class="eyebrow text-chapter-fish">{{ str_pad($step, 2, '0', STR_PAD_LEFT) }}</p>
+                        <h3 class="mt-2 font-display text-2xl text-brand-ink">{{ __('restaurant.landing_step'.$step.'_title') }}</h3>
+                        <p class="mt-2 text-sm leading-relaxed text-brand-ink/70">{{ __('restaurant.landing_step'.$step.'_body') }}</p>
+                    </x-reveal>
+                @endforeach
+            </ol>
+        </div>
+    </section>
+
+    {{-- ── Invoice note + closing CTA (dark band) ───────────────────────── --}}
+    <section class="bg-brand-ink py-20 text-brand-cream sm:py-24">
+        <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
+            <x-reveal variant="fade-up">
+                <x-triple-star color="cream" />
+            </x-reveal>
+            <x-reveal variant="fade-up" :delay="80">
+                <h2 class="mt-6 font-display text-4xl leading-tight sm:text-5xl">{{ __('restaurant.landing_closing_title') }}</h2>
+            </x-reveal>
+            <x-reveal variant="fade-up" :delay="160">
+                <p class="mx-auto mt-4 max-w-xl text-base text-brand-cream/80">{{ __('restaurant.landing_feature_invoice_body') }}</p>
+            </x-reveal>
+            <x-reveal variant="fade-up" :delay="240">
+                <a href="{{ route('restaurant.register') }}"
+                   class="mt-8 inline-flex items-center justify-center border border-brand-cream bg-brand-cream px-7 py-3 font-mono text-[0.7rem] uppercase tracking-eyebrow text-brand-ink transition hover:bg-transparent hover:text-brand-cream">
+                    {{ __('restaurant.landing_cta_apply') }} &rarr;
+                </a>
+            </x-reveal>
         </div>
     </section>
 </x-shop-layout>
