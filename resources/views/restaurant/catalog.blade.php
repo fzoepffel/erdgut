@@ -31,6 +31,7 @@
             weeklyLabel: @js(__('restaurant.recurrence_weekly')),
             untilLabel: @js(__('restaurant.recurrence_until')),
             openEndedLabel: @js(__('restaurant.recurrence_open_ended')),
+            onRequestSuffix: @js(__('restaurant.amount_on_request')),
             recurrenceWeeks: {{ Illuminate\Support\Js::from($recurrenceWeeks) }},
             prefill: {{ Illuminate\Support\Js::from([
                 'street' => $profile?->billing_street ?? '',
@@ -210,11 +211,30 @@
                                                     </div>
                                                     <div class="flex shrink-0 items-center gap-1">
                                                         <button type="button" @click="dec(@js($grade['key']))" class="h-9 w-9 border border-shop-border text-shop-foreground transition hover:border-shop-primary" aria-label="−">−</button>
-                                                        <input type="text" inputmode="decimal" :value="displayValue(@js($grade['key']))"
-                                                               @change="setFromDisplay(@js($grade['key']), $event.target.value)"
-                                                               data-testid="restaurant-qty-{{ $grade['key'] }}"
-                                                               class="w-16 border px-2 py-1.5 text-center text-sm focus:outline-none"
-                                                               :class="overStock(@js($grade['key'])) ? 'border-amber-400 bg-amber-50 text-amber-800 focus:border-amber-500' : 'border-shop-border bg-shop-background text-shop-foreground focus:border-shop-primary'">
+                                                        {{-- Quantity DROPDOWN (consumer-shop pattern): the visible value
+                                                             + chevron is backed by an invisible native <select>. Options
+                                                             are built lazily on open; amounts beyond the in-stock quantity
+                                                             are labeled "· nur auf Anfrage" right in the list. --}}
+                                                        <div class="relative h-9 w-28 border"
+                                                             :class="overStock(@js($grade['key'])) ? 'border-amber-400 bg-amber-50' : 'border-shop-border bg-shop-background'">
+                                                            <div class="pointer-events-none flex h-full w-full items-center justify-between gap-1 px-2 text-sm tabular-nums"
+                                                                 :class="overStock(@js($grade['key'])) ? 'text-amber-800' : 'text-shop-foreground'">
+                                                                <span x-text="displayValue(@js($grade['key'])) || '–'"></span>
+                                                                <svg class="h-3 w-3 shrink-0" :class="overStock(@js($grade['key'])) ? 'text-amber-600' : 'text-shop-primary'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+                                                            </div>
+                                                            <select x-data="{ optsOpen: false }"
+                                                                    @pointerdown="optsOpen = true" @focus="optsOpen = true"
+                                                                    aria-label="{{ __('restaurant.special_qty') }}"
+                                                                    data-testid="restaurant-qty-{{ $grade['key'] }}"
+                                                                    :value="String(quantities[@js($grade['key'])] || 0)"
+                                                                    @change="quantities[@js($grade['key'])] = +$event.target.value"
+                                                                    class="absolute inset-0 w-full cursor-pointer appearance-none border-0 bg-transparent opacity-0 focus:outline-none">
+                                                                <option value="0">–</option>
+                                                                <template x-for="o in (optsOpen ? qtyOptions(@js($grade['key'])) : [])" :key="o.v">
+                                                                    <option :value="String(o.v)" x-text="o.l" :selected="(quantities[@js($grade['key'])] || 0) === o.v"></option>
+                                                                </template>
+                                                            </select>
+                                                        </div>
                                                         <button type="button" @click="inc(@js($grade['key']))" class="h-9 w-9 border border-shop-border text-shop-foreground transition hover:border-shop-primary" aria-label="+">+</button>
                                                         <span class="w-7 text-xs text-shop-muted">{{ $grade['unitSymbol'] }}</span>
                                                     </div>
@@ -269,10 +289,18 @@
 
                         {{-- Per-tab empty states --}}
                         @if ($stockCount === 0)
-                            <div x-show="activeTab === 'stock'" x-cloak class="shop-card col-span-full p-8 text-center text-shop-muted" data-testid="restaurant-stock-empty">{{ __('restaurant.tab_in_stock_empty') }}</div>
+                            <div x-show="activeTab === 'stock'" x-cloak class="shop-card col-span-full p-8 text-center" data-testid="restaurant-stock-empty">
+                                <p class="text-shop-muted">{{ __('restaurant.tab_in_stock_empty') }}</p>
+                                @if ($seasonCount > 0)
+                                    <button type="button" @click="activeTab = 'season'" class="mt-4 border border-shop-primary px-5 py-2 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary transition hover:bg-shop-primary hover:text-shop-primary-foreground">{{ __('restaurant.tab_on_request') }} &rarr;</button>
+                                @endif
+                            </div>
                         @endif
                         @if ($seasonCount === 0)
-                            <div x-show="activeTab === 'season'" x-cloak class="shop-card col-span-full p-8 text-center text-shop-muted" data-testid="restaurant-season-empty">{{ __('restaurant.tab_on_request_empty') }}</div>
+                            <div x-show="activeTab === 'season'" x-cloak class="shop-card col-span-full p-8 text-center" data-testid="restaurant-season-empty">
+                                <p class="text-shop-muted">{{ __('restaurant.tab_on_request_empty') }}</p>
+                                <button type="button" @click="activeTab = 'special'" class="mt-4 border border-shop-primary px-5 py-2 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary transition hover:bg-shop-primary hover:text-shop-primary-foreground">{{ __('restaurant.tab_special') }} &rarr;</button>
+                            </div>
                         @endif
                     </div>
 
@@ -331,6 +359,9 @@
                 <div class="mx-auto flex max-w-[1100px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-12">
                     <p class="text-sm text-shop-foreground">
                         <span x-text="totalCount"></span> <span x-text="totalCount === 1 ? @js(__('restaurant.cart_line')) : @js(__('restaurant.cart_lines'))"></span>
+                        <template x-if="onRequestCount > 0">
+                            <span class="text-amber-700" x-text="'· ' + onRequestCount + ' ' + @js(__('restaurant.on_request'))"></span>
+                        </template>
                         · <span class="font-mono" x-text="formatEur(netTotal)"></span> <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}</span>
                     </p>
                     <button type="button" @click="openSubmit = true" data-testid="restaurant-cart-continue"
@@ -374,6 +405,9 @@
                             <li class="flex justify-between gap-3 py-2">
                                 <span class="text-shop-foreground">
                                     <span x-text="`${line.displayQty} ${line.unitSymbol} · ${line.name}`"></span>
+                                    <template x-if="line.onRequest">
+                                        <span class="ml-2 inline-block bg-amber-100 px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-widest text-amber-800">{{ __('restaurant.on_request') }}</span>
+                                    </template>
                                     <template x-if="line.recurrence === 'weekly'">
                                         <span class="ml-2 inline-block bg-shop-primary/10 px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-widest text-shop-primary" x-text="weeklyBadge(line.until)"></span>
                                     </template>
@@ -514,6 +548,34 @@
                     const r = this.rowFor(key);
                     return !!r && r.cap !== null && (this.quantities[key] || 0) > r.cap;
                 },
+                // Options for the quantity dropdown (built lazily on open).
+                // Multiples of the step; amounts within stock are plain, amounts
+                // beyond the in-stock quantity carry a "nur auf Anfrage" suffix
+                // (a further ~15 steps). Seasonal grades (cap null) get ~20
+                // unmarked options — the whole tab is already "auf Anfrage".
+                onRequestSuffix: config.onRequestSuffix || 'nur auf Anfrage',
+                qtyOptions(key) {
+                    const r = this.rowFor(key);
+                    if (!r) return [];
+                    const out = [];
+                    const fmt = (q) => (q / r.factor).toLocaleString('de-DE', { maximumFractionDigits: 3 }) + ' ' + r.unitSymbol;
+                    const inStockSteps = r.cap !== null ? Math.floor(r.cap / r.step) : 0;
+                    const total = r.cap !== null ? inStockSteps + 15 : 20;
+                    for (let i = 1; i <= total; i++) {
+                        const v = i * r.step;
+                        const over = r.cap !== null && v > r.cap;
+                        out.push({ v, l: fmt(v) + (over ? ' · ' + this.onRequestSuffix : '') });
+                    }
+                    // Keep a manually-typed current value selectable even if it's
+                    // off-grid (e.g. from an older basket).
+                    const cur = this.quantities[key] || 0;
+                    if (cur > 0 && !out.some((o) => o.v === cur)) {
+                        const over = r.cap !== null && cur > r.cap;
+                        out.push({ v: cur, l: fmt(cur) + (over ? ' · ' + this.onRequestSuffix : '') });
+                        out.sort((a, b) => a.v - b.v);
+                    }
+                    return out;
+                },
                 // ── Weekly "until" week picker ─────────────────────────────
                 recurrenceWeeks: config.recurrenceWeeks || [],
                 openEndedLabel: config.openEndedLabel || 'Unbegrenzt',
@@ -558,11 +620,17 @@
                                 recurrence: rec, until: rec === 'weekly' ? (this.until[r.key] || '') : '',
                                 displayQty: (q / r.factor).toLocaleString('de-DE', { maximumFractionDigits: 3 }),
                                 net: Math.round((q / r.factor) * r.net * 100) / 100,
+                                // On request: seasonal grade (no cap) or amount over stock.
+                                onRequest: r.cap === null || q > r.cap,
                             };
                         });
                 },
                 get lineCount() { return this.basketLines.length; },
                 get totalCount() { return this.lineCount + this.filledSpecials.length; },
+                // Lines that will need admin confirmation (specials always do).
+                get onRequestCount() {
+                    return this.basketLines.filter((l) => l.onRequest).length + this.filledSpecials.length;
+                },
                 get hasAnything() { return this.totalCount > 0; },
                 get netTotal() { return this.basketLines.reduce((s, l) => s + l.net, 0); },
                 formatEur(v) { return (v || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }); },
