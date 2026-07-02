@@ -164,6 +164,34 @@ class RestaurantInvoiceTest extends TestCase
         $this->assertNull($submitted->refresh()->invoice_number);
     }
 
+    public function test_admin_can_mark_invoice_paid_once(): void
+    {
+        $svc = app(RestaurantInvoiceService::class);
+        $order = $this->confirmedOrder();
+        $svc->updatePricing($order, [['id' => $order->items()->firstOrFail()->id, 'net_total_eur' => 50, 'vat_rate_percent' => 7]]);
+        $svc->issueInvoice($order);
+        $admin = User::factory()->admin()->create();
+
+        // Not paid yet; unpaid state renders on the admin card.
+        $this->assertFalse($order->refresh()->isInvoicePaid());
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.restaurant-orders.invoice-paid', $order))
+            ->assertRedirect(route('app.admin.restaurant-orders.show', $order));
+        $this->assertTrue($order->refresh()->isInvoicePaid());
+        $paidAt = $order->invoice_paid_at;
+
+        // Idempotent: a second click keeps the original timestamp.
+        $this->actingAs($admin)->post(route('app.admin.restaurant-orders.invoice-paid', $order))->assertRedirect();
+        $this->assertSame($paidAt->toIso8601String(), $order->refresh()->invoice_paid_at->toIso8601String());
+
+        // Non-admin blocked; uninvoiced order blocked.
+        $this->actingAs(User::factory()->create())
+            ->post(route('app.admin.restaurant-orders.invoice-paid', $order))->assertForbidden();
+        $fresh = $this->confirmedOrder();
+        $this->actingAs($admin)->post(route('app.admin.restaurant-orders.invoice-paid', $fresh))->assertForbidden();
+    }
+
     public function test_admin_issue_route_mails_invoice_and_blocks_non_admin(): void
     {
         Mail::fake();

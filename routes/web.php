@@ -436,6 +436,7 @@ Route::middleware(['auth', 'verified'])
             Route::post('restaurant-orders/{restaurantOrder}/items/{item}/decline', [AdminRestaurantOrderController::class, 'declineLine'])->name('restaurant-orders.decline-line');
             Route::post('restaurant-orders/{restaurantOrder}/pricing', [AdminRestaurantOrderController::class, 'updatePricing'])->name('restaurant-orders.pricing');
             Route::post('restaurant-orders/{restaurantOrder}/invoice', [AdminRestaurantOrderController::class, 'issueInvoice'])->name('restaurant-orders.invoice');
+            Route::post('restaurant-orders/{restaurantOrder}/invoice/paid', [AdminRestaurantOrderController::class, 'markPaid'])->name('restaurant-orders.invoice-paid');
             Route::get('audit-events', [AdminAuditEventController::class, 'index'])->name('audit-events.index');
             Route::get('search', AdminSearchController::class)
                 ->middleware('throttle:60,1')

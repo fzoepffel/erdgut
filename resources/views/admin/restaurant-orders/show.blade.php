@@ -110,10 +110,31 @@
 
             @if ($order->isInvoiced())
                 {{-- Invoiced: frozen, with a download link --}}
-                <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
-                    <p class="font-semibold">{{ __('restaurant.admin_invoice_issued', ['number' => $order->invoice_number]) }}</p>
-                    <p class="mt-1">{{ __('restaurant.admin_invoice_dated', ['date' => optional($order->invoiced_at)->format('d.m.Y'), 'due' => optional($order->invoice_due_date)->format('d.m.Y')]) }}</p>
-                    <a href="{{ route('app.admin.restaurant-orders.invoice-pdf', $order) }}" class="mt-2 inline-block font-medium text-emerald-800 underline">{{ __('restaurant.invoice_download') }}</a>
+                <div class="rounded-lg border p-5 text-sm {{ $order->isInvoicePaid() ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : ($order->isInvoiceOverdue() ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-amber-200 bg-amber-50 text-amber-900') }}">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p class="font-semibold">{{ __('restaurant.admin_invoice_issued', ['number' => $order->invoice_number]) }}
+                                @if ($order->isInvoicePaid())
+                                    <span class="ml-2 rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white">{{ __('restaurant.invoice_paid_badge') }}</span>
+                                @elseif ($order->isInvoiceOverdue())
+                                    <span class="ml-2 rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-medium text-white">{{ __('restaurant.invoice_overdue_badge') }}</span>
+                                @else
+                                    <span class="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-medium text-white">{{ __('restaurant.invoice_open_badge') }}</span>
+                                @endif
+                            </p>
+                            <p class="mt-1">{{ __('restaurant.admin_invoice_dated', ['date' => optional($order->invoiced_at)->format('d.m.Y'), 'due' => optional($order->invoice_due_date)->format('d.m.Y')]) }}</p>
+                            @if ($order->isInvoicePaid())
+                                <p class="mt-1">{{ __('restaurant.admin_invoice_paid_on', ['date' => $order->invoice_paid_at->format('d.m.Y')]) }}</p>
+                            @endif
+                            <a href="{{ route('app.admin.restaurant-orders.invoice-pdf', $order) }}" class="mt-2 inline-block font-medium underline">{{ __('restaurant.invoice_download') }}</a>
+                        </div>
+                        @unless ($order->isInvoicePaid())
+                            <form method="POST" action="{{ route('app.admin.restaurant-orders.invoice-paid', $order) }}">
+                                @csrf
+                                <button type="submit" data-testid="restaurant-order-mark-paid" class="rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">{{ __('restaurant.admin_invoice_mark_paid') }}</button>
+                            </form>
+                        @endunless
+                    </div>
                 </div>
             @endif
 

@@ -284,6 +284,31 @@ class AdminRestaurantOrderController extends Controller
             ->with('status', __('restaurant.admin_invoice_issued_flash', ['number' => $restaurantOrder->invoice_number]));
     }
 
+    /** Mark an issued invoice as paid (bank transfer arrived). Idempotent. */
+    public function markPaid(Request $request, RestaurantOrder $restaurantOrder): RedirectResponse
+    {
+        $this->authorize('admin');
+        abort_unless($restaurantOrder->isInvoiced(), 403);
+
+        if (! $restaurantOrder->isInvoicePaid()) {
+            $restaurantOrder->forceFill(['invoice_paid_at' => now()])->save();
+
+            AuditLogger::log(
+                entityType: 'restaurant_order',
+                entityId: (int) $restaurantOrder->id,
+                action: 'invoice_paid',
+                fromState: $restaurantOrder->status->value,
+                toState: $restaurantOrder->status->value,
+                metadata: ['channel' => 'admin', 'invoice_number' => $restaurantOrder->invoice_number],
+                actorUserId: (int) $request->user()->id,
+            );
+        }
+
+        return redirect()
+            ->route('app.admin.restaurant-orders.show', $restaurantOrder)
+            ->with('status', __('restaurant.admin_invoice_paid_flash', ['number' => $restaurantOrder->invoice_number]));
+    }
+
     public function invoicePdf(RestaurantOrder $restaurantOrder): SymfonyResponse
     {
         $this->authorize('admin');
