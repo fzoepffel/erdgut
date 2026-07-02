@@ -4035,7 +4035,7 @@
     "restaurant.landing_closing_body": "Demandez un compte professionnel — l'activation ne prend généralement qu'un instant.",
     "restaurant.nav_shop": "Boutique",
     "restaurant.tab_in_stock": "En stock",
-    "restaurant.tab_on_request": "De saison · sur demande",
+    "restaurant.tab_on_request": "De saison",
     "restaurant.tab_special": "Demande spéciale",
     "restaurant.tab_in_stock_empty": "Rien en stock ce jour-là. Voir « De saison » ou choisir un autre jour.",
     "restaurant.tab_on_request_empty": "Rien de saison sur demande pour le moment.",
@@ -4091,5 +4091,6 @@
     "restaurant.landing_how_eyebrow": "Le déroulement",
     "restaurant.landing_how_lead": "Du compte à la première livraison en quatre étapes — sans prépaiement, sur facture.",
     "restaurant.landing_step4_title": "Livraison & facture",
-    "restaurant.landing_step4_body": "Nous livrons le jour choisi ; la facture arrive en PDF avec un délai habituel."
+    "restaurant.landing_step4_body": "Nous livrons le jour choisi ; la facture arrive en PDF avec un délai habituel.",
+    "restaurant.nav_overview": "Aperçu"
 }

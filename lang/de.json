@@ -4035,7 +4035,7 @@
     "restaurant.landing_closing_body": "Beantragen Sie ein Geschäftskonto – die Freischaltung dauert in der Regel nur kurz.",
     "restaurant.nav_shop": "Shop",
     "restaurant.tab_in_stock": "Auf Lager",
-    "restaurant.tab_on_request": "In Saison · auf Anfrage",
+    "restaurant.tab_on_request": "In Saison",
     "restaurant.tab_special": "Sonderwunsch",
     "restaurant.tab_in_stock_empty": "An diesem Tag ist nichts auf Lager. Schau in „In Saison“ oder wähle einen anderen Tag.",
     "restaurant.tab_on_request_empty": "Aktuell nichts in Saison auf Anfrage.",
@@ -4091,5 +4091,6 @@
     "restaurant.landing_how_eyebrow": "Der Ablauf",
     "restaurant.landing_how_lead": "Vom Konto zur ersten Lieferung in vier Schritten — ohne Vorkasse, auf Rechnung.",
     "restaurant.landing_step4_title": "Lieferung & Rechnung",
-    "restaurant.landing_step4_body": "Wir liefern an Ihren Wunschtag; die Rechnung kommt als PDF mit üblichem Zahlungsziel."
+    "restaurant.landing_step4_body": "Wir liefern an Ihren Wunschtag; die Rechnung kommt als PDF mit üblichem Zahlungsziel.",
+    "restaurant.nav_overview": "Übersicht"
 }

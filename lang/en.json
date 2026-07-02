@@ -4035,7 +4035,7 @@
     "restaurant.landing_closing_body": "Apply for a business account — approval usually only takes a moment.",
     "restaurant.nav_shop": "Shop",
     "restaurant.tab_in_stock": "In stock",
-    "restaurant.tab_on_request": "In season · on request",
+    "restaurant.tab_on_request": "In season",
     "restaurant.tab_special": "Special request",
     "restaurant.tab_in_stock_empty": "Nothing in stock on this day. Check “In season” or pick another day.",
     "restaurant.tab_on_request_empty": "Nothing in season on request right now.",
@@ -4091,5 +4091,6 @@
     "restaurant.landing_how_eyebrow": "How it works",
     "restaurant.landing_how_lead": "From account to first delivery in four steps — no prepayment, by invoice.",
     "restaurant.landing_step4_title": "Delivery & invoice",
-    "restaurant.landing_step4_body": "We deliver on your chosen day; the invoice arrives as a PDF with standard terms."
+    "restaurant.landing_step4_body": "We deliver on your chosen day; the invoice arrives as a PDF with standard terms.",
+    "restaurant.nav_overview": "Overview"
 }
