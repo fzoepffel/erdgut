@@ -216,9 +216,14 @@ class RestaurantCatalogService
 
         $build = function (?int $variantId, ?string $label, float $grossCanonical) use ($product, $date, $factor, $vatRate, $step, $unitSymbol, $unitKind, $inSeason): ?array {
             $remaining = $this->inventory->remainingForGrade($product, $date, $variantId, ShopStockAudience::BusinessTrade);
-            $cap = $inSeason ? null : floor($remaining / $step) * $step;
-            if ($cap !== null && $cap <= 0) {
-                return null; // no stock, not seasonal → not orderable
+            // `cap` is ALWAYS the real floored stock (the shop's hard maximum) —
+            // including for seasonal products that happen to be in stock. A
+            // seasonal grade with no stock keeps cap 0 (only requestable, and the
+            // Anfragen side ignores the cap); a non-seasonal grade with no stock
+            // is dropped entirely (nothing to order or request).
+            $cap = floor($remaining / $step) * $step;
+            if (! $inSeason && $cap <= 0) {
+                return null;
             }
 
             $grossPerDisplay = round($grossCanonical * $factor, 2);

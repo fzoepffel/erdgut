@@ -5,6 +5,9 @@
         $jsRows = [];
         foreach ($products as $row) {
             foreach ($row['grades'] as $grade) {
+                if (($grade['cap'] ?? 0) <= 0) {
+                    continue; // this grade has no stock — not sellable in the shop
+                }
                 $jsRows[] = [
                     'key' => $grade['key'],
                     'productId' => $row['product']->id,
@@ -52,7 +55,13 @@
                 <h1 class="mt-2 font-display text-3xl text-shop-foreground sm:text-4xl">{{ __('restaurant.catalog_title') }}</h1>
 
                 @if ($selectableDates->isEmpty())
-                    <div class="shop-card mt-8 p-8 text-center text-shop-muted">{{ __('restaurant.no_open_days') }}</div>
+                    <div class="shop-card mt-8 p-8 text-center" data-testid="restaurant-no-stock-days">
+                        <p class="text-shop-muted">{{ __('restaurant.no_stock_days') }}</p>
+                        @if ($hasOpenDays)
+                            <a href="{{ route('app.restaurant.requests.index') }}"
+                               class="mt-4 inline-block border border-shop-primary px-5 py-2 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary transition hover:bg-shop-primary hover:text-shop-primary-foreground">{{ __('restaurant.teaser_cta') }} &rarr;</a>
+                        @endif
+                    </div>
                 @else
                     <div class="relative mt-8 max-w-xl" @keydown.escape="dateOpen = false" @click.outside="dateOpen = false">
                         <p class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.catalog_date_label') }}</p>
@@ -168,9 +177,10 @@
                                         <p class="mt-3 font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary">{{ $product->producer->name }}</p>
                                     @endif
 
-                                    {{-- Grade rows: net price + capped quantity dropdown + recurrence --}}
+                                    {{-- Grade rows: net price + capped quantity dropdown + recurrence.
+                                         Grades without stock are not sellable here. --}}
                                     <div class="mt-4 space-y-3">
-                                        @foreach ($row['grades'] as $grade)
+                                        @foreach (array_filter($row['grades'], fn ($g) => ($g['cap'] ?? 0) > 0) as $grade)
                                             <div class="border-t border-shop-border/60 pt-3 first:border-t-0 first:pt-0">
                                                 <div class="flex items-center justify-between gap-3">
                                                     <div class="min-w-0">
