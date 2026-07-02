@@ -56,12 +56,12 @@ class AdminRestaurantOrderTest extends TestCase
         ]);
     }
 
-    /** Mixed order: an in-stock line (reserved) + an on-request line (pending). */
+    /** A request: two lines, both pending admin review, nothing reserved. */
     private function submittedOrder(): RestaurantOrder
     {
         $profile = RestaurantProfile::factory()->verified()->create();
 
-        return app(RestaurantOrderService::class)->submit($profile->user, [
+        return app(RestaurantOrderService::class)->submitRequest($profile->user, [
             'items' => [
                 ['product_id' => $this->product->id, 'variant_id' => null, 'quantity' => 10],
                 ['product_id' => $this->onRequestProduct->id, 'variant_id' => null, 'quantity' => 3],
@@ -112,8 +112,9 @@ class AdminRestaurantOrderTest extends TestCase
             ->assertRedirect(route('app.admin.restaurant-orders.show', $order));
 
         $this->assertSame(RestaurantOrderStatus::Confirmed, $order->fresh()->status);
-        // Confirm keeps the hold.
-        $this->assertEqualsWithDelta(40.0, $this->remaining(), 0.01);
+        // Requests never reserve — confirming accepts the lines, sourcing is
+        // the admin's job; availability is untouched.
+        $this->assertEqualsWithDelta(50.0, $this->remaining(), 0.01);
 
         $this->assertDatabaseHas('audit_events', [
             'entity_type' => 'restaurant_order',
@@ -129,12 +130,11 @@ class AdminRestaurantOrderTest extends TestCase
         $order = $this->submittedOrder();
         $admin = User::factory()->admin()->create();
 
-        $this->assertEqualsWithDelta(40.0, $this->remaining(), 0.01); // held while submitted
+        $this->assertEqualsWithDelta(50.0, $this->remaining(), 0.01); // requests hold nothing
 
         $this->actingAs($admin)->post(route('app.admin.restaurant-orders.decline', $order))->assertRedirect();
 
         $this->assertSame(RestaurantOrderStatus::Declined, $order->fresh()->status);
-        // Declining releases the hold.
         $this->assertEqualsWithDelta(50.0, $this->remaining(), 0.01);
         Mail::assertSent(RestaurantOrderDeclinedMail::class, fn ($m) => $m->hasTo($order->user->email));
     }
@@ -157,35 +157,40 @@ class AdminRestaurantOrderTest extends TestCase
         Mail::assertNotSent(RestaurantOrderDeclinedMail::class);
     }
 
-    public function test_accept_line_settles_order_to_confirmed(): void
+    public function test_accept_lines_settles_request_to_confirmed(): void
     {
         Mail::fake();
-        $order = $this->submittedOrder(); // in-stock (confirmed) + on-request (pending)
+        $order = $this->submittedOrder(); // a request: BOTH lines pending
         $admin = User::factory()->admin()->create();
-        $pending = $order->items->first(fn ($i) => $i->line_status === RestaurantOrderLineStatus::Requested);
+        [$first, $second] = $order->items->all();
 
+        // Accepting one line: the request stays under review (one still pends).
         $this->actingAs($admin)
-            ->post(route('app.admin.restaurant-orders.accept-line', [$order, $pending]))
+            ->post(route('app.admin.restaurant-orders.accept-line', [$order, $first]))
             ->assertRedirect(route('app.admin.restaurant-orders.show', $order));
+        $this->assertSame(RestaurantOrderLineStatus::Confirmed, $first->fresh()->line_status);
+        $this->assertSame(RestaurantOrderStatus::Submitted, $order->fresh()->status);
+        Mail::assertNotSent(RestaurantOrderConfirmedMail::class);
 
-        $this->assertSame(RestaurantOrderLineStatus::Confirmed, $pending->fresh()->line_status);
-        // Last pending line resolved → the whole order confirms + the restaurant is mailed.
+        // Accepting the last pending line settles the request + mails.
+        $this->actingAs($admin)
+            ->post(route('app.admin.restaurant-orders.accept-line', [$order, $second]))
+            ->assertRedirect();
         $this->assertSame(RestaurantOrderStatus::Confirmed, $order->fresh()->status);
         Mail::assertSent(RestaurantOrderConfirmedMail::class);
     }
 
-    public function test_decline_line_keeps_order_confirmed_when_in_stock_line_survives(): void
+    public function test_decline_line_settles_request_when_other_line_accepted(): void
     {
         $order = $this->submittedOrder();
         $admin = User::factory()->admin()->create();
-        $pending = $order->items->first(fn ($i) => $i->line_status === RestaurantOrderLineStatus::Requested);
+        [$first, $second] = $order->items->all();
 
-        $this->actingAs($admin)
-            ->post(route('app.admin.restaurant-orders.decline-line', [$order, $pending]))
-            ->assertRedirect();
+        $this->actingAs($admin)->post(route('app.admin.restaurant-orders.accept-line', [$order, $first]))->assertRedirect();
+        $this->actingAs($admin)->post(route('app.admin.restaurant-orders.decline-line', [$order, $second]))->assertRedirect();
 
-        $this->assertSame(RestaurantOrderLineStatus::Declined, $pending->fresh()->line_status);
-        // The in-stock line survives, so the order still confirms.
+        $this->assertSame(RestaurantOrderLineStatus::Declined, $second->fresh()->line_status);
+        // A line survives → the request confirms (declined line excluded).
         $this->assertSame(RestaurantOrderStatus::Confirmed, $order->fresh()->status);
     }
 
@@ -194,7 +199,7 @@ class AdminRestaurantOrderTest extends TestCase
         Mail::fake();
         // All-in-stock order → auto-confirmed.
         $profile = RestaurantProfile::factory()->verified()->create();
-        $order = app(RestaurantOrderService::class)->submit($profile->user, [
+        $order = app(RestaurantOrderService::class)->submitOrder($profile->user, [
             'items' => [['product_id' => $this->product->id, 'variant_id' => null, 'quantity' => 10]],
             'expected_delivery_date' => $this->date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',

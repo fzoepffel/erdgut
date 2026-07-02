@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Restaurant;
 
 use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
+use App\Enums\ShopStockAudience;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Restaurant\RestaurantOrderRequest;
 use App\Mail\RestaurantOrderSubmittedMail;
 use App\Models\RestaurantOrder;
+use App\Services\Admin\InventoryService;
 use App\Services\Restaurant\RestaurantCatalogService;
 use App\Services\Restaurant\RestaurantInvoiceService;
 use App\Services\Restaurant\RestaurantOrderService;
@@ -29,8 +31,10 @@ class RestaurantOrderController extends Controller
 
     public function index(Request $request): View
     {
+        // Shop orders only — requests live in the Anfragen area.
         $orders = RestaurantOrder::query()
             ->where('user_id', $request->user()->id)
+            ->orders()
             ->withCount('items')
             ->latest()
             ->paginate(20);
@@ -42,7 +46,9 @@ class RestaurantOrderController extends Controller
     {
         $items = $request->validated('items');
 
-        $order = $this->orders->submit($request->user(), [
+        // Shop checkout: in-stock catalog lines only — over-stock or free-form
+        // lines are a 422 (they belong in the Anfragen area).
+        $order = $this->orders->submitOrder($request->user(), [
             'items' => $items,
             'expected_delivery_date' => $request->validated('expected_delivery_date'),
             'delivery_street' => $request->validated('delivery_street'),
@@ -88,32 +94,53 @@ class RestaurantOrderController extends Controller
     }
 
     /**
-     * One-click reorder: copy a previous order's lines into a NEW order for the
-     * next open delivery day. Prices and stock are resolved fresh by the normal
-     * submit() path (in-stock lines confirm instantly, the rest go on request).
-     * Declined lines are skipped; recurrence never carries over (one-time).
+     * One-click reorder: copy a previous shop order's lines into a NEW order
+     * for the next open delivery day. Each line is clamped to today's stock
+     * (dropped when nothing remains) so the reorder is always a firm, fully
+     * reserved order; a flash lists what was adjusted. Orders only.
      */
     public function reorder(Request $request, RestaurantOrder $restaurantOrder, RestaurantCatalogService $catalog): RedirectResponse
     {
         abort_unless($restaurantOrder->user_id === $request->user()->id, 403);
+        abort_if($restaurantOrder->isRequest(), 404);
 
         $nextDay = $catalog->selectableDates()->first();
         abort_unless($nextDay !== null, 422);
 
-        $items = $restaurantOrder->items()
-            ->where('line_status', '!=', RestaurantOrderLineStatus::Declined->value)
-            ->get()
-            ->map(fn ($item) => $item->product_id !== null
-                ? ['product_id' => $item->product_id, 'variant_id' => $item->variant_id, 'quantity' => (float) $item->quantity]
-                : ['name' => $item->name_snapshot, 'unit' => $item->unit, 'quantity' => (float) $item->quantity])
-            ->values()
-            ->all();
+        $inventory = app(InventoryService::class);
+        $date = $nextDay['date'];
+        $adjusted = [];
+        $items = [];
 
-        if ($items === []) {
-            return redirect()->route('app.restaurant.orders.show', $restaurantOrder);
+        $sourceItems = $restaurantOrder->items()
+            ->whereNotNull('product_id')
+            ->where('line_status', '!=', RestaurantOrderLineStatus::Declined->value)
+            ->with('product')
+            ->get();
+        foreach ($sourceItems as $item) {
+            if ($item->product === null) {
+                continue;
+            }
+            $remaining = $inventory->availableOnDate($item->product, $date, ShopStockAudience::BusinessTrade, $item->variant_id ?? 0);
+            $qty = min((float) $item->quantity, max(0.0, $remaining));
+            if ($qty <= 0) {
+                $adjusted[] = $item->displayName();
+
+                continue;
+            }
+            if ($qty < (float) $item->quantity) {
+                $adjusted[] = $item->displayName();
+            }
+            $items[] = ['product_id' => $item->product_id, 'variant_id' => $item->variant_id, 'quantity' => $qty];
         }
 
-        $order = $this->orders->submit($request->user(), [
+        if ($items === []) {
+            return redirect()
+                ->route('app.restaurant.orders.show', $restaurantOrder)
+                ->with('status', 'restaurant-reorder-empty');
+        }
+
+        $order = $this->orders->submitOrder($request->user(), [
             'items' => $items,
             'expected_delivery_date' => $nextDay['date']->toDateString(),
             'delivery_street' => $restaurantOrder->delivery_street,
@@ -134,7 +161,8 @@ class RestaurantOrderController extends Controller
 
         return redirect()
             ->route('app.restaurant.orders.show', $order)
-            ->with('status', 'restaurant-order-submitted');
+            ->with('status', 'restaurant-order-submitted')
+            ->with('reorder_adjusted', $adjusted);
     }
 
     public function show(Request $request, RestaurantOrder $restaurantOrder): View

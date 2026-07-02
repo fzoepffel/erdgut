@@ -25,15 +25,15 @@ class RestaurantStandingOrderTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function product(): Product
+    private function product(array $attrs = []): Product
     {
         Producer::factory()->create();
 
-        return Product::factory()->create([
+        return Product::factory()->create(array_merge([
             'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece',
             'unit_price' => 10.00, 'vat_rate_percent' => 7,
             'is_available' => true, 'is_published' => true,
-        ]);
+        ], $attrs));
     }
 
     private function verifiedRestaurant(): User
@@ -47,6 +47,10 @@ class RestaurantStandingOrderTest extends TestCase
     /** Submit a first order with a weekly + a one-time line via HTTP. */
     private function submitRecurring(User $user, Product $weekly, Product $oneTime, Carbon $date): RestaurantOrder
     {
+        // The shop sells only what's in stock — make sure both lines fit.
+        if (! ProductStockInflow::where('product_id', $oneTime->id)->exists()) {
+            ProductStockInflow::create(['product_id' => $oneTime->id, 'received_on' => $date->toDateString(), 'quantity' => 50, 'freshness_window_days' => 3]);
+        }
         $this->actingAs($user)->post(route('app.restaurant.orders.store'), [
             'items' => [
                 ['product_id' => $weekly->id, 'variant_id' => null, 'quantity' => 5, 'recurrence' => 'weekly'],
@@ -83,17 +87,24 @@ class RestaurantStandingOrderTest extends TestCase
         $this->assertSame($date->copy()->addWeek()->toDateString(), $item->starts_on->toDateString());
     }
 
-    public function test_confirming_first_order_activates_standing_order(): void
+    public function test_confirming_a_recurring_request_activates_standing_order(): void
     {
+        // A weekly SEASONAL line goes through the Anfragen area: the standing
+        // order stays pending until the admin confirms the request.
         $date = Carbon::tomorrow();
-        $p = $this->product();
-        ProductStockInflow::create(['product_id' => $p->id, 'received_on' => $date->toDateString(), 'quantity' => 50, 'freshness_window_days' => 3]);
+        $p = $this->product(['is_seasonal' => true]);
         $user = $this->verifiedRestaurant();
-        $order = $this->submitRecurring($user, $p, $this->product(), $date);
 
+        $this->actingAs($user)->post(route('app.restaurant.requests.store'), [
+            'items' => [['product_id' => $p->id, 'variant_id' => null, 'quantity' => 5, 'recurrence' => 'weekly']],
+            'expected_delivery_date' => $date->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ])->assertRedirect();
+        $order = RestaurantOrder::latest()->firstOrFail();
+        $this->assertTrue($order->isRequest());
         $this->assertTrue(RestaurantStandingOrder::firstOrFail()->isPending());
 
-        app(RestaurantOrderService::class)->confirm($order->refresh());
+        app(RestaurantOrderService::class)->confirm($order);
 
         $this->assertSame(RestaurantStandingOrderStatus::Active, RestaurantStandingOrder::firstOrFail()->status);
     }

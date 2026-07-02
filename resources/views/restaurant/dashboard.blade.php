@@ -49,8 +49,8 @@
             </x-reveal>
         </dl>
 
-        {{-- ── Upcoming deliveries + weekly + invoices ─────────────────── --}}
-        <div class="mt-12 grid gap-6 lg:grid-cols-3">
+        {{-- ── Upcoming deliveries + requests + weekly + invoices ──────── --}}
+        <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {{-- Upcoming --}}
             <div class="shop-card p-5 lg:col-span-1">
                 <p class="eyebrow text-shop-primary">{{ __('restaurant.dashboard_upcoming_title') }}</p>
@@ -64,6 +64,22 @@
                         <p class="py-2.5 text-sm text-shop-muted">{{ __('restaurant.dashboard_upcoming_empty') }}</p>
                     @endforelse
                 </div>
+            </div>
+
+            {{-- Open requests (awaiting the Erdgut team) --}}
+            <div class="shop-card p-5 lg:col-span-1">
+                <p class="eyebrow text-amber-700">{{ __('restaurant.dashboard_requests_title') }}</p>
+                <div class="mt-3 divide-y divide-shop-border/60">
+                    @forelse ($openRequests as $req)
+                        <a href="{{ route('app.restaurant.orders.show', $req) }}" class="flex items-center justify-between gap-2 py-2.5 hover:text-shop-primary">
+                            <span class="text-sm text-shop-foreground">{{ __('restaurant.request_ref', ['id' => $req->id]) }}</span>
+                            <span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-800">{{ __('restaurant.order_status_'.$req->status->value) }}</span>
+                        </a>
+                    @empty
+                        <p class="py-2.5 text-sm text-shop-muted">{{ __('restaurant.dashboard_requests_empty') }}</p>
+                    @endforelse
+                </div>
+                <a href="{{ route('app.restaurant.requests.index') }}" class="mt-3 inline-block font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">{{ __('restaurant.nav_requests') }} &rarr;</a>
             </div>
 
             {{-- Weekly deliveries --}}
@@ -132,13 +148,13 @@
                     <p class="mt-2 text-sm leading-relaxed text-shop-muted">{{ __('restaurant.opportunity_weekly_body') }}</p>
                     <span class="mt-3 inline-block font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary group-hover:underline">{{ __('restaurant.dashboard_cta') }} &rarr;</span>
                 </x-reveal>
-                <x-reveal as="a" href="{{ route('app.restaurant.catalog') }}" style="--i:1" class="group border-t-2 border-chapter-eggdairy pt-5">
+                <x-reveal as="a" href="{{ route('app.restaurant.requests.index') }}" style="--i:1" class="group border-t-2 border-chapter-eggdairy pt-5">
                     <p class="eyebrow text-chapter-eggdairy">02</p>
                     <h3 class="mt-2 font-display text-2xl text-shop-foreground">{{ __('restaurant.opportunity_amounts_title') }}</h3>
                     <p class="mt-2 text-sm leading-relaxed text-shop-muted">{{ __('restaurant.opportunity_amounts_body') }}</p>
                     <span class="mt-3 inline-block font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary group-hover:underline">{{ __('restaurant.dashboard_cta') }} &rarr;</span>
                 </x-reveal>
-                <x-reveal as="a" href="{{ route('app.restaurant.catalog') }}" style="--i:2" class="group border-t-2 border-chapter-almanach pt-5">
+                <x-reveal as="a" href="{{ route('app.restaurant.requests.index') }}" style="--i:2" class="group border-t-2 border-chapter-almanach pt-5">
                     <p class="eyebrow text-chapter-almanach">03</p>
                     <h3 class="mt-2 font-display text-2xl text-shop-foreground">{{ __('restaurant.opportunity_special_title') }}</h3>
                     <p class="mt-2 text-sm leading-relaxed text-shop-muted">{{ __('restaurant.opportunity_special_body') }}</p>

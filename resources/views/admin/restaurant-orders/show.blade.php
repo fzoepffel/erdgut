@@ -6,12 +6,19 @@
                 <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('restaurant.order_ref', ['id' => $order->id]) }}</h1>
             </div>
             @php $status = $order->status->value; @endphp
-            <span @class([
-                'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium',
-                'bg-amber-100 text-amber-800' => $status === 'submitted',
-                'bg-green-100 text-green-800' => $status === 'confirmed' || $status === 'fulfilled',
-                'bg-gray-100 text-gray-600' => $status === 'cancelled' || $status === 'declined',
-            ])>{{ __('restaurant.order_status_'.$status) }}</span>
+            <span class="flex items-center gap-2">
+                <span @class([
+                    'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium',
+                    'bg-emerald-50 text-emerald-700' => ! $order->isRequest(),
+                    'bg-amber-100 text-amber-800' => $order->isRequest(),
+                ])>{{ __('restaurant.kind_'.$order->kind->value) }}</span>
+                <span @class([
+                    'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium',
+                    'bg-amber-100 text-amber-800' => $status === 'submitted',
+                    'bg-green-100 text-green-800' => $status === 'confirmed' || $status === 'fulfilled',
+                    'bg-gray-100 text-gray-600' => $status === 'cancelled' || $status === 'declined',
+                ])>{{ __('restaurant.order_status_'.$status) }}</span>
+            </span>
         </div>
     </x-slot>
 

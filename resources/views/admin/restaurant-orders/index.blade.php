@@ -1,14 +1,29 @@
 <x-admin-layout>
     <x-slot name="header">
-        <div>
-            <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('restaurant.admin_orders_title') }}</h1>
-            <span class="text-sm text-gray-500">{{ __('restaurant.admin_orders_subtitle', ['count' => $orders->total()]) }}</span>
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('restaurant.admin_orders_title') }}</h1>
+                <span class="text-sm text-gray-500">{{ __('restaurant.admin_orders_subtitle', ['count' => $orders->total()]) }}</span>
+            </div>
+            @if ($openRequests > 0)
+                <a href="{{ route('app.admin.restaurant-orders.index', ['kind' => 'request', 'status' => 'submitted']) }}"
+                   class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200" data-testid="admin-open-requests">
+                    {{ trans_choice('restaurant.admin_open_requests', $openRequests, ['count' => $openRequests]) }}
+                </a>
+            @endif
         </div>
     </x-slot>
 
     <div class="py-8">
         <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <form method="GET" class="mb-4 flex items-center gap-2">
+            <form method="GET" class="mb-4 flex flex-wrap items-center gap-3">
+                <label for="kind" class="text-sm text-gray-500">{{ __('restaurant.admin_kind') }}</label>
+                <select id="kind" name="kind" onchange="this.form.submit()" class="rounded border-gray-300 text-sm">
+                    <option value="">{{ __('restaurant.admin_orders_all') }}</option>
+                    @foreach ($kinds as $k)
+                        <option value="{{ $k->value }}" @selected($activeKind === $k)>{{ __('restaurant.kind_'.$k->value) }}</option>
+                    @endforeach
+                </select>
                 <label for="status" class="text-sm text-gray-500">{{ __('restaurant.admin_status') }}</label>
                 <select id="status" name="status" onchange="this.form.submit()" class="rounded border-gray-300 text-sm">
                     <option value="">{{ __('restaurant.admin_orders_all') }}</option>
@@ -35,7 +50,14 @@
                         @forelse ($orders as $order)
                             @php $status = $order->status->value; @endphp
                             <tr>
-                                <td class="px-4 py-3 font-medium text-gray-800">{{ $order->id }}</td>
+                                <td class="px-4 py-3 font-medium text-gray-800">
+                                    {{ $order->id }}
+                                    <span @class([
+                                        'ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                                        'bg-emerald-50 text-emerald-700' => ! $order->isRequest(),
+                                        'bg-amber-100 text-amber-800' => $order->isRequest(),
+                                    ])>{{ __('restaurant.kind_'.$order->kind->value) }}</span>
+                                </td>
                                 <td class="px-4 py-3 text-gray-600">{{ $order->user?->name ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-600">{{ $order->expected_delivery_date->format('d.m.Y') }}</td>
                                 <td class="px-4 py-3">

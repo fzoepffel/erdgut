@@ -130,7 +130,7 @@ class RestaurantOrderTest extends TestCase
         ]);
         $user = $this->verifiedRestaurant();
 
-        app(RestaurantOrderService::class)->submit($user, [
+        app(RestaurantOrderService::class)->submitRequest($user, [
             'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 5]],
             'expected_delivery_date' => $date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
@@ -153,7 +153,7 @@ class RestaurantOrderTest extends TestCase
         ]);
         $user = $this->verifiedRestaurant();
 
-        $order = app(RestaurantOrderService::class)->submit($user, [
+        $order = app(RestaurantOrderService::class)->submitOrder($user, [
             'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 2]],
             'expected_delivery_date' => $date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
@@ -162,6 +162,42 @@ class RestaurantOrderTest extends TestCase
         $item = $order->items()->firstOrFail();
         $this->assertEqualsWithDelta(8.00, (float) $item->unit_price_snapshot_eur, 0.001);
         $this->assertEqualsWithDelta(16.00, (float) $item->line_total_eur, 0.01);
+    }
+
+    public function test_shop_rejects_over_stock_line_with_422(): void
+    {
+        $date = Carbon::tomorrow();
+        $product = $this->product();
+        $this->stock($product, $date, 10);
+        $user = $this->verifiedRestaurant();
+
+        $this->actingAs($user)->post(route('app.restaurant.orders.store'), [
+            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 50]],
+            'expected_delivery_date' => $date->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ])->assertSessionHasErrors('items');
+
+        // Never silently converted into a request.
+        $this->assertSame(0, RestaurantOrder::count());
+    }
+
+    public function test_reorder_clamps_lines_to_current_stock(): void
+    {
+        $date = Carbon::tomorrow();
+        $product = $this->product();
+        $this->stock($product, $date, 50);
+        $user = $this->verifiedRestaurant();
+        $original = app(RestaurantOrderService::class)->submitOrder($user, [
+            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 40]],
+            'expected_delivery_date' => $date->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ]);
+
+        // Only 10 remain (40 of 50 reserved) → the reorder clamps to 10.
+        $this->actingAs($user)->post(route('app.restaurant.orders.reorder', $original))->assertRedirect();
+        $new = RestaurantOrder::latest('id')->firstOrFail();
+        $this->assertEqualsWithDelta(10.0, (float) $new->items()->firstOrFail()->quantity, 0.001);
+        $this->assertSame(RestaurantOrderStatus::Confirmed, $new->status);
     }
 
     public function test_submit_rejects_closed_date(): void
@@ -187,7 +223,7 @@ class RestaurantOrderTest extends TestCase
         $product = $this->product();
         $this->stock($product, $date, 50);
         $user = $this->verifiedRestaurant();
-        $order = app(RestaurantOrderService::class)->submit($user, [
+        $order = app(RestaurantOrderService::class)->submitOrder($user, [
             'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 10]],
             'expected_delivery_date' => $date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
@@ -211,7 +247,7 @@ class RestaurantOrderTest extends TestCase
         $product = $this->product();
         $this->stock($product, $date, 50);
         $user = $this->verifiedRestaurant();
-        $original = app(RestaurantOrderService::class)->submit($user, [
+        $original = app(RestaurantOrderService::class)->submitOrder($user, [
             'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 10]],
             'expected_delivery_date' => $date->toDateString(),
             'delivery_street' => 'Marktstr. 1', 'delivery_postal_code' => '10115', 'delivery_city' => 'Berlin',
@@ -242,7 +278,7 @@ class RestaurantOrderTest extends TestCase
         $product = $this->product();
         $this->stock($product, $date, 50);
         $owner = $this->verifiedRestaurant();
-        $order = app(RestaurantOrderService::class)->submit($owner, [
+        $order = app(RestaurantOrderService::class)->submitOrder($owner, [
             'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 1]],
             'expected_delivery_date' => $date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',

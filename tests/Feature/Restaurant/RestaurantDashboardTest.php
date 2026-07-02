@@ -48,7 +48,7 @@ class RestaurantDashboardTest extends TestCase
         $profile->user->forceFill(['locale' => 'de'])->save();
 
         // One upcoming order.
-        $order = app(RestaurantOrderService::class)->submit($profile->user, [
+        $order = app(RestaurantOrderService::class)->submitOrder($profile->user, [
             'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 5]],
             'expected_delivery_date' => $date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',

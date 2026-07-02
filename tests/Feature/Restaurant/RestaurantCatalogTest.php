@@ -89,7 +89,6 @@ class RestaurantCatalogTest extends TestCase
             ->get(route('app.restaurant.catalog'))
             ->assertOk()
             ->assertSee($product->name)
-            ->assertSee(__('restaurant.in_stock')) // "Auf Lager"
             ->assertSee('9,35'); // 10.00 gross - 7% VAT, net (de number format)
     }
 
@@ -101,11 +100,11 @@ class RestaurantCatalogTest extends TestCase
         $profile = RestaurantProfile::factory()->verified()->create();
         $profile->user->forceFill(['locale' => 'de'])->save();
 
-        // On the stock day the product is in stock.
+        // On the stock day the product is in the shop grid.
         $this->actingAs($profile->user)
             ->get(route('app.restaurant.catalog', ['date' => $stockDay->toDateString()]))
             ->assertOk()
-            ->assertSee(__('restaurant.in_stock'));
+            ->assertSee($product->name);
 
         // A non-seasonal product with no stock on tomorrow is absent there.
         $this->actingAs($profile->user)
@@ -114,7 +113,7 @@ class RestaurantCatalogTest extends TestCase
             ->assertDontSee($product->name);
     }
 
-    public function test_catalog_has_shop_style_chrome_tabs_nav_and_filters(): void
+    public function test_catalog_is_shop_only_with_nav_and_filters(): void
     {
         $this->app->setLocale('de');
         $this->inStockProduct(Carbon::tomorrow());
@@ -126,12 +125,11 @@ class RestaurantCatalogTest extends TestCase
             ->assertOk()
             ->assertSee('data-testid="restaurant-nav"', false)
             ->assertSee('data-testid="restaurant-date-picker"', false)
-            ->assertSee('data-testid="restaurant-tabs"', false)
             ->assertSee('data-testid="restaurant-name-filter"', false)
-            ->assertSee(__('restaurant.tab_in_stock'))
-            ->assertSee(__('restaurant.tab_on_request'))
-            ->assertSee(__('restaurant.tab_special'))
-            // nav links to the two previously-buried destinations
+            // The shop has NO tabs anymore — buying only.
+            ->assertDontSee('data-testid="restaurant-tabs"', false)
+            ->assertSee(__('restaurant.cart_trust_line'))
+            ->assertSee(route('app.restaurant.requests.index'), false)
             ->assertSee(route('app.restaurant.orders.index'), false)
             ->assertSee(route('app.restaurant.standing-orders.index'), false);
     }
@@ -171,24 +169,31 @@ class RestaurantCatalogTest extends TestCase
             ->get(route('app.restaurant.catalog'))
             ->assertOk()
             ->assertSee('recurrenceWeeks:', false)      // week data shipped to Alpine
-            ->assertSee('overStock(', false)            // amount over-stock cue wired
-            ->assertSee(__('restaurant.amount_on_request'))
+            ->assertSee('restaurant-cap-hint', false)   // hard cap + handoff to Anfragen
+            ->assertSee(__('restaurant.cap_request_link'))
             ->assertSee(__('restaurant.recurrence_open_ended'));
     }
 
-    public function test_seasonal_out_of_stock_product_shows_on_request(): void
+    public function test_seasonal_out_of_stock_product_lives_in_the_requests_area(): void
     {
         $this->app->setLocale('de');
         $product = $this->seasonalOnRequestProduct();
         $profile = RestaurantProfile::factory()->verified()->create();
         $profile->user->forceFill(['locale' => 'de'])->save();
 
+        // NOT in the shop — the shop only teases the season count.
         $this->actingAs($profile->user)
             ->get(route('app.restaurant.catalog'))
             ->assertOk()
+            ->assertDontSee('data-product-id="'.$product->id.'"', false)
+            ->assertSee('data-testid="restaurant-season-teaser"', false);
+
+        // But requestable in the Anfragen area.
+        $this->actingAs($profile->user)
+            ->get(route('app.restaurant.requests.index'))
+            ->assertOk()
             ->assertSee($product->name)
-            ->assertSee(__('restaurant.on_request')) // "auf Anfrage" badge
-            // tagged into the season tab, not the in-stock tab
-            ->assertSee('data-tab="season"', false);
+            ->assertSee('data-testid="requests-season-list"', false)
+            ->assertSee(__('restaurant.request_submit'));
     }
 }

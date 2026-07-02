@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\RestaurantOrderKind;
 use App\Enums\RestaurantOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminPriceRestaurantOrderRequest;
@@ -38,21 +39,32 @@ class AdminRestaurantOrderController extends Controller
         $this->authorize('admin');
 
         $status = RestaurantOrderStatus::tryFrom((string) $request->query('status', ''));
+        $kind = RestaurantOrderKind::tryFrom((string) $request->query('kind', ''));
 
         $orders = RestaurantOrder::query()
             ->with('user')
             ->withCount('items')
             ->when($status !== null, fn ($q) => $q->where('status', $status->value))
+            ->when($kind !== null, fn ($q) => $q->where('kind', $kind->value))
             // Submitted (awaiting action) first, then newest.
             ->orderByRaw("CASE WHEN status = '".RestaurantOrderStatus::Submitted->value."' THEN 0 ELSE 1 END")
             ->latest()
             ->paginate(30)
             ->withQueryString();
 
+        // Open requests need admin action — surface the count in the heading.
+        $openRequests = RestaurantOrder::query()
+            ->requests()
+            ->where('status', RestaurantOrderStatus::Submitted->value)
+            ->count();
+
         return view('admin.restaurant-orders.index', [
             'orders' => $orders,
             'statuses' => RestaurantOrderStatus::cases(),
             'activeStatus' => $status,
+            'kinds' => RestaurantOrderKind::cases(),
+            'activeKind' => $kind,
+            'openRequests' => $openRequests,
         ]);
     }
 

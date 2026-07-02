@@ -21,7 +21,9 @@ class RestaurantOrderAdminNotification extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: '[Erdgut] Neue Restaurant-Anfrage #'.$this->order->id,
+            subject: $this->order->isRequest()
+                ? '[Erdgut] Neue Restaurant-Anfrage #'.$this->order->id
+                : '[Erdgut] Neue Restaurant-Bestellung #'.$this->order->id,
         );
     }
 

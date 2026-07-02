@@ -65,6 +65,7 @@ use App\Http\Controllers\Restaurant\RestaurantCatalogController;
 use App\Http\Controllers\Restaurant\RestaurantDashboardController;
 use App\Http\Controllers\Restaurant\RestaurantOrderController;
 use App\Http\Controllers\Restaurant\RestaurantRegisterController;
+use App\Http\Controllers\Restaurant\RestaurantRequestController;
 use App\Http\Controllers\Restaurant\RestaurantStandingOrderController;
 use App\Http\Controllers\Restaurant\RestaurantVerificationController;
 use App\Http\Controllers\Shop\ShopCatalogController;
@@ -349,6 +350,11 @@ Route::middleware('auth')
             Route::get('orders', [RestaurantOrderController::class, 'index'])->name('orders.index');
             Route::post('orders', [RestaurantOrderController::class, 'store'])->name('orders.store');
             Route::post('orders/{restaurantOrder}/reorder', [RestaurantOrderController::class, 'reorder'])->name('orders.reorder');
+
+            // Anfragen area: season / over-stock / free-form requests, deliberately
+            // separate from the shop (kind=request artifacts).
+            Route::get('anfragen', [RestaurantRequestController::class, 'index'])->name('requests.index');
+            Route::post('anfragen', [RestaurantRequestController::class, 'store'])->name('requests.store');
             Route::get('orders/{restaurantOrder}', [RestaurantOrderController::class, 'show'])->name('orders.show');
             Route::get('orders/{restaurantOrder}/invoice.pdf', [RestaurantOrderController::class, 'invoicePdf'])->name('orders.invoice-pdf');
             Route::post('orders/{restaurantOrder}/cancel', [RestaurantOrderController::class, 'cancel'])->name('orders.cancel');
