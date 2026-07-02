@@ -47,7 +47,7 @@ class RestaurantInvoiceTest extends TestCase
     private function confirmedOrder(?array $items = null): RestaurantOrder
     {
         $profile = RestaurantProfile::factory()->verified()->create();
-        $order = app(RestaurantOrderService::class)->submit($profile->user, [
+        $order = app(RestaurantOrderService::class)->submitOrder($profile->user, [
             'items' => $items ?? [['product_id' => $this->product->id, 'variant_id' => null, 'quantity' => 10]],
             'expected_delivery_date' => $this->date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
@@ -150,7 +150,7 @@ class RestaurantInvoiceTest extends TestCase
             'is_seasonal' => true, 'is_available' => true, 'is_published' => true,
         ]);
         $profile = RestaurantProfile::factory()->verified()->create();
-        $submitted = app(RestaurantOrderService::class)->submit($profile->user, [
+        $submitted = app(RestaurantOrderService::class)->submitRequest($profile->user, [
             'items' => [['product_id' => $seasonal->id, 'variant_id' => null, 'quantity' => 1]],
             'expected_delivery_date' => $this->date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
@@ -224,7 +224,7 @@ class RestaurantInvoiceTest extends TestCase
         ]);
         config()->set('shop.company_iban', 'DE00 1234 5678 9012 3456 00');
 
-        $order = app(RestaurantOrderService::class)->submit($profile->user, [
+        $order = app(RestaurantOrderService::class)->submitOrder($profile->user, [
             'items' => [['product_id' => $this->product->id, 'variant_id' => null, 'quantity' => 10]],
             'expected_delivery_date' => $this->date->toDateString(),
             'delivery_street' => 'Lieferstr. 2', 'delivery_postal_code' => '10117', 'delivery_city' => 'Berlin',

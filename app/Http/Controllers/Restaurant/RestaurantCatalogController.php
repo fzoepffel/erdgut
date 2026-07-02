@@ -35,9 +35,14 @@ class RestaurantCatalogController extends Controller
             ?? $selectableDates->first()['date']
             ?? null;
 
-        $products = $selectedDate instanceof Carbon
+        $rows = $selectedDate instanceof Carbon
             ? $this->catalog->productsForDate($selectedDate)
             : collect();
+
+        // The SHOP sells only what's in stock; season rows live in the Anfragen
+        // area — the shop just teases how many there are.
+        $products = $rows->filter(fn (array $row): bool => $row['inStock'])->values();
+        $seasonCount = $rows->count() - $products->count();
 
         // Upcoming weekly-delivery weeks (for the recurrence "until" picker), each
         // with per-product stock so the picker can colour weeks in stock / on request.
@@ -87,6 +92,7 @@ class RestaurantCatalogController extends Controller
             'selectableDates' => $selectableDates,
             'selectedDate' => $selectedDate,
             'products' => $products,
+            'seasonCount' => $seasonCount,
             'recurrenceWeeks' => $recurrenceWeeks,
             'alpineDates' => $alpineDates,
             'availableCategories' => $availableCategories,

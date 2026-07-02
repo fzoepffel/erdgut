@@ -1,7 +1,8 @@
 @extends('emails.layout')
 
 @php
-    $confirmed = $order->status === \App\Enums\RestaurantOrderStatus::Confirmed;
+    // Shop orders are confirmed instantly; requests are received + reviewed.
+    $confirmed = ! $order->isRequest();
     $headingKey = $confirmed ? 'restaurant.order_email.confirmed_heading' : 'restaurant.order_email.submitted_heading';
     $bodyKey = $confirmed ? 'restaurant.order_email.confirmed_body' : 'restaurant.order_email.submitted_body';
 @endphp

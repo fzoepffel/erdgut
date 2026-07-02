@@ -28,10 +28,21 @@ class RestaurantDashboardController extends Controller
 
         $upcoming = RestaurantOrder::query()
             ->where('user_id', $user->id)
+            ->orders()
             ->whereIn('status', [RestaurantOrderStatus::Submitted->value, RestaurantOrderStatus::Confirmed->value])
             ->whereDate('expected_delivery_date', '>=', today())
             ->withCount('items')
             ->orderBy('expected_delivery_date')
+            ->limit(3)
+            ->get();
+
+        // Requests awaiting the Erdgut team (kind=request, still submitted).
+        $openRequests = RestaurantOrder::query()
+            ->where('user_id', $user->id)
+            ->requests()
+            ->where('status', RestaurantOrderStatus::Submitted->value)
+            ->withCount('items')
+            ->latest()
             ->limit(3)
             ->get();
 
@@ -43,6 +54,7 @@ class RestaurantDashboardController extends Controller
 
         $recent = RestaurantOrder::query()
             ->where('user_id', $user->id)
+            ->orders()
             ->withCount('items')
             ->latest()
             ->limit(5)
@@ -59,6 +71,7 @@ class RestaurantDashboardController extends Controller
             'profile' => $user->restaurantProfile,
             'nextDay' => $nextDay,
             'upcoming' => $upcoming,
+            'openRequests' => $openRequests,
             'standing' => $standing,
             'recent' => $recent,
             'invoices' => $invoices,

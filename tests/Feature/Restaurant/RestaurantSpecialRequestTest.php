@@ -44,7 +44,7 @@ class RestaurantSpecialRequestTest extends TestCase
     {
         $user = $this->verifiedRestaurant();
 
-        $order = app(RestaurantOrderService::class)->submit($user, [
+        $order = app(RestaurantOrderService::class)->submitRequest($user, [
             'items' => [['name' => 'Wildkräuter', 'unit' => 'g', 'quantity' => 500]],
             'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
@@ -59,7 +59,7 @@ class RestaurantSpecialRequestTest extends TestCase
         $this->assertEqualsWithDelta(0.0, (float) $order->items_total_net_eur, 0.001);
     }
 
-    public function test_mixed_order_keeps_catalog_reservation_and_totals(): void
+    public function test_request_with_catalog_line_prices_but_never_reserves(): void
     {
         $date = Carbon::tomorrow();
         $product = $this->product();
@@ -69,7 +69,7 @@ class RestaurantSpecialRequestTest extends TestCase
         ]);
         $user = $this->verifiedRestaurant();
 
-        $order = app(RestaurantOrderService::class)->submit($user, [
+        $order = app(RestaurantOrderService::class)->submitRequest($user, [
             'items' => [
                 ['product_id' => $product->id, 'variant_id' => null, 'quantity' => 12],
                 ['name' => 'Erbsentriebe', 'unit' => 'bunch', 'quantity' => 3],
@@ -79,30 +79,45 @@ class RestaurantSpecialRequestTest extends TestCase
         ]);
 
         $this->assertSame(2, $order->items()->count());
-        // Catalog line reserved → availability dropped; the special line reserves nothing.
-        $this->assertEqualsWithDelta(38.0, app(InventoryService::class)->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.01);
-        // Totals count only the catalog line (12 × €10 gross → €112.15 net).
+        // A request never reserves — availability is untouched even though the
+        // catalog line is priced (snapshot) for the later confirmation.
+        $this->assertEqualsWithDelta(50.0, app(InventoryService::class)->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.01);
         $this->assertEqualsWithDelta(112.15, (float) $order->items_total_net_eur, 0.01);
+        $this->assertTrue($order->isRequest());
     }
 
-    public function test_custom_only_order_is_valid_via_http(): void
+    public function test_custom_only_request_is_valid_via_http(): void
     {
         $user = $this->verifiedRestaurant();
 
-        $this->actingAs($user)->post(route('app.restaurant.orders.store'), [
+        $this->actingAs($user)->post(route('app.restaurant.requests.store'), [
             'items' => [['name' => 'Holunderblüten', 'unit' => 'bunch', 'quantity' => 5]],
             'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
             'delivery_street' => 'Marktstr. 1', 'delivery_postal_code' => '10115', 'delivery_city' => 'Berlin',
         ])->assertRedirect();
 
         $this->assertSame(1, RestaurantOrder::count());
+        $this->assertTrue(RestaurantOrder::firstOrFail()->isRequest());
+    }
+
+    public function test_shop_endpoint_rejects_free_form_lines(): void
+    {
+        $user = $this->verifiedRestaurant();
+
+        $this->actingAs($user)->post(route('app.restaurant.orders.store'), [
+            'items' => [['name' => 'Holunderblüten', 'unit' => 'bunch', 'quantity' => 5]],
+            'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ])->assertSessionHasErrors('items');
+
+        $this->assertSame(0, RestaurantOrder::count());
     }
 
     public function test_validation_rejects_line_without_product_or_name(): void
     {
         $user = $this->verifiedRestaurant();
 
-        $this->actingAs($user)->post(route('app.restaurant.orders.store'), [
+        $this->actingAs($user)->post(route('app.restaurant.requests.store'), [
             'items' => [['quantity' => 2]],
             'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
@@ -115,7 +130,7 @@ class RestaurantSpecialRequestTest extends TestCase
     {
         $user = $this->verifiedRestaurant();
 
-        $this->actingAs($user)->post(route('app.restaurant.orders.store'), [
+        $this->actingAs($user)->post(route('app.restaurant.requests.store'), [
             'items' => [['name' => 'Wildkräuter', 'quantity' => 2]],
             'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
@@ -126,7 +141,7 @@ class RestaurantSpecialRequestTest extends TestCase
     {
         $this->app->setLocale('de');
         $user = $this->verifiedRestaurant();
-        $order = app(RestaurantOrderService::class)->submit($user, [
+        $order = app(RestaurantOrderService::class)->submitRequest($user, [
             'items' => [['name' => 'Wildkräuter', 'unit' => 'g', 'quantity' => 500]],
             'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',

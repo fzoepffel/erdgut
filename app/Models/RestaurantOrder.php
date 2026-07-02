@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RestaurantOrderKind;
 use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,6 +22,7 @@ class RestaurantOrder extends Model
         'user_id',
         'source_standing_order_id',
         'status',
+        'kind',
         'expected_delivery_date',
         'original_delivery_date',
         'delivery_street',
@@ -41,6 +43,7 @@ class RestaurantOrder extends Model
     {
         return [
             'status' => RestaurantOrderStatus::class,
+            'kind' => RestaurantOrderKind::class,
             'expected_delivery_date' => 'date',
             'original_delivery_date' => 'date',
             'items_total_net_eur' => 'decimal:2',
@@ -106,5 +109,22 @@ class RestaurantOrder extends Model
     public function scopeReserving(Builder $query): void
     {
         $query->whereIn('status', RestaurantOrderStatus::reservingValues());
+    }
+
+    public function isRequest(): bool
+    {
+        return $this->kind === RestaurantOrderKind::Request;
+    }
+
+    /** Shop orders (in-stock, instantly confirmed). */
+    public function scopeOrders(Builder $query): void
+    {
+        $query->where('kind', RestaurantOrderKind::Order->value);
+    }
+
+    /** Anfragen (season / over-stock / free-form, admin-confirmed). */
+    public function scopeRequests(Builder $query): void
+    {
+        $query->where('kind', RestaurantOrderKind::Request->value);
     }
 }

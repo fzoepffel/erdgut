@@ -1,15 +1,22 @@
 <x-shop-layout :title="__('restaurant.order_ref', ['id' => $order->id])" :narrow="true" restaurant-nav="orders">
     @if (session('status') === 'restaurant-order-submitted')
         <div class="mb-6 border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">
-            {{ $order->status === \App\Enums\RestaurantOrderStatus::Confirmed ? __('restaurant.order_confirmed_flash') : __('restaurant.order_pending_flash') }}
+            {{ __('restaurant.order_confirmed_flash') }}
+            @if (is_array(session('reorder_adjusted')) && session('reorder_adjusted') !== [])
+                <span class="block pt-1 text-amber-800">{{ __('restaurant.reorder_adjusted_flash', ['names' => implode(', ', session('reorder_adjusted'))]) }}</span>
+            @endif
         </div>
+    @elseif (session('status') === 'restaurant-request-submitted')
+        <div class="mb-6 border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{{ __('restaurant.request_submitted_flash') }}</div>
+    @elseif (session('status') === 'restaurant-reorder-empty')
+        <div class="mb-6 border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{{ __('restaurant.reorder_empty_flash') }}</div>
     @elseif (session('status') === 'restaurant-order-cancelled')
         <div class="mb-6 border border-shop-border bg-shop-card p-4 text-sm text-shop-foreground">{{ __('restaurant.order_cancelled_flash') }}</div>
     @endif
 
     <div class="flex items-start justify-between gap-4">
         <div>
-            <p class="eyebrow text-shop-primary">{{ __('restaurant.order_ref', ['id' => $order->id]) }}</p>
+            <p class="eyebrow {{ $order->isRequest() ? 'text-amber-700' : 'text-shop-primary' }}">{{ __($order->isRequest() ? 'restaurant.request_ref' : 'restaurant.order_ref', ['id' => $order->id]) }}</p>
             <h1 class="mt-2 font-display text-3xl text-shop-foreground">{{ $order->expected_delivery_date->translatedFormat('d.m.Y') }}</h1>
         </div>
         <span class="rounded-full bg-shop-card px-3 py-1 text-xs font-medium text-shop-foreground">{{ __('restaurant.order_status_'.$order->status->value) }}</span>

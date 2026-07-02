@@ -164,7 +164,7 @@ class RestaurantStandingOrderService
         }
 
         try {
-            $order = $this->orders->submit($standing->user, [
+            $order = $this->orders->submitMaterialized($standing->user, [
                 'items' => $activeItems->map(fn ($item) => $item->toPayloadItem())->values()->all(),
                 'expected_delivery_date' => $date->toDateString(),
                 'delivery_street' => $standing->delivery_street,

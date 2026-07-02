@@ -4,6 +4,7 @@ namespace App\Services\Restaurant;
 
 use App\Enums\CustomerType;
 use App\Enums\RestaurantOrderItemTrack;
+use App\Enums\RestaurantOrderKind;
 use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopStockAudience;
@@ -16,6 +17,7 @@ use App\Services\Shop\PriceResolver;
 use App\Services\Shop\ShopOrderService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
@@ -30,14 +32,47 @@ class RestaurantOrderService
     public function __construct(private readonly PriceResolver $priceResolver) {}
 
     /**
+     * Shop checkout: every line must be a catalog product fully in stock —
+     * hard-reserved and confirmed the moment it's placed (kind=order, born
+     * Confirmed). Over-stock → ValidationException (the shop never silently
+     * turns an order into a request); free-form lines are rejected.
+     */
+    public function submitOrder(User $user, array $payload): RestaurantOrder
+    {
+        return $this->create($user, $payload, 'order');
+    }
+
+    /**
+     * Anfragen area: season items, over-stock amounts and free-form wishes —
+     * any quantity, nothing reserved, all lines pending until the admin
+     * accepts/declines them (kind=request, born Submitted).
+     */
+    public function submitRequest(User $user, array $payload): RestaurantOrder
+    {
+        return $this->create($user, $payload, 'request');
+    }
+
+    /**
+     * Standing-order materializer: weekly deliveries the admin already approved.
+     * Always kind=order + born Confirmed; a line reserves when that week's stock
+     * covers it, otherwise it stays requested-track (admin sources it) but is
+     * still auto-confirmed — the recurrence itself was the approval.
+     */
+    public function submitMaterialized(User $user, array $payload): RestaurantOrder
+    {
+        return $this->create($user, $payload, 'materialized');
+    }
+
+    /**
      * @param  array{
      *     items: array<int, array{product_id:int, variant_id:?int, quantity:float}>,
      *     expected_delivery_date: string,
      *     delivery_street: string, delivery_postal_code: string, delivery_city: string,
      *     delivery_notes?: ?string, locale?: ?string
      * }  $payload
+     * @param  'order'|'request'|'materialized'  $mode
      */
-    public function submit(User $user, array $payload): RestaurantOrder
+    private function create(User $user, array $payload, string $mode): RestaurantOrder
     {
         $date = Carbon::parse($payload['expected_delivery_date'])->startOfDay();
 
@@ -46,6 +81,9 @@ class RestaurantOrderService
         // reserve and aren't priced at submit), so split before merging —
         // mergeLines() drops product-less lines.
         [$productItems, $customItems] = $this->splitLines($payload['items'] ?? []);
+        if ($mode === 'order' && $customItems !== []) {
+            throw ValidationException::withMessages(['items' => __('restaurant.order_no_custom_lines')]);
+        }
         $lines = $this->mergeLines($productItems);
         if ($lines === [] && $customItems === []) {
             throw new InvalidArgumentException('A restaurant order needs at least one line.');
@@ -58,11 +96,12 @@ class RestaurantOrderService
             ->get()
             ->keyBy('id');
 
-        return DB::transaction(function () use ($user, $payload, $date, $lines, $customItems, $products): RestaurantOrder {
+        return DB::transaction(function () use ($user, $payload, $date, $lines, $customItems, $products, $mode): RestaurantOrder {
             $inventory = app(InventoryService::class);
 
             $order = RestaurantOrder::create([
                 'user_id' => $user->id,
+                'kind' => $mode === 'request' ? RestaurantOrderKind::Request : RestaurantOrderKind::Order,
                 'status' => RestaurantOrderStatus::Submitted,
                 'expected_delivery_date' => $date->toDateString(),
                 'delivery_street' => $payload['delivery_street'],
@@ -93,22 +132,30 @@ class RestaurantOrderService
 
                 $qty = (float) $line['quantity'];
 
-                // Lock the product row so a concurrent submit can't read the
-                // same remaining and over-reserve.
-                Product::query()->lockForUpdate()->find($product->id);
-                $remaining = $inventory->availableOnDate($product, $date, ShopStockAudience::BusinessTrade, $variantId ?? 0);
+                if ($mode === 'request') {
+                    // Requests never reserve — no lock/stock check needed.
+                    $track = RestaurantOrderItemTrack::Requested;
+                    $lineStatus = RestaurantOrderLineStatus::Requested;
+                } else {
+                    // Lock the product row so a concurrent submit can't read the
+                    // same remaining and over-reserve.
+                    Product::query()->lockForUpdate()->find($product->id);
+                    $remaining = $inventory->availableOnDate($product, $date, ShopStockAudience::BusinessTrade, $variantId ?? 0);
+                    $fits = $remaining + 1e-6 >= $qty;
 
-                // Whole-line: reserve only when the full quantity fits in stock,
-                // otherwise the line is a request (reserves nothing).
-                $track = ($remaining + 1e-6 >= $qty)
-                    ? RestaurantOrderItemTrack::Reserved
-                    : RestaurantOrderItemTrack::Requested;
+                    if ($mode === 'order' && ! $fits) {
+                        // The shop sells only what's in stock — never silently
+                        // convert an order line into a request.
+                        throw ValidationException::withMessages([
+                            'items' => __('restaurant.order_line_exceeds_stock', ['name' => $product->name]),
+                        ]);
+                    }
 
-                // In-stock lines are a firm order line immediately; out-of-stock
-                // lines wait for the admin to accept/decline them.
-                $lineStatus = $track === RestaurantOrderItemTrack::Reserved
-                    ? RestaurantOrderLineStatus::Confirmed
-                    : RestaurantOrderLineStatus::Requested;
+                    $track = $fits ? RestaurantOrderItemTrack::Reserved : RestaurantOrderItemTrack::Requested;
+                    // Order + materialized lines are firm immediately (the
+                    // materializer's approval is the recurrence itself).
+                    $lineStatus = RestaurantOrderLineStatus::Confirmed;
+                }
 
                 $resolved = $this->priceResolver->resolve($product, $date, CustomerType::Business, $qty, $variantId, $variant);
                 $unitGross = $resolved->unitPriceEur; // gross per canonical unit
@@ -156,7 +203,11 @@ class RestaurantOrderService
                     'quantity' => $qty,
                     'unit' => trim((string) ($custom['unit'] ?? '')) ?: null,
                     'track' => RestaurantOrderItemTrack::Requested,
-                    'line_status' => RestaurantOrderLineStatus::Requested,
+                    // Materialized recurring custom lines were approved with the
+                    // recurrence; fresh request lines await the admin.
+                    'line_status' => $mode === 'materialized'
+                        ? RestaurantOrderLineStatus::Confirmed
+                        : RestaurantOrderLineStatus::Requested,
                     'recurrence' => $recurrence,
                     'recurrence_until' => $until,
                     'unit_price_snapshot_eur' => 0,
@@ -171,10 +222,9 @@ class RestaurantOrderService
                 throw new InvalidArgumentException('None of the submitted lines are orderable.');
             }
 
-            // Auto-confirm when every line is a firm in-stock order line; if any
-            // line is still on request, the order waits for the admin to accept
-            // (only) those lines. In-stock lines are already reserved either way.
-            $status = $order->hasPendingLines()
+            // Orders (shop + materialized weekly deliveries) are firm the moment
+            // they exist; requests wait for the admin to accept/decline lines.
+            $status = $mode === 'request'
                 ? RestaurantOrderStatus::Submitted
                 : RestaurantOrderStatus::Confirmed;
 
