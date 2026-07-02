@@ -36,6 +36,7 @@ class RestaurantOrderController extends Controller
             ->where('user_id', $request->user()->id)
             ->orders()
             ->withCount('items')
+            ->with('items.product.translations')
             ->latest()
             ->paginate(20);
 

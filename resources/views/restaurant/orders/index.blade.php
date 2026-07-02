@@ -21,6 +21,11 @@
                 <div class="flex items-center justify-between gap-4 px-4 py-3 hover:bg-shop-card">
                     <a href="{{ route('app.restaurant.orders.show', $order) }}" class="min-w-0 flex-1">
                         <p class="text-sm text-shop-foreground">{{ __('restaurant.order_ref', ['id' => $order->id]) }}</p>
+                        @php
+                            $names = $order->items->take(2)->map(fn ($i) => $i->displayName())->filter()->implode(', ');
+                            $more = max(0, $order->items_count - 2);
+                        @endphp
+                        <p class="truncate text-xs text-shop-foreground/80">{{ $names }}@if ($more > 0) <span class="text-shop-muted">+{{ $more }}</span>@endif</p>
                         <p class="text-xs text-shop-muted">{{ $order->expected_delivery_date->translatedFormat('d.m.Y') }} · {{ $order->items_count }} {{ trans_choice('restaurant.cart_line_count', $order->items_count) }}</p>
                     </a>
                     <div class="flex shrink-0 items-center gap-3">

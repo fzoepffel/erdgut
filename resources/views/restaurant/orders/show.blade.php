@@ -63,6 +63,9 @@
         <div class="shop-card mt-6 p-5">
             <p class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.invoice') }}</p>
             <p class="mt-1 text-sm text-shop-foreground">{{ $order->invoice_number }} · {{ __('restaurant.invoice_due', ['date' => optional($order->invoice_due_date)->format('d.m.Y')]) }}</p>
+            @if ($order->isInvoicePaid())
+                <p class="mt-1 text-sm text-emerald-700">{{ __('restaurant.invoice_paid_note', ['date' => $order->invoice_paid_at->format('d.m.Y')]) }}</p>
+            @endif
             <a href="{{ route('app.restaurant.orders.invoice-pdf', $order) }}"
                class="mt-3 inline-flex h-[3rem] items-center justify-center border border-shop-primary bg-shop-primary px-6 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover">
                 {{ __('restaurant.invoice_download') }}

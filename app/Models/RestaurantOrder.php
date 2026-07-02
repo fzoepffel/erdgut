@@ -35,6 +35,7 @@ class RestaurantOrder extends Model
         'invoice_number',
         'invoiced_at',
         'invoice_due_date',
+        'invoice_paid_at',
         'locale',
         'submitted_at',
     ];
@@ -51,6 +52,7 @@ class RestaurantOrder extends Model
             'vat_total_eur' => 'decimal:2',
             'invoiced_at' => 'datetime',
             'invoice_due_date' => 'date',
+            'invoice_paid_at' => 'datetime',
             'submitted_at' => 'datetime',
         ];
     }
@@ -96,6 +98,20 @@ class RestaurantOrder extends Model
     public function isInvoiced(): bool
     {
         return $this->invoice_number !== null;
+    }
+
+    public function isInvoicePaid(): bool
+    {
+        return $this->invoice_paid_at !== null;
+    }
+
+    /** Invoiced, unpaid, and past its due date. */
+    public function isInvoiceOverdue(): bool
+    {
+        return $this->isInvoiced()
+            && ! $this->isInvoicePaid()
+            && $this->invoice_due_date !== null
+            && $this->invoice_due_date->isPast();
     }
 
     /** Whether an admin may still price/edit + issue (confirmed/fulfilled, not yet invoiced). */

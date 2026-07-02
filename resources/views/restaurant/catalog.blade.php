@@ -290,15 +290,30 @@
 
             <div aria-hidden="true" class="h-24"></div>
 
-            {{-- Sticky basket bar --}}
+            {{-- Sticky basket bar (summary click expands the mini cart) --}}
             <div x-show="hasAnything" x-cloak
                  class="fixed inset-x-0 bottom-0 z-30 border-t border-shop-border bg-shop-background/95 backdrop-blur">
+                {{-- Mini cart --}}
+                <div x-show="miniCartOpen" x-cloak x-transition.origin.bottom class="border-b border-shop-border/60">
+                    <ul class="mx-auto max-w-[1100px] divide-y divide-shop-border/50 px-4 py-2 text-sm sm:px-6 lg:px-12">
+                        <template x-for="line in basketLines" :key="'m'+line.key">
+                            <li class="flex items-center justify-between gap-3 py-1.5">
+                                <span class="min-w-0 truncate text-shop-foreground" x-text="`${line.displayQty} ${line.unitSymbol} · ${line.name}`"></span>
+                                <span class="flex shrink-0 items-center gap-3">
+                                    <span class="font-mono text-shop-muted" x-text="formatEur(line.net)"></span>
+                                    <button type="button" @click="quantities[line.key] = 0" class="text-shop-muted transition hover:text-chapter-meat" aria-label="&times;">&times;</button>
+                                </span>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
                 <div class="mx-auto flex max-w-[1100px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-12">
-                    <p class="text-sm text-shop-foreground">
+                    <button type="button" @click="miniCartOpen = !miniCartOpen" class="text-left text-sm text-shop-foreground" data-testid="restaurant-mini-cart-toggle">
                         <span x-text="lineCount"></span> <span x-text="lineCount === 1 ? @js(__('restaurant.cart_line')) : @js(__('restaurant.cart_lines'))"></span>
                         · <span class="font-mono" x-text="formatEur(netTotal)"></span> <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}</span>
+                        <svg class="ml-1 inline h-3 w-3 text-shop-primary transition-transform" :class="miniCartOpen && 'rotate-180'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18 15l-6-6-6 6"/></svg>
                         <span class="ml-2 hidden text-xs text-emerald-700 sm:inline">{{ __('restaurant.cart_trust_line') }}</span>
-                    </p>
+                    </button>
                     <button type="button" @click="openSubmit = true" data-testid="restaurant-cart-continue"
                             class="inline-flex h-[3rem] items-center justify-center border border-shop-primary bg-shop-primary px-6 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover">
                         {{ __('restaurant.cart_continue') }}
@@ -406,6 +421,7 @@
                 recurrence: {},
                 until: {},
                 openSubmit: {{ $errors->any() ? 'true' : 'false' }},
+                miniCartOpen: false,
                 requestUrl: config.requestUrl || '#',
                 weeklyLabel: config.weeklyLabel || 'Wöchentlich',
                 untilLabel: config.untilLabel || 'bis',
