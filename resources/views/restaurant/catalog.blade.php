@@ -238,7 +238,7 @@
                                                                  class="absolute left-0 z-30 mt-1 max-h-64 w-56 overflow-y-auto border border-shop-border bg-shop-card shadow-lg">
                                                                 <button type="button" @click="setUntil(@js($grade['key']), ''); wkOpen = false"
                                                                         class="block w-full px-3 py-2 text-left text-xs text-shop-foreground hover:bg-shop-paper">{{ __('restaurant.recurrence_open_ended') }}</button>
-                                                                <template x-for="w in recurrenceWeeks" :key="w.iso">
+                                                                <template x-for="w in weeksFor(@js($grade['key']))" :key="w.iso">
                                                                     <button type="button" @click="setUntil(@js($grade['key']), w.iso); wkOpen = false"
                                                                             class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-shop-paper"
                                                                             :class="until[@js($grade['key'])] === w.iso ? 'bg-shop-paper' : ''">
@@ -466,6 +466,18 @@
                 // ── Weekly "until" week picker ─────────────────────────────
                 recurrenceWeeks: config.recurrenceWeeks || [],
                 openEndedLabel: config.openEndedLabel || 'Unbegrenzt',
+                // The picker ends at the LAST week this product still has stock —
+                // the shop never offers an end date beyond known stock. (Weeks in
+                // between may still be amber when stock is short of the quantity.)
+                weeksFor(key) {
+                    const r = this.rowFor(key);
+                    if (!r) return [];
+                    let last = -1;
+                    this.recurrenceWeeks.forEach((w, i) => {
+                        if (((w.remainingByProduct && w.remainingByProduct[r.productId]) || 0) > 0) last = i;
+                    });
+                    return this.recurrenceWeeks.slice(0, last + 1);
+                },
                 setUntil(key, iso) { this.until[key] = iso; },
                 weekInStock(key, w) {
                     const r = this.rowFor(key);
