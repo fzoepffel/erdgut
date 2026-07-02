@@ -107,24 +107,30 @@
             {{-- ── Tabs + filters + product grids ──────────────────────── --}}
             <section class="py-10">
                 <div class="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-12">
-                    {{-- Tabs --}}
-                    <div class="flex flex-wrap gap-1 border-b border-shop-border" role="tablist" data-testid="restaurant-tabs">
+                    {{-- Tabs: a segmented pill rail (scrolls sideways on mobile, never
+                         wraps), with count badges instead of parenthesised numbers. --}}
+                    <div class="scrollbar-none -mx-4 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" data-testid="restaurant-tabs"
+                         style="scrollbar-width: none; -webkit-overflow-scrolling: touch;">
                         <button type="button" @click="activeTab = 'stock'" role="tab" :aria-selected="activeTab === 'stock'"
                                 data-testid="restaurant-tab-stock"
-                                class="-mb-px border-b-2 px-4 py-3 font-mono text-[0.7rem] uppercase tracking-widest transition"
-                                :class="activeTab === 'stock' ? 'border-shop-primary text-shop-primary' : 'border-transparent text-shop-muted hover:text-shop-foreground'">
-                            {{ __('restaurant.tab_in_stock') }} <span class="opacity-60">({{ $stockCount }})</span>
+                                class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition"
+                                :class="activeTab === 'stock' ? 'border-shop-foreground bg-shop-foreground text-shop-background' : 'border-shop-border bg-shop-background text-shop-foreground hover:border-shop-foreground'">
+                            {{ __('restaurant.tab_in_stock') }}
+                            <span class="rounded-full px-1.5 py-0.5 text-[11px] leading-none"
+                                  :class="activeTab === 'stock' ? 'bg-shop-background/20' : 'bg-shop-foreground/10'">{{ $stockCount }}</span>
                         </button>
                         <button type="button" @click="activeTab = 'season'" role="tab" :aria-selected="activeTab === 'season'"
                                 data-testid="restaurant-tab-season"
-                                class="-mb-px border-b-2 px-4 py-3 font-mono text-[0.7rem] uppercase tracking-widest transition"
-                                :class="activeTab === 'season' ? 'border-shop-primary text-shop-primary' : 'border-transparent text-shop-muted hover:text-shop-foreground'">
-                            {{ __('restaurant.tab_on_request') }} <span class="opacity-60">({{ $seasonCount }})</span>
+                                class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition"
+                                :class="activeTab === 'season' ? 'border-shop-foreground bg-shop-foreground text-shop-background' : 'border-shop-border bg-shop-background text-shop-foreground hover:border-shop-foreground'">
+                            {{ __('restaurant.tab_on_request') }}
+                            <span class="rounded-full px-1.5 py-0.5 text-[11px] leading-none"
+                                  :class="activeTab === 'season' ? 'bg-shop-background/20' : 'bg-amber-100 text-amber-800'">{{ $seasonCount }}</span>
                         </button>
                         <button type="button" @click="activeTab = 'special'" role="tab" :aria-selected="activeTab === 'special'"
                                 data-testid="restaurant-tab-special"
-                                class="-mb-px border-b-2 px-4 py-3 font-mono text-[0.7rem] uppercase tracking-widest transition"
-                                :class="activeTab === 'special' ? 'border-shop-primary text-shop-primary' : 'border-transparent text-shop-muted hover:text-shop-foreground'">
+                                class="shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition"
+                                :class="activeTab === 'special' ? 'border-shop-foreground bg-shop-foreground text-shop-background' : 'border-shop-border bg-shop-background text-shop-foreground hover:border-shop-foreground'">
                             {{ __('restaurant.tab_special') }}
                         </button>
                     </div>
@@ -557,15 +563,21 @@
                 qtyOptions(key) {
                     const r = this.rowFor(key);
                     if (!r) return [];
-                    const out = [];
                     const fmt = (q) => (q / r.factor).toLocaleString('de-DE', { maximumFractionDigits: 3 }) + ' ' + r.unitSymbol;
-                    const inStockSteps = r.cap !== null ? Math.floor(r.cap / r.step) : 0;
-                    const total = r.cap !== null ? inStockSteps + 15 : 20;
-                    for (let i = 1; i <= total; i++) {
-                        const v = i * r.step;
+                    // Progressive granularity so the list stays short but reaches
+                    // 100 display units (e.g. 100 kg): fine `step` increments
+                    // through the in-stock range (min 10 rows), then 1-unit
+                    // increments to 20 units, then 5-unit increments to 100.
+                    const values = new Set();
+                    const fineTop = Math.max(r.cap ?? 0, 10 * r.step);
+                    for (let v = r.step; v <= fineTop; v += r.step) values.add(v);
+                    const unit = Math.max(r.factor, r.step);
+                    for (let v = unit; v <= 20 * r.factor; v += unit) values.add(v);
+                    for (let v = 5 * r.factor; v <= 100 * r.factor; v += 5 * r.factor) values.add(v);
+                    const out = [...values].sort((a, b) => a - b).slice(0, 300).map((v) => {
                         const over = r.cap !== null && v > r.cap;
-                        out.push({ v, l: fmt(v) + (over ? ' · ' + this.onRequestSuffix : '') });
-                    }
+                        return { v, l: fmt(v) + (over ? ' · ' + this.onRequestSuffix : '') };
+                    });
                     // Keep a manually-typed current value selectable even if it's
                     // off-grid (e.g. from an older basket).
                     const cur = this.quantities[key] || 0;
