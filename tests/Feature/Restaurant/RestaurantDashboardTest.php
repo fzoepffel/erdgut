@@ -79,15 +79,20 @@ class RestaurantDashboardTest extends TestCase
             ->assertSee(route('app.restaurant.orders.reorder', $order), false);
     }
 
-    public function test_dashboard_renders_for_a_fresh_restaurant_without_data(): void
+    public function test_fresh_restaurant_dashboard_leads_with_opportunities(): void
     {
         $profile = RestaurantProfile::factory()->verified()->create();
 
+        // A fresh account skips the zero stats + four empty cards; the
+        // opportunity tiles carry the page instead.
         $this->actingAs($profile->user)
             ->get(route('app.restaurant.dashboard'))
             ->assertOk()
-            ->assertSee(__('restaurant.dashboard_upcoming_empty'))
-            ->assertSee(__('restaurant.dashboard_standing_empty'))
-            ->assertSee(__('restaurant.opportunity_special_title'));
+            ->assertDontSee(__('restaurant.dashboard_upcoming_empty'))
+            ->assertDontSee(__('restaurant.dashboard_stat_upcoming'))
+            ->assertSee(__('restaurant.opportunity_weekly_title'))
+            ->assertSee(__('restaurant.opportunity_amounts_title'))
+            ->assertSee(__('restaurant.opportunity_special_title'))
+            ->assertSee('data-testid="dashboard-order-cta"', false);
     }
 }

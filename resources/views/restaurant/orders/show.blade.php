@@ -79,13 +79,17 @@
 
     @if (! $order->isInvoiced() && in_array($order->status, [\App\Enums\RestaurantOrderStatus::Submitted, \App\Enums\RestaurantOrderStatus::Confirmed], true))
         <form method="POST" action="{{ route('app.restaurant.orders.cancel', $order) }}" class="mt-8"
-              onsubmit="return confirm(@js(__('restaurant.order_cancel_confirm')))">
+              onsubmit="return confirm(@js(__($order->isRequest() ? 'restaurant.request_cancel_confirm' : 'restaurant.order_cancel_confirm')))">
             @csrf
             <button type="submit" class="inline-flex h-[3rem] items-center justify-center border border-chapter-meat px-6 font-mono text-[0.7rem] uppercase tracking-widest text-chapter-meat transition hover:bg-chapter-meat hover:text-white">
-                {{ __('restaurant.order_cancel') }}
+                {{ __($order->isRequest() ? 'restaurant.request_cancel' : 'restaurant.order_cancel') }}
             </button>
         </form>
     @endif
 
-    <a href="{{ route('app.restaurant.orders.index') }}" class="mt-6 inline-block font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:text-shop-primary hover:underline">{{ __('restaurant.my_requests') }}</a>
+    @if ($order->isRequest())
+        <a href="{{ route('app.restaurant.requests.index') }}" class="mt-6 inline-block font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:text-shop-primary hover:underline">{{ __('restaurant.my_requests_list_title') }}</a>
+    @else
+        <a href="{{ route('app.restaurant.orders.index') }}" class="mt-6 inline-block font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:text-shop-primary hover:underline">{{ __('restaurant.my_requests') }}</a>
+    @endif
 </x-shop-layout>
