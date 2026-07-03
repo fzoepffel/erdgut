@@ -15,17 +15,24 @@
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 8px 0 16px 0; border-collapse: collapse; font-size: 14px; color: #2c241c;">
         @foreach ($order->items as $item)
             <tr>
-                <td style="padding: 6px 0; border-bottom: 1px solid #eee;">
-                    {{ $item->displayQuantityLabel($order->locale) }} · {{ $item->displayName() }}
-                    @if ($item->isReserved())
-                        <span style="color: #2f7a3f;">({{ __('restaurant.in_stock') }})</span>
-                    @else
-                        <span style="color: #9a6a12;">({{ __('restaurant.on_request') }})</span>
-                    @endif
-                </td>
-                <td style="padding: 6px 0; border-bottom: 1px solid #eee; text-align: right;">
-                    @if ($item->isCustom()){{ __('restaurant.price_on_request') }}@else{{ \App\Support\Money::formatEur($item->lineNetEur(), $order->locale) }}@endif
-                </td>
+                @if ($item->isDeclined())
+                    {{-- Declined line: named explicitly so a partial decision
+                         ("2 of 3 accepted") is unambiguous at a glance. --}}
+                    <td style="padding: 6px 0; border-bottom: 1px solid #eee; color: #8a8378; text-decoration: line-through;">
+                        {{ $item->displayQuantityLabel($order->locale) }} · {{ $item->displayName() }}
+                    </td>
+                    <td style="padding: 6px 0; border-bottom: 1px solid #eee; text-align: right; color: #b0483a; text-decoration: none;">
+                        {{ __('restaurant.line_declined') }}
+                    </td>
+                @else
+                    <td style="padding: 6px 0; border-bottom: 1px solid #eee;">
+                        {{ $item->displayQuantityLabel($order->locale) }} · {{ $item->displayName() }}
+                        <span style="color: #2f7a3f;">({{ __('restaurant.line_accepted') }})</span>
+                    </td>
+                    <td style="padding: 6px 0; border-bottom: 1px solid #eee; text-align: right;">
+                        @if ($item->isCustom() && $item->lineNetEur() <= 0){{ __('restaurant.price_on_request') }}@else{{ \App\Support\Money::formatEur($item->lineNetEur(), $order->locale) }}@endif
+                    </td>
+                @endif
             </tr>
         @endforeach
         <tr>
