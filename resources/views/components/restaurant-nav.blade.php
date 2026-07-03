@@ -1,8 +1,8 @@
 {{-- Persistent nav for the logged-in restaurant (B2B) area. Rendered by
      shop-layout when the `restaurantNav` prop is set to the active key
-     ('shop' | 'orders' | 'standing' | 'dashboard'). A single horizontal
-     pill rail — scrollable on mobile (never wraps), with a quiet logout
-     pinned right on wider screens. --}}
+     ('shop' | 'orders' | 'standing' | 'dashboard'). A pill rail that WRAPS
+     on narrow screens (no hidden horizontal scrolling), with a quiet
+     logout pinned right. --}}
 @props(['active' => null])
 
 @php
@@ -17,12 +17,12 @@
 
 <nav class="border-b border-shop-border bg-shop-paper" data-testid="restaurant-nav" aria-label="{{ __('restaurant.nav_label') }}">
     <div class="mx-auto flex max-w-[1100px] items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-12">
-        <div class="scrollbar-none -mx-1 flex flex-1 items-center gap-1.5 overflow-x-auto px-1 py-0.5" style="scrollbar-width: none; -webkit-overflow-scrolling: touch;">
+        <div class="-mx-1 flex flex-1 flex-wrap items-center gap-1.5 px-1 py-0.5">
             @foreach ($items as $item)
                 @php $isActive = $active === $item['key']; @endphp
                 <a href="{{ route($item['route']) }}" @if ($isActive) aria-current="page" @endif
                    data-testid="restaurant-nav-{{ $item['key'] }}"
-                   class="shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition {{ $isActive ? 'bg-shop-foreground text-shop-background' : 'text-shop-foreground hover:bg-shop-foreground/10' }}">
+                   class="whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition sm:px-4 {{ $isActive ? 'bg-shop-foreground text-shop-background' : 'text-shop-foreground hover:bg-shop-foreground/10' }}">
                     {{ $item['label'] }}
                 </a>
             @endforeach

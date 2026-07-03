@@ -1,11 +1,11 @@
 <x-admin-layout>
     <x-slot name="header">
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('shop.admin.heading') }}</h1>
                 <span class="text-sm text-gray-500">{{ __('shop.admin.subheading', ['count' => $orders->total()]) }}</span>
             </div>
-            <div class="flex items-center gap-2"
+            <div class="flex flex-wrap items-center gap-2"
                  x-data="{
                      open: false,
                      producers: [],
@@ -235,7 +235,8 @@
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($orders as $order)
                             @if ($order instanceof \App\Models\RestaurantOrder)
-                                <tr class="align-top" data-testid="shop-admin-restaurant-row-{{ $order->id }}">
+                                <tr class="cursor-pointer align-top hover:bg-gray-50" data-testid="shop-admin-restaurant-row-{{ $order->id }}"
+                                    onclick="window.location='{{ route('app.admin.restaurant-orders.show', $order) }}'">
                                     <td class="whitespace-nowrap px-3 py-2 font-mono text-gray-700">R#{{ $order->id }}</td>
                                     <td class="whitespace-nowrap px-3 py-2 text-gray-500">{{ $order->created_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm') }}</td>
                                     <td class="px-3 py-2">

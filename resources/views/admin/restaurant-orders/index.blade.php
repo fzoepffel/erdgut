@@ -26,7 +26,7 @@
                 </select>
             </form>
 
-            <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                         <tr>
@@ -42,7 +42,10 @@
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($orders as $order)
                             @php $status = $order->status->value; @endphp
-                            <tr>
+                            {{-- Whole row opens the detail (the link column can sit
+                                 off-screen on phones). --}}
+                            <tr class="cursor-pointer hover:bg-gray-50"
+                                onclick="window.location='{{ route('app.admin.restaurant-orders.show', $order) }}'">
                                 <td class="px-4 py-3 font-medium text-gray-800">
                                     {{ $order->id }}
                                 </td>
