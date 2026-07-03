@@ -545,6 +545,11 @@ class AdminShopOrderController extends Controller
             ->where('status', RestaurantOrderStatus::Submitted->value)
             ->count();
 
+        // Calendar starts on the month of the current selection (or today).
+        $initialMonth = $filter['delivery_from'] !== ''
+            ? Carbon::parse($filter['delivery_from'])->startOfMonth()
+            : Carbon::today()->startOfMonth();
+
         return view('admin.shop-orders.index', [
             'orders' => $orders,
             'statuses' => ShopOrderStatus::cases(),
@@ -553,7 +558,8 @@ class AdminShopOrderController extends Controller
             'deliveryFrom' => $filter['delivery_from'],
             'deliveryTo' => $filter['delivery_to'],
             'openRequests' => $openRequests,
-            'calendarDays' => $this->calendarDays(),
+            'calendarInitialMonth' => $initialMonth->format('Y-m'),
+            'calendarDays' => $this->calendarDays($initialMonth->copy()->startOfMonth(), $initialMonth->copy()->endOfMonth()),
         ]);
     }
 
@@ -577,16 +583,32 @@ class AdminShopOrderController extends Controller
     }
 
     /**
+     * JSON month payload for the calendar filter (any month, past or future):
+     * per-day order count (B2C finalized + B2B firm) and in-stock product
+     * count. Past days skip the stock computation — only deliveries matter.
+     */
+    public function calendarMonth(Request $request): JsonResponse
+    {
+        $this->authorize('admin');
+
+        $month = (string) $request->query('month', '');
+        if (preg_match('/^\d{4}-\d{2}$/', $month) !== 1) {
+            return response()->json(['days' => []], 422);
+        }
+        $start = Carbon::parse($month.'-01')->startOfMonth();
+
+        return response()->json(['days' => $this->calendarDays($start, $start->copy()->endOfMonth())]);
+    }
+
+    /**
      * Per-day metadata for the calendar filter: order count (B2C finalized +
-     * B2B firm) and in-stock product count over the shop horizon. Green = has
-     * deliveries, yellow = stock but no deliveries.
+     * B2B firm) and in-stock product count. Green = has deliveries, yellow =
+     * stock but no deliveries.
      *
      * @return list<array{iso: string, orders: int, stock: int}>
      */
-    private function calendarDays(): array
+    private function calendarDays(Carbon $start, Carbon $end): array
     {
-        $start = Carbon::today();
-        $end = $start->copy()->addWeeks(max(1, (int) config('shop.horizon_weeks', 8)));
 
         $shopCounts = ShopOrder::query()
             ->finalized()
@@ -601,17 +623,25 @@ class AdminShopOrderController extends Controller
             ->groupBy('d')
             ->pluck('c', 'd');
 
-        // Widest stock view (shared + B2B pools) so "yellow" means anyone could buy.
-        $products = Product::query()->visibleInCatalog()->with('variants')->get();
-        $matrix = $this->inventory->availabilityMatrix($products, $start, $end, ShopStockAudience::BusinessTrade);
+        // Widest stock view (shared + B2B pools) so "yellow" means anyone could
+        // buy. Stock is only meaningful from today onward — past days skip it.
+        $stockStart = $start->lt(Carbon::today()) ? Carbon::today() : $start->copy();
+        $matrix = [];
+        $products = collect();
+        if ($stockStart->lte($end)) {
+            $products = Product::query()->visibleInCatalog()->with('variants')->get();
+            $matrix = $this->inventory->availabilityMatrix($products, $stockStart, $end, ShopStockAudience::BusinessTrade);
+        }
 
         $days = [];
         for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
             $iso = $cursor->toDateString();
             $stock = 0;
-            foreach ($products as $product) {
-                if ((float) ($matrix[$product->id][$iso] ?? 0.0) > 0.0) {
-                    $stock++;
+            if ($cursor->gte($stockStart)) {
+                foreach ($products as $product) {
+                    if ((float) ($matrix[$product->id][$iso] ?? 0.0) > 0.0) {
+                        $stock++;
+                    }
                 }
             }
             $days[] = [

@@ -331,6 +331,34 @@ class AdminUnifiedOrdersTest extends TestCase
         Carbon::setTestNow(null);
     }
 
+    public function test_calendar_month_endpoint_serves_any_month(): void
+    {
+        $order = $this->placeRestaurantOrder($this->stockedProduct());
+        $admin = User::factory()->admin()->create();
+        $month = Carbon::tomorrow()->format('Y-m');
+
+        $days = $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.calendar-month', ['month' => $month]))
+            ->assertOk()
+            ->json('days');
+        $day = collect($days)->firstWhere('iso', Carbon::tomorrow()->toDateString());
+        $this->assertSame(1, $day['orders']);
+
+        // A far-past month works too (orders only, stock skipped).
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.calendar-month', ['month' => '2025-01']))
+            ->assertOk()
+            ->assertJsonCount(31, 'days');
+
+        // Malformed month → 422; non-admin → forbidden.
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.calendar-month', ['month' => 'nope']))
+            ->assertStatus(422);
+        $this->actingAs(User::factory()->create())
+            ->get(route('app.admin.shop-orders.calendar-month', ['month' => $month]))
+            ->assertForbidden();
+    }
+
     public function test_packing_includes_restaurant_lines_with_b2b_tag_and_toggle(): void
     {
         $product = $this->stockedProduct();

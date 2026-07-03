@@ -629,6 +629,7 @@ Route::middleware(['auth', 'verified'])
             // Product-by-product packing for a delivery day — declared before
             // the {shopOrder} wildcard so "packing" isn't read as a model id.
             Route::get('shop-orders/packing', [AdminPackingController::class, 'index'])->name('packing.index');
+            Route::get('shop-orders/calendar-month', [AdminShopOrderController::class, 'calendarMonth'])->name('shop-orders.calendar-month');
             Route::post('shop-orders/packing/items/{item}/toggle', [AdminPackingController::class, 'toggleItem'])
                 ->middleware('throttle:120,1')->name('packing.toggle');
             Route::post('shop-orders/packing/product', [AdminPackingController::class, 'packProduct'])
