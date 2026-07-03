@@ -4177,5 +4177,8 @@
     "shop.admin.recurring_auto_account_note": "Kein Konto gewählt: Aus den Kundendaten (Name + E-Mail erforderlich) wird automatisch ein verifiziertes Restaurant-Konto angelegt. Rechnungen gehen an diese E-Mail; der Kunde kann das Konto später per „Passwort vergessen“ übernehmen.",
     "shop.admin.errors.recurring_needs_contact": "Für eine wiederkehrende Lieferung ohne Konto bitte Name und E-Mail unter Kundendaten angeben.",
     "restaurant.requests_two_paths": "Zwei Wege zu Ihrer Anfrage: Wählen Sie direkt unten frei aus, was Sie brauchen — oder stöbern Sie in der Liste der Saison-Produkte darunter. Beides landet in derselben unverbindlichen Anfrage.",
-    "restaurant.requests_season_hint": "Gerade in Saison, aber nicht auf Lager — auf Anfrage prüfen wir die Verfügbarkeit."
+    "restaurant.requests_season_hint": "Gerade in Saison, aber nicht auf Lager — auf Anfrage prüfen wir die Verfügbarkeit.",
+    "restaurant.admin_adjust_lines_title": "Positionen & Preise anpassen",
+    "restaurant.admin_adjust_lines_hint": "Mengen, Preise oder Positionen dieser Bestellung anpassen — möglich bis zur Rechnungsstellung.",
+    "restaurant.order_gross_total": "Gesamt brutto"
 }
