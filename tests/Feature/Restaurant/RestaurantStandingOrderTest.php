@@ -126,17 +126,20 @@ class RestaurantStandingOrderTest extends TestCase
             $order = $this->submitRecurring($user, $p, $this->product(), $firstDate);
             app(RestaurantOrderService::class)->confirm($order->refresh());
 
-            $svc = app(RestaurantStandingOrderService::class);
-            $written = $svc->materializeDue(Carbon::now());
-            $this->assertSame(1, $written);
-
-            $generated = RestaurantOrder::where('source_standing_order_id', RestaurantStandingOrder::first()->id)
+            // Activation (on confirm) already materialized the WHOLE horizon —
+            // every upcoming week exists as a real, auto-confirmed order.
+            $standingId = RestaurantStandingOrder::first()->id;
+            $generated = RestaurantOrder::where('source_standing_order_id', $standingId)
                 ->whereDate('original_delivery_date', $nextWeek->toDateString())->firstOrFail();
             $this->assertSame(RestaurantOrderStatus::Confirmed, $generated->status);
+            $horizonCount = RestaurantOrder::where('source_standing_order_id', $standingId)
+                ->where('id', '!=', $order->id)->count();
+            $this->assertGreaterThanOrEqual(4, $horizonCount);
             // Reserved against the next week's stock.
             $this->assertEqualsWithDelta(45.0, app(InventoryService::class)->availableOnDate($p, $nextWeek, ShopStockAudience::BusinessTrade), 0.01);
 
-            // Idempotent.
+            // The rolling sweep finds nothing new — idempotent.
+            $svc = app(RestaurantStandingOrderService::class);
             $this->assertSame(0, $svc->materializeDue(Carbon::now()));
         } finally {
             Carbon::setTestNow(null);
@@ -219,6 +222,62 @@ class RestaurantStandingOrderTest extends TestCase
         $this->actingAs($this->verifiedRestaurant())
             ->post(route('app.restaurant.standing-orders.end', $standing), ['ends_on' => $newEnd->toDateString()])
             ->assertForbidden();
+    }
+
+    public function test_pause_trims_future_weeks_and_resume_regenerates(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 8)); // a Wednesday
+        $date = Carbon::tomorrow();
+        $p = $this->product();
+        ProductStockInflow::create(['product_id' => $p->id, 'received_on' => $date->toDateString(), 'quantity' => 500, 'freshness_window_days' => 60]);
+        $user = $this->verifiedRestaurant();
+        $order = $this->submitRecurring($user, $p, $this->product(), $date);
+        $standing = RestaurantStandingOrder::firstOrFail();
+        app(RestaurantStandingOrderService::class)->activate($standing, null);
+        $svc = app(RestaurantStandingOrderService::class);
+
+        $future = fn () => RestaurantOrder::where('source_standing_order_id', $standing->id)
+            ->where('id', '!=', $order->id)
+            ->where('status', RestaurantOrderStatus::Confirmed->value)
+            ->count();
+        $this->assertGreaterThanOrEqual(4, $future());
+
+        // Pause cancels every future materialized week — the origin order survives.
+        $svc->pause($standing->refresh());
+        $this->assertSame(0, $future());
+        $this->assertSame(RestaurantOrderStatus::Confirmed, $order->refresh()->status);
+
+        // Resume regenerates the horizon.
+        $svc->resume($standing->refresh());
+        $this->assertGreaterThanOrEqual(4, $future());
+        Carbon::setTestNow(null);
+    }
+
+    public function test_end_change_trims_weeks_beyond_the_new_end(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 8)); // a Wednesday
+        $date = Carbon::tomorrow();
+        $p = $this->product();
+        ProductStockInflow::create(['product_id' => $p->id, 'received_on' => $date->toDateString(), 'quantity' => 500, 'freshness_window_days' => 60]);
+        $user = $this->verifiedRestaurant();
+        $order = $this->submitRecurring($user, $p, $this->product(), $date);
+        $standing = RestaurantStandingOrder::firstOrFail();
+        app(RestaurantStandingOrderService::class)->activate($standing, null);
+
+        $newEnd = $date->copy()->addWeeks(2); // keep only the first two recurrence weeks
+        $this->actingAs($user)
+            ->post(route('app.restaurant.standing-orders.end', $standing), ['ends_on' => $newEnd->toDateString()])
+            ->assertRedirect();
+
+        $remaining = RestaurantOrder::where('source_standing_order_id', $standing->id)
+            ->where('id', '!=', $order->id)
+            ->where('status', RestaurantOrderStatus::Confirmed->value)
+            ->pluck('expected_delivery_date');
+        $this->assertNotEmpty($remaining);
+        foreach ($remaining as $d) {
+            $this->assertLessThanOrEqual($newEnd->toDateString(), Carbon::parse($d)->toDateString());
+        }
+        Carbon::setTestNow(null);
     }
 
     public function test_pause_resume_delete_owner_gated(): void

@@ -4147,5 +4147,18 @@
     "shop.admin.type_b2b_restaurant": "Comptes restaurant",
     "shop.admin.type_b2b_shop": "B2B via la boutique",
     "shop.admin.badge_restaurant": "Restaurant",
-    "restaurant.admin_requests_link": "Demandes"
+    "restaurant.admin_requests_link": "Demandes",
+    "shop.admin.cal_orders": ":count commande|:count commandes",
+    "shop.admin.cal_stock": ":count produit en stock|:count produits en stock",
+    "shop.admin.cal_legend_orders": "Livraisons",
+    "shop.admin.cal_legend_stock": "Stock mais pas de livraison",
+    "shop.admin.cal_hint": "Cliquer deux fois sur un jour = ce jour uniquement · deux jours = période",
+    "shop.admin.filter_all_dates": "Toutes les dates",
+    "Mo": "Lun",
+    "Di": "Mar",
+    "Mi": "Mer",
+    "Do": "Jeu",
+    "Fr": "Ven",
+    "Sa": "Sam",
+    "So": "Dim"
 }

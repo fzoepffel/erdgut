@@ -414,7 +414,75 @@ class AdminShopOrderController extends Controller
             'deliveryFrom' => $filter['delivery_from'],
             'deliveryTo' => $filter['delivery_to'],
             'openRequests' => $openRequests,
+            'calendarDays' => $this->calendarDays(),
         ]);
+    }
+
+    /** Next date (today or later) that has any finalized/firm order. */
+    private function nextDeliveryDayWithOrders(): ?string
+    {
+        $shopNext = ShopOrder::query()
+            ->finalized()
+            ->whereDate('expected_delivery_date', '>=', Carbon::today()->toDateString())
+            ->orderBy('expected_delivery_date')
+            ->value('expected_delivery_date');
+        $restaurantNext = RestaurantOrder::query()
+            ->whereIn('status', [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value])
+            ->whereDate('expected_delivery_date', '>=', Carbon::today()->toDateString())
+            ->orderBy('expected_delivery_date')
+            ->value('expected_delivery_date');
+
+        $candidates = array_filter([$shopNext, $restaurantNext]);
+
+        return $candidates === [] ? null : Carbon::parse(min($candidates))->toDateString();
+    }
+
+    /**
+     * Per-day metadata for the calendar filter: order count (B2C finalized +
+     * B2B firm) and in-stock product count over the shop horizon. Green = has
+     * deliveries, yellow = stock but no deliveries.
+     *
+     * @return list<array{iso: string, orders: int, stock: int}>
+     */
+    private function calendarDays(): array
+    {
+        $start = Carbon::today();
+        $end = $start->copy()->addWeeks(max(1, (int) config('shop.horizon_weeks', 8)));
+
+        $shopCounts = ShopOrder::query()
+            ->finalized()
+            ->whereBetween('expected_delivery_date', [$start->toDateString(), $end->toDateString()])
+            ->selectRaw('DATE(expected_delivery_date) as d, COUNT(*) as c')
+            ->groupBy('d')
+            ->pluck('c', 'd');
+        $restaurantCounts = RestaurantOrder::query()
+            ->whereIn('status', [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value])
+            ->whereBetween('expected_delivery_date', [$start->toDateString(), $end->toDateString()])
+            ->selectRaw('DATE(expected_delivery_date) as d, COUNT(*) as c')
+            ->groupBy('d')
+            ->pluck('c', 'd');
+
+        // Widest stock view (shared + B2B pools) so "yellow" means anyone could buy.
+        $products = Product::query()->visibleInCatalog()->with('variants')->get();
+        $matrix = $this->inventory->availabilityMatrix($products, $start, $end, ShopStockAudience::BusinessTrade);
+
+        $days = [];
+        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
+            $iso = $cursor->toDateString();
+            $stock = 0;
+            foreach ($products as $product) {
+                if ((float) ($matrix[$product->id][$iso] ?? 0.0) > 0.0) {
+                    $stock++;
+                }
+            }
+            $days[] = [
+                'iso' => $iso,
+                'orders' => (int) ($shopCounts[$iso] ?? 0) + (int) ($restaurantCounts[$iso] ?? 0),
+                'stock' => $stock,
+            ];
+        }
+
+        return $days;
     }
 
     /**
@@ -651,6 +719,17 @@ class AdminShopOrderController extends Controller
         $status = is_string($statusParam) ? $statusParam : self::FILTER_FINALIZED;
         $from = (string) $request->query('delivery_from', '');
         $to = (string) $request->query('delivery_to', '');
+
+        // Fresh visit (no date params at all): focus on the NEXT delivery day
+        // that has orders. Explicitly cleared inputs (params present but empty)
+        // mean "all dates".
+        if (! $request->has('delivery_from') && ! $request->has('delivery_to')) {
+            $next = $this->nextDeliveryDayWithOrders();
+            if ($next !== null) {
+                $from = $to = $next;
+            }
+        }
+
         // '' = all, 'b2c' = private shop, 'b2b' = business (shop B2B + restaurant),
         // 'b2b-restaurant' = restaurant accounts only, 'b2b-shop' = shop B2B only.
         $type = (string) $request->query('type', '');
