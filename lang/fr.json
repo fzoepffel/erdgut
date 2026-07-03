@@ -4158,5 +4158,16 @@
     "Sa": "Sam",
     "So": "Dim",
     "shop.admin.filter_dates": "Dates",
-    "restaurant.admin_requests_title": "Demandes des restaurants"
+    "restaurant.admin_requests_title": "Demandes des restaurants",
+    "shop.admin.recurring_label": "Répéter chaque semaine (livraison récurrente)",
+    "shop.admin.recurring_hint": "Crée une livraison B2B récurrente via le compte restaurant : les prix suivent la grille B2B (pas les totaux de ligne ci-dessous) ; chaque semaine devient automatiquement une commande avec facture.",
+    "shop.admin.recurring_account_label": "Compte restaurant",
+    "shop.admin.recurring_no_accounts": "Aucun compte restaurant vérifié — créez/validez-en un d'abord sous Comptes restaurant.",
+    "shop.admin.recurring_until_label": "Se termine le (optionnel)",
+    "shop.admin.recurring_until_hint": "Vide = jusqu'à révocation.",
+    "shop.admin.recurring_created_success": "Livraison récurrente créée — toutes les semaines jusqu'à l'horizon ont été générées.",
+    "shop.admin.errors.recurring_business_only": "Les livraisons récurrentes ne sont possibles que pour les clients professionnels.",
+    "shop.admin.errors.recurring_delivery_only": "Les livraisons récurrentes nécessitent une livraison (pas de retrait).",
+    "shop.admin.errors.recurring_needs_account": "Veuillez choisir un compte restaurant vérifié.",
+    "shop.admin.errors.recurring_no_custom_lines": "Les livraisons récurrentes ne peuvent contenir que des produits du catalogue."
 }

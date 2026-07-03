@@ -223,6 +223,27 @@ class PricingRulesTest extends TestCase
         $this->assertSame('quantity_tier', $r->reason);
     }
 
+    public function test_untyped_quantity_tiers_never_apply_to_business(): void
+    {
+        // Consumer volume tiers are a private-customer mechanism: a restaurant
+        // ordering a huge quantity must NOT trip them — business pays the flat
+        // customer-group price (or base) unless a tier is explicitly Business-typed.
+        $p = $this->product(2.5);
+        ProductPriceRule::factory()->create(['product_id' => $p->id, 'min_quantity' => 3, 'unit_price' => 1.0]);
+        ProductPriceRule::factory()->create(['product_id' => $p->id, 'customer_type' => CustomerType::Business->value, 'unit_price' => 2.0]);
+
+        // Private at qty 50 → tier.
+        $this->assertSame(1.0, $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, 50.0)->unitPriceEur);
+        // Business at qty 50 → flat group price, tier ignored.
+        $b = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Business, 50.0);
+        $this->assertSame(2.0, $b->unitPriceEur);
+        $this->assertSame('customer_group', $b->reason);
+
+        // An EXPLICITLY Business-typed tier still applies (deliberate B2B tier).
+        ProductPriceRule::factory()->create(['product_id' => $p->id, 'customer_type' => CustomerType::Business->value, 'min_quantity' => 40, 'unit_price' => 1.8]);
+        $this->assertSame(1.8, $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Business, 50.0)->unitPriceEur);
+    }
+
     public function test_quantity_tiers_are_grade_specific(): void
     {
         $p = $this->product(10.0);

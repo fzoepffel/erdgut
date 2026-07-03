@@ -25,6 +25,7 @@
              quoteUrl: @js($quoteUrl),
              pickupMode: '{{ old('fulfillment_mode', 'pickup') }}',
              customerType: '{{ old('customer_type', 'private') }}',
+             recurring: {{ old('recurring') ? 'true' : 'false' }},
              preselectedDate: '{{ old('expected_delivery_date', '') }}',
              preselectedItems: @js(collect(old('items', []))->map(fn ($i) => [
                  'custom' => empty($i['product_id']) && trim((string) ($i['name'] ?? '')) !== '',
@@ -114,6 +115,42 @@
                             </label>
                         </div>
                         <x-input-error :messages="$errors->get('customer_type')" class="mt-1" />
+
+                        {{-- Recurring weekly B2B delivery: routes through the restaurant
+                             order machinery (B2B price list, weekly materialization). --}}
+                        <div x-show="customerType === 'business'" x-cloak class="space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" name="recurring" value="1" x-model="recurring"
+                                       class="rounded text-emerald-600 focus:ring-emerald-500"
+                                       {{ old('recurring') ? 'checked' : '' }}>
+                                <span class="text-sm font-medium text-gray-800">{{ __('shop.admin.recurring_label') }}</span>
+                            </label>
+                            <div x-show="recurring" x-cloak class="space-y-3">
+                                <p class="text-xs text-gray-500">{{ __('shop.admin.recurring_hint') }}</p>
+                                <div class="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <label for="restaurant_user_id" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.recurring_account_label') }}</label>
+                                        <select id="restaurant_user_id" name="restaurant_user_id" class="block w-full rounded-md border-gray-300 text-sm">
+                                            <option value="">— —</option>
+                                            @foreach ($restaurantAccounts as $acc)
+                                                <option value="{{ $acc['user_id'] }}" @selected((int) old('restaurant_user_id') === (int) $acc['user_id'])>{{ $acc['label'] }}</option>
+                                            @endforeach
+                                        </select>
+                                        @if ($restaurantAccounts->isEmpty())
+                                            <p class="mt-1 text-xs text-amber-700">{{ __('shop.admin.recurring_no_accounts') }}</p>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <label for="recurring_until" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.recurring_until_label') }}</label>
+                                        <input type="date" id="recurring_until" name="recurring_until" value="{{ old('recurring_until') }}" class="block w-full rounded-md border-gray-300 text-sm">
+                                        <p class="mt-1 text-xs text-gray-400">{{ __('shop.admin.recurring_until_hint') }}</p>
+                                    </div>
+                                </div>
+                                <x-input-error :messages="$errors->get('recurring')" class="mt-1" />
+                                <x-input-error :messages="$errors->get('restaurant_user_id')" class="mt-1" />
+                                <x-input-error :messages="$errors->get('recurring_until')" class="mt-1" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -461,6 +498,7 @@
             priceHintLabels: config.priceHintLabels || { reasons: {}, tiers: {}, compare_template: '', used_template: '' },
             selectedDate: config.preselectedDate || '',
             customerType: config.customerType || 'private',
+            recurring: config.recurring || false,
             availableProducts: [],
             loading: false,
             quoteLoading: false,

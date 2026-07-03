@@ -4158,5 +4158,16 @@
     "Sa": "Sa",
     "So": "So",
     "shop.admin.filter_dates": "Termine",
-    "restaurant.admin_requests_title": "Restaurant-Anfragen"
+    "restaurant.admin_requests_title": "Restaurant-Anfragen",
+    "shop.admin.recurring_label": "Wöchentlich wiederholen (wiederkehrende Lieferung)",
+    "shop.admin.recurring_hint": "Erzeugt eine wiederkehrende B2B-Lieferung über das Restaurant-Konto: Preise folgen der B2B-Preisliste (nicht den Zeilensummen unten), jede Woche entsteht automatisch eine Bestellung mit Rechnung.",
+    "shop.admin.recurring_account_label": "Restaurant-Konto",
+    "shop.admin.recurring_no_accounts": "Kein verifiziertes Restaurant-Konto vorhanden — zuerst unter Restaurant-Konten anlegen/freischalten.",
+    "shop.admin.recurring_until_label": "Endet am (optional)",
+    "shop.admin.recurring_until_hint": "Leer = bis auf Widerruf.",
+    "shop.admin.recurring_created_success": "Wiederkehrende Lieferung angelegt — alle Wochen bis zum Horizont wurden erzeugt.",
+    "shop.admin.errors.recurring_business_only": "Wiederkehrende Lieferungen sind nur für Geschäftskunden möglich.",
+    "shop.admin.errors.recurring_delivery_only": "Wiederkehrende Lieferungen sind nur mit Lieferung möglich (keine Abholung).",
+    "shop.admin.errors.recurring_needs_account": "Bitte ein verifiziertes Restaurant-Konto wählen.",
+    "shop.admin.errors.recurring_no_custom_lines": "Wiederkehrende Lieferungen können nur Katalogprodukte enthalten."
 }
