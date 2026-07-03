@@ -378,15 +378,12 @@ class AdminShopOrderController extends Controller
         $shopQuery = $this->filteredOrdersQuery($filter);
         $restaurantQuery = $this->filteredRestaurantOrdersQuery($filter);
 
-        $shopOrders = $filter['type'] === 'b2b-restaurant'
-            ? collect()
-            : $shopQuery->with('items.product.translations')->orderByDesc('id')->limit($window)->get();
+        $shopOrders = $shopQuery->with('items.product.translations')->orderByDesc('id')->limit($window)->get();
         $restaurantOrders = $restaurantQuery === null
             ? collect()
             : $restaurantQuery->with(['user.restaurantProfile', 'items'])->orderByDesc('id')->limit($window)->get();
 
-        $total = ($filter['type'] === 'b2b-restaurant' ? 0 : $shopQuery->count())
-            + ($restaurantQuery?->count() ?? 0);
+        $total = $shopQuery->count() + ($restaurantQuery?->count() ?? 0);
 
         $merged = $shopOrders->concat($restaurantOrders)
             ->sortByDesc(fn ($o) => $o->created_at)
@@ -493,7 +490,7 @@ class AdminShopOrderController extends Controller
      */
     private function filteredRestaurantOrdersQuery(array $filter): ?Builder
     {
-        if (in_array($filter['type'], ['b2c', 'b2b-shop'], true)) {
+        if ($filter['type'] === 'b2c') {
             return null;
         }
 
@@ -730,10 +727,11 @@ class AdminShopOrderController extends Controller
             }
         }
 
-        // '' = all, 'b2c' = private shop, 'b2b' = business (shop B2B + restaurant),
-        // 'b2b-restaurant' = restaurant accounts only, 'b2b-shop' = shop B2B only.
+        // '' = all, 'b2c' = private shop customers, 'b2b' = business —
+        // admin-created business shop orders AND restaurant orders are the
+        // same kind of customer, so they share one filter value.
         $type = (string) $request->query('type', '');
-        if (! in_array($type, ['', 'b2c', 'b2b', 'b2b-restaurant', 'b2b-shop'], true)) {
+        if (! in_array($type, ['', 'b2c', 'b2b'], true)) {
             $type = '';
         }
 
@@ -764,7 +762,7 @@ class AdminShopOrderController extends Controller
             ->when($statusEnum, fn ($q) => $q->where('status', $statusEnum))
             ->when($filter['type'] ?? '', fn ($q, $type) => match ($type) {
                 'b2c' => $q->where('customer_type', CustomerType::Private->value),
-                'b2b', 'b2b-shop' => $q->where('customer_type', CustomerType::Business->value),
+                'b2b' => $q->where('customer_type', CustomerType::Business->value),
                 default => $q,
             })
             ->when($filter['delivery_from'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '>=', $filter['delivery_from']))
