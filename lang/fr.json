@@ -4173,5 +4173,7 @@
     "shop.admin.account_select_label": "Compte restaurant vérifié (optionnel)",
     "shop.admin.account_select_none": "— saisie manuelle —",
     "shop.admin.account_select_hint": "Préremplit le contact et l'adresse de livraison et passe aux prix professionnels. Tous les champs restent modifiables.",
-    "shop.admin.recurring_pick_account_below": "Veuillez choisir un compte restaurant vérifié sous « Données client » ci-dessus."
+    "shop.admin.recurring_pick_account_below": "Veuillez choisir un compte restaurant vérifié sous « Données client » ci-dessus.",
+    "shop.admin.recurring_auto_account_note": "Aucun compte choisi : un compte restaurant vérifié est créé automatiquement à partir des données client (nom + e-mail requis). Les factures vont à cet e-mail ; le client peut récupérer le compte plus tard via « Mot de passe oublié ».",
+    "shop.admin.errors.recurring_needs_contact": "Pour une livraison récurrente sans compte, veuillez saisir le nom et l'e-mail dans les données client."
 }

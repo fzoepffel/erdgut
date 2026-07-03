@@ -267,6 +267,70 @@ class AdminUnifiedOrdersTest extends TestCase
         Carbon::setTestNow(null);
     }
 
+    public function test_recurring_without_account_auto_creates_a_verified_one(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 8)); // a Wednesday
+        Producer::factory()->create();
+        $product = Product::factory()->create([
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 2.0,
+            'vat_rate_percent' => 7,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => Carbon::tomorrow()->toDateString(),
+            'quantity' => 500,
+            'freshness_window_days' => 60,
+        ]);
+        $admin = User::factory()->admin()->create();
+
+        $payload = [
+            'name' => 'Trattoria Nuova',
+            'email' => 'chef@trattoria-nuova.example',
+            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 5, 'line_total_eur' => 10, 'vat_rate_percent' => 7]],
+            'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
+            'fulfillment_mode' => 'delivery',
+            'delivery_street' => 'Via Roma 1', 'delivery_postal_code' => '10115', 'delivery_city' => 'Berlin',
+            'delivery_fee_eur' => 0, 'delivery_fee_vat_rate_percent' => 7,
+            'customer_type' => 'business',
+            'recurring' => 1,
+        ];
+
+        // Missing contact → validation error (no silent account creation).
+        $this->actingAs($admin)
+            ->post(route('app.admin.shop-orders.store'), array_merge($payload, ['email' => '']))
+            ->assertSessionHasErrors('restaurant_user_id');
+
+        // With name + email → account auto-created, verified, standing active.
+        $this->actingAs($admin)
+            ->post(route('app.admin.shop-orders.store'), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $user = User::where('email', 'chef@trattoria-nuova.example')->firstOrFail();
+        $this->assertNotNull($user->email_verified_at);
+        $this->assertTrue($user->restaurantProfile->isVerified());
+        $this->assertSame('Trattoria Nuova', $user->restaurantProfile->business_name);
+        $this->assertSame('Via Roma 1', $user->restaurantProfile->billing_street);
+
+        $standing = RestaurantStandingOrder::firstOrFail();
+        $this->assertTrue($standing->isActive());
+        $this->assertSame($user->id, $standing->user_id);
+        $this->assertGreaterThanOrEqual(5, RestaurantOrder::where('source_standing_order_id', $standing->id)->count());
+
+        // Same email again → the existing account is reused, not duplicated.
+        $this->actingAs($admin)
+            ->post(route('app.admin.shop-orders.store'), array_merge($payload, [
+                'expected_delivery_date' => Carbon::tomorrow()->addDay()->toDateString(),
+            ]))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(1, User::where('email', 'chef@trattoria-nuova.example')->count());
+        Carbon::setTestNow(null);
+    }
+
     public function test_packing_includes_restaurant_lines_with_b2b_tag_and_toggle(): void
     {
         $product = $this->stockedProduct();
