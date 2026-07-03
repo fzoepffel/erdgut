@@ -4040,7 +4040,7 @@
     "restaurant.tab_in_stock_empty": "Nothing in stock on this day. Check “In season” or pick another day.",
     "restaurant.tab_on_request_empty": "Nothing in season to request right now.",
     "restaurant.recurrence_label": "Delivery",
-    "restaurant.date_in_stock_suffix": "in stock",
+    "restaurant.date_in_stock_suffix": "products in stock",
     "restaurant.date_on_request_only": "on request only",
     "shop.grid_show_more": "Show more",
     "restaurant.admin_line_flash_accept": "Line accepted.",
@@ -4135,7 +4135,7 @@
     "restaurant.standing_end_label": "Ends on",
     "restaurant.standing_end_save": "Apply",
     "restaurant.standing_flash_standing-end-updated": "The end of the recurring delivery has been updated.",
-    "restaurant.edit_standing": "Edit recurring delivery",
+    "restaurant.edit_standing": "Edit schedule",
     "restaurant.cart_payment_note": "No online payment needed: after delivery you'll receive an invoice as a PDF by email. Clicking “Place binding order” places a binding order payable by invoice.",
     "restaurant.cart_submit_binding": "Place binding order",
     "restaurant.checkout_delivery_every": "Delivery every :weekday (from :date)",
@@ -4180,5 +4180,6 @@
     "restaurant.requests_season_hint": "In season right now but not in stock — we check availability on request.",
     "restaurant.admin_adjust_lines_title": "Adjust lines & prices",
     "restaurant.admin_adjust_lines_hint": "Change quantities, prices or lines of this order — possible until the invoice is issued.",
-    "restaurant.order_gross_total": "Total gross"
+    "restaurant.order_gross_total": "Total gross",
+    "restaurant.date_in_stock_suffix_one": "product in stock"
 }

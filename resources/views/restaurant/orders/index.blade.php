@@ -18,7 +18,7 @@
     @else
         <div class="mt-8 divide-y divide-shop-border border border-shop-border">
             @foreach ($orders as $order)
-                <div class="flex items-center justify-between gap-4 px-4 py-3 hover:bg-shop-card">
+                <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-shop-card">
                     <a href="{{ route('app.restaurant.orders.show', $order) }}" class="min-w-0 flex-1">
                         <p class="text-sm text-shop-foreground">{{ __('restaurant.order_ref', ['id' => $order->id]) }}</p>
                         @php
@@ -28,7 +28,7 @@
                         <p class="truncate text-xs text-shop-foreground/80">{{ $names }}@if ($more > 0) <span class="text-shop-muted">+{{ $more }}</span>@endif</p>
                         <p class="text-xs text-shop-muted">{{ $order->expected_delivery_date->translatedFormat('d.m.Y') }} · {{ $order->items_count }} {{ trans_choice('restaurant.cart_line_count', $order->items_count) }}</p>
                     </a>
-                    <div class="flex shrink-0 items-center gap-3">
+                    <div class="flex flex-wrap items-center justify-end gap-2">
                         <div class="text-right">
                             <span class="rounded-full bg-shop-card px-2.5 py-0.5 text-[11px] font-medium text-shop-foreground">{{ __('restaurant.order_status_'.$order->status->value) }}</span>
                             <p class="mt-1 font-mono text-sm text-shop-foreground">@eur($order->items_total_net_eur) <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}</span></p>

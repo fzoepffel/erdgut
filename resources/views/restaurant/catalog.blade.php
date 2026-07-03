@@ -48,6 +48,7 @@
                      selectedIso: @js($selectedDate?->toDateString() ?? ''),
                      shopUrl: @js(route('app.restaurant.catalog')),
                      availableSuffix: @js(__('restaurant.date_in_stock_suffix')),
+                     availableSuffixOne: @js(__('restaurant.date_in_stock_suffix_one')),
                      onRequestLabel: @js(__('restaurant.date_on_request_only')),
                  })">
             <div class="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-12">
@@ -394,6 +395,7 @@
                 selectedIso: config.selectedIso,
                 shopUrl: config.shopUrl,
                 availableSuffix: config.availableSuffix,
+                availableSuffixOne: config.availableSuffixOne || config.availableSuffix,
                 onRequestLabel: config.onRequestLabel,
                 dateOpen: false,
                 get selectedDateData() {
@@ -409,7 +411,8 @@
                     return groups;
                 },
                 stockNote(d) {
-                    return d.inStockCount > 0 ? (d.inStockCount + ' ' + this.availableSuffix) : this.onRequestLabel;
+                    if (d.inStockCount <= 0) return this.onRequestLabel;
+                    return d.inStockCount + ' ' + (d.inStockCount === 1 ? this.availableSuffixOne : this.availableSuffix);
                 },
                 selectDate(iso) {
                     const url = new URL(this.shopUrl, window.location.origin);

@@ -39,13 +39,15 @@
 </head>
 <body class="bg-brand-cream font-sans text-brand-ink antialiased">
     <div class="flex min-h-screen flex-col">
-        {{-- Shared shop-surface header (identical to the shop landing /
-             About / Kontakt pages). Active state is derived from the route,
-             so the legacy `navActive` prop is no longer needed. --}}
-        <x-customer-header variant="shop" />
-
         @if ($restaurantNav)
+            {{-- Logged-in B2B area: the slim sticky app header REPLACES the
+                 public marketing header (no Startseite/Höfe/Zum-Hofladen
+                 noise while preparing an order). --}}
             <x-restaurant-nav :active="$restaurantNav" />
+        @else
+            {{-- Shared shop-surface header (identical to the shop landing /
+                 About / Kontakt pages). --}}
+            <x-customer-header variant="shop" />
         @endif
 
         <main id="main" class="flex-1">
