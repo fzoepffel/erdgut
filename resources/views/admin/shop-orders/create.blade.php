@@ -113,12 +113,6 @@
                                 <span class="text-sm text-gray-700">{{ __('shop.admin.customer_type_business') }}</span>
                             </label>
                         </div>
-                        {{-- B2B channel hint: verified restaurant accounts have their own
-                             invoice + recurring flow — point the admin there. --}}
-                        <p class="text-xs text-gray-500" x-show="customerType === 'business'" x-cloak>
-                            {{ __('shop.admin.create_restaurant_hint') }}
-                            <a href="{{ route('app.admin.restaurant-orders.index') }}" class="text-indigo-600 underline">{{ __('restaurant.admin_orders_title') }}</a>
-                        </p>
                         <x-input-error :messages="$errors->get('customer_type')" class="mt-1" />
                     </div>
                 </div>

@@ -222,8 +222,6 @@
                             <option value="" @selected($type === '')>{{ __('All') }}</option>
                             <option value="b2c" @selected($type === 'b2c')>{{ __('shop.admin.type_b2c') }}</option>
                             <option value="b2b" @selected($type === 'b2b')>{{ __('shop.admin.type_b2b') }}</option>
-                            <option value="b2b-restaurant" @selected($type === 'b2b-restaurant')>{{ __('shop.admin.type_b2b_restaurant') }}</option>
-                            <option value="b2b-shop" @selected($type === 'b2b-shop')>{{ __('shop.admin.type_b2b_shop') }}</option>
                         </select>
                     </div>
                     <x-primary-button size="sm">{{ __('Filter') }}</x-primary-button>
@@ -262,7 +260,7 @@
                                     </td>
                                     <td class="whitespace-nowrap px-3 py-2">
                                         <div class="flex flex-wrap gap-1">
-                                            <span class="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-blue-700">{{ __('shop.admin.badge_restaurant') }}</span>
+                                            <span class="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-blue-700">{{ __('shop.admin.badge_b2b') }}</span>
                                             @if ($order->isRequest())
                                                 <span class="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-700">{{ __('restaurant.kind_request') }}</span>
                                             @endif

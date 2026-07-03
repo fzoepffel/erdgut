@@ -80,7 +80,7 @@ class AdminUnifiedOrdersTest extends TestCase
             ->get(route('app.admin.shop-orders.index'))
             ->assertOk()
             ->assertSee('data-testid="shop-admin-restaurant-row-'.$order->id.'"', false)
-            ->assertSee(__('shop.admin.badge_restaurant'))
+            ->assertSee(__('shop.admin.badge_b2b'))
             ->assertSee(route('app.admin.restaurant-orders.show', $order), false);
     }
 
@@ -124,7 +124,7 @@ class AdminUnifiedOrdersTest extends TestCase
         $admin = User::factory()->admin()->create();
 
         $this->actingAs($admin)
-            ->get(route('app.admin.shop-orders.index', ['type' => 'b2b-restaurant']))
+            ->get(route('app.admin.shop-orders.index', ['type' => 'b2b']))
             ->assertOk()
             ->assertSee('data-testid="shop-admin-restaurant-row-'.$order->id.'"', false);
 
@@ -189,7 +189,7 @@ class AdminUnifiedOrdersTest extends TestCase
 
         $admin = User::factory()->admin()->create();
         $html = $this->actingAs($admin)
-            ->get(route('app.admin.shop-orders.index', ['delivery_from' => '', 'delivery_to' => '', 'type' => 'b2b-restaurant']))
+            ->get(route('app.admin.shop-orders.index', ['delivery_from' => '', 'delivery_to' => '', 'type' => 'b2b']))
             ->assertOk()
             ->getContent();
         $this->assertGreaterThanOrEqual(5, substr_count($html, 'data-testid="shop-admin-restaurant-row-'));
