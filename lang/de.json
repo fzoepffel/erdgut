@@ -3960,8 +3960,8 @@
     "restaurant.order_email.declined_subject": "Ihre Erdgut-Anfrage #:id",
     "restaurant.order_email.declined_heading": "Anfrage abgelehnt",
     "restaurant.order_email.declined_body": "Leider können wir Ihre Anfrage für den :date nicht annehmen.",
-    "restaurant.special_title": "Sonderwünsche",
-    "restaurant.special_hint": "Produkte außerhalb des Sortiments (z. B. Wildkräuter, Erbsentriebe). Wir melden uns mit dem Preis.",
+    "restaurant.special_title": "Sagen Sie uns, was Sie brauchen",
+    "restaurant.special_hint": "Völlig frei: Produkt, Menge, Einheit — auch Dinge außerhalb unseres Sortiments. Wir prüfen, was möglich ist.",
     "restaurant.special_add": "Hinzufügen",
     "restaurant.special_name": "Was möchten Sie?",
     "restaurant.special_qty": "Menge",
@@ -4175,5 +4175,7 @@
     "shop.admin.account_select_hint": "Füllt Kontakt & Lieferadresse aus und stellt auf Geschäftskunden-Preise um. Alle Felder bleiben anpassbar.",
     "shop.admin.recurring_pick_account_below": "Bitte oben unter „Kundendaten“ ein verifiziertes Restaurant-Konto wählen.",
     "shop.admin.recurring_auto_account_note": "Kein Konto gewählt: Aus den Kundendaten (Name + E-Mail erforderlich) wird automatisch ein verifiziertes Restaurant-Konto angelegt. Rechnungen gehen an diese E-Mail; der Kunde kann das Konto später per „Passwort vergessen“ übernehmen.",
-    "shop.admin.errors.recurring_needs_contact": "Für eine wiederkehrende Lieferung ohne Konto bitte Name und E-Mail unter Kundendaten angeben."
+    "shop.admin.errors.recurring_needs_contact": "Für eine wiederkehrende Lieferung ohne Konto bitte Name und E-Mail unter Kundendaten angeben.",
+    "restaurant.requests_two_paths": "Zwei Wege zu Ihrer Anfrage: Wählen Sie direkt unten frei aus, was Sie brauchen — oder stöbern Sie in der Liste der Saison-Produkte darunter. Beides landet in derselben unverbindlichen Anfrage.",
+    "restaurant.requests_season_hint": "Gerade in Saison, aber nicht auf Lager — auf Anfrage prüfen wir die Verfügbarkeit."
 }

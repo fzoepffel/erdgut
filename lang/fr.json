@@ -3960,8 +3960,8 @@
     "restaurant.order_email.declined_subject": "Votre demande Erdgut n° :id",
     "restaurant.order_email.declined_heading": "Demande refusée",
     "restaurant.order_email.declined_body": "Malheureusement, nous ne pouvons pas accepter votre demande pour le :date.",
-    "restaurant.special_title": "Demandes spéciales",
-    "restaurant.special_hint": "Produits hors assortiment (p. ex. herbes sauvages, pousses de pois). Nous reviendrons vers vous avec un prix.",
+    "restaurant.special_title": "Dites-nous ce qu'il vous faut",
+    "restaurant.special_hint": "Totalement libre : produit, quantité, unité — y compris hors assortiment. Nous vérifions ce qui est possible.",
     "restaurant.special_add": "Ajouter",
     "restaurant.special_name": "Que souhaitez-vous ?",
     "restaurant.special_qty": "Qté",
@@ -4175,5 +4175,7 @@
     "shop.admin.account_select_hint": "Préremplit le contact et l'adresse de livraison et passe aux prix professionnels. Tous les champs restent modifiables.",
     "shop.admin.recurring_pick_account_below": "Veuillez choisir un compte restaurant vérifié sous « Données client » ci-dessus.",
     "shop.admin.recurring_auto_account_note": "Aucun compte choisi : un compte restaurant vérifié est créé automatiquement à partir des données client (nom + e-mail requis). Les factures vont à cet e-mail ; le client peut récupérer le compte plus tard via « Mot de passe oublié ».",
-    "shop.admin.errors.recurring_needs_contact": "Pour une livraison récurrente sans compte, veuillez saisir le nom et l'e-mail dans les données client."
+    "shop.admin.errors.recurring_needs_contact": "Pour une livraison récurrente sans compte, veuillez saisir le nom et l'e-mail dans les données client.",
+    "restaurant.requests_two_paths": "Deux façons de demander : dites-nous librement ce qu'il vous faut juste en dessous — ou parcourez la liste des produits de saison plus bas. Les deux aboutissent à la même demande sans engagement.",
+    "restaurant.requests_season_hint": "De saison en ce moment mais pas en stock — nous vérifions la disponibilité sur demande."
 }

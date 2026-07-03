@@ -61,9 +61,75 @@
             @if ($selectableDates->isEmpty())
                 <div class="shop-card mt-8 p-8 text-center text-shop-muted">{{ __('restaurant.no_open_days') }}</div>
             @else
-                {{-- ── Season products (in window, not in stock) ───────────── --}}
+                {{-- ── My requests: the reader's own open/past requests first ── --}}
+                @if ($myRequests->isNotEmpty())
+                    <div class="mt-8">
+                        <p class="eyebrow text-shop-primary">{{ __('restaurant.my_requests_list_title') }}</p>
+                        <div class="mt-3 divide-y divide-shop-border border border-shop-border">
+                            @foreach ($myRequests as $req)
+                                <a href="{{ route('app.restaurant.orders.show', $req) }}" class="flex items-center justify-between gap-4 px-4 py-3 hover:bg-shop-card">
+                                    <div>
+                                        <p class="text-sm text-shop-foreground">{{ __('restaurant.request_ref', ['id' => $req->id]) }}</p>
+                                        <p class="text-xs text-shop-muted">{{ $req->expected_delivery_date->translatedFormat('d.m.Y') }} · {{ $req->items_count }} {{ trans_choice('restaurant.cart_line_count', $req->items_count) }}</p>
+                                    </div>
+                                    <span class="rounded-full bg-shop-card px-2.5 py-0.5 text-[11px] font-medium text-shop-foreground">{{ __('restaurant.order_status_'.$req->status->value) }}</span>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Two ways to ask: pick from the season list — or free-form. --}}
+                <div class="mt-10 border-l-2 border-amber-400 bg-amber-50/60 px-4 py-3 text-sm text-shop-foreground" data-testid="requests-two-paths">
+                    {{ __('restaurant.requests_two_paths') }}
+                </div>
+
+                {{-- ── Free-form wishes ────────────────────────────────────── --}}
+                <div class="mt-10 shop-card p-6">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <h2 class="font-display text-xl text-shop-foreground">{{ __('restaurant.special_title') }}</h2>
+                            <p class="text-xs text-shop-muted">{{ __('restaurant.special_hint') }}</p>
+                        </div>
+                        <button type="button" @click="addSpecialRequest()" data-testid="restaurant-add-special"
+                                class="shrink-0 border border-shop-border px-3 py-1.5 font-mono text-[0.7rem] uppercase tracking-widest text-shop-foreground hover:border-shop-primary">
+                            {{ __('restaurant.special_add') }}
+                        </button>
+                    </div>
+                    <div class="mt-4 space-y-3">
+                        <template x-for="(s, i) in specialRequests" :key="i">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <input type="text" x-model="s.name" maxlength="160" placeholder="{{ __('restaurant.special_name') }}"
+                                       class="min-w-[10rem] flex-1 border border-shop-border bg-shop-background px-3 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                <input type="text" inputmode="decimal" x-model="s.quantity" placeholder="{{ __('restaurant.special_qty') }}"
+                                       class="w-20 border border-shop-border bg-shop-background px-2 py-2 text-center text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                <select x-model="s.unit" class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                    @foreach (['piece', 'bunch', 'kg', 'g', 'l', 'ml'] as $u)
+                                        <option value="{{ $u }}">{{ \App\Enums\ProductUnit::displaySymbol($u) }}</option>
+                                    @endforeach
+                                </select>
+                                <select x-model="s.recurrence" class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                    <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
+                                    <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
+                                </select>
+                                <select x-show="s.recurrence === 'weekly'" x-model="s.until"
+                                        class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                    <option value="">{{ __('restaurant.recurrence_open_ended') }}</option>
+                                    <template x-for="w in recurrenceWeeks" :key="w.iso">
+                                        <option :value="w.iso" x-text="'KW ' + w.kw + ' · ' + w.label"></option>
+                                    </template>
+                                </select>
+                                <button type="button" @click="removeSpecialRequest(i)" class="px-2 text-shop-muted hover:text-chapter-meat" aria-label="{{ __('restaurant.special_remove') }}">✕</button>
+                            </div>
+                        </template>
+                        <p x-show="specialRequests.length === 0" class="text-sm text-shop-muted">{{ __('restaurant.special_empty') }}</p>
+                    </div>
+                </div>
+
+                {{-- ── Path B: season products (in window, not in stock) ────── --}}
                 <div class="mt-10">
                     <p class="eyebrow text-shop-primary">{{ __('restaurant.requests_season_title') }}</p>
+                    <p class="mt-1 text-xs text-shop-muted">{{ __('restaurant.requests_season_hint') }}</p>
                     @if ($seasonRows->isEmpty())
                         <div class="shop-card mt-3 p-6 text-sm text-shop-muted" data-testid="requests-season-empty">{{ __('restaurant.tab_on_request_empty') }}</div>
                     @else
@@ -119,66 +185,6 @@
                         </div>
                     @endif
                 </div>
-
-                {{-- ── Free-form wishes ────────────────────────────────────── --}}
-                <div class="mt-10 shop-card p-6">
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
-                            <h2 class="font-display text-xl text-shop-foreground">{{ __('restaurant.special_title') }}</h2>
-                            <p class="text-xs text-shop-muted">{{ __('restaurant.special_hint') }}</p>
-                        </div>
-                        <button type="button" @click="addSpecialRequest()" data-testid="restaurant-add-special"
-                                class="shrink-0 border border-shop-border px-3 py-1.5 font-mono text-[0.7rem] uppercase tracking-widest text-shop-foreground hover:border-shop-primary">
-                            {{ __('restaurant.special_add') }}
-                        </button>
-                    </div>
-                    <div class="mt-4 space-y-3">
-                        <template x-for="(s, i) in specialRequests" :key="i">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <input type="text" x-model="s.name" maxlength="160" placeholder="{{ __('restaurant.special_name') }}"
-                                       class="min-w-[10rem] flex-1 border border-shop-border bg-shop-background px-3 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
-                                <input type="text" inputmode="decimal" x-model="s.quantity" placeholder="{{ __('restaurant.special_qty') }}"
-                                       class="w-20 border border-shop-border bg-shop-background px-2 py-2 text-center text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
-                                <select x-model="s.unit" class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
-                                    @foreach (['piece', 'bunch', 'kg', 'g', 'l', 'ml'] as $u)
-                                        <option value="{{ $u }}">{{ \App\Enums\ProductUnit::displaySymbol($u) }}</option>
-                                    @endforeach
-                                </select>
-                                <select x-model="s.recurrence" class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
-                                    <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
-                                    <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
-                                </select>
-                                <select x-show="s.recurrence === 'weekly'" x-model="s.until"
-                                        class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
-                                    <option value="">{{ __('restaurant.recurrence_open_ended') }}</option>
-                                    <template x-for="w in recurrenceWeeks" :key="w.iso">
-                                        <option :value="w.iso" x-text="'KW ' + w.kw + ' · ' + w.label"></option>
-                                    </template>
-                                </select>
-                                <button type="button" @click="removeSpecialRequest(i)" class="px-2 text-shop-muted hover:text-chapter-meat" aria-label="{{ __('restaurant.special_remove') }}">✕</button>
-                            </div>
-                        </template>
-                        <p x-show="specialRequests.length === 0" class="text-sm text-shop-muted">{{ __('restaurant.special_empty') }}</p>
-                    </div>
-                </div>
-
-                {{-- ── My requests ─────────────────────────────────────────── --}}
-                @if ($myRequests->isNotEmpty())
-                    <div class="mt-12">
-                        <p class="eyebrow text-shop-primary">{{ __('restaurant.my_requests_list_title') }}</p>
-                        <div class="mt-3 divide-y divide-shop-border border border-shop-border">
-                            @foreach ($myRequests as $req)
-                                <a href="{{ route('app.restaurant.orders.show', $req) }}" class="flex items-center justify-between gap-4 px-4 py-3 hover:bg-shop-card">
-                                    <div>
-                                        <p class="text-sm text-shop-foreground">{{ __('restaurant.request_ref', ['id' => $req->id]) }}</p>
-                                        <p class="text-xs text-shop-muted">{{ $req->expected_delivery_date->translatedFormat('d.m.Y') }} · {{ $req->items_count }} {{ trans_choice('restaurant.cart_line_count', $req->items_count) }}</p>
-                                    </div>
-                                    <span class="rounded-full bg-shop-card px-2.5 py-0.5 text-[11px] font-medium text-shop-foreground">{{ __('restaurant.order_status_'.$req->status->value) }}</span>
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
             @endif
         </div>
 
