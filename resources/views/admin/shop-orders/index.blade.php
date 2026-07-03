@@ -108,9 +108,6 @@
             @php
                 $selFrom = $deliveryFrom !== '' ? $deliveryFrom : null;
                 $selTo = $deliveryTo !== '' ? $deliveryTo : ($selFrom ?? null);
-                $firstDay = \Illuminate\Support\Carbon::parse($calendarDays[0]['iso']);
-                $blanks = $firstDay->dayOfWeekIso - 1;
-                $weeks = collect(array_merge(array_fill(0, $blanks, null), $calendarDays))->chunk(7);
                 $locale = app()->getLocale();
                 // Button label: "Alle Termine" | "Mo, 6. Jul" | "6. Jul – 13. Jul"
                 if ($selFrom === null) {
@@ -122,23 +119,15 @@
                 }
             @endphp
             <div class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm"
-                 x-data="{
-                     calOpen: false,
-                     pickFrom: '',
-                     pick(iso) {
-                         if (!this.pickFrom) { this.pickFrom = iso; return; }
-                         let a = this.pickFrom, b = iso;
-                         if (b < a) [a, b] = [b, a];
-                         this.apply(a, b);
-                     },
-                     apply(a, b) {
-                         this.$refs.deliveryFrom.value = a;
-                         this.$refs.deliveryTo.value = b;
-                         this.pickFrom = '';
-                         this.calOpen = false;
-                         this.$refs.filterForm.requestSubmit();
-                     },
-                 }">
+                 x-data="adminOrderCalendar({
+                     month: @js($calendarInitialMonth),
+                     initialDays: @js($calendarDays),
+                     monthUrl: @js(route('app.admin.shop-orders.calendar-month')),
+                     selFrom: @js($selFrom),
+                     selTo: @js($selTo),
+                     locale: @js($locale),
+                     monthNames: @js(collect(range(1, 12))->map(fn ($m) => \Illuminate\Support\Carbon::create(2026, $m, 1)->locale($locale)->isoFormat('MMMM'))->all()),
+                 })">
                 <form method="get" x-ref="filterForm" class="flex flex-wrap items-end gap-3">
                     {{-- The calendar popover IS the date filter — the form only
                          carries the picked range in hidden fields. --}}
@@ -154,45 +143,40 @@
                             <svg class="h-3.5 w-3.5 text-gray-500 transition-transform" :class="calOpen && 'rotate-180'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
                         </button>
 
-                        {{-- Compact calendar popover: click one day twice = that day;
-                             two days = range. Green = deliveries, yellow = stock only. --}}
+                        {{-- Compact calendar popover with month paging (any month,
+                             past or future). Click one day twice = that day; two
+                             days = range. Green = deliveries, yellow = stock only. --}}
                         <div x-show="calOpen" x-cloak x-transition.origin.top
                              class="absolute left-0 z-40 mt-2 w-[21rem] rounded-lg border border-gray-200 bg-white p-3 shadow-xl"
                              data-testid="shop-admin-calendar">
+                            <div class="mb-2 flex items-center justify-between">
+                                <button type="button" @click="prevMonth()" class="rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-100" data-testid="shop-admin-cal-prev" aria-label="&larr;">&larr;</button>
+                                <span class="text-sm font-medium text-gray-800" x-text="monthLabel()"></span>
+                                <button type="button" @click="nextMonth()" class="rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-100" data-testid="shop-admin-cal-next" aria-label="&rarr;">&rarr;</button>
+                            </div>
                             <div class="mb-1 grid grid-cols-7 gap-0.5 text-center font-mono text-[0.55rem] uppercase tracking-wider text-gray-400">
                                 @foreach ([__('Mo'), __('Di'), __('Mi'), __('Do'), __('Fr'), __('Sa'), __('So')] as $dow)
                                     <span>{{ $dow }}</span>
                                 @endforeach
                             </div>
-                            <div class="space-y-0.5">
-                                @foreach ($weeks as $week)
+                            <div class="space-y-0.5" :class="loading && 'opacity-50'">
+                                <template x-for="(week, wi) in weeks()" :key="month + '-' + wi">
                                     <div class="grid grid-cols-7 gap-0.5">
-                                        @foreach ($week as $day)
-                                            @if ($day === null)
-                                                <span></span>
-                                            @else
-                                                @php
-                                                    $d = \Illuminate\Support\Carbon::parse($day['iso']);
-                                                    $inSel = $selFrom !== null && $day['iso'] >= $selFrom && $day['iso'] <= $selTo;
-                                                    $tone = $day['orders'] > 0
-                                                        ? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
-                                                        : ($day['stock'] > 0 ? 'bg-amber-50 text-amber-800 hover:bg-amber-100' : 'text-gray-400 hover:bg-gray-100');
-                                                @endphp
-                                                <button type="button"
-                                                        @click="pick('{{ $day['iso'] }}')"
-                                                        :class="pickFrom === '{{ $day['iso'] }}' ? 'ring-2 ring-gray-800' : ''"
-                                                        data-testid="shop-admin-cal-{{ $day['iso'] }}"
-                                                        title="{{ $d->locale($locale)->isoFormat('dd, D. MMM') }} · {{ trans_choice('shop.admin.cal_orders', $day['orders'], ['count' => $day['orders']]) }} · {{ trans_choice('shop.admin.cal_stock', $day['stock'], ['count' => $day['stock']]) }}"
-                                                        class="relative flex h-7 items-center justify-center rounded text-[11px] tabular-nums transition {{ $tone }} {{ $inSel ? 'ring-2 ring-gray-900 font-semibold' : '' }}">
-                                                    {{ $d->day }}@if ($d->day === 1)<span class="ml-0.5 text-[0.55rem]">{{ $d->locale($locale)->isoFormat('MMM') }}</span>@endif
-                                                    @if ($day['orders'] > 0)
-                                                        <span class="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
-                                                    @endif
+                                        <template x-for="(day, di) in week" :key="di">
+                                            <span>
+                                                <button x-show="day" type="button"
+                                                        @click="pick(day.iso)"
+                                                        :data-testid="day ? ('shop-admin-cal-' + day.iso) : null"
+                                                        :title="day ? dayTitle(day) : ''"
+                                                        class="relative flex h-7 w-full items-center justify-center rounded text-[11px] tabular-nums transition"
+                                                        :class="day ? toneFor(day) : ''">
+                                                    <span x-text="day ? parseInt(day.iso.slice(8), 10) : ''"></span>
+                                                    <span x-show="day && day.orders > 0" class="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
                                                 </button>
-                                            @endif
-                                        @endforeach
+                                            </span>
+                                        </template>
                                     </div>
-                                @endforeach
+                                </template>
                             </div>
                             <div class="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2 text-[0.65rem] text-gray-500">
                                 <span class="flex items-center gap-3">
@@ -394,4 +378,89 @@
             <div>{{ $orders->links() }}</div>
         </div>
     </div>
+    <script>
+    function adminOrderCalendar(config) {
+        return {
+            calOpen: false,
+            pickFrom: '',
+            month: config.month,               // 'YYYY-MM'
+            monthUrl: config.monthUrl,
+            monthNames: config.monthNames,
+            selFrom: config.selFrom,
+            selTo: config.selTo || config.selFrom,
+            loading: false,
+            cache: { [config.month]: config.initialDays },
+
+            days() { return this.cache[this.month] || []; },
+
+            monthLabel() {
+                const [y, m] = this.month.split('-').map(Number);
+                return this.monthNames[m - 1] + ' ' + y;
+            },
+
+            // Monday-first grid: pad the first week, chunk by 7.
+            weeks() {
+                const days = this.days();
+                if (!days.length) return [];
+                const first = new Date(days[0].iso + 'T00:00:00');
+                const blanks = (first.getDay() + 6) % 7;
+                const cells = Array(blanks).fill(null).concat(days);
+                const out = [];
+                for (let i = 0; i < cells.length; i += 7) out.push(cells.slice(i, i + 7));
+                return out;
+            },
+
+            shiftMonth(delta) {
+                let [y, m] = this.month.split('-').map(Number);
+                m += delta;
+                if (m < 1) { m = 12; y--; }
+                if (m > 12) { m = 1; y++; }
+                this.month = y + '-' + String(m).padStart(2, '0');
+                this.fetchMonth(this.month);
+            },
+            prevMonth() { this.shiftMonth(-1); },
+            nextMonth() { this.shiftMonth(1); },
+
+            fetchMonth(month) {
+                if (this.cache[month]) return;
+                this.loading = true;
+                fetch(this.monthUrl + '?month=' + month, { headers: { 'Accept': 'application/json' } })
+                    .then((r) => r.json())
+                    .then((d) => { this.cache[month] = d.days || []; })
+                    .catch(() => { this.cache[month] = []; })
+                    .finally(() => { this.loading = false; });
+            },
+
+            toneFor(day) {
+                const tone = day.orders > 0
+                    ? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
+                    : (day.stock > 0 ? 'bg-amber-50 text-amber-800 hover:bg-amber-100' : 'text-gray-400 hover:bg-gray-100');
+                const sel = (this.selFrom && day.iso >= this.selFrom && day.iso <= (this.selTo || this.selFrom))
+                    ? ' ring-2 ring-gray-900 font-semibold' : '';
+                const picking = this.pickFrom === day.iso ? ' ring-2 ring-gray-800' : '';
+                return tone + sel + picking;
+            },
+
+            dayTitle(day) {
+                const orders = (day.orders === 1 ? @js(trans_choice('shop.admin.cal_orders', 1, ['count' => 1])) : @js(trans_choice('shop.admin.cal_orders', 2, ['count' => ':count'])).replace(':count', day.orders));
+                const stock = (day.stock === 1 ? @js(trans_choice('shop.admin.cal_stock', 1, ['count' => 1])) : @js(trans_choice('shop.admin.cal_stock', 2, ['count' => ':count'])).replace(':count', day.stock));
+                return day.iso + ' · ' + orders + ' · ' + stock;
+            },
+
+            pick(iso) {
+                if (!this.pickFrom) { this.pickFrom = iso; return; }
+                let a = this.pickFrom, b = iso;
+                if (b < a) [a, b] = [b, a];
+                this.apply(a, b);
+            },
+            apply(a, b) {
+                this.$refs.deliveryFrom.value = a;
+                this.$refs.deliveryTo.value = b;
+                this.pickFrom = '';
+                this.calOpen = false;
+                this.$refs.filterForm.requestSubmit();
+            },
+        };
+    }
+    </script>
 </x-admin-layout>
