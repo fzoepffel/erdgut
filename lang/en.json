@@ -3960,8 +3960,8 @@
     "restaurant.order_email.declined_subject": "Your Erdgut request #:id",
     "restaurant.order_email.declined_heading": "Request declined",
     "restaurant.order_email.declined_body": "Unfortunately we can't accept your request for :date.",
-    "restaurant.special_title": "Special requests",
-    "restaurant.special_hint": "Items outside the range (e.g. wild herbs, pea tops). We'll get back to you with a price.",
+    "restaurant.special_title": "Tell us what you need",
+    "restaurant.special_hint": "Completely free-form: product, amount, unit — including things outside our range. We'll check what's possible.",
     "restaurant.special_add": "Add",
     "restaurant.special_name": "What would you like?",
     "restaurant.special_qty": "Qty",
@@ -4175,5 +4175,7 @@
     "shop.admin.account_select_hint": "Prefills contact & delivery address and switches to business pricing. All fields stay editable.",
     "shop.admin.recurring_pick_account_below": "Please pick a verified restaurant account under “Customer details” above.",
     "shop.admin.recurring_auto_account_note": "No account picked: a verified restaurant account is created automatically from the customer details (name + email required). Invoices go to that email; the customer can claim the account later via “Forgot password”.",
-    "shop.admin.errors.recurring_needs_contact": "For a recurring delivery without an account, please enter name and email under customer details."
+    "shop.admin.errors.recurring_needs_contact": "For a recurring delivery without an account, please enter name and email under customer details.",
+    "restaurant.requests_two_paths": "Two ways to ask: tell us freely what you need right below — or browse the in-season list further down. Both end up in the same non-binding request.",
+    "restaurant.requests_season_hint": "In season right now but not in stock — we check availability on request."
 }
