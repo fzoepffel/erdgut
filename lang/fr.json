@@ -4040,7 +4040,7 @@
     "restaurant.tab_in_stock_empty": "Rien en stock ce jour-là. Voir « De saison » ou choisir un autre jour.",
     "restaurant.tab_on_request_empty": "Rien de saison à demander pour le moment.",
     "restaurant.recurrence_label": "Livraison",
-    "restaurant.date_in_stock_suffix": "en stock",
+    "restaurant.date_in_stock_suffix": "produits en stock",
     "restaurant.date_on_request_only": "sur demande uniquement",
     "shop.grid_show_more": "Afficher plus",
     "restaurant.admin_line_flash_accept": "Ligne acceptée.",
@@ -4135,7 +4135,7 @@
     "restaurant.standing_end_label": "Se termine le",
     "restaurant.standing_end_save": "Appliquer",
     "restaurant.standing_flash_standing-end-updated": "La fin de la livraison récurrente a été mise à jour.",
-    "restaurant.edit_standing": "Modifier la livraison récurrente",
+    "restaurant.edit_standing": "Modifier le planning",
     "restaurant.cart_payment_note": "Aucun paiement en ligne : après la livraison, vous recevrez une facture PDF par e-mail. En cliquant sur « Commande ferme », vous passez une commande ferme payable sur facture.",
     "restaurant.cart_submit_binding": "Commande ferme",
     "restaurant.checkout_delivery_every": "Livraison chaque :weekday (à partir du :date)",
@@ -4180,5 +4180,6 @@
     "restaurant.requests_season_hint": "De saison en ce moment mais pas en stock — nous vérifions la disponibilité sur demande.",
     "restaurant.admin_adjust_lines_title": "Ajuster les lignes et prix",
     "restaurant.admin_adjust_lines_hint": "Modifier les quantités, prix ou lignes de cette commande — possible jusqu'à l'émission de la facture.",
-    "restaurant.order_gross_total": "Total TTC"
+    "restaurant.order_gross_total": "Total TTC",
+    "restaurant.date_in_stock_suffix_one": "produit en stock"
 }

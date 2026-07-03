@@ -4040,7 +4040,7 @@
     "restaurant.tab_in_stock_empty": "An diesem Tag ist nichts auf Lager. Schau in „In Saison“ oder wähle einen anderen Tag.",
     "restaurant.tab_on_request_empty": "Aktuell ist nichts in Saison, das angefragt werden könnte.",
     "restaurant.recurrence_label": "Lieferung",
-    "restaurant.date_in_stock_suffix": "auf Lager",
+    "restaurant.date_in_stock_suffix": "Produkte auf Lager",
     "restaurant.date_on_request_only": "nur auf Anfrage",
     "shop.grid_show_more": "Mehr anzeigen",
     "restaurant.admin_line_flash_accept": "Position angenommen.",
@@ -4135,7 +4135,7 @@
     "restaurant.standing_end_label": "Endet am",
     "restaurant.standing_end_save": "Übernehmen",
     "restaurant.standing_flash_standing-end-updated": "Das Ende der wiederkehrenden Lieferung wurde aktualisiert.",
-    "restaurant.edit_standing": "Wiederkehrende Lieferung bearbeiten",
+    "restaurant.edit_standing": "Lieferplan ändern",
     "restaurant.cart_payment_note": "Keine Online-Zahlung nötig: Nach der Lieferung erhalten Sie eine Rechnung als PDF per E-Mail. Mit Klick auf „Zahlungspflichtig bestellen“ geben Sie eine verbindliche Bestellung auf, die per Rechnung zu bezahlen ist.",
     "restaurant.cart_submit_binding": "Zahlungspflichtig bestellen",
     "restaurant.checkout_delivery_every": "Lieferung jeden :weekday (ab :date)",
@@ -4180,5 +4180,6 @@
     "restaurant.requests_season_hint": "Gerade in Saison, aber nicht auf Lager — auf Anfrage prüfen wir die Verfügbarkeit.",
     "restaurant.admin_adjust_lines_title": "Positionen & Preise anpassen",
     "restaurant.admin_adjust_lines_hint": "Mengen, Preise oder Positionen dieser Bestellung anpassen — möglich bis zur Rechnungsstellung.",
-    "restaurant.order_gross_total": "Gesamt brutto"
+    "restaurant.order_gross_total": "Gesamt brutto",
+    "restaurant.date_in_stock_suffix_one": "Produkt auf Lager"
 }
