@@ -81,13 +81,24 @@
     @endif
 
     @if (! $order->isInvoiced() && in_array($order->status, [\App\Enums\RestaurantOrderStatus::Submitted, \App\Enums\RestaurantOrderStatus::Confirmed], true))
+        @php
+            // A future auto-generated weekly delivery is "skipped", not
+            // cancelled — the recurrence itself continues (skipping leaves a
+            // tombstone so this week never regenerates).
+            $isRecurringWeek = $order->source_standing_order_id !== null
+                && $order->expected_delivery_date->isFuture();
+            $cancelKey = $isRecurringWeek ? 'skip_week' : ($order->isRequest() ? 'request_cancel' : 'order_cancel');
+        @endphp
         <form method="POST" action="{{ route('app.restaurant.orders.cancel', $order) }}" class="mt-8"
-              onsubmit="return confirm(@js(__($order->isRequest() ? 'restaurant.request_cancel_confirm' : 'restaurant.order_cancel_confirm')))">
+              onsubmit="return confirm(@js(__('restaurant.'.$cancelKey.'_confirm')))">
             @csrf
             <button type="submit" class="inline-flex h-[3rem] items-center justify-center border border-chapter-meat px-6 font-mono text-[0.7rem] uppercase tracking-widest text-chapter-meat transition hover:bg-chapter-meat hover:text-white">
-                {{ __($order->isRequest() ? 'restaurant.request_cancel' : 'restaurant.order_cancel') }}
+                {{ __('restaurant.'.$cancelKey) }}
             </button>
         </form>
+        @if ($isRecurringWeek)
+            <p class="mt-2 text-xs text-shop-muted">{{ __('restaurant.skip_week_note') }}</p>
+        @endif
     @endif
 
     @if ($order->isRequest())

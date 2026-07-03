@@ -4181,5 +4181,10 @@
     "restaurant.admin_adjust_lines_title": "Adjust lines & prices",
     "restaurant.admin_adjust_lines_hint": "Change quantities, prices or lines of this order — possible until the invoice is issued.",
     "restaurant.order_gross_total": "Total gross",
-    "restaurant.date_in_stock_suffix_one": "product in stock"
+    "restaurant.date_in_stock_suffix_one": "product in stock",
+    "restaurant.orders_eyebrow": "Restaurant",
+    "restaurant.recurring_summary_line": "Weekly delivery every :weekday — :count dates planned, until :until.",
+    "restaurant.skip_week": "Skip this delivery",
+    "restaurant.skip_week_confirm": "Really skip this one delivery? Your weekly delivery continues normally afterwards.",
+    "restaurant.skip_week_note": "Only this date is skipped — the weekly delivery continues normally."
 }

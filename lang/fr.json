@@ -4181,5 +4181,10 @@
     "restaurant.admin_adjust_lines_title": "Ajuster les lignes et prix",
     "restaurant.admin_adjust_lines_hint": "Modifier les quantités, prix ou lignes de cette commande — possible jusqu'à l'émission de la facture.",
     "restaurant.order_gross_total": "Total TTC",
-    "restaurant.date_in_stock_suffix_one": "produit en stock"
+    "restaurant.date_in_stock_suffix_one": "produit en stock",
+    "restaurant.orders_eyebrow": "Restaurant",
+    "restaurant.recurring_summary_line": "Livraison hebdomadaire chaque :weekday — :count dates prévues, jusqu'au :until.",
+    "restaurant.skip_week": "Sauter cette livraison",
+    "restaurant.skip_week_confirm": "Vraiment sauter cette seule livraison ? Votre livraison hebdomadaire continue normalement ensuite.",
+    "restaurant.skip_week_note": "Seule cette date est annulée — la livraison hebdomadaire continue normalement."
 }
