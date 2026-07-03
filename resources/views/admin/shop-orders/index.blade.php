@@ -105,8 +105,73 @@
                 <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">{{ session('status') }}</p>
             @endif
 
-            <div class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-                <form method="get" class="flex flex-wrap items-end gap-3">
+            <div class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm"
+                 x-data="{
+                     pickFrom: '',
+                     pick(iso) {
+                         if (!this.pickFrom) { this.pickFrom = iso; return; }
+                         let a = this.pickFrom, b = iso;
+                         if (b < a) [a, b] = [b, a];
+                         this.$refs.deliveryFrom.value = a;
+                         this.$refs.deliveryTo.value = b;
+                         this.pickFrom = '';
+                         this.$refs.filterForm.requestSubmit();
+                     },
+                 }">
+                {{-- ── Calendar filter: click one day twice = that day; two days = range.
+                     Green = deliveries, yellow = stock but no deliveries. ── --}}
+                @php
+                    $selFrom = $deliveryFrom !== '' ? $deliveryFrom : null;
+                    $selTo = $deliveryTo !== '' ? $deliveryTo : ($selFrom ?? null);
+                    $firstDay = \Illuminate\Support\Carbon::parse($calendarDays[0]['iso']);
+                    $blanks = $firstDay->dayOfWeekIso - 1;
+                    $weeks = collect(array_merge(array_fill(0, $blanks, null), $calendarDays))->chunk(7);
+                    $locale = app()->getLocale();
+                @endphp
+                <div class="mb-4" data-testid="shop-admin-calendar">
+                    <div class="mb-1 grid grid-cols-7 gap-1 text-center font-mono text-[0.6rem] uppercase tracking-widest text-gray-400">
+                        @foreach ([__('Mo'), __('Di'), __('Mi'), __('Do'), __('Fr'), __('Sa'), __('So')] as $dow)
+                            <span>{{ $dow }}</span>
+                        @endforeach
+                    </div>
+                    <div class="space-y-1">
+                        @foreach ($weeks as $week)
+                            <div class="grid grid-cols-7 gap-1">
+                                @foreach ($week as $day)
+                                    @if ($day === null)
+                                        <span></span>
+                                    @else
+                                        @php
+                                            $d = \Illuminate\Support\Carbon::parse($day['iso']);
+                                            $inSel = $selFrom !== null && $day['iso'] >= $selFrom && $day['iso'] <= $selTo;
+                                            $tone = $day['orders'] > 0
+                                                ? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
+                                                : ($day['stock'] > 0 ? 'bg-amber-50 text-amber-900 hover:bg-amber-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-100');
+                                        @endphp
+                                        <button type="button"
+                                                @click="pick('{{ $day['iso'] }}')"
+                                                :class="pickFrom === '{{ $day['iso'] }}' ? 'ring-2 ring-gray-800' : ''"
+                                                data-testid="shop-admin-cal-{{ $day['iso'] }}"
+                                                title="{{ $d->locale($locale)->isoFormat('dd, D. MMM') }} · {{ trans_choice('shop.admin.cal_orders', $day['orders'], ['count' => $day['orders']]) }} · {{ trans_choice('shop.admin.cal_stock', $day['stock'], ['count' => $day['stock']]) }}"
+                                                class="relative flex h-10 flex-col items-center justify-center rounded-md text-xs tabular-nums transition {{ $tone }} {{ $inSel ? 'ring-2 ring-gray-900 font-semibold' : '' }}">
+                                            <span>{{ $d->day === 1 || $loop->parent->first && $loop->first ? $d->locale($locale)->isoFormat('D. MMM') : $d->day }}</span>
+                                            @if ($day['orders'] > 0)
+                                                <span class="text-[0.6rem] font-semibold leading-none text-emerald-700">{{ $day['orders'] }}</span>
+                                            @endif
+                                        </button>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="mt-2 flex flex-wrap items-center gap-4 text-[0.7rem] text-gray-500">
+                        <span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-300"></span>{{ __('shop.admin.cal_legend_orders') }}</span>
+                        <span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded bg-amber-50 ring-1 ring-amber-300"></span>{{ __('shop.admin.cal_legend_stock') }}</span>
+                        <span>{{ __('shop.admin.cal_hint') }}</span>
+                    </div>
+                </div>
+
+                <form method="get" x-ref="filterForm" class="flex flex-wrap items-end gap-3">
                     <div>
                         <label for="status" class="mb-1 block text-xs font-medium text-gray-600">{{ __('Status') }}</label>
                         <select id="status" name="status" class="rounded-md border-gray-300 text-sm">
@@ -131,14 +196,17 @@
                     </div>
                     <div>
                         <label for="delivery_from" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_delivery_from') }}</label>
-                        <input type="date" id="delivery_from" name="delivery_from" value="{{ $deliveryFrom }}" class="rounded-md border-gray-300 text-sm">
+                        <input type="date" id="delivery_from" name="delivery_from" x-ref="deliveryFrom" value="{{ $deliveryFrom }}" class="rounded-md border-gray-300 text-sm">
                     </div>
                     <div>
                         <label for="delivery_to" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_delivery_to') }}</label>
-                        <input type="date" id="delivery_to" name="delivery_to" value="{{ $deliveryTo }}" class="rounded-md border-gray-300 text-sm">
+                        <input type="date" id="delivery_to" name="delivery_to" x-ref="deliveryTo" value="{{ $deliveryTo }}" class="rounded-md border-gray-300 text-sm">
                     </div>
                     <x-primary-button size="sm">{{ __('Filter') }}</x-primary-button>
-                    @if ($status !== 'finalized' || $type !== '' || $deliveryFrom !== '' || $deliveryTo !== '')
+                    @if ($deliveryFrom !== '' || $deliveryTo !== '')
+                        <a href="{{ route('app.admin.shop-orders.index', ['delivery_from' => '', 'delivery_to' => '']) }}" class="text-sm text-gray-600 underline" data-testid="shop-admin-all-dates">{{ __('shop.admin.filter_all_dates') }}</a>
+                    @endif
+                    @if ($status !== 'finalized' || $type !== '')
                         <a href="{{ route('app.admin.shop-orders.index') }}" class="text-sm text-gray-600 underline">{{ __('Reset') }}</a>
                     @endif
                 </form>

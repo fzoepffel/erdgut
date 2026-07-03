@@ -61,6 +61,7 @@ class RestaurantStandingOrderController extends Controller
         ]);
 
         $standingOrder->items()->update(['ends_on' => $validated['ends_on']]);
+        $this->standing->applyEndChange($standingOrder->refresh());
 
         return back()->with('status', 'standing-end-updated');
     }

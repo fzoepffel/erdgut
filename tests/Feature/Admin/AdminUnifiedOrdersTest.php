@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantProfile;
+use App\Models\RestaurantStandingOrder;
 use App\Models\User;
 use App\Services\Restaurant\RestaurantOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -131,6 +132,68 @@ class AdminUnifiedOrdersTest extends TestCase
             ->get(route('app.admin.shop-orders.index', ['type' => 'b2c']))
             ->assertOk()
             ->assertDontSee('data-testid="shop-admin-restaurant-row-'.$order->id.'"', false);
+    }
+
+    public function test_default_view_focuses_the_next_delivery_day(): void
+    {
+        $product = $this->stockedProduct();
+        $tomorrow = $this->placeRestaurantOrder($product);
+        // A later order on another day.
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => Carbon::tomorrow()->addDays(3)->toDateString(),
+            'quantity' => 50,
+            'freshness_window_days' => 3,
+        ]);
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $later = app(RestaurantOrderService::class)->submitOrder($profile->user, [
+            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 2]],
+            'expected_delivery_date' => Carbon::tomorrow()->addDays(3)->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ]);
+        $admin = User::factory()->admin()->create();
+
+        // No date params → focused on the NEXT delivery day only.
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.index'))
+            ->assertOk()
+            ->assertSee('data-testid="shop-admin-restaurant-row-'.$tomorrow->id.'"', false)
+            ->assertDontSee('data-testid="shop-admin-restaurant-row-'.$later->id.'"', false)
+            ->assertSee('data-testid="shop-admin-calendar"', false)
+            ->assertSee('data-testid="shop-admin-all-dates"', false);
+
+        // Explicitly cleared dates → all orders.
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.index', ['delivery_from' => '', 'delivery_to' => '']))
+            ->assertOk()
+            ->assertSee('data-testid="shop-admin-restaurant-row-'.$tomorrow->id.'"', false)
+            ->assertSee('data-testid="shop-admin-restaurant-row-'.$later->id.'"', false);
+    }
+
+    public function test_weekly_standing_order_shows_every_week_in_the_list(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 8)); // a Wednesday
+        $product = $this->stockedProduct(1000);
+        $profile = RestaurantProfile::factory()->verified()->create();
+        // Weekly line via the shop route → the standing order activates
+        // instantly and the whole horizon materializes.
+        $this->actingAs($profile->user)->post(route('app.restaurant.orders.store'), [
+            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 3, 'recurrence' => 'weekly']],
+            'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ])->assertRedirect();
+        $standing = RestaurantStandingOrder::firstOrFail();
+
+        $weeks = RestaurantOrder::where('source_standing_order_id', $standing->id)->count();
+        $this->assertGreaterThanOrEqual(5, $weeks); // origin + horizon weeks
+
+        $admin = User::factory()->admin()->create();
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.index', ['delivery_from' => '', 'delivery_to' => '', 'type' => 'b2b-restaurant']))
+            ->assertOk()
+            ->getContent();
+        $this->assertGreaterThanOrEqual(5, substr_count($html, 'data-testid="shop-admin-restaurant-row-'));
+        Carbon::setTestNow(null);
     }
 
     public function test_packing_includes_restaurant_lines_with_b2b_tag_and_toggle(): void

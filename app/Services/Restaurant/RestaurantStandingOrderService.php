@@ -4,15 +4,12 @@ namespace App\Services\Restaurant;
 
 use App\Enums\RestaurantOrderStatus;
 use App\Enums\RestaurantStandingOrderStatus;
-use App\Mail\RestaurantOrderSubmittedMail;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantStandingOrder;
 use App\Services\Shop\ShopClosureService;
-use App\Support\RestaurantOrderAdminNotifier;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /**
@@ -83,7 +80,11 @@ class RestaurantStandingOrderService
         return $standing;
     }
 
-    /** Admin confirmed the first order → start recurring. */
+    /**
+     * Admin confirmed the first order → start recurring. Every upcoming week
+     * within the horizon materializes immediately so each delivery exists as a
+     * real order (visible in the admin overview, reserving stock, packable).
+     */
     public function activate(RestaurantStandingOrder $standing, ?int $adminId): void
     {
         if (! $standing->isPending()) {
@@ -94,12 +95,16 @@ class RestaurantStandingOrderService
             'confirmed_at' => now(),
             'confirmed_by_user_id' => $adminId,
         ])->save();
+
+        $this->materializeHorizon($standing->refresh()->load('items', 'user'));
     }
 
+    /** Pausing removes the not-yet-delivered future weeks; resume regenerates them. */
     public function pause(RestaurantStandingOrder $standing): void
     {
         if ($standing->isActive()) {
             $standing->forceFill(['status' => RestaurantStandingOrderStatus::Paused])->save();
+            $this->cancelFutureMaterialized($standing);
         }
     }
 
@@ -107,34 +112,107 @@ class RestaurantStandingOrderService
     {
         if ($standing->status === RestaurantStandingOrderStatus::Paused) {
             $standing->forceFill(['status' => RestaurantStandingOrderStatus::Active])->save();
+            $this->materializeHorizon($standing->load('items', 'user'));
         }
     }
 
     public function cancel(RestaurantStandingOrder $standing): void
     {
         $standing->forceFill(['status' => RestaurantStandingOrderStatus::Cancelled])->save();
+        $this->cancelFutureMaterialized($standing);
     }
 
     /**
-     * Generate auto-confirmed orders for every active standing order whose next
-     * delivery occurrences fall within the lead window. Idempotent.
+     * The owner moved the recurrence end: trim materialized weeks beyond the
+     * new end and fill up to it (idempotent both ways).
+     */
+    public function applyEndChange(RestaurantStandingOrder $standing): void
+    {
+        $ends = $standing->items()->min('ends_on');
+        if ($ends !== null) {
+            $this->cancelFutureMaterialized($standing, Carbon::parse($ends));
+        }
+        if ($standing->isActive()) {
+            $this->materializeHorizon($standing->load('items', 'user'));
+        }
+    }
+
+    /**
+     * Materialize every occurrence of this standing order from tomorrow through
+     * the shop horizon (idempotent per week). No per-week mails — the customer
+     * approved the schedule and sees it under "Wiederkehrende Lieferungen".
+     */
+    public function materializeHorizon(RestaurantStandingOrder $standing, ?CarbonInterface $today = null): int
+    {
+        if (! $standing->isActive()) {
+            return 0;
+        }
+
+        $today = Carbon::parse($today ?? Carbon::today())->startOfDay();
+        $windowEnd = $today->copy()->addWeeks(max(1, (int) config('shop.horizon_weeks', 8)));
+        $written = 0;
+
+        foreach ($this->occurrencesInWindow((int) $standing->delivery_weekday, $today, $windowEnd) as $date) {
+            if ($this->materializeOne($standing, $date)) {
+                $written++;
+            }
+        }
+
+        return $written;
+    }
+
+    /**
+     * Remove future auto-generated weeks (recurrence weeks only — never the
+     * origin order, never fulfilled or invoiced deliveries). They are DELETED,
+     * not cancelled: nothing shipped, nothing billed — and deletion lets a
+     * later resume/extension re-materialize the week. An INDIVIDUALLY
+     * cancelled week keeps its cancelled row, which deliberately blocks
+     * re-materialization (the customer skipped exactly that delivery). The
+     * reservation releases implicitly. No mails: the change mirrors an action
+     * the owner or admin just took on the standing order itself.
+     */
+    private function cancelFutureMaterialized(RestaurantStandingOrder $standing, ?Carbon $keepThrough = null): void
+    {
+        $minStart = $standing->items()->min('starts_on');
+        if ($minStart === null) {
+            return;
+        }
+        $cutoff = Carbon::parse($minStart)->startOfDay();
+        if ($keepThrough !== null && $keepThrough->gte($cutoff)) {
+            $cutoff = $keepThrough->copy()->addDay()->startOfDay();
+        }
+        $floor = Carbon::tomorrow()->startOfDay();
+        if ($floor->gt($cutoff)) {
+            $cutoff = $floor;
+        }
+
+        RestaurantOrder::query()
+            ->where('source_standing_order_id', $standing->id)
+            ->where('status', RestaurantOrderStatus::Confirmed->value)
+            ->whereNull('invoice_number')
+            ->whereDate('expected_delivery_date', '>=', $cutoff->toDateString())
+            ->get()
+            ->each(function (RestaurantOrder $order): void {
+                $order->items()->delete();
+                $order->delete();
+            });
+    }
+
+    /**
+     * Rolling nightly sweep: keep every active standing order materialized
+     * through the shop horizon (new weeks appear as the horizon advances).
+     * Idempotent per (standing order, week).
      */
     public function materializeDue(CarbonInterface $today): int
     {
-        $today = Carbon::parse($today)->startOfDay();
-        $windowEnd = $today->copy()->addDays((int) config('shop.restaurant_standing_lead_days', 9));
         $written = 0;
 
         RestaurantStandingOrder::query()
             ->active()
             ->with(['items', 'user'])
-            ->chunkById(100, function ($standingOrders) use ($today, $windowEnd, &$written): void {
+            ->chunkById(100, function ($standingOrders) use ($today, &$written): void {
                 foreach ($standingOrders as $standing) {
-                    foreach ($this->occurrencesInWindow((int) $standing->delivery_weekday, $today, $windowEnd) as $date) {
-                        if ($this->materializeOne($standing, $date)) {
-                            $written++;
-                        }
-                    }
+                    $written += $this->materializeHorizon($standing, $today);
                 }
             });
 
@@ -191,15 +269,9 @@ class RestaurantStandingOrderService
             'status' => RestaurantOrderStatus::Confirmed,
         ])->save();
 
-        try {
-            Mail::to($standing->user->email)
-                ->locale($standing->locale ?? app()->getLocale())
-                ->send(new RestaurantOrderSubmittedMail($order));
-        } catch (Throwable $e) {
-            report($e);
-        }
-        RestaurantOrderAdminNotifier::submitted($order);
-
+        // Deliberately NO mail / admin ping per generated week: the owner
+        // approved the schedule (and manages it under Wiederkehrende
+        // Lieferungen); the admin sees every week in the order overview.
         return true;
     }
 
