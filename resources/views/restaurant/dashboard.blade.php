@@ -117,6 +117,7 @@
                         <p class="py-2.5 text-sm text-shop-muted">{{ __('restaurant.dashboard_invoices_empty') }}</p>
                     @endforelse
                 </div>
+                <a href="{{ route('app.restaurant.invoices.index') }}" class="mt-3 inline-block font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">{{ __('restaurant.invoices_all') }} &rarr;</a>
             </div>
         </div>
 

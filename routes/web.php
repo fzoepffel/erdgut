@@ -61,6 +61,7 @@ use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\Restaurant\RestaurantAccountController;
 use App\Http\Controllers\Restaurant\RestaurantCatalogController;
 use App\Http\Controllers\Restaurant\RestaurantDashboardController;
 use App\Http\Controllers\Restaurant\RestaurantOrderController;
@@ -358,6 +359,11 @@ Route::middleware('auth')
             Route::get('orders/{restaurantOrder}', [RestaurantOrderController::class, 'show'])->name('orders.show');
             Route::get('orders/{restaurantOrder}/invoice.pdf', [RestaurantOrderController::class, 'invoicePdf'])->name('orders.invoice-pdf');
             Route::post('orders/{restaurantOrder}/cancel', [RestaurantOrderController::class, 'cancel'])->name('orders.cancel');
+
+            Route::get('konto', [RestaurantAccountController::class, 'edit'])->name('account.edit');
+            Route::put('konto', [RestaurantAccountController::class, 'update'])->name('account.update');
+            Route::put('konto/passwort', [RestaurantAccountController::class, 'updatePassword'])->name('account.password');
+            Route::get('rechnungen', [RestaurantOrderController::class, 'invoices'])->name('invoices.index');
 
             Route::get('standing-orders', [RestaurantStandingOrderController::class, 'index'])->name('standing-orders.index');
             Route::post('standing-orders/{standingOrder}/pause', [RestaurantStandingOrderController::class, 'pause'])->name('standing-orders.pause');

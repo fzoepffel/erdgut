@@ -73,6 +73,18 @@ class RestaurantOrderController extends Controller
         ]);
     }
 
+    /** All issued invoices of this restaurant — bookkeeping view. */
+    public function invoices(Request $request): View
+    {
+        $invoices = RestaurantOrder::query()
+            ->where('user_id', $request->user()->id)
+            ->whereNotNull('invoice_number')
+            ->orderByDesc('invoiced_at')
+            ->paginate(20);
+
+        return view('restaurant.invoices.index', ['invoices' => $invoices]);
+    }
+
     public function store(RestaurantOrderRequest $request, RestaurantStandingOrderService $standing): RedirectResponse
     {
         $items = $request->validated('items');

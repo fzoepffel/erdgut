@@ -12,7 +12,8 @@
         ['key' => 'shop', 'route' => 'app.restaurant.catalog', 'label' => __('restaurant.nav_shop')],
         ['key' => 'requests', 'route' => 'app.restaurant.requests.index', 'label' => __('restaurant.nav_requests')],
         ['key' => 'orders', 'route' => 'app.restaurant.orders.index', 'label' => __('restaurant.my_requests')],
-        ['key' => 'standing', 'route' => 'app.restaurant.standing-orders.index', 'label' => __('restaurant.standing_title')],
+        ['key' => 'standing', 'route' => 'app.restaurant.standing-orders.index', 'label' => __('restaurant.nav_standing')],
+        ['key' => 'account', 'route' => 'app.restaurant.account.edit', 'label' => __('restaurant.nav_account')],
     ];
 @endphp
 
