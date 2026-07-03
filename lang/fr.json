@@ -4169,5 +4169,9 @@
     "shop.admin.errors.recurring_business_only": "Les livraisons récurrentes ne sont possibles que pour les clients professionnels.",
     "shop.admin.errors.recurring_delivery_only": "Les livraisons récurrentes nécessitent une livraison (pas de retrait).",
     "shop.admin.errors.recurring_needs_account": "Veuillez choisir un compte restaurant vérifié.",
-    "shop.admin.errors.recurring_no_custom_lines": "Les livraisons récurrentes ne peuvent contenir que des produits du catalogue."
+    "shop.admin.errors.recurring_no_custom_lines": "Les livraisons récurrentes ne peuvent contenir que des produits du catalogue.",
+    "shop.admin.account_select_label": "Compte restaurant vérifié (optionnel)",
+    "shop.admin.account_select_none": "— saisie manuelle —",
+    "shop.admin.account_select_hint": "Préremplit le contact et l'adresse de livraison et passe aux prix professionnels. Tous les champs restent modifiables.",
+    "shop.admin.recurring_pick_account_below": "Veuillez choisir un compte restaurant vérifié sous « Données client » ci-dessus."
 }

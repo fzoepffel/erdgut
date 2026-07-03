@@ -314,6 +314,13 @@ class AdminShopOrderController extends Controller
             ->map(fn ($p) => [
                 'user_id' => $p->user_id,
                 'label' => trim(($p->business_name ?: ($p->user?->name ?? '')).' · '.($p->user?->email ?? '')),
+                // Prefill payload for the create form.
+                'name' => $p->contact_name ?: ($p->user?->name ?? ''),
+                'email' => $p->user?->email ?? '',
+                'phone' => $p->user?->phone ?? '',
+                'street' => $p->billing_street ?? '',
+                'postal' => $p->billing_postal_code ?? '',
+                'city' => $p->billing_city ?? '',
             ])
             ->sortBy('label')
             ->values();
