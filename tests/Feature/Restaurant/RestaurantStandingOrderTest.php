@@ -280,6 +280,34 @@ class RestaurantStandingOrderTest extends TestCase
         Carbon::setTestNow(null);
     }
 
+    public function test_orders_list_collapses_future_weeks_to_a_summary(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 8)); // a Wednesday
+        $date = Carbon::tomorrow();
+        $p = $this->product();
+        ProductStockInflow::create(['product_id' => $p->id, 'received_on' => $date->toDateString(), 'quantity' => 500, 'freshness_window_days' => 60]);
+        $user = $this->verifiedRestaurant();
+        $this->submitRecurring($user, $p, $this->product(), $date);
+        $standing = RestaurantStandingOrder::firstOrFail();
+
+        $futureCount = RestaurantOrder::where('source_standing_order_id', $standing->id)
+            ->where('status', RestaurantOrderStatus::Confirmed->value)
+            ->whereDate('expected_delivery_date', '>=', Carbon::today()->toDateString())
+            ->count();
+        $this->assertGreaterThanOrEqual(5, $futureCount);
+
+        // The list shows the summary line + only the NEXT week individually.
+        $html = $this->actingAs($user)
+            ->get(route('app.restaurant.orders.index'))
+            ->assertOk()
+            ->assertSee('data-testid="recurring-summary-'.$standing->id.'"', false)
+            ->getContent();
+        $rows = substr_count($html, __('restaurant.order_ref', ['id' => '']));
+        // Exactly ONE individual order row (origin = next occurrence).
+        $this->assertSame(1, preg_match_all('/Bestellung #\d+/', $html));
+        Carbon::setTestNow(null);
+    }
+
     public function test_pause_resume_delete_owner_gated(): void
     {
         $date = Carbon::tomorrow();

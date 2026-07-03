@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Restaurant\RestaurantOrderRequest;
 use App\Mail\RestaurantOrderSubmittedMail;
 use App\Models\RestaurantOrder;
+use App\Models\RestaurantStandingOrder;
 use App\Services\Admin\InventoryService;
 use App\Services\Restaurant\RestaurantCatalogService;
 use App\Services\Restaurant\RestaurantInvoiceService;
@@ -31,16 +32,45 @@ class RestaurantOrderController extends Controller
 
     public function index(Request $request): View
     {
-        // Shop orders only — requests live in the Anfragen area.
+        // Shop orders only — requests live in the Anfragen area. Future
+        // auto-generated weekly deliveries collapse to the next occurrence;
+        // the further weeks are summarized per standing order below.
         $orders = RestaurantOrder::query()
             ->where('user_id', $request->user()->id)
             ->orders()
+            ->collapseFutureRecurring()
             ->withCount('items')
             ->with('items.product.translations')
             ->latest()
             ->paginate(20);
 
-        return view('restaurant.orders.index', ['orders' => $orders]);
+        // One summary line per active standing order with further planned weeks.
+        $recurringSummaries = RestaurantStandingOrder::query()
+            ->where('user_id', $request->user()->id)
+            ->active()
+            ->get()
+            ->map(function ($standing) {
+                $future = RestaurantOrder::query()
+                    ->where('source_standing_order_id', $standing->id)
+                    ->where('status', RestaurantOrderStatus::Confirmed->value)
+                    ->whereDate('expected_delivery_date', '>=', today()->toDateString())
+                    ->orderBy('expected_delivery_date')
+                    ->pluck('expected_delivery_date');
+
+                return $future->count() > 1 ? [
+                    'standing' => $standing,
+                    'count' => $future->count(),
+                    'next' => $future->first(),
+                    'until' => $future->last(),
+                ] : null;
+            })
+            ->filter()
+            ->values();
+
+        return view('restaurant.orders.index', [
+            'orders' => $orders,
+            'recurringSummaries' => $recurringSummaries,
+        ]);
     }
 
     public function store(RestaurantOrderRequest $request, RestaurantStandingOrderService $standing): RedirectResponse

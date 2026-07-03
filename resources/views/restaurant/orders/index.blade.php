@@ -1,7 +1,7 @@
 <x-shop-layout :title="__('restaurant.my_requests')" :narrow="true" restaurant-nav="orders">
     <div class="flex items-center justify-between">
         <div>
-            <p class="eyebrow text-shop-primary">{{ __('restaurant.catalog_eyebrow') }}</p>
+            <p class="eyebrow text-shop-primary">{{ __('restaurant.orders_eyebrow') }}</p>
             <h1 class="mt-2 font-display text-3xl text-shop-foreground">{{ __('restaurant.my_requests') }}</h1>
         </div>
         <a href="{{ route('app.restaurant.catalog') }}" class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:text-shop-primary hover:underline">{{ __('restaurant.dashboard_cta') }}</a>
@@ -16,6 +16,22 @@
             </a>
         </div>
     @else
+        {{-- Planned weekly deliveries, one line per schedule — the individual
+             future weeks are collapsed out of the list below. --}}
+        @foreach ($recurringSummaries as $summary)
+            <a href="{{ route('app.restaurant.standing-orders.index') }}" data-testid="recurring-summary-{{ $summary['standing']->id }}"
+               class="mt-8 flex flex-wrap items-center justify-between gap-3 border-l-2 border-shop-primary bg-shop-paper px-4 py-3 text-sm text-shop-foreground transition hover:bg-shop-card">
+                <span>
+                    {{ __('restaurant.recurring_summary_line', [
+                        'weekday' => \Illuminate\Support\Carbon::parse($summary['next'])->locale(app()->getLocale())->isoFormat('dddd'),
+                        'count' => $summary['count'],
+                        'until' => \Illuminate\Support\Carbon::parse($summary['until'])->translatedFormat('d.m.Y'),
+                    ]) }}
+                </span>
+                <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary">{{ __('restaurant.edit_standing') }} &rarr;</span>
+            </a>
+        @endforeach
+
         <div class="mt-8 divide-y divide-shop-border border border-shop-border">
             @foreach ($orders as $order)
                 <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-shop-card">

@@ -143,4 +143,26 @@ class RestaurantOrder extends Model
     {
         $query->where('kind', RestaurantOrderKind::Request->value);
     }
+
+    /**
+     * Restaurant-facing lists: a weekly standing order materializes EVERY
+     * horizon week as a real order — showing them all drowns the list. This
+     * keeps history, one-time orders, skipped/cancelled weeks, and only the
+     * NEXT upcoming auto-generated week per standing order; the further
+     * future weeks are summarized separately (see the orders index).
+     */
+    public function scopeCollapseFutureRecurring(Builder $query): void
+    {
+        $query->where(function (Builder $w): void {
+            $w->whereNull('source_standing_order_id')
+                ->orWhereDate('expected_delivery_date', '<', today()->toDateString())
+                ->orWhere('status', '!=', RestaurantOrderStatus::Confirmed->value)
+                ->orWhereRaw(
+                    'expected_delivery_date = (select min(o2.expected_delivery_date) from restaurant_orders o2'
+                    .' where o2.source_standing_order_id = restaurant_orders.source_standing_order_id'
+                    .' and o2.status = ? and o2.expected_delivery_date >= ?)',
+                    [RestaurantOrderStatus::Confirmed->value, today()->toDateString()],
+                );
+        });
+    }
 }

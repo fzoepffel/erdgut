@@ -4181,5 +4181,10 @@
     "restaurant.admin_adjust_lines_title": "Positionen & Preise anpassen",
     "restaurant.admin_adjust_lines_hint": "Mengen, Preise oder Positionen dieser Bestellung anpassen — möglich bis zur Rechnungsstellung.",
     "restaurant.order_gross_total": "Gesamt brutto",
-    "restaurant.date_in_stock_suffix_one": "Produkt auf Lager"
+    "restaurant.date_in_stock_suffix_one": "Produkt auf Lager",
+    "restaurant.orders_eyebrow": "Restaurant",
+    "restaurant.recurring_summary_line": "Wöchentliche Lieferung jeden :weekday — :count Termine geplant, bis :until.",
+    "restaurant.skip_week": "Diese Lieferung ausfallen lassen",
+    "restaurant.skip_week_confirm": "Diese eine Lieferung wirklich ausfallen lassen? Ihre wöchentliche Lieferung läuft danach normal weiter.",
+    "restaurant.skip_week_note": "Nur dieser Termin entfällt — die wöchentliche Lieferung läuft normal weiter."
 }
