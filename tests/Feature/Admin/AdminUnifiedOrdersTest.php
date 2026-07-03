@@ -96,7 +96,7 @@ class AdminUnifiedOrdersTest extends TestCase
             ->assertDontSee('data-testid="shop-admin-restaurant-row-'.$request->id.'"', false)
             // …but the Anfragen link carries the open count.
             ->assertSee('data-testid="shop-admin-requests-link"', false)
-            ->assertSee(route('app.admin.restaurant-orders.index', ['kind' => 'request', 'status' => 'submitted'])); // escaped: & -> &amp;
+            ->assertSee(route('app.admin.restaurant-orders.index', ['status' => 'submitted']), false);
 
         $this->assertStringContainsString('>1</span>', $response->getContent());
     }
@@ -116,6 +116,23 @@ class AdminUnifiedOrdersTest extends TestCase
             ->assertOk()
             ->assertSee('data-testid="shop-admin-restaurant-row-'.$request->id.'"', false)
             ->assertSee(__('restaurant.kind_request'));
+    }
+
+    public function test_requests_queue_excludes_firm_orders(): void
+    {
+        $product = $this->stockedProduct();
+        $order = $this->placeRestaurantOrder($product);   // firm order
+        $request = $this->submitRequest($product);         // pending request
+        $admin = User::factory()->admin()->create();
+
+        // The Anfragen queue lists ONLY requests — firm orders live in the
+        // unified shop-orders overview.
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.restaurant-orders.index'))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString(route('app.admin.restaurant-orders.show', $request), $html);
+        $this->assertStringNotContainsString(route('app.admin.restaurant-orders.show', $order), $html);
     }
 
     public function test_type_filter_isolates_restaurant_orders(): void

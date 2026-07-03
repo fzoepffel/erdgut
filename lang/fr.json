@@ -4157,5 +4157,6 @@
     "Fr": "Ven",
     "Sa": "Sam",
     "So": "Dim",
-    "shop.admin.filter_dates": "Dates"
+    "shop.admin.filter_dates": "Dates",
+    "restaurant.admin_requests_title": "Demandes des restaurants"
 }
