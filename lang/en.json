@@ -4158,5 +4158,16 @@
     "Sa": "Sat",
     "So": "Sun",
     "shop.admin.filter_dates": "Dates",
-    "restaurant.admin_requests_title": "Restaurant requests"
+    "restaurant.admin_requests_title": "Restaurant requests",
+    "shop.admin.recurring_label": "Repeat weekly (recurring delivery)",
+    "shop.admin.recurring_hint": "Creates a recurring B2B delivery via the restaurant account: prices follow the B2B price list (not the line totals below); every week becomes an order with an invoice automatically.",
+    "shop.admin.recurring_account_label": "Restaurant account",
+    "shop.admin.recurring_no_accounts": "No verified restaurant account yet — create/verify one under Restaurant accounts first.",
+    "shop.admin.recurring_until_label": "Ends on (optional)",
+    "shop.admin.recurring_until_hint": "Empty = until cancelled.",
+    "shop.admin.recurring_created_success": "Recurring delivery created — every week through the horizon has been generated.",
+    "shop.admin.errors.recurring_business_only": "Recurring deliveries are only possible for business customers.",
+    "shop.admin.errors.recurring_delivery_only": "Recurring deliveries require delivery (no pickup).",
+    "shop.admin.errors.recurring_needs_account": "Please choose a verified restaurant account.",
+    "shop.admin.errors.recurring_no_custom_lines": "Recurring deliveries can only contain catalog products."
 }

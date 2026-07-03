@@ -164,6 +164,26 @@ class RestaurantOrderTest extends TestCase
         $this->assertEqualsWithDelta(16.00, (float) $item->line_total_eur, 0.01);
     }
 
+    public function test_restaurant_order_price_ignores_consumer_volume_tiers(): void
+    {
+        $date = Carbon::tomorrow();
+        $product = $this->product();
+        $this->stock($product, $date, 500);
+        // Consumer tier: 3+ pieces → 1,00 € (would massively undercut B2B).
+        ProductPriceRule::factory()->create(['product_id' => $product->id, 'min_quantity' => 3, 'unit_price' => 1.0]);
+        $profile = RestaurantProfile::factory()->verified()->create();
+
+        $order = app(RestaurantOrderService::class)->submitOrder($profile->user, [
+            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 50]],
+            'expected_delivery_date' => $date->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ]);
+
+        // Snapshot must be the product base/business price (10,00), not the tier.
+        $item = $order->items()->firstOrFail();
+        $this->assertEqualsWithDelta(10.0, (float) $item->unit_price_snapshot_eur, 0.001);
+    }
+
     public function test_shop_rejects_over_stock_line_with_422(): void
     {
         $date = Carbon::tomorrow();

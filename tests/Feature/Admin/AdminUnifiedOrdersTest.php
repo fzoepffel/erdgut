@@ -213,6 +213,60 @@ class AdminUnifiedOrdersTest extends TestCase
         Carbon::setTestNow(null);
     }
 
+    public function test_admin_creates_recurring_b2b_delivery_via_create_form(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 8)); // a Wednesday
+        Producer::factory()->create();
+        $product = Product::factory()->create([
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 2.0,
+            'vat_rate_percent' => 7,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => Carbon::tomorrow()->toDateString(),
+            'quantity' => 500,
+            'freshness_window_days' => 60,
+        ]);
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $admin = User::factory()->admin()->create();
+
+        $payload = [
+            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 5, 'line_total_eur' => 10, 'vat_rate_percent' => 7]],
+            'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
+            'fulfillment_mode' => 'delivery',
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+            'delivery_fee_eur' => 0, 'delivery_fee_vat_rate_percent' => 7,
+            'customer_type' => 'business',
+            'recurring' => 1,
+            'restaurant_user_id' => $profile->user_id,
+        ];
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.shop-orders.store'), $payload)
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        // A restaurant order + an ACTIVE standing order + materialized weeks.
+        $standing = RestaurantStandingOrder::firstOrFail();
+        $this->assertTrue($standing->isActive());
+        $this->assertSame($profile->user_id, $standing->user_id);
+        $weeks = RestaurantOrder::where('source_standing_order_id', $standing->id)->count();
+        $this->assertGreaterThanOrEqual(5, $weeks); // origin + horizon
+
+        // Guards: private customer or missing account → validation error.
+        $this->actingAs($admin)
+            ->post(route('app.admin.shop-orders.store'), array_merge($payload, ['customer_type' => 'private']))
+            ->assertSessionHasErrors('recurring');
+        $this->actingAs($admin)
+            ->post(route('app.admin.shop-orders.store'), array_merge($payload, ['restaurant_user_id' => null]))
+            ->assertSessionHasErrors('restaurant_user_id');
+        Carbon::setTestNow(null);
+    }
+
     public function test_packing_includes_restaurant_lines_with_b2b_tag_and_toggle(): void
     {
         $product = $this->stockedProduct();

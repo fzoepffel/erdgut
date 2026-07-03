@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\CustomerType;
 use App\Enums\OrderSource;
 use App\Enums\RestaurantOrderStatus;
+use App\Enums\RestaurantVerificationStatus;
 use App\Enums\ShopOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Exports\ShopOrdersExport;
@@ -16,8 +17,12 @@ use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\RestaurantOrder;
+use App\Models\RestaurantProfile;
 use App\Models\ShopOrder;
+use App\Models\User;
 use App\Services\Admin\InventoryService;
+use App\Services\Restaurant\RestaurantOrderService;
+use App\Services\Restaurant\RestaurantStandingOrderService;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\PriceResolver;
@@ -38,6 +43,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
@@ -300,10 +306,23 @@ class AdminShopOrderController extends Controller
      */
     public function create(Request $request): View
     {
+        // Verified restaurant accounts for the recurring-delivery option.
+        $restaurantAccounts = RestaurantProfile::query()
+            ->where('verification_status', RestaurantVerificationStatus::Verified->value)
+            ->with('user')
+            ->get()
+            ->map(fn ($p) => [
+                'user_id' => $p->user_id,
+                'label' => trim(($p->business_name ?: ($p->user?->name ?? '')).' · '.($p->user?->email ?? '')),
+            ])
+            ->sortBy('label')
+            ->values();
+
         return view('admin.shop-orders.create', [
             'pickupLocations' => PickupLocations::all(),
             'availableProductsUrl' => route('app.admin.shop-orders.available-products'),
             'quoteUrl' => route('app.admin.shop-orders.quote'),
+            'restaurantAccounts' => $restaurantAccounts,
         ]);
     }
 
@@ -318,6 +337,13 @@ class AdminShopOrderController extends Controller
      */
     public function store(AdminCreateShopOrderRequest $request): RedirectResponse
     {
+        // Recurring weekly B2B delivery → the restaurant order machinery (net
+        // price list, standing order, horizon materialization) instead of a
+        // one-off shop order. Validated in the form request.
+        if ($request->boolean('recurring')) {
+            return $this->storeRecurring($request);
+        }
+
         try {
             $order = $this->service->createOrder(array_merge(
                 $request->validated(),
@@ -347,6 +373,61 @@ class AdminShopOrderController extends Controller
         return redirect()
             ->route('app.admin.shop-orders.show', $order)
             ->with('status', __('shop.admin.order_created_success'));
+    }
+
+    /**
+     * Create a weekly recurring B2B delivery on behalf of a verified
+     * restaurant account. Prices come from the B2B price list (the form's
+     * negotiated line totals don't apply here); every line repeats weekly
+     * until the chosen end. The standing order activates immediately, so all
+     * upcoming weeks materialize as real orders.
+     */
+    private function storeRecurring(AdminCreateShopOrderRequest $request): RedirectResponse
+    {
+        $user = User::findOrFail((int) $request->validated('restaurant_user_id'));
+        $until = (string) ($request->validated('recurring_until') ?? '');
+
+        $items = collect($request->validated('items'))->map(fn (array $line): array => [
+            'product_id' => (int) $line['product_id'],
+            'variant_id' => isset($line['variant_id']) ? (int) $line['variant_id'] : null,
+            'quantity' => (float) $line['quantity'],
+            'recurrence' => 'weekly',
+            'until' => $until !== '' ? $until : null,
+        ])->values()->all();
+
+        try {
+            $order = app(RestaurantOrderService::class)->submitOrder($user, [
+                'items' => $items,
+                'expected_delivery_date' => $request->validated('expected_delivery_date'),
+                'delivery_street' => $request->validated('delivery_street'),
+                'delivery_postal_code' => $request->validated('delivery_postal_code'),
+                'delivery_city' => $request->validated('delivery_city'),
+                'delivery_notes' => $request->validated('delivery_notes'),
+                'locale' => $user->locale ?? app()->getLocale(),
+            ]);
+        } catch (ValidationException $e) {
+            return back()->withInput()->withErrors($e->errors());
+        }
+
+        $standingService = app(RestaurantStandingOrderService::class);
+        $standingOrder = $standingService->createFromOrder($order, $items);
+        if ($standingOrder !== null && $standingOrder->isPending()) {
+            $standingService->activate($standingOrder, (int) $request->user()->id);
+        }
+
+        AuditLogger::log(
+            entityType: 'restaurant_order',
+            entityId: (int) $order->id,
+            action: 'create_recurring',
+            fromState: null,
+            toState: $order->status->value,
+            metadata: ['channel' => 'admin', 'standing_order_id' => $standingOrder?->id, 'until' => $until !== '' ? $until : null],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.restaurant-orders.show', $order)
+            ->with('status', __('shop.admin.recurring_created_success'));
     }
 
     /**
