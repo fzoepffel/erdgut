@@ -331,6 +331,40 @@ class AdminUnifiedOrdersTest extends TestCase
         Carbon::setTestNow(null);
     }
 
+    public function test_detail_page_presentation_follows_status(): void
+    {
+        $product = $this->stockedProduct();
+        $request = $this->submitRequest($product);
+        $admin = User::factory()->admin()->create();
+
+        // Pending request → review panel with per-line accept/decline; no
+        // firm-order actions bar, no pricing section yet (not invoiceable).
+        $item = $request->items()->firstOrFail();
+        $this->actingAs($admin)
+            ->get(route('app.admin.restaurant-orders.show', $request))
+            ->assertOk()
+            ->assertSee('data-testid="restaurant-request-review"', false)
+            ->assertSee('data-testid="restaurant-line-accept-'.$item->id.'"', false)
+            ->assertDontSee('data-testid="restaurant-order-actions"', false)
+            ->assertDontSee('data-testid="restaurant-order-fulfil"', false);
+
+        // Granted → the SAME page turns into a normal order detail: actions
+        // bar with fulfil, read-only items, collapsed adjust section — and no
+        // review panel anymore.
+        app(RestaurantOrderService::class)->acceptLine($item);
+        $this->assertSame('confirmed', $request->refresh()->status->value);
+        $this->actingAs($admin)
+            ->get(route('app.admin.restaurant-orders.show', $request))
+            ->assertOk()
+            ->assertSee('data-testid="restaurant-order-actions"', false)
+            ->assertSee('data-testid="restaurant-order-fulfil"', false)
+            ->assertSee('data-testid="restaurant-order-items"', false)
+            ->assertSee('data-testid="restaurant-order-adjust-toggle"', false)
+            ->assertSee('data-testid="restaurant-order-issue-invoice"', false)
+            ->assertDontSee('data-testid="restaurant-request-review"', false)
+            ->assertDontSee('data-testid="restaurant-line-accept-'.$item->id.'"', false);
+    }
+
     public function test_calendar_month_endpoint_serves_any_month(): void
     {
         $order = $this->placeRestaurantOrder($this->stockedProduct());

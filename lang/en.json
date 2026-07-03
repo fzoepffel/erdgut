@@ -4177,5 +4177,8 @@
     "shop.admin.recurring_auto_account_note": "No account picked: a verified restaurant account is created automatically from the customer details (name + email required). Invoices go to that email; the customer can claim the account later via “Forgot password”.",
     "shop.admin.errors.recurring_needs_contact": "For a recurring delivery without an account, please enter name and email under customer details.",
     "restaurant.requests_two_paths": "Two ways to ask: tell us freely what you need right below — or browse the in-season list further down. Both end up in the same non-binding request.",
-    "restaurant.requests_season_hint": "In season right now but not in stock — we check availability on request."
+    "restaurant.requests_season_hint": "In season right now but not in stock — we check availability on request.",
+    "restaurant.admin_adjust_lines_title": "Adjust lines & prices",
+    "restaurant.admin_adjust_lines_hint": "Change quantities, prices or lines of this order — possible until the invoice is issued.",
+    "restaurant.order_gross_total": "Total gross"
 }
