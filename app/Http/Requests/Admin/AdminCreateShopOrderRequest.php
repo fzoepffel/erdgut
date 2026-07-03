@@ -113,9 +113,15 @@ class AdminCreateShopOrderRequest extends FormRequest
                 if ($this->input('fulfillment_mode') !== 'delivery') {
                     $v->errors()->add('recurring', __('shop.admin.errors.recurring_delivery_only'));
                 }
-                $accountUser = User::find((int) $this->input('restaurant_user_id'));
-                if ($accountUser?->restaurantProfile === null || ! $accountUser->restaurantProfile->isVerified()) {
-                    $v->errors()->add('restaurant_user_id', __('shop.admin.errors.recurring_needs_account'));
+                // Either an existing verified account — or enough contact data
+                // (name + email) to auto-create one from the customer details.
+                if ((int) $this->input('restaurant_user_id') > 0) {
+                    $accountUser = User::find((int) $this->input('restaurant_user_id'));
+                    if ($accountUser?->restaurantProfile === null || ! $accountUser->restaurantProfile->isVerified()) {
+                        $v->errors()->add('restaurant_user_id', __('shop.admin.errors.recurring_needs_account'));
+                    }
+                } elseif (trim((string) $this->input('name')) === '' || trim((string) $this->input('email')) === '') {
+                    $v->errors()->add('restaurant_user_id', __('shop.admin.errors.recurring_needs_contact'));
                 }
                 foreach ($items as $index => $line) {
                     if ((int) ($line['product_id'] ?? 0) === 0) {

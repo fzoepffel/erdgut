@@ -129,11 +129,9 @@
                             </label>
                             <div x-show="recurring" x-cloak class="space-y-3">
                                 <p class="text-xs text-gray-500">{{ __('shop.admin.recurring_hint') }}</p>
-                                {{-- The account comes from the picker in step 4. --}}
-                                <p x-show="!accountId" x-cloak class="text-xs font-medium text-amber-700">{{ __('shop.admin.recurring_pick_account_below') }}</p>
-                                @if ($restaurantAccounts->isEmpty())
-                                    <p class="text-xs text-amber-700">{{ __('shop.admin.recurring_no_accounts') }}</p>
-                                @endif
+                                {{-- Account from the step-4 picker — or auto-created
+                                     from the customer details (name + email). --}}
+                                <p x-show="!accountId" x-cloak class="text-xs text-gray-600">{{ __('shop.admin.recurring_auto_account_note') }}</p>
                                 <div class="sm:max-w-xs">
                                     <label for="recurring_until" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.recurring_until_label') }}</label>
                                     <input type="date" id="recurring_until" name="recurring_until" value="{{ old('recurring_until') }}" class="block w-full rounded-md border-gray-300 text-sm">

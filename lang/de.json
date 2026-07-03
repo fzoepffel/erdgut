@@ -4173,5 +4173,7 @@
     "shop.admin.account_select_label": "Verifiziertes Restaurant-Konto (optional)",
     "shop.admin.account_select_none": "— manuell eingeben —",
     "shop.admin.account_select_hint": "Füllt Kontakt & Lieferadresse aus und stellt auf Geschäftskunden-Preise um. Alle Felder bleiben anpassbar.",
-    "shop.admin.recurring_pick_account_below": "Bitte oben unter „Kundendaten“ ein verifiziertes Restaurant-Konto wählen."
+    "shop.admin.recurring_pick_account_below": "Bitte oben unter „Kundendaten“ ein verifiziertes Restaurant-Konto wählen.",
+    "shop.admin.recurring_auto_account_note": "Kein Konto gewählt: Aus den Kundendaten (Name + E-Mail erforderlich) wird automatisch ein verifiziertes Restaurant-Konto angelegt. Rechnungen gehen an diese E-Mail; der Kunde kann das Konto später per „Passwort vergessen“ übernehmen.",
+    "shop.admin.errors.recurring_needs_contact": "Für eine wiederkehrende Lieferung ohne Konto bitte Name und E-Mail unter Kundendaten angeben."
 }
