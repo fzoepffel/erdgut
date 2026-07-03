@@ -4132,5 +4132,20 @@
     "restaurant.invoice_open_badge": "Ouverte",
     "restaurant.invoice_overdue_badge": "En retard",
     "restaurant.invoice_paid_note": "Payée le :date — merci !",
-    "shop.admin.create_restaurant_hint": "Pour les comptes restaurant vérifiés (facture, livraisons récurrentes), préférez l'espace commandes restaurant."
+    "shop.admin.create_restaurant_hint": "Pour les comptes restaurant vérifiés (facture, livraisons récurrentes), préférez l'espace commandes restaurant.",
+    "restaurant.standing_end_label": "Se termine le",
+    "restaurant.standing_end_save": "Appliquer",
+    "restaurant.standing_flash_standing-end-updated": "La fin de la livraison récurrente a été mise à jour.",
+    "restaurant.edit_standing": "Modifier la livraison récurrente",
+    "restaurant.cart_payment_note": "Aucun paiement en ligne : après la livraison, vous recevrez une facture PDF par e-mail. En cliquant sur « Commande ferme », vous passez une commande ferme payable sur facture.",
+    "restaurant.cart_submit_binding": "Commande ferme",
+    "restaurant.checkout_delivery_every": "Livraison chaque :weekday (à partir du :date)",
+    "restaurant.checkout_delivery_mixed": "Livraison le :date · lignes hebdomadaires ensuite chaque :weekday",
+    "shop.admin.filter_type": "Type de client",
+    "shop.admin.type_b2c": "Privé (B2C)",
+    "shop.admin.type_b2b": "Professionnel (B2B)",
+    "shop.admin.type_b2b_restaurant": "Comptes restaurant",
+    "shop.admin.type_b2b_shop": "B2B via la boutique",
+    "shop.admin.badge_restaurant": "Restaurant",
+    "restaurant.admin_requests_link": "Demandes"
 }

@@ -4132,5 +4132,20 @@
     "restaurant.invoice_open_badge": "Open",
     "restaurant.invoice_overdue_badge": "Overdue",
     "restaurant.invoice_paid_note": "Paid on :date — thank you!",
-    "shop.admin.create_restaurant_hint": "For verified restaurant accounts (invoice, recurring deliveries) prefer the restaurant orders area."
+    "shop.admin.create_restaurant_hint": "For verified restaurant accounts (invoice, recurring deliveries) prefer the restaurant orders area.",
+    "restaurant.standing_end_label": "Ends on",
+    "restaurant.standing_end_save": "Apply",
+    "restaurant.standing_flash_standing-end-updated": "The end of the recurring delivery has been updated.",
+    "restaurant.edit_standing": "Edit recurring delivery",
+    "restaurant.cart_payment_note": "No online payment needed: after delivery you'll receive an invoice as a PDF by email. Clicking “Place binding order” places a binding order payable by invoice.",
+    "restaurant.cart_submit_binding": "Place binding order",
+    "restaurant.checkout_delivery_every": "Delivery every :weekday (from :date)",
+    "restaurant.checkout_delivery_mixed": "Delivery on :date · weekly lines afterwards every :weekday",
+    "shop.admin.filter_type": "Customer type",
+    "shop.admin.type_b2c": "Private (B2C)",
+    "shop.admin.type_b2b": "Business (B2B)",
+    "shop.admin.type_b2b_restaurant": "Restaurant accounts",
+    "shop.admin.type_b2b_shop": "B2B via shop",
+    "shop.admin.badge_restaurant": "Restaurant",
+    "restaurant.admin_requests_link": "Requests"
 }

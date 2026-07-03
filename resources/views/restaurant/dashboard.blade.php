@@ -131,13 +131,20 @@
                                 {{ __('restaurant.order_ref', ['id' => $order->id]) }} · {{ $order->expected_delivery_date->format('d.m.Y') }}
                                 · <span class="text-shop-muted">{{ __('restaurant.order_status_'.$order->status->value) }}</span>
                             </a>
-                            <form method="POST" action="{{ route('app.restaurant.orders.reorder', $order) }}">
-                                @csrf
-                                <button type="submit" data-testid="dashboard-reorder-{{ $order->id }}"
-                                        class="border border-shop-border px-3 py-1.5 font-mono text-[0.65rem] uppercase tracking-widest text-shop-foreground transition hover:border-shop-primary hover:text-shop-primary">
-                                    {{ __('restaurant.reorder') }}
-                                </button>
-                            </form>
+                            @if ($order->source_standing_order_id !== null)
+                                <a href="{{ route('app.restaurant.standing-orders.index') }}"
+                                   class="border border-shop-border px-3 py-1.5 font-mono text-[0.65rem] uppercase tracking-widest text-shop-foreground transition hover:border-shop-primary hover:text-shop-primary">
+                                    {{ __('restaurant.edit_standing') }}
+                                </a>
+                            @else
+                                <form method="POST" action="{{ route('app.restaurant.orders.reorder', $order) }}">
+                                    @csrf
+                                    <button type="submit" data-testid="dashboard-reorder-{{ $order->id }}"
+                                            class="border border-shop-border px-3 py-1.5 font-mono text-[0.65rem] uppercase tracking-widest text-shop-foreground transition hover:border-shop-primary hover:text-shop-primary">
+                                        {{ __('restaurant.reorder') }}
+                                    </button>
+                                </form>
+                            @endif
                         </div>
                     @endforeach
                 </div>

@@ -47,6 +47,24 @@ class RestaurantStandingOrderController extends Controller
         return back()->with('status', 'standing-resumed');
     }
 
+    /**
+     * Change when the recurring delivery ends: sets every line's ends_on to the
+     * chosen date (a future occurrence of the delivery weekday). Materialized
+     * weeks past the new end simply stop being generated.
+     */
+    public function setEnd(Request $request, RestaurantStandingOrder $standingOrder): RedirectResponse
+    {
+        abort_unless($standingOrder->user_id === $request->user()->id, 403);
+
+        $validated = $request->validate([
+            'ends_on' => ['required', 'date', 'after_or_equal:today'],
+        ]);
+
+        $standingOrder->items()->update(['ends_on' => $validated['ends_on']]);
+
+        return back()->with('status', 'standing-end-updated');
+    }
+
     public function destroy(Request $request, RestaurantStandingOrder $standingOrder): RedirectResponse
     {
         abort_unless($standingOrder->user_id === $request->user()->id, 403);

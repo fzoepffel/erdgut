@@ -362,6 +362,7 @@ Route::middleware('auth')
             Route::get('standing-orders', [RestaurantStandingOrderController::class, 'index'])->name('standing-orders.index');
             Route::post('standing-orders/{standingOrder}/pause', [RestaurantStandingOrderController::class, 'pause'])->name('standing-orders.pause');
             Route::post('standing-orders/{standingOrder}/resume', [RestaurantStandingOrderController::class, 'resume'])->name('standing-orders.resume');
+            Route::post('standing-orders/{standingOrder}/end', [RestaurantStandingOrderController::class, 'setEnd'])->name('standing-orders.end');
             Route::delete('standing-orders/{standingOrder}', [RestaurantStandingOrderController::class, 'destroy'])->name('standing-orders.destroy');
         });
     });

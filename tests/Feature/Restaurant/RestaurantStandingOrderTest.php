@@ -196,6 +196,31 @@ class RestaurantStandingOrderTest extends TestCase
         }
     }
 
+    public function test_owner_can_move_the_end_date(): void
+    {
+        $date = Carbon::tomorrow();
+        $p = $this->product();
+        ProductStockInflow::create(['product_id' => $p->id, 'received_on' => $date->toDateString(), 'quantity' => 50, 'freshness_window_days' => 3]);
+        $user = $this->verifiedRestaurant();
+        $order = $this->submitRecurring($user, $p, $this->product(), $date);
+        app(RestaurantOrderService::class)->confirm($order->refresh());
+        $standing = RestaurantStandingOrder::firstOrFail();
+        $newEnd = Carbon::today()->next($standing->delivery_weekday)->addWeeks(3);
+
+        $this->actingAs($user)
+            ->post(route('app.restaurant.standing-orders.end', $standing), ['ends_on' => $newEnd->toDateString()])
+            ->assertRedirect();
+        $this->assertSame($newEnd->toDateString(), $standing->items()->firstOrFail()->refresh()->ends_on->toDateString());
+
+        // Past dates rejected; foreign owners blocked.
+        $this->actingAs($user)
+            ->post(route('app.restaurant.standing-orders.end', $standing), ['ends_on' => '2020-01-01'])
+            ->assertSessionHasErrors('ends_on');
+        $this->actingAs($this->verifiedRestaurant())
+            ->post(route('app.restaurant.standing-orders.end', $standing), ['ends_on' => $newEnd->toDateString()])
+            ->assertForbidden();
+    }
+
     public function test_pause_resume_delete_owner_gated(): void
     {
         $date = Carbon::tomorrow();
