@@ -4160,5 +4160,6 @@
     "Do": "Jeu",
     "Fr": "Ven",
     "Sa": "Sam",
-    "So": "Dim"
+    "So": "Dim",
+    "shop.admin.filter_dates": "Dates"
 }
