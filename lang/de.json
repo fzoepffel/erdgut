@@ -4169,5 +4169,9 @@
     "shop.admin.errors.recurring_business_only": "Wiederkehrende Lieferungen sind nur für Geschäftskunden möglich.",
     "shop.admin.errors.recurring_delivery_only": "Wiederkehrende Lieferungen sind nur mit Lieferung möglich (keine Abholung).",
     "shop.admin.errors.recurring_needs_account": "Bitte ein verifiziertes Restaurant-Konto wählen.",
-    "shop.admin.errors.recurring_no_custom_lines": "Wiederkehrende Lieferungen können nur Katalogprodukte enthalten."
+    "shop.admin.errors.recurring_no_custom_lines": "Wiederkehrende Lieferungen können nur Katalogprodukte enthalten.",
+    "shop.admin.account_select_label": "Verifiziertes Restaurant-Konto (optional)",
+    "shop.admin.account_select_none": "— manuell eingeben —",
+    "shop.admin.account_select_hint": "Füllt Kontakt & Lieferadresse aus und stellt auf Geschäftskunden-Preise um. Alle Felder bleiben anpassbar.",
+    "shop.admin.recurring_pick_account_below": "Bitte oben unter „Kundendaten“ ein verifiziertes Restaurant-Konto wählen."
 }
