@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\RestaurantOrderKind;
 use App\Enums\RestaurantOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminPriceRestaurantOrderRequest;
@@ -34,18 +33,22 @@ class AdminRestaurantOrderController extends Controller
         private readonly RestaurantInvoiceService $invoices,
     ) {}
 
+    /**
+     * The Anfragen queue: REQUESTS only. Firm restaurant orders (including
+     * granted requests) live in the unified shop-orders overview — this page
+     * is where pending requests wait for per-line accept/decline.
+     */
     public function index(Request $request): View
     {
         $this->authorize('admin');
 
         $status = RestaurantOrderStatus::tryFrom((string) $request->query('status', ''));
-        $kind = RestaurantOrderKind::tryFrom((string) $request->query('kind', ''));
 
         $orders = RestaurantOrder::query()
+            ->requests()
             ->with('user')
             ->withCount('items')
             ->when($status !== null, fn ($q) => $q->where('status', $status->value))
-            ->when($kind !== null, fn ($q) => $q->where('kind', $kind->value))
             // Submitted (awaiting action) first, then newest.
             ->orderByRaw("CASE WHEN status = '".RestaurantOrderStatus::Submitted->value."' THEN 0 ELSE 1 END")
             ->latest()
@@ -62,8 +65,6 @@ class AdminRestaurantOrderController extends Controller
             'orders' => $orders,
             'statuses' => RestaurantOrderStatus::cases(),
             'activeStatus' => $status,
-            'kinds' => RestaurantOrderKind::cases(),
-            'activeKind' => $kind,
             'openRequests' => $openRequests,
         ]);
     }

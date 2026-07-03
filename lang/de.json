@@ -4157,5 +4157,6 @@
     "Fr": "Fr",
     "Sa": "Sa",
     "So": "So",
-    "shop.admin.filter_dates": "Termine"
+    "shop.admin.filter_dates": "Termine",
+    "restaurant.admin_requests_title": "Restaurant-Anfragen"
 }

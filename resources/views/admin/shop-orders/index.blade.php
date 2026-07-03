@@ -38,7 +38,7 @@
                  }"
                  @click.outside="open = false"
             >
-                <a href="{{ route('app.admin.restaurant-orders.index', ['kind' => 'request', 'status' => 'submitted']) }}"
+                <a href="{{ route('app.admin.restaurant-orders.index', ['status' => 'submitted']) }}"
                    class="relative inline-flex items-center gap-1.5 rounded-sm border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
                    data-testid="shop-admin-requests-link">
                     {{ __('restaurant.admin_requests_link') }}
