@@ -4132,5 +4132,20 @@
     "restaurant.invoice_open_badge": "Offen",
     "restaurant.invoice_overdue_badge": "Überfällig",
     "restaurant.invoice_paid_note": "Bezahlt am :date — vielen Dank!",
-    "shop.admin.create_restaurant_hint": "Für verifizierte Restaurant-Konten (Rechnung, wiederkehrende Lieferungen) nutzen Sie besser die Restaurant-Bestellungen."
+    "shop.admin.create_restaurant_hint": "Für verifizierte Restaurant-Konten (Rechnung, wiederkehrende Lieferungen) nutzen Sie besser die Restaurant-Bestellungen.",
+    "restaurant.standing_end_label": "Endet am",
+    "restaurant.standing_end_save": "Übernehmen",
+    "restaurant.standing_flash_standing-end-updated": "Das Ende der wiederkehrenden Lieferung wurde aktualisiert.",
+    "restaurant.edit_standing": "Wiederkehrende Lieferung bearbeiten",
+    "restaurant.cart_payment_note": "Keine Online-Zahlung nötig: Nach der Lieferung erhalten Sie eine Rechnung als PDF per E-Mail. Mit Klick auf „Zahlungspflichtig bestellen“ geben Sie eine verbindliche Bestellung auf, die per Rechnung zu bezahlen ist.",
+    "restaurant.cart_submit_binding": "Zahlungspflichtig bestellen",
+    "restaurant.checkout_delivery_every": "Lieferung jeden :weekday (ab :date)",
+    "restaurant.checkout_delivery_mixed": "Lieferung am :date · wöchentliche Positionen danach jeden :weekday",
+    "shop.admin.filter_type": "Kundentyp",
+    "shop.admin.type_b2c": "Privat (B2C)",
+    "shop.admin.type_b2b": "Geschäftlich (B2B)",
+    "shop.admin.type_b2b_restaurant": "Restaurant-Konten",
+    "shop.admin.type_b2b_shop": "B2B über Shop",
+    "shop.admin.badge_restaurant": "Restaurant",
+    "restaurant.admin_requests_link": "Anfragen"
 }

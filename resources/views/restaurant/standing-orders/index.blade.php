@@ -40,6 +40,24 @@
                         @endforeach
                     </ul>
 
+                    {{-- End-date editor: pick a future occurrence of the delivery weekday. --}}
+                    <form method="POST" action="{{ route('app.restaurant.standing-orders.end', $so) }}" class="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                        @csrf
+                        @php
+                            $occurrences = collect(range(1, 12))
+                                ->map(fn ($i) => \Illuminate\Support\Carbon::today()->next($so->delivery_weekday)->addWeeks($i - 1))
+                                ->filter(fn ($d) => $d->isFuture());
+                            $currentEnd = $so->items->first()?->ends_on;
+                        @endphp
+                        <label class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" for="ends-{{ $so->id }}">{{ __('restaurant.standing_end_label') }}</label>
+                        <select id="ends-{{ $so->id }}" name="ends_on" class="border border-shop-border bg-shop-background px-2 py-1 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
+                            @foreach ($occurrences as $d)
+                                <option value="{{ $d->toDateString() }}" @selected($currentEnd?->toDateString() === $d->toDateString())>{{ $d->locale(app()->getLocale())->isoFormat('dd, D. MMM YYYY') }}</option>
+                            @endforeach
+                        </select>
+                        <button type="submit" data-testid="standing-end-save-{{ $so->id }}" class="border border-shop-border px-2.5 py-1 font-mono text-[0.65rem] uppercase tracking-widest text-shop-foreground transition hover:border-shop-primary hover:text-shop-primary">{{ __('restaurant.standing_end_save') }}</button>
+                    </form>
+
                     <div class="mt-4 flex items-center gap-3">
                         @if ($so->isActive())
                             <form method="POST" action="{{ route('app.restaurant.standing-orders.pause', $so) }}">@csrf

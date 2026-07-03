@@ -223,7 +223,9 @@
                                                     <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.recurrence_label') }}</span>
                                                     {{-- "Wöchentlich" is only offered while a future week still has
                                                          stock — the shop never sells a schedule it can't see. --}}
-                                                    <select x-model="recurrence[@js($grade['key'])]" class="border border-shop-border bg-shop-background px-2 py-1 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                                    <select x-model="recurrence[@js($grade['key'])]"
+                                                            @change="onRecurrenceChange(@js($grade['key']))"
+                                                            class="border border-shop-border bg-shop-background px-2 py-1 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
                                                         <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
                                                         <template x-if="weeksFor(@js($grade['key'])).length > 0">
                                                             <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
@@ -240,8 +242,6 @@
                                                                     x-text="untilLabelFor(@js($grade['key']))"></button>
                                                             <div x-show="wkOpen" x-cloak x-transition.origin.top
                                                                  class="absolute left-0 z-30 mt-1 max-h-64 w-56 overflow-y-auto border border-shop-border bg-shop-card shadow-lg">
-                                                                <button type="button" @click="setUntil(@js($grade['key']), ''); wkOpen = false"
-                                                                        class="block w-full px-3 py-2 text-left text-xs text-shop-foreground hover:bg-shop-paper">{{ __('restaurant.recurrence_open_ended') }}</button>
                                                                 <template x-for="w in weeksFor(@js($grade['key']))" :key="w.iso">
                                                                     <button type="button" @click="setUntil(@js($grade['key']), w.iso); wkOpen = false"
                                                                             class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-shop-paper"
@@ -337,7 +337,8 @@
                     </template>
 
                     <h2 class="font-display text-2xl text-shop-foreground">{{ __('restaurant.cart_review_title') }}</h2>
-                    <p class="mt-1 text-sm text-shop-foreground"><span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.checkout_delivery_on') }}</span> {{ $selectedDate?->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY') }}</p>
+                    {{-- Weekly orders read as a schedule, not a single date. --}}
+                    <p class="mt-1 text-sm text-shop-foreground" x-text="deliveryLineText()"></p>
                     <p class="mt-1 text-sm text-emerald-700">{{ __('restaurant.cart_trust_line') }}</p>
 
                     <ul class="mt-4 divide-y divide-shop-border text-sm">
@@ -371,10 +372,14 @@
                     @error('expected_delivery_date')<p class="mt-2 text-xs text-chapter-meat">{{ $message }}</p>@enderror
                     @error('items')<p class="mt-2 text-xs text-chapter-meat">{{ $message }}</p>@enderror
 
-                    <div class="mt-6 flex items-center justify-between gap-3">
+                    {{-- No payment step: make the commitment explicit — the click places
+                         a binding order that is billed by invoice after delivery. --}}
+                    <p class="mt-5 border-t border-shop-border pt-4 text-xs leading-relaxed text-shop-muted">{{ __('restaurant.cart_payment_note') }}</p>
+
+                    <div class="mt-4 flex items-center justify-between gap-3">
                         <button type="button" @click="openSubmit = false" class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted hover:text-shop-primary">{{ __('restaurant.cart_back') }}</button>
                         <button type="submit" data-testid="restaurant-cart-submit" class="inline-flex h-[3rem] items-center justify-center border border-shop-primary bg-shop-primary px-6 font-mono text-[0.7rem] uppercase tracking-widest text-shop-primary-foreground transition hover:bg-shop-primary-hover">
-                            {{ __('restaurant.cart_submit') }}
+                            {{ __('restaurant.cart_submit_binding') }}
                         </button>
                     </div>
                 </form>
@@ -425,6 +430,22 @@
                 requestUrl: config.requestUrl || '#',
                 weeklyLabel: config.weeklyLabel || 'Wöchentlich',
                 untilLabel: config.untilLabel || 'bis',
+                deliveryDateLabel: @js($selectedDate?->locale(app()->getLocale())->isoFormat('dddd, D. MMMM YYYY') ?? ''),
+                deliveryWeekdayLabel: @js($selectedDate?->locale(app()->getLocale())->isoFormat('dddd') ?? ''),
+                deliverOnPrefix: @js(__('restaurant.checkout_delivery_on')),
+                deliverEveryTemplate: @js(__('restaurant.checkout_delivery_every')),
+                deliverMixedTemplate: @js(__('restaurant.checkout_delivery_mixed')),
+                deliveryLineText() {
+                    const lines = this.basketLines;
+                    const weekly = lines.filter((l) => l.recurrence === 'weekly').length;
+                    if (weekly > 0 && weekly === lines.length) {
+                        return this.deliverEveryTemplate.replace(':weekday', this.deliveryWeekdayLabel).replace(':date', this.deliveryDateLabel);
+                    }
+                    if (weekly > 0) {
+                        return this.deliverMixedTemplate.replace(':date', this.deliveryDateLabel).replace(':weekday', this.deliveryWeekdayLabel);
+                    }
+                    return this.deliverOnPrefix + ' ' + this.deliveryDateLabel;
+                },
                 weeklyBadge(until) {
                     let s = this.weeklyLabel;
                     if (until) {
@@ -500,6 +521,14 @@
                     return this.recurrenceWeeks.slice(0, last + 1);
                 },
                 setUntil(key, iso) { this.until[key] = iso; },
+                // The shop only sells while stock is known: switching a line to
+                // weekly defaults the end to the LAST stocked week.
+                onRecurrenceChange(key) {
+                    if (this.recurrence[key] === 'weekly' && !this.until[key]) {
+                        const weeks = this.weeksFor(key);
+                        if (weeks.length) this.until[key] = weeks[weeks.length - 1].iso;
+                    }
+                },
                 weekInStock(key, w) {
                     const r = this.rowFor(key);
                     if (!r) return false;
@@ -508,9 +537,10 @@
                 },
                 untilLabelFor(key) {
                     const iso = this.until[key] || '';
-                    if (!iso) return this.openEndedLabel;
                     const w = this.recurrenceWeeks.find((x) => x.iso === iso);
-                    return w ? ('KW ' + w.kw + ' · ' + w.label) : this.openEndedLabel;
+                    if (w) return 'KW ' + w.kw + ' · ' + w.label;
+                    const weeks = this.weeksFor(key);
+                    return weeks.length ? ('KW ' + weeks[weeks.length - 1].kw + ' · ' + weeks[weeks.length - 1].label) : this.openEndedLabel;
                 },
                 inc(key) { const r = this.rowFor(key); this.quantities[key] = this.clamp(key, (this.quantities[key] || 0) + r.step); },
                 dec(key) { const r = this.rowFor(key); this.quantities[key] = this.clamp(key, (this.quantities[key] || 0) - r.step); },
@@ -527,10 +557,19 @@
                         .map(r => {
                             const q = this.quantities[r.key];
                             const rec = this.recurrence[r.key] || 'one_time';
+                            // Weekly lines always end at a known-stock week — never open-ended.
+                            let until = '';
+                            if (rec === 'weekly') {
+                                until = this.until[r.key] || '';
+                                if (!until) {
+                                    const weeks = this.weeksFor(r.key);
+                                    until = weeks.length ? weeks[weeks.length - 1].iso : '';
+                                }
+                            }
                             return {
                                 i: i++, key: r.key, productId: r.productId, variantId: r.variantId,
                                 quantity: q, name: r.name, unitSymbol: r.unitSymbol,
-                                recurrence: rec, until: rec === 'weekly' ? (this.until[r.key] || '') : '',
+                                recurrence: rec, until,
                                 displayQty: (q / r.factor).toLocaleString('de-DE', { maximumFractionDigits: 3 }),
                                 net: Math.round((q / r.factor) * r.net * 100) / 100,
                             };

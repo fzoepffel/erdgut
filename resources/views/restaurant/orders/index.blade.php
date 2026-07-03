@@ -33,9 +33,14 @@
                             <span class="rounded-full bg-shop-card px-2.5 py-0.5 text-[11px] font-medium text-shop-foreground">{{ __('restaurant.order_status_'.$order->status->value) }}</span>
                             <p class="mt-1 font-mono text-sm text-shop-foreground">@eur($order->items_total_net_eur) <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}</span></p>
                         </div>
-                        {{-- Routine buying is the B2B lever: one click repeats this order
-                             for the next open delivery day (fresh prices + stock check). --}}
-                        @if (! in_array($order->status->value, ['cancelled', 'declined'], true))
+                        {{-- Recurring orders are managed, not re-ordered; one-time
+                             orders get the one-click repeat (fresh prices + stock). --}}
+                        @if ($order->source_standing_order_id !== null)
+                            <a href="{{ route('app.restaurant.standing-orders.index') }}" data-testid="restaurant-edit-standing-{{ $order->id }}"
+                               class="border border-shop-border px-3 py-1.5 font-mono text-[0.65rem] uppercase tracking-widest text-shop-foreground transition hover:border-shop-primary hover:text-shop-primary">
+                                {{ __('restaurant.edit_standing') }}
+                            </a>
+                        @elseif (! in_array($order->status->value, ['cancelled', 'declined'], true))
                             <form method="POST" action="{{ route('app.restaurant.orders.reorder', $order) }}">
                                 @csrf
                                 <button type="submit" data-testid="restaurant-reorder-{{ $order->id }}"

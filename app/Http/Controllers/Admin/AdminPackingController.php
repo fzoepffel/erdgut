@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\RestaurantOrder;
+use App\Models\RestaurantOrderItem;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use App\Support\PickupLocations;
@@ -14,22 +17,32 @@ use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
- * Product-by-product packing for a delivery day's shop orders.
+ * Product-by-product packing for a delivery day — B2C shop orders AND B2B
+ * restaurant orders on one screen (restaurant lines carry a B2B tag).
  *
  * The team picks one product, drops it into every order that ordered it, then
  * moves to the next — so the screen is grouped by product, each carrying the
- * orders (lines) that need it. Packing is tracked per
- * {@see ShopOrderItem::$packed_at}; an order is "ready" once all its lines are
- * packed (fulfilment stays a manual step on the order page).
+ * orders (lines) that need it. Packing is tracked per item (`packed_at`); an
+ * order is "ready" once all its lines are packed (fulfilment stays a manual
+ * step on the order page). Item/order identifiers are namespaced tokens
+ * ("s{id}" shop, "r{id}" restaurant) so the two models never collide.
  */
 class AdminPackingController extends Controller
 {
-    /** Orders to pack on a day: finalized, not yet handed over. */
-    private function packableQuery(string $date)
+    /** Shop orders to pack on a day: finalized, not yet handed over. */
+    private function packableShopQuery(string $date)
     {
         return ShopOrder::query()
             ->finalized()
             ->where('status', '!=', ShopOrderStatus::Fulfilled->value)
+            ->whereDate('expected_delivery_date', $date);
+    }
+
+    /** Restaurant orders to pack: confirmed (firm), not yet delivered. */
+    private function packableRestaurantQuery(string $date)
+    {
+        return RestaurantOrder::query()
+            ->where('status', RestaurantOrderStatus::Confirmed->value)
             ->whereDate('expected_delivery_date', $date);
     }
 
@@ -39,8 +52,12 @@ class AdminPackingController extends Controller
 
         $date = $this->resolveDate((string) $request->query('date', ''));
 
-        $orders = $this->packableQuery($date->toDateString())
+        $shopOrders = $this->packableShopQuery($date->toDateString())
             ->with(['items.product.translations', 'items.product.producer.translations', 'items.variant'])
+            ->orderBy('id')
+            ->get();
+        $restaurantOrders = $this->packableRestaurantQuery($date->toDateString())
+            ->with(['user', 'items.product.translations', 'items.product.producer.translations', 'items.variant'])
             ->orderBy('id')
             ->get();
 
@@ -48,25 +65,33 @@ class AdminPackingController extends Controller
             'date' => $date,
             'prevDate' => $date->copy()->subDay()->toDateString(),
             'nextDate' => $date->copy()->addDay()->toDateString(),
-            'products' => $this->buildProducts($orders),
-            'orders' => $this->buildOrders($orders),
+            'products' => $this->buildProducts($shopOrders, $restaurantOrders),
+            'orders' => $this->buildOrders($shopOrders, $restaurantOrders),
         ]);
     }
 
-    public function toggleItem(Request $request, ShopOrderItem $item): JsonResponse
+    /** Toggle one line; `item` is a namespaced token ("s{id}" | "r{id}"). */
+    public function toggleItem(Request $request, string $item): JsonResponse
     {
         $this->authorize('admin');
 
-        $order = $item->shopOrder;
-        abort_unless($order !== null && $this->isPackable($order), 404);
+        if (str_starts_with($item, 'r')) {
+            $line = RestaurantOrderItem::query()->findOrFail((int) substr($item, 1));
+            $order = $line->restaurantOrder;
+            abort_unless($order !== null && $order->status === RestaurantOrderStatus::Confirmed, 404);
+        } else {
+            $line = ShopOrderItem::query()->findOrFail((int) ltrim($item, 's'));
+            $order = $line->shopOrder;
+            abort_unless($order !== null && $this->isPackableShop($order), 404);
+        }
 
-        $item->forceFill([
-            'packed_at' => $item->packed_at === null ? now() : null,
-            'packed_by_user_id' => $item->packed_at === null ? $request->user()?->id : null,
+        $line->forceFill([
+            'packed_at' => $line->packed_at === null ? now() : null,
+            'packed_by_user_id' => $line->packed_at === null ? $request->user()?->id : null,
         ])->save();
 
         return response()->json([
-            'packed' => $item->packed_at !== null,
+            'packed' => $line->packed_at !== null,
             'order' => $this->orderProgress($order->fresh()->load('items')),
         ]);
     }
@@ -82,95 +107,112 @@ class AdminPackingController extends Controller
         ]);
 
         $variantId = isset($validated['variant_id']) ? (int) $validated['variant_id'] : null;
-
-        $orders = $this->packableQuery((string) Carbon::parse($validated['date'])->toDateString())
-            ->with('items')
-            ->get();
+        $date = (string) Carbon::parse($validated['date'])->toDateString();
 
         $now = now();
-        $touchedOrderIds = [];
-        foreach ($orders as $order) {
-            foreach ($order->items as $item) {
-                $matches = (int) $item->product_id === (int) $validated['product_id']
-                    && (int) ($item->variant_id ?? 0) === (int) ($variantId ?? 0);
-                if ($matches && $item->packed_at === null) {
-                    $item->forceFill(['packed_at' => $now, 'packed_by_user_id' => $request->user()?->id])->save();
-                    $touchedOrderIds[$order->id] = true;
+        $touched = [];
+        $pack = function ($orders) use ($validated, $variantId, $now, $request, &$touched): void {
+            foreach ($orders as $order) {
+                foreach ($order->items as $item) {
+                    $matches = (int) $item->product_id === (int) $validated['product_id']
+                        && (int) ($item->variant_id ?? 0) === (int) ($variantId ?? 0);
+                    if ($matches && $item->packed_at === null) {
+                        $item->forceFill(['packed_at' => $now, 'packed_by_user_id' => $request->user()?->id])->save();
+                        $touched[$this->orderKey($order)] = $order;
+                    }
                 }
             }
-        }
+        };
+
+        $pack($this->packableShopQuery($date)->with('items')->get());
+        $pack($this->packableRestaurantQuery($date)->with('items')->get());
 
         return response()->json([
-            'orders' => $orders
-                ->whereIn('id', array_keys($touchedOrderIds))
-                ->map(fn (ShopOrder $o) => $this->orderProgress($o->fresh()->load('items')))
+            'orders' => collect($touched)
+                ->map(fn ($o) => $this->orderProgress($o->fresh()->load('items')))
                 ->values(),
         ]);
     }
 
-    /** Whether an order is still in the packable set (finalized, not fulfilled). */
-    private function isPackable(ShopOrder $order): bool
+    private function isPackableShop(ShopOrder $order): bool
     {
         return $order->status !== ShopOrderStatus::Fulfilled
             && ($order->status === ShopOrderStatus::Paid
                 || ($order->status === ShopOrderStatus::PendingPayment && $order->payment_method === 'in_person'));
     }
 
+    private function orderKey(ShopOrder|RestaurantOrder $order): string
+    {
+        return ($order instanceof RestaurantOrder ? 'r' : 's').$order->id;
+    }
+
     /**
      * Group every order line of the day by product+grade — the picking unit.
      *
-     * @param  Collection<int, ShopOrder>  $orders
      * @return array<int, array<string, mixed>>
      */
-    private function buildProducts($orders): array
+    private function buildProducts(Collection $shopOrders, Collection $restaurantOrders): array
     {
         $groups = [];
 
-        foreach ($orders as $order) {
-            foreach ($order->items as $item) {
-                $product = $item->product;
-                $isCustom = $item->product_id === null;
-                $variantId = $item->variant_id !== null ? (int) $item->variant_id : null;
-                // Catalog lines group by product+grade; custom lines group by
-                // their name so identically-named ad-hoc items pool together.
-                $key = $isCustom
-                    ? 'c-'.md5(mb_strtolower((string) $item->name_snapshot))
-                    : $item->product_id.'-'.($variantId ?? 0);
+        $addLine = function ($order, $item, bool $isB2b) use (&$groups): void {
+            $product = $item->product;
+            $isCustom = $item->product_id === null;
+            $variantId = $item->variant_id !== null ? (int) $item->variant_id : null;
+            // Catalog lines group by product+grade; custom lines group by their
+            // name so identically-named ad-hoc items pool together.
+            $key = $isCustom
+                ? 'c-'.md5(mb_strtolower((string) $item->name_snapshot))
+                : $item->product_id.'-'.($variantId ?? 0);
 
-                if (! isset($groups[$key])) {
-                    $name = $item->displayName()
-                        .($item->variant_name_snapshot ? ' · '.$item->variant_name_snapshot : '');
-                    $groups[$key] = [
-                        'key' => $key,
-                        'product_id' => (int) ($item->product_id ?? 0),
-                        'variant_id' => $variantId,
-                        'is_custom' => $isCustom,
-                        'name' => $name,
-                        'producer' => $product?->producer?->name ?? '',
-                        'unit' => $product,
-                        'custom_unit' => $isCustom ? (string) ($item->unit ?? '') : '',
-                        'total_qty' => 0.0,
-                        'lines' => [],
-                        'packed_count' => 0,
-                    ];
-                }
-
-                $groups[$key]['total_qty'] += (float) $item->quantity;
-                $packed = $item->packed_at !== null;
-                if ($packed) {
-                    $groups[$key]['packed_count']++;
-                }
-                $groups[$key]['lines'][] = [
-                    'item_id' => $item->id,
-                    'order_id' => $order->id,
-                    'customer' => $order->name ?? '—',
-                    'qty_label' => $item->displayQuantityLabel(),
-                    'fulfillment' => $this->fulfillmentLabel($order),
-                    'window' => $order->hasDeliveryWindow()
-                        ? substr((string) $order->delivery_window_from, 0, 5).'–'.substr((string) $order->delivery_window_to, 0, 5)
-                        : null,
-                    'packed' => $packed,
+            if (! isset($groups[$key])) {
+                $name = $item->displayName()
+                    .($item->variant_name_snapshot ? ' · '.$item->variant_name_snapshot : '');
+                $groups[$key] = [
+                    'key' => $key,
+                    'product_id' => (int) ($item->product_id ?? 0),
+                    'variant_id' => $variantId,
+                    'is_custom' => $isCustom,
+                    'name' => $name,
+                    'producer' => $product?->producer?->name ?? '',
+                    'unit' => $product,
+                    'custom_unit' => $isCustom ? (string) ($item->unit ?? '') : '',
+                    'total_qty' => 0.0,
+                    'lines' => [],
+                    'packed_count' => 0,
                 ];
+            }
+
+            $groups[$key]['total_qty'] += (float) $item->quantity;
+            $packed = $item->packed_at !== null;
+            if ($packed) {
+                $groups[$key]['packed_count']++;
+            }
+            $groups[$key]['lines'][] = [
+                'item_id' => ($isB2b ? 'r' : 's').$item->id,
+                'order_id' => $order->id,
+                'b2b' => $isB2b,
+                'customer' => $isB2b ? ($order->user?->name ?? '—') : ($order->name ?? '—'),
+                'qty_label' => $item->displayQuantityLabel(),
+                'fulfillment' => $isB2b ? $this->restaurantFulfillmentLabel($order) : $this->fulfillmentLabel($order),
+                'window' => (! $isB2b && $order->hasDeliveryWindow())
+                    ? substr((string) $order->delivery_window_from, 0, 5).'–'.substr((string) $order->delivery_window_to, 0, 5)
+                    : null,
+                'packed' => $packed,
+            ];
+        };
+
+        foreach ($shopOrders as $order) {
+            foreach ($order->items as $item) {
+                $addLine($order, $item, false);
+            }
+        }
+        foreach ($restaurantOrders as $order) {
+            foreach ($order->items as $item) {
+                if ($item->isDeclined()) {
+                    continue; // declined request lines are never packed
+                }
+                $addLine($order, $item, true);
             }
         }
 
@@ -199,27 +241,41 @@ class AdminPackingController extends Controller
     /**
      * Per-order packing progress for the day's orders strip.
      *
-     * @param  Collection<int, ShopOrder>  $orders
      * @return array<int, array<string, mixed>>
      */
-    private function buildOrders($orders): array
+    private function buildOrders(Collection $shopOrders, Collection $restaurantOrders): array
     {
-        return $orders->map(fn (ShopOrder $o) => array_merge(
+        $shop = $shopOrders->map(fn (ShopOrder $o) => array_merge(
             $this->orderProgress($o),
             ['customer' => $o->name ?? '—', 'fulfillment' => $this->fulfillmentLabel($o)],
-        ))->values()->all();
+        ));
+        $restaurant = $restaurantOrders->map(fn (RestaurantOrder $o) => array_merge(
+            $this->orderProgress($o),
+            ['customer' => $o->user?->name ?? '—', 'fulfillment' => $this->restaurantFulfillmentLabel($o)],
+        ));
+
+        return $shop->concat($restaurant)->values()->all();
     }
 
     /**
-     * @return array{id: int, packed_count: int, total_count: int, ready: bool}
+     * @return array{key: string, id: int, b2b: bool, url: string, packed_count: int, total_count: int, ready: bool}
      */
-    private function orderProgress(ShopOrder $order): array
+    private function orderProgress(ShopOrder|RestaurantOrder $order): array
     {
-        $total = $order->items->count();
-        $packed = $order->items->filter(fn (ShopOrderItem $i) => $i->packed_at !== null)->count();
+        $isB2b = $order instanceof RestaurantOrder;
+        $items = $isB2b
+            ? $order->items->filter(fn (RestaurantOrderItem $i) => ! $i->isDeclined())
+            : $order->items;
+        $total = $items->count();
+        $packed = $items->filter(fn ($i) => $i->packed_at !== null)->count();
 
         return [
+            'key' => $this->orderKey($order),
             'id' => $order->id,
+            'b2b' => $isB2b,
+            'url' => $isB2b
+                ? route('app.admin.restaurant-orders.show', $order)
+                : route('app.admin.shop-orders.show', $order),
             'packed_count' => $packed,
             'total_count' => $total,
             'ready' => $total > 0 && $packed === $total,
@@ -239,6 +295,13 @@ class AdminPackingController extends Controller
         return trim(__('admin.packing.delivery').($address !== '' ? ' · '.$address : ''));
     }
 
+    private function restaurantFulfillmentLabel(RestaurantOrder $order): string
+    {
+        $address = trim(($order->delivery_street ?? '').' '.($order->delivery_city ?? ''));
+
+        return trim(__('admin.packing.delivery').($address !== '' ? ' · '.$address : ''));
+    }
+
     private function resolveDate(string $date): Carbon
     {
         if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1) {
@@ -246,13 +309,23 @@ class AdminPackingController extends Controller
         }
 
         // Default to the nearest upcoming day that has packable orders.
-        $next = ShopOrder::query()
+        $nextShop = ShopOrder::query()
             ->finalized()
             ->where('status', '!=', ShopOrderStatus::Fulfilled->value)
             ->whereDate('expected_delivery_date', '>=', Carbon::today()->toDateString())
             ->orderBy('expected_delivery_date')
             ->value('expected_delivery_date');
+        $nextRestaurant = RestaurantOrder::query()
+            ->where('status', RestaurantOrderStatus::Confirmed->value)
+            ->whereDate('expected_delivery_date', '>=', Carbon::today()->toDateString())
+            ->orderBy('expected_delivery_date')
+            ->value('expected_delivery_date');
 
-        return $next !== null ? Carbon::parse($next)->startOfDay() : Carbon::today();
+        $candidates = array_filter([$nextShop, $nextRestaurant]);
+        if ($candidates === []) {
+            return Carbon::today();
+        }
+
+        return Carbon::parse(min($candidates))->startOfDay();
     }
 }

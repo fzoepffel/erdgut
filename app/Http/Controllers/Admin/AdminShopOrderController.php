@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\CustomerType;
 use App\Enums\OrderSource;
+use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Exports\ShopOrdersExport;
@@ -14,6 +15,7 @@ use App\Mail\ShopOrderWindowMail;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\RestaurantOrder;
 use App\Models\ShopOrder;
 use App\Services\Admin\InventoryService;
 use App\Services\Shop\CouponService;
@@ -30,6 +32,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
@@ -355,23 +358,98 @@ class AdminShopOrderController extends Controller
      */
     private const FILTER_FINALIZED = 'finalized';
 
+    /**
+     * ONE order overview: B2C shop orders and B2B restaurant orders (firm
+     * orders + granted requests) interleaved by placement time, with a type
+     * filter. Unconfirmed restaurant requests never appear here — they live in
+     * the Anfragen queue (linked in the header with an open count) and get
+     * pushed into this list once granted.
+     */
     public function index(Request $request): View
     {
         $filter = $this->resolveFilter($request);
+        $perPage = 30;
+        $page = max(1, (int) $request->query('page', 1));
 
-        $orders = $this->filteredOrdersQuery($filter)
-            ->with('items.product.translations')
-            ->orderByDesc('id')
-            ->paginate(30)
-            ->withQueryString();
+        // Two sources, one list: fetch the top page-window from each, merge by
+        // placement time, slice the page. Correct for any page, no UNION needed.
+        $window = $page * $perPage;
+
+        $shopQuery = $this->filteredOrdersQuery($filter);
+        $restaurantQuery = $this->filteredRestaurantOrdersQuery($filter);
+
+        $shopOrders = $filter['type'] === 'b2b-restaurant'
+            ? collect()
+            : $shopQuery->with('items.product.translations')->orderByDesc('id')->limit($window)->get();
+        $restaurantOrders = $restaurantQuery === null
+            ? collect()
+            : $restaurantQuery->with(['user.restaurantProfile', 'items'])->orderByDesc('id')->limit($window)->get();
+
+        $total = ($filter['type'] === 'b2b-restaurant' ? 0 : $shopQuery->count())
+            + ($restaurantQuery?->count() ?? 0);
+
+        $merged = $shopOrders->concat($restaurantOrders)
+            ->sortByDesc(fn ($o) => $o->created_at)
+            ->slice(($page - 1) * $perPage, $perPage)
+            ->values();
+
+        $orders = new LengthAwarePaginator(
+            $merged,
+            $total,
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+
+        $openRequests = RestaurantOrder::query()
+            ->requests()
+            ->where('status', RestaurantOrderStatus::Submitted->value)
+            ->count();
 
         return view('admin.shop-orders.index', [
             'orders' => $orders,
             'statuses' => ShopOrderStatus::cases(),
             'status' => $filter['status'],
+            'type' => $filter['type'],
             'deliveryFrom' => $filter['delivery_from'],
             'deliveryTo' => $filter['delivery_to'],
+            'openRequests' => $openRequests,
         ]);
+    }
+
+    /**
+     * Restaurant orders that belong in the unified overview: firm artifacts
+     * only (confirmed / fulfilled / cancelled) — pending requests stay in the
+     * Anfragen queue. Returns null when the current filter can't match any
+     * restaurant order (e.g. B2C-only or a payment-specific status).
+     */
+    private function filteredRestaurantOrdersQuery(array $filter): ?Builder
+    {
+        if (in_array($filter['type'], ['b2c', 'b2b-shop'], true)) {
+            return null;
+        }
+
+        // Map the shop-status filter onto restaurant statuses.
+        $statusMap = [
+            self::FILTER_FINALIZED => [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value],
+            'all' => [
+                RestaurantOrderStatus::Confirmed->value,
+                RestaurantOrderStatus::Fulfilled->value,
+                RestaurantOrderStatus::Cancelled->value,
+            ],
+            ShopOrderStatus::Paid->value => [RestaurantOrderStatus::Confirmed->value],
+            ShopOrderStatus::Fulfilled->value => [RestaurantOrderStatus::Fulfilled->value],
+            ShopOrderStatus::Cancelled->value => [RestaurantOrderStatus::Cancelled->value],
+        ];
+        $statuses = $statusMap[$filter['status']] ?? null;
+        if ($statuses === null) {
+            return null; // payment-specific status — no B2B equivalent
+        }
+
+        return RestaurantOrder::query()
+            ->whereIn('status', $statuses)
+            ->when($filter['delivery_from'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '>=', $filter['delivery_from']))
+            ->when($filter['delivery_to'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '<=', $filter['delivery_to']));
     }
 
     /**
@@ -573,8 +651,14 @@ class AdminShopOrderController extends Controller
         $status = is_string($statusParam) ? $statusParam : self::FILTER_FINALIZED;
         $from = (string) $request->query('delivery_from', '');
         $to = (string) $request->query('delivery_to', '');
+        // '' = all, 'b2c' = private shop, 'b2b' = business (shop B2B + restaurant),
+        // 'b2b-restaurant' = restaurant accounts only, 'b2b-shop' = shop B2B only.
+        $type = (string) $request->query('type', '');
+        if (! in_array($type, ['', 'b2c', 'b2b', 'b2b-restaurant', 'b2b-shop'], true)) {
+            $type = '';
+        }
 
-        return ['status' => $status, 'delivery_from' => $from, 'delivery_to' => $to];
+        return ['status' => $status, 'type' => $type, 'delivery_from' => $from, 'delivery_to' => $to];
     }
 
     /**
@@ -599,6 +683,11 @@ class AdminShopOrderController extends Controller
                 });
             }))
             ->when($statusEnum, fn ($q) => $q->where('status', $statusEnum))
+            ->when($filter['type'] ?? '', fn ($q, $type) => match ($type) {
+                'b2c' => $q->where('customer_type', CustomerType::Private->value),
+                'b2b', 'b2b-shop' => $q->where('customer_type', CustomerType::Business->value),
+                default => $q,
+            })
             ->when($filter['delivery_from'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '>=', $filter['delivery_from']))
             ->when($filter['delivery_to'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '<=', $filter['delivery_to']));
     }

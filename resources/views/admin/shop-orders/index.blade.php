@@ -38,6 +38,14 @@
                  }"
                  @click.outside="open = false"
             >
+                <a href="{{ route('app.admin.restaurant-orders.index', ['kind' => 'request', 'status' => 'submitted']) }}"
+                   class="relative inline-flex items-center gap-1.5 rounded-sm border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+                   data-testid="shop-admin-requests-link">
+                    {{ __('restaurant.admin_requests_link') }}
+                    @if ($openRequests > 0)
+                        <span class="rounded-full bg-amber-600 px-2 py-0.5 font-mono text-[11px] font-bold text-white">{{ $openRequests }}</span>
+                    @endif
+                </a>
                 <a href="{{ route('app.admin.shop-orders.export', request()->query()) }}"
                    class="inline-flex items-center gap-1.5 rounded-sm border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                    data-testid="shop-admin-export-link">
@@ -112,6 +120,16 @@
                         </select>
                     </div>
                     <div>
+                        <label for="type" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_type') }}</label>
+                        <select id="type" name="type" class="rounded-md border-gray-300 text-sm">
+                            <option value="" @selected($type === '')>{{ __('All') }}</option>
+                            <option value="b2c" @selected($type === 'b2c')>{{ __('shop.admin.type_b2c') }}</option>
+                            <option value="b2b" @selected($type === 'b2b')>{{ __('shop.admin.type_b2b') }}</option>
+                            <option value="b2b-restaurant" @selected($type === 'b2b-restaurant')>{{ __('shop.admin.type_b2b_restaurant') }}</option>
+                            <option value="b2b-shop" @selected($type === 'b2b-shop')>{{ __('shop.admin.type_b2b_shop') }}</option>
+                        </select>
+                    </div>
+                    <div>
                         <label for="delivery_from" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_delivery_from') }}</label>
                         <input type="date" id="delivery_from" name="delivery_from" value="{{ $deliveryFrom }}" class="rounded-md border-gray-300 text-sm">
                     </div>
@@ -120,7 +138,7 @@
                         <input type="date" id="delivery_to" name="delivery_to" value="{{ $deliveryTo }}" class="rounded-md border-gray-300 text-sm">
                     </div>
                     <x-primary-button size="sm">{{ __('Filter') }}</x-primary-button>
-                    @if ($status !== 'finalized' || $deliveryFrom !== '' || $deliveryTo !== '')
+                    @if ($status !== 'finalized' || $type !== '' || $deliveryFrom !== '' || $deliveryTo !== '')
                         <a href="{{ route('app.admin.shop-orders.index') }}" class="text-sm text-gray-600 underline">{{ __('Reset') }}</a>
                     @endif
                 </form>
@@ -145,6 +163,50 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($orders as $order)
+                            @if ($order instanceof \App\Models\RestaurantOrder)
+                                <tr class="align-top" data-testid="shop-admin-restaurant-row-{{ $order->id }}">
+                                    <td class="whitespace-nowrap px-3 py-2 font-mono text-gray-700">R#{{ $order->id }}</td>
+                                    <td class="whitespace-nowrap px-3 py-2 text-gray-500">{{ $order->created_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm') }}</td>
+                                    <td class="px-3 py-2">
+                                        <div class="font-medium text-gray-800">{{ $order->user?->restaurantProfile?->business_name ?? $order->user?->name ?? '—' }}</div>
+                                        @if ($order->user?->email)<div class="text-xs text-gray-500">{{ $order->user->email }}</div>@endif
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-2">
+                                        <div class="flex flex-wrap gap-1">
+                                            <span class="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-blue-700">{{ __('shop.admin.badge_restaurant') }}</span>
+                                            @if ($order->isRequest())
+                                                <span class="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-700">{{ __('restaurant.kind_request') }}</span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-700">
+                                        {{ __('shop.fulfillment_delivery') }}
+                                        <div class="text-xs text-gray-500">{{ $order->delivery_street }}@if ($order->delivery_postal_code), {{ $order->delivery_postal_code }}@endif</div>
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-700">
+                                        <div class="whitespace-nowrap">{{ $order->expected_delivery_date?->locale(app()->getLocale())->isoFormat('dd, D. MMM') ?? '—' }}</div>
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums text-gray-800">
+                                        @eur($order->items_total_net_eur) <span class="text-[10px] font-normal text-gray-500">{{ __('restaurant.net_suffix') }}</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700"><span class="text-gray-400">—</span></td>
+                                    <td class="whitespace-nowrap px-3 py-2"><span class="text-gray-400">—</span></td>
+                                    <td class="whitespace-nowrap px-3 py-2">
+                                        <span @class([
+                                            'rounded-full px-2 py-0.5 text-xs font-medium',
+                                            'bg-emerald-100 text-emerald-800' => in_array($order->status->value, ['confirmed', 'fulfilled'], true),
+                                            'bg-gray-100 text-gray-600' => ! in_array($order->status->value, ['confirmed', 'fulfilled'], true),
+                                        ])>{{ __('restaurant.order_status_'.$order->status->value) }}</span>
+                                        @if ($order->isInvoiced() && ! $order->isInvoicePaid())
+                                            <div class="mt-1 text-[11px] font-semibold {{ $order->isInvoiceOverdue() ? 'text-rose-700' : 'text-amber-700' }}">{{ $order->isInvoiceOverdue() ? __('restaurant.invoice_overdue_badge') : __('restaurant.invoice_open_badge') }}</div>
+                                        @endif
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-2 text-right">
+                                        <a href="{{ route('app.admin.restaurant-orders.show', $order) }}" class="text-emerald-700 underline" data-testid="shop-admin-open-restaurant-{{ $order->id }}">{{ __('Open') }}</a>
+                                    </td>
+                                </tr>
+                                @continue
+                            @endif
                             <tr class="align-top" data-testid="shop-admin-row-{{ $order->id }}">
                                 <td class="whitespace-nowrap px-3 py-2 font-mono text-gray-700">#{{ $order->id }}</td>
                                 <td class="whitespace-nowrap px-3 py-2 text-gray-500">
