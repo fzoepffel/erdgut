@@ -4160,5 +4160,6 @@
     "Do": "Thu",
     "Fr": "Fri",
     "Sa": "Sat",
-    "So": "Sun"
+    "So": "Sun",
+    "shop.admin.filter_dates": "Dates"
 }
