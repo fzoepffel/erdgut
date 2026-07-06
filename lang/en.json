@@ -4012,8 +4012,8 @@
     "restaurant.admin_recurring_note": "This order starts a recurring delivery. Confirming it auto-generates the following weeks.",
     "restaurant.nav_public": "Business customers",
     "restaurant.register_have_account": "Already approved?",
-    "restaurant.landing_title": "Erdgut for your restaurant",
-    "restaurant.landing_intro": "Regional, seasonal ingredients from small farms around Berlin — at business rates, with fixed delivery scheduling and payment by invoice. For restaurants, cafés and caterers.",
+    "restaurant.landing_title": "For kitchens that cook with the season",
+    "restaurant.landing_intro": "The restaurants, bistros and cafés working with Erdgut share one thing: a vibrant, honest cuisine in step with the seasons — and the hunt for produce you can't find everywhere.",
     "restaurant.landing_cta_apply": "Apply for an account",
     "restaurant.landing_cta_login": "Log in",
     "restaurant.landing_feature_prices_title": "Business pricing",
@@ -4204,5 +4204,10 @@
     "restaurant.invoices_empty": "No invoices yet.",
     "restaurant.invoices_all": "All invoices",
     "restaurant.line_accepted": "confirmed",
-    "restaurant.nav_standing": "Schedule"
+    "restaurant.nav_standing": "Schedule",
+    "restaurant.landing_partners_eyebrow": "Our partner kitchens",
+    "restaurant.landing_partners_title": "Why chefs choose Erdgut.",
+    "restaurant.landing_partners_p1": "Restaurant, bistro or hotel kitchen: the chefs we work with stand for cooking that is alive — refined or down-to-earth, always in step with the season. They share our conviction that great plates begin with great produce, and they are forever hunting for new finds for their menu.",
+    "restaurant.landing_partners_p2": "We bring what the farms around Berlin are harvesting right now straight into their kitchens — harvest-fresh, in trade quantities, at fair net prices. At the stove they carry the producers' work forward, standing up for an agriculture that respects soil, animals and craft.",
+    "restaurant.landing_partners_p3": "Accompanying them day after day — as partners, with the same passion — is why Erdgut for gastronomy exists."
 }

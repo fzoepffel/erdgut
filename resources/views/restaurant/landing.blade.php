@@ -25,6 +25,24 @@
         </div>
     </section>
 
+    {{-- ── Partner kitchens: the restaurants are the heroes ─────────────── --}}
+    <section class="border-b border-brand-ink/10 bg-brand-paper py-20 sm:py-24">
+        <div class="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-12">
+            <x-section-heading
+                :eyebrow="__('restaurant.landing_partners_eyebrow')"
+                :title="__('restaurant.landing_partners_title')"
+                color="meat"
+            />
+            <div class="reveal-stagger mt-10 grid max-w-none gap-x-12 gap-y-6 lg:grid-cols-2">
+                <x-reveal as="p" style="--i:0" class="text-base leading-relaxed text-brand-ink/80">{{ __('restaurant.landing_partners_p1') }}</x-reveal>
+                <div class="space-y-6">
+                    <x-reveal as="p" style="--i:1" class="text-base leading-relaxed text-brand-ink/80">{{ __('restaurant.landing_partners_p2') }}</x-reveal>
+                    <x-reveal as="p" style="--i:2" class="font-display text-xl leading-snug text-brand-ink">{{ __('restaurant.landing_partners_p3') }}</x-reveal>
+                </div>
+            </div>
+        </div>
+    </section>
+
     {{-- ── Opportunities: what your kitchen can do here ─────────────────── --}}
     <section class="border-b border-brand-ink/10 py-20 sm:py-24">
         <div class="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-12">
