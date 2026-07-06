@@ -4012,8 +4012,8 @@
     "restaurant.admin_recurring_note": "Diese Bestellung startet eine wiederkehrende Lieferung. Mit der Bestätigung werden die folgenden Wochen automatisch erzeugt.",
     "restaurant.nav_public": "Geschäftskunden",
     "restaurant.register_have_account": "Bereits freigeschaltet?",
-    "restaurant.landing_title": "Erdgut für Ihr Restaurant",
-    "restaurant.landing_intro": "Regionale, saisonale Zutaten von kleinen Höfen rund um Berlin – zu Geschäftskonditionen, mit fester Liefertermin-Planung und Abrechnung auf Rechnung. Für Restaurants, Cafés und Caterer.",
+    "restaurant.landing_title": "Für Küchen, die mit der Saison kochen",
+    "restaurant.landing_intro": "Die Restaurants, Bistros und Cafés, die mit Erdgut arbeiten, verbindet eines: eine lebendige, ehrliche Küche im Rhythmus der Jahreszeiten — und die Suche nach Produkten, die es nicht überall gibt.",
     "restaurant.landing_cta_apply": "Konto beantragen",
     "restaurant.landing_cta_login": "Anmelden",
     "restaurant.landing_feature_prices_title": "Geschäftspreise",
@@ -4204,5 +4204,10 @@
     "restaurant.invoices_empty": "Noch keine Rechnungen.",
     "restaurant.invoices_all": "Alle Rechnungen",
     "restaurant.line_accepted": "bestätigt",
-    "restaurant.nav_standing": "Lieferplan"
+    "restaurant.nav_standing": "Lieferplan",
+    "restaurant.landing_partners_eyebrow": "Unsere Partnerküchen",
+    "restaurant.landing_partners_title": "Warum Köchinnen und Köche sich für Erdgut entscheiden.",
+    "restaurant.landing_partners_p1": "Ob Restaurant, Bistro oder Hotelküche: Die Köchinnen und Köche, mit denen wir arbeiten, stehen für eine Küche, die lebt — fein oder bodenständig, immer im Takt der Saison. Sie teilen unsere Überzeugung, dass große Teller bei großartigen Produkten beginnen, und sind ständig auf der Suche nach neuen Fundstücken für ihre Karte.",
+    "restaurant.landing_partners_p2": "Wir bringen, was die Höfe rund um Berlin gerade ernten, direkt in ihre Küchen — erntefrisch, in Mengen für die Gastronomie, zu fairen Netto-Preisen. Am Herd führen sie die Arbeit der Erzeugerinnen und Erzeuger weiter und machen sich damit für eine Landwirtschaft stark, die Boden, Tier und Handwerk respektiert.",
+    "restaurant.landing_partners_p3": "Sie dabei Tag für Tag zu begleiten — als Partner, mit derselben Leidenschaft — ist der Grund, warum es Erdgut für die Gastronomie gibt."
 }

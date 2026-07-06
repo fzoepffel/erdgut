@@ -4012,8 +4012,8 @@
     "restaurant.admin_recurring_note": "Cette commande démarre une livraison récurrente. La confirmer génère automatiquement les semaines suivantes.",
     "restaurant.nav_public": "Clients professionnels",
     "restaurant.register_have_account": "Déjà activé ?",
-    "restaurant.landing_title": "Erdgut pour votre restaurant",
-    "restaurant.landing_intro": "Des ingrédients régionaux et de saison, issus de petites fermes autour de Berlin — à des conditions professionnelles, avec une planification de livraison fixe et un paiement sur facture. Pour restaurants, cafés et traiteurs.",
+    "restaurant.landing_title": "Pour les cuisines qui vivent au rythme des saisons",
+    "restaurant.landing_intro": "Les restaurants, bistrots et cafés qui travaillent avec Erdgut partagent une chose : une cuisine vivante et sincère au rythme des saisons — et la quête de produits qu'on ne trouve pas partout.",
     "restaurant.landing_cta_apply": "Demander un compte",
     "restaurant.landing_cta_login": "Se connecter",
     "restaurant.landing_feature_prices_title": "Tarifs professionnels",
@@ -4204,5 +4204,10 @@
     "restaurant.invoices_empty": "Pas encore de factures.",
     "restaurant.invoices_all": "Toutes les factures",
     "restaurant.line_accepted": "confirmée",
-    "restaurant.nav_standing": "Planning"
+    "restaurant.nav_standing": "Planning",
+    "restaurant.landing_partners_eyebrow": "Nos cuisines partenaires",
+    "restaurant.landing_partners_title": "Pourquoi les chefs choisissent Erdgut.",
+    "restaurant.landing_partners_p1": "Restaurant, bistrot ou cuisine d'hôtel : les chefs avec qui nous travaillons défendent une cuisine vivante — raffinée ou simple, toujours au rythme des saisons. Ils partagent notre conviction que les grandes assiettes commencent par de grands produits et cherchent sans cesse de nouvelles trouvailles pour leur carte.",
+    "restaurant.landing_partners_p2": "Nous apportons ce que les fermes autour de Berlin récoltent en ce moment directement dans leurs cuisines — fraîchement récolté, en quantités professionnelles, à des prix nets équitables. Aux fourneaux, ils prolongent le travail des producteurs et s'engagent pour une agriculture qui respecte le sol, l'animal et l'artisanat.",
+    "restaurant.landing_partners_p3": "Les accompagner jour après jour — en partenaires, avec la même passion — c'est la raison d'être d'Erdgut pour la gastronomie."
 }
