@@ -4013,7 +4013,7 @@
     "restaurant.nav_public": "Business customers",
     "restaurant.register_have_account": "Already approved?",
     "restaurant.landing_title": "For kitchens that cook with the season",
-    "restaurant.landing_intro": "The restaurants, bistros and cafés working with Erdgut share one thing: a vibrant, honest cuisine in step with the seasons and the hunt for produce you can't find everywhere.",
+    "restaurant.landing_intro": "The restaurants, bistros and cafés that work with Erdgut all cook the same way: honest food, led by the seasons, made with produce you won't find everywhere.",
     "restaurant.landing_cta_apply": "Apply for an account",
     "restaurant.landing_cta_login": "Log in",
     "restaurant.landing_feature_prices_title": "Business pricing",
@@ -4031,7 +4031,7 @@
     "restaurant.landing_step2_body": "We review your application and open your business account.",
     "restaurant.landing_step3_title": "Order",
     "restaurant.landing_step3_body": "What is in stock is reserved and confirmed the moment you order. Special wishes we confirm shortly.",
-    "restaurant.landing_closing_title": "Ready for regional quality?",
+    "restaurant.landing_closing_title": "Ready to cook with us?",
     "restaurant.landing_closing_body": "Apply for a business account. Approval usually takes only a short while.",
     "restaurant.nav_shop": "Shop",
     "restaurant.tab_in_stock": "In stock",
@@ -4206,8 +4206,8 @@
     "restaurant.line_accepted": "confirmed",
     "restaurant.nav_standing": "Schedule",
     "restaurant.landing_partners_eyebrow": "Our partner kitchens",
-    "restaurant.landing_partners_title": "Why chefs choose Erdgut.",
-    "restaurant.landing_partners_p1": "Restaurant, bistro or hotel kitchen: the chefs we work with stand for cooking that is alive. Sometimes refined, sometimes down-to-earth, always in step with the season. They share our conviction that great plates begin with great produce, and they are forever hunting for new finds for their menu.",
-    "restaurant.landing_partners_p2": "We bring what the farms around Berlin are harvesting right now, fresh from the field, straight into their kitchens: in trade quantities and at fair net prices. At the stove they carry the producers' work forward, standing up for an agriculture that respects soil, animals and craft.",
-    "restaurant.landing_partners_p3": "Accompanying them day after day, as partners and with the same passion: that is what Erdgut for gastronomy is here for."
+    "restaurant.landing_partners_title": "Why chefs work with us.",
+    "restaurant.landing_partners_p1": "Whether they run a restaurant, a bistro or a hotel kitchen, the chefs we work with cook food that feels alive. Some of it refined, some of it rustic, all of it in season. They know good cooking starts with good ingredients, and they are always hunting for something special to put on the menu.",
+    "restaurant.landing_partners_p2": "Whatever the farms around Berlin are harvesting, we bring it to their kitchens fresh, in trade quantities and at fair net prices. Every order puts the farmers' work straight onto the plate and supports farming that respects the soil, the animals and the craft.",
+    "restaurant.landing_partners_p3": "Working alongside these kitchens, day in and day out, is why Erdgut exists."
 }
