@@ -51,8 +51,11 @@ class AdminInventoryController extends Controller
                     $iq->whereBetween('received_on', [$start->toDateString(), $end->toDateString()]);
                 });
             })
-            ->orderBy('id')
-            ->get();
+            ->get()
+            // Alphabetical by the localized display name (translations live in
+            // a relation, so sorting happens after hydration).
+            ->sortBy(fn (Product $p) => mb_strtolower($p->name), SORT_NATURAL)
+            ->values();
 
         // Build the per-product window in one pass each. Keys are
         // Y-m-d strings so the Blade can lookup by date in the matrix.

@@ -8,7 +8,7 @@
                     <p class="eyebrow text-chapter-fish">{{ __('Contact') }}</p>
                 </x-reveal>
                 <x-reveal variant="fade-up" delay="100">
-                    <h1 id="shop-contact-hero-heading" class="mt-5 font-display text-5xl font-semibold leading-[1.05] tracking-tight text-brand-ink sm:text-6xl lg:text-7xl">
+                    <h1 id="shop-contact-hero-heading" class="mt-5 font-display text-5xl leading-[1.05] tracking-tight text-brand-ink sm:text-6xl lg:text-7xl">
                         {{ __('Questions about the shop, or interested in working with us? Write to us.') }}
                     </h1>
                 </x-reveal>
