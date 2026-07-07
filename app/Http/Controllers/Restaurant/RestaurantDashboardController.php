@@ -73,10 +73,18 @@ class RestaurantDashboardController extends Controller
             ->limit(3)
             ->get();
 
+        // Dashboard cards stay glanceable: three entries each, the rest
+        // behind the existing "Verwalten" / "Alle Bestellungen" links.
+        $standingCount = RestaurantStandingOrder::query()
+            ->where('user_id', $user->id)
+            ->active()
+            ->count();
         $standing = RestaurantStandingOrder::query()
             ->where('user_id', $user->id)
             ->active()
             ->with('items.product.translations')
+            ->latest()
+            ->limit(3)
             ->get();
 
         $recent = RestaurantOrder::query()
@@ -85,7 +93,7 @@ class RestaurantDashboardController extends Controller
             ->collapseFutureRecurring()
             ->withCount('items')
             ->latest()
-            ->limit(5)
+            ->limit(3)
             ->get();
 
         $invoices = RestaurantOrder::query()
@@ -96,6 +104,7 @@ class RestaurantDashboardController extends Controller
             ->get();
 
         return view('restaurant.dashboard', [
+            'standingCount' => $standingCount,
             'thisWeek' => $thisWeek,
             'nextWeek' => $nextWeek,
             'weekLockState' => $weekLockState,

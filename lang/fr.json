@@ -4255,5 +4255,6 @@
     "restaurant.standing_remove_line_hint": "Retire ce produit de toutes les dates futures.",
     "restaurant.my_requests_link": "Vous avez envoyé :count demande.|Vous avez envoyé :count demandes.",
     "restaurant.requests_list_empty": "Pas encore de demandes.",
-    "restaurant.requests_date_hint": "Toutes les lignes de cette demande concernent la livraison du :date."
+    "restaurant.requests_date_hint": "Toutes les lignes de cette demande concernent la livraison du :date.",
+    "restaurant.dashboard_all_orders": "Toutes les commandes"
 }
