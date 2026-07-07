@@ -55,7 +55,9 @@ class RestaurantAccountTest extends TestCase
         $user = User::where('email', 'olive@example.com')->first();
         $this->assertNotNull($user);
         $this->assertSame(AccountType::Restaurant, $user->account_type);
-        $this->assertNull($user->email_verified_at);
+        // Restaurants skip the self-service email loop — admin review is the
+        // gate, so the email is marked verified at signup.
+        $this->assertNotNull($user->email_verified_at);
 
         $profile = $user->restaurantProfile;
         $this->assertNotNull($profile);
@@ -157,6 +159,29 @@ class RestaurantAccountTest extends TestCase
         $this->actingAs($profile->user)
             ->get(route('app.restaurant.dashboard'))
             ->assertRedirect(route('app.restaurant.pending'));
+    }
+
+    public function test_pending_restaurant_never_sees_the_email_verify_page(): void
+    {
+        $profile = RestaurantProfile::factory()->create(); // pending review
+        $profile->user->forceFill(['email_verified_at' => null])->save(); // legacy account
+
+        // The box verify-email prompt reroutes to the B2B status page.
+        $this->actingAs($profile->user)
+            ->get(route('verification.notice'))
+            ->assertRedirect(route('app.restaurant.pending'));
+
+        // The Geschäftskunden page shows the status, not the pitch.
+        $this->actingAs($profile->user)
+            ->get(route('restaurant.landing'))
+            ->assertRedirect(route('app.restaurant.pending'));
+
+        // The status page itself renders the review layout.
+        $this->actingAs($profile->user)
+            ->get(route('app.restaurant.pending'))
+            ->assertOk()
+            ->assertSee('data-testid="restaurant-pending-aside"', false)
+            ->assertSee(__('restaurant.pending_step_2_title'));
     }
 
     public function test_guard_admits_verified_restaurant(): void

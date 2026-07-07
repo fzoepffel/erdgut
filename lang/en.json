@@ -4209,5 +4209,19 @@
     "restaurant.landing_partners_title": "Why chefs work with us.",
     "restaurant.landing_partners_p1": "Whether they run a restaurant, a bistro or a hotel kitchen, the chefs we work with cook food that feels alive. Some of it refined, some of it rustic, all of it in season. They know good cooking starts with good ingredients, and they are always hunting for something special to put on the menu.",
     "restaurant.landing_partners_p2": "Whatever the farms around Berlin are harvesting, we bring it to their kitchens fresh, in trade quantities and at fair net prices. Every order puts the farmers' work straight onto the plate and supports farming that respects the soil, the animals and the craft.",
-    "restaurant.landing_partners_p3": "Working alongside these kitchens, day in and day out, is why Erdgut exists."
+    "restaurant.landing_partners_p3": "Working alongside these kitchens, day in and day out, is why Erdgut exists.",
+    "restaurant.pending_hero_pre": "We are reviewing your ",
+    "restaurant.pending_hero_em": "application right now",
+    "restaurant.pending_hero_body": "Your business account application has reached us. Someone from the Erdgut team is checking your details personally. There is nothing more you need to do.",
+    "restaurant.pending_steps_label": "What happens next",
+    "restaurant.pending_step_1_title": "Application received",
+    "restaurant.pending_step_1_desc": "We have your business details.",
+    "restaurant.pending_step_2_title": "We check your details",
+    "restaurant.pending_step_2_desc": "The Erdgut team does this personally, usually within a short time.",
+    "restaurant.pending_step_3_title": "Approval by email",
+    "restaurant.pending_step_3_desc": "As soon as your account is approved you'll get an email and can start ordering right away.",
+    "restaurant.pending_panel_eyebrow": "Status",
+    "restaurant.pending_panel_title": "Under review",
+    "restaurant.pending_panel_body": "No further action needed. If we have questions, we'll reach out to the email address below.",
+    "restaurant.pending_panel_reply_to_label": "We'll get back to you at"
 }
