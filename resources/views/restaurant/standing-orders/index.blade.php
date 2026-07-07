@@ -48,11 +48,16 @@
                                                data-testid="standing-item-qty-{{ $item->id }}"
                                                class="w-24 border border-shop-border bg-shop-background px-2 py-1 text-right text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
                                         <span class="w-9 text-xs text-shop-muted">{{ $item->product_id === null ? \App\Enums\ProductUnit::displaySymbol((string) $item->unit) : $item->product?->canonicalUnitLabel() }}</span>
-                                        <label class="flex items-center gap-1 text-xs text-shop-muted">
-                                            <input type="checkbox" name="lines[{{ $i }}][remove]" value="1" class="border-shop-border">
-                                            {{ __('restaurant.adjust_remove') }}
-                                        </label>
-                                        <span class="hidden text-xs text-shop-muted sm:inline">@if ($item->ends_on){{ __('restaurant.standing_until', ['date' => $item->ends_on->format('d.m.Y')]) }}@endif</span>
+                                        {{-- Removing a line only makes sense when others remain
+                                             (the last line is rejected server-side anyway). The
+                                             item's end date lives in the "Endet am" control below,
+                                             so it is NOT repeated here. --}}
+                                        @if ($so->items->count() > 1)
+                                            <label class="flex items-center gap-1 text-xs text-shop-muted" title="{{ __('restaurant.standing_remove_line_hint') }}">
+                                                <input type="checkbox" name="lines[{{ $i }}][remove]" value="1" class="border-shop-border">
+                                                {{ __('restaurant.standing_remove_line') }}
+                                            </label>
+                                        @endif
                                     </span>
                                 </li>
                             @endforeach
