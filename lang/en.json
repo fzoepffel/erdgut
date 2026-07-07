@@ -4255,5 +4255,6 @@
     "restaurant.standing_remove_line_hint": "Removes this product from all future dates.",
     "restaurant.my_requests_link": "You have sent :count request.|You have sent :count requests.",
     "restaurant.requests_list_empty": "No requests sent yet.",
-    "restaurant.requests_date_hint": "Every line of this request refers to the delivery on :date."
+    "restaurant.requests_date_hint": "Every line of this request refers to the delivery on :date.",
+    "restaurant.dashboard_all_orders": "All orders"
 }

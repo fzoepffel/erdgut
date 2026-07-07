@@ -4255,5 +4255,6 @@
     "restaurant.standing_remove_line_hint": "Entfernt dieses Produkt ab sofort aus allen künftigen Terminen.",
     "restaurant.my_requests_link": "Sie haben :count Anfrage gestellt.|Sie haben :count Anfragen gestellt.",
     "restaurant.requests_list_empty": "Noch keine Anfragen gestellt.",
-    "restaurant.requests_date_hint": "Alle Positionen dieser Anfrage beziehen sich auf die Lieferung am :date."
+    "restaurant.requests_date_hint": "Alle Positionen dieser Anfrage beziehen sich auf die Lieferung am :date.",
+    "restaurant.dashboard_all_orders": "Alle Bestellungen"
 }

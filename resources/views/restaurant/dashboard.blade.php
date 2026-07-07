@@ -154,7 +154,7 @@
                         <p class="py-2.5 text-sm text-shop-muted">{{ __('restaurant.dashboard_standing_empty') }}</p>
                     @endforelse
                 </div>
-                <a href="{{ route('app.restaurant.standing-orders.index') }}" class="mt-3 inline-block font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">{{ __('restaurant.dashboard_manage') }} &rarr;</a>
+                <a href="{{ route('app.restaurant.standing-orders.index') }}" class="mt-3 inline-block font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">{{ __('restaurant.dashboard_manage') }}@if ($standingCount > $standing->count()) ({{ $standingCount }})@endif &rarr;</a>
             </div>
 
             {{-- Invoices --}}
@@ -202,6 +202,7 @@
                         </div>
                     @endforeach
                 </div>
+                <a href="{{ route('app.restaurant.orders.index') }}" class="mt-3 inline-block font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">{{ __('restaurant.dashboard_all_orders') }} &rarr;</a>
             </div>
         @endif
 
