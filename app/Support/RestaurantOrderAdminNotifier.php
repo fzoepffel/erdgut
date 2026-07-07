@@ -20,16 +20,27 @@ class RestaurantOrderAdminNotifier
 {
     public static function submitted(RestaurantOrder $order): void
     {
+        self::notify($order, adjusted: false);
+    }
+
+    /** The customer changed a confirmed delivery — packing lists move. */
+    public static function adjusted(RestaurantOrder $order): void
+    {
+        self::notify($order, adjusted: true);
+    }
+
+    private static function notify(RestaurantOrder $order, bool $adjusted): void
+    {
         $admins = User::query()->where('is_admin', true)->get(['id', 'email']);
 
         if ($admins->isEmpty()) {
             return;
         }
 
-        $send = function () use ($order, $admins): void {
+        $send = function () use ($order, $admins, $adjusted): void {
             foreach ($admins as $admin) {
                 try {
-                    Mail::to($admin->email)->send(new RestaurantOrderAdminNotification($order));
+                    Mail::to($admin->email)->send(new RestaurantOrderAdminNotification($order, $adjusted));
                 } catch (Throwable $e) {
                     Log::warning('restaurant.order.admin_notify_failed', [
                         'restaurant_order_id' => $order->id,

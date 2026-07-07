@@ -76,6 +76,7 @@ class TranslationParityTest extends TestCase
         'restaurant.standing_flash_',
         // Admin queue + show build 'restaurant.kind_'.$order->kind->value (order|request).
         'restaurant.kind_',
+        'products.request_visibility_',
         // The Gastronomie landing builds 'restaurant.landing_step'.$n.'_title'/'_body'.
         'restaurant.landing_step',
     ];

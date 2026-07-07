@@ -39,8 +39,73 @@
     @endphp
     <div class="mx-auto max-w-[1100px] px-4 py-12 sm:px-6 lg:px-12">
         @unless ($isFresh)
+        {{-- ── Diese Woche: the concrete deliveries, simple and visual ──── --}}
+        <section data-testid="dashboard-this-week">
+            <p class="eyebrow text-shop-primary">{{ __('restaurant.week_this_title') }}</p>
+            @if ($thisWeek->isEmpty())
+                <div class="shop-card mt-3 flex flex-wrap items-center justify-between gap-3 p-5 text-sm text-shop-muted">
+                    <span>{{ __('restaurant.week_empty') }}@if ($nextDay) {{ __('restaurant.week_empty_next_day', ['day' => $nextDay['date']->locale($locale)->isoFormat('dd, D. MMM')]) }}@endif</span>
+                    <a href="{{ route('app.restaurant.catalog') }}" class="shrink-0 border border-shop-primary px-4 py-1.5 font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary transition hover:bg-shop-primary hover:text-shop-primary-foreground">{{ __('restaurant.nav_shop') }} &rarr;</a>
+                </div>
+            @else
+                <div class="mt-3 space-y-4">
+                    @foreach ($thisWeek as $order)
+                        @php $lock = $weekLockState[$order->id] ?? ['locked' => true, 'cutoff' => null]; @endphp
+                        <div class="shop-card p-5" data-testid="week-delivery-{{ $order->id }}">
+                            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                                <p class="font-display text-2xl text-shop-foreground">{{ $order->expected_delivery_date->locale($locale)->isoFormat('dddd, D. MMMM') }}</p>
+                                <span class="rounded-full bg-shop-paper px-2.5 py-0.5 text-[11px] font-medium text-shop-foreground">{{ __('restaurant.order_status_'.$order->status->value) }}</span>
+                            </div>
+                            <ul class="mt-4 grid gap-3 sm:grid-cols-2">
+                                @foreach ($order->items as $item)
+                                    @continue($item->isDeclined())
+                                    <li class="flex items-center gap-3">
+                                        @if ($item->product?->thumbUrl())
+                                            <img src="{{ $item->product->thumbUrl() }}" alt="" loading="lazy" class="h-12 w-12 shrink-0 rounded object-cover">
+                                        @else
+                                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded bg-shop-paper text-shop-muted" aria-hidden="true">
+                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A1.5 1.5 0 0 0 21.75 19.5V4.5A1.5 1.5 0 0 0 20.25 3H3.75A1.5 1.5 0 0 0 2.25 4.5v15A1.5 1.5 0 0 0 3.75 21Z" /></svg>
+                                            </span>
+                                        @endif
+                                        <span class="min-w-0 text-sm text-shop-foreground">{{ $item->displayQuantityLabel($order->locale) }} · {{ $item->displayName() }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-shop-border/60 pt-3">
+                                <p class="font-mono text-sm text-shop-foreground">@eur($order->items_total_net_eur) <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}</span></p>
+                                <span class="flex flex-wrap items-center gap-3">
+                                    @if (! $lock['locked'])
+                                        <a href="{{ route('app.restaurant.orders.show', $order) }}" class="border border-shop-border px-3 py-1.5 font-mono text-[0.65rem] uppercase tracking-widest text-shop-foreground transition hover:border-shop-primary hover:text-shop-primary">
+                                            {{ __('restaurant.adjust_title') }}@if ($lock['cutoff']) · {{ __('restaurant.week_adjust_until', ['cutoff' => $lock['cutoff']]) }}@endif
+                                        </a>
+                                    @else
+                                        <a href="{{ route('app.restaurant.orders.show', $order) }}" class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted underline-offset-4 hover:underline">{{ __('restaurant.week_view_order') }}</a>
+                                    @endif
+                                </span>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            {{-- Nächste Woche: slim preview --}}
+            @if ($nextWeek->isNotEmpty())
+                <div class="mt-6" data-testid="dashboard-next-week">
+                    <p class="eyebrow text-shop-muted">{{ __('restaurant.week_next_title') }}</p>
+                    <div class="mt-2 divide-y divide-shop-border border border-shop-border">
+                        @foreach ($nextWeek as $order)
+                            <a href="{{ route('app.restaurant.orders.show', $order) }}" class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm hover:bg-shop-card">
+                                <span class="text-shop-foreground">{{ $order->expected_delivery_date->locale($locale)->isoFormat('dd, D. MMM') }} · {{ $order->items->reject->isDeclined()->map(fn ($i) => $i->displayName())->take(3)->implode(', ') }}</span>
+                                <span class="font-mono text-xs text-shop-muted">@eur($order->items_total_net_eur)</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        </section>
+
         {{-- ── Stat row ─────────────────────────────────────────────────── --}}
-        <dl class="reveal-stagger grid gap-8 sm:grid-cols-3">
+        <dl class="reveal-stagger mt-12 grid gap-8 sm:grid-cols-3">
             <x-reveal as="div" style="--i:0">
                 <dt class="font-display text-4xl text-accent-star sm:text-5xl">{{ $upcoming->count() }}</dt>
                 <dd class="mt-1 text-sm text-shop-muted">{{ __('restaurant.dashboard_stat_upcoming') }}</dd>

@@ -1059,6 +1059,20 @@
     </div>
     <x-input-error class="mt-2" :messages="$errors->get('is_seasonal')" />
 
+    {{-- B2B Anfragen visibility override: 'auto' follows the season window,
+         'always' features the product there even out of season/stock
+         (sourceable gap-fillers), 'never' hides it from the request list. --}}
+    <div class="mt-4 max-w-md">
+        <label for="request_visibility" class="block text-sm font-medium text-gray-700">{{ __('products.request_visibility_label') }}</label>
+        <select id="request_visibility" name="request_visibility" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+            @foreach (['auto', 'always', 'never'] as $opt)
+                <option value="{{ $opt }}" @selected(old('request_visibility', $product?->request_visibility ?? 'auto') === $opt)>{{ __('products.request_visibility_'.$opt) }}</option>
+            @endforeach
+        </select>
+        <p class="mt-1 text-xs text-gray-500">{{ __('products.request_visibility_hint') }}</p>
+        <x-input-error class="mt-2" :messages="$errors->get('request_visibility')" />
+    </div>
+
     {{-- Recurring yearly season window (month + day). Only shown when the
          product is flagged seasonal; the window repeats every year and may
          wrap the year boundary (e.g. Nov → Feb). Consumed by the restaurant

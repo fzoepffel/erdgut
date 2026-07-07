@@ -31,14 +31,40 @@
                         ])>{{ __('restaurant.standing_status_'.$so->status->value) }}</span>
                     </div>
 
-                    <ul class="mt-3 divide-y divide-shop-border text-sm">
-                        @foreach ($so->items as $item)
-                            <li class="flex justify-between gap-3 py-2">
-                                <span class="text-shop-foreground">{{ $item->displayQuantityLabel($so->locale) }} · {{ $item->displayName() }}</span>
-                                <span class="text-xs text-shop-muted">@if ($item->ends_on){{ __('restaurant.standing_until', ['date' => $item->ends_on->format('d.m.Y')]) }}@else{{ __('restaurant.standing_indefinite') }}@endif</span>
-                            </li>
-                        @endforeach
-                    </ul>
+                    {{-- Editable template: new quantities apply to all future
+                         weeks; hand-adjusted or already-closed weeks stay. --}}
+                    <form method="POST" action="{{ route('app.restaurant.standing-orders.items', $so) }}">
+                        @csrf
+                        @error('lines')<p class="mt-3 text-xs text-chapter-meat">{{ $message }}</p>@enderror
+                        <ul class="mt-3 divide-y divide-shop-border text-sm">
+                            @foreach ($so->items as $i => $item)
+                                <li class="flex flex-wrap items-center justify-between gap-3 py-2">
+                                    <span class="min-w-0 flex-1 truncate text-shop-foreground">{{ $item->displayName() }}</span>
+                                    <span class="flex items-center gap-2">
+                                        <input type="hidden" name="lines[{{ $i }}][id]" value="{{ $item->id }}">
+                                        <input type="number" step="{{ $item->product?->effectiveQuantityStep() ?? 1 }}" min="0"
+                                               name="lines[{{ $i }}][quantity]"
+                                               value="{{ rtrim(rtrim(number_format((float) $item->quantity, 4, '.', ''), '0'), '.') }}"
+                                               data-testid="standing-item-qty-{{ $item->id }}"
+                                               class="w-24 border border-shop-border bg-shop-background px-2 py-1 text-right text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                        <span class="w-9 text-xs text-shop-muted">{{ $item->product_id === null ? \App\Enums\ProductUnit::displaySymbol((string) $item->unit) : $item->product?->canonicalUnitLabel() }}</span>
+                                        <label class="flex items-center gap-1 text-xs text-shop-muted">
+                                            <input type="checkbox" name="lines[{{ $i }}][remove]" value="1" class="border-shop-border">
+                                            {{ __('restaurant.adjust_remove') }}
+                                        </label>
+                                        <span class="hidden text-xs text-shop-muted sm:inline">@if ($item->ends_on){{ __('restaurant.standing_until', ['date' => $item->ends_on->format('d.m.Y')]) }}@endif</span>
+                                    </span>
+                                </li>
+                            @endforeach
+                        </ul>
+                        <div class="mt-3 flex flex-wrap items-center gap-3">
+                            <button type="submit" data-testid="standing-items-save-{{ $so->id }}"
+                                    class="border border-shop-border px-2.5 py-1 font-mono text-[0.65rem] uppercase tracking-widest text-shop-foreground transition hover:border-shop-primary hover:text-shop-primary">
+                                {{ __('restaurant.standing_items_save') }}
+                            </button>
+                            <p class="text-[11px] text-shop-muted">{{ __('restaurant.standing_items_note') }}</p>
+                        </div>
+                    </form>
 
                     {{-- End-date editor: pick a future occurrence of the delivery weekday. --}}
                     <form method="POST" action="{{ route('app.restaurant.standing-orders.end', $so) }}" class="mt-4 flex flex-wrap items-center gap-2 text-xs">

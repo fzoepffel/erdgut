@@ -42,6 +42,7 @@ class Product extends Model
         'default_freshness_window_days',
         'buying_price_cents',
         'is_seasonal',
+        'request_visibility',
         'season_start_month',
         'season_start_day',
         'season_end_month',

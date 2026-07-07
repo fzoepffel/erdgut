@@ -7,9 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantStandingOrder;
 use App\Services\Restaurant\RestaurantCatalogService;
+use App\Services\Shop\ShopClosureService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * The verified-restaurant area home: next delivery day (+ what's in stock),
@@ -25,6 +27,32 @@ class RestaurantDashboardController extends Controller
         // Next open delivery day + its in-stock product count (cached matrix —
         // the catalog page runs the same query).
         $nextDay = $catalog->selectableDates()->first();
+
+        // "Diese Woche": the concrete deliveries of the current ISO week and
+        // a preview of next week, with product images for the cards. These
+        // are actual orders (weekly weeks are materialized), so no collapse.
+        $closures = app(ShopClosureService::class);
+        $weekOrders = function (Carbon $start, Carbon $end) use ($user) {
+            return RestaurantOrder::query()
+                ->where('user_id', $user->id)
+                ->orders()
+                ->whereIn('status', [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value])
+                ->whereBetween('expected_delivery_date', [$start->toDateString(), $end->toDateString()])
+                ->with(['items.product.translations', 'items.product.images'])
+                ->orderBy('expected_delivery_date')
+                ->get();
+        };
+        $thisWeek = $weekOrders(today()->startOfWeek(), today()->endOfWeek());
+        $nextWeek = $weekOrders(today()->addWeek()->startOfWeek(), today()->addWeek()->endOfWeek());
+        $weekLockState = $thisWeek->concat($nextWeek)->mapWithKeys(function (RestaurantOrder $o) use ($closures): array {
+            $date = $o->expected_delivery_date->copy();
+            $state = $closures->statesForRange($date, $date)[$date->toDateString()] ?? null;
+
+            return [$o->id => [
+                'locked' => $o->isLockedForChanges($closures),
+                'cutoff' => $state['cutoff_label'] ?? null,
+            ]];
+        });
 
         $upcoming = RestaurantOrder::query()
             ->where('user_id', $user->id)
@@ -70,6 +98,9 @@ class RestaurantDashboardController extends Controller
             ->get();
 
         return view('restaurant.dashboard', [
+            'thisWeek' => $thisWeek,
+            'nextWeek' => $nextWeek,
+            'weekLockState' => $weekLockState,
             'profile' => $user->restaurantProfile,
             'nextDay' => $nextDay,
             'upcoming' => $upcoming,

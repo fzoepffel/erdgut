@@ -308,6 +308,63 @@ class RestaurantStandingOrderTest extends TestCase
         Carbon::setTestNow(null);
     }
 
+    public function test_template_edit_propagates_but_spares_adjusted_and_closed_weeks(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 8)); // a Wednesday
+        $date = Carbon::tomorrow();
+        $p = $this->product();
+        ProductStockInflow::create(['product_id' => $p->id, 'received_on' => $date->toDateString(), 'quantity' => 500, 'freshness_window_days' => 60]);
+        $user = $this->verifiedRestaurant();
+        $order = $this->submitRecurring($user, $p, $this->product(), $date);
+        $standing = RestaurantStandingOrder::firstOrFail();
+        app(RestaurantStandingOrderService::class)->activate($standing, null);
+
+        $future = RestaurantOrder::where('source_standing_order_id', $standing->id)
+            ->where('id', '!=', $order->id)
+            ->where('status', RestaurantOrderStatus::Confirmed->value)
+            ->orderBy('expected_delivery_date')
+            ->get();
+        $this->assertGreaterThanOrEqual(3, $future->count());
+
+        // Hand-adjust week 2; close ordering for week 3.
+        $adjustedWeek = $future[1];
+        $adjustedWeek->forceFill(['adjusted_at' => now()])->save();
+        $closedWeek = $future[2];
+        ShopClosedDay::create(['closed_on' => $closedWeek->expected_delivery_date->toDateString(), 'closes_at' => null]);
+
+        // Template: weekly item 5 → 9.
+        $item = $standing->items()->firstOrFail();
+        $this->actingAs($user)
+            ->post(route('app.restaurant.standing-orders.items', $standing), [
+                'lines' => [['id' => $item->id, 'quantity' => 9]],
+            ])
+            ->assertRedirect();
+
+        // Rebuilt weeks carry 9; the adjusted + closed weeks keep 5.
+        $rebuilt = RestaurantOrder::where('source_standing_order_id', $standing->id)
+            ->where('id', '!=', $order->id)
+            ->where('status', RestaurantOrderStatus::Confirmed->value)
+            ->whereNotIn('id', [$adjustedWeek->id, $closedWeek->id])
+            ->get();
+        $this->assertGreaterThanOrEqual(1, $rebuilt->count());
+        foreach ($rebuilt as $week) {
+            $this->assertEqualsWithDelta(9.0, (float) $week->items()->firstOrFail()->quantity, 0.001, 'week '.$week->expected_delivery_date->toDateString());
+        }
+        $this->assertEqualsWithDelta(5.0, (float) $adjustedWeek->refresh()->items()->firstOrFail()->quantity, 0.001);
+        $this->assertEqualsWithDelta(5.0, (float) $closedWeek->refresh()->items()->firstOrFail()->quantity, 0.001);
+
+        // Last-item removal rejected; foreign owner blocked.
+        $this->actingAs($user)
+            ->post(route('app.restaurant.standing-orders.items', $standing), [
+                'lines' => [['id' => $item->id, 'remove' => 1]],
+            ])->assertSessionHasErrors('lines');
+        $this->actingAs($this->verifiedRestaurant())
+            ->post(route('app.restaurant.standing-orders.items', $standing), [
+                'lines' => [['id' => $item->id, 'quantity' => 2]],
+            ])->assertForbidden();
+        Carbon::setTestNow(null);
+    }
+
     public function test_pause_resume_delete_owner_gated(): void
     {
         $date = Carbon::tomorrow();

@@ -135,17 +135,20 @@ class RestaurantCatalogService
             ->map(function (Product $product) use ($matrix, $iso, $date): ?array {
                 $remaining = (float) ($matrix[$product->id][$iso] ?? 0.0);
                 $inStock = $remaining > 0;
-                // The "on request" track is for genuinely seasonal items that
-                // are currently in their window but out of stock. Non-seasonal
-                // (year-round) products show only when actually in stock, so the
-                // catalog isn't flooded with always-"on request" staples.
+                // The "on request" track: in-season items without stock show in
+                // the Anfragen area by default; the per-product override can
+                // force a product in ('always' — sourceable gap-fillers) or
+                // out ('never') regardless of the season window.
+                $visibility = (string) ($product->request_visibility ?? 'auto');
                 $inSeason = $product->is_seasonal && $product->isInSeason($date);
+                $requestable = $visibility === 'always'
+                    || ($inSeason && $visibility !== 'never');
 
-                if (! $inStock && ! $inSeason) {
+                if (! $inStock && ! $requestable) {
                     return null;
                 }
 
-                return $this->row($product, $date, $inStock, $inSeason);
+                return $this->row($product, $date, $inStock, $requestable);
             })
             ->filter()
             ->values();

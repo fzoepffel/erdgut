@@ -99,6 +99,7 @@ class StoreProductRequest extends FormRequest
             'tiers.*.min_quantity' => ['nullable', 'numeric', 'gt:0'],
             'tiers.*.unit_price' => ['nullable', 'numeric', 'gt:0'],
             'is_seasonal' => ['boolean'],
+            'request_visibility' => ['nullable', Rule::in(['auto', 'always', 'never'])],
             ...$this->seasonWindowRules(),
             'is_available' => ['boolean'],
             'is_published' => ['boolean'],

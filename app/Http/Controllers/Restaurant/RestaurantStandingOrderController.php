@@ -66,6 +66,23 @@ class RestaurantStandingOrderController extends Controller
         return back()->with('status', 'standing-end-updated');
     }
 
+    /** Owner edit of the recurring template: quantities / remove items. */
+    public function updateItems(Request $request, RestaurantStandingOrder $standingOrder): RedirectResponse
+    {
+        abort_unless($standingOrder->user_id === $request->user()->id, 403);
+
+        $validated = $request->validate([
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.id' => ['required', 'integer'],
+            'lines.*.quantity' => ['nullable', 'numeric', 'gt:0'],
+            'lines.*.remove' => ['nullable', 'boolean'],
+        ]);
+
+        $this->standing->updateItems($standingOrder, $validated['lines']);
+
+        return back()->with('status', 'standing-items-updated');
+    }
+
     public function destroy(Request $request, RestaurantStandingOrder $standingOrder): RedirectResponse
     {
         abort_unless($standingOrder->user_id === $request->user()->id, 403);

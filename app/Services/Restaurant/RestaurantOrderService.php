@@ -14,6 +14,7 @@ use App\Models\RestaurantOrderItem;
 use App\Models\User;
 use App\Services\Admin\InventoryService;
 use App\Services\Shop\PriceResolver;
+use App\Services\Shop\ShopClosureService;
 use App\Services\Shop\ShopOrderService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -280,6 +281,103 @@ class RestaurantOrderService
         $order->forceFill(['status' => RestaurantOrderStatus::Declined])->save();
 
         return true;
+    }
+
+    /**
+     * Owner edit of a firm delivery ("this week 2 kg less"): change quantities
+     * or drop lines on a confirmed, not-invoiced order while ordering for its
+     * delivery day is still open. Catalog lines are stock-checked; the line's
+     * own current quantity counts as available (its reservation is already in
+     * the commitments). Line money recomputes from the snapshot unit price;
+     * the order is marked adjusted so template changes never overwrite it.
+     *
+     * @param  list<array{id: int|string, quantity?: float|string, remove?: mixed}>  $lines
+     */
+    public function ownerUpdateLines(RestaurantOrder $order, array $lines): RestaurantOrder
+    {
+        if ($order->isRequest() && $order->status !== RestaurantOrderStatus::Confirmed) {
+            throw ValidationException::withMessages(['lines' => __('restaurant.adjust_not_editable')]);
+        }
+        if ($order->status !== RestaurantOrderStatus::Confirmed || $order->isInvoiced()) {
+            throw ValidationException::withMessages(['lines' => __('restaurant.adjust_not_editable')]);
+        }
+        if ($order->isLockedForChanges(app(ShopClosureService::class))) {
+            throw ValidationException::withMessages(['lines' => __('restaurant.changes_locked')]);
+        }
+
+        $date = $order->expected_delivery_date->copy();
+
+        return DB::transaction(function () use ($order, $lines, $date): RestaurantOrder {
+            $items = $order->items()->lockForUpdate()->with('product')->get()->keyBy('id');
+            $byId = collect($lines)->keyBy(fn ($l) => (int) ($l['id'] ?? 0));
+
+            $surviving = 0;
+            foreach ($items as $item) {
+                if ($item->isDeclined()) {
+                    continue;
+                }
+                $payload = $byId->get($item->id);
+                if ($payload !== null && ! empty($payload['remove'])) {
+                    continue;
+                }
+                $surviving++;
+            }
+            if ($surviving === 0) {
+                throw ValidationException::withMessages(['lines' => __('restaurant.adjust_keep_one_line')]);
+            }
+
+            foreach ($items as $item) {
+                $payload = $byId->get($item->id);
+                if ($payload === null || $item->isDeclined()) {
+                    continue;
+                }
+
+                if (! empty($payload['remove'])) {
+                    $item->delete(); // reserved hold releases with the row
+
+                    continue;
+                }
+
+                $qty = round((float) ($payload['quantity'] ?? $item->quantity), 4);
+                if ($qty <= 0) {
+                    throw ValidationException::withMessages(['lines' => __('restaurant.adjust_qty_invalid')]);
+                }
+                if (abs($qty - (float) $item->quantity) < 1e-9) {
+                    continue;
+                }
+
+                // Stock check for catalog lines: the line may grow up to the
+                // remaining stock PLUS what it already holds itself.
+                if ($item->product_id !== null && $item->product !== null && $qty > (float) $item->quantity) {
+                    $remaining = app(InventoryService::class)->availableOnDate(
+                        $item->product,
+                        $date,
+                        ShopStockAudience::BusinessTrade,
+                        (int) ($item->variant_id ?? 0),
+                    );
+                    if ($qty > $remaining + (float) $item->quantity + 1e-9) {
+                        throw ValidationException::withMessages([
+                            'lines' => __('restaurant.order_line_exceeds_stock', ['name' => $item->displayName()]),
+                        ]);
+                    }
+                }
+
+                $unit = (float) $item->unit_price_snapshot_eur;
+                $gross = round($unit * $qty, 2);
+                $rate = (int) $item->vat_rate_snapshot_percent;
+                $net = round($gross * 100 / (100 + $rate), 2);
+                $item->forceFill([
+                    'quantity' => $qty,
+                    'line_total_eur' => $gross,
+                    'vat_amount_eur' => round($gross - $net, 2),
+                ])->save();
+            }
+
+            app(RestaurantInvoiceService::class)->rerollTotals($order);
+            $order->forceFill(['adjusted_at' => now()])->save();
+
+            return $order->refresh();
+        });
     }
 
     /** Admin: accept a single pending (on-request/special) line; settle the order. */

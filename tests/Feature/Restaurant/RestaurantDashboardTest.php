@@ -95,4 +95,34 @@ class RestaurantDashboardTest extends TestCase
             ->assertSee(__('restaurant.opportunity_special_title'))
             ->assertSee('data-testid="dashboard-order-cta"', false);
     }
+
+    public function test_dashboard_shows_this_week_and_next_week_deliveries(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 8)); // Wednesday
+        try {
+            $producer = Producer::factory()->create();
+            $p = Product::factory()->create(['producer_id' => $producer->id, 'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece', 'unit_price' => 2, 'vat_rate_percent' => 7, 'is_available' => true, 'is_published' => true]);
+            ProductStockInflow::create(['product_id' => $p->id, 'received_on' => Carbon::tomorrow()->toDateString(), 'quantity' => 100, 'freshness_window_days' => 30]);
+            $profile = RestaurantProfile::factory()->verified()->create();
+            $svc = app(RestaurantOrderService::class);
+            $payload = fn (Carbon $d): array => [
+                'items' => [['product_id' => $p->id, 'variant_id' => null, 'quantity' => 3]],
+                'expected_delivery_date' => $d->toDateString(),
+                'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+            ];
+            $thisWeek = $svc->submitOrder($profile->user, $payload(Carbon::tomorrow()));           // Thu, same ISO week
+            $nextWeek = $svc->submitOrder($profile->user, $payload(Carbon::tomorrow()->addWeek())); // next ISO week
+
+            $this->actingAs($profile->user)
+                ->get(route('app.restaurant.dashboard'))
+                ->assertOk()
+                ->assertSee('data-testid="dashboard-this-week"', false)
+                ->assertSee('data-testid="week-delivery-'.$thisWeek->id.'"', false)
+                ->assertSee('data-testid="dashboard-next-week"', false)
+                ->assertSee($p->name)
+                ->assertDontSee('data-testid="week-delivery-'.$nextWeek->id.'"', false);
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
 }

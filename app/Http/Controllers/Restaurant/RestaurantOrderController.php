@@ -2,19 +2,17 @@
 
 namespace App\Http\Controllers\Restaurant;
 
-use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
-use App\Enums\ShopStockAudience;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Restaurant\RestaurantOrderRequest;
 use App\Mail\RestaurantOrderSubmittedMail;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantStandingOrder;
-use App\Services\Admin\InventoryService;
-use App\Services\Restaurant\RestaurantCatalogService;
 use App\Services\Restaurant\RestaurantInvoiceService;
 use App\Services\Restaurant\RestaurantOrderService;
 use App\Services\Restaurant\RestaurantStandingOrderService;
+use App\Services\Shop\ShopClosureService;
+use App\Support\AuditLogger;
 use App\Support\RestaurantOrderAdminNotifier;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -142,70 +140,20 @@ class RestaurantOrderController extends Controller
      * (dropped when nothing remains) so the reorder is always a firm, fully
      * reserved order; a flash lists what was adjusted. Orders only.
      */
-    public function reorder(Request $request, RestaurantOrder $restaurantOrder, RestaurantCatalogService $catalog): RedirectResponse
+    /**
+     * "Nochmal bestellen" hands the order's lines into the SHOP basket
+     * instead of creating an order instantly (a misclick used to place a
+     * duplicate order). The shop's own checkout is the confirmation step:
+     * quantities stay editable (hard-capped at today's stock), the delivery
+     * day is picked there, and nothing exists until "Zahlungspflichtig
+     * bestellen".
+     */
+    public function reorder(Request $request, RestaurantOrder $restaurantOrder): RedirectResponse
     {
         abort_unless($restaurantOrder->user_id === $request->user()->id, 403);
         abort_if($restaurantOrder->isRequest(), 404);
 
-        $nextDay = $catalog->selectableDates()->first();
-        abort_unless($nextDay !== null, 422);
-
-        $inventory = app(InventoryService::class);
-        $date = $nextDay['date'];
-        $adjusted = [];
-        $items = [];
-
-        $sourceItems = $restaurantOrder->items()
-            ->whereNotNull('product_id')
-            ->where('line_status', '!=', RestaurantOrderLineStatus::Declined->value)
-            ->with('product')
-            ->get();
-        foreach ($sourceItems as $item) {
-            if ($item->product === null) {
-                continue;
-            }
-            $remaining = $inventory->availableOnDate($item->product, $date, ShopStockAudience::BusinessTrade, $item->variant_id ?? 0);
-            $qty = min((float) $item->quantity, max(0.0, $remaining));
-            if ($qty <= 0) {
-                $adjusted[] = $item->displayName();
-
-                continue;
-            }
-            if ($qty < (float) $item->quantity) {
-                $adjusted[] = $item->displayName();
-            }
-            $items[] = ['product_id' => $item->product_id, 'variant_id' => $item->variant_id, 'quantity' => $qty];
-        }
-
-        if ($items === []) {
-            return redirect()
-                ->route('app.restaurant.orders.show', $restaurantOrder)
-                ->with('status', 'restaurant-reorder-empty');
-        }
-
-        $order = $this->orders->submitOrder($request->user(), [
-            'items' => $items,
-            'expected_delivery_date' => $nextDay['date']->toDateString(),
-            'delivery_street' => $restaurantOrder->delivery_street,
-            'delivery_postal_code' => $restaurantOrder->delivery_postal_code,
-            'delivery_city' => $restaurantOrder->delivery_city,
-            'delivery_notes' => $restaurantOrder->delivery_notes,
-            'locale' => app()->getLocale(),
-        ]);
-
-        try {
-            Mail::to($request->user()->email)
-                ->locale($order->locale ?? app()->getLocale())
-                ->send(new RestaurantOrderSubmittedMail($order));
-        } catch (\Throwable $e) {
-            report($e);
-        }
-        RestaurantOrderAdminNotifier::submitted($order);
-
-        return redirect()
-            ->route('app.restaurant.orders.show', $order)
-            ->with('status', 'restaurant-order-submitted')
-            ->with('reorder_adjusted', $adjusted);
+        return redirect()->route('app.restaurant.catalog', ['reorder' => $restaurantOrder->id]);
     }
 
     public function show(Request $request, RestaurantOrder $restaurantOrder): View
@@ -214,16 +162,71 @@ class RestaurantOrderController extends Controller
 
         $restaurantOrder->load(['items.product.translations', 'items.product.producer.translations']);
 
-        return view('restaurant.orders.show', ['order' => $restaurantOrder]);
+        // Change window: owner edits/cancel close when ordering for the
+        // delivery day closes (shop cutoff).
+        $closures = app(ShopClosureService::class);
+        $isPendingRequest = $restaurantOrder->isRequest()
+            && $restaurantOrder->status === RestaurantOrderStatus::Submitted;
+        $locked = ! $isPendingRequest && $restaurantOrder->isLockedForChanges($closures);
+        $date = $restaurantOrder->expected_delivery_date->copy();
+        $dayState = $closures->statesForRange($date, $date)[$date->toDateString()] ?? null;
+
+        return view('restaurant.orders.show', [
+            'order' => $restaurantOrder,
+            'locked' => $locked,
+            'cutoffLabel' => $dayState['cutoff_label'] ?? null,
+        ]);
+    }
+
+    /** Owner edit of a firm delivery: quantities / remove lines (until cutoff). */
+    public function updateLines(Request $request, RestaurantOrder $restaurantOrder): RedirectResponse
+    {
+        abort_unless($restaurantOrder->user_id === $request->user()->id, 403);
+
+        $validated = $request->validate([
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.id' => ['required', 'integer'],
+            'lines.*.quantity' => ['nullable', 'numeric', 'gt:0'],
+            'lines.*.remove' => ['nullable', 'boolean'],
+        ]);
+
+        $this->orders->ownerUpdateLines($restaurantOrder, $validated['lines']);
+
+        AuditLogger::log(
+            entityType: 'restaurant_order',
+            entityId: (int) $restaurantOrder->id,
+            action: 'owner_adjust',
+            fromState: $restaurantOrder->status->value,
+            toState: $restaurantOrder->status->value,
+            metadata: ['channel' => 'restaurant'],
+            actorUserId: (int) $request->user()->id,
+        );
+        RestaurantOrderAdminNotifier::adjusted($restaurantOrder->refresh());
+
+        return redirect()
+            ->route('app.restaurant.orders.show', $restaurantOrder)
+            ->with('status', 'restaurant-order-adjusted');
     }
 
     public function cancel(Request $request, RestaurantOrder $restaurantOrder): RedirectResponse
     {
         abort_unless($restaurantOrder->user_id === $request->user()->id, 403);
 
-        // The restaurant may cancel its own order any time before it's delivered
-        // or invoiced — including an auto-confirmed in-stock order. Cancelling
-        // releases the reserved stock (status leaves the reserving set).
+        // A firm delivery can be cancelled while ordering for its delivery
+        // day is still open (the shop cutoff = the change cutoff); after that
+        // the goods are being sourced/packed. A still-pending request is not
+        // a delivery yet and stays cancellable any time.
+        $isPendingRequest = $restaurantOrder->isRequest()
+            && $restaurantOrder->status === RestaurantOrderStatus::Submitted;
+        $locked = ! $isPendingRequest
+            && $restaurantOrder->isLockedForChanges(app(ShopClosureService::class));
+
+        if ($locked) {
+            return redirect()
+                ->route('app.restaurant.orders.show', $restaurantOrder)
+                ->with('status', 'restaurant-changes-locked');
+        }
+
         $cancellable = in_array($restaurantOrder->status, [
             RestaurantOrderStatus::Submitted,
             RestaurantOrderStatus::Confirmed,
