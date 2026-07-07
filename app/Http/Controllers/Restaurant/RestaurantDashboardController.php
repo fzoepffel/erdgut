@@ -54,16 +54,14 @@ class RestaurantDashboardController extends Controller
             ]];
         });
 
-        $upcoming = RestaurantOrder::query()
+        // Stat only — the concrete deliveries live in the Diese/Nächste Woche
+        // blocks above (the old "Anstehende Lieferungen" card duplicated them).
+        $upcomingCount = RestaurantOrder::query()
             ->where('user_id', $user->id)
             ->orders()
-            ->collapseFutureRecurring()
             ->whereIn('status', [RestaurantOrderStatus::Submitted->value, RestaurantOrderStatus::Confirmed->value])
             ->whereDate('expected_delivery_date', '>=', today())
-            ->withCount('items')
-            ->orderBy('expected_delivery_date')
-            ->limit(3)
-            ->get();
+            ->count();
 
         // Requests awaiting the Erdgut team (kind=request, still submitted).
         $openRequests = RestaurantOrder::query()
@@ -103,7 +101,7 @@ class RestaurantDashboardController extends Controller
             'weekLockState' => $weekLockState,
             'profile' => $user->restaurantProfile,
             'nextDay' => $nextDay,
-            'upcoming' => $upcoming,
+            'upcomingCount' => $upcomingCount,
             'openRequests' => $openRequests,
             'standing' => $standing,
             'recent' => $recent,

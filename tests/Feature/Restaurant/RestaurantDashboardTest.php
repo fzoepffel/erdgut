@@ -70,7 +70,7 @@ class RestaurantDashboardTest extends TestCase
             ->assertOk()
             ->assertSee('data-testid="dashboard-next-day"', false)
             ->assertSee('data-testid="dashboard-order-cta"', false)
-            ->assertSee(__('restaurant.dashboard_upcoming_title'))
+            ->assertSee('data-testid="dashboard-this-week"', false)
             ->assertSee(__('restaurant.dashboard_recent_title'))
             ->assertSee(__('restaurant.opportunity_weekly_title'))
             ->assertSee(__('restaurant.opportunity_amounts_title'))
