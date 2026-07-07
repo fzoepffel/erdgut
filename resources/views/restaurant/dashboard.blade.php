@@ -48,18 +48,24 @@
                     <a href="{{ route('app.restaurant.catalog') }}" class="shrink-0 border border-shop-primary px-4 py-1.5 font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary transition hover:bg-shop-primary hover:text-shop-primary-foreground">{{ __('restaurant.nav_shop') }} &rarr;</a>
                 </div>
             @else
-                <div class="mt-3 space-y-4">
-                    @foreach ($thisWeek as $order)
+                <div class="mt-3 space-y-6">
+                    @foreach ($thisWeek->groupBy(fn ($o) => $o->expected_delivery_date->toDateString()) as $dayOrders)
+                    <div>
+                        {{-- The day renders ONCE, even when several orders share it. --}}
+                        <p class="font-display text-2xl text-shop-foreground">{{ $dayOrders->first()->expected_delivery_date->locale($locale)->isoFormat('dddd, D. MMMM') }}</p>
+                        <div class="mt-3 space-y-4">
+                    @foreach ($dayOrders as $order)
                         @php $lock = $weekLockState[$order->id] ?? ['locked' => true, 'cutoff' => null]; @endphp
                         <div class="shop-card p-5" data-testid="week-delivery-{{ $order->id }}">
                             {{-- The whole upper card links to the order detail;
                                  the footer keeps its own action buttons. --}}
-                            <a href="{{ route('app.restaurant.orders.show', $order) }}" class="group block" data-testid="week-delivery-link-{{ $order->id }}">
+                            <a href="{{ route('app.restaurant.orders.show', $order) }}" class="group block" data-testid="week-delivery-link-{{ $order->id }}"
+                               aria-label="{{ __('restaurant.order_ref', ['id' => $order->id]) }}">
                             <div class="flex flex-wrap items-baseline justify-between gap-2">
-                                <p class="font-display text-2xl text-shop-foreground transition group-hover:text-shop-primary">{{ $order->expected_delivery_date->locale($locale)->isoFormat('dddd, D. MMMM') }}</p>
+                                <p class="text-xs text-shop-muted transition group-hover:text-shop-primary">{{ __('restaurant.order_ref', ['id' => $order->id]) }}</p>
                                 <span class="rounded-full bg-shop-paper px-2.5 py-0.5 text-[11px] font-medium text-shop-foreground">{{ __('restaurant.order_status_'.$order->status->value) }}</span>
                             </div>
-                            <ul class="mt-4 grid gap-3 sm:grid-cols-2">
+                            <ul class="mt-3 grid gap-3 sm:grid-cols-2">
                                 @foreach ($order->items as $item)
                                     @continue($item->isDeclined())
                                     <li class="flex items-center gap-3">
@@ -89,6 +95,9 @@
                             </div>
                         </div>
                     @endforeach
+                        </div>
+                    </div>
+                    @endforeach
                 </div>
             @endif
 
@@ -97,11 +106,16 @@
                 <div class="mt-6" data-testid="dashboard-next-week">
                     <p class="eyebrow text-shop-muted">{{ __('restaurant.week_next_title') }}</p>
                     <div class="mt-2 divide-y divide-shop-border border border-shop-border">
-                        @foreach ($nextWeek as $order)
-                            <a href="{{ route('app.restaurant.orders.show', $order) }}" class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm hover:bg-shop-card">
-                                <span class="text-shop-foreground">{{ $order->expected_delivery_date->locale($locale)->isoFormat('dd, D. MMM') }} · {{ $order->items->reject->isDeclined()->map(fn ($i) => $i->displayName())->take(3)->implode(', ') }}</span>
-                                <span class="font-mono text-xs text-shop-muted">@eur($order->items_total_net_eur)</span>
-                            </a>
+                        @foreach ($nextWeek->groupBy(fn ($o) => $o->expected_delivery_date->toDateString()) as $dayOrders)
+                            <div class="px-4 py-2.5">
+                                <p class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted">{{ $dayOrders->first()->expected_delivery_date->locale($locale)->isoFormat('dd, D. MMM') }}</p>
+                                @foreach ($dayOrders as $order)
+                                    <a href="{{ route('app.restaurant.orders.show', $order) }}" class="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm hover:text-shop-primary">
+                                        <span class="text-shop-foreground">{{ $order->items->reject->isDeclined()->map(fn ($i) => $i->displayName())->take(3)->implode(', ') }}</span>
+                                        <span class="font-mono text-xs text-shop-muted">@eur($order->items_total_net_eur)</span>
+                                    </a>
+                                @endforeach
+                            </div>
                         @endforeach
                     </div>
                 </div>
