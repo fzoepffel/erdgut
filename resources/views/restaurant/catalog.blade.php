@@ -226,7 +226,7 @@
                                                          stock — the shop never sells a schedule it can't see. --}}
                                                     <select x-model="recurrence[@js($grade['key'])]"
                                                             @change="onRecurrenceChange(@js($grade['key']))"
-                                                            class="border border-shop-border bg-shop-background px-2 py-1 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                                            class="border border-shop-border bg-shop-background py-1 pl-2 pr-7 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
                                                         <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
                                                         <template x-if="weeksFor(@js($grade['key'])).length > 0">
                                                             <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>

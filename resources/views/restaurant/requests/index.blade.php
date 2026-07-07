@@ -46,7 +46,7 @@
                     <form method="GET" action="{{ route('app.restaurant.requests.index') }}" class="flex flex-col gap-1">
                         <label for="date" class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.catalog_date_label') }}</label>
                         <select id="date" name="date" onchange="this.form.submit()"
-                                class="min-w-[14rem] border border-shop-border bg-shop-background px-3 py-2 text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                class="min-w-[14rem] border border-shop-border bg-shop-background py-2 pl-3 pr-8 text-shop-foreground focus:border-shop-primary focus:outline-none">
                             @foreach ($selectableDates as $row)
                                 @php $iso = $row['date']->toDateString(); @endphp
                                 <option value="{{ $iso }}" @selected($selectedDate->toDateString() === $iso)>
@@ -103,17 +103,19 @@
                                        class="min-w-[10rem] flex-1 border border-shop-border bg-shop-background px-3 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
                                 <input type="text" inputmode="decimal" x-model="s.quantity" placeholder="{{ __('restaurant.special_qty') }}"
                                        class="w-20 border border-shop-border bg-shop-background px-2 py-2 text-center text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
-                                <select x-model="s.unit" class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                <select x-model="s.unit" class="border border-shop-border bg-shop-background py-2 pl-2 pr-8 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
                                     @foreach (['piece', 'bunch', 'kg', 'g', 'l', 'ml'] as $u)
                                         <option value="{{ $u }}">{{ \App\Enums\ProductUnit::displaySymbol($u) }}</option>
                                     @endforeach
                                 </select>
-                                <select x-model="s.recurrence" class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                <select x-model="s.recurrence" class="border border-shop-border bg-shop-background py-2 pl-2 pr-8 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
                                     <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
                                     <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
                                 </select>
+                                <span x-show="s.recurrence === 'weekly'" class="whitespace-nowrap text-xs text-shop-muted">{{ $selectedDate?->translatedFormat('d.m.Y') }} &ndash;</span>
                                 <select x-show="s.recurrence === 'weekly'" x-model="s.until"
-                                        class="border border-shop-border bg-shop-background px-2 py-2 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                        aria-label="{{ __('restaurant.recurrence_until') }}"
+                                        class="border border-shop-border bg-shop-background py-2 pl-2 pr-8 text-sm text-shop-foreground focus:border-shop-primary focus:outline-none">
                                     <option value="">{{ __('restaurant.recurrence_open_ended') }}</option>
                                     <template x-for="w in recurrenceWeeks" :key="w.iso">
                                         <option :value="w.iso" x-text="'KW ' + w.kw + ' · ' + w.label"></option>
@@ -166,12 +168,14 @@
                                                 <span class="w-7 text-xs text-shop-muted">{{ $grade['unitSymbol'] }}</span>
                                             </div>
                                             <div x-show="(quantities[@js($grade['key'])] || 0) > 0" x-cloak class="flex items-center gap-1 text-xs text-shop-muted">
-                                                <select x-model="recurrence[@js($grade['key'])]" class="border border-shop-border bg-shop-background px-2 py-1 text-xs text-shop-foreground focus:outline-none">
+                                                <select x-model="recurrence[@js($grade['key'])]" class="border border-shop-border bg-shop-background py-1 pl-2 pr-7 text-xs text-shop-foreground focus:outline-none">
                                                     <option value="one_time">{{ __('restaurant.recurrence_one_time') }}</option>
                                                     <option value="weekly">{{ __('restaurant.recurrence_weekly') }}</option>
                                                 </select>
+                                                <span x-show="recurrence[@js($grade['key'])] === 'weekly'" class="whitespace-nowrap text-xs text-shop-muted">{{ $selectedDate?->translatedFormat('d.m.Y') }} &ndash;</span>
                                                 <select x-show="recurrence[@js($grade['key'])] === 'weekly'" x-model="until[@js($grade['key'])]"
-                                                        class="border border-shop-border bg-shop-background px-2 py-1 text-xs text-shop-foreground focus:outline-none">
+                                                        aria-label="{{ __('restaurant.recurrence_until') }}"
+                                                        class="border border-shop-border bg-shop-background py-1 pl-2 pr-7 text-xs text-shop-foreground focus:outline-none">
                                                     <option value="">{{ __('restaurant.recurrence_open_ended') }}</option>
                                                     <template x-for="w in recurrenceWeeks" :key="w.iso">
                                                         <option :value="w.iso" x-text="'KW ' + w.kw + ' · ' + w.label"></option>
