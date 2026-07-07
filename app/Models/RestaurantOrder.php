@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\RestaurantOrderKind;
 use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
+use App\Services\Shop\ShopClosureService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -53,6 +54,7 @@ class RestaurantOrder extends Model
             'invoiced_at' => 'datetime',
             'invoice_due_date' => 'date',
             'invoice_paid_at' => 'datetime',
+            'adjusted_at' => 'datetime',
             'submitted_at' => 'datetime',
         ];
     }
@@ -98,6 +100,24 @@ class RestaurantOrder extends Model
     public function isInvoiced(): bool
     {
         return $this->invoice_number !== null;
+    }
+
+    /**
+     * Owner-side changes (edit lines, skip, cancel) close when ordering for
+     * the delivery day closes: once the shop's cutoff for that day has
+     * passed, the goods are being sourced/packed. Invoiced or terminal
+     * orders are always locked.
+     */
+    public function isLockedForChanges(ShopClosureService $closures): bool
+    {
+        if ($this->isInvoiced()) {
+            return true;
+        }
+        if (! in_array($this->status, [RestaurantOrderStatus::Submitted, RestaurantOrderStatus::Confirmed], true)) {
+            return true;
+        }
+
+        return $closures->isClosed($this->expected_delivery_date->copy());
     }
 
     public function isInvoicePaid(): bool

@@ -16,10 +16,16 @@ class RestaurantOrderAdminNotification extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public RestaurantOrder $order) {}
+    public function __construct(public RestaurantOrder $order, public bool $adjusted = false) {}
 
     public function envelope(): Envelope
     {
+        if ($this->adjusted) {
+            return new Envelope(
+                subject: '[Erdgut] Restaurant-Bestellung #'.$this->order->id.' geändert (Kunde)',
+            );
+        }
+
         return new Envelope(
             subject: $this->order->isRequest()
                 ? '[Erdgut] Neue Restaurant-Anfrage #'.$this->order->id

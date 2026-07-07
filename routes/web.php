@@ -363,6 +363,7 @@ Route::middleware('auth')
             Route::get('orders/{restaurantOrder}', [RestaurantOrderController::class, 'show'])->name('orders.show');
             Route::get('orders/{restaurantOrder}/invoice.pdf', [RestaurantOrderController::class, 'invoicePdf'])->name('orders.invoice-pdf');
             Route::post('orders/{restaurantOrder}/cancel', [RestaurantOrderController::class, 'cancel'])->name('orders.cancel');
+            Route::post('orders/{restaurantOrder}/lines', [RestaurantOrderController::class, 'updateLines'])->name('orders.update-lines');
 
             Route::get('konto', [RestaurantAccountController::class, 'edit'])->name('account.edit');
             Route::put('konto', [RestaurantAccountController::class, 'update'])->name('account.update');
@@ -373,6 +374,7 @@ Route::middleware('auth')
             Route::post('standing-orders/{standingOrder}/pause', [RestaurantStandingOrderController::class, 'pause'])->name('standing-orders.pause');
             Route::post('standing-orders/{standingOrder}/resume', [RestaurantStandingOrderController::class, 'resume'])->name('standing-orders.resume');
             Route::post('standing-orders/{standingOrder}/end', [RestaurantStandingOrderController::class, 'setEnd'])->name('standing-orders.end');
+            Route::post('standing-orders/{standingOrder}/items', [RestaurantStandingOrderController::class, 'updateItems'])->name('standing-orders.items');
             Route::delete('standing-orders/{standingOrder}', [RestaurantStandingOrderController::class, 'destroy'])->name('standing-orders.destroy');
         });
     });

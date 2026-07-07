@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Restaurant;
 
+use App\Enums\RestaurantOrderLineStatus;
 use App\Http\Controllers\Controller;
 use App\Models\ProductSubcategory;
+use App\Models\RestaurantOrder;
 use App\Services\Restaurant\RestaurantCatalogService;
 use App\Services\Shop\ProductRankingService;
 use Illuminate\Contracts\View\View;
@@ -95,6 +97,35 @@ class RestaurantCatalogController extends Controller
             'cutoffLabel' => $row['cutoff_label'],
         ])->values();
 
+        // "Nochmal bestellen" handoff: prefill the basket from a past order.
+        // Quantities are applied client-side, clamped to today's hard caps;
+        // lines whose grade has no stock today are simply not applied (the
+        // banner mentions how many).
+        $reorderPrefill = null;
+        $reorderId = (int) $request->query('reorder', 0);
+        if ($reorderId > 0) {
+            $source = RestaurantOrder::query()
+                ->whereKey($reorderId)
+                ->where('user_id', $request->user()->id)
+                ->orders()
+                ->first();
+            if ($source !== null) {
+                $reorderPrefill = [
+                    'orderId' => $source->id,
+                    'lines' => $source->items()
+                        ->whereNotNull('product_id')
+                        ->where('line_status', '!=', RestaurantOrderLineStatus::Declined->value)
+                        ->get()
+                        ->map(fn ($item): array => [
+                            'key' => $item->variant_id !== null ? 'v'.$item->variant_id : (string) $item->product_id,
+                            'qty' => (float) $item->quantity,
+                        ])
+                        ->values()
+                        ->all(),
+                ];
+            }
+        }
+
         return view('restaurant.catalog', [
             'selectableDates' => $selectableDates,
             'hasOpenDays' => $hasOpenDays,
@@ -107,6 +138,7 @@ class RestaurantCatalogController extends Controller
             'defaultShopCategory' => $defaultShopCategory,
             'alpineSubcategories' => $alpineSubcategories,
             'profile' => $request->user()->restaurantProfile,
+            'reorderPrefill' => $reorderPrefill,
         ]);
     }
 }

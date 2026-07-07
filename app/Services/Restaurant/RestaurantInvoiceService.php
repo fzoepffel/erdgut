@@ -156,7 +156,7 @@ class RestaurantInvoiceService
         ])->setPaper('a4');
     }
 
-    private function rerollTotals(RestaurantOrder $order): void
+    public function rerollTotals(RestaurantOrder $order): void
     {
         $order->load('items');
         // Declined lines never bill.

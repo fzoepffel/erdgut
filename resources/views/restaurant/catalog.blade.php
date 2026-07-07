@@ -34,6 +34,7 @@
             openEndedLabel: @js(__('restaurant.recurrence_open_ended')),
             recurrenceWeeks: {{ Illuminate\Support\Js::from($recurrenceWeeks) }},
             requestUrl: @js(route('app.restaurant.requests.index', ['date' => $selectedDate?->toDateString()])),
+            reorderPrefill: {{ Illuminate\Support\Js::from($reorderPrefill) }},
             prefill: {{ Illuminate\Support\Js::from([
                 'street' => $profile?->billing_street ?? '',
                 'postal' => $profile?->billing_postal_code ?? '',
@@ -111,6 +112,13 @@
             {{-- ── Filters + in-stock grid ─────────────────────────────── --}}
             <section class="py-10">
                 <div class="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-12">
+                    {{-- Reorder handoff: the past order's lines are preloaded into
+                         the basket; checkout is the confirmation step. --}}
+                    <div x-show="reorderOrderId" x-cloak data-testid="restaurant-reorder-banner"
+                         class="mb-6 border-l-2 border-shop-primary bg-shop-paper px-4 py-3 text-sm text-shop-foreground">
+                        <span x-text="reorderBanner"></span>
+                        <span x-show="reorderMissing > 0" x-cloak class="block pt-1 text-amber-800" x-text="reorderMissingText"></span>
+                    </div>
                     @if ($products->isNotEmpty())
                         <div class="space-y-4">
                             <div>
@@ -430,6 +438,31 @@
                 until: {},
                 openSubmit: {{ $errors->any() ? 'true' : 'false' }},
                 miniCartOpen: false,
+
+                // ── Reorder handoff (misclick-safe "Nochmal bestellen") ────
+                reorderOrderId: null,
+                reorderMissing: 0,
+                reorderBanner: '',
+                reorderMissingText: '',
+                reorderBannerTemplate: @js(__('restaurant.reorder_banner')),
+                reorderMissingTemplate: @js(__('restaurant.reorder_banner_missing')),
+                init() {
+                    const pre = config.reorderPrefill;
+                    if (!pre || !Array.isArray(pre.lines)) return;
+                    this.reorderOrderId = pre.orderId;
+                    let missing = 0;
+                    for (const line of pre.lines) {
+                        const r = this.rowFor(line.key);
+                        if (!r || r.cap <= 0) { missing++; continue; }
+                        const snapped = Math.max(r.step, Math.round(line.qty / r.step) * r.step);
+                        const clamped = Math.min(snapped, r.cap);
+                        if (clamped < line.qty) missing++;
+                        this.quantities[line.key] = clamped;
+                    }
+                    this.reorderMissing = missing;
+                    this.reorderBanner = this.reorderBannerTemplate.replace(':id', pre.orderId);
+                    this.reorderMissingText = this.reorderMissingTemplate.replace(':count', missing);
+                },
                 requestUrl: config.requestUrl || '#',
                 weeklyLabel: config.weeklyLabel || 'Wöchentlich',
                 untilLabel: config.untilLabel || 'bis',

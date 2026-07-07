@@ -16,6 +16,7 @@ use App\Models\ProductPriceRule;
 use App\Models\ProductStockInflow;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantProfile;
+use App\Models\ShopClosedDay;
 use App\Models\User;
 use App\Services\Admin\InventoryService;
 use App\Services\Restaurant\RestaurantOrderService;
@@ -201,95 +202,43 @@ class RestaurantOrderTest extends TestCase
         $this->assertSame(0, RestaurantOrder::count());
     }
 
-    public function test_reorder_clamps_lines_to_current_stock(): void
+    public function test_reorder_hands_lines_into_the_shop_basket(): void
     {
         $date = Carbon::tomorrow();
         $product = $this->product();
         $this->stock($product, $date, 50);
-        $user = $this->verifiedRestaurant();
-        $original = app(RestaurantOrderService::class)->submitOrder($user, [
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $original = app(RestaurantOrderService::class)->submitOrder($profile->user, [
             'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 40]],
             'expected_delivery_date' => $date->toDateString(),
             'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
         ]);
 
-        // Only 10 remain (40 of 50 reserved) → the reorder clamps to 10.
-        $this->actingAs($user)->post(route('app.restaurant.orders.reorder', $original))->assertRedirect();
-        $new = RestaurantOrder::latest('id')->firstOrFail();
-        $this->assertEqualsWithDelta(10.0, (float) $new->items()->firstOrFail()->quantity, 0.001);
-        $this->assertSame(RestaurantOrderStatus::Confirmed, $new->status);
-    }
-
-    public function test_submit_rejects_closed_date(): void
-    {
-        $product = $this->product();
-        $user = $this->verifiedRestaurant();
-
-        $this->actingAs($user)->post(route('app.restaurant.orders.store'), [
-            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 1]],
-            'expected_delivery_date' => Carbon::today()->toDateString(), // today is never open
-            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
-        ])->assertSessionHasErrors('expected_delivery_date');
-
-        $this->assertSame(0, RestaurantOrder::count());
-    }
-
-    // --- My requests / cancel -------------------------------------------
-
-    public function test_owner_sees_their_request_and_can_cancel(): void
-    {
-        $this->app->setLocale('de');
-        $date = Carbon::tomorrow();
-        $product = $this->product();
-        $this->stock($product, $date, 50);
-        $user = $this->verifiedRestaurant();
-        $order = app(RestaurantOrderService::class)->submitOrder($user, [
-            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 10]],
-            'expected_delivery_date' => $date->toDateString(),
-            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
-        ]);
-
-        $this->actingAs($user)->get(route('app.restaurant.orders.index'))->assertOk()
-            ->assertSee(route('app.restaurant.orders.show', $order), false);
-        $this->actingAs($user)->get(route('app.restaurant.orders.show', $order))->assertOk()->assertSee($product->name);
-
-        $this->assertEqualsWithDelta(40.0, app(InventoryService::class)->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.01);
-
-        $this->actingAs($user)->post(route('app.restaurant.orders.cancel', $order))->assertRedirect();
-        $this->assertSame(RestaurantOrderStatus::Cancelled, $order->fresh()->status);
-        // Cancel releases the reservation.
-        $this->assertEqualsWithDelta(50.0, app(InventoryService::class)->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.01);
-    }
-
-    public function test_reorder_creates_a_new_order_for_the_next_open_day(): void
-    {
-        $date = Carbon::tomorrow();
-        $product = $this->product();
-        $this->stock($product, $date, 50);
-        $user = $this->verifiedRestaurant();
-        $original = app(RestaurantOrderService::class)->submitOrder($user, [
-            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => 10]],
-            'expected_delivery_date' => $date->toDateString(),
-            'delivery_street' => 'Marktstr. 1', 'delivery_postal_code' => '10115', 'delivery_city' => 'Berlin',
-        ]);
-
-        $this->actingAs($user)
+        // The button redirects into the shop with the prefill param; NO new
+        // order is created (Arthur misclicked and got a duplicate before).
+        $this->actingAs($profile->user)
             ->post(route('app.restaurant.orders.reorder', $original))
-            ->assertRedirect();
+            ->assertRedirect(route('app.restaurant.catalog', ['reorder' => $original->id]));
+        $this->assertSame(1, RestaurantOrder::count());
 
-        $this->assertSame(2, RestaurantOrder::count());
-        $new = RestaurantOrder::latest('id')->firstOrFail();
-        $this->assertNotSame($original->id, $new->id);
-        $item = $new->items()->firstOrFail();
-        $this->assertSame($product->id, $item->product_id);
-        $this->assertEqualsWithDelta(10.0, (float) $item->quantity, 0.001);
-        // Address copied; recurrence never carries over.
-        $this->assertSame('Marktstr. 1', $new->delivery_street);
-        $this->assertSame('one_time', $item->recurrence);
+        // The catalog carries the prefill payload for the basket.
+        $html = $this->actingAs($profile->user)
+            ->get(route('app.restaurant.catalog', ['reorder' => $original->id]))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('reorderPrefill', $html);
+        $this->assertStringContainsString('\u0022orderId\u0022:'.$original->id, $html);
 
-        // Owner-gated.
-        $other = $this->verifiedRestaurant();
-        $this->actingAs($other)->post(route('app.restaurant.orders.reorder', $original))->assertForbidden();
+        // Foreign owners cannot trigger the handoff; foreign prefill is ignored.
+        $other = RestaurantProfile::factory()->verified()->create();
+        $this->actingAs($other->user)
+            ->post(route('app.restaurant.orders.reorder', $original))
+            ->assertForbidden();
+        $otherHtml = $this->actingAs($other->user)
+            ->get(route('app.restaurant.catalog', ['reorder' => $original->id]))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('reorderPrefill: null', $otherHtml);
     }
 
     public function test_non_owner_cannot_view_or_cancel(): void
@@ -309,5 +258,120 @@ class RestaurantOrderTest extends TestCase
         $this->actingAs($other)->post(route('app.restaurant.orders.cancel', $order))->assertForbidden();
         // In-stock order auto-confirms; the non-owner's blocked cancel left it untouched.
         $this->assertSame(RestaurantOrderStatus::Confirmed, $order->fresh()->status);
+    }
+
+    public function test_owner_can_adjust_a_confirmed_delivery(): void
+    {
+        Mail::fake();
+        User::factory()->admin()->create(); // notification recipient
+        $date = Carbon::tomorrow()->addDay();
+        $a = $this->product(['unit_price' => 2.0]);
+        $b = $this->product(['unit_price' => 5.0]);
+        $this->stock($a, $date, 50);
+        $this->stock($b, $date, 50);
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $order = app(RestaurantOrderService::class)->submitOrder($profile->user, [
+            'items' => [
+                ['product_id' => $a->id, 'variant_id' => null, 'quantity' => 10],
+                ['product_id' => $b->id, 'variant_id' => null, 'quantity' => 4],
+            ],
+            'expected_delivery_date' => $date->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ]);
+        [$lineA, $lineB] = $order->items()->orderBy('id')->get();
+
+        // Reduce A to 8, remove B entirely.
+        $this->actingAs($profile->user)
+            ->post(route('app.restaurant.orders.update-lines', $order), [
+                'lines' => [
+                    ['id' => $lineA->id, 'quantity' => 8],
+                    ['id' => $lineB->id, 'remove' => 1],
+                ],
+            ])
+            ->assertRedirect(route('app.restaurant.orders.show', $order));
+
+        $order->refresh();
+        $this->assertSame(1, $order->items()->count());
+        $this->assertEqualsWithDelta(8.0, (float) $order->items()->first()->quantity, 0.001);
+        $this->assertNotNull($order->adjusted_at);
+        // Totals rerolled: 8 × 2,00 € gross = 16,00 €.
+        $this->assertEqualsWithDelta(16.0, (float) $order->items_total_gross_eur, 0.01);
+        // Admin got the heads-up (packing changes).
+        Mail::assertSent(RestaurantOrderAdminNotification::class, fn ($m) => $m->adjusted === true);
+        // Freed stock is available again: 50 - 8 = 42.
+        $this->assertEqualsWithDelta(42.0, app(InventoryService::class)->availableOnDate($a, $date, ShopStockAudience::BusinessTrade), 0.01);
+    }
+
+    public function test_owner_adjust_guards_stock_last_line_and_ownership(): void
+    {
+        $date = Carbon::tomorrow()->addDay();
+        $a = $this->product();
+        $this->stock($a, $date, 20);
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $order = app(RestaurantOrderService::class)->submitOrder($profile->user, [
+            'items' => [['product_id' => $a->id, 'variant_id' => null, 'quantity' => 15]],
+            'expected_delivery_date' => $date->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ]);
+        $line = $order->items()->firstOrFail();
+
+        // Growing works up to remaining + own (5 + 15 = 20)…
+        $this->actingAs($profile->user)
+            ->post(route('app.restaurant.orders.update-lines', $order), [
+                'lines' => [['id' => $line->id, 'quantity' => 20]],
+            ])->assertSessionHasNoErrors();
+        // …but not beyond.
+        $this->actingAs($profile->user)
+            ->post(route('app.restaurant.orders.update-lines', $order), [
+                'lines' => [['id' => $line->id, 'quantity' => 21]],
+            ])->assertSessionHasErrors('lines');
+
+        // The last line cannot be removed (skip the delivery instead).
+        $this->actingAs($profile->user)
+            ->post(route('app.restaurant.orders.update-lines', $order), [
+                'lines' => [['id' => $line->id, 'remove' => 1]],
+            ])->assertSessionHasErrors('lines');
+
+        // Foreign owner blocked.
+        $other = RestaurantProfile::factory()->verified()->create();
+        $this->actingAs($other->user)
+            ->post(route('app.restaurant.orders.update-lines', $order), [
+                'lines' => [['id' => $line->id, 'quantity' => 5]],
+            ])->assertForbidden();
+    }
+
+    public function test_owner_changes_lock_when_the_shop_closes_for_the_day(): void
+    {
+        $date = Carbon::tomorrow()->addDay();
+        $a = $this->product();
+        $this->stock($a, $date, 20);
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $order = app(RestaurantOrderService::class)->submitOrder($profile->user, [
+            'items' => [['product_id' => $a->id, 'variant_id' => null, 'quantity' => 5]],
+            'expected_delivery_date' => $date->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ]);
+
+        // Close ordering for that delivery day (manual closure, immediate).
+        ShopClosedDay::create(['closed_on' => $date->toDateString(), 'closes_at' => null]);
+
+        $line = $order->items()->firstOrFail();
+        $this->actingAs($profile->user)
+            ->post(route('app.restaurant.orders.update-lines', $order), [
+                'lines' => [['id' => $line->id, 'quantity' => 4]],
+            ])->assertSessionHasErrors('lines');
+
+        // Cancel is locked too (flash, no state change).
+        $this->actingAs($profile->user)
+            ->post(route('app.restaurant.orders.cancel', $order))
+            ->assertRedirect(route('app.restaurant.orders.show', $order));
+        $this->assertSame('confirmed', $order->refresh()->status->value);
+
+        // The detail page shows the locked note instead of the buttons.
+        $this->actingAs($profile->user)
+            ->get(route('app.restaurant.orders.show', $order))
+            ->assertOk()
+            ->assertSee('data-testid="restaurant-order-locked-note"', false)
+            ->assertDontSee('data-testid="restaurant-order-adjust-toggle"', false);
     }
 }

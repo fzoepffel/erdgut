@@ -10,6 +10,7 @@ use App\Services\Shop\ShopClosureService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
@@ -123,6 +124,56 @@ class RestaurantStandingOrderService
     }
 
     /**
+     * The owner changed the recurring template (quantities / removed items).
+     * Future auto-generated weeks are rebuilt from the new template by
+     * REUSING the trim + horizon machinery; hand-adjusted weeks, weeks whose
+     * ordering already closed, skipped weeks and invoiced deliveries survive
+     * untouched.
+     *
+     * @param  list<array{id: int|string, quantity?: float|string, remove?: mixed}>  $lines
+     */
+    public function updateItems(RestaurantStandingOrder $standing, array $lines): void
+    {
+        $items = $standing->items()->get()->keyBy('id');
+        $byId = collect($lines)->keyBy(fn ($l) => (int) ($l['id'] ?? 0));
+
+        $surviving = $items->filter(function ($item) use ($byId): bool {
+            $payload = $byId->get($item->id);
+
+            return $payload === null || empty($payload['remove']);
+        })->count();
+        if ($surviving === 0) {
+            throw ValidationException::withMessages([
+                'lines' => __('restaurant.standing_keep_one_item'),
+            ]);
+        }
+
+        foreach ($items as $item) {
+            $payload = $byId->get($item->id);
+            if ($payload === null) {
+                continue;
+            }
+            if (! empty($payload['remove'])) {
+                $item->delete();
+
+                continue;
+            }
+            $qty = round((float) ($payload['quantity'] ?? $item->quantity), 4);
+            if ($qty <= 0) {
+                throw ValidationException::withMessages([
+                    'lines' => __('restaurant.adjust_qty_invalid'),
+                ]);
+            }
+            $item->forceFill(['quantity' => $qty])->save();
+        }
+
+        // Rebuild the untouched future weeks from the new template.
+        $standing->refresh()->load('items', 'user');
+        $this->cancelFutureMaterialized($standing);
+        $this->materializeHorizon($standing);
+    }
+
+    /**
      * The owner moved the recurrence end: trim materialized weeks beyond the
      * new end and fill up to it (idempotent both ways).
      */
@@ -190,8 +241,13 @@ class RestaurantStandingOrderService
             ->where('source_standing_order_id', $standing->id)
             ->where('status', RestaurantOrderStatus::Confirmed->value)
             ->whereNull('invoice_number')
+            // Hand-tuned weeks are the customer's word — never regenerate them.
+            ->whereNull('adjusted_at')
             ->whereDate('expected_delivery_date', '>=', $cutoff->toDateString())
             ->get()
+            // A week whose ordering has already closed is being sourced/packed;
+            // pausing or editing the schedule must not make it vanish.
+            ->reject(fn (RestaurantOrder $order): bool => $this->closures->isClosed($order->expected_delivery_date->copy()))
             ->each(function (RestaurantOrder $order): void {
                 $order->items()->delete();
                 $order->delete();

@@ -218,4 +218,41 @@ class RestaurantCatalogTest extends TestCase
             ->assertSee('data-testid="requests-season-list"', false)
             ->assertSee(__('restaurant.request_submit'));
     }
+
+    public function test_request_visibility_overrides_the_season_logic(): void
+    {
+        $date = Carbon::tomorrow();
+        $profile = RestaurantProfile::factory()->verified()->create();
+        // Keep the shop non-empty so the request page resolves a date.
+        $this->inStockProduct($date);
+
+        // In-season, no stock, visibility NEVER → absent from the request area.
+        $hidden = $this->seasonalOnRequestProduct();
+        $hidden->forceFill(['request_visibility' => 'never'])->save();
+        // Out-of-season, no stock, visibility ALWAYS → present in the request area.
+        Producer::factory()->create();
+        $featured = Product::factory()->create([
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 10.00,
+            'vat_rate_percent' => 7,
+            'is_seasonal' => false,
+            'is_available' => true,
+            'is_published' => true,
+            'request_visibility' => 'always',
+        ]);
+
+        $html = $this->actingAs($profile->user)
+            ->get(route('app.restaurant.requests.index'))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringNotContainsString('data-product-id="'.$hidden->id.'"', $html);
+        $this->assertStringContainsString('data-product-id="'.$featured->id.'"', $html);
+
+        // The 'always' product never leaks into the shop grid (no stock).
+        $this->actingAs($profile->user)
+            ->get(route('app.restaurant.catalog'))
+            ->assertOk()
+            ->assertDontSee('data-product-id="'.$featured->id.'"', false);
+    }
 }

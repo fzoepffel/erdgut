@@ -581,6 +581,9 @@ class ProductController extends Controller
                 ? max(1, (int) $validated['default_freshness_window_days'])
                 : 1,
             'is_seasonal' => (bool) ($validated['is_seasonal'] ?? false),
+            'request_visibility' => in_array($validated['request_visibility'] ?? 'auto', ['auto', 'always', 'never'], true)
+                ? ($validated['request_visibility'] ?? 'auto')
+                : 'auto',
             'is_available' => (bool) ($validated['is_available'] ?? false),
             'is_published' => (bool) ($validated['is_published'] ?? false),
             'is_test' => (bool) ($validated['is_test'] ?? false),
