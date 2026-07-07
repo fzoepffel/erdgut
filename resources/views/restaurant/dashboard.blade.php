@@ -104,21 +104,6 @@
             @endif
         </section>
 
-        {{-- ── Stat row ─────────────────────────────────────────────────── --}}
-        <dl class="reveal-stagger mt-12 grid gap-8 sm:grid-cols-3">
-            <x-reveal as="div" style="--i:0">
-                <dt class="font-display text-4xl text-accent-star sm:text-5xl">{{ $upcomingCount }}</dt>
-                <dd class="mt-1 text-sm text-shop-muted">{{ __('restaurant.dashboard_stat_upcoming') }}</dd>
-            </x-reveal>
-            <x-reveal as="div" style="--i:1">
-                <dt class="font-display text-4xl text-accent-star sm:text-5xl">{{ $standing->count() }}</dt>
-                <dd class="mt-1 text-sm text-shop-muted">{{ __('restaurant.dashboard_stat_standing') }}</dd>
-            </x-reveal>
-            <x-reveal as="div" style="--i:2">
-                <dt class="font-display text-4xl text-accent-star sm:text-5xl">{{ $nextDay['in_stock_count'] ?? 0 }}</dt>
-                <dd class="mt-1 text-sm text-shop-muted">{{ __('restaurant.dashboard_stat_in_stock') }}</dd>
-            </x-reveal>
-        </dl>
 
         {{-- ── Upcoming deliveries + requests + weekly + invoices ──────── --}}
         <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
