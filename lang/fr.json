@@ -4209,5 +4209,19 @@
     "restaurant.landing_partners_title": "Pourquoi les chefs travaillent avec nous.",
     "restaurant.landing_partners_p1": "Restaurant, bistrot ou cuisine d'hôtel : les chefs avec qui nous travaillons font une cuisine vivante. Tantôt raffinée, tantôt simple, toujours de saison. Pour eux, tout commence par le produit, et ils cherchent sans cesse de nouvelles trouvailles pour leur carte.",
     "restaurant.landing_partners_p2": "Ce que les fermes autour de Berlin récoltent, nous le livrons frais dans leurs cuisines, en quantités professionnelles et à des prix nets équitables. Le travail des producteurs se prolonge ainsi jusqu'à l'assiette, au service d'une agriculture qui respecte le sol, l'animal et l'artisanat.",
-    "restaurant.landing_partners_p3": "Accompagner ces cuisines jour après jour, c'est la raison d'être d'Erdgut."
+    "restaurant.landing_partners_p3": "Accompagner ces cuisines jour après jour, c'est la raison d'être d'Erdgut.",
+    "restaurant.pending_hero_pre": "Nous examinons votre ",
+    "restaurant.pending_hero_em": "demande en ce moment",
+    "restaurant.pending_hero_body": "Votre demande de compte professionnel nous est bien parvenue. Quelqu'un de l'équipe Erdgut vérifie vos informations personnellement. Vous n'avez rien d'autre à faire.",
+    "restaurant.pending_steps_label": "La suite",
+    "restaurant.pending_step_1_title": "Demande reçue",
+    "restaurant.pending_step_1_desc": "Nous avons les informations de votre établissement.",
+    "restaurant.pending_step_2_title": "Nous vérifions vos informations",
+    "restaurant.pending_step_2_desc": "L'équipe Erdgut s'en charge personnellement, en général sous peu.",
+    "restaurant.pending_step_3_title": "Activation par e-mail",
+    "restaurant.pending_step_3_desc": "Dès que votre compte est activé, vous recevez un e-mail et pouvez commander directement.",
+    "restaurant.pending_panel_eyebrow": "Statut",
+    "restaurant.pending_panel_title": "En cours de vérification",
+    "restaurant.pending_panel_body": "Aucune autre action nécessaire. En cas de question, nous vous contactons à l'adresse e-mail ci-dessous.",
+    "restaurant.pending_panel_reply_to_label": "Nous vous répondrons à"
 }

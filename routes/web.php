@@ -309,6 +309,10 @@ Route::get('geschaeftskunden', function () {
     if ($user !== null && $user->isVerifiedRestaurant()) {
         return redirect()->route('app.restaurant.dashboard');
     }
+    // A signed-in applicant awaiting review sees the status page, not the pitch.
+    if ($user !== null && $user->isRestaurant()) {
+        return redirect()->route('app.restaurant.pending');
+    }
 
     return view('restaurant.landing');
 })->name('restaurant.landing');

@@ -4209,5 +4209,19 @@
     "restaurant.landing_partners_title": "Warum Köchinnen und Köche mit uns arbeiten.",
     "restaurant.landing_partners_p1": "Ob Restaurant, Bistro oder Hotelküche: Die Köchinnen und Köche, mit denen wir arbeiten, kochen lebendig und ehrlich. Mal fein, mal bodenständig, immer entlang der Saison. Sie wissen, dass gutes Essen mit guten Zutaten anfängt, und suchen ständig nach besonderen Produkten für ihre Karte.",
     "restaurant.landing_partners_p2": "Was die Höfe rund um Berlin gerade ernten, liefern wir frisch in ihre Küchen, in Gastro-Mengen und zu fairen Netto-Preisen. So landet die Arbeit der Höfe direkt auf dem Teller, und jede Bestellung stärkt eine Landwirtschaft, die Boden, Tier und Handwerk respektiert.",
-    "restaurant.landing_partners_p3": "Diese Küchen begleiten wir Tag für Tag. Als Partner, mit derselben Leidenschaft."
+    "restaurant.landing_partners_p3": "Diese Küchen begleiten wir Tag für Tag. Als Partner, mit derselben Leidenschaft.",
+    "restaurant.pending_hero_pre": "Wir schauen uns Ihren ",
+    "restaurant.pending_hero_em": "Antrag gerade an",
+    "restaurant.pending_hero_body": "Ihr Antrag auf ein Geschäftskonto ist bei uns eingegangen. Jemand aus dem Erdgut-Team prüft Ihre Angaben persönlich. Sie müssen nichts weiter tun.",
+    "restaurant.pending_steps_label": "So geht es weiter",
+    "restaurant.pending_step_1_title": "Antrag eingegangen",
+    "restaurant.pending_step_1_desc": "Ihre Betriebsdaten liegen uns vor.",
+    "restaurant.pending_step_2_title": "Wir prüfen Ihre Angaben",
+    "restaurant.pending_step_2_desc": "Das übernimmt das Erdgut-Team persönlich, in der Regel innerhalb kurzer Zeit.",
+    "restaurant.pending_step_3_title": "Freischaltung per E-Mail",
+    "restaurant.pending_step_3_desc": "Sobald Ihr Konto freigeschaltet ist, bekommen Sie eine E-Mail und können direkt bestellen.",
+    "restaurant.pending_panel_eyebrow": "Status",
+    "restaurant.pending_panel_title": "In Prüfung",
+    "restaurant.pending_panel_body": "Keine weitere Aktion nötig. Bei Rückfragen melden wir uns unter der angegebenen E-Mail-Adresse.",
+    "restaurant.pending_panel_reply_to_label": "Wir melden uns an"
 }

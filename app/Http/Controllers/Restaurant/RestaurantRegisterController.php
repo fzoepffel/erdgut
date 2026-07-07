@@ -42,6 +42,9 @@ class RestaurantRegisterController extends Controller
                 'password' => Hash::make($validated['password']),
             ]);
             $user->account_type = AccountType::Restaurant;
+            // Restaurants never run the self-service email-verification loop —
+            // the admin review IS the vetting (and reaches them by this email).
+            $user->email_verified_at = now();
             $user->save();
 
             return RestaurantProfile::query()->create([
