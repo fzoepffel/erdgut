@@ -52,8 +52,11 @@
                     @foreach ($thisWeek as $order)
                         @php $lock = $weekLockState[$order->id] ?? ['locked' => true, 'cutoff' => null]; @endphp
                         <div class="shop-card p-5" data-testid="week-delivery-{{ $order->id }}">
+                            {{-- The whole upper card links to the order detail;
+                                 the footer keeps its own action buttons. --}}
+                            <a href="{{ route('app.restaurant.orders.show', $order) }}" class="group block" data-testid="week-delivery-link-{{ $order->id }}">
                             <div class="flex flex-wrap items-baseline justify-between gap-2">
-                                <p class="font-display text-2xl text-shop-foreground">{{ $order->expected_delivery_date->locale($locale)->isoFormat('dddd, D. MMMM') }}</p>
+                                <p class="font-display text-2xl text-shop-foreground transition group-hover:text-shop-primary">{{ $order->expected_delivery_date->locale($locale)->isoFormat('dddd, D. MMMM') }}</p>
                                 <span class="rounded-full bg-shop-paper px-2.5 py-0.5 text-[11px] font-medium text-shop-foreground">{{ __('restaurant.order_status_'.$order->status->value) }}</span>
                             </div>
                             <ul class="mt-4 grid gap-3 sm:grid-cols-2">
@@ -71,6 +74,7 @@
                                     </li>
                                 @endforeach
                             </ul>
+                            </a>
                             <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-shop-border/60 pt-3">
                                 <p class="font-mono text-sm text-shop-foreground">@eur($order->items_total_net_eur) <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}</span></p>
                                 <span class="flex flex-wrap items-center gap-3">
