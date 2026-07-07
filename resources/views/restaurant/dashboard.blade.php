@@ -35,7 +35,7 @@
     @php
         // A fresh account has nothing to report yet — skip the zero stats and
         // four empty cards so the opportunity tiles lead instead.
-        $isFresh = $upcoming->isEmpty() && $openRequests->isEmpty() && $standing->isEmpty() && $recent->isEmpty() && $invoices->isEmpty();
+        $isFresh = $upcomingCount === 0 && $openRequests->isEmpty() && $standing->isEmpty() && $recent->isEmpty() && $invoices->isEmpty();
     @endphp
     <div class="mx-auto max-w-[1100px] px-4 py-12 sm:px-6 lg:px-12">
         @unless ($isFresh)
@@ -107,7 +107,7 @@
         {{-- ── Stat row ─────────────────────────────────────────────────── --}}
         <dl class="reveal-stagger mt-12 grid gap-8 sm:grid-cols-3">
             <x-reveal as="div" style="--i:0">
-                <dt class="font-display text-4xl text-accent-star sm:text-5xl">{{ $upcoming->count() }}</dt>
+                <dt class="font-display text-4xl text-accent-star sm:text-5xl">{{ $upcomingCount }}</dt>
                 <dd class="mt-1 text-sm text-shop-muted">{{ __('restaurant.dashboard_stat_upcoming') }}</dd>
             </x-reveal>
             <x-reveal as="div" style="--i:1">
@@ -121,22 +121,7 @@
         </dl>
 
         {{-- ── Upcoming deliveries + requests + weekly + invoices ──────── --}}
-        <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {{-- Upcoming --}}
-            <div class="shop-card p-5 lg:col-span-1">
-                <p class="eyebrow text-shop-primary">{{ __('restaurant.dashboard_upcoming_title') }}</p>
-                <div class="mt-3 divide-y divide-shop-border/60">
-                    @forelse ($upcoming as $order)
-                        <a href="{{ route('app.restaurant.orders.show', $order) }}" class="flex items-center justify-between gap-2 py-2.5 hover:text-shop-primary">
-                            <span class="text-sm text-shop-foreground">{{ $order->expected_delivery_date->locale($locale)->isoFormat('dd, D. MMM') }} · {{ trans_choice('restaurant.dashboard_items_count', $order->items_count, ['count' => $order->items_count]) }}</span>
-                            <span class="shrink-0 rounded-full bg-shop-paper px-2 py-0.5 text-[11px] text-shop-foreground">{{ __('restaurant.order_status_'.$order->status->value) }}</span>
-                        </a>
-                    @empty
-                        <p class="py-2.5 text-sm text-shop-muted">{{ __('restaurant.dashboard_upcoming_empty') }}</p>
-                    @endforelse
-                </div>
-            </div>
-
+        <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {{-- Open requests (awaiting the Erdgut team) --}}
             <div class="shop-card p-5 lg:col-span-1">
                 <p class="eyebrow text-amber-700">{{ __('restaurant.dashboard_requests_title') }}</p>
