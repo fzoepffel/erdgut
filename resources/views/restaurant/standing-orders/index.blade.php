@@ -50,7 +50,7 @@
                             $currentEnd = $so->items->first()?->ends_on;
                         @endphp
                         <label class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-muted" for="ends-{{ $so->id }}">{{ __('restaurant.standing_end_label') }}</label>
-                        <select id="ends-{{ $so->id }}" name="ends_on" class="border border-shop-border bg-shop-background px-2 py-1 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
+                        <select id="ends-{{ $so->id }}" name="ends_on" class="border border-shop-border bg-shop-background py-1 pl-2 pr-7 text-xs text-shop-foreground focus:border-shop-primary focus:outline-none">
                             @foreach ($occurrences as $d)
                                 <option value="{{ $d->toDateString() }}" @selected($currentEnd?->toDateString() === $d->toDateString())>{{ $d->locale(app()->getLocale())->isoFormat('dd, D. MMM YYYY') }}</option>
                             @endforeach
