@@ -677,6 +677,11 @@ class ProductController extends Controller
     /**
      * @param  list<int>  $pairedIds
      */
+    /**
+     * Pairings are RECIPROCAL: "A pairs well with B" implies "B pairs well
+     * with A", so every change here maintains the inverse rows too — adding
+     * a partner adds the mirror, removing one removes the mirror.
+     */
     private function syncPairings(Product $product, array $pairedIds): void
     {
         $clean = array_values(array_unique(array_filter(
@@ -684,7 +689,34 @@ class ProductController extends Controller
             static fn (int $id) => $id > 0 && $id !== $product->id
         )));
 
+        $before = $product->pairings()->pluck('products.id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         $product->pairings()->sync($clean);
+
+        $added = array_values(array_diff($clean, $before));
+        $removed = array_values(array_diff($before, $clean));
+
+        if ($added !== []) {
+            $now = now();
+            DB::table('product_pairings')->insertOrIgnore(array_map(
+                static fn (int $id): array => [
+                    'product_id' => $id,
+                    'paired_product_id' => $product->id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+                $added,
+            ));
+        }
+
+        if ($removed !== []) {
+            DB::table('product_pairings')
+                ->whereIn('product_id', $removed)
+                ->where('paired_product_id', $product->id)
+                ->delete();
+        }
     }
 
     /**

@@ -12,6 +12,7 @@ use App\Models\ProductTranslation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -568,6 +569,57 @@ class AdminProductTest extends TestCase
                 ],
             ])
             ->assertSessionHasErrors('custom_taste_tags.0.fr');
+    }
+
+    public function test_pairings_are_reciprocal_on_add_and_remove(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+        $product = Product::factory()->create(['producer_id' => $producer->id]);
+        $partnerA = Product::factory()->create();
+        $partnerB = Product::factory()->create();
+
+        $payload = fn (array $pairings): array => [
+            'producer_id' => $producer->id,
+            'translations' => [
+                'de' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                'en' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'regional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+                'fr' => ['name' => 'X', 'unit' => 'kg', 'origin' => 'régional', 'variety' => '—', 'taste_profile' => '—', 'short_description' => 'Kurzbeschreibung'],
+            ],
+            'category' => 'produce',
+            'unit' => 'mass',
+            'price_display_unit' => 'kg',
+            'price' => '1.00',
+            'pairings' => $pairings,
+        ];
+
+        // Adding A + B to the product mirrors the pairing onto A and B.
+        $this->actingAs($admin)
+            ->put(route('app.admin.products.update', $product), $payload([$partnerA->id, $partnerB->id]))
+            ->assertRedirect();
+        $this->assertSame([$product->id], $partnerA->fresh()->pairings()->pluck('products.id')->all());
+        $this->assertSame([$product->id], $partnerB->fresh()->pairings()->pluck('products.id')->all());
+
+        // Removing B from the product also removes the mirror on B.
+        $this->actingAs($admin)
+            ->put(route('app.admin.products.update', $product), $payload([$partnerA->id]))
+            ->assertRedirect();
+        $this->assertSame([$product->id], $partnerA->fresh()->pairings()->pluck('products.id')->all());
+        $this->assertSame([], $partnerB->fresh()->pairings()->pluck('products.id')->all());
+
+        // Backfill migration: a one-directional legacy row gains its inverse
+        // (note copied, since the note describes the pairing itself).
+        $legacyA = Product::factory()->create();
+        $legacyB = Product::factory()->create();
+        DB::table('product_pairings')->insert([
+            'product_id' => $legacyA->id, 'paired_product_id' => $legacyB->id,
+            'note' => 'passt zu Salat', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        (include database_path('migrations/2026_07_07_120000_backfill_reciprocal_product_pairings.php'))->up();
+        $inverse = DB::table('product_pairings')
+            ->where('product_id', $legacyB->id)->where('paired_product_id', $legacyA->id)->first();
+        $this->assertNotNull($inverse);
+        $this->assertSame('passt zu Salat', $inverse->note);
     }
 
     public function test_admin_update_syncs_pairings(): void
