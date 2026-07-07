@@ -152,4 +152,35 @@ class RestaurantSpecialRequestTest extends TestCase
             ->assertSee('Wildkräuter')
             ->assertSee(__('restaurant.price_on_request'));
     }
+
+    public function test_requests_page_links_to_history_instead_of_listing_it(): void
+    {
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $req = app(RestaurantOrderService::class)->submitRequest($profile->user, [
+            'items' => [['name' => 'Artischocken', 'unit' => 'kg', 'quantity' => 2]],
+            'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ]);
+        $other = RestaurantProfile::factory()->verified()->create();
+        $foreign = app(RestaurantOrderService::class)->submitRequest($other->user, [
+            'items' => [['name' => 'Fremd', 'unit' => 'kg', 'quantity' => 1]],
+            'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ]);
+
+        // The Anfragen page shows the compact link band, not the rows.
+        $this->actingAs($profile->user)
+            ->get(route('app.restaurant.requests.index'))
+            ->assertOk()
+            ->assertSee('data-testid="requests-list-link"', false)
+            ->assertSee('data-testid="requests-date-picker"', false)
+            ->assertDontSee(__('restaurant.request_ref', ['id' => $req->id]));
+
+        // The history page lists own requests only.
+        $this->actingAs($profile->user)
+            ->get(route('app.restaurant.requests.list'))
+            ->assertOk()
+            ->assertSee('data-testid="request-list-row-'.$req->id.'"', false)
+            ->assertDontSee('data-testid="request-list-row-'.$foreign->id.'"', false);
+    }
 }

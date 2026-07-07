@@ -60,25 +60,37 @@ class RestaurantRequestController extends Controller
             ? $catalog->recurrenceWeeks($selectedDate)
             : collect();
 
-        $myRequests = RestaurantOrder::query()
+        // The full request history lives on its own page; here just the count
+        // for the compact link band (the page stays focused on asking).
+        $myRequestsCount = RestaurantOrder::query()
             ->where('user_id', $request->user()->id)
             ->requests()
-            ->withCount('items')
-            ->latest()
-            ->limit(10)
-            ->get();
+            ->count();
 
         return view('restaurant.requests.index', [
             'selectableDates' => $selectableDates,
             'selectedDate' => $selectedDate,
             'seasonRows' => $seasonRows,
             'recurrenceWeeks' => $recurrenceWeeks,
-            'myRequests' => $myRequests,
+            'myRequestsCount' => $myRequestsCount,
             'profile' => $request->user()->restaurantProfile,
             // Shop handoff: /anfragen?product=<id>&qty=<canonical> preselects.
             'prefillProductId' => $prefillProductId,
             'prefillQty' => (float) $request->query('qty', 0),
         ]);
+    }
+
+    /** The restaurant's full request history (compact link target). */
+    public function list(Request $request): View
+    {
+        $requests = RestaurantOrder::query()
+            ->where('user_id', $request->user()->id)
+            ->requests()
+            ->withCount('items')
+            ->latest()
+            ->paginate(20);
+
+        return view('restaurant.requests.list', ['requests' => $requests]);
     }
 
     public function store(RestaurantOrderRequest $request, RestaurantStandingOrderService $standing): RedirectResponse

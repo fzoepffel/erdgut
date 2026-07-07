@@ -4252,5 +4252,8 @@
     "products.request_visibility_never": "Nie zeigen",
     "products.request_visibility_hint": "Steuert, ob das Produkt Restaurants im Anfragebereich angeboten wird, wenn es nicht auf Lager ist.",
     "restaurant.standing_remove_line": "Position entfernen",
-    "restaurant.standing_remove_line_hint": "Entfernt dieses Produkt ab sofort aus allen künftigen Terminen."
+    "restaurant.standing_remove_line_hint": "Entfernt dieses Produkt ab sofort aus allen künftigen Terminen.",
+    "restaurant.my_requests_link": "Sie haben :count Anfrage gestellt.|Sie haben :count Anfragen gestellt.",
+    "restaurant.requests_list_empty": "Noch keine Anfragen gestellt.",
+    "restaurant.requests_date_hint": "Alle Positionen dieser Anfrage beziehen sich auf die Lieferung am :date."
 }
