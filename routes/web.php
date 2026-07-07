@@ -359,6 +359,7 @@ Route::middleware('auth')
             // Anfragen area: season / over-stock / free-form requests, deliberately
             // separate from the shop (kind=request artifacts).
             Route::get('anfragen', [RestaurantRequestController::class, 'index'])->name('requests.index');
+            Route::get('anfragen/liste', [RestaurantRequestController::class, 'list'])->name('requests.list');
             Route::post('anfragen', [RestaurantRequestController::class, 'store'])->name('requests.store');
             Route::get('orders/{restaurantOrder}', [RestaurantOrderController::class, 'show'])->name('orders.show');
             Route::get('orders/{restaurantOrder}/invoice.pdf', [RestaurantOrderController::class, 'invoicePdf'])->name('orders.invoice-pdf');

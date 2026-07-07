@@ -36,53 +36,47 @@
         })"
     >
         <div class="mx-auto max-w-[1100px] px-4 py-10 sm:px-6 lg:px-12">
-            <div class="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                    <p class="eyebrow text-amber-700">{{ __('restaurant.requests_eyebrow') }}</p>
-                    <h1 class="mt-2 font-display text-3xl text-shop-foreground sm:text-4xl">{{ __('restaurant.requests_title') }}</h1>
-                    <p class="mt-3 max-w-2xl text-sm leading-relaxed text-shop-muted">{{ __('restaurant.requests_intro') }}</p>
-                </div>
-                @if ($selectableDates->isNotEmpty() && $selectedDate)
-                    <form method="GET" action="{{ route('app.restaurant.requests.index') }}" class="flex flex-col gap-1">
-                        <label for="date" class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.catalog_date_label') }}</label>
-                        <select id="date" name="date" onchange="this.form.submit()"
-                                class="min-w-[14rem] border border-shop-border bg-shop-background py-2 pl-3 pr-8 text-shop-foreground focus:border-shop-primary focus:outline-none">
-                            @foreach ($selectableDates as $row)
-                                @php $iso = $row['date']->toDateString(); @endphp
-                                <option value="{{ $iso }}" @selected($selectedDate->toDateString() === $iso)>
-                                    {{ $row['date']->locale(app()->getLocale())->isoFormat('dd, D. MMM') }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </form>
-                @endif
+            <div>
+                <p class="eyebrow text-amber-700">{{ __('restaurant.requests_eyebrow') }}</p>
+                <h1 class="mt-2 font-display text-3xl text-shop-foreground sm:text-4xl">{{ __('restaurant.requests_title') }}</h1>
+                <p class="mt-3 max-w-2xl text-sm leading-relaxed text-shop-muted">{{ __('restaurant.requests_intro') }}</p>
             </div>
 
             @if ($selectableDates->isEmpty())
                 <div class="shop-card mt-8 p-8 text-center text-shop-muted">{{ __('restaurant.no_open_days') }}</div>
             @else
-                {{-- ── My requests: the reader's own open/past requests first ── --}}
-                @if ($myRequests->isNotEmpty())
-                    <div class="mt-8">
-                        <p class="eyebrow text-shop-primary">{{ __('restaurant.my_requests_list_title') }}</p>
-                        <div class="mt-3 divide-y divide-shop-border border border-shop-border">
-                            @foreach ($myRequests as $req)
-                                <a href="{{ route('app.restaurant.orders.show', $req) }}" class="flex items-center justify-between gap-4 px-4 py-3 hover:bg-shop-card">
-                                    <div>
-                                        <p class="text-sm text-shop-foreground">{{ __('restaurant.request_ref', ['id' => $req->id]) }}</p>
-                                        <p class="text-xs text-shop-muted">{{ $req->expected_delivery_date->translatedFormat('d.m.Y') }} · {{ $req->items_count }} {{ trans_choice('restaurant.cart_line_count', $req->items_count) }}</p>
-                                    </div>
-                                    <span class="rounded-full bg-shop-card px-2.5 py-0.5 text-[11px] font-medium text-shop-foreground">{{ __('restaurant.order_status_'.$req->status->value) }}</span>
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
+                {{-- ── My requests: a compact link, not the whole history ────── --}}
+                @if ($myRequestsCount > 0)
+                    <a href="{{ route('app.restaurant.requests.list') }}" data-testid="requests-list-link"
+                       class="mt-8 flex flex-wrap items-center justify-between gap-3 border border-shop-border px-4 py-3 text-sm text-shop-foreground transition hover:bg-shop-card">
+                        <span>{{ trans_choice('restaurant.my_requests_link', $myRequestsCount, ['count' => $myRequestsCount]) }}</span>
+                        <span class="font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary">{{ __('restaurant.my_requests_list_title') }} &rarr;</span>
+                    </a>
                 @endif
 
                 {{-- Two ways to ask: pick from the season list — or free-form. --}}
                 <div class="mt-10 border-l-2 border-amber-400 bg-amber-50/60 px-4 py-3 text-sm text-shop-foreground" data-testid="requests-two-paths">
                     {{ __('restaurant.requests_two_paths') }}
                 </div>
+
+                {{-- The delivery date sits WITH the inputs it applies to. --}}
+                @if ($selectableDates->isNotEmpty() && $selectedDate)
+                    <div class="mt-6 shop-card flex flex-wrap items-center gap-x-4 gap-y-2 p-4" data-testid="requests-date-picker">
+                        <form method="GET" action="{{ route('app.restaurant.requests.index') }}" class="flex flex-wrap items-center gap-3">
+                            <label for="date" class="font-mono text-[0.7rem] uppercase tracking-widest text-shop-muted">{{ __('restaurant.catalog_date_label') }}</label>
+                            <select id="date" name="date" onchange="this.form.submit()"
+                                    class="min-w-[13rem] border border-shop-border bg-shop-background py-2 pl-3 pr-8 text-shop-foreground focus:border-shop-primary focus:outline-none">
+                                @foreach ($selectableDates as $row)
+                                    @php $iso = $row['date']->toDateString(); @endphp
+                                    <option value="{{ $iso }}" @selected($selectedDate->toDateString() === $iso)>
+                                        {{ $row['date']->locale(app()->getLocale())->isoFormat('dd, D. MMM') }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </form>
+                        <p class="text-xs text-shop-muted">{{ __('restaurant.requests_date_hint', ['date' => $selectedDate->locale(app()->getLocale())->isoFormat('dddd, D. MMMM')]) }}</p>
+                    </div>
+                @endif
 
                 {{-- ── Free-form wishes ────────────────────────────────────── --}}
                 <div class="mt-10 shop-card p-6">
