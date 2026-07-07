@@ -4250,5 +4250,7 @@
     "products.request_visibility_auto": "Automatique (suit la fenêtre de saison)",
     "products.request_visibility_always": "Toujours afficher (même hors saison)",
     "products.request_visibility_never": "Ne jamais afficher",
-    "products.request_visibility_hint": "Détermine si les restaurants voient ce produit dans l'espace demandes lorsqu'il n'est pas en stock."
+    "products.request_visibility_hint": "Détermine si les restaurants voient ce produit dans l'espace demandes lorsqu'il n'est pas en stock.",
+    "restaurant.standing_remove_line": "Retirer la ligne",
+    "restaurant.standing_remove_line_hint": "Retire ce produit de toutes les dates futures."
 }
