@@ -5,12 +5,18 @@
                 <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('restaurant.admin_requests_title') }}</h1>
                 <span class="text-sm text-gray-500">{{ __('restaurant.admin_orders_subtitle', ['count' => $orders->total()]) }}</span>
             </div>
-            @if ($openRequests > 0)
-                <a href="{{ route('app.admin.restaurant-orders.index', ['status' => 'submitted']) }}"
-                   class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200" data-testid="admin-open-requests">
-                    {{ trans_choice('restaurant.admin_open_requests', $openRequests, ['count' => $openRequests]) }}
+            <div class="flex items-center gap-3">
+                @if ($openRequests > 0)
+                    <a href="{{ route('app.admin.restaurant-orders.index', ['status' => 'submitted']) }}"
+                       class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200" data-testid="admin-open-requests">
+                        {{ trans_choice('restaurant.admin_open_requests', $openRequests, ['count' => $openRequests]) }}
+                    </a>
+                @endif
+                <a href="{{ route('app.admin.restaurant-orders.create') }}" data-testid="admin-create-request"
+                   class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                    {{ __('restaurant.admin_create_request_button') }}
                 </a>
-            @endif
+            </div>
         </div>
     </x-slot>
 
