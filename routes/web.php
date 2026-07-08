@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPackingController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
+use App\Http\Controllers\Admin\AdminRequestAvailabilityController;
 use App\Http\Controllers\Admin\AdminRestaurantAccountController;
 use App\Http\Controllers\Admin\AdminRestaurantOrderController;
 use App\Http\Controllers\Admin\AdminSearchController;
@@ -438,6 +439,9 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
             Route::get('restaurant-accounts', [AdminRestaurantAccountController::class, 'index'])->name('restaurant-accounts.index');
+
+            Route::get('request-availability', [AdminRequestAvailabilityController::class, 'index'])->name('request-availability.index');
+            Route::post('request-availability/{product}', [AdminRequestAvailabilityController::class, 'update'])->name('request-availability.update');
 
             Route::get('restaurant-orders', [AdminRestaurantOrderController::class, 'index'])->name('restaurant-orders.index');
             Route::get('restaurant-orders/{restaurantOrder}', [AdminRestaurantOrderController::class, 'show'])->name('restaurant-orders.show');

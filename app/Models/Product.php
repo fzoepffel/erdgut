@@ -43,6 +43,7 @@ class Product extends Model
         'buying_price_cents',
         'is_seasonal',
         'request_visibility',
+        'request_visibility_until',
         'season_start_month',
         'season_start_day',
         'season_end_month',
@@ -89,6 +90,7 @@ class Product extends Model
             'season_start_day' => 'integer',
             'season_end_month' => 'integer',
             'season_end_day' => 'integer',
+            'request_visibility_until' => 'date',
             'is_available' => 'boolean',
             'is_published' => 'boolean',
             'is_egg_addon' => 'boolean',
@@ -634,6 +636,70 @@ class Product extends Model
      * Drives the restaurant (B2B) catalog (in-stock OR in-season); the
      * consumer storefront does not use this.
      */
+    /**
+     * Effective request-area visibility on a date: an 'always'/'never'
+     * override may carry an expiry, after which the product falls back to
+     * 'auto' (the season window).
+     */
+    public function requestVisibilityOn(?CarbonInterface $on = null): string
+    {
+        $on ??= Carbon::now();
+        $visibility = (string) ($this->request_visibility ?? 'auto');
+        if ($visibility === 'auto') {
+            return 'auto';
+        }
+        if ($this->request_visibility_until !== null && $on->startOfDay()->gt($this->request_visibility_until)) {
+            return 'auto';
+        }
+
+        return $visibility;
+    }
+
+    /** Would this product appear in the B2B request area on that date (stock aside)? */
+    public function isRequestableOn(?CarbonInterface $on = null): bool
+    {
+        $visibility = $this->requestVisibilityOn($on);
+
+        return $visibility === 'always'
+            || ($visibility !== 'never' && $this->is_seasonal && $this->isInSeason($on));
+    }
+
+    /**
+     * End of the CURRENT season window (for "regularly available until ...").
+     * Null when the product has no bounded window or is out of season.
+     */
+    public function currentSeasonEnd(?CarbonInterface $on = null): ?Carbon
+    {
+        $on = Carbon::parse($on ?? Carbon::now())->startOfDay();
+        if (! $this->is_seasonal || $this->season_end_month === null || $this->season_end_day === null || ! $this->isInSeason($on)) {
+            return null;
+        }
+        $end = Carbon::create($on->year, (int) $this->season_end_month, (int) $this->season_end_day)->startOfDay();
+        if ($end->lt($on)) {
+            $end = $end->addYear(); // wrapping window (e.g. Nov -> Feb)
+        }
+
+        return $end;
+    }
+
+    /**
+     * Start of the NEXT season window (for "regularly available from ...").
+     * Null when the product is non-seasonal/unbounded (always in season).
+     */
+    public function nextSeasonStart(?CarbonInterface $on = null): ?Carbon
+    {
+        $on = Carbon::parse($on ?? Carbon::now())->startOfDay();
+        if (! $this->is_seasonal || $this->season_start_month === null || $this->season_start_day === null) {
+            return null;
+        }
+        $start = Carbon::create($on->year, (int) $this->season_start_month, (int) $this->season_start_day)->startOfDay();
+        if ($start->lte($on)) {
+            $start = $start->addYear();
+        }
+
+        return $start;
+    }
+
     public function isInSeason(?CarbonInterface $on = null): bool
     {
         if (! $this->is_seasonal) {
