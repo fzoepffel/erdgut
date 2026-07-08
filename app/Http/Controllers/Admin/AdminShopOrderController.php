@@ -29,6 +29,7 @@ use App\Services\Shop\PriceResolver;
 use App\Services\Shop\ShopOrderService;
 use App\Support\AuditLogger;
 use App\Support\PickupLocations;
+use App\Support\RestaurantAccountProvisioner;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -394,7 +395,16 @@ class AdminShopOrderController extends Controller
         $accountId = (int) ($request->validated('restaurant_user_id') ?? 0);
         $user = $accountId > 0
             ? User::findOrFail($accountId)
-            : $this->findOrCreateRestaurantAccount($request);
+            : app(RestaurantAccountProvisioner::class)->findOrCreateVerified(
+                (string) $request->validated('name'),
+                (string) $request->validated('email'),
+                [
+                    'street' => (string) $request->validated('delivery_street'),
+                    'postal_code' => (string) $request->validated('delivery_postal_code'),
+                    'city' => (string) $request->validated('delivery_city'),
+                ],
+                (int) $request->user()->id,
+            );
         $until = (string) ($request->validated('recurring_until') ?? '');
 
         $items = collect($request->validated('items'))->map(fn (array $line): array => [
@@ -438,57 +448,6 @@ class AdminShopOrderController extends Controller
         return redirect()
             ->route('app.admin.restaurant-orders.show', $order)
             ->with('status', __('shop.admin.recurring_created_success'));
-    }
-
-    /**
-     * Recurring order for a customer WITHOUT an account: create (or complete)
-     * a verified restaurant account from the entered contact details, so the
-     * standard machinery applies — invoices go to the email, and the customer
-     * can claim the portal later via password reset. Validated upstream:
-     * name + email are required on this path.
-     */
-    private function findOrCreateRestaurantAccount(AdminCreateShopOrderRequest $request): User
-    {
-        $email = mb_strtolower(trim((string) $request->validated('email')));
-        $name = trim((string) $request->validated('name'));
-
-        $user = User::query()->where('email', $email)->first();
-        if ($user === null) {
-            $user = User::query()->create([
-                'name' => $name,
-                'email' => $email,
-                // Random unusable password — the customer claims the account
-                // via "Passwort vergessen" if they ever want portal access.
-                'password' => bcrypt(Str::random(40)),
-            ]);
-            // Not mass-assignable: the admin vouches for the contact.
-            $user->forceFill(['email_verified_at' => now()])->save();
-        }
-
-        $profile = $user->restaurantProfile;
-        if ($profile === null) {
-            $profile = $user->restaurantProfile()->create([
-                'business_name' => $name,
-                'contact_name' => $name,
-                'billing_street' => (string) $request->validated('delivery_street'),
-                'billing_postal_code' => (string) $request->validated('delivery_postal_code'),
-                'billing_city' => (string) $request->validated('delivery_city'),
-                'verification_status' => RestaurantVerificationStatus::Verified,
-                'verified_at' => now(),
-                'verified_by_user_id' => (int) $request->user()->id,
-            ]);
-        } elseif (! $profile->isVerified()) {
-            // The admin is placing a recurring order for them — that IS the vetting.
-            $profile->forceFill([
-                'verification_status' => RestaurantVerificationStatus::Verified,
-                'verified_at' => now(),
-                'verified_by_user_id' => (int) $request->user()->id,
-                'rejected_at' => null,
-                'rejection_reason' => null,
-            ])->save();
-        }
-
-        return $user;
     }
 
     /**

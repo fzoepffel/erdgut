@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
 use App\Http\Controllers\Admin\AdminRequestAvailabilityController;
 use App\Http\Controllers\Admin\AdminRestaurantAccountController;
 use App\Http\Controllers\Admin\AdminRestaurantOrderController;
+use App\Http\Controllers\Admin\AdminRestaurantRequestController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminShopClosureController;
 use App\Http\Controllers\Admin\AdminShopOrderController;
@@ -444,6 +445,9 @@ Route::middleware(['auth', 'verified'])
             Route::post('request-availability/{product}', [AdminRequestAvailabilityController::class, 'update'])->name('request-availability.update');
 
             Route::get('restaurant-orders', [AdminRestaurantOrderController::class, 'index'])->name('restaurant-orders.index');
+            // Registered before the {restaurantOrder} wildcard: 'create' would otherwise bind as a model key.
+            Route::get('restaurant-orders/create', [AdminRestaurantRequestController::class, 'create'])->name('restaurant-orders.create');
+            Route::post('restaurant-orders', [AdminRestaurantRequestController::class, 'store'])->name('restaurant-orders.store');
             Route::get('restaurant-orders/{restaurantOrder}', [AdminRestaurantOrderController::class, 'show'])->name('restaurant-orders.show');
             Route::get('restaurant-orders/{restaurantOrder}/invoice.pdf', [AdminRestaurantOrderController::class, 'invoicePdf'])->name('restaurant-orders.invoice-pdf');
             Route::post('restaurant-orders/{restaurantOrder}/confirm', [AdminRestaurantOrderController::class, 'confirm'])->name('restaurant-orders.confirm');
