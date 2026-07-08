@@ -80,6 +80,9 @@
         <x-admin.nav-link :href="route('app.admin.restaurant-orders.index')" matches="app.admin.restaurant-orders.*">
             {{ __('restaurant.orders_nav_label') }}
         </x-admin.nav-link>
+        <x-admin.nav-link :href="route('app.admin.standing-orders.index')" matches="app.admin.standing-orders.*">
+            {{ __('restaurant.admin_standing_nav') }}
+        </x-admin.nav-link>
         <x-admin.nav-link :href="route('app.admin.request-availability.index')" matches="app.admin.request-availability.*">
             {{ __('products.request_availability_nav') }}
         </x-admin.nav-link>

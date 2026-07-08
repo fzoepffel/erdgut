@@ -31,6 +31,14 @@
                 <div class="rounded-md border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">{{ __('restaurant.admin_recurring_note') }}</div>
             @endif
 
+            @if ($order->source_standing_order_id !== null)
+                <a href="{{ route('app.admin.standing-orders.index') }}#standing-{{ $order->source_standing_order_id }}"
+                   data-testid="admin-standing-manage-link"
+                   class="inline-flex items-center text-sm font-medium text-emerald-700 hover:underline">
+                    {{ __('restaurant.admin_standing_manage_link') }} &rarr;
+                </a>
+            @endif
+
             @php
                 $pendingLines = $order->items->filter(fn ($i) => $i->isPending());
                 $canCancel = ! $order->isInvoiced() && in_array($order->status, [\App\Enums\RestaurantOrderStatus::Submitted, \App\Enums\RestaurantOrderStatus::Confirmed], true);

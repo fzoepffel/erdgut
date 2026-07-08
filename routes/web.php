@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\AdminRestaurantRequestController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminShopClosureController;
 use App\Http\Controllers\Admin\AdminShopOrderController;
+use App\Http\Controllers\Admin\AdminStandingOrderController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
 use App\Http\Controllers\Admin\AdminUserController;
@@ -443,6 +444,14 @@ Route::middleware(['auth', 'verified'])
 
             Route::get('request-availability', [AdminRequestAvailabilityController::class, 'index'])->name('request-availability.index');
             Route::post('request-availability/{product}', [AdminRequestAvailabilityController::class, 'update'])->name('request-availability.update');
+
+            Route::get('restaurant-standing-orders', [AdminStandingOrderController::class, 'index'])->name('standing-orders.index');
+            Route::post('restaurant-standing-orders/{standingOrder}/activate', [AdminStandingOrderController::class, 'activate'])->name('standing-orders.activate');
+            Route::post('restaurant-standing-orders/{standingOrder}/pause', [AdminStandingOrderController::class, 'pause'])->name('standing-orders.pause');
+            Route::post('restaurant-standing-orders/{standingOrder}/resume', [AdminStandingOrderController::class, 'resume'])->name('standing-orders.resume');
+            Route::post('restaurant-standing-orders/{standingOrder}/end', [AdminStandingOrderController::class, 'setEnd'])->name('standing-orders.end');
+            Route::post('restaurant-standing-orders/{standingOrder}/items', [AdminStandingOrderController::class, 'updateItems'])->name('standing-orders.items');
+            Route::delete('restaurant-standing-orders/{standingOrder}', [AdminStandingOrderController::class, 'destroy'])->name('standing-orders.destroy');
 
             Route::get('restaurant-orders', [AdminRestaurantOrderController::class, 'index'])->name('restaurant-orders.index');
             // Registered before the {restaurantOrder} wildcard: 'create' would otherwise bind as a model key.
