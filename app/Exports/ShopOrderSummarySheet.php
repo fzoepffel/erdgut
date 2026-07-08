@@ -6,6 +6,7 @@ use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
 use App\Enums\ShopOrderStatus;
 use App\Exports\Concerns\FormatsShopOrders;
+use App\Models\RestaurantOrder;
 use App\Models\ShopOrder;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -24,10 +25,12 @@ class ShopOrderSummarySheet implements FromArray, WithTitle
     /**
      * @param  Collection<int, ShopOrder>  $orders
      * @param  array{status: string, delivery_from: string, delivery_to: string}  $filter
+     * @param  Collection<int, RestaurantOrder>  $restaurantOrders
      */
     public function __construct(
         private readonly Collection $orders,
         private readonly array $filter,
+        private readonly Collection $restaurantOrders = new Collection,
     ) {}
 
     public function title(): string
@@ -107,6 +110,23 @@ class ShopOrderSummarySheet implements FromArray, WithTitle
         $rows[] = [(string) __('shop.export.summary_section_outstanding'), ''];
         $rows[] = [(string) __('shop.export.summary_label_outstanding_in_person'), round((float) $outstanding, 2)];
         $rows[] = ['', ''];
+
+        // B2B stays its own block: restaurant prices are net, blending them
+        // into the gross B2C figures above would mislead.
+        if ($this->restaurantOrders->isNotEmpty()) {
+            $confirmedLines = $this->restaurantOrders
+                ->flatMap(fn ($o) => $o->items)
+                ->filter(fn ($i) => $i->isConfirmedLine());
+
+            $rows[] = [(string) __('shop.export.summary_section_b2b_restaurant'), ''];
+            $rows[] = [(string) __('shop.export.summary_label_b2b_order_count'), $this->restaurantOrders->count()];
+            $rows[] = [
+                (string) __('shop.export.summary_label_b2b_net_revenue'),
+                round((float) $this->restaurantOrders->sum(fn ($o) => (float) $o->items_total_net_eur), 2),
+            ];
+            $rows[] = [(string) __('shop.export.summary_label_b2b_line_count'), $confirmedLines->count()];
+            $rows[] = ['', ''];
+        }
 
         [$byQuantity, $byRevenue] = $this->topProducts();
         $rows[] = [(string) __('shop.export.summary_label_top_by_quantity'), ''];

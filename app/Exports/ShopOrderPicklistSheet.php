@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Exports\Concerns\FormatsShopOrders;
+use App\Models\RestaurantOrder;
 use App\Models\ShopOrder;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -36,8 +37,12 @@ class ShopOrderPicklistSheet implements FromArray, WithColumnWidths, WithHeading
 
     /**
      * @param  Collection<int, ShopOrder>  $orders
+     * @param  Collection<int, RestaurantOrder>  $restaurantOrders
      */
-    public function __construct(private readonly Collection $orders) {}
+    public function __construct(
+        private readonly Collection $orders,
+        private readonly Collection $restaurantOrders = new Collection,
+    ) {}
 
     public function title(): string
     {
@@ -146,9 +151,91 @@ class ShopOrderPicklistSheet implements FromArray, WithColumnWidths, WithHeading
             ];
         }
 
-        usort($rows, fn (array $a, array $b): int => [$a[1], $a[0]] <=> [$b[1], $b[0]]);
+        // B2B restaurant deliveries: one row each, id prefixed "R" so packers
+        // see the channel at a glance. Only lines that will ship are listed.
+        foreach ($this->restaurantOrders as $order) {
+            $rows[] = $this->restaurantRow($order);
+        }
+
+        usort($rows, fn (array $a, array $b): int => [$a[1], (string) $a[0]] <=> [$b[1], (string) $b[0]]);
 
         return $rows;
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    private function restaurantRow(RestaurantOrder $order): array
+    {
+        $positions = [];
+        $quantities = [];
+        $unitPrices = [];
+        $lineTotals = [];
+
+        foreach ($order->items as $item) {
+            if (! $item->isConfirmedLine()) {
+                continue; // declined lines never ship
+            }
+
+            $product = $item->product;
+            $name = $item->displayName();
+            if ($item->variant_name_snapshot !== null && $item->variant_name_snapshot !== '') {
+                $name .= ' · '.$item->variant_name_snapshot;
+            }
+            $producer = $product?->producer?->name;
+            $positions[] = $producer ? sprintf('%s (%s)', $name, $producer) : $name;
+
+            if ($product !== null) {
+                [$qtyDisplay, $unitLabel] = $this->displayQuantity(
+                    $product->unit,
+                    $product->price_display_unit,
+                    (float) $item->quantity,
+                );
+                $quantities[] = trim(number_format($qtyDisplay, 2, '.', '').' '.$unitLabel);
+
+                $unitPriceDisplay = $product->unit !== null
+                    ? round(
+                        (float) $item->unit_price_snapshot_eur
+                            * $product->unit->canonicalUnitsPerDisplay(
+                                $product->price_display_unit ?? $product->unit->defaultDisplayUnit()
+                            ),
+                        2,
+                    )
+                    : round((float) $item->unit_price_snapshot_eur, 2);
+            } else {
+                // Custom line — entered quantity + free-text unit, no conversion.
+                $quantities[] = $item->displayQuantityLabel();
+                $unitPriceDisplay = round((float) $item->unit_price_snapshot_eur, 2);
+            }
+            $unitPrices[] = number_format($unitPriceDisplay, 2, '.', '');
+            $lineTotals[] = number_format((float) $item->line_total_eur, 2, '.', '');
+        }
+
+        return [
+            'R'.$order->id,
+            $order->expected_delivery_date?->format('Y-m-d') ?? '',
+            '',
+            $order->user?->restaurantProfile?->business_name ?: ($order->user?->name ?? ''),
+            (string) __('shop.export.type_business'),
+            $order->user?->phone ?? '',
+            trim(implode(', ', array_filter([
+                $order->delivery_street,
+                trim(($order->delivery_postal_code ?? '').' '.($order->delivery_city ?? '')),
+            ])), ', '),
+            '',
+            $order->delivery_notes ?? '',
+            implode("\n", $positions),
+            implode("\n", $quantities),
+            implode("\n", $unitPrices),
+            implode("\n", $lineTotals),
+            (float) $order->items_total_gross_eur,
+            0.0,
+            0.0,
+            '',
+            (float) $order->items_total_gross_eur,
+            (string) __('shop.export.payment_invoice'),
+            (string) __('restaurant.order_status_'.$order->status->value),
+        ];
     }
 
     /**

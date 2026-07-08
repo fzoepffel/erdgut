@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
+use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopOrderStatus;
 use App\Exports\ShopOrderFarmTotalsSheet;
 use App\Exports\ShopOrderPicklistSheet;
@@ -13,10 +14,15 @@ use App\Exports\ShopOrdersExport;
 use App\Exports\ShopOrderSummarySheet;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductStockInflow;
+use App\Models\RestaurantOrder;
+use App\Models\RestaurantProfile;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use App\Models\User;
+use App\Services\Restaurant\RestaurantOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Facades\Excel;
 use Tests\TestCase;
@@ -550,5 +556,179 @@ class AdminShopOrderExportTest extends TestCase
         $this->actingAs($admin)
             ->get(route('app.admin.shop-orders.farmer-export'))
             ->assertStatus(422);
+    }
+
+    // ── B2B restaurant demand in the workbook ─────────────────────────────
+
+    /** A Confirmed B2B order for a stocked product (auto-confirms via the service). */
+    private function confirmedRestaurantOrder(Product $product, float $quantity): RestaurantOrder
+    {
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => Carbon::tomorrow()->toDateString(),
+            'quantity' => 100000,
+            'freshness_window_days' => 3,
+        ]);
+        $profile = RestaurantProfile::factory()->verified()->create();
+
+        return app(RestaurantOrderService::class)->submitOrder($profile->user, [
+            'items' => [['product_id' => $product->id, 'variant_id' => null, 'quantity' => $quantity]],
+            'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
+            'delivery_street' => 'Gastroweg 7', 'delivery_postal_code' => '10405', 'delivery_city' => 'Berlin',
+        ]);
+    }
+
+    public function test_export_includes_restaurant_orders_for_default_filter(): void
+    {
+        Excel::fake();
+        $admin = User::factory()->admin()->create();
+        Producer::factory()->create();
+        $product = Product::factory()->create(['unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece']);
+
+        $shopOrder = ShopOrder::factory()->paid()->create(['expected_delivery_date' => Carbon::tomorrow()->toDateString()]);
+        ShopOrderItem::factory()->create(['shop_order_id' => $shopOrder->id]);
+        $restaurantOrder = $this->confirmedRestaurantOrder($product, 5);
+
+        $this->actingAs($admin)->get(route('app.admin.shop-orders.export'))->assertOk();
+
+        Excel::assertDownloaded('erdgut-bestellungen-'.now()->format('Y-m-d').'.xlsx', function (ShopOrdersExport $export) use ($shopOrder, $restaurantOrder): bool {
+            $ids = collect($export->sheets()[1]->array())->pluck(0)->all();
+
+            return in_array($shopOrder->id, $ids, true)
+                && in_array('R'.$restaurantOrder->id, $ids, true);
+        });
+    }
+
+    public function test_export_type_filter_scopes_restaurant_orders(): void
+    {
+        Excel::fake();
+        $admin = User::factory()->admin()->create();
+        Producer::factory()->create();
+        $product = Product::factory()->create(['unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece']);
+        $restaurantOrder = $this->confirmedRestaurantOrder($product, 5);
+
+        $filename = 'erdgut-bestellungen-'.now()->format('Y-m-d').'.xlsx';
+
+        $this->actingAs($admin)->get(route('app.admin.shop-orders.export', ['type' => 'b2c']))->assertOk();
+        Excel::assertDownloaded($filename, function (ShopOrdersExport $export) use ($restaurantOrder): bool {
+            return ! in_array('R'.$restaurantOrder->id, collect($export->sheets()[1]->array())->pluck(0)->all(), true);
+        });
+
+        $this->actingAs($admin)->get(route('app.admin.shop-orders.export', ['type' => 'b2b']))->assertOk();
+        Excel::assertDownloaded($filename, function (ShopOrdersExport $export) use ($restaurantOrder): bool {
+            return in_array('R'.$restaurantOrder->id, collect($export->sheets()[1]->array())->pluck(0)->all(), true);
+        });
+    }
+
+    public function test_picklist_restaurant_row_shape_excludes_declined_lines(): void
+    {
+        Producer::factory()->create();
+        $product = Product::factory()->create(['unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece']);
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $svc = app(RestaurantOrderService::class);
+
+        $order = $svc->submitRequest($profile->user, [
+            'items' => [
+                ['product_id' => $product->id, 'variant_id' => null, 'quantity' => 4],
+                ['name' => 'Wildkräuter', 'unit' => 'kg', 'quantity' => 2],
+            ],
+            'expected_delivery_date' => Carbon::tomorrow()->toDateString(),
+            'delivery_street' => 'Gastroweg 7', 'delivery_postal_code' => '10405', 'delivery_city' => 'Berlin',
+        ]);
+        [$catalogLine, $customLine] = $order->items()->orderBy('id')->get();
+        $svc->acceptLine($catalogLine);
+        $svc->declineLine($customLine);
+        $this->assertTrue($order->refresh()->status === RestaurantOrderStatus::Confirmed);
+
+        $sheet = new ShopOrderPicklistSheet(
+            Collection::make(),
+            Collection::make([$order->fresh(['items.product.producer.translations', 'user.restaurantProfile'])]),
+        );
+        $rows = $sheet->array();
+
+        $this->assertCount(1, $rows);
+        $row = $rows[0];
+        $this->assertSame('R'.$order->id, $row[0]);
+        $this->assertSame($profile->business_name, $row[3]);
+        $this->assertSame(__('shop.export.type_business'), $row[4]);
+        $this->assertStringContainsString($product->name, $row[9]);
+        $this->assertStringNotContainsString('Wildkräuter', $row[9]);
+        $this->assertSame(__('shop.export.payment_invoice'), $row[18]);
+    }
+
+    public function test_farm_totals_merge_restaurant_demand_into_producer_buckets(): void
+    {
+        $farm = Producer::factory()->create();
+        $tomato = Product::factory()->create([
+            'producer_id' => $farm->id,
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.006,
+            'buying_price_cents' => 300,
+        ]);
+
+        $shopOrder = ShopOrder::factory()->paid()->create(['email' => 'a@example.com']);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $shopOrder->id,
+            'product_id' => $tomato->id,
+            'quantity' => 2000,
+            'unit' => 'g',
+            'line_total_eur' => 12.0,
+        ]);
+        $restaurantOrder = $this->confirmedRestaurantOrder($tomato, 500); // 0.5 kg
+
+        $sheet = new ShopOrderFarmTotalsSheet(
+            Collection::make([$shopOrder->fresh(['items.product.producer.translations'])]),
+            Collection::make([$restaurantOrder->fresh(['items.product.producer.translations', 'user'])]),
+        );
+        $row = collect($sheet->array())->firstWhere(1, $tomato->name);
+
+        $this->assertNotNull($row);
+        $this->assertSame(2.5, $row[2]); // 2 kg B2C + 0.5 kg B2B
+        $this->assertSame('kg', $row[3]);
+        $this->assertSame(2, $row[4]); // one order per channel
+        $this->assertSame(2, $row[5]); // two distinct customers
+        $expectedRevenue = round(12.0 + (float) $restaurantOrder->items()->first()->line_total_eur, 2);
+        $this->assertSame($expectedRevenue, $row[8]);
+    }
+
+    public function test_route_sheet_adds_restaurant_stop_with_zero_payment_due(): void
+    {
+        Producer::factory()->create();
+        $product = Product::factory()->create(['unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece']);
+        $restaurantOrder = $this->confirmedRestaurantOrder($product, 5);
+
+        $sheet = new ShopOrderRouteSheet(
+            Collection::make(),
+            Collection::make([$restaurantOrder->fresh(['items', 'user.restaurantProfile'])]),
+        );
+        $rows = $sheet->array();
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('Gastroweg 7', $rows[0][2]);
+        $this->assertSame('R'.$restaurantOrder->id, $rows[0][5]);
+        $this->assertSame(0.0, $rows[0][10]); // invoice payment, nothing due at the door
+        $this->assertSame(__('shop.export.type_business'), $rows[0][12]);
+    }
+
+    public function test_summary_reports_separate_b2b_block(): void
+    {
+        Producer::factory()->create();
+        $product = Product::factory()->create(['unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece']);
+        $restaurantOrder = $this->confirmedRestaurantOrder($product, 5);
+
+        $sheet = new ShopOrderSummarySheet(
+            Collection::make(),
+            ['status' => 'finalized', 'delivery_from' => '', 'delivery_to' => ''],
+            Collection::make([$restaurantOrder->fresh(['items'])]),
+        );
+        $rows = collect($sheet->array());
+
+        $this->assertNotNull($rows->firstWhere(0, __('shop.export.summary_section_b2b_restaurant')));
+        $this->assertSame(1, $rows->firstWhere(0, __('shop.export.summary_label_b2b_order_count'))[1]);
+        $this->assertSame(
+            round((float) $restaurantOrder->items_total_net_eur, 2),
+            $rows->firstWhere(0, __('shop.export.summary_label_b2b_net_revenue'))[1],
+        );
     }
 }

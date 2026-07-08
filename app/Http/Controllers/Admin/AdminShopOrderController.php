@@ -663,9 +663,17 @@ class AdminShopOrderController extends Controller
             ->orderBy('id')
             ->get();
 
+        // B2B demand rides along so farm totals, picklist and route reflect
+        // the full day, not just the storefront.
+        $restaurantOrders = $this->filteredRestaurantOrdersQuery($filter)
+            ?->with(['user.restaurantProfile', 'items.product.producer.translations', 'items.product.translations'])
+            ->orderBy('expected_delivery_date')
+            ->orderBy('id')
+            ->get() ?? collect();
+
         $filename = 'erdgut-bestellungen-'.now()->format('Y-m-d').'.xlsx';
 
-        return Excel::download(new ShopOrdersExport($orders, $filter), $filename);
+        return Excel::download(new ShopOrdersExport($orders, $filter, $restaurantOrders), $filename);
     }
 
     /**
