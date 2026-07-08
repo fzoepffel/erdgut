@@ -1,15 +1,8 @@
 <x-shop-layout :title="__('restaurant.order_ref', ['id' => $order->id])" :narrow="true" :restaurant-nav="$order->isRequest() ? 'requests' : 'orders'">
     @if (session('status') === 'restaurant-order-submitted')
-        <div class="mb-6 border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">
-            {{ __('restaurant.order_confirmed_flash') }}
-            @if (is_array(session('reorder_adjusted')) && session('reorder_adjusted') !== [])
-                <span class="block pt-1 text-amber-800">{{ __('restaurant.reorder_adjusted_flash', ['names' => implode(', ', session('reorder_adjusted'))]) }}</span>
-            @endif
-        </div>
+        <div class="mb-6 border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">{{ __('restaurant.order_confirmed_flash') }}</div>
     @elseif (session('status') === 'restaurant-request-submitted')
         <div class="mb-6 border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{{ __('restaurant.request_submitted_flash') }}</div>
-    @elseif (session('status') === 'restaurant-reorder-empty')
-        <div class="mb-6 border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{{ __('restaurant.reorder_empty_flash') }}</div>
     @elseif (session('status') === 'restaurant-order-cancelled')
         <div class="mb-6 border border-shop-border bg-shop-card p-4 text-sm text-shop-foreground">{{ __('restaurant.order_cancelled_flash') }}</div>
     @elseif (session('status') === 'restaurant-changes-locked')
