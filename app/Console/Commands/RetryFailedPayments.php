@@ -87,7 +87,7 @@ class RetryFailedPayments extends Command
     {
         $failedPayments = Payment::query()
             ->where('status', Payment::STATUS_FAILED)
-            ->whereColumn('attempt_number', '<', $maxRetries)
+            ->where('attempt_number', '<', $maxRetries)
             ->with(['subscription.user'])
             ->orderByDesc('attempt_number')
             ->get();
