@@ -139,7 +139,7 @@ class RestaurantCatalogService
                 // the Anfragen area by default; the per-product override can
                 // force a product in ('always' — sourceable gap-fillers) or
                 // out ('never') regardless of the season window.
-                $visibility = (string) ($product->request_visibility ?? 'auto');
+                $visibility = $product->requestVisibilityOn($date);
                 $inSeason = $product->is_seasonal && $product->isInSeason($date);
                 $requestable = $visibility === 'always'
                     || ($inSeason && $visibility !== 'never');

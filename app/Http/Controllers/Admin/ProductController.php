@@ -584,6 +584,9 @@ class ProductController extends Controller
             'request_visibility' => in_array($validated['request_visibility'] ?? 'auto', ['auto', 'always', 'never'], true)
                 ? ($validated['request_visibility'] ?? 'auto')
                 : 'auto',
+            // The form sets the PERMANENT state; time-bound overrides are
+            // managed on the Anfrage-Sortiment page and reset here.
+            'request_visibility_until' => null,
             'is_available' => (bool) ($validated['is_available'] ?? false),
             'is_published' => (bool) ($validated['is_published'] ?? false),
             'is_test' => (bool) ($validated['is_test'] ?? false),
