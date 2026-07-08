@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Enums\ProductUnit;
 use App\Exports\Concerns\FormatsShopOrders;
+use App\Models\RestaurantOrder;
 use App\Models\ShopOrder;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -12,9 +13,11 @@ use Maatwebsite\Excel\Concerns\WithTitle;
 
 /**
  * Aggregated supply view: total quantity needed per producer × product across
- * the filtered orders. Includes procurement cost + margin estimates so
- * purchasing can sanity-check the order against the buying prices on file.
- * Lines without a producer are grouped under a "no producer" bucket.
+ * the filtered orders, B2C and B2B combined. Includes procurement cost +
+ * margin estimates so purchasing can sanity-check the order against the
+ * buying prices on file. Lines without a producer are grouped under a
+ * "no producer" bucket. The revenue column is uniformly gross:
+ * `line_total_eur` is gross on both order models.
  */
 class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
 {
@@ -22,8 +25,12 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
 
     /**
      * @param  Collection<int, ShopOrder>  $orders
+     * @param  Collection<int, RestaurantOrder>  $restaurantOrders
      */
-    public function __construct(private readonly Collection $orders) {}
+    public function __construct(
+        private readonly Collection $orders,
+        private readonly Collection $restaurantOrders = new Collection,
+    ) {}
 
     public function title(): string
     {
@@ -55,45 +62,28 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
     public function array(): array
     {
         /**
-         * Bucket keyed by `producerName||productName||displayUnit`.
+         * Bucket keyed by `producerName||productName||displayUnit`. Order
+         * tokens are namespaced (`s{id}` / `r{id}`) so a shop order and a
+         * restaurant order sharing a numeric id count as two orders.
          *
-         * @var array<string, array{producer:string, product:string, qty_canonical:float, unit:?ProductUnit, display:string, order_ids:array<int,true>, emails:array<string,true>, buying_per_unit:?float, revenue:float}>
+         * @var array<string, array{producer:string, product:string, qty_canonical:float, unit:?ProductUnit, display:string, unit_label_override:string, order_ids:array<string,true>, emails:array<string,true>, buying_per_unit:?float, revenue:float}>
          */
         $buckets = [];
 
         foreach ($this->orders as $order) {
             foreach ($order->items as $item) {
-                $product = $item->product;
-                $producerName = $product?->producer?->name
-                    ?: (string) __('shop.export.no_producer');
-                $productName = $product?->name
-                    ?? (string) __('shop.admin.deleted_product');
-                $unit = $product?->unit;
-                $display = $product?->price_display_unit
-                    ?? $unit?->defaultDisplayUnit()
-                    ?? '';
+                $this->accumulate($buckets, $item, 's'.$order->id, $order->email);
+            }
+        }
 
-                $key = $producerName.'||'.$productName.'||'.$display;
-                if (! isset($buckets[$key])) {
-                    $buckets[$key] = [
-                        'producer' => $producerName,
-                        'product' => $productName,
-                        'qty_canonical' => 0.0,
-                        'unit' => $unit,
-                        'display' => $display,
-                        'order_ids' => [],
-                        'emails' => [],
-                        'buying_per_unit' => $this->buyingPricePerDisplayUnit($product),
-                        'revenue' => 0.0,
-                    ];
+        // B2B demand: only lines that will actually ship (declined lines and
+        // not-yet-accepted request lines are excluded).
+        foreach ($this->restaurantOrders as $order) {
+            foreach ($order->items as $item) {
+                if (! $item->isConfirmedLine()) {
+                    continue;
                 }
-
-                $buckets[$key]['qty_canonical'] += (float) $item->quantity;
-                $buckets[$key]['order_ids'][$order->id] = true;
-                if ($order->email !== null && $order->email !== '') {
-                    $buckets[$key]['emails'][strtolower($order->email)] = true;
-                }
-                $buckets[$key]['revenue'] += (float) $item->line_total_eur;
+                $this->accumulate($buckets, $item, 'r'.$order->id, $order->user?->email);
             }
         }
 
@@ -107,7 +97,7 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
                 $unitLabel = ProductUnit::displaySymbol($display);
             } else {
                 $qty = $bucket['qty_canonical'];
-                $unitLabel = '';
+                $unitLabel = $bucket['unit_label_override'];
             }
 
             $buyingPerUnit = $bucket['buying_per_unit'];
@@ -134,5 +124,47 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
         });
 
         return $rows;
+    }
+
+    /**
+     * Fold one order line (shop or restaurant) into the shared buckets.
+     * Custom lines (no product) carry their free-text unit as the label.
+     *
+     * @param  array<string, array<string, mixed>>  $buckets
+     */
+    private function accumulate(array &$buckets, object $item, string $orderToken, ?string $email): void
+    {
+        $product = $item->product;
+        $producerName = $product?->producer?->name
+            ?: (string) __('shop.export.no_producer');
+        $productName = $product?->name
+            ?? ($item->displayName() ?: (string) __('shop.admin.deleted_product'));
+        $unit = $product?->unit;
+        $display = $product?->price_display_unit
+            ?? $unit?->defaultDisplayUnit()
+            ?? ($item->unit ?? '');
+
+        $key = $producerName.'||'.$productName.'||'.$display;
+        if (! isset($buckets[$key])) {
+            $buckets[$key] = [
+                'producer' => $producerName,
+                'product' => $productName,
+                'qty_canonical' => 0.0,
+                'unit' => $unit,
+                'display' => $display,
+                'unit_label_override' => $unit === null && $display !== '' ? ProductUnit::displaySymbol($display) : '',
+                'order_ids' => [],
+                'emails' => [],
+                'buying_per_unit' => $this->buyingPricePerDisplayUnit($product),
+                'revenue' => 0.0,
+            ];
+        }
+
+        $buckets[$key]['qty_canonical'] += (float) $item->quantity;
+        $buckets[$key]['order_ids'][$orderToken] = true;
+        if ($email !== null && $email !== '') {
+            $buckets[$key]['emails'][strtolower($email)] = true;
+        }
+        $buckets[$key]['revenue'] += (float) $item->line_total_eur;
     }
 }
