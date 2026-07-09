@@ -98,30 +98,82 @@ class RestaurantCatalogController extends Controller
         ])->values();
 
         // "Nochmal bestellen" handoff: prefill the basket from a past order.
-        // Quantities are applied client-side, clamped to today's hard caps;
-        // lines whose grade has no stock today are simply not applied (the
-        // banner mentions how many).
+        // Quantities are applied client-side, clamped to today's hard caps.
+        // Lines the selected day can't fully cover are named in the banner,
+        // together with the next day that covers all of them (or, failing
+        // that, the day that covers the most).
         $reorderPrefill = null;
         $reorderId = (int) $request->query('reorder', 0);
-        if ($reorderId > 0) {
+        if ($reorderId > 0 && $selectedDate instanceof Carbon) {
             $source = RestaurantOrder::query()
                 ->whereKey($reorderId)
                 ->where('user_id', $request->user()->id)
                 ->orders()
                 ->first();
             if ($source !== null) {
+                $items = $source->items()
+                    ->whereNotNull('product_id')
+                    ->where('line_status', '!=', RestaurantOrderLineStatus::Declined->value)
+                    ->get();
+                $lines = $items
+                    ->map(fn ($item): array => [
+                        'key' => $item->variant_id !== null ? 'v'.$item->variant_id : (string) $item->product_id,
+                        'qty' => (float) $item->quantity,
+                        'name' => trim($item->displayName().(
+                            $item->variant_name_snapshot !== null && $item->variant_name_snapshot !== ''
+                                ? ' · '.$item->variant_name_snapshot : ''
+                        )),
+                    ])
+                    ->values();
+
+                // Grade caps and quantities are both canonical units, so the
+                // same rule the client clamps with decides "fully available".
+                $availableCount = function (Carbon $date) use ($lines): int {
+                    $caps = $this->catalog->productsForDate($date)
+                        ->flatMap(fn (array $row) => $row['grades'])
+                        ->keyBy('key');
+
+                    return $lines->filter(fn (array $line): bool => (float) ($caps[$line['key']]['cap'] ?? 0) >= $line['qty'])->count();
+                };
+
+                $capsToday = $rows->flatMap(fn (array $row) => $row['grades'])->keyBy('key');
+                $missing = $lines->filter(fn (array $line): bool => (float) ($capsToday[$line['key']]['cap'] ?? 0) < $line['qty'])->values();
+
+                $betterDate = null;
+                if ($missing->isNotEmpty()) {
+                    $availableToday = $lines->count() - $missing->count();
+                    $best = null; // ['date' => Carbon, 'count' => int]
+                    foreach ($selectableDates as $row) {
+                        $date = $row['date'];
+                        if ($date->isSameDay($selectedDate)) {
+                            continue;
+                        }
+                        $count = $availableCount($date);
+                        if ($count === $lines->count()) {
+                            $best = ['date' => $date, 'count' => $count];
+                            break; // earliest day covering everything wins
+                        }
+                        if ($count > $availableToday && ($best === null || $count > $best['count'])) {
+                            $best = ['date' => $date, 'count' => $count];
+                        }
+                    }
+                    if ($best !== null) {
+                        $betterDate = [
+                            'iso' => $best['date']->toDateString(),
+                            'label' => $best['date']->locale($locale)->isoFormat('dddd, D. MMMM'),
+                            'available' => $best['count'],
+                            'total' => $lines->count(),
+                            'all' => $best['count'] === $lines->count(),
+                            'url' => route('app.restaurant.catalog', ['date' => $best['date']->toDateString(), 'reorder' => $source->id]),
+                        ];
+                    }
+                }
+
                 $reorderPrefill = [
                     'orderId' => $source->id,
-                    'lines' => $source->items()
-                        ->whereNotNull('product_id')
-                        ->where('line_status', '!=', RestaurantOrderLineStatus::Declined->value)
-                        ->get()
-                        ->map(fn ($item): array => [
-                            'key' => $item->variant_id !== null ? 'v'.$item->variant_id : (string) $item->product_id,
-                            'qty' => (float) $item->quantity,
-                        ])
-                        ->values()
-                        ->all(),
+                    'lines' => $lines->map(fn (array $l): array => ['key' => $l['key'], 'qty' => $l['qty']])->all(),
+                    'missingNames' => $missing->pluck('name')->all(),
+                    'betterDate' => $betterDate,
                 ];
             }
         }
