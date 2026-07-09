@@ -34,6 +34,7 @@
         <div class="mt-12 flex flex-col gap-4 border-t border-brand-ink/10 pt-6 text-xs text-brand-ink/60 sm:flex-row sm:items-center sm:justify-between">
             <p>&copy; {{ date('Y') }} Erdgut. {{ __('footer.copyright_line') }}</p>
             <div class="flex flex-wrap gap-4">
+                <a href="{{ route('restaurant.landing') }}" class="hover:text-brand-ink">{{ __('restaurant.nav_public') }}</a>
                 <a href="{{ route('public.shop-about') }}" class="hover:text-brand-ink">{{ __('About') }}</a>
                 <a href="{{ route('public.shop-contact') }}" class="hover:text-brand-ink">{{ __('Contact') }}</a>
                 <a href="{{ route('public.imprint') }}" class="hover:text-brand-ink">{{ __('imprint.footer_link') }}</a>

@@ -56,6 +56,9 @@
             ['route' => 'public.shop.producers.index', 'active' => 'public.shop.producers.*', 'label' => __('shop.nav_producers')],
             ['route' => 'public.shop.products.index', 'active' => 'public.shop.products.*', 'label' => __('shop.nav_products')],
             ['route' => 'public.shop-contact', 'active' => 'public.shop-contact', 'label' => __('Contact')],
+            // B2B door: a quiet nav item to the dedicated "Geschäftskunden" page
+            // (which carries the restaurant login). Consumers never see a login.
+            ['route' => 'restaurant.landing', 'active' => 'restaurant.landing', 'label' => __('restaurant.nav_public')],
         ],
         default => [],
     };

@@ -15,6 +15,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide Alpine-controlled elements until Alpine initializes; without this,
+   x-show="false" content (collapsed sidebar groups, dropdowns) flashes
+   open on page load. */
+[x-cloak] {
+    display: none !important;
+}
+
 @layer base {
     html {
         scroll-behavior: smooth;

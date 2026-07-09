@@ -6,9 +6,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Error pages must wear the shop header (no sign-in / sign-up / box-area
- * nav) so an error never hands visitors a simple route into the parked
- * account surface.
+ * Error pages must wear the shop header (no sign-in / sign-up / box-area nav) so
+ * an error never hands consumers a route into the parked account surface. The
+ * B2B login lives only on the Geschäftskunden page, never the shop header.
  */
 class ErrorPageHeaderTest extends TestCase
 {

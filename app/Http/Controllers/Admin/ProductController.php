@@ -581,6 +581,12 @@ class ProductController extends Controller
                 ? max(1, (int) $validated['default_freshness_window_days'])
                 : 1,
             'is_seasonal' => (bool) ($validated['is_seasonal'] ?? false),
+            'request_visibility' => in_array($validated['request_visibility'] ?? 'auto', ['auto', 'always', 'never'], true)
+                ? ($validated['request_visibility'] ?? 'auto')
+                : 'auto',
+            // The form sets the PERMANENT state; time-bound overrides are
+            // managed on the Anfrage-Sortiment page and reset here.
+            'request_visibility_until' => null,
             'is_available' => (bool) ($validated['is_available'] ?? false),
             'is_published' => (bool) ($validated['is_published'] ?? false),
             'is_test' => (bool) ($validated['is_test'] ?? false),
@@ -609,6 +615,16 @@ class ProductController extends Controller
         $payload['unit_volume_ml'] = $isCount && isset($validated['unit_volume_ml']) && $validated['unit_volume_ml'] !== ''
             ? (int) $validated['unit_volume_ml']
             : null;
+
+        // Recurring yearly season window. Only persisted when the product is
+        // flagged seasonal; cleared otherwise so a toggled-off product doesn't
+        // keep a stale window.
+        $seasonFields = ['season_start_month', 'season_start_day', 'season_end_month', 'season_end_day'];
+        foreach ($seasonFields as $field) {
+            $payload[$field] = $payload['is_seasonal'] && isset($validated[$field]) && $validated[$field] !== ''
+                ? (int) $validated[$field]
+                : null;
+        }
 
         return $payload;
     }

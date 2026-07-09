@@ -1,11 +1,11 @@
 <x-admin-layout>
     <x-slot name="header">
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('shop.admin.heading') }}</h1>
                 <span class="text-sm text-gray-500">{{ __('shop.admin.subheading', ['count' => $orders->total()]) }}</span>
             </div>
-            <div class="flex items-center gap-2"
+            <div class="flex flex-wrap items-center gap-2"
                  x-data="{
                      open: false,
                      producers: [],
@@ -38,6 +38,14 @@
                  }"
                  @click.outside="open = false"
             >
+                <a href="{{ route('app.admin.restaurant-orders.index', ['status' => 'submitted']) }}"
+                   class="relative inline-flex items-center gap-1.5 rounded-sm border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+                   data-testid="shop-admin-requests-link">
+                    {{ __('restaurant.admin_requests_link') }}
+                    @if ($openRequests > 0)
+                        <span class="rounded-full bg-amber-600 px-2 py-0.5 font-mono text-[11px] font-bold text-white">{{ $openRequests }}</span>
+                    @endif
+                </a>
                 <a href="{{ route('app.admin.shop-orders.export', request()->query()) }}"
                    class="inline-flex items-center gap-1.5 rounded-sm border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                    data-testid="shop-admin-export-link">
@@ -97,8 +105,89 @@
                 <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">{{ session('status') }}</p>
             @endif
 
-            <div class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-                <form method="get" class="flex flex-wrap items-end gap-3">
+            @php
+                $selFrom = $deliveryFrom !== '' ? $deliveryFrom : null;
+                $selTo = $deliveryTo !== '' ? $deliveryTo : ($selFrom ?? null);
+                $locale = app()->getLocale();
+                // Button label: "Alle Termine" | "Mo, 6. Jul" | "6. Jul – 13. Jul"
+                if ($selFrom === null) {
+                    $rangeLabel = __('shop.admin.filter_all_dates');
+                } elseif ($selFrom === $selTo) {
+                    $rangeLabel = \Illuminate\Support\Carbon::parse($selFrom)->locale($locale)->isoFormat('dd, D. MMM YYYY');
+                } else {
+                    $rangeLabel = \Illuminate\Support\Carbon::parse($selFrom)->locale($locale)->isoFormat('D. MMM').' – '.\Illuminate\Support\Carbon::parse($selTo)->locale($locale)->isoFormat('D. MMM YYYY');
+                }
+            @endphp
+            <div class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm"
+                 x-data="adminOrderCalendar({
+                     month: @js($calendarInitialMonth),
+                     initialDays: @js($calendarDays),
+                     monthUrl: @js(route('app.admin.shop-orders.calendar-month')),
+                     selFrom: @js($selFrom),
+                     selTo: @js($selTo),
+                     locale: @js($locale),
+                     monthNames: @js(collect(range(1, 12))->map(fn ($m) => \Illuminate\Support\Carbon::create(2026, $m, 1)->locale($locale)->isoFormat('MMMM'))->all()),
+                 })">
+                <form method="get" x-ref="filterForm" class="flex flex-wrap items-end gap-3">
+                    {{-- The calendar popover IS the date filter — the form only
+                         carries the picked range in hidden fields. --}}
+                    <input type="hidden" name="delivery_from" x-ref="deliveryFrom" value="{{ $deliveryFrom }}">
+                    <input type="hidden" name="delivery_to" x-ref="deliveryTo" value="{{ $deliveryTo }}">
+
+                    <div class="relative" @click.outside="calOpen = false" @keydown.escape.window="calOpen = false">
+                        <label class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_dates') }}</label>
+                        <button type="button" @click="calOpen = !calOpen" :aria-expanded="calOpen"
+                                data-testid="shop-admin-calendar-toggle"
+                                class="inline-flex min-w-[13rem] items-center justify-between gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 hover:bg-gray-50">
+                            <span>{{ $rangeLabel }}</span>
+                            <svg class="h-3.5 w-3.5 text-gray-500 transition-transform" :class="calOpen && 'rotate-180'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+                        </button>
+
+                        {{-- Compact calendar popover with month paging (any month,
+                             past or future). Click one day twice = that day; two
+                             days = range. Green = deliveries, yellow = stock only. --}}
+                        <div x-show="calOpen" x-cloak x-transition.origin.top
+                             class="absolute left-0 z-40 mt-2 w-[21rem] rounded-lg border border-gray-200 bg-white p-3 shadow-xl"
+                             data-testid="shop-admin-calendar">
+                            <div class="mb-2 flex items-center justify-between">
+                                <button type="button" @click="prevMonth()" class="rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-100" data-testid="shop-admin-cal-prev" aria-label="&larr;">&larr;</button>
+                                <span class="text-sm font-medium text-gray-800" x-text="monthLabel()"></span>
+                                <button type="button" @click="nextMonth()" class="rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-100" data-testid="shop-admin-cal-next" aria-label="&rarr;">&rarr;</button>
+                            </div>
+                            <div class="mb-1 grid grid-cols-7 gap-0.5 text-center font-mono text-[0.55rem] uppercase tracking-wider text-gray-400">
+                                @foreach ([__('Mo'), __('Di'), __('Mi'), __('Do'), __('Fr'), __('Sa'), __('So')] as $dow)
+                                    <span>{{ $dow }}</span>
+                                @endforeach
+                            </div>
+                            <div class="space-y-0.5" :class="loading && 'opacity-50'">
+                                <template x-for="(week, wi) in weeks()" :key="month + '-' + wi">
+                                    <div class="grid grid-cols-7 gap-0.5">
+                                        <template x-for="(day, di) in week" :key="di">
+                                            <span>
+                                                <button x-show="day" type="button"
+                                                        @click="pick(day.iso)"
+                                                        :data-testid="day ? ('shop-admin-cal-' + day.iso) : null"
+                                                        :title="day ? dayTitle(day) : ''"
+                                                        class="relative flex h-7 w-full items-center justify-center rounded text-[11px] tabular-nums transition"
+                                                        :class="day ? toneFor(day) : ''">
+                                                    <span x-text="day ? parseInt(day.iso.slice(8), 10) : ''"></span>
+                                                    <span x-show="day && day.orders > 0" class="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
+                                                </button>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2 text-[0.65rem] text-gray-500">
+                                <span class="flex items-center gap-3">
+                                    <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-emerald-100 ring-1 ring-emerald-300"></span>{{ __('shop.admin.cal_legend_orders') }}</span>
+                                    <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-amber-50 ring-1 ring-amber-300"></span>{{ __('shop.admin.cal_legend_stock') }}</span>
+                                </span>
+                                <button type="button" @click="apply('', '')" class="font-medium text-gray-700 underline" data-testid="shop-admin-all-dates">{{ __('shop.admin.filter_all_dates') }}</button>
+                            </div>
+                            <p class="mt-1 text-[0.65rem] text-gray-400">{{ __('shop.admin.cal_hint') }}</p>
+                        </div>
+                    </div>
                     <div>
                         <label for="status" class="mb-1 block text-xs font-medium text-gray-600">{{ __('Status') }}</label>
                         <select id="status" name="status" class="rounded-md border-gray-300 text-sm">
@@ -112,15 +201,15 @@
                         </select>
                     </div>
                     <div>
-                        <label for="delivery_from" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_delivery_from') }}</label>
-                        <input type="date" id="delivery_from" name="delivery_from" value="{{ $deliveryFrom }}" class="rounded-md border-gray-300 text-sm">
-                    </div>
-                    <div>
-                        <label for="delivery_to" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_delivery_to') }}</label>
-                        <input type="date" id="delivery_to" name="delivery_to" value="{{ $deliveryTo }}" class="rounded-md border-gray-300 text-sm">
+                        <label for="type" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.filter_type') }}</label>
+                        <select id="type" name="type" class="rounded-md border-gray-300 text-sm">
+                            <option value="" @selected($type === '')>{{ __('All') }}</option>
+                            <option value="b2c" @selected($type === 'b2c')>{{ __('shop.admin.type_b2c') }}</option>
+                            <option value="b2b" @selected($type === 'b2b')>{{ __('shop.admin.type_b2b') }}</option>
+                        </select>
                     </div>
                     <x-primary-button size="sm">{{ __('Filter') }}</x-primary-button>
-                    @if ($status !== 'finalized' || $deliveryFrom !== '' || $deliveryTo !== '')
+                    @if ($status !== 'finalized' || $type !== '')
                         <a href="{{ route('app.admin.shop-orders.index') }}" class="text-sm text-gray-600 underline">{{ __('Reset') }}</a>
                     @endif
                 </form>
@@ -145,6 +234,51 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($orders as $order)
+                            @if ($order instanceof \App\Models\RestaurantOrder)
+                                <tr class="cursor-pointer align-top hover:bg-gray-50" data-testid="shop-admin-restaurant-row-{{ $order->id }}"
+                                    onclick="window.location='{{ route('app.admin.restaurant-orders.show', $order) }}'">
+                                    <td class="whitespace-nowrap px-3 py-2 font-mono text-gray-700">R#{{ $order->id }}</td>
+                                    <td class="whitespace-nowrap px-3 py-2 text-gray-500">{{ $order->created_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm') }}</td>
+                                    <td class="px-3 py-2">
+                                        <div class="font-medium text-gray-800">{{ $order->user?->restaurantProfile?->business_name ?? $order->user?->name ?? '—' }}</div>
+                                        @if ($order->user?->email)<div class="text-xs text-gray-500">{{ $order->user->email }}</div>@endif
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-2">
+                                        <div class="flex flex-wrap gap-1">
+                                            <span class="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-blue-700">{{ __('shop.admin.badge_b2b') }}</span>
+                                            @if ($order->isRequest())
+                                                <span class="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-700">{{ __('restaurant.kind_request') }}</span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-700">
+                                        {{ __('shop.fulfillment_delivery') }}
+                                        <div class="text-xs text-gray-500">{{ $order->delivery_street }}@if ($order->delivery_postal_code), {{ $order->delivery_postal_code }}@endif</div>
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-700">
+                                        <div class="whitespace-nowrap">{{ $order->expected_delivery_date?->locale(app()->getLocale())->isoFormat('dd, D. MMM') ?? '—' }}</div>
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums text-gray-800">
+                                        @eur($order->items_total_net_eur) <span class="text-[10px] font-normal text-gray-500">{{ __('restaurant.net_suffix') }}</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-700"><span class="text-gray-400">—</span></td>
+                                    <td class="whitespace-nowrap px-3 py-2"><span class="text-gray-400">—</span></td>
+                                    <td class="whitespace-nowrap px-3 py-2">
+                                        <span @class([
+                                            'rounded-full px-2 py-0.5 text-xs font-medium',
+                                            'bg-emerald-100 text-emerald-800' => in_array($order->status->value, ['confirmed', 'fulfilled'], true),
+                                            'bg-gray-100 text-gray-600' => ! in_array($order->status->value, ['confirmed', 'fulfilled'], true),
+                                        ])>{{ __('restaurant.order_status_'.$order->status->value) }}</span>
+                                        @if ($order->isInvoiced() && ! $order->isInvoicePaid())
+                                            <div class="mt-1 text-[11px] font-semibold {{ $order->isInvoiceOverdue() ? 'text-rose-700' : 'text-amber-700' }}">{{ $order->isInvoiceOverdue() ? __('restaurant.invoice_overdue_badge') : __('restaurant.invoice_open_badge') }}</div>
+                                        @endif
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-2 text-right">
+                                        <a href="{{ route('app.admin.restaurant-orders.show', $order) }}" class="text-emerald-700 underline" data-testid="shop-admin-open-restaurant-{{ $order->id }}">{{ __('Open') }}</a>
+                                    </td>
+                                </tr>
+                                @continue
+                            @endif
                             <tr class="align-top" data-testid="shop-admin-row-{{ $order->id }}">
                                 <td class="whitespace-nowrap px-3 py-2 font-mono text-gray-700">#{{ $order->id }}</td>
                                 <td class="whitespace-nowrap px-3 py-2 text-gray-500">
@@ -245,4 +379,89 @@
             <div>{{ $orders->links() }}</div>
         </div>
     </div>
+    <script>
+    function adminOrderCalendar(config) {
+        return {
+            calOpen: false,
+            pickFrom: '',
+            month: config.month,               // 'YYYY-MM'
+            monthUrl: config.monthUrl,
+            monthNames: config.monthNames,
+            selFrom: config.selFrom,
+            selTo: config.selTo || config.selFrom,
+            loading: false,
+            cache: { [config.month]: config.initialDays },
+
+            days() { return this.cache[this.month] || []; },
+
+            monthLabel() {
+                const [y, m] = this.month.split('-').map(Number);
+                return this.monthNames[m - 1] + ' ' + y;
+            },
+
+            // Monday-first grid: pad the first week, chunk by 7.
+            weeks() {
+                const days = this.days();
+                if (!days.length) return [];
+                const first = new Date(days[0].iso + 'T00:00:00');
+                const blanks = (first.getDay() + 6) % 7;
+                const cells = Array(blanks).fill(null).concat(days);
+                const out = [];
+                for (let i = 0; i < cells.length; i += 7) out.push(cells.slice(i, i + 7));
+                return out;
+            },
+
+            shiftMonth(delta) {
+                let [y, m] = this.month.split('-').map(Number);
+                m += delta;
+                if (m < 1) { m = 12; y--; }
+                if (m > 12) { m = 1; y++; }
+                this.month = y + '-' + String(m).padStart(2, '0');
+                this.fetchMonth(this.month);
+            },
+            prevMonth() { this.shiftMonth(-1); },
+            nextMonth() { this.shiftMonth(1); },
+
+            fetchMonth(month) {
+                if (this.cache[month]) return;
+                this.loading = true;
+                fetch(this.monthUrl + '?month=' + month, { headers: { 'Accept': 'application/json' } })
+                    .then((r) => r.json())
+                    .then((d) => { this.cache[month] = d.days || []; })
+                    .catch(() => { this.cache[month] = []; })
+                    .finally(() => { this.loading = false; });
+            },
+
+            toneFor(day) {
+                const tone = day.orders > 0
+                    ? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
+                    : (day.stock > 0 ? 'bg-amber-50 text-amber-800 hover:bg-amber-100' : 'text-gray-400 hover:bg-gray-100');
+                const sel = (this.selFrom && day.iso >= this.selFrom && day.iso <= (this.selTo || this.selFrom))
+                    ? ' ring-2 ring-gray-900 font-semibold' : '';
+                const picking = this.pickFrom === day.iso ? ' ring-2 ring-gray-800' : '';
+                return tone + sel + picking;
+            },
+
+            dayTitle(day) {
+                const orders = (day.orders === 1 ? @js(trans_choice('shop.admin.cal_orders', 1, ['count' => 1])) : @js(trans_choice('shop.admin.cal_orders', 2, ['count' => ':count'])).replace(':count', day.orders));
+                const stock = (day.stock === 1 ? @js(trans_choice('shop.admin.cal_stock', 1, ['count' => 1])) : @js(trans_choice('shop.admin.cal_stock', 2, ['count' => ':count'])).replace(':count', day.stock));
+                return day.iso + ' · ' + orders + ' · ' + stock;
+            },
+
+            pick(iso) {
+                if (!this.pickFrom) { this.pickFrom = iso; return; }
+                let a = this.pickFrom, b = iso;
+                if (b < a) [a, b] = [b, a];
+                this.apply(a, b);
+            },
+            apply(a, b) {
+                this.$refs.deliveryFrom.value = a;
+                this.$refs.deliveryTo.value = b;
+                this.pickFrom = '';
+                this.calOpen = false;
+                this.$refs.filterForm.requestSubmit();
+            },
+        };
+    }
+    </script>
 </x-admin-layout>

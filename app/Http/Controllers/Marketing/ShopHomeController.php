@@ -36,6 +36,9 @@ class ShopHomeController extends Controller
             'availableCategories' => $availableCategories,
             // Real, in-season products to feature (empty → section hidden).
             'inSeasonProducts' => $this->shop->featuredInSeasonProducts(),
+            // Search snippet: this is what Google shows for erd-gut.de.
+            'title' => __('seo.home_title'),
+            'description' => __('seo.home_description'),
         ]);
     }
 }

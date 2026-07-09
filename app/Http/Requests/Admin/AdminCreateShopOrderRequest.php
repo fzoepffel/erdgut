@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Enums\CustomerType;
 use App\Enums\ShopStockAudience;
 use App\Models\Product;
+use App\Models\User;
 use App\Services\Admin\InventoryService;
 use App\Support\PickupLocations;
 use Illuminate\Foundation\Http\FormRequest;
@@ -82,6 +83,12 @@ class AdminCreateShopOrderRequest extends FormRequest
 
             'customer_type' => ['nullable', Rule::in(['private', 'business'])],
 
+            // Recurring weekly B2B delivery: routes through the restaurant
+            // order machinery (needs a verified restaurant account).
+            'restaurant_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'recurring' => ['nullable', 'boolean'],
+            'recurring_until' => ['nullable', 'date', 'after:expected_delivery_date'],
+
             'delivery_fee_eur' => ['nullable', 'required_if:fulfillment_mode,delivery', 'numeric', 'min:0', 'max:999.99'],
             'delivery_fee_vat_rate_percent' => ['nullable', 'required_if:fulfillment_mode,delivery', 'integer', Rule::in([7, 19])],
         ];
@@ -95,6 +102,33 @@ class AdminCreateShopOrderRequest extends FormRequest
             }
 
             $items = (array) $this->input('items', []);
+
+            // Recurring weekly delivery: only for business customers tied to a
+            // verified restaurant account, delivered (not picked up), and with
+            // catalog lines only — the B2B machinery prices and materializes it.
+            if ($this->boolean('recurring')) {
+                if ($this->input('customer_type') !== CustomerType::Business->value) {
+                    $v->errors()->add('recurring', __('shop.admin.errors.recurring_business_only'));
+                }
+                if ($this->input('fulfillment_mode') !== 'delivery') {
+                    $v->errors()->add('recurring', __('shop.admin.errors.recurring_delivery_only'));
+                }
+                // Either an existing verified account — or enough contact data
+                // (name + email) to auto-create one from the customer details.
+                if ((int) $this->input('restaurant_user_id') > 0) {
+                    $accountUser = User::find((int) $this->input('restaurant_user_id'));
+                    if ($accountUser?->restaurantProfile === null || ! $accountUser->restaurantProfile->isVerified()) {
+                        $v->errors()->add('restaurant_user_id', __('shop.admin.errors.recurring_needs_account'));
+                    }
+                } elseif (trim((string) $this->input('name')) === '' || trim((string) $this->input('email')) === '') {
+                    $v->errors()->add('restaurant_user_id', __('shop.admin.errors.recurring_needs_contact'));
+                }
+                foreach ($items as $index => $line) {
+                    if ((int) ($line['product_id'] ?? 0) === 0) {
+                        $v->errors()->add("items.$index.name", __('shop.admin.errors.recurring_no_custom_lines'));
+                    }
+                }
+            }
 
             $deliveryDate = (string) $this->input('expected_delivery_date');
             $date = $deliveryDate !== '' ? Carbon::parse($deliveryDate) : null;

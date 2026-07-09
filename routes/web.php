@@ -16,9 +16,14 @@ use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPackingController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
+use App\Http\Controllers\Admin\AdminRequestAvailabilityController;
+use App\Http\Controllers\Admin\AdminRestaurantAccountController;
+use App\Http\Controllers\Admin\AdminRestaurantOrderController;
+use App\Http\Controllers\Admin\AdminRestaurantRequestController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AdminShopClosureController;
 use App\Http\Controllers\Admin\AdminShopOrderController;
+use App\Http\Controllers\Admin\AdminStandingOrderController;
 use App\Http\Controllers\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Admin\AdminUpcomingChargeController;
 use App\Http\Controllers\Admin\AdminUserController;
@@ -41,6 +46,7 @@ use App\Http\Controllers\Marketing\ProducerController as MarketingProducerContro
 use App\Http\Controllers\Marketing\ShopAboutController;
 use App\Http\Controllers\Marketing\ShopContactController;
 use App\Http\Controllers\Marketing\ShopHomeController;
+use App\Http\Controllers\Marketing\SitemapController;
 use App\Http\Controllers\Marketing\TermsController;
 use App\Http\Controllers\Onboarding\AccountStepController;
 use App\Http\Controllers\Onboarding\AddressStepController;
@@ -59,6 +65,15 @@ use App\Http\Controllers\PaymentSetupController;
 use App\Http\Controllers\ProductController as CustomerProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\Restaurant\RestaurantAccountController;
+use App\Http\Controllers\Restaurant\RestaurantCatalogController;
+use App\Http\Controllers\Restaurant\RestaurantContactController;
+use App\Http\Controllers\Restaurant\RestaurantDashboardController;
+use App\Http\Controllers\Restaurant\RestaurantOrderController;
+use App\Http\Controllers\Restaurant\RestaurantRegisterController;
+use App\Http\Controllers\Restaurant\RestaurantRequestController;
+use App\Http\Controllers\Restaurant\RestaurantStandingOrderController;
+use App\Http\Controllers\Restaurant\RestaurantVerificationController;
 use App\Http\Controllers\Shop\ShopCatalogController;
 use App\Http\Controllers\Shop\ShopCheckoutController;
 use App\Http\Controllers\Shop\ShopController;
@@ -81,6 +96,7 @@ Route::name('public.')->group(function () {
     // marketing.coming-soon) is retired and no longer routed, but kept in
     // the codebase.
     Route::get('/', ShopHomeController::class)->name('home');
+    Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
     Route::get('/erdgut', ShopAboutController::class)->name('shop-about');
     Route::get('/kontakt', [ShopContactController::class, 'create'])->name('shop-contact');
     Route::post('/kontakt', [ShopContactController::class, 'store'])->middleware('throttle:contact')->name('shop-contact.store');
@@ -289,6 +305,90 @@ Route::name('app.onboarding.')
         });
     });
 
+// ── Restaurant (B2B) accounts ───────────────────────────────────────────────
+// Public "Geschäftskunden" (B2B) landing page — explains the offering and
+// carries the restaurant login + apply CTAs. A logged-in verified restaurant
+// skips the pitch and lands straight in its ordering area; everyone else
+// (guests, consumers, unverified applicants) sees the landing.
+Route::get('geschaeftskunden', function () {
+    $user = auth()->user();
+    if ($user !== null && $user->isVerifiedRestaurant()) {
+        return redirect()->route('app.restaurant.dashboard');
+    }
+    // A signed-in applicant awaiting review sees the status page, not the pitch.
+    if ($user !== null && $user->isRestaurant()) {
+        return redirect()->route('app.restaurant.pending');
+    }
+
+    return view('restaurant.landing');
+})->name('restaurant.landing');
+
+// Public application (guests apply; admin verifies before the account opens).
+Route::middleware('guest')->group(function () {
+    Route::get('restaurant/register', [RestaurantRegisterController::class, 'create'])->name('restaurant.register');
+    Route::post('restaurant/register', [RestaurantRegisterController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('restaurant.register.store');
+});
+Route::get('restaurant/register/submitted', [RestaurantRegisterController::class, 'submitted'])
+    ->name('restaurant.register.submitted');
+
+// Admin verify/reject via signed email links (no login required — "just click").
+Route::middleware('signed')->group(function () {
+    Route::get('restaurant-applications/{restaurantProfile}/review', [RestaurantVerificationController::class, 'review'])
+        ->name('restaurant.verify.review');
+    Route::post('restaurant-applications/{restaurantProfile}/verify', [RestaurantVerificationController::class, 'approve'])
+        ->name('restaurant.verify.approve');
+    Route::post('restaurant-applications/{restaurantProfile}/reject', [RestaurantVerificationController::class, 'reject'])
+        ->name('restaurant.verify.reject');
+});
+Route::get('restaurant-applications/reviewed', [RestaurantVerificationController::class, 'done'])
+    ->name('restaurant.verify.done');
+
+// Verified-restaurant area. Not behind the box `verified` (email) gate —
+// admin approval is the gate; the pending page sits outside `restaurant` so
+// awaiting accounts don't redirect-loop.
+Route::middleware('auth')
+    ->prefix('app/restaurant')
+    ->name('app.restaurant.')
+    ->group(function () {
+        Route::get('pending', [RestaurantDashboardController::class, 'pending'])->name('pending');
+
+        Route::middleware('restaurant')->group(function () {
+            Route::get('/', [RestaurantDashboardController::class, 'index'])->name('dashboard');
+            Route::get('catalog', [RestaurantCatalogController::class, 'index'])->name('catalog');
+
+            Route::get('orders', [RestaurantOrderController::class, 'index'])->name('orders.index');
+            Route::post('orders', [RestaurantOrderController::class, 'store'])->name('orders.store');
+            Route::post('orders/{restaurantOrder}/reorder', [RestaurantOrderController::class, 'reorder'])->name('orders.reorder');
+
+            // Anfragen area: season / over-stock / free-form requests, deliberately
+            // separate from the shop (kind=request artifacts).
+            Route::get('anfragen', [RestaurantRequestController::class, 'index'])->name('requests.index');
+            Route::get('anfragen/liste', [RestaurantRequestController::class, 'list'])->name('requests.list');
+            Route::post('anfragen', [RestaurantRequestController::class, 'store'])->name('requests.store');
+            Route::get('orders/{restaurantOrder}', [RestaurantOrderController::class, 'show'])->name('orders.show');
+            Route::get('orders/{restaurantOrder}/invoice.pdf', [RestaurantOrderController::class, 'invoicePdf'])->name('orders.invoice-pdf');
+            Route::post('orders/{restaurantOrder}/cancel', [RestaurantOrderController::class, 'cancel'])->name('orders.cancel');
+            Route::post('orders/{restaurantOrder}/lines', [RestaurantOrderController::class, 'updateLines'])->name('orders.update-lines');
+
+            Route::get('kontakt', [RestaurantContactController::class, 'create'])->name('contact');
+            Route::post('kontakt', [RestaurantContactController::class, 'store'])->middleware('throttle:contact')->name('contact.store');
+
+            Route::get('konto', [RestaurantAccountController::class, 'edit'])->name('account.edit');
+            Route::put('konto', [RestaurantAccountController::class, 'update'])->name('account.update');
+            Route::put('konto/passwort', [RestaurantAccountController::class, 'updatePassword'])->name('account.password');
+            Route::get('rechnungen', [RestaurantOrderController::class, 'invoices'])->name('invoices.index');
+
+            Route::get('standing-orders', [RestaurantStandingOrderController::class, 'index'])->name('standing-orders.index');
+            Route::post('standing-orders/{standingOrder}/pause', [RestaurantStandingOrderController::class, 'pause'])->name('standing-orders.pause');
+            Route::post('standing-orders/{standingOrder}/resume', [RestaurantStandingOrderController::class, 'resume'])->name('standing-orders.resume');
+            Route::post('standing-orders/{standingOrder}/end', [RestaurantStandingOrderController::class, 'setEnd'])->name('standing-orders.end');
+            Route::post('standing-orders/{standingOrder}/items', [RestaurantStandingOrderController::class, 'updateItems'])->name('standing-orders.items');
+            Route::delete('standing-orders/{standingOrder}', [RestaurantStandingOrderController::class, 'destroy'])->name('standing-orders.destroy');
+        });
+    });
+
 Route::middleware(['auth', 'verified'])
     ->prefix('app')
     ->name('app.')
@@ -346,6 +446,34 @@ Route::middleware(['auth', 'verified'])
 
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+            Route::get('restaurant-accounts', [AdminRestaurantAccountController::class, 'index'])->name('restaurant-accounts.index');
+
+            Route::get('request-availability', [AdminRequestAvailabilityController::class, 'index'])->name('request-availability.index');
+            Route::post('request-availability/{product}', [AdminRequestAvailabilityController::class, 'update'])->name('request-availability.update');
+
+            Route::get('restaurant-standing-orders', [AdminStandingOrderController::class, 'index'])->name('standing-orders.index');
+            Route::post('restaurant-standing-orders/{standingOrder}/activate', [AdminStandingOrderController::class, 'activate'])->name('standing-orders.activate');
+            Route::post('restaurant-standing-orders/{standingOrder}/pause', [AdminStandingOrderController::class, 'pause'])->name('standing-orders.pause');
+            Route::post('restaurant-standing-orders/{standingOrder}/resume', [AdminStandingOrderController::class, 'resume'])->name('standing-orders.resume');
+            Route::post('restaurant-standing-orders/{standingOrder}/end', [AdminStandingOrderController::class, 'setEnd'])->name('standing-orders.end');
+            Route::post('restaurant-standing-orders/{standingOrder}/items', [AdminStandingOrderController::class, 'updateItems'])->name('standing-orders.items');
+            Route::delete('restaurant-standing-orders/{standingOrder}', [AdminStandingOrderController::class, 'destroy'])->name('standing-orders.destroy');
+
+            Route::get('restaurant-orders', [AdminRestaurantOrderController::class, 'index'])->name('restaurant-orders.index');
+            // Registered before the {restaurantOrder} wildcard: 'create' would otherwise bind as a model key.
+            Route::get('restaurant-orders/create', [AdminRestaurantRequestController::class, 'create'])->name('restaurant-orders.create');
+            Route::post('restaurant-orders', [AdminRestaurantRequestController::class, 'store'])->name('restaurant-orders.store');
+            Route::get('restaurant-orders/{restaurantOrder}', [AdminRestaurantOrderController::class, 'show'])->name('restaurant-orders.show');
+            Route::get('restaurant-orders/{restaurantOrder}/invoice.pdf', [AdminRestaurantOrderController::class, 'invoicePdf'])->name('restaurant-orders.invoice-pdf');
+            Route::post('restaurant-orders/{restaurantOrder}/confirm', [AdminRestaurantOrderController::class, 'confirm'])->name('restaurant-orders.confirm');
+            Route::post('restaurant-orders/{restaurantOrder}/decline', [AdminRestaurantOrderController::class, 'decline'])->name('restaurant-orders.decline');
+            Route::post('restaurant-orders/{restaurantOrder}/cancel', [AdminRestaurantOrderController::class, 'cancel'])->name('restaurant-orders.cancel');
+            Route::post('restaurant-orders/{restaurantOrder}/fulfil', [AdminRestaurantOrderController::class, 'fulfil'])->name('restaurant-orders.fulfil');
+            Route::post('restaurant-orders/{restaurantOrder}/items/{item}/accept', [AdminRestaurantOrderController::class, 'acceptLine'])->name('restaurant-orders.accept-line');
+            Route::post('restaurant-orders/{restaurantOrder}/items/{item}/decline', [AdminRestaurantOrderController::class, 'declineLine'])->name('restaurant-orders.decline-line');
+            Route::post('restaurant-orders/{restaurantOrder}/pricing', [AdminRestaurantOrderController::class, 'updatePricing'])->name('restaurant-orders.pricing');
+            Route::post('restaurant-orders/{restaurantOrder}/invoice', [AdminRestaurantOrderController::class, 'issueInvoice'])->name('restaurant-orders.invoice');
+            Route::post('restaurant-orders/{restaurantOrder}/invoice/paid', [AdminRestaurantOrderController::class, 'markPaid'])->name('restaurant-orders.invoice-paid');
             Route::get('audit-events', [AdminAuditEventController::class, 'index'])->name('audit-events.index');
             Route::get('search', AdminSearchController::class)
                 ->middleware('throttle:60,1')
@@ -537,6 +665,7 @@ Route::middleware(['auth', 'verified'])
             // Product-by-product packing for a delivery day — declared before
             // the {shopOrder} wildcard so "packing" isn't read as a model id.
             Route::get('shop-orders/packing', [AdminPackingController::class, 'index'])->name('packing.index');
+            Route::get('shop-orders/calendar-month', [AdminShopOrderController::class, 'calendarMonth'])->name('shop-orders.calendar-month');
             Route::post('shop-orders/packing/items/{item}/toggle', [AdminPackingController::class, 'toggleItem'])
                 ->middleware('throttle:120,1')->name('packing.toggle');
             Route::post('shop-orders/packing/product', [AdminPackingController::class, 'packProduct'])

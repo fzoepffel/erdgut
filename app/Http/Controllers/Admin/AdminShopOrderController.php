@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\CustomerType;
 use App\Enums\OrderSource;
+use App\Enums\RestaurantOrderStatus;
+use App\Enums\RestaurantVerificationStatus;
 use App\Enums\ShopOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Exports\ShopOrdersExport;
@@ -14,14 +16,20 @@ use App\Mail\ShopOrderWindowMail;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\RestaurantOrder;
+use App\Models\RestaurantProfile;
 use App\Models\ShopOrder;
+use App\Models\User;
 use App\Services\Admin\InventoryService;
+use App\Services\Restaurant\RestaurantOrderService;
+use App\Services\Restaurant\RestaurantStandingOrderService;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\PriceResolver;
 use App\Services\Shop\ShopOrderService;
 use App\Support\AuditLogger;
 use App\Support\PickupLocations;
+use App\Support\RestaurantAccountProvisioner;
 use App\Support\SumUpCheckoutLogger;
 use App\Support\SumUpService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -30,11 +38,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
@@ -297,10 +307,30 @@ class AdminShopOrderController extends Controller
      */
     public function create(Request $request): View
     {
+        // Verified restaurant accounts for the recurring-delivery option.
+        $restaurantAccounts = RestaurantProfile::query()
+            ->where('verification_status', RestaurantVerificationStatus::Verified->value)
+            ->with('user')
+            ->get()
+            ->map(fn ($p) => [
+                'user_id' => $p->user_id,
+                'label' => trim(($p->business_name ?: ($p->user?->name ?? '')).' · '.($p->user?->email ?? '')),
+                // Prefill payload for the create form.
+                'name' => $p->contact_name ?: ($p->user?->name ?? ''),
+                'email' => $p->user?->email ?? '',
+                'phone' => $p->user?->phone ?? '',
+                'street' => $p->billing_street ?? '',
+                'postal' => $p->billing_postal_code ?? '',
+                'city' => $p->billing_city ?? '',
+            ])
+            ->sortBy('label')
+            ->values();
+
         return view('admin.shop-orders.create', [
             'pickupLocations' => PickupLocations::all(),
             'availableProductsUrl' => route('app.admin.shop-orders.available-products'),
             'quoteUrl' => route('app.admin.shop-orders.quote'),
+            'restaurantAccounts' => $restaurantAccounts,
         ]);
     }
 
@@ -315,6 +345,13 @@ class AdminShopOrderController extends Controller
      */
     public function store(AdminCreateShopOrderRequest $request): RedirectResponse
     {
+        // Recurring weekly B2B delivery → the restaurant order machinery (net
+        // price list, standing order, horizon materialization) instead of a
+        // one-off shop order. Validated in the form request.
+        if ($request->boolean('recurring')) {
+            return $this->storeRecurring($request);
+        }
+
         try {
             $order = $this->service->createOrder(array_merge(
                 $request->validated(),
@@ -347,6 +384,73 @@ class AdminShopOrderController extends Controller
     }
 
     /**
+     * Create a weekly recurring B2B delivery on behalf of a verified
+     * restaurant account. Prices come from the B2B price list (the form's
+     * negotiated line totals don't apply here); every line repeats weekly
+     * until the chosen end. The standing order activates immediately, so all
+     * upcoming weeks materialize as real orders.
+     */
+    private function storeRecurring(AdminCreateShopOrderRequest $request): RedirectResponse
+    {
+        $accountId = (int) ($request->validated('restaurant_user_id') ?? 0);
+        $user = $accountId > 0
+            ? User::findOrFail($accountId)
+            : app(RestaurantAccountProvisioner::class)->findOrCreateVerified(
+                (string) $request->validated('name'),
+                (string) $request->validated('email'),
+                [
+                    'street' => (string) $request->validated('delivery_street'),
+                    'postal_code' => (string) $request->validated('delivery_postal_code'),
+                    'city' => (string) $request->validated('delivery_city'),
+                ],
+                (int) $request->user()->id,
+            );
+        $until = (string) ($request->validated('recurring_until') ?? '');
+
+        $items = collect($request->validated('items'))->map(fn (array $line): array => [
+            'product_id' => (int) $line['product_id'],
+            'variant_id' => isset($line['variant_id']) ? (int) $line['variant_id'] : null,
+            'quantity' => (float) $line['quantity'],
+            'recurrence' => 'weekly',
+            'until' => $until !== '' ? $until : null,
+        ])->values()->all();
+
+        try {
+            $order = app(RestaurantOrderService::class)->submitOrder($user, [
+                'items' => $items,
+                'expected_delivery_date' => $request->validated('expected_delivery_date'),
+                'delivery_street' => $request->validated('delivery_street'),
+                'delivery_postal_code' => $request->validated('delivery_postal_code'),
+                'delivery_city' => $request->validated('delivery_city'),
+                'delivery_notes' => $request->validated('delivery_notes'),
+                'locale' => $user->locale ?? app()->getLocale(),
+            ]);
+        } catch (ValidationException $e) {
+            return back()->withInput()->withErrors($e->errors());
+        }
+
+        $standingService = app(RestaurantStandingOrderService::class);
+        $standingOrder = $standingService->createFromOrder($order, $items);
+        if ($standingOrder !== null && $standingOrder->isPending()) {
+            $standingService->activate($standingOrder, (int) $request->user()->id);
+        }
+
+        AuditLogger::log(
+            entityType: 'restaurant_order',
+            entityId: (int) $order->id,
+            action: 'create_recurring',
+            fromState: null,
+            toState: $order->status->value,
+            metadata: ['channel' => 'admin', 'standing_order_id' => $standingOrder?->id, 'until' => $until !== '' ? $until : null],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.restaurant-orders.show', $order)
+            ->with('status', __('shop.admin.recurring_created_success'));
+    }
+
+    /**
      * Default filter: only "finalized" orders — confirmed sales the team
      * actually has to act on. That means paid orders, already-fulfilled
      * orders, and the in-person ones still awaiting payment at pickup
@@ -355,23 +459,193 @@ class AdminShopOrderController extends Controller
      */
     private const FILTER_FINALIZED = 'finalized';
 
+    /**
+     * ONE order overview: B2C shop orders and B2B restaurant orders (firm
+     * orders + granted requests) interleaved by placement time, with a type
+     * filter. Unconfirmed restaurant requests never appear here — they live in
+     * the Anfragen queue (linked in the header with an open count) and get
+     * pushed into this list once granted.
+     */
     public function index(Request $request): View
     {
         $filter = $this->resolveFilter($request);
+        $perPage = 30;
+        $page = max(1, (int) $request->query('page', 1));
 
-        $orders = $this->filteredOrdersQuery($filter)
-            ->with('items.product.translations')
-            ->orderByDesc('id')
-            ->paginate(30)
-            ->withQueryString();
+        // Two sources, one list: fetch the top page-window from each, merge by
+        // placement time, slice the page. Correct for any page, no UNION needed.
+        $window = $page * $perPage;
+
+        $shopQuery = $this->filteredOrdersQuery($filter);
+        $restaurantQuery = $this->filteredRestaurantOrdersQuery($filter);
+
+        $shopOrders = $shopQuery->with('items.product.translations')->orderByDesc('id')->limit($window)->get();
+        $restaurantOrders = $restaurantQuery === null
+            ? collect()
+            : $restaurantQuery->with(['user.restaurantProfile', 'items'])->orderByDesc('id')->limit($window)->get();
+
+        $total = $shopQuery->count() + ($restaurantQuery?->count() ?? 0);
+
+        $merged = $shopOrders->concat($restaurantOrders)
+            ->sortByDesc(fn ($o) => $o->created_at)
+            ->slice(($page - 1) * $perPage, $perPage)
+            ->values();
+
+        $orders = new LengthAwarePaginator(
+            $merged,
+            $total,
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+
+        $openRequests = RestaurantOrder::query()
+            ->requests()
+            ->where('status', RestaurantOrderStatus::Submitted->value)
+            ->count();
+
+        // Calendar starts on the month of the current selection (or today).
+        $initialMonth = $filter['delivery_from'] !== ''
+            ? Carbon::parse($filter['delivery_from'])->startOfMonth()
+            : Carbon::today()->startOfMonth();
 
         return view('admin.shop-orders.index', [
             'orders' => $orders,
             'statuses' => ShopOrderStatus::cases(),
             'status' => $filter['status'],
+            'type' => $filter['type'],
             'deliveryFrom' => $filter['delivery_from'],
             'deliveryTo' => $filter['delivery_to'],
+            'openRequests' => $openRequests,
+            'calendarInitialMonth' => $initialMonth->format('Y-m'),
+            'calendarDays' => $this->calendarDays($initialMonth->copy()->startOfMonth(), $initialMonth->copy()->endOfMonth()),
         ]);
+    }
+
+    /** Next date (today or later) that has any finalized/firm order. */
+    private function nextDeliveryDayWithOrders(): ?string
+    {
+        $shopNext = ShopOrder::query()
+            ->finalized()
+            ->whereDate('expected_delivery_date', '>=', Carbon::today()->toDateString())
+            ->orderBy('expected_delivery_date')
+            ->value('expected_delivery_date');
+        $restaurantNext = RestaurantOrder::query()
+            ->whereIn('status', [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value])
+            ->whereDate('expected_delivery_date', '>=', Carbon::today()->toDateString())
+            ->orderBy('expected_delivery_date')
+            ->value('expected_delivery_date');
+
+        $candidates = array_filter([$shopNext, $restaurantNext]);
+
+        return $candidates === [] ? null : Carbon::parse(min($candidates))->toDateString();
+    }
+
+    /**
+     * JSON month payload for the calendar filter (any month, past or future):
+     * per-day order count (B2C finalized + B2B firm) and in-stock product
+     * count. Past days skip the stock computation — only deliveries matter.
+     */
+    public function calendarMonth(Request $request): JsonResponse
+    {
+        $this->authorize('admin');
+
+        $month = (string) $request->query('month', '');
+        if (preg_match('/^\d{4}-\d{2}$/', $month) !== 1) {
+            return response()->json(['days' => []], 422);
+        }
+        $start = Carbon::parse($month.'-01')->startOfMonth();
+
+        return response()->json(['days' => $this->calendarDays($start, $start->copy()->endOfMonth())]);
+    }
+
+    /**
+     * Per-day metadata for the calendar filter: order count (B2C finalized +
+     * B2B firm) and in-stock product count. Green = has deliveries, yellow =
+     * stock but no deliveries.
+     *
+     * @return list<array{iso: string, orders: int, stock: int}>
+     */
+    private function calendarDays(Carbon $start, Carbon $end): array
+    {
+
+        $shopCounts = ShopOrder::query()
+            ->finalized()
+            ->whereBetween('expected_delivery_date', [$start->toDateString(), $end->toDateString()])
+            ->selectRaw('DATE(expected_delivery_date) as d, COUNT(*) as c')
+            ->groupBy('d')
+            ->pluck('c', 'd');
+        $restaurantCounts = RestaurantOrder::query()
+            ->whereIn('status', [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value])
+            ->whereBetween('expected_delivery_date', [$start->toDateString(), $end->toDateString()])
+            ->selectRaw('DATE(expected_delivery_date) as d, COUNT(*) as c')
+            ->groupBy('d')
+            ->pluck('c', 'd');
+
+        // Widest stock view (shared + B2B pools) so "yellow" means anyone could
+        // buy. Stock is only meaningful from today onward — past days skip it.
+        $stockStart = $start->lt(Carbon::today()) ? Carbon::today() : $start->copy();
+        $matrix = [];
+        $products = collect();
+        if ($stockStart->lte($end)) {
+            $products = Product::query()->visibleInCatalog()->with('variants')->get();
+            $matrix = $this->inventory->availabilityMatrix($products, $stockStart, $end, ShopStockAudience::BusinessTrade);
+        }
+
+        $days = [];
+        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
+            $iso = $cursor->toDateString();
+            $stock = 0;
+            if ($cursor->gte($stockStart)) {
+                foreach ($products as $product) {
+                    if ((float) ($matrix[$product->id][$iso] ?? 0.0) > 0.0) {
+                        $stock++;
+                    }
+                }
+            }
+            $days[] = [
+                'iso' => $iso,
+                'orders' => (int) ($shopCounts[$iso] ?? 0) + (int) ($restaurantCounts[$iso] ?? 0),
+                'stock' => $stock,
+            ];
+        }
+
+        return $days;
+    }
+
+    /**
+     * Restaurant orders that belong in the unified overview: firm artifacts
+     * only (confirmed / fulfilled / cancelled) — pending requests stay in the
+     * Anfragen queue. Returns null when the current filter can't match any
+     * restaurant order (e.g. B2C-only or a payment-specific status).
+     */
+    private function filteredRestaurantOrdersQuery(array $filter): ?Builder
+    {
+        if ($filter['type'] === 'b2c') {
+            return null;
+        }
+
+        // Map the shop-status filter onto restaurant statuses.
+        $statusMap = [
+            self::FILTER_FINALIZED => [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value],
+            'all' => [
+                RestaurantOrderStatus::Confirmed->value,
+                RestaurantOrderStatus::Fulfilled->value,
+                RestaurantOrderStatus::Cancelled->value,
+            ],
+            ShopOrderStatus::Paid->value => [RestaurantOrderStatus::Confirmed->value],
+            ShopOrderStatus::Fulfilled->value => [RestaurantOrderStatus::Fulfilled->value],
+            ShopOrderStatus::Cancelled->value => [RestaurantOrderStatus::Cancelled->value],
+        ];
+        $statuses = $statusMap[$filter['status']] ?? null;
+        if ($statuses === null) {
+            return null; // payment-specific status — no B2B equivalent
+        }
+
+        return RestaurantOrder::query()
+            ->whereIn('status', $statuses)
+            ->when($filter['delivery_from'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '>=', $filter['delivery_from']))
+            ->when($filter['delivery_to'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '<=', $filter['delivery_to']));
     }
 
     /**
@@ -389,9 +663,17 @@ class AdminShopOrderController extends Controller
             ->orderBy('id')
             ->get();
 
+        // B2B demand rides along so farm totals, picklist and route reflect
+        // the full day, not just the storefront.
+        $restaurantOrders = $this->filteredRestaurantOrdersQuery($filter)
+            ?->with(['user.restaurantProfile', 'items.product.producer.translations', 'items.product.translations'])
+            ->orderBy('expected_delivery_date')
+            ->orderBy('id')
+            ->get() ?? collect();
+
         $filename = 'erdgut-bestellungen-'.now()->format('Y-m-d').'.xlsx';
 
-        return Excel::download(new ShopOrdersExport($orders, $filter), $filename);
+        return Excel::download(new ShopOrdersExport($orders, $filter, $restaurantOrders), $filename);
     }
 
     /**
@@ -574,7 +856,25 @@ class AdminShopOrderController extends Controller
         $from = (string) $request->query('delivery_from', '');
         $to = (string) $request->query('delivery_to', '');
 
-        return ['status' => $status, 'delivery_from' => $from, 'delivery_to' => $to];
+        // Fresh visit (no date params at all): focus on the NEXT delivery day
+        // that has orders. Explicitly cleared inputs (params present but empty)
+        // mean "all dates".
+        if (! $request->has('delivery_from') && ! $request->has('delivery_to')) {
+            $next = $this->nextDeliveryDayWithOrders();
+            if ($next !== null) {
+                $from = $to = $next;
+            }
+        }
+
+        // '' = all, 'b2c' = private shop customers, 'b2b' = business —
+        // admin-created business shop orders AND restaurant orders are the
+        // same kind of customer, so they share one filter value.
+        $type = (string) $request->query('type', '');
+        if (! in_array($type, ['', 'b2c', 'b2b'], true)) {
+            $type = '';
+        }
+
+        return ['status' => $status, 'type' => $type, 'delivery_from' => $from, 'delivery_to' => $to];
     }
 
     /**
@@ -599,6 +899,11 @@ class AdminShopOrderController extends Controller
                 });
             }))
             ->when($statusEnum, fn ($q) => $q->where('status', $statusEnum))
+            ->when($filter['type'] ?? '', fn ($q, $type) => match ($type) {
+                'b2c' => $q->where('customer_type', CustomerType::Private->value),
+                'b2b' => $q->where('customer_type', CustomerType::Business->value),
+                default => $q,
+            })
             ->when($filter['delivery_from'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '>=', $filter['delivery_from']))
             ->when($filter['delivery_to'] !== '', fn ($q) => $q->whereDate('expected_delivery_date', '<=', $filter['delivery_to']));
     }

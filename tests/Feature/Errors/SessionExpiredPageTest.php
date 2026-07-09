@@ -13,8 +13,8 @@ class SessionExpiredPageTest extends TestCase
         $response = $this->view('errors.419');
 
         $response->assertSee('Session expired');
-        // Shop header + a neutral "Back to shop" CTA — never the box-area
-        // login link the parked account surface would expose.
+        // Shop header + a neutral "Back to shop" CTA — never the box-area login
+        // link the parked account surface would expose.
         $response->assertSee('data-testid="customer-header-shop"', false);
         $response->assertSee(route('public.shop.index'));
         $response->assertDontSee(route('auth.login'));

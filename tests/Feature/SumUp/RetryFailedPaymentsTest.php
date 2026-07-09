@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\SumUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Tests\TestCase;
@@ -42,6 +43,46 @@ class RetryFailedPaymentsTest extends TestCase
         $this->artisan('payments:retry', ['--dry-run' => true])
             ->assertSuccessful()
             ->expectsOutputToContain('1 subscription(s) would be retried');
+    }
+
+    /**
+     * Regression: the retryable-payments query once used whereColumn() with the
+     * scalar max-retries value, which MySQL parses as an unknown COLUMN and the
+     * command crashes in production (SQLite silently treats "3" as a literal,
+     * so behavior tests stay green). Assert the value travels as a binding.
+     */
+    public function test_retryable_query_binds_max_retries_as_value_not_column(): void
+    {
+        Config::set('payments.max_retries', 3);
+
+        $user = User::factory()->create();
+        $subscription = Subscription::factory()->create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::Active,
+            'sumup_token' => 'tok_123',
+            'sumup_customer_id' => 'cust_123',
+        ]);
+        $subscription->payments()->create([
+            'amount' => 35,
+            'currency' => 'EUR',
+            'status' => Payment::STATUS_FAILED,
+            'attempt_number' => 1,
+            'failed_at' => now(),
+            'failure_reason' => 'Card declined',
+        ]);
+
+        $captured = [];
+        DB::listen(function ($query) use (&$captured): void {
+            $captured[] = $query;
+        });
+
+        $this->artisan('payments:retry', ['--dry-run' => true])->assertSuccessful();
+
+        $select = collect($captured)->first(
+            fn ($q): bool => str_contains($q->sql, 'payments') && str_contains($q->sql, 'attempt_number'),
+        );
+        $this->assertNotNull($select, 'The retryable-payments select was not executed.');
+        $this->assertContains(3, $select->bindings, 'max_retries must be a query binding, not a column identifier.');
     }
 
     public function test_dry_run_excludes_failed_payment_at_max_retries(): void

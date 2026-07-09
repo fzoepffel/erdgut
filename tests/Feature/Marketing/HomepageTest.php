@@ -100,7 +100,10 @@ class HomepageTest extends TestCase
         $response->assertSee('href="'.route('public.shop.index').'"', false);
         $response->assertSee('href="'.route('public.shop-contact').'"', false);
 
-        // The shop surface must not expose sign-up / sign-in (box-only for now).
+        // A quiet "Geschäftskunden" nav item points to the B2B landing page.
+        // The shop header itself never exposes sign-in / sign-up — the restaurant
+        // login lives on the Geschäftskunden page (B2C never sees a login).
+        $response->assertSee('href="'.route('restaurant.landing').'"', false);
         $response->assertDontSee('href="'.route('auth.login').'"', false);
         $response->assertDontSee('href="'.route('auth.register').'"', false);
     }

@@ -89,8 +89,9 @@
                                     <template x-for="line in selected().lines" :key="line.item_id">
                                         <li class="flex items-center justify-between gap-3 px-4 py-3" :class="line.packed ? 'bg-emerald-50/40' : ''">
                                             <div class="min-w-0">
-                                                <p class="text-sm font-medium text-gray-900">
+                                                <p class="flex items-center gap-1.5 text-sm font-medium text-gray-900">
                                                     <span class="font-mono text-gray-500" x-text="'#' + line.order_id"></span>
+                                                    <span x-show="line.b2b" class="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-blue-700">{{ __('shop.admin.badge_b2b') }}</span>
                                                     <span x-text="line.customer"></span>
                                                 </p>
                                                 <p class="text-[0.7rem] text-gray-500">
@@ -117,11 +118,12 @@
                 <div>
                     <h2 class="mb-2 font-mono text-[0.7rem] uppercase tracking-widest text-gray-500">{{ __('admin.packing.orders_heading') }}</h2>
                     <div class="flex flex-wrap gap-2">
-                        <template x-for="o in orders" :key="o.id">
-                            <a :href="orderUrlBase.replace('__ID__', o.id)"
+                        <template x-for="o in orders" :key="o.key">
+                            <a :href="o.url"
                                class="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition hover:bg-gray-50"
                                :class="o.ready ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-white'">
                                 <span class="font-mono text-gray-500" x-text="'#' + o.id"></span>
+                                <span x-show="o.b2b" class="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-blue-700">{{ __('shop.admin.badge_b2b') }}</span>
                                 <span class="text-gray-800" x-text="o.customer"></span>
                                 <span x-show="o.ready" class="rounded-full bg-emerald-600 px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider text-white">{{ __('admin.packing.ready') }}</span>
                                 <span x-show="!o.ready" class="font-mono text-[0.65rem] text-gray-500" x-text="o.packed_count + '/' + o.total_count"></span>
@@ -158,7 +160,7 @@
                 p.done = p.packed_count >= p.total_count;
             },
             applyOrder(updated) {
-                const o = this.orders.find((x) => x.id === updated.id);
+                const o = this.orders.find((x) => x.key === updated.key);
                 if (o) { o.packed_count = updated.packed_count; o.total_count = updated.total_count; o.ready = updated.ready; }
             },
 

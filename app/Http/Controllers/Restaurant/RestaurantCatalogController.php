@@ -1,0 +1,196 @@
+<?php
+
+namespace App\Http\Controllers\Restaurant;
+
+use App\Enums\RestaurantOrderLineStatus;
+use App\Http\Controllers\Controller;
+use App\Models\ProductSubcategory;
+use App\Models\RestaurantOrder;
+use App\Services\Restaurant\RestaurantCatalogService;
+use App\Services\Shop\ProductRankingService;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+
+/**
+ * B2B catalog + order builder for verified restaurants. For the selected
+ * delivery date it lists products to order at net business prices, laid out
+ * like the consumer shop: a delivery-day picker (promoting days with stock),
+ * name/category/subcategory filters, shop-style ranking, and tabs for in-stock
+ * vs. in-season-on-request products (plus a free-form special-request tab).
+ */
+class RestaurantCatalogController extends Controller
+{
+    public function __construct(
+        private readonly RestaurantCatalogService $catalog,
+        private readonly ProductRankingService $ranking,
+    ) {}
+
+    public function index(Request $request): View
+    {
+        $locale = app()->getLocale();
+
+        // The shop sells only what's in stock — its date picker offers only days
+        // that actually have stock (the Anfragen area keeps every open day).
+        $allOpenDates = $this->catalog->selectableDates();
+        $selectableDates = $allOpenDates
+            ->filter(fn (array $row): bool => $row['in_stock_count'] > 0)
+            ->values();
+        $hasOpenDays = $allOpenDates->isNotEmpty();
+
+        $requested = (string) $request->query('date', '');
+        $selectedDate = $selectableDates
+            ->first(fn (array $row): bool => $row['date']->toDateString() === $requested)['date']
+            ?? $selectableDates->first()['date']
+            ?? null;
+
+        $rows = $selectedDate instanceof Carbon
+            ? $this->catalog->productsForDate($selectedDate)
+            : collect();
+
+        // The SHOP sells only what's in stock; season rows live in the Anfragen
+        // area — the shop just teases how many there are.
+        $products = $rows->filter(fn (array $row): bool => $row['inStock'])->values();
+        $seasonCount = $rows->count() - $products->count();
+
+        // Upcoming weekly-delivery weeks (for the recurrence "until" picker), each
+        // with per-product stock so the picker can colour weeks in stock / on request.
+        $recurrenceWeeks = $selectedDate instanceof Carbon
+            ? $this->catalog->recurrenceWeeks($selectedDate)
+            : collect();
+
+        // Sort like the storefront: the margin-per-impression bandit ranks the
+        // orderable (in-stock) rows; the rest keep a stable seeded order. Seed is
+        // per session+day so ordering is stable within a visit.
+        if ($products->isNotEmpty()) {
+            $seed = crc32($request->session()->getId().'|'.now()->toDateString());
+            $products = $this->ranking->orderForStorefront($products, $seed);
+        }
+
+        // Grid-filter metadata (mirrors ShopController): only categories /
+        // subcategories present on the day get chips, so every filter narrows.
+        $availableCategories = $products
+            ->map(fn (array $row): string => $row['product']->category)
+            ->unique()->values()->all();
+        $defaultShopCategory = count($availableCategories) === 1 ? $availableCategories[0] : '';
+
+        $subcategoryIdsOnDay = $products
+            ->map(fn (array $row): ?int => ($id = $row['product']->subcategory_id) !== null && (int) $id > 0 ? (int) $id : null)
+            ->filter()->unique()->values()->all();
+
+        $alpineSubcategories = ProductSubcategory::query()
+            ->whereIn('id', $subcategoryIdsOnDay)
+            ->orderBy('category')->orderBy('sort_order')
+            ->get()
+            ->groupBy('category')
+            ->map(fn ($g) => $g->map(fn ($s) => ['id' => $s->id, 'label' => $s->label($locale)])->values()->all())
+            ->all();
+
+        // Date-picker data — all open days, each with its in-stock count so the
+        // picker can promote days that actually have stock.
+        $alpineDates = $selectableDates->map(fn (array $row): array => [
+            'iso' => $row['date']->toDateString(),
+            'label' => $row['date']->locale($locale)->isoFormat('dd, D. MMM'),
+            'longLabel' => $row['date']->locale($locale)->isoFormat('dddd, D. MMMM'),
+            'kw' => $row['date']->isoWeek(),
+            'inStockCount' => $row['in_stock_count'],
+            'cutoffLabel' => $row['cutoff_label'],
+        ])->values();
+
+        // "Nochmal bestellen" handoff: prefill the basket from a past order.
+        // Quantities are applied client-side, clamped to today's hard caps.
+        // Lines the selected day can't fully cover are named in the banner,
+        // together with the next day that covers all of them (or, failing
+        // that, the day that covers the most).
+        $reorderPrefill = null;
+        $reorderId = (int) $request->query('reorder', 0);
+        if ($reorderId > 0 && $selectedDate instanceof Carbon) {
+            $source = RestaurantOrder::query()
+                ->whereKey($reorderId)
+                ->where('user_id', $request->user()->id)
+                ->orders()
+                ->first();
+            if ($source !== null) {
+                $items = $source->items()
+                    ->whereNotNull('product_id')
+                    ->where('line_status', '!=', RestaurantOrderLineStatus::Declined->value)
+                    ->get();
+                $lines = $items
+                    ->map(fn ($item): array => [
+                        'key' => $item->variant_id !== null ? 'v'.$item->variant_id : (string) $item->product_id,
+                        'qty' => (float) $item->quantity,
+                        'name' => trim($item->displayName().(
+                            $item->variant_name_snapshot !== null && $item->variant_name_snapshot !== ''
+                                ? ' · '.$item->variant_name_snapshot : ''
+                        )),
+                    ])
+                    ->values();
+
+                // Grade caps and quantities are both canonical units, so the
+                // same rule the client clamps with decides "fully available".
+                $availableCount = function (Carbon $date) use ($lines): int {
+                    $caps = $this->catalog->productsForDate($date)
+                        ->flatMap(fn (array $row) => $row['grades'])
+                        ->keyBy('key');
+
+                    return $lines->filter(fn (array $line): bool => (float) ($caps[$line['key']]['cap'] ?? 0) >= $line['qty'])->count();
+                };
+
+                $capsToday = $rows->flatMap(fn (array $row) => $row['grades'])->keyBy('key');
+                $missing = $lines->filter(fn (array $line): bool => (float) ($capsToday[$line['key']]['cap'] ?? 0) < $line['qty'])->values();
+
+                $betterDate = null;
+                if ($missing->isNotEmpty()) {
+                    $availableToday = $lines->count() - $missing->count();
+                    $best = null; // ['date' => Carbon, 'count' => int]
+                    foreach ($selectableDates as $row) {
+                        $date = $row['date'];
+                        if ($date->isSameDay($selectedDate)) {
+                            continue;
+                        }
+                        $count = $availableCount($date);
+                        if ($count === $lines->count()) {
+                            $best = ['date' => $date, 'count' => $count];
+                            break; // earliest day covering everything wins
+                        }
+                        if ($count > $availableToday && ($best === null || $count > $best['count'])) {
+                            $best = ['date' => $date, 'count' => $count];
+                        }
+                    }
+                    if ($best !== null) {
+                        $betterDate = [
+                            'iso' => $best['date']->toDateString(),
+                            'label' => $best['date']->locale($locale)->isoFormat('dddd, D. MMMM'),
+                            'available' => $best['count'],
+                            'total' => $lines->count(),
+                            'all' => $best['count'] === $lines->count(),
+                            'url' => route('app.restaurant.catalog', ['date' => $best['date']->toDateString(), 'reorder' => $source->id]),
+                        ];
+                    }
+                }
+
+                $reorderPrefill = [
+                    'orderId' => $source->id,
+                    'lines' => $lines->map(fn (array $l): array => ['key' => $l['key'], 'qty' => $l['qty']])->all(),
+                    'missingNames' => $missing->pluck('name')->all(),
+                    'betterDate' => $betterDate,
+                ];
+            }
+        }
+
+        return view('restaurant.catalog', [
+            'selectableDates' => $selectableDates,
+            'hasOpenDays' => $hasOpenDays,
+            'selectedDate' => $selectedDate,
+            'products' => $products,
+            'seasonCount' => $seasonCount,
+            'recurrenceWeeks' => $recurrenceWeeks,
+            'alpineDates' => $alpineDates,
+            'availableCategories' => $availableCategories,
+            'defaultShopCategory' => $defaultShopCategory,
+            'alpineSubcategories' => $alpineSubcategories,
+            'profile' => $request->user()->restaurantProfile,
+            'reorderPrefill' => $reorderPrefill,
+        ]);
+    }
+}

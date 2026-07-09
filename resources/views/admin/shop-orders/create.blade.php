@@ -25,6 +25,9 @@
              quoteUrl: @js($quoteUrl),
              pickupMode: '{{ old('fulfillment_mode', 'pickup') }}',
              customerType: '{{ old('customer_type', 'private') }}',
+             recurring: {{ old('recurring') ? 'true' : 'false' }},
+             accountId: '{{ old('restaurant_user_id') }}',
+             accounts: @js($restaurantAccounts->keyBy('user_id')),
              preselectedDate: '{{ old('expected_delivery_date', '') }}',
              preselectedItems: @js(collect(old('items', []))->map(fn ($i) => [
                  'custom' => empty($i['product_id']) && trim((string) ($i['name'] ?? '')) !== '',
@@ -114,6 +117,30 @@
                             </label>
                         </div>
                         <x-input-error :messages="$errors->get('customer_type')" class="mt-1" />
+
+                        {{-- Recurring weekly B2B delivery: routes through the restaurant
+                             order machinery (B2B price list, weekly materialization). --}}
+                        <div x-show="customerType === 'business'" x-cloak class="space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" name="recurring" value="1" x-model="recurring"
+                                       class="rounded text-emerald-600 focus:ring-emerald-500"
+                                       {{ old('recurring') ? 'checked' : '' }}>
+                                <span class="text-sm font-medium text-gray-800">{{ __('shop.admin.recurring_label') }}</span>
+                            </label>
+                            <div x-show="recurring" x-cloak class="space-y-3">
+                                <p class="text-xs text-gray-500">{{ __('shop.admin.recurring_hint') }}</p>
+                                {{-- Account from the step-4 picker — or auto-created
+                                     from the customer details (name + email). --}}
+                                <p x-show="!accountId" x-cloak class="text-xs text-gray-600">{{ __('shop.admin.recurring_auto_account_note') }}</p>
+                                <div class="sm:max-w-xs">
+                                    <label for="recurring_until" class="mb-1 block text-xs font-medium text-gray-600">{{ __('shop.admin.recurring_until_label') }}</label>
+                                    <input type="date" id="recurring_until" name="recurring_until" value="{{ old('recurring_until') }}" class="block w-full rounded-md border-gray-300 text-sm">
+                                    <p class="mt-1 text-xs text-gray-400">{{ __('shop.admin.recurring_until_hint') }}</p>
+                                </div>
+                                <x-input-error :messages="$errors->get('recurring')" class="mt-1" />
+                                <x-input-error :messages="$errors->get('recurring_until')" class="mt-1" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -272,6 +299,22 @@
                         <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">4. {{ __('shop.admin.create_customer_heading') }}</h2>
                     </div>
                     <div class="space-y-4 p-6">
+                        {{-- Pick a verified restaurant account to prefill contact +
+                             delivery address and switch to business pricing — or
+                             just type the details below as before. --}}
+                        <div>
+                            <label for="restaurant_user_id" class="block text-sm font-medium text-gray-700">{{ __('shop.admin.account_select_label') }}</label>
+                            <select id="restaurant_user_id" name="restaurant_user_id" x-model="accountId" @change="applyAccount()"
+                                    class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:max-w-md"
+                                    data-testid="shop-admin-account-select">
+                                <option value="">{{ __('shop.admin.account_select_none') }}</option>
+                                @foreach ($restaurantAccounts as $acc)
+                                    <option value="{{ $acc['user_id'] }}" @selected((string) old('restaurant_user_id') === (string) $acc['user_id'])>{{ $acc['label'] }}</option>
+                                @endforeach
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500">{{ __('shop.admin.account_select_hint') }}</p>
+                            <x-input-error :messages="$errors->get('restaurant_user_id')" class="mt-1" />
+                        </div>
                         <div class="grid gap-4 sm:grid-cols-3">
                             <div>
                                 <label for="name" class="block text-sm font-medium text-gray-700">{{ __('Name') }}</label>
@@ -461,6 +504,32 @@
             priceHintLabels: config.priceHintLabels || { reasons: {}, tiers: {}, compare_template: '', used_template: '' },
             selectedDate: config.preselectedDate || '',
             customerType: config.customerType || 'private',
+            recurring: config.recurring || false,
+            accountId: config.accountId || '',
+            accounts: config.accounts || {},
+
+            // Picking a verified restaurant account prefills contact + delivery
+            // address and switches to business pricing. Clearing it leaves the
+            // typed values untouched (the admin may have edited them).
+            applyAccount() {
+                const acc = this.accounts[this.accountId];
+                if (!acc) return;
+                const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+                set('name', acc.name);
+                set('email', acc.email);
+                set('phone', acc.phone);
+                set('delivery_street', acc.street);
+                set('delivery_postal_code', acc.postal);
+                set('delivery_city', acc.city);
+                if (this.customerType !== 'business') {
+                    this.customerType = 'business';
+                    this.onCustomerTypeChange();
+                }
+                if (this.mode !== 'delivery') {
+                    this.mode = 'delivery';
+                    this.onModeChange();
+                }
+            },
             availableProducts: [],
             loading: false,
             quoteLoading: false,

@@ -161,6 +161,8 @@ class ShopCatalogIsolationTest extends TestCase
         $response->assertDontSee('href="'.route('public.producers').'"', false);
         $response->assertDontSee(route('public.producers.show', $producer->fresh()), false);
         $response->assertDontSee(route('app.products.index'), false);
+        // Neither the box consumer sign-up nor a login escape the shop header;
+        // the B2B login lives only on the Geschäftskunden page.
         $response->assertDontSee(route('auth.register'), false);
         $response->assertDontSee(route('auth.login'), false);
         $response->assertDontSee('href="'.route('public.contact').'"', false);

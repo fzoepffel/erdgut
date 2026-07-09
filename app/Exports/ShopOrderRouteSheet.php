@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Enums\ShopOrderStatus;
 use App\Exports\Concerns\FormatsShopOrders;
+use App\Models\RestaurantOrder;
 use App\Models\ShopOrder;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -14,7 +15,8 @@ use Maatwebsite\Excel\Concerns\WithTitle;
  * Driver-facing route list: one row per delivery order, sorted by postal
  * code → street so the printout follows roughly the order of the trip.
  * Includes a "payment due at door" column so the driver knows which stops
- * still need cash/card collection.
+ * still need cash/card collection. B2B restaurant deliveries appear as
+ * regular stops with a B2B marker and zero payment due (invoice payment).
  */
 class ShopOrderRouteSheet implements FromArray, WithHeadings, WithTitle
 {
@@ -22,8 +24,12 @@ class ShopOrderRouteSheet implements FromArray, WithHeadings, WithTitle
 
     /**
      * @param  Collection<int, ShopOrder>  $orders
+     * @param  Collection<int, RestaurantOrder>  $restaurantOrders
      */
-    public function __construct(private readonly Collection $orders) {}
+    public function __construct(
+        private readonly Collection $orders,
+        private readonly Collection $restaurantOrders = new Collection,
+    ) {}
 
     public function title(): string
     {
@@ -48,6 +54,7 @@ class ShopOrderRouteSheet implements FromArray, WithHeadings, WithTitle
             (string) __('shop.export.col_total_eur'),
             (string) __('shop.export.col_payment_due_eur'),
             (string) __('shop.export.col_notes'),
+            (string) __('shop.export.col_customer_type'),
         ];
     }
 
@@ -84,11 +91,32 @@ class ShopOrderRouteSheet implements FromArray, WithHeadings, WithTitle
                 (float) $order->total_amount_eur,
                 round($due, 2),
                 $order->delivery_notes ?? '',
+                $this->customerTypeLabel($order->customer_type),
+            ];
+        }
+
+        // B2B restaurant orders are always deliveries; they pay by invoice,
+        // so nothing is due at the door.
+        foreach ($this->restaurantOrders as $order) {
+            $rows[] = [
+                $order->delivery_postal_code ?? '',
+                $order->delivery_city ?? '',
+                $order->delivery_street ?? '',
+                $order->user?->restaurantProfile?->business_name ?: ($order->user?->name ?? ''),
+                $order->user?->phone ?? '',
+                'R'.$order->id,
+                $order->expected_delivery_date?->format('Y-m-d') ?? '',
+                '',
+                $order->items->filter(fn ($i) => $i->isConfirmedLine())->count(),
+                (float) $order->items_total_gross_eur,
+                0.0,
+                $order->delivery_notes ?? '',
+                (string) __('shop.export.type_business'),
             ];
         }
 
         usort($rows, function (array $a, array $b): int {
-            return [$a[0], $a[2], $a[5]] <=> [$b[0], $b[2], $b[5]];
+            return [$a[0], $a[2], (string) $a[5]] <=> [$b[0], $b[2], (string) $b[5]];
         });
 
         return $rows;
