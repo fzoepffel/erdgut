@@ -306,7 +306,7 @@
 
             {{-- Sticky basket bar (summary click expands the mini cart) --}}
             <div x-show="hasAnything" x-cloak
-                 class="fixed inset-x-0 bottom-0 z-30 border-t border-shop-border bg-shop-background/95 backdrop-blur">
+                 class="fixed inset-x-0 bottom-0 z-30 border-t border-shop-border bg-shop-background shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
                 {{-- Mini cart --}}
                 <div x-show="miniCartOpen" x-cloak x-transition.origin.bottom class="border-b border-shop-border/60">
                     <ul class="mx-auto max-w-[1100px] divide-y divide-shop-border/50 px-4 py-2 text-sm sm:px-6 lg:px-12">

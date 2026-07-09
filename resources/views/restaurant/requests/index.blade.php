@@ -191,7 +191,7 @@
 
             {{-- Sticky request bar --}}
             <div x-show="hasAnything" x-cloak
-                 class="fixed inset-x-0 bottom-0 z-30 border-t border-amber-300 bg-amber-50/95 backdrop-blur">
+                 class="fixed inset-x-0 bottom-0 z-30 border-t border-amber-300 bg-amber-50 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
                 <div class="mx-auto flex max-w-[1100px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-12">
                     <p class="text-sm text-amber-900">
                         <span x-text="totalCount"></span> <span x-text="totalCount === 1 ? @js(__('restaurant.cart_line')) : @js(__('restaurant.cart_lines'))"></span>
