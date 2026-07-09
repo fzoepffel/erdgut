@@ -33,86 +33,111 @@
     </div>
 
     <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="{{ __('admin.shell.nav_primary') }}">
-        <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-amber-800/80">
-            {{ __('admin.shell.section_main') }}
-        </p>
         <x-admin.nav-link :href="route('app.admin.dashboard')" matches="app.admin.dashboard">
             {{ __('admin.shell.overview') }}
         </x-admin.nav-link>
 
-        <p class="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-amber-800/80">
-            {{ __('admin.shell.section_catalog') }}
-        </p>
-        <x-admin.nav-link :href="route('app.admin.producers.index')" matches="app.admin.producers.*">
-            {{ __('Producers') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link
-            :href="route('app.admin.products.index')"
-            :matches="['app.admin.products.index', 'app.admin.products.create', 'app.admin.products.edit']"
+        <x-admin.nav-group
+            :label="__('admin.shell.section_catalog')"
+            :matches="['app.admin.producers.*', 'app.admin.products.*', 'app.admin.inventory.*']"
         >
-            {{ __('Products') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.inventory.index')" matches="app.admin.inventory.*">
-            {{ __('admin.weekly_catalog.nav_label') }}
-        </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.producers.index')" matches="app.admin.producers.*">
+                {{ __('Producers') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link
+                :href="route('app.admin.products.index')"
+                :matches="['app.admin.products.index', 'app.admin.products.create', 'app.admin.products.edit']"
+            >
+                {{ __('Products') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.inventory.index')" matches="app.admin.inventory.*">
+                {{ __('admin.weekly_catalog.nav_label') }}
+            </x-admin.nav-link>
+        </x-admin.nav-group>
 
-        <p class="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wide text-amber-800/80">
-            {{ __('admin.shell.section_operations') }}
-        </p>
-        <x-admin.nav-link :href="route('app.admin.users.index')" matches="app.admin.users.*">
-            {{ __('admin.operations.nav_users') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.subscriptions.index')" matches="app.admin.subscriptions.*">
-            {{ __('admin.operations.nav_subscriptions') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.orders.index', ['product_type' => 'trial_box'])" matches="app.admin.orders.*">
-            {{ __('Trial orders') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.shop-orders.index')" matches="app.admin.shop-orders.*">
-            {{ __('shop.admin.nav_label') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.packing.index')" matches="app.admin.packing.*">
-            {{ __('admin.packing.nav_label') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.restaurant-accounts.index')" matches="app.admin.restaurant-accounts.*">
-            {{ __('restaurant.nav_label') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.restaurant-orders.index')" matches="app.admin.restaurant-orders.*">
-            {{ __('restaurant.orders_nav_label') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.standing-orders.index')" matches="app.admin.standing-orders.*">
-            {{ __('restaurant.admin_standing_nav') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.request-availability.index')" matches="app.admin.request-availability.*">
-            {{ __('products.request_availability_nav') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.shop-closures.index')" matches="app.admin.shop-closures.*">
-            {{ __('admin.shop_closures.nav_label') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.coupons.index')" matches="app.admin.coupons.*">
-            {{ __('coupon.admin.nav_label') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.deliveries.index')" matches="app.admin.deliveries.*">
-            {{ __('admin.operations.nav_deliveries') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.boxes.index')" matches="app.admin.boxes.*">
-            {{ __('admin.operations.nav_boxes_setup') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.payments.index')" matches="app.admin.payments.*">
-            {{ __('admin.operations.nav_payments') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.billing.upcoming')" matches="app.admin.billing.upcoming">
-            {{ __('admin.operations.nav_upcoming') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.billing.coverage')" matches="app.admin.billing.coverage">
-            {{ __('admin.operations.nav_billing_coverage') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.audit-events.index')" matches="app.admin.audit-events.*">
-            {{ __('admin.audit.nav_label') }}
-        </x-admin.nav-link>
-        <x-admin.nav-link :href="route('app.admin.payment-diagnostics.index')" matches="app.admin.payment-diagnostics.*">
-            {{ __('admin.operations.nav_payment_diagnostics') }}
-        </x-admin.nav-link>
+        <x-admin.nav-group
+            :label="__('admin.shell.group_shop')"
+            :matches="['app.admin.shop-orders.*', 'app.admin.packing.*', 'app.admin.coupons.*', 'app.admin.shop-closures.*']"
+        >
+            <x-admin.nav-link :href="route('app.admin.shop-orders.index')" matches="app.admin.shop-orders.*">
+                {{ __('shop.admin.nav_label') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.packing.index')" matches="app.admin.packing.*">
+                {{ __('admin.packing.nav_label') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.coupons.index')" matches="app.admin.coupons.*">
+                {{ __('coupon.admin.nav_label') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.shop-closures.index')" matches="app.admin.shop-closures.*">
+                {{ __('admin.shop_closures.nav_label') }}
+            </x-admin.nav-link>
+        </x-admin.nav-group>
+
+        <x-admin.nav-group
+            :label="__('admin.shell.group_restaurants')"
+            :matches="['app.admin.restaurant-accounts.*', 'app.admin.restaurant-orders.*', 'app.admin.standing-orders.*', 'app.admin.request-availability.*']"
+        >
+            <x-admin.nav-link :href="route('app.admin.restaurant-accounts.index')" matches="app.admin.restaurant-accounts.*">
+                {{ __('restaurant.nav_label') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.restaurant-orders.index')" matches="app.admin.restaurant-orders.*">
+                {{ __('restaurant.orders_nav_label') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.standing-orders.index')" matches="app.admin.standing-orders.*">
+                {{ __('restaurant.admin_standing_nav') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.request-availability.index')" matches="app.admin.request-availability.*">
+                {{ __('products.request_availability_nav') }}
+            </x-admin.nav-link>
+        </x-admin.nav-group>
+
+        <x-admin.nav-group
+            :label="__('admin.shell.group_box')"
+            :matches="['app.admin.subscriptions.*', 'app.admin.orders.*', 'app.admin.deliveries.*', 'app.admin.boxes.*']"
+        >
+            <x-admin.nav-link :href="route('app.admin.subscriptions.index')" matches="app.admin.subscriptions.*">
+                {{ __('admin.operations.nav_subscriptions') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.orders.index', ['product_type' => 'trial_box'])" matches="app.admin.orders.*">
+                {{ __('Trial orders') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.deliveries.index')" matches="app.admin.deliveries.*">
+                {{ __('admin.operations.nav_deliveries') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.boxes.index')" matches="app.admin.boxes.*">
+                {{ __('admin.operations.nav_boxes_setup') }}
+            </x-admin.nav-link>
+        </x-admin.nav-group>
+
+        <x-admin.nav-group
+            :label="__('admin.shell.group_payments')"
+            :matches="['app.admin.payments.*', 'app.admin.billing.*', 'app.admin.payment-diagnostics.*']"
+        >
+            <x-admin.nav-link :href="route('app.admin.payments.index')" matches="app.admin.payments.*">
+                {{ __('admin.operations.nav_payments') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.billing.upcoming')" matches="app.admin.billing.upcoming">
+                {{ __('admin.operations.nav_upcoming') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.billing.coverage')" matches="app.admin.billing.coverage">
+                {{ __('admin.operations.nav_billing_coverage') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.payment-diagnostics.index')" matches="app.admin.payment-diagnostics.*">
+                {{ __('admin.operations.nav_payment_diagnostics') }}
+            </x-admin.nav-link>
+        </x-admin.nav-group>
+
+        <x-admin.nav-group
+            :label="__('admin.shell.group_admin')"
+            :matches="['app.admin.users.*', 'app.admin.audit-events.*']"
+        >
+            <x-admin.nav-link :href="route('app.admin.users.index')" matches="app.admin.users.*">
+                {{ __('admin.operations.nav_users') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.audit-events.index')" matches="app.admin.audit-events.*">
+                {{ __('admin.audit.nav_label') }}
+            </x-admin.nav-link>
+        </x-admin.nav-group>
     </nav>
 
     <div class="border-t border-amber-100 p-3">
