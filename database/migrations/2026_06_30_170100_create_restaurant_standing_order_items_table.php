@@ -17,13 +17,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('restaurant_standing_order_items')) {
-            return;
-        }
+        // The auto-generated FK name for restaurant_standing_order_id is 68
+        // chars; MySQL caps identifiers at 64. The first production run died
+        // mid-create on that ALTER, leaving the table without any FKs and the
+        // migration unrecorded. Environments where this migration IS recorded
+        // (staging, dev) never re-enter up(), so dropping the empty torso here
+        // is safe and lets the rerun rebuild the table cleanly.
+        Schema::dropIfExists('restaurant_standing_order_items');
 
         Schema::create('restaurant_standing_order_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('restaurant_standing_order_id')->constrained('restaurant_standing_orders')->cascadeOnDelete();
+            $table->foreignId('restaurant_standing_order_id');
+            $table->foreign('restaurant_standing_order_id', 'rsoi_standing_order_fk')
+                ->references('id')->on('restaurant_standing_orders')->cascadeOnDelete();
             $table->foreignId('product_id')->nullable()->constrained('products')->restrictOnDelete();
             $table->foreignId('variant_id')->nullable()->constrained('product_variants')->nullOnDelete();
             $table->string('variant_name_snapshot')->nullable();
