@@ -13,6 +13,7 @@
         ['key' => 'requests', 'route' => 'app.restaurant.requests.index', 'label' => __('restaurant.nav_requests')],
         ['key' => 'orders', 'route' => 'app.restaurant.orders.index', 'label' => __('restaurant.my_requests')],
         ['key' => 'standing', 'route' => 'app.restaurant.standing-orders.index', 'label' => __('restaurant.nav_standing')],
+        ['key' => 'contact', 'route' => 'app.restaurant.contact', 'label' => __('restaurant.nav_contact')],
         ['key' => 'account', 'route' => 'app.restaurant.account.edit', 'label' => __('restaurant.nav_account')],
     ];
 @endphp

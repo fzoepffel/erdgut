@@ -84,6 +84,7 @@
                         <div>
                             <h2 class="font-display text-xl text-shop-foreground">{{ __('restaurant.special_title') }}</h2>
                             <p class="text-xs text-shop-muted">{{ __('restaurant.special_hint') }}</p>
+                            <p class="mt-1 text-xs font-medium text-amber-800">{{ __('restaurant.requests_section_date_note', ['date' => $selectedDate?->locale(app()->getLocale())->isoFormat('dddd, D. MMMM')]) }}</p>
                         </div>
                         <button type="button" @click="addSpecialRequest()" data-testid="restaurant-add-special"
                                 class="shrink-0 border border-shop-border px-3 py-1.5 font-mono text-[0.7rem] uppercase tracking-widest text-shop-foreground hover:border-shop-primary">
@@ -118,7 +119,6 @@
                                 <button type="button" @click="removeSpecialRequest(i)" class="px-2 text-shop-muted hover:text-chapter-meat" aria-label="{{ __('restaurant.special_remove') }}">✕</button>
                             </div>
                         </template>
-                        <p x-show="specialRequests.length === 0" class="text-sm text-shop-muted">{{ __('restaurant.special_empty') }}</p>
                     </div>
                 </div>
 
@@ -126,6 +126,7 @@
                 <div class="mt-10">
                     <p class="eyebrow text-shop-primary">{{ __('restaurant.requests_season_title') }}</p>
                     <p class="mt-1 text-xs text-shop-muted">{{ __('restaurant.requests_season_hint') }}</p>
+                    <p class="mt-1 text-xs font-medium text-amber-800">{{ __('restaurant.requests_section_date_note', ['date' => $selectedDate?->locale(app()->getLocale())->isoFormat('dddd, D. MMMM')]) }}</p>
                     @if ($seasonRows->isEmpty())
                         <div class="shop-card mt-3 p-6 text-sm text-shop-muted" data-testid="requests-season-empty">{{ __('restaurant.tab_on_request_empty') }}</div>
                     @else
@@ -136,7 +137,7 @@
                                     <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3" data-testid="request-season-item" data-product-id="{{ $product->id }}">
                                         <div class="min-w-0">
                                             <p class="text-sm text-shop-foreground">{{ $product->name }}@if ($grade['label']) · {{ $grade['label'] }}@endif</p>
-                                            <p class="text-xs text-shop-muted">{{ $product->producer?->name }} · @eur($grade['netPerDisplay']) {{ __('restaurant.net_suffix') }}/{{ $grade['unitSymbol'] }}</p>
+                                            <p class="text-xs text-shop-muted">{{ $product->producer?->name }} · @eur($grade['netPerDisplay'])/{{ $grade['unitSymbol'] }} {{ __('restaurant.plus_vat_suffix') }}</p>
                                         </div>
                                         <div class="flex shrink-0 flex-wrap items-center gap-2">
                                             <div class="flex items-center gap-1">
@@ -296,6 +297,9 @@
                 openEndedLabel: config.openEndedLabel || 'Unbegrenzt',
                 details: { street: config.prefill.street, postal: config.prefill.postal, city: config.prefill.city },
                 init() {
+                    // One empty free-form row is always open, so typing a wish
+                    // needs no extra click.
+                    this.addSpecialRequest();
                     // Shop handoff: preselect the product (its default grade) with
                     // the desired quantity, snapped to the grade's step.
                     const pid = config.prefillProductId || 0;
@@ -316,7 +320,11 @@
                     return s;
                 },
                 addSpecialRequest() { this.specialRequests.push({ name: '', unit: 'piece', quantity: '', recurrence: 'one_time', until: '' }); },
-                removeSpecialRequest(i) { this.specialRequests.splice(i, 1); },
+                removeSpecialRequest(i) {
+                    this.specialRequests.splice(i, 1);
+                    // Keep one row open at all times.
+                    if (this.specialRequests.length === 0) this.addSpecialRequest();
+                },
                 get filledSpecials() {
                     return this.specialRequests
                         .map((s) => ({ name: (s.name || '').trim(), unit: s.unit, quantity: parseFloat(String(s.quantity).replace(',', '.')) || 0, recurrence: s.recurrence || 'one_time', until: s.recurrence === 'weekly' ? (s.until || '') : '' }))
