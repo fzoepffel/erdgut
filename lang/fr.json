@@ -4328,5 +4328,7 @@
     "products.request_availability_until_empty_on": "Vide = activé jusqu'à désactivation.",
     "products.request_availability_turn_on": "Proposer dans l'espace demandes",
     "products.request_availability_back_to_auto": "Retour à l'automatique saisonnier",
-    "products.request_availability_saved": "« :name » a été mis à jour."
+    "products.request_availability_saved": "« :name » a été mis à jour.",
+    "seo.home_title": "Erdgut – Produits de saison de petites fermes, livrés à Berlin",
+    "seo.home_description": "Boutique de ferme en ligne : légumes, fruits, œufs et plus, de petites fermes de Berlin et du Brandebourg. Récoltés en saison et livrés chez vous."
 }

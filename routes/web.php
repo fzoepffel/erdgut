@@ -46,6 +46,7 @@ use App\Http\Controllers\Marketing\ProducerController as MarketingProducerContro
 use App\Http\Controllers\Marketing\ShopAboutController;
 use App\Http\Controllers\Marketing\ShopContactController;
 use App\Http\Controllers\Marketing\ShopHomeController;
+use App\Http\Controllers\Marketing\SitemapController;
 use App\Http\Controllers\Marketing\TermsController;
 use App\Http\Controllers\Onboarding\AccountStepController;
 use App\Http\Controllers\Onboarding\AddressStepController;
@@ -95,6 +96,7 @@ Route::name('public.')->group(function () {
     // marketing.coming-soon) is retired and no longer routed, but kept in
     // the codebase.
     Route::get('/', ShopHomeController::class)->name('home');
+    Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
     Route::get('/erdgut', ShopAboutController::class)->name('shop-about');
     Route::get('/kontakt', [ShopContactController::class, 'create'])->name('shop-contact');
     Route::post('/kontakt', [ShopContactController::class, 'store'])->middleware('throttle:contact')->name('shop-contact.store');
