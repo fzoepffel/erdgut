@@ -4328,5 +4328,7 @@
     "products.request_availability_until_empty_on": "Empty = on until you disable it again.",
     "products.request_availability_turn_on": "Offer in the request area",
     "products.request_availability_back_to_auto": "Back to the season automatic",
-    "products.request_availability_saved": "\":name\" has been updated."
+    "products.request_availability_saved": "\":name\" has been updated.",
+    "seo.home_title": "Erdgut – Seasonal food from small farms, delivered in Berlin",
+    "seo.home_description": "Farm shop online: vegetables, fruit, eggs and more from small farms around Berlin and Brandenburg. Harvested in season and delivered to your door."
 }

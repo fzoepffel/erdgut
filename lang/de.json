@@ -4328,5 +4328,7 @@
     "products.request_availability_until_empty_on": "Leer = dauerhaft an, bis Sie es wieder deaktivieren.",
     "products.request_availability_turn_on": "Im Anfragebereich anbieten",
     "products.request_availability_back_to_auto": "Zurück zur Saison-Automatik",
-    "products.request_availability_saved": "„:name“ wurde aktualisiert."
+    "products.request_availability_saved": "„:name“ wurde aktualisiert.",
+    "seo.home_title": "Erdgut – Saisonale Lebensmittel von kleinen Höfen, geliefert in Berlin",
+    "seo.home_description": "Hofladen online: Gemüse, Obst, Eier und mehr von kleinen Höfen aus Berlin und Brandenburg. Saisonal geerntet und direkt nach Hause geliefert."
 }

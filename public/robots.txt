@@ -1,2 +1,11 @@
 User-agent: *
-Disallow:
+Disallow: /app/
+Disallow: /auth/
+Disallow: /account/
+Disallow: /onboarding/
+Disallow: /shop/checkout
+Disallow: /cron/
+Disallow: /locale/
+Allow: /
+
+Sitemap: https://erd-gut.de/sitemap.xml
