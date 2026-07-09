@@ -43,4 +43,14 @@ class SitemapTest extends TestCase
             ->assertSee('<title>'.__('seo.home_title').'</title>', false)
             ->assertSee(__('seo.home_description'));
     }
+
+    public function test_crawlers_without_accept_language_get_the_app_locale(): void
+    {
+        // Googlebot sends no Accept-Language; it must index the German site.
+        config(['app.locale' => 'de']);
+
+        $this->get('/', ['Accept-Language' => ''])
+            ->assertOk()
+            ->assertSee('<title>'.trans('seo.home_title', [], 'de').'</title>', false);
+    }
 }

@@ -48,6 +48,14 @@ class SetLocale
             return $fromHeader;
         }
 
+        // No session, no account, no usable header: serve the configured app
+        // locale (de), not the translation fallback. Crawlers send no
+        // Accept-Language, so this decides the language Google indexes.
+        $appLocale = (string) config('app.locale', '');
+        if ($appLocale !== '' && in_array($appLocale, $supported, true)) {
+            return $appLocale;
+        }
+
         return in_array($fallback, $supported, true) ? $fallback : ($supported[0] ?? 'en');
     }
 
