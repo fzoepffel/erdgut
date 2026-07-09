@@ -199,7 +199,7 @@
                                                 <div class="flex items-center justify-between gap-3">
                                                     <div class="min-w-0">
                                                         @if ($grade['label'])<p class="truncate text-sm text-shop-foreground">{{ $grade['label'] }}</p>@endif
-                                                        <p class="font-mono text-sm tabular-nums text-shop-foreground">@eur($grade['netPerDisplay']) <span class="text-xs text-shop-muted">{{ __('restaurant.net_suffix') }}/{{ $grade['unitSymbol'] }}</span></p>
+                                                        <p class="font-mono text-sm tabular-nums text-shop-foreground">@eur($grade['netPerDisplay'])<span class="text-xs text-shop-muted">/{{ $grade['unitSymbol'] }} {{ __('restaurant.plus_vat_suffix') }}</span></p>
                                                     </div>
                                                     <div class="flex shrink-0 items-center gap-1">
                                                         <button type="button" @click="dec(@js($grade['key']))" class="h-9 w-9 border border-shop-border text-shop-foreground transition hover:border-shop-primary" aria-label="−">−</button>

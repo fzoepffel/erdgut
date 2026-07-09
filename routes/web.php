@@ -66,6 +66,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\Restaurant\RestaurantAccountController;
 use App\Http\Controllers\Restaurant\RestaurantCatalogController;
+use App\Http\Controllers\Restaurant\RestaurantContactController;
 use App\Http\Controllers\Restaurant\RestaurantDashboardController;
 use App\Http\Controllers\Restaurant\RestaurantOrderController;
 use App\Http\Controllers\Restaurant\RestaurantRegisterController;
@@ -368,6 +369,9 @@ Route::middleware('auth')
             Route::get('orders/{restaurantOrder}/invoice.pdf', [RestaurantOrderController::class, 'invoicePdf'])->name('orders.invoice-pdf');
             Route::post('orders/{restaurantOrder}/cancel', [RestaurantOrderController::class, 'cancel'])->name('orders.cancel');
             Route::post('orders/{restaurantOrder}/lines', [RestaurantOrderController::class, 'updateLines'])->name('orders.update-lines');
+
+            Route::get('kontakt', [RestaurantContactController::class, 'create'])->name('contact');
+            Route::post('kontakt', [RestaurantContactController::class, 'store'])->middleware('throttle:contact')->name('contact.store');
 
             Route::get('konto', [RestaurantAccountController::class, 'edit'])->name('account.edit');
             Route::put('konto', [RestaurantAccountController::class, 'update'])->name('account.update');
