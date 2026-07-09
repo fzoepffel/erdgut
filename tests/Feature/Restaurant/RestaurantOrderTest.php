@@ -241,6 +241,95 @@ class RestaurantOrderTest extends TestCase
         $this->assertStringContainsString('reorderPrefill: null', $otherHtml);
     }
 
+    public function test_reorder_banner_names_missing_lines_and_links_the_day_that_covers_all(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 8)); // a Wednesday
+        try {
+            $laterDay = Carbon::tomorrow()->addWeek();
+            $everyDay = $this->product();
+            $lateOnly = $this->product();
+            $this->stock($everyDay, Carbon::tomorrow(), 50);
+            $this->stock($everyDay, $laterDay, 50);
+            $this->stock($lateOnly, $laterDay, 50);
+
+            $profile = RestaurantProfile::factory()->verified()->create();
+            $original = app(RestaurantOrderService::class)->submitOrder($profile->user, [
+                'items' => [
+                    ['product_id' => $everyDay->id, 'variant_id' => null, 'quantity' => 10],
+                    ['product_id' => $lateOnly->id, 'variant_id' => null, 'quantity' => 10],
+                ],
+                'expected_delivery_date' => $laterDay->toDateString(),
+                'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+            ]);
+
+            // Reorder lands on the FIRST stocked day (tomorrow), where the
+            // late-only product is missing: it is named, and the banner links
+            // the day that covers everything.
+            $html = $this->actingAs($profile->user)
+                ->get(route('app.restaurant.catalog', ['reorder' => $original->id]))
+                ->assertOk()
+                ->getContent();
+            $this->assertStringContainsString('\u0022missingNames\u0022', $html);
+            $this->assertStringContainsString($lateOnly->name, $html);
+            $this->assertStringContainsString('\u0022iso\u0022:\u0022'.$laterDay->toDateString().'\u0022', $html);
+            $this->assertStringContainsString('\u0022all\u0022:true', $html);
+
+            // Following the link keeps the prefill on the better day; there
+            // everything is available, so no better date is suggested.
+            $laterHtml = $this->actingAs($profile->user)
+                ->get(route('app.restaurant.catalog', ['reorder' => $original->id, 'date' => $laterDay->toDateString()]))
+                ->assertOk()
+                ->getContent();
+            $this->assertStringContainsString('\u0022missingNames\u0022:[]', $laterHtml);
+            $this->assertStringContainsString('\u0022betterDate\u0022:null', $laterHtml);
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
+    public function test_reorder_banner_suggests_the_day_covering_most_lines_when_none_covers_all(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 7, 1, 8)); // a Wednesday
+        try {
+            $laterDay = Carbon::tomorrow()->addWeek();
+            $everyDay = $this->product();
+            $lateOnly = $this->product();
+            $goneForGood = $this->product();
+            $this->stock($everyDay, Carbon::tomorrow(), 50);
+            $this->stock($everyDay, $laterDay, 50);
+            $this->stock($lateOnly, $laterDay, 50);
+            // Exactly the ordered quantity: the original order consumes it,
+            // so this line is never fully available again.
+            $this->stock($goneForGood, $laterDay, 10);
+
+            $profile = RestaurantProfile::factory()->verified()->create();
+            $original = app(RestaurantOrderService::class)->submitOrder($profile->user, [
+                'items' => [
+                    ['product_id' => $everyDay->id, 'variant_id' => null, 'quantity' => 10],
+                    ['product_id' => $lateOnly->id, 'variant_id' => null, 'quantity' => 10],
+                    ['product_id' => $goneForGood->id, 'variant_id' => null, 'quantity' => 10],
+                ],
+                'expected_delivery_date' => $laterDay->toDateString(),
+                'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+            ]);
+
+            // Tomorrow covers 1 of 3 lines; the later day covers 2 of 3 and no
+            // day covers everything, so the partial suggestion appears.
+            $html = $this->actingAs($profile->user)
+                ->get(route('app.restaurant.catalog', ['reorder' => $original->id]))
+                ->assertOk()
+                ->getContent();
+            $this->assertStringContainsString($lateOnly->name, $html);
+            $this->assertStringContainsString($goneForGood->name, $html);
+            $this->assertStringContainsString('\u0022iso\u0022:\u0022'.$laterDay->toDateString().'\u0022', $html);
+            $this->assertStringContainsString('\u0022all\u0022:false', $html);
+            $this->assertStringContainsString('\u0022available\u0022:2', $html);
+            $this->assertStringContainsString('\u0022total\u0022:3', $html);
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
     public function test_non_owner_cannot_view_or_cancel(): void
     {
         $date = Carbon::tomorrow();

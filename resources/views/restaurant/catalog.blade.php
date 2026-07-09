@@ -117,7 +117,12 @@
                     <div x-show="reorderOrderId" x-cloak data-testid="restaurant-reorder-banner"
                          class="mb-6 border-l-2 border-shop-primary bg-shop-paper px-4 py-3 text-sm text-shop-foreground">
                         <span x-text="reorderBanner"></span>
-                        <span x-show="reorderMissing > 0" x-cloak class="block pt-1 text-amber-800" x-text="reorderMissingText"></span>
+                        <span x-show="reorderMissingNames.length > 0" x-cloak class="block pt-1 text-amber-800" x-text="reorderMissingText"></span>
+                        <template x-if="reorderBetterDate">
+                            <a :href="reorderBetterDate.url" data-testid="restaurant-reorder-better-date"
+                               class="mt-1 inline-block font-medium text-shop-primary underline underline-offset-4 hover:no-underline"
+                               x-text="reorderBetterDateText"></a>
+                        </template>
                     </div>
                     @if ($products->isNotEmpty())
                         <div class="space-y-4">
@@ -441,27 +446,38 @@
 
                 // ── Reorder handoff (misclick-safe "Nochmal bestellen") ────
                 reorderOrderId: null,
-                reorderMissing: 0,
+                reorderMissingNames: [],
+                reorderBetterDate: null,
                 reorderBanner: '',
                 reorderMissingText: '',
+                reorderBetterDateText: '',
                 reorderBannerTemplate: @js(__('restaurant.reorder_banner')),
                 reorderMissingTemplate: @js(__('restaurant.reorder_banner_missing')),
+                reorderBetterAllTemplate: @js(__('restaurant.reorder_better_date_all')),
+                reorderBetterPartialTemplate: @js(__('restaurant.reorder_better_date_partial')),
                 init() {
                     const pre = config.reorderPrefill;
                     if (!pre || !Array.isArray(pre.lines)) return;
                     this.reorderOrderId = pre.orderId;
-                    let missing = 0;
                     for (const line of pre.lines) {
                         const r = this.rowFor(line.key);
-                        if (!r || r.cap <= 0) { missing++; continue; }
+                        if (!r || r.cap <= 0) continue;
                         const snapped = Math.max(r.step, Math.round(line.qty / r.step) * r.step);
-                        const clamped = Math.min(snapped, r.cap);
-                        if (clamped < line.qty) missing++;
-                        this.quantities[line.key] = clamped;
+                        this.quantities[line.key] = Math.min(snapped, r.cap);
                     }
-                    this.reorderMissing = missing;
                     this.reorderBanner = this.reorderBannerTemplate.replace(':id', pre.orderId);
-                    this.reorderMissingText = this.reorderMissingTemplate.replace(':count', missing);
+                    // Which lines the day can't cover (and a better day, if any)
+                    // is computed server-side from the same caps used above.
+                    this.reorderMissingNames = pre.missingNames || [];
+                    this.reorderMissingText = this.reorderMissingTemplate.replace(':names', this.reorderMissingNames.join(', '));
+                    this.reorderBetterDate = pre.betterDate || null;
+                    if (this.reorderBetterDate) {
+                        const b = this.reorderBetterDate;
+                        this.reorderBetterDateText = (b.all ? this.reorderBetterAllTemplate : this.reorderBetterPartialTemplate)
+                            .replace(':date', b.label)
+                            .replace(':available', b.available)
+                            .replace(':total', b.total);
+                    }
                 },
                 requestUrl: config.requestUrl || '#',
                 weeklyLabel: config.weeklyLabel || 'Wöchentlich',
