@@ -45,7 +45,11 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            // Never unlimited: on IONOS (CGI) the browser waits for the PHP
+            // process to finish, so a hanging SMTP connection hangs the
+            // visitor's request with it (mails send in terminating()). With a
+            // bound, a dead SMTP host becomes a logged exception instead.
+            'timeout' => (int) env('MAIL_TIMEOUT', 15),
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
