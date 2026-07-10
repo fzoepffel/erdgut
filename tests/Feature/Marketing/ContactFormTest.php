@@ -43,7 +43,7 @@ class ContactFormTest extends TestCase
             'message' => 'Can you deliver to Kreuzberg?',
         ]);
 
-        Mail::assertSent(ContactMessageReceived::class, 1);
+        Mail::assertQueued(ContactMessageReceived::class, 1);
     }
 
     public function test_invalid_contact_submission_returns_validation_errors(): void

@@ -29,6 +29,14 @@ use Illuminate\Foundation\Configuration\Middleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule) {
+        // Deliver queued mail (QUEUE_CONNECTION=database on the servers).
+        // Runs every scheduler tick, drains the queue and exits, so mails go
+        // out within a minute of being queued without a resident worker
+        // (IONOS has none). --max-time caps a tick well below the next one.
+        $schedule->command('queue:work --stop-when-empty --max-time=50 --tries=3')
+            ->everyMinute()
+            ->withoutOverlapping();
+
         $schedule->command('boxes:prepare')->dailyAt('00:00')->withoutOverlapping();
         // Tops up the materialization window for recurring inflow
         // schedules so the admin always sees ≥4 weeks of buffered rows

@@ -64,7 +64,7 @@ class RestaurantAccountTest extends TestCase
         $this->assertTrue($profile->isPending());
         $this->assertSame('HRB 12345', $profile->handelsregisternummer);
 
-        Mail::assertSent(RestaurantApplicationAdminNotification::class, fn ($mail) => $mail->hasTo($admin->email));
+        Mail::assertQueued(RestaurantApplicationAdminNotification::class, fn ($mail) => $mail->hasTo($admin->email));
     }
 
     public function test_signup_rejects_duplicate_email(): void
@@ -94,7 +94,7 @@ class RestaurantAccountTest extends TestCase
         $this->assertSame($admin->id, $profile->verified_by_user_id);
         $this->assertNotNull($profile->user->email_verified_at);
 
-        Mail::assertSent(RestaurantApprovedMail::class, fn ($mail) => $mail->hasTo($profile->user->email));
+        Mail::assertQueued(RestaurantApprovedMail::class, fn ($mail) => $mail->hasTo($profile->user->email));
     }
 
     public function test_verify_still_succeeds_when_the_welcome_mail_fails(): void
@@ -123,7 +123,7 @@ class RestaurantAccountTest extends TestCase
         $url = URL::signedRoute('restaurant.verify.approve', ['restaurantProfile' => $profile->id]);
 
         $this->post($url)->assertRedirect(route('restaurant.verify.done', ['result' => 'already']));
-        Mail::assertNotSent(RestaurantApprovedMail::class);
+        Mail::assertNotQueued(RestaurantApprovedMail::class);
     }
 
     public function test_signed_reject_deletes_account_and_emails(): void
@@ -141,7 +141,7 @@ class RestaurantAccountTest extends TestCase
         $this->assertDatabaseMissing('users', ['id' => $userId]);
         $this->assertDatabaseMissing('restaurant_profiles', ['id' => $profile->id]);
 
-        Mail::assertSent(RestaurantRejectedMail::class, fn ($mail) => $mail->hasTo($email));
+        Mail::assertQueued(RestaurantRejectedMail::class, fn ($mail) => $mail->hasTo($email));
     }
 
     public function test_review_link_rejects_tampered_signature(): void

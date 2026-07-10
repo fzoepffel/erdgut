@@ -120,7 +120,7 @@ class RestaurantRequestController extends Controller
         try {
             Mail::to($request->user()->email)
                 ->locale($order->locale ?? app()->getLocale())
-                ->send(new RestaurantOrderSubmittedMail($order));
+                ->queue(new RestaurantOrderSubmittedMail($order));
         } catch (\Throwable $e) {
             report($e);
         }
