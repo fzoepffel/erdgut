@@ -24,9 +24,11 @@ class RestaurantDashboardController extends Controller
     {
         $user = $request->user();
 
-        // Next open delivery day + its in-stock product count (cached matrix —
-        // the catalog page runs the same query).
-        $nextDay = $catalog->selectableDates()->first();
+        // Next ORDERABLE delivery day: like the shop's date picker, only days
+        // that actually have stock count (an open day with 0 products is not
+        // a delivery day from the restaurant's point of view).
+        $nextDay = $catalog->selectableDates()
+            ->first(fn (array $row): bool => $row['in_stock_count'] > 0);
 
         // "Diese Woche": the concrete deliveries of the current ISO week and
         // a preview of next week, with product images for the cards. These

@@ -79,6 +79,27 @@ class RestaurantDashboardTest extends TestCase
             ->assertSee(route('app.restaurant.orders.reorder', $order), false);
     }
 
+    public function test_next_delivery_day_skips_open_days_without_stock(): void
+    {
+        $this->app->setLocale('de');
+        // Stock exists only three days out; tomorrow and the day after are
+        // open but empty, so they are not delivery days for the restaurant.
+        $stockedDay = Carbon::tomorrow()->addDays(2);
+        $this->inStockProduct($stockedDay);
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $profile->user->forceFill(['locale' => 'de'])->save();
+
+        $response = $this->actingAs($profile->user)
+            ->get(route('app.restaurant.dashboard'))
+            ->assertOk();
+
+        $response->assertSee($stockedDay->locale('de')->isoFormat('dddd, D. MMMM'));
+        $response->assertDontSee(__('restaurant.dashboard_next_day', [
+            'day' => Carbon::tomorrow()->locale('de')->isoFormat('dddd, D. MMMM'),
+            'count' => 0,
+        ]));
+    }
+
     public function test_fresh_restaurant_dashboard_leads_with_opportunities(): void
     {
         $profile = RestaurantProfile::factory()->verified()->create();
