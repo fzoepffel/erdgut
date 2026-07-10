@@ -11,10 +11,10 @@ use Throwable;
 
 /**
  * Emails every admin a "new restaurant request" notice. Mirrors
- * {@see RestaurantApplicationAdminNotifier}: one envelope per admin, deferred to
- * terminating() in HTTP so the restaurant's POST never blocks on SMTP, run
- * inline in CLI/tests, failures logged and swallowed (staging runs the sync
- * queue, so a mail error must not 500 the submission).
+ * {@see RestaurantApplicationAdminNotifier}: one envelope per admin, QUEUED so
+ * the restaurant's POST never touches SMTP (the cron-driven worker delivers
+ * within a minute), failures logged and swallowed (on the sync queue driver a
+ * mail error would otherwise 500 the submission).
  */
 class RestaurantOrderAdminNotifier
 {
@@ -37,25 +37,17 @@ class RestaurantOrderAdminNotifier
             return;
         }
 
-        $send = function () use ($order, $admins, $adjusted): void {
-            foreach ($admins as $admin) {
-                try {
-                    Mail::to($admin->email)->send(new RestaurantOrderAdminNotification($order, $adjusted));
-                } catch (Throwable $e) {
-                    Log::warning('restaurant.order.admin_notify_failed', [
-                        'restaurant_order_id' => $order->id,
-                        'recipient' => $admin->email,
-                        'exception_class' => $e::class,
-                        'message' => $e->getMessage(),
-                    ]);
-                }
+        foreach ($admins as $admin) {
+            try {
+                Mail::to($admin->email)->queue(new RestaurantOrderAdminNotification($order, $adjusted));
+            } catch (Throwable $e) {
+                Log::warning('restaurant.order.admin_notify_failed', [
+                    'restaurant_order_id' => $order->id,
+                    'recipient' => $admin->email,
+                    'exception_class' => $e::class,
+                    'message' => $e->getMessage(),
+                ]);
             }
-        };
-
-        if (app()->runningInConsole()) {
-            $send();
-        } else {
-            app()->terminating($send);
         }
     }
 }

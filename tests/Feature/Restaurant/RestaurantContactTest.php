@@ -49,7 +49,7 @@ class RestaurantContactTest extends TestCase
         $this->assertSame('[B2B] Lieferfenster', $stored->subject);
         $this->assertSame('Können wir donnerstags früher beliefert werden?', $stored->message);
 
-        Mail::assertSent(ContactMessageReceived::class);
+        Mail::assertQueued(ContactMessageReceived::class);
     }
 
     public function test_message_is_required(): void

@@ -693,7 +693,7 @@ class ShopOrderFlowTest extends TestCase
         ]))->assertRedirect();
 
         // In-person checkout is a confirmed sale → admins are pinged right away.
-        Mail::assertSent(
+        Mail::assertQueued(
             ShopOrderFinalizedAdminNotification::class,
             fn ($mail) => $mail->hasTo('admin@erdgut.test'),
         );
@@ -721,7 +721,7 @@ class ShopOrderFlowTest extends TestCase
 
         $this->get(route('public.shop.return', ['shopOrder' => $order->id]))->assertOk();
 
-        Mail::assertSent(
+        Mail::assertQueued(
             ShopOrderFinalizedAdminNotification::class,
             fn ($mail) => $mail->hasTo('admin@erdgut.test'),
         );
@@ -738,7 +738,7 @@ class ShopOrderFlowTest extends TestCase
             'payment_method' => 'online',
         ]))->assertRedirect();
 
-        Mail::assertNotSent(ShopOrderFinalizedAdminNotification::class);
+        Mail::assertNotQueued(ShopOrderFinalizedAdminNotification::class);
     }
 
     public function test_finalized_notification_targets_admins_only(): void

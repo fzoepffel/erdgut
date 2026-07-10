@@ -26,11 +26,10 @@ use Throwable;
  *    {@see ShopOrderObserver} calls it on the status → Paid
  *    transition, where the items already exist.
  *
- * In an HTTP request the sends are deferred to `terminating()` so the
- * customer-facing POST never blocks on SMTP (slow on IONOS shared hosting).
- * In CLI / PHPUnit there is no terminate lifecycle, so sends run inline and
- * tests still observe the side effect. Failures are logged and swallowed —
- * an admin notification must never break the customer flow.
+ * Sends are QUEUED so the customer-facing POST never touches SMTP (slow and
+ * occasionally hanging on IONOS shared hosting); the cron-driven queue worker
+ * delivers within a minute. Failures are logged and swallowed — an admin
+ * notification must never break the customer flow.
  */
 class ShopOrderAdminNotifier
 {
@@ -52,25 +51,17 @@ class ShopOrderAdminNotifier
             ->with('items.product.translations')
             ->find($order->id) ?? $order;
 
-        $send = function () use ($order, $adminEmails): void {
-            foreach ($adminEmails as $email) {
-                try {
-                    Mail::to($email)->send(new ShopOrderFinalizedAdminNotification($order));
-                } catch (Throwable $e) {
-                    Log::warning('shop.admin_notification.send_failed', [
-                        'shop_order_id' => $order->id,
-                        'recipient' => $email,
-                        'exception_class' => $e::class,
-                        'message' => $e->getMessage(),
-                    ]);
-                }
+        foreach ($adminEmails as $email) {
+            try {
+                Mail::to($email)->queue(new ShopOrderFinalizedAdminNotification($order));
+            } catch (Throwable $e) {
+                Log::warning('shop.admin_notification.send_failed', [
+                    'shop_order_id' => $order->id,
+                    'recipient' => $email,
+                    'exception_class' => $e::class,
+                    'message' => $e->getMessage(),
+                ]);
             }
-        };
-
-        if (app()->runningInConsole()) {
-            $send();
-        } else {
-            app()->terminating($send);
         }
     }
 }

@@ -48,7 +48,7 @@ class ContactPageTest extends TestCase
             'message' => 'When is my box arriving?',
         ]);
 
-        Mail::assertSent(ContactMessageReceived::class, function (ContactMessageReceived $mail): bool {
+        Mail::assertQueued(ContactMessageReceived::class, function (ContactMessageReceived $mail): bool {
             return $mail->hasTo('inbox@example.test');
         });
 
