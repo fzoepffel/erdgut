@@ -48,6 +48,19 @@ class AdminInventoryTest extends TestCase
             ->assertSee(__('admin.inventory.title'));
     }
 
+    public function test_matrix_shows_the_producer_next_to_the_product(): void
+    {
+        // Two same-named products from different farms must be tellable apart.
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index'))
+            ->assertOk()
+            ->assertSee($product->producer->name);
+    }
+
     public function test_admin_can_record_a_manual_inflow_and_redirect_back(): void
     {
         $admin = User::factory()->admin()->create();

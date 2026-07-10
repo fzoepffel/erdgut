@@ -73,7 +73,7 @@ class AdminInventoryController extends Controller
         // Inflow batches in the window — used for section A's table.
         $inflows = ProductStockInflow::query()
             ->whereBetween('received_on', [$start->toDateString(), $end->toDateString()])
-            ->with(['product.translations', 'product.variants', 'sourceSchedule'])
+            ->with(['product.translations', 'product.producer.translations', 'product.variants', 'sourceSchedule'])
             ->orderBy('received_on')
             ->get();
 
