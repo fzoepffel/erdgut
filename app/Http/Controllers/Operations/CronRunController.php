@@ -30,6 +30,12 @@ class CronRunController extends Controller
             abort(403, 'Invalid or missing cron key');
         }
 
+        // A tick must survive the caller giving up: cron-job.org enforces an
+        // HTTP timeout, and without this an abort would kill PHP mid-command
+        // (e.g. the queue worker between SMTP send and job deletion).
+        ignore_user_abort(true);
+        set_time_limit(120);
+
         Artisan::call('schedule:run');
 
         return response(Artisan::output(), 200, [

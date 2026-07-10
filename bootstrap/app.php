@@ -26,16 +26,19 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Support\Facades\DB;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule) {
         // Deliver queued mail (QUEUE_CONNECTION=database on the servers).
-        // Runs every scheduler tick, drains the queue and exits, so mails go
-        // out within a minute of being queued without a resident worker
-        // (IONOS has none). --max-time caps a tick well below the next one.
-        $schedule->command('queue:work --stop-when-empty --max-time=50 --tries=3')
+        // The scheduler runs synchronously inside the /cron/run HTTP request,
+        // so the worker only starts when jobs exist and keeps the tick short:
+        // cron-job.org cuts the connection after its HTTP timeout, and a tick
+        // must comfortably fit (empty tick = one cheap EXISTS query).
+        $schedule->command('queue:work --stop-when-empty --max-time=15 --tries=3')
             ->everyMinute()
-            ->withoutOverlapping();
+            ->withoutOverlapping()
+            ->when(fn (): bool => DB::table('jobs')->exists());
 
         $schedule->command('boxes:prepare')->dailyAt('00:00')->withoutOverlapping();
         // Tops up the materialization window for recurring inflow
