@@ -45,7 +45,7 @@ class ShopContactFormTest extends TestCase
             'message' => 'Liefert ihr nach Kreuzberg?',
         ]);
 
-        Mail::assertSent(ContactMessageReceived::class, 1);
+        Mail::assertQueued(ContactMessageReceived::class, 1);
     }
 
     public function test_invalid_shop_contact_submission_returns_validation_errors(): void

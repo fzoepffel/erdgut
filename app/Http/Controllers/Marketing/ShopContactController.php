@@ -52,7 +52,7 @@ class ShopContactController extends Controller
         $recipient = config('mail.contact_to') ?: config('mail.from.address');
         if (is_string($recipient) && $recipient !== '') {
             try {
-                Mail::to($recipient)->send(new ContactMessageReceived($contactMessage));
+                Mail::to($recipient)->queue(new ContactMessageReceived($contactMessage));
             } catch (\Throwable $e) {
                 report($e); // the message is stored either way
             }

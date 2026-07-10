@@ -72,7 +72,7 @@ class RestaurantVerificationController extends Controller
             try {
                 Mail::to($restaurantProfile->user->email)
                     ->locale($restaurantProfile->user->preferredLocale())
-                    ->send(new RestaurantApprovedMail($restaurantProfile));
+                    ->queue(new RestaurantApprovedMail($restaurantProfile));
             } catch (\Throwable $e) {
                 report($e);
             }
@@ -106,7 +106,7 @@ class RestaurantVerificationController extends Controller
         // Failure-tolerant (see approve()): the account is already deleted above.
         if ($email !== null) {
             try {
-                Mail::to($email)->locale($locale)->send(new RestaurantRejectedMail($businessName, $reason));
+                Mail::to($email)->locale($locale)->queue(new RestaurantRejectedMail($businessName, $reason));
             } catch (\Throwable $e) {
                 report($e);
             }

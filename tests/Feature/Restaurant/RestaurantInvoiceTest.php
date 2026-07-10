@@ -209,7 +209,7 @@ class RestaurantInvoiceTest extends TestCase
 
         $order->refresh();
         $this->assertNotNull($order->invoice_number);
-        Mail::assertSent(RestaurantOrderInvoicedMail::class, fn ($m) => $m->hasTo($order->user->email));
+        Mail::assertQueued(RestaurantOrderInvoicedMail::class, fn ($m) => $m->hasTo($order->user->email));
 
         // Re-issue blocked (already invoiced).
         $this->actingAs($admin)->post(route('app.admin.restaurant-orders.invoice', $order))->assertForbidden();

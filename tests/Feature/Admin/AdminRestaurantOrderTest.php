@@ -121,7 +121,7 @@ class AdminRestaurantOrderTest extends TestCase
             'entity_id' => $order->id,
             'action' => 'confirm',
         ]);
-        Mail::assertSent(RestaurantOrderConfirmedMail::class, fn ($m) => $m->hasTo($order->user->email) && $m->note === 'Liefern Mittwoch');
+        Mail::assertQueued(RestaurantOrderConfirmedMail::class, fn ($m) => $m->hasTo($order->user->email) && $m->note === 'Liefern Mittwoch');
     }
 
     public function test_decline_releases_reservation_and_mails(): void
@@ -136,7 +136,7 @@ class AdminRestaurantOrderTest extends TestCase
 
         $this->assertSame(RestaurantOrderStatus::Declined, $order->fresh()->status);
         $this->assertEqualsWithDelta(50.0, $this->remaining(), 0.01);
-        Mail::assertSent(RestaurantOrderDeclinedMail::class, fn ($m) => $m->hasTo($order->user->email));
+        Mail::assertQueued(RestaurantOrderDeclinedMail::class, fn ($m) => $m->hasTo($order->user->email));
     }
 
     public function test_fulfil_only_from_confirmed_and_sends_no_mail(): void
@@ -153,8 +153,8 @@ class AdminRestaurantOrderTest extends TestCase
         $this->actingAs($admin)->post(route('app.admin.restaurant-orders.fulfil', $order))->assertRedirect();
         $this->assertSame(RestaurantOrderStatus::Fulfilled, $order->fresh()->status);
 
-        Mail::assertNotSent(RestaurantOrderConfirmedMail::class);
-        Mail::assertNotSent(RestaurantOrderDeclinedMail::class);
+        Mail::assertNotQueued(RestaurantOrderConfirmedMail::class);
+        Mail::assertNotQueued(RestaurantOrderDeclinedMail::class);
     }
 
     public function test_accept_lines_settles_request_to_confirmed(): void
@@ -170,14 +170,14 @@ class AdminRestaurantOrderTest extends TestCase
             ->assertRedirect(route('app.admin.restaurant-orders.show', $order));
         $this->assertSame(RestaurantOrderLineStatus::Confirmed, $first->fresh()->line_status);
         $this->assertSame(RestaurantOrderStatus::Submitted, $order->fresh()->status);
-        Mail::assertNotSent(RestaurantOrderConfirmedMail::class);
+        Mail::assertNotQueued(RestaurantOrderConfirmedMail::class);
 
         // Accepting the last pending line settles the request + mails.
         $this->actingAs($admin)
             ->post(route('app.admin.restaurant-orders.accept-line', [$order, $second]))
             ->assertRedirect();
         $this->assertSame(RestaurantOrderStatus::Confirmed, $order->fresh()->status);
-        Mail::assertSent(RestaurantOrderConfirmedMail::class);
+        Mail::assertQueued(RestaurantOrderConfirmedMail::class);
     }
 
     public function test_decline_line_settles_request_when_other_line_accepted(): void
@@ -212,7 +212,7 @@ class AdminRestaurantOrderTest extends TestCase
 
         $this->assertSame(RestaurantOrderStatus::Cancelled, $order->fresh()->status);
         $this->assertEqualsWithDelta(50.0, $this->remaining(), 0.01); // reservation released
-        Mail::assertSent(RestaurantOrderCancelledMail::class, fn ($m) => $m->hasTo($order->user->email));
+        Mail::assertQueued(RestaurantOrderCancelledMail::class, fn ($m) => $m->hasTo($order->user->email));
     }
 
     public function test_confirm_is_noop_on_non_submitted_order(): void

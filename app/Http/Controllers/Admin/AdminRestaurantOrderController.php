@@ -165,7 +165,7 @@ class AdminRestaurantOrderController extends Controller
                 try {
                     Mail::to($restaurantOrder->user->email)
                         ->locale($restaurantOrder->locale ?? app()->getLocale())
-                        ->send(new RestaurantOrderCancelledMail($restaurantOrder, $note));
+                        ->queue(new RestaurantOrderCancelledMail($restaurantOrder, $note));
                 } catch (\Throwable $e) {
                     report($e);
                 }
@@ -226,7 +226,7 @@ class AdminRestaurantOrderController extends Controller
         try {
             Mail::to($order->user->email)
                 ->locale($order->locale ?? app()->getLocale())
-                ->send($mailable);
+                ->queue($mailable);
         } catch (\Throwable $e) {
             report($e);
         }
@@ -274,7 +274,7 @@ class AdminRestaurantOrderController extends Controller
             try {
                 Mail::to($restaurantOrder->user->email)
                     ->locale($restaurantOrder->locale ?? app()->getLocale())
-                    ->send(new RestaurantOrderInvoicedMail($restaurantOrder));
+                    ->queue(new RestaurantOrderInvoicedMail($restaurantOrder));
             } catch (\Throwable $e) {
                 report($e);
             }

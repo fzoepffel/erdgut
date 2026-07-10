@@ -116,8 +116,8 @@ class RestaurantOrderTest extends TestCase
         // Reservation reduces availability.
         $this->assertEqualsWithDelta(38.0, app(InventoryService::class)->availableOnDate($product, $date, ShopStockAudience::BusinessTrade), 0.01);
 
-        Mail::assertSent(RestaurantOrderSubmittedMail::class, fn ($m) => $m->hasTo($user->email));
-        Mail::assertSent(RestaurantOrderAdminNotification::class);
+        Mail::assertQueued(RestaurantOrderSubmittedMail::class, fn ($m) => $m->hasTo($user->email));
+        Mail::assertQueued(RestaurantOrderAdminNotification::class);
     }
 
     public function test_out_of_stock_seasonal_line_becomes_a_request(): void
@@ -386,7 +386,7 @@ class RestaurantOrderTest extends TestCase
         // Totals rerolled: 8 × 2,00 € gross = 16,00 €.
         $this->assertEqualsWithDelta(16.0, (float) $order->items_total_gross_eur, 0.01);
         // Admin got the heads-up (packing changes).
-        Mail::assertSent(RestaurantOrderAdminNotification::class, fn ($m) => $m->adjusted === true);
+        Mail::assertQueued(RestaurantOrderAdminNotification::class, fn ($m) => $m->adjusted === true);
         // Freed stock is available again: 50 - 8 = 42.
         $this->assertEqualsWithDelta(42.0, app(InventoryService::class)->availableOnDate($a, $date, ShopStockAudience::BusinessTrade), 0.01);
     }
