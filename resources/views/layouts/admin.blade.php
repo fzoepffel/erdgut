@@ -94,5 +94,7 @@
 
             <x-admin.search-palette />
         </div>
+
+        @stack('scripts')
     </body>
 </html>
