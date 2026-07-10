@@ -33,7 +33,7 @@
 
         return [$product->id => [
             'id' => $product->id,
-            'name' => (string) $product->name,
+            'name' => trim($product->name.($product->producer?->name ? ' · '.$product->producer->name : '')),
             'display_unit' => $displayUnit,
             'display_unit_symbol' => \App\Enums\ProductUnit::displaySymbol($displayUnit),
             'default_freshness' => (int) ($product->default_freshness_window_days ?? 1),
@@ -196,6 +196,9 @@
                                         <tr>
                                             <td class="sticky left-0 z-10 bg-white px-3 py-2 align-top">
                                                 <div class="font-medium text-gray-900">{{ $product->name }}</div>
+                                                @if ($product->producer?->name)
+                                                    <div class="text-[11px] text-gray-500">{{ $product->producer->name }}</div>
+                                                @endif
                                                 <div class="mt-0.5 text-[10px] text-gray-500">
                                                     {{ \App\Enums\ProductUnit::displaySymbol($displayUnit) }}
                                                     · {{ __('admin.inventory.freshness_short', ['days' => (int) ($product->default_freshness_window_days ?? 1)]) }}
@@ -323,7 +326,12 @@
                                         @endphp
                                         <tr>
                                             <td class="px-3 py-2 tabular-nums">{{ $inflow->received_on?->translatedFormat('d.m.Y') }}</td>
-                                            <td class="px-3 py-2">{{ $product?->name ?? '—' }}</td>
+                                            <td class="px-3 py-2">
+                                                {{ $product?->name ?? '—' }}
+                                                @if ($product?->producer?->name)
+                                                    <span class="text-xs text-gray-400">({{ $product->producer->name }})</span>
+                                                @endif
+                                            </td>
                                             <td class="px-3 py-2 tabular-nums">
                                                 {{ rtrim(rtrim(number_format($displayQty, 2, ',', '.'), '0'), ',') }} {{ \App\Enums\ProductUnit::displaySymbol($displayUnit) }}
                                             </td>
@@ -352,7 +360,7 @@
                                                         type="button"
                                                         x-on:click="open('inflow-edit', {
                                                             id: {{ $inflow->id }},
-                                                            product_name: @js((string) ($product?->name ?? '')),
+                                                            product_name: @js(trim(($product?->name ?? '').($product?->producer?->name ? ' · '.$product->producer->name : ''))),
                                                             display_unit_symbol: @js(\App\Enums\ProductUnit::displaySymbol($displayUnit)),
                                                             received_on: @js((string) ($inflow->received_on?->toDateString() ?? '')),
                                                             quantity: {{ $displayQty }},
