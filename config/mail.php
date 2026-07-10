@@ -45,12 +45,12 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            // Never unlimited: a hanging SMTP connection would hang whatever
-            // process is sending (the cron-driven queue worker, or the
-            // visitor's request on the sync driver). 8s covers a healthy
-            // IONOS handshake with room to spare and keeps a worker tick
-            // inside the cron caller's HTTP timeout.
-            'timeout' => (int) env('MAIL_TIMEOUT', 8),
+            // Never unlimited, but generous: smtp.ionos.de tarpits (delays
+            // its greeting ~10s+), so a successful delivery needs well over
+            // 10s. Nobody user-facing waits on this anymore (mails are
+            // queued); the bound only protects the cron-driven worker from
+            // a truly dead connection.
+            'timeout' => (int) env('MAIL_TIMEOUT', 20),
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
