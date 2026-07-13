@@ -7,11 +7,13 @@ use App\Enums\OrderSource;
 use App\Enums\ShopOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Models\Coupon;
+use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use App\Services\Admin\InventoryService;
+use App\Services\Admin\ProducerAllocationService;
 use App\Services\SpargelOrderService;
 use App\Support\PickupLocations;
 use App\Support\SumUpCheckoutLogger;
@@ -263,7 +265,7 @@ class ShopOrderService
     {
         $horizonWeeks ??= (int) config('shop.horizon_weeks', 8);
 
-        $products = Product::query()->visibleInCatalog()->with(['translations', 'producer.translations'])->get();
+        $products = Product::query()->visibleInCatalog()->with(['translations', 'producer.translations', 'producers.translations'])->get();
 
         if ($products->isEmpty()) {
             return ['dates' => collect(), 'products' => collect()];
@@ -325,7 +327,9 @@ class ShopOrderService
             ->map(fn (Product $p): array => [
                 'id' => $p->id,
                 'name' => $p->name,
-                'producer' => $p->producer?->name ?? '',
+                // All registered farms, uncollapsed, so the client-side
+                // search matches every supplier of a multi-farm product.
+                'producer' => $p->producers->map(fn ($x) => (string) $x->name)->filter()->implode(' · ') ?: ($p->producer?->name ?? ''),
                 'date_count' => $productDateCount[$p->id] ?? 0,
             ])
             ->values();
@@ -437,7 +441,8 @@ class ShopOrderService
      *     product: Product,
      *     remaining: float,
      *     available_on_selected: bool,
-     *     available_dates: array<int, array{date: Carbon, remaining: float}>
+     *     available_dates: array<int, array{date: Carbon, remaining: float}>,
+     *     producers: list<Producer>
      * }>
      */
     public function weeklyProductsForDate(Carbon $date): Collection
@@ -460,14 +465,20 @@ class ShopOrderService
 
         $products = Product::query()
             ->visibleInCatalog()
-            ->with(['translations', 'producer.translations', 'images', 'priceRules', 'variants'])
+            ->with(['translations', 'producer.translations', 'producers.translations', 'images', 'priceRules', 'variants'])
             ->get();
 
         $matrix = $inventory->availabilityMatrix($products, $from, $weekEnd);
         $closedIso = array_fill_keys($closures->effectiveClosedIsoDatesBetween($from, $weekEnd), true);
 
+        // Farms with sellable stock on the selected day (one batched, cached
+        // call). Cards show these instead of the hardcoded primary producer.
+        $producersOnSelected = $selectedClosed ? [] : app(ProducerAllocationService::class)
+            ->remainingByProducer($products->pluck('id')->all(), [$selectedIso])[$selectedIso] ?? [];
+        $producerModels = $this->producerModels($products, $producersOnSelected);
+
         return $products
-            ->map(function (Product $product) use ($matrix, $selectedIso, $selectedClosed, $closedIso): array {
+            ->map(function (Product $product) use ($matrix, $selectedIso, $selectedClosed, $closedIso, $producersOnSelected, $producerModels): array {
                 $window = $matrix[$product->id] ?? [];
                 ksort($window);
 
@@ -485,17 +496,69 @@ class ShopOrderService
                     ? 0.0
                     : (float) ($window[$selectedIso] ?? 0.0);
 
+                // Farms with stock on the selected day, share desc; empty
+                // (sold out, closed day, allocator divergence) falls back to
+                // the primary so the single-farm state renders as before.
+                $producers = [];
+                foreach (array_keys($producersOnSelected[$product->id] ?? []) as $producerId) {
+                    if (isset($producerModels[$producerId])) {
+                        $producers[] = $producerModels[$producerId];
+                    }
+                }
+                if ($producers === [] && $product->producer !== null) {
+                    $producers = [$product->producer];
+                }
+
                 return [
                     'product' => $product,
                     'remaining' => $selectedRemaining,
                     'available_on_selected' => ! $selectedClosed && $selectedRemaining > 0,
                     'available_dates' => $dates,
+                    'producers' => $producers,
                 ];
             })
             ->filter(fn (array $row): bool => $row['available_dates'] !== [])
             // Orderable-today products first; everything else keeps catalog order.
             ->sortByDesc(fn (array $row): bool => $row['available_on_selected'])
             ->values();
+    }
+
+    /**
+     * Producer models for every id the allocation snapshot mentions, served
+     * from the already-loaded pivot/primary relations where possible; only
+     * ids outside a product's registered farms need one extra query.
+     *
+     * @param  Collection<int, Product>  $products
+     * @param  array<int, array<int, float>>  $producersByProduct  [pid][producerId => qty]
+     * @return array<int, Producer>
+     */
+    private function producerModels(Collection $products, array $producersByProduct): array
+    {
+        $models = [];
+        foreach ($products as $product) {
+            foreach ($product->producers as $producer) {
+                $models[$producer->id] = $producer;
+            }
+            if ($product->producer !== null) {
+                $models[$product->producer->id] ??= $product->producer;
+            }
+        }
+
+        $missing = [];
+        foreach ($producersByProduct as $shares) {
+            foreach (array_keys($shares) as $producerId) {
+                if (! isset($models[$producerId])) {
+                    $missing[$producerId] = true;
+                }
+            }
+        }
+        if ($missing !== []) {
+            foreach (Producer::query()->with('translations')->whereIn('id', array_keys($missing))->get() as $producer) {
+                $models[$producer->id] = $producer;
+            }
+        }
+
+        return $models;
     }
 
     /**

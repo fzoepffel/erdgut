@@ -8,10 +8,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ShopOrderRequest;
 use App\Mail\ShopOrderConfirmationMail;
 use App\Models\BoxWaitlistSignup;
+use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductEngagementDaily;
 use App\Models\ProductSubcategory;
 use App\Models\ShopOrder;
+use App\Services\Admin\ProducerAllocationService;
 use App\Services\Shop\CheckoutDraft;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
@@ -27,6 +29,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Throwable;
@@ -493,12 +496,16 @@ class ShopController extends Controller
                 ->where('email', mb_strtolower(trim($shopOrder->email)))
                 ->exists();
 
+        [$producerNames, $producerModels] = $this->orderProducerDisplay($shopOrder);
+
         return view('shop.return', [
             'order' => $shopOrder->loadMissing([
                 'items.product.translations',
                 'items.product.producer.translations',
             ]),
             'showBoxPrompt' => $showBoxPrompt,
+            'producerNames' => $producerNames,
+            'producerModels' => $producerModels,
         ]);
     }
 
@@ -511,12 +518,53 @@ class ShopController extends Controller
     {
         abort_unless($request->hasValidSignature(), 403);
 
+        [$producerNames, $producerModels] = $this->orderProducerDisplay($shopOrder);
+
         return view('shop.track', [
             'order' => $shopOrder->loadMissing([
                 'items.product.translations',
                 'items.product.producer.translations',
             ]),
+            'producerNames' => $producerNames,
+            'producerModels' => $producerModels,
         ]);
+    }
+
+    /**
+     * Allocation-based farm display for one order: per-line labels keyed
+     * "productId|variantKey" (the farms whose recorded inflows cover the
+     * order's delivery date, like the admin packing labels) plus the
+     * Producer models behind them for the "meet the farms" section. Views
+     * fall back to the product's primary producer for missing keys.
+     *
+     * @return array{0: array<string, string>, 1: Collection<int, Producer>}
+     */
+    private function orderProducerDisplay(ShopOrder $order): array
+    {
+        $date = $order->expected_delivery_date;
+        $productIds = $order->items->pluck('product_id')->filter()->map(fn ($v): int => (int) $v)->unique()->values()->all();
+        if ($date === null || $productIds === []) {
+            return [[], collect()];
+        }
+
+        $allocation = app(ProducerAllocationService::class);
+        $names = $allocation->namesByItemKey($productIds, Carbon::parse($date));
+
+        $producerIds = [];
+        foreach ($allocation->summaryForDate($productIds, Carbon::parse($date)) as $byVkey) {
+            foreach ($byVkey as $rows) {
+                foreach ($rows as $row) {
+                    if ($row['producerId'] > 0) {
+                        $producerIds[$row['producerId']] = true;
+                    }
+                }
+            }
+        }
+        $models = $producerIds === []
+            ? collect()
+            : Producer::query()->with('translations')->whereIn('id', array_keys($producerIds))->get();
+
+        return [$names, $models];
     }
 
     /**
@@ -542,9 +590,12 @@ class ShopController extends Controller
             app()->setLocale($order->locale);
         }
 
+        [$producerNames] = $this->orderProducerDisplay($order);
+
         $pdf = Pdf::loadView('shop.pdf.receipt', [
             'order' => $order,
             'vatByRate' => ShopOrderService::vatByRate($order),
+            'producerNames' => $producerNames,
             'company' => [
                 'name' => (string) config('shop.company_name'),
                 'street' => (string) config('shop.company_street'),

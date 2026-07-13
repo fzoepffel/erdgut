@@ -7,9 +7,11 @@ use App\Enums\ProductUnit;
 use App\Enums\ShopStockAudience;
 use App\Models\Product;
 use App\Services\Admin\InventoryService;
+use App\Services\Admin\ProducerAllocationService;
 use App\Services\Shop\PriceResolver;
 use App\Services\Shop\ShopClosureService;
 use App\Services\Shop\ShopOrderService;
+use App\Support\ProducerLabels;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -125,14 +127,19 @@ class RestaurantCatalogService
 
         $products = Product::query()
             ->visibleInCatalog()
-            ->with(['translations', 'producer.translations', 'images', 'variants', 'priceRules'])
+            ->with(['translations', 'producer.translations', 'producers.translations', 'images', 'variants', 'priceRules'])
             ->get();
 
         $matrix = $this->inventory->availabilityMatrix($products, $date, $date, ShopStockAudience::BusinessTrade);
         $iso = $date->toDateString();
 
+        // Farms with sellable B2B stock on the date (one batched, cached
+        // call) — cards name these instead of the hardcoded primary.
+        $producersOnDate = app(ProducerAllocationService::class)
+            ->remainingByProducer($products->pluck('id')->all(), [$iso], ShopStockAudience::BusinessTrade)[$iso] ?? [];
+
         return $products
-            ->map(function (Product $product) use ($matrix, $iso, $date): ?array {
+            ->map(function (Product $product) use ($matrix, $iso, $date, $producersOnDate): ?array {
                 $remaining = (float) ($matrix[$product->id][$iso] ?? 0.0);
                 $inStock = $remaining > 0;
                 // The "on request" track: in-season items without stock show in
@@ -148,10 +155,47 @@ class RestaurantCatalogService
                     return null;
                 }
 
-                return $this->row($product, $date, $inStock, $requestable);
+                $row = $this->row($product, $date, $inStock, $requestable);
+                $row['producerLabel'] = $this->producerLabel($product, $inStock, $producersOnDate[$product->id] ?? []);
+
+                return $row;
             })
             ->filter()
             ->values();
+    }
+
+    /**
+     * Card label for the supplying farm(s). In-stock rows name the farms
+     * whose batches actually cover the date (allocation order, share desc);
+     * request-track rows have no stock to attribute, so they list all
+     * registered suppliers. Falls back to the primary producer.
+     *
+     * @param  array<int, float>  $shares  [producerId => remainingQty]
+     */
+    private function producerLabel(Product $product, bool $inStock, array $shares): string
+    {
+        $namesById = [];
+        foreach ($product->producers as $producer) {
+            $namesById[$producer->id] = (string) $producer->name;
+        }
+        if ($product->producer !== null) {
+            $namesById[$product->producer->id] ??= (string) $product->producer->name;
+        }
+
+        if ($inStock) {
+            $names = [];
+            foreach (array_keys($shares) as $producerId) {
+                if (isset($namesById[$producerId])) {
+                    $names[] = $namesById[$producerId];
+                }
+            }
+            $label = ProducerLabels::label($names);
+            if ($label !== '') {
+                return $label;
+            }
+        }
+
+        return ProducerLabels::label($namesById) ?: (string) ($product->producer?->name ?? '');
     }
 
     /**

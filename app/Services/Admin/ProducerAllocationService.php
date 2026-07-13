@@ -2,9 +2,11 @@
 
 namespace App\Services\Admin;
 
+use App\Enums\ShopStockAudience;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Support\InventoryCache;
+use App\Support\ProducerLabels;
 use Illuminate\Support\Carbon;
 
 /**
@@ -58,12 +60,91 @@ class ProducerAllocationService
         if ($injectedDemand === null) {
             $suffix = 'palloc.global.'.md5(implode(',', $productIds).'|'.implode(',', $isoDates));
 
-            return InventoryCache::remember($suffix, fn (): array => $this->compute($productIds, $isoDates, null));
+            return InventoryCache::remember($suffix, fn (): array => $this->compute($productIds, $isoDates, null)['allocation']);
         }
 
         // Injected demand comes from a caller-specific order set (e.g. the
         // farmer export's filter); not cacheable by inputs we can name.
-        return $this->compute($productIds, $isoDates, $injectedDemand);
+        return $this->compute($productIds, $isoDates, $injectedDemand)['allocation'];
+    }
+
+    /**
+     * Which producers still have SELLABLE stock on the given dates — the
+     * customer-facing "who supplies this on my delivery day" read-model.
+     * End-state semantics: committed demand on ANY day has already drawn
+     * the batches down, mirroring how availability treats multi-day
+     * freshness windows. b2b_only batches deplete either way but only
+     * count towards the BusinessTrade view.
+     *
+     * Advisory like the allocation itself: it can diverge from the
+     * availability math at the margin (ranking vs pure FEFO, dual-pool
+     * B2B), so callers must fall back to the primary producer when a
+     * product is missing from the result.
+     *
+     * @param  list<int>  $productIds
+     * @param  list<string>  $isoDates
+     * @return array<string, array<int, array<int, float>>> [iso][pid][producerId => remainingQty], qty desc
+     */
+    public function remainingByProducer(array $productIds, array $isoDates, ShopStockAudience $audience = ShopStockAudience::Consumer): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        sort($productIds);
+        $isoDates = array_values(array_unique($isoDates));
+        sort($isoDates);
+        if ($productIds === [] || $isoDates === []) {
+            return [];
+        }
+
+        $suffix = 'palloc.remaining.'.$audience->value.'.'.md5(implode(',', $productIds).'|'.implode(',', $isoDates));
+
+        return InventoryCache::remember($suffix, function () use ($productIds, $isoDates, $audience): array {
+            $pools = $this->compute($productIds, $isoDates, null)['remaining'];
+
+            $out = [];
+            foreach ($pools as $iso => $byPid) {
+                foreach ($byPid as $pid => $byProducer) {
+                    $shares = [];
+                    foreach ($byProducer as $producerId => $pool) {
+                        $qty = $pool['shared'] + ($audience === ShopStockAudience::BusinessTrade ? $pool['b2b'] : 0.0);
+                        if ($qty > 1e-9) {
+                            $shares[$producerId] = round($qty, 4);
+                        }
+                    }
+                    if ($shares !== []) {
+                        uksort($shares, fn (int $a, int $b): int => [$shares[$b], $a] <=> [$shares[$a], $b]);
+                        $out[$iso][$pid] = $shares;
+                    }
+                }
+            }
+
+            return $out;
+        });
+    }
+
+    /**
+     * Producer names per order line ("pid|vkey", vkey 0 = default grade)
+     * for ONE delivery date — the label on receipts, invoices and order
+     * status pages. Names only (allocated share desc), joined/collapsed
+     * via ProducerLabels. Lines without a computed share are absent;
+     * callers fall back to the product's primary producer.
+     *
+     * @param  list<int>  $productIds
+     * @return array<string, string>
+     */
+    public function namesByItemKey(array $productIds, Carbon $date): array
+    {
+        $out = [];
+        foreach ($this->summaryForDate($productIds, $date) as $pid => $byVkey) {
+            foreach ($byVkey as $vkey => $rows) {
+                $names = array_values(array_filter(array_column($rows, 'name')));
+                $label = ProducerLabels::label($names);
+                if ($label !== '') {
+                    $out[$pid.'|'.$vkey] = $label;
+                }
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -120,7 +201,7 @@ class ProducerAllocationService
      * @param  list<int>  $productIds
      * @param  list<string>  $isoDates  sorted
      * @param  array<int, array<int, array<string, float>>>|null  $injectedDemand
-     * @return array<string, array<int, array<int, array<int, float>>>>
+     * @return array{allocation: array<string, array<int, array<int, array<int, float>>>>, remaining: array<string, array<int, array<int, array{shared: float, b2b: float}>>>}
      */
     private function compute(array $productIds, array $isoDates, ?array $injectedDemand): array
     {
@@ -168,6 +249,7 @@ class ProducerAllocationService
                         'start' => $b['start'],
                         'end' => $b['end'],
                         'remaining' => (float) $b['qty'],
+                        'b2b_only' => (bool) ($b['b2b_only'] ?? false),
                     ];
                 }
             }
@@ -278,6 +360,27 @@ class ProducerAllocationService
             }
         }
 
-        return $out;
+        // End-state batch remainders per producer for the requested days,
+        // split by pool (shared vs b2b_only) so remainingByProducer() can
+        // apply the audience view without a second compute.
+        $remaining = [];
+        foreach ($isoDates as $iso) {
+            $day = Carbon::parse($iso)->startOfDay();
+            foreach ($state as $pid => $byVkey) {
+                foreach ($byVkey as $batches) {
+                    foreach ($batches as $b) {
+                        if ($b['remaining'] <= 1e-9 || $b['producer_id'] <= 0 || $b['start']->gt($day) || $b['end']->lt($day)) {
+                            continue;
+                        }
+                        $pool = &$remaining[$iso][$pid][$b['producer_id']];
+                        $pool ??= ['shared' => 0.0, 'b2b' => 0.0];
+                        $pool[$b['b2b_only'] ? 'b2b' : 'shared'] += $b['remaining'];
+                        unset($pool);
+                    }
+                }
+            }
+        }
+
+        return ['allocation' => $out, 'remaining' => $remaining];
     }
 }

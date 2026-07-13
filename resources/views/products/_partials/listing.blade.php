@@ -120,7 +120,7 @@
                                     <span class="eyebrow text-brand-ink/60">{{ $product->category }}</span>
                                 @endif
                                 <h3 class="font-display text-lg leading-snug text-brand-ink">{{ $product->name }}</h3>
-                                <p class="font-editorial text-xs italic text-brand-ink/60">{{ $product->producer?->name ?? __('products.producer_unknown') }}</p>
+                                <p class="font-editorial text-xs italic text-brand-ink/60">{{ \App\Support\ProducerLabels::label($product->producers) ?: ($product->producer?->name ?? __('products.producer_unknown')) }}</p>
                                 <p class="mt-auto flex items-end justify-between gap-3 pt-2">
                                     <span class="font-display text-base text-brand-ink">
                                         {{ $product->displayPrice() }}

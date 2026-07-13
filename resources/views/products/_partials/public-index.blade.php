@@ -336,7 +336,7 @@
 
                             {{-- Producer --}}
                             <p class="mt-3 font-mono text-[0.65rem] uppercase tracking-widest text-chapter-produce">
-                                {{ $product->producer?->name ?? __('products.producer_unknown') }}
+                                {{ \App\Support\ProducerLabels::label($product->producers) ?: ($product->producer?->name ?? __('products.producer_unknown')) }}
                             </p>
 
                             {{-- Unit descriptor: weight/volume per piece or bunch --}}

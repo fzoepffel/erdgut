@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\ShopOrder;
+use App\Services\Admin\ProducerAllocationService;
 use App\Services\Shop\ShopOrderService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
@@ -11,6 +12,7 @@ use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Carbon;
 
 /**
  * Confirmation email for an anonymous shop order. Sent when:
@@ -71,9 +73,15 @@ class ShopOrderConfirmationMail extends Mailable
                 'items.product.producer',
             ]);
 
+            $productIds = $order->items->pluck('product_id')->filter()->map(fn ($v): int => (int) $v)->unique()->values()->all();
+            $producerNames = ($order->expected_delivery_date !== null && $productIds !== [])
+                ? app(ProducerAllocationService::class)->namesByItemKey($productIds, Carbon::parse($order->expected_delivery_date))
+                : [];
+
             $pdf = Pdf::loadView('shop.pdf.receipt', [
                 'order' => $order,
                 'vatByRate' => ShopOrderService::vatByRate($order),
+                'producerNames' => $producerNames,
                 'company' => [
                     'name' => (string) config('shop.company_name'),
                     'street' => (string) config('shop.company_street'),

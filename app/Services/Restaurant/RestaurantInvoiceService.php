@@ -5,6 +5,7 @@ namespace App\Services\Restaurant;
 use App\Enums\RestaurantOrderStatus;
 use App\Models\NumberSequence;
 use App\Models\RestaurantOrder;
+use App\Services\Admin\ProducerAllocationService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPDF;
 use Illuminate\Support\Carbon;
@@ -137,9 +138,18 @@ class RestaurantInvoiceService
     {
         $order->loadMissing(['items.product.producer.translations', 'user.restaurantProfile']);
 
+        // The farms that actually delivered (allocation over recorded
+        // inflows); lines without a computed share fall back to the
+        // product's primary producer in the view.
+        $productIds = $order->items->pluck('product_id')->filter()->map(fn ($v): int => (int) $v)->unique()->values()->all();
+        $producerNames = ($order->expected_delivery_date !== null && $productIds !== [])
+            ? app(ProducerAllocationService::class)->namesByItemKey($productIds, Carbon::parse($order->expected_delivery_date))
+            : [];
+
         return Pdf::loadView('restaurant.pdf.invoice', [
             'order' => $order,
             'profile' => $order->user?->restaurantProfile,
+            'producerNames' => $producerNames,
             'vatByRate' => $this->vatByRate($order),
             'seller' => [
                 'name' => (string) config('shop.company_name'),
