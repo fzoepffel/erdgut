@@ -2021,7 +2021,7 @@
     "admin.products.producer_price_placeholder": "Standard",
     "admin.products.producer_price_unknown_farm": "Les prix d'achat ne peuvent être définis que pour les fermes sélectionnées.",
     "admin.products.buying_price_default_label": "Prix d'achat standard",
-    "admin.products.buying_price_default_help": "Ce que nous payons aux fermes par défaut. Les prix par ferme ci-dessus le remplacent. Utilisé pour le calcul des marges.",
+    "admin.products.buying_price_default_help": "Ce que nous payons aux fermes par défaut. Les prix par ferme ci-dessous le remplacent. Utilisé pour le calcul des marges.",
     "admin.products.producers_label": "Fermes",
     "admin.products.producer_primary_badge": "Principale",
     "admin.products.producer_make_primary": "Définir comme ferme principale",
