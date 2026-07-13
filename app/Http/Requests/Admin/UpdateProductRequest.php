@@ -69,6 +69,8 @@ class UpdateProductRequest extends FormRequest
             'vat_rate_percent' => ['nullable', 'integer', 'in:7,19'],
             'default_freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'producer_buying_prices' => ['nullable', 'array'],
+            'producer_buying_prices.*' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             // Optional customer-group (business) price, in the display unit.
             'business_price' => ['nullable', 'numeric', 'gt:0', 'decimal:0,2'],
             // Inline grades/variants repeater. Blank rows (no name) are dropped
@@ -169,6 +171,18 @@ class UpdateProductRequest extends FormRequest
 
     public function withValidator(Validator $validator): void
     {
+        $validator->after(function (Validator $v): void {
+            // Per-farm buying prices may only address farms actually
+            // selected for the product.
+            $farmIds = array_map('intval', (array) $this->input('producer_ids', []));
+            foreach (array_keys((array) $this->input('producer_buying_prices', [])) as $key) {
+                if (! in_array((int) $key, $farmIds, true)) {
+                    $v->errors()->add('producer_buying_prices', __('admin.products.producer_price_unknown_farm'));
+                    break;
+                }
+            }
+        });
+
         $validator->after(function (Validator $v): void {
             $this->validateSeasonWindow($v);
 

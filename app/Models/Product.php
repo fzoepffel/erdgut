@@ -123,7 +123,7 @@ class Product extends Model
     public function producers(): BelongsToMany
     {
         return $this->belongsToMany(Producer::class, 'product_producer')
-            ->withPivot('position')
+            ->withPivot(['position', 'buying_price_cents'])
             ->withTimestamps()
             ->orderBy('product_producer.position')
             ->orderBy('product_producer.id');
@@ -148,6 +148,10 @@ class Product extends Model
         foreach ($producerIds as $position => $id) {
             $pivot[$id] = ['position' => $position];
         }
+        // sync() updates existing pivot rows with ONLY the given attributes,
+        // so per-farm buying_price_cents survives reorders (pinned by
+        // ProductProducersTest). A detached-and-reattached farm loses its
+        // price on purpose: the row is deleted and recreated.
         $this->producers()->sync($pivot);
         $this->forceFill(['producer_id' => $producerIds[0]])->save();
 
@@ -529,6 +533,58 @@ class Product extends Model
         $displayUnit = $this->price_display_unit ?? $this->unit->defaultDisplayUnit();
 
         return (float) $this->unit_price * $this->unit->canonicalUnitsPerDisplay($displayUnit);
+    }
+
+    /**
+     * Effective buying price for ONE farm, in display-unit cents: the
+     * per-farm pivot override when set, else the product default. A null
+     * or 0 producer id ("unattributable") always means the default.
+     */
+    public function buyingPriceCentsForProducer(?int $producerId): ?int
+    {
+        if ($producerId === null || $producerId <= 0) {
+            return $this->buying_price_cents !== null ? (int) $this->buying_price_cents : null;
+        }
+
+        $pivotCents = $this->relationLoaded('producers')
+            ? $this->producers->firstWhere('id', $producerId)?->pivot?->buying_price_cents
+            : $this->producers()->where('producers.id', $producerId)->first()?->pivot?->buying_price_cents;
+
+        $cents = $pivotCents ?? $this->buying_price_cents;
+
+        return $cents !== null ? (int) $cents : null;
+    }
+
+    /** Effective per-farm buying price in display-unit euros. */
+    public function buyingPriceForProducer(?int $producerId): ?float
+    {
+        $cents = $this->buyingPriceCentsForProducer($producerId);
+
+        return $cents !== null ? round($cents / 100, 4) : null;
+    }
+
+    /**
+     * The most expensive applicable buying price (max of the default and
+     * every SET per-farm override) in display-unit cents — the
+     * conservative basis for the minimum-margin price floor.
+     */
+    public function maxBuyingPriceCents(): ?int
+    {
+        $candidates = $this->relationLoaded('producers')
+            ? $this->producers->map(fn ($p) => $p->pivot?->buying_price_cents)->all()
+            : [$this->producers()->max('product_producer.buying_price_cents')];
+        $candidates[] = $this->buying_price_cents;
+        $candidates = array_filter($candidates, fn ($v): bool => $v !== null);
+
+        return $candidates !== [] ? (int) max($candidates) : null;
+    }
+
+    /** {@see maxBuyingPriceCents}, in display-unit euros. */
+    public function maxBuyingPriceEur(): ?float
+    {
+        $cents = $this->maxBuyingPriceCents();
+
+        return $cents !== null ? round($cents / 100, 4) : null;
     }
 
     /**

@@ -129,6 +129,79 @@ class AdminProductMultiProducerTest extends TestCase
         );
     }
 
+    public function test_store_persists_per_farm_buying_prices(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), $this->payload([
+                'producer_ids' => [$farmA->id, $farmB->id],
+                'producer_buying_prices' => [$farmA->id => '2.50', $farmB->id => ''],
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $product = Product::query()->latest('id')->firstOrFail();
+        $this->assertDatabaseHas('product_producer', [
+            'product_id' => $product->id, 'producer_id' => $farmA->id, 'buying_price_cents' => 250,
+        ]);
+        $this->assertDatabaseHas('product_producer', [
+            'product_id' => $product->id, 'producer_id' => $farmB->id, 'buying_price_cents' => null,
+        ]);
+    }
+
+    public function test_update_clears_a_price_when_the_field_is_emptied(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $farm = Producer::factory()->create();
+        $product = Product::factory()->create(['producer_id' => $farm->id]);
+        $product->producers()->updateExistingPivot($farm->id, ['buying_price_cents' => 275]);
+
+        $this->actingAs($admin)
+            ->put(route('app.admin.products.update', $product), $this->payload([
+                'producer_ids' => [$farm->id],
+                'producer_buying_prices' => [$farm->id => ''],
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('product_producer', [
+            'product_id' => $product->id, 'producer_id' => $farm->id, 'buying_price_cents' => null,
+        ]);
+    }
+
+    public function test_edit_form_prefills_per_farm_prices(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $farm = Producer::factory()->create();
+        $product = Product::factory()->create(['producer_id' => $farm->id]);
+        $product->producers()->updateExistingPivot($farm->id, ['buying_price_cents' => 250]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.products.edit', $product))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('product-form-producer-prices', $html);
+        $this->assertStringContainsString('prices: {"'.$farm->id.'":"2.50"}', $html);
+    }
+
+    public function test_validation_rejects_prices_for_unselected_farms(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $farm = Producer::factory()->create();
+        $other = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), $this->payload([
+                'producer_ids' => [$farm->id],
+                'producer_buying_prices' => [$other->id => '2.00'],
+            ]))
+            ->assertSessionHasErrors('producer_buying_prices');
+    }
+
     public function test_validation_rejects_empty_unknown_and_duplicate_ids(): void
     {
         $admin = User::factory()->admin()->create();

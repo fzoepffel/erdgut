@@ -160,10 +160,15 @@ class PriceResolver
         return 'period_override';
     }
 
-    /** Buying price (gross-equivalent) plus configured minimum margin, or null. */
+    /**
+     * Buying price (gross-equivalent) plus configured minimum margin, or
+     * null. Uses the MOST EXPENSIVE applicable buying price (max of the
+     * per-farm overrides and the product default), so the floor holds no
+     * matter which farm ends up delivering.
+     */
     private function marginFloor(Product $product): ?float
     {
-        $buyingCents = $product->buying_price_cents;
+        $buyingCents = $product->maxBuyingPriceCents();
         if ($buyingCents === null) {
             return null;
         }

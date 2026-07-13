@@ -130,11 +130,24 @@
             ->filter()
             ->values()
             ->all();
+
+        // Per-farm buying prices (display-unit euros): old() after a
+        // failed submit, else the pivot overrides on edit.
+        $initialProducerPrices = old('producer_buying_prices');
+        if (! is_array($initialProducerPrices)) {
+            $initialProducerPrices = [];
+            foreach (($product?->producers ?? collect()) as $supplier) {
+                if ($supplier->pivot->buying_price_cents !== null) {
+                    $initialProducerPrices[$supplier->id] = number_format(((int) $supplier->pivot->buying_price_cents) / 100, 2, '.', '');
+                }
+            }
+        }
     @endphp
     <div
         x-data='{
             options: {!! json_encode($producerOptions, JSON_UNESCAPED_UNICODE) !!},
             selected: {!! json_encode($initialSelectedProducers, JSON_UNESCAPED_UNICODE) !!},
+            prices: {!! json_encode($initialProducerPrices === [] ? new stdClass : $initialProducerPrices, JSON_UNESCAPED_UNICODE) !!},
             query: "",
             open: false,
             highlight: 0,
@@ -259,6 +272,31 @@
         @foreach ($errors->get('producer_ids.*') as $producerIdMessages)
             <x-input-error class="mt-2" :messages="$producerIdMessages" />
         @endforeach
+
+        {{-- Per-farm buying price overrides (display-unit euros); empty
+             means the product's default buying price applies. --}}
+        <div class="mt-3 space-y-2" data-testid="product-form-producer-prices" x-show="selected.length > 0" x-cloak>
+            <p class="text-xs font-medium text-gray-700">{{ __('admin.products.producer_price_label') }}</p>
+            <template x-for="s in selected" :key="s.id">
+                <div class="flex items-center gap-3">
+                    <span class="w-48 truncate text-sm text-gray-700" x-text="s.name"></span>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        class="block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
+                        x-bind:name="'producer_buying_prices[' + s.id + ']'"
+                        x-model="prices[s.id]"
+                        placeholder="{{ __('admin.products.producer_price_placeholder') }}"
+                    />
+                </div>
+            </template>
+            <p class="text-xs text-gray-500">{{ __('admin.products.producer_price_help') }}</p>
+            <x-input-error class="mt-2" :messages="$errors->get('producer_buying_prices')" />
+            @foreach ($errors->get('producer_buying_prices.*') as $producerPriceMessages)
+                <x-input-error class="mt-2" :messages="$producerPriceMessages" />
+            @endforeach
+        </div>
     </div>
 
     <div class="space-y-4"
@@ -671,9 +709,9 @@
                 <x-input-error class="mt-2" :messages="$errors->get('unit_price')" />
             </div>
             <div>
-                <x-input-label for="buying_price" :value="__('Buying price')" />
+                <x-input-label for="buying_price" :value="__('admin.products.buying_price_default_label')" />
                 <x-text-input id="buying_price" name="buying_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="$buyingPriceValue" />
-                <p class="mt-1 text-xs text-gray-500">{{ __('What we pay the producer. Used for margin reporting.') }}</p>
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.products.buying_price_default_help') }}</p>
                 <x-input-error class="mt-2" :messages="$errors->get('buying_price')" />
             </div>
         </div>

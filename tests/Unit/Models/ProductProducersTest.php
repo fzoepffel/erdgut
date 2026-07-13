@@ -44,6 +44,66 @@ class ProductProducersTest extends TestCase
         $this->assertSame(1, $product->producers()->count());
     }
 
+    public function test_buying_price_for_producer_prefers_the_pivot_override(): void
+    {
+        $product = Product::factory()->create(['buying_price_cents' => 200]);
+        $farmA = (int) $product->producer_id;
+        $farmB = Producer::factory()->create()->id;
+        $product->syncProducers([$farmA, $farmB]);
+        $product->producers()->updateExistingPivot($farmB, ['buying_price_cents' => 250]);
+        $product->refresh();
+
+        $this->assertSame(2.5, $product->buyingPriceForProducer($farmB));   // override
+        $this->assertSame(2.0, $product->buyingPriceForProducer($farmA));   // default fallback
+        $this->assertSame(2.0, $product->buyingPriceForProducer(null));     // no farm = default
+        $this->assertSame(2.0, $product->buyingPriceForProducer(0));        // unattributable = default
+
+        $product->forceFill(['buying_price_cents' => null])->save();
+        $product->refresh();
+        $this->assertSame(2.5, $product->buyingPriceForProducer($farmB));   // override without default
+        $this->assertNull($product->buyingPriceForProducer($farmA));        // nothing set anywhere
+    }
+
+    public function test_max_buying_price_spans_default_and_overrides(): void
+    {
+        $product = Product::factory()->create(['buying_price_cents' => 200]);
+        $farmA = (int) $product->producer_id;
+        $farmB = Producer::factory()->create()->id;
+        $product->syncProducers([$farmA, $farmB]);
+        $product->producers()->updateExistingPivot($farmB, ['buying_price_cents' => 320]);
+        $product->refresh();
+
+        // With and without the loaded relation.
+        $this->assertSame(3.2, $product->load('producers')->maxBuyingPriceEur());
+        $this->assertSame(3.2, Product::query()->findOrFail($product->id)->maxBuyingPriceEur());
+
+        $product->forceFill(['buying_price_cents' => null])->save();
+        $product->producers()->updateExistingPivot($farmB, ['buying_price_cents' => null]);
+        $this->assertNull(Product::query()->findOrFail($product->id)->maxBuyingPriceEur());
+    }
+
+    public function test_sync_producers_preserves_pivot_buying_prices_on_reorder(): void
+    {
+        $product = Product::factory()->create();
+        $farmA = (int) $product->producer_id;
+        $farmB = Producer::factory()->create()->id;
+        $product->syncProducers([$farmA, $farmB]);
+        $product->producers()->updateExistingPivot($farmB, ['buying_price_cents' => 275]);
+
+        // Reorder (farm B becomes primary): the price must survive.
+        $product->syncProducers([$farmB, $farmA]);
+        $this->assertSame(275, (int) DB::table('product_producer')
+            ->where('product_id', $product->id)->where('producer_id', $farmB)
+            ->value('buying_price_cents'));
+
+        // Detach and re-add: the price is gone (row recreated).
+        $product->syncProducers([$farmA]);
+        $product->syncProducers([$farmA, $farmB]);
+        $this->assertNull(DB::table('product_producer')
+            ->where('product_id', $product->id)->where('producer_id', $farmB)
+            ->value('buying_price_cents'));
+    }
+
     public function test_sync_producers_rejects_an_empty_set(): void
     {
         $product = Product::factory()->create();

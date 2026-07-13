@@ -9,6 +9,7 @@ use App\Models\RestaurantOrder;
 use App\Models\ShopOrder;
 use App\Services\Admin\ProducerAllocationService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
@@ -126,7 +127,11 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
             }
 
             $buyingPerUnit = $bucket['buying_per_unit'];
-            $buyingTotal = $buyingPerUnit !== null ? round($buyingPerUnit * $qty, 2) : null;
+            // Attribution may have costed the bucket per farm share (per-farm
+            // buying prices); buckets without shares keep the default math.
+            $buyingTotal = array_key_exists('buying_total', $bucket)
+                ? $bucket['buying_total']
+                : ($buyingPerUnit !== null ? round($buyingPerUnit * $qty, 2) : null);
             $revenue = round($bucket['revenue'], 2);
             $margin = $buyingTotal !== null ? round($revenue - $buyingTotal, 2) : null;
 
@@ -242,6 +247,16 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
             ->whereIn('id', array_keys($producerIds))->get()
             ->mapWithKeys(fn ($p) => [$p->id => (string) $p->name]);
 
+        // Per-farm buying price overrides (display-unit cents), one query.
+        $pivotPrices = [];
+        $pivotRows = DB::table('product_producer')
+            ->whereIn('product_id', array_keys($totals))
+            ->whereNotNull('buying_price_cents')
+            ->get(['product_id', 'producer_id', 'buying_price_cents']);
+        foreach ($pivotRows as $row) {
+            $pivotPrices[(int) $row->product_id][(int) $row->producer_id] = (int) $row->buying_price_cents;
+        }
+
         foreach ($buckets as $key => $bucket) {
             if (! str_starts_with($key, 'p')) {
                 continue; // custom lines keep the no-producer label
@@ -254,6 +269,37 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
             }
             arsort($shares);
 
+            $unit = $bucket['unit'];
+            $display = $bucket['display'];
+            $factor = ($unit instanceof ProductUnit && $display !== '') ? $unit->canonicalUnitsPerDisplay($display) : 1;
+            $symbol = $display !== '' ? ProductUnit::displaySymbol($display) : '';
+
+            // Cost each farm share at that farm's effective buying price
+            // (pivot override, else the product default). Any share
+            // without an effective price keeps the bucket unpriced, as
+            // today. In the single-farm/default-only state the weighted
+            // per-unit equals the default exactly.
+            $defaultPerUnit = $bucket['buying_per_unit'];
+            $costTotal = 0.0;
+            $qtyDisplayTotal = 0.0;
+            $priced = true;
+            foreach ($shares as $producerId => $qtyCanonical) {
+                $qtyDisplay = $factor > 0 ? $qtyCanonical / $factor : $qtyCanonical;
+                $price = ($producerId > 0 && isset($pivotPrices[$pid][$producerId]))
+                    ? round($pivotPrices[$pid][$producerId] / 100, 4)
+                    : $defaultPerUnit;
+                if ($price === null) {
+                    $priced = false;
+                    break;
+                }
+                $costTotal += $qtyDisplay * $price;
+                $qtyDisplayTotal += $qtyDisplay;
+            }
+            if ($priced && $qtyDisplayTotal > 1e-9) {
+                $buckets[$key]['buying_total'] = round($costTotal, 2);
+                $buckets[$key]['buying_per_unit'] = round($costTotal / $qtyDisplayTotal, 4);
+            }
+
             if (count($shares) === 1) {
                 $only = array_key_first($shares);
                 $buckets[$key]['producer'] = $only > 0
@@ -263,10 +309,6 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
                 continue;
             }
 
-            $unit = $bucket['unit'];
-            $display = $bucket['display'];
-            $factor = ($unit instanceof ProductUnit && $display !== '') ? $unit->canonicalUnitsPerDisplay($display) : 1;
-            $symbol = $display !== '' ? ProductUnit::displaySymbol($display) : '';
             $parts = [];
             foreach ($shares as $producerId => $qty) {
                 $label = $producerId > 0 ? (string) ($names[$producerId] ?? '') : (string) __('shop.export.no_producer');
