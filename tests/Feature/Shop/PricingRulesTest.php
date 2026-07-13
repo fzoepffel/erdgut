@@ -4,6 +4,7 @@ namespace Tests\Feature\Shop;
 
 use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
+use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductPriceRule;
 use App\Models\ProductStockInflow;
@@ -132,6 +133,29 @@ class PricingRulesTest extends TestCase
 
         $r = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private);
         $this->assertSame(8.0, $r->unitPriceEur);
+        $this->assertSame('margin_floor', $r->reason);
+    }
+
+    public function test_margin_floor_uses_the_most_expensive_farm_price(): void
+    {
+        // Default 8.00, farm override 9.00 → the floor clamps to 9.00 so
+        // the margin holds no matter which farm delivers.
+        $p = Product::factory()->create([
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 12.0,
+            'buying_price_cents' => 800,
+        ]);
+        $farmB = Producer::factory()->create();
+        $p->syncProducers([(int) $p->producer_id, $farmB->id]);
+        $p->producers()->updateExistingPivot($farmB->id, ['buying_price_cents' => 900]);
+        ProductPriceRule::factory()->create([
+            'product_id' => $p->id,
+            'unit_price' => 5.0, // below every cost
+        ]);
+
+        $r = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private);
+        $this->assertSame(9.0, $r->unitPriceEur);
         $this->assertSame('margin_floor', $r->reason);
     }
 

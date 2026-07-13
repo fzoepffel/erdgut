@@ -125,6 +125,7 @@ class ProductController extends Controller
         $product = DB::transaction(function () use ($payload, $validated, $request): Product {
             $product = Product::query()->create($payload);
             $product->syncProducers(array_map('intval', $validated['producer_ids']));
+            $this->syncProducerBuyingPrices($product, $validated);
 
             if ($request->hasFile('image')) {
                 $path = $this->storeUploadedImage($request->file('image'), $product);
@@ -191,6 +192,7 @@ class ProductController extends Controller
         DB::transaction(function () use ($request, $product, $payload, $validated): void {
             $product->update($payload);
             $product->syncProducers(array_map('intval', $validated['producer_ids']));
+            $this->syncProducerBuyingPrices($product, $validated);
 
             if ($request->hasFile('image')) {
                 $this->deletePublicImage($product->refresh()->image_path);
@@ -836,6 +838,23 @@ class ProductController extends Controller
     private function storeUploadedImage(UploadedFile $file, Product $product): string
     {
         return app(ImageProcessor::class)->storeUpload($file, 'products/'.$product->id);
+    }
+
+    /**
+     * Persist per-farm buying prices onto the producer pivot. Runs right
+     * after syncProducers(), so a pivot row exists for every selected
+     * farm. Empty input clears the override (the default applies again).
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function syncProducerBuyingPrices(Product $product, array $validated): void
+    {
+        $prices = (array) ($validated['producer_buying_prices'] ?? []);
+        foreach (array_map('intval', $validated['producer_ids']) as $id) {
+            $raw = $prices[$id] ?? null;
+            $cents = ($raw === null || $raw === '') ? null : (int) round(((float) $raw) * 100);
+            $product->producers()->updateExistingPivot($id, ['buying_price_cents' => $cents]);
+        }
     }
 
     private function deletePublicImage(?string $path): void

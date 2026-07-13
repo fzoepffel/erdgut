@@ -5,6 +5,7 @@ namespace Tests\Unit\Services;
 use App\Enums\ProductUnit;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductStockInflow;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantProfile;
 use App\Models\ShopOrder;
@@ -221,5 +222,27 @@ class AdminOperationsMetricsTest extends TestCase
         $this->shopOrder('2026-07-08', 107.0, 7.0);
 
         $this->assertNull($this->build()->marginThisWeekNet);
+    }
+
+    public function test_margin_costs_each_allocation_share_at_its_farms_price(): void
+    {
+        // Farm A (primary, default 4 €/piece) has 4 pieces in stock, farm B
+        // (override 3 €/piece) has 50. A 10-piece order: A is drained first
+        // (equal anchor/breadth, lower id) → cost 4×4 + 6×3 = 34.
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = $this->product(['producer_id' => $farmA->id, 'buying_price_cents' => 400]);
+        $product->syncProducers([$farmA->id, $farmB->id]);
+        $product->producers()->updateExistingPivot($farmB->id, ['buying_price_cents' => 300]);
+        foreach ([[$farmA->id, 4], [$farmB->id, 50]] as [$farmId, $qty]) {
+            ProductStockInflow::create([
+                'product_id' => $product->id, 'producer_id' => $farmId,
+                'received_on' => '2026-07-07', 'quantity' => $qty, 'freshness_window_days' => 2,
+            ]);
+        }
+        $this->shopOrder('2026-07-07', 107.0, 7.0, [], $product, 10);
+
+        // Margin = 100 net − 34 buying.
+        $this->assertEqualsWithDelta(66.0, $this->build()->marginThisWeekNet, 0.01);
     }
 }
