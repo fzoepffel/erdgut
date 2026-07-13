@@ -187,8 +187,8 @@
                                         <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline">{{ $product->name }}</a>
                                     </h3>
                                     <div class="mt-2 h-px bg-shop-border"></div>
-                                    @if ($product->producer)
-                                        <p class="mt-3 font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary">{{ $product->producer->name }}</p>
+                                    @if (($row['producerLabel'] ?? '') !== '')
+                                        <p class="mt-3 font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary">{{ $row['producerLabel'] }}</p>
                                     @endif
 
                                     {{-- Grade rows: net price + capped quantity dropdown + recurrence.

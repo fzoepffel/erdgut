@@ -23,7 +23,7 @@ class ProductController extends Controller
             })
             ->visibleInCatalog()
             ->when($activeCategory, fn ($q) => $q->where('products.category', $activeCategory->value))
-            ->with(['producer.translations', 'translations'])
+            ->with(['producer.translations', 'producers.translations', 'translations'])
             ->orderBy('pt.name')
             ->paginate(24)
             ->withQueryString();
@@ -51,6 +51,7 @@ class ProductController extends Controller
 
         $product->loadMissing([
             'producer.translations',
+            'producers.translations',
             'translations',
             'images',
             'pairings' => fn ($q) => $q->visibleInCatalog()->with(['translations', 'producer.translations', 'images']),

@@ -25,11 +25,15 @@
         $discount = (float) $order->discount_eur;
         $deliveryFee = (float) $order->delivery_fee_eur;
 
-        $producers = $order->items
-            ->map(fn ($item) => $item->product?->producer)
-            ->filter()
-            ->unique('id')
-            ->values();
+        // Prefer the farms the allocation says actually deliver this order
+        // (passed by the controller); fall back to the primary producers.
+        $producers = ($producerModels ?? collect())->isNotEmpty()
+            ? $producerModels->values()
+            : $order->items
+                ->map(fn ($item) => $item->product?->producer)
+                ->filter()
+                ->unique('id')
+                ->values();
 
         $orderRef = $order->created_at
             ? $order->created_at->locale($locale)->isoFormat('DD MMM HH:mm')
@@ -203,7 +207,7 @@
                             {{ $item->product?->displayQuantity((float) $item->quantity) }}
                         </span>
                         <span class="col-span-9 font-display text-2xl text-brand-ink md:col-span-5">{{ $item->product?->name }}@if ($item->variant_name_snapshot) <span class="text-base text-brand-ink/60">· {{ $item->variant_name_snapshot }}</span>@endif</span>
-                        <span class="col-span-6 text-sm text-brand-ink/60 md:col-span-3">{{ $item->product?->producer?->name }}</span>
+                        <span class="col-span-6 text-sm text-brand-ink/60 md:col-span-3">{{ ($producerNames ?? [])[$item->product_id.'|'.(int) ($item->variant_id ?? 0)] ?? $item->product?->producer?->name }}</span>
                         <span class="col-span-6 justify-self-end font-display text-xl tabular-nums text-brand-ink md:col-span-3">@eur($item->line_total_eur)</span>
                     </li>
                 @endforeach

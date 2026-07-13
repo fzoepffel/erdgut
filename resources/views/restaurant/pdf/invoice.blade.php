@@ -102,7 +102,7 @@
         @foreach ($order->items as $item)
             <tr>
                 <td>{{ $item->displayName() }}@if ($item->variant_name_snapshot) · {{ $item->variant_name_snapshot }}@endif</td>
-                <td class="producer-name">{{ $item->product?->producer?->name ?? '—' }}</td>
+                <td class="producer-name">{{ ($producerNames ?? [])[$item->product_id.'|'.(int) ($item->variant_id ?? 0)] ?? $item->product?->producer?->name ?? '—' }}</td>
                 <td class="num">{{ $item->displayQuantityLabel('de') }}</td>
                 <td class="num">{{ $item->vat_rate_snapshot_percent }} %</td>
                 <td class="num">{{ $eur($item->lineNetEur()) }}</td>
