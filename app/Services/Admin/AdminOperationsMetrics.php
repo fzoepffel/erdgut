@@ -240,7 +240,10 @@ class AdminOperationsMetrics
                 $display = $product?->price_display_unit
                     ?? $unit?->defaultDisplayUnit()
                     ?? ($item->unit ?? '');
-                $key = $producerName.'||'.$productName.'||'.$display;
+                // Product-identity bucket: multi-producer products stay ONE
+                // row in the top chart; the producer field shows the primary
+                // (display only — 30-day allocation would be disproportionate).
+                $key = ($product?->id !== null ? 'p'.$product->id : 'c'.$productName).'||'.$display;
                 if (! isset($buckets[$key])) {
                     $buckets[$key] = [
                         'name' => $productName,

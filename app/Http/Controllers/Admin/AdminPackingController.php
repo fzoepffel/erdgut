@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Producer;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantOrderItem;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
+use App\Services\Admin\ProducerAllocationService;
 use App\Support\PickupLocations;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -154,8 +156,9 @@ class AdminPackingController extends Controller
     private function buildProducts(Collection $shopOrders, Collection $restaurantOrders): array
     {
         $groups = [];
+        $producerLabels = $this->producerLabels($shopOrders, $restaurantOrders);
 
-        $addLine = function ($order, $item, bool $isB2b) use (&$groups): void {
+        $addLine = function ($order, $item, bool $isB2b) use (&$groups, $producerLabels): void {
             $product = $item->product;
             $isCustom = $item->product_id === null;
             $variantId = $item->variant_id !== null ? (int) $item->variant_id : null;
@@ -174,7 +177,8 @@ class AdminPackingController extends Controller
                     'variant_id' => $variantId,
                     'is_custom' => $isCustom,
                     'name' => $name,
-                    'producer' => $product?->producer?->name ?? '',
+                    'producer' => $producerLabels[$item->product_id.'|'.($variantId ?? 0)]
+                    ?? ($product?->producer?->name ?? ''),
                     'unit' => $product,
                     'custom_unit' => $isCustom ? (string) ($item->unit ?? '') : '',
                     'total_qty' => 0.0,
@@ -327,5 +331,105 @@ class AdminPackingController extends Controller
         }
 
         return Carbon::parse(min($candidates))->startOfDay();
+    }
+
+    /**
+     * Producer label per (product, grade) for the packing day: one farm's
+     * name, or "Farm A 3 kg · Farm B 2 kg" when the day's demand splits.
+     * Demand is injected from exactly the orders being packed; uncovered
+     * demand falls back to the primary producer inside the allocator.
+     *
+     * @return array<string, string> "productId|variantKey" => label
+     */
+    private function producerLabels(Collection $shopOrders, Collection $restaurantOrders): array
+    {
+        $demand = [];
+        $dates = [];
+        $products = [];
+        $fold = function ($order, $item) use (&$demand, &$dates, &$products): void {
+            if ($item->product_id === null) {
+                return;
+            }
+            $iso = $order->expected_delivery_date?->toDateString();
+            if ($iso === null) {
+                return;
+            }
+            $pid = (int) $item->product_id;
+            $vkey = (int) ($item->variant_id ?? 0);
+            $demand[$pid][$vkey][$iso] = ($demand[$pid][$vkey][$iso] ?? 0.0) + (float) $item->quantity;
+            $dates[$iso] = true;
+            $products[$pid] = $item->product;
+        };
+        foreach ($shopOrders as $order) {
+            foreach ($order->items as $item) {
+                $fold($order, $item);
+            }
+        }
+        foreach ($restaurantOrders as $order) {
+            foreach ($order->items as $item) {
+                if ($item->isDeclined()) {
+                    continue;
+                }
+                $fold($order, $item);
+            }
+        }
+        if ($demand === []) {
+            return [];
+        }
+
+        $allocation = app(ProducerAllocationService::class)
+            ->allocate(array_keys($demand), array_keys($dates), $demand);
+
+        $totals = [];
+        foreach ($allocation as $byPid) {
+            foreach ($byPid as $pid => $byVkey) {
+                foreach ($byVkey as $vkey => $shares) {
+                    foreach ($shares as $producerId => $qty) {
+                        $totals[$pid][$vkey][$producerId] = ($totals[$pid][$vkey][$producerId] ?? 0.0) + $qty;
+                    }
+                }
+            }
+        }
+
+        $ids = [];
+        foreach ($totals as $byVkey) {
+            foreach ($byVkey as $shares) {
+                foreach (array_keys($shares) as $id) {
+                    if ($id > 0) {
+                        $ids[$id] = true;
+                    }
+                }
+            }
+        }
+        $names = Producer::query()->with('translations')
+            ->whereIn('id', array_keys($ids))->get()
+            ->mapWithKeys(fn ($p) => [$p->id => (string) $p->name]);
+
+        $labels = [];
+        foreach ($totals as $pid => $byVkey) {
+            foreach ($byVkey as $vkey => $shares) {
+                $shares = array_filter($shares, fn (float $q): bool => $q > 1e-9);
+                if ($shares === []) {
+                    continue;
+                }
+                arsort($shares);
+                if (count($shares) === 1) {
+                    $only = array_key_first($shares);
+                    $labels[$pid.'|'.$vkey] = $only > 0 ? (string) ($names[$only] ?? '') : '';
+
+                    continue;
+                }
+                $product = $products[$pid] ?? null;
+                $parts = [];
+                foreach ($shares as $producerId => $qty) {
+                    $label = $producerId > 0 ? (string) ($names[$producerId] ?? '') : '?';
+                    $qtyLabel = $product !== null ? $product->displayQuantity($qty) : (string) round($qty, 2);
+                    $parts[] = trim($label.' '.$qtyLabel);
+                }
+                $labels[$pid.'|'.$vkey] = implode(' · ', $parts);
+            }
+        }
+
+        return $labels;
     }
 }
