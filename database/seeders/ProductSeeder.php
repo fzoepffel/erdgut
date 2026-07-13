@@ -96,6 +96,10 @@ class ProductSeeder extends Seeder
                 'is_test' => true,
             ]);
 
+            // Mirror into the multi-producer pivot (query()->create bypasses
+            // the factory's afterCreating mirror).
+            $product->producers()->syncWithoutDetaching([$producer->id => ['position' => 0]]);
+
             foreach (['de', 'en', 'fr'] as $locale) {
                 ProductTranslation::query()->create([
                     'product_id' => $product->id,

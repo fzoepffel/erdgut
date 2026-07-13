@@ -40,7 +40,7 @@ class ProducerController extends Controller
                 $join->on('pt.producer_id', '=', 'producers.id')->where('pt.locale', '=', $locale);
             })
             ->with('translations')
-            ->withCount('products');
+            ->withCount(['suppliedProducts as products_count']);
 
         $search = isset($validated['q']) ? trim($validated['q']) : '';
         if ($search !== '') {

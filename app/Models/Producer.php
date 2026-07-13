@@ -66,8 +66,10 @@ class Producer extends Model
      */
     public function allProducts(): \Illuminate\Support\Collection
     {
-        return $this->products()->get()
-            ->concat($this->suppliedProducts()->get())
+        // Relation properties (not ->get()) so eager loads on the producer
+        // are honored; they lazy-load when nothing was eager loaded.
+        return $this->products
+            ->concat($this->suppliedProducts)
             ->unique('id')
             ->values();
     }

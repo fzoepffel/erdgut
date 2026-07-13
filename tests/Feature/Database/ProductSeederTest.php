@@ -50,6 +50,20 @@ class ProductSeederTest extends TestCase
         }
     }
 
+    public function test_seeded_products_carry_a_primary_pivot_row(): void
+    {
+        $this->seed(ProducerSeeder::class);
+        $this->seed(ProductSeeder::class);
+
+        foreach (Product::query()->get() as $product) {
+            $this->assertDatabaseHas('product_producer', [
+                'product_id' => $product->id,
+                'producer_id' => $product->producer_id,
+                'position' => 0,
+            ]);
+        }
+    }
+
     public function test_non_seeded_products_can_be_created_as_real_data(): void
     {
         $producer = Producer::factory()->create();
