@@ -21,6 +21,7 @@ use App\Models\RestaurantProfile;
 use App\Models\ShopOrder;
 use App\Models\User;
 use App\Services\Admin\InventoryService;
+use App\Services\Admin\ProducerAllocationService;
 use App\Services\Restaurant\RestaurantOrderService;
 use App\Services\Restaurant\RestaurantStandingOrderService;
 use App\Services\Shop\CouponService;
@@ -685,13 +686,26 @@ class AdminShopOrderController extends Controller
     {
         $filter = $this->resolveFilter($request);
 
-        $producers = Producer::query()
-            ->select('producers.id')
-            ->join('products', 'products.producer_id', '=', 'producers.id')
-            ->join('shop_order_items', 'shop_order_items.product_id', '=', 'products.id')
-            ->whereIn('shop_order_items.shop_order_id', $this->filteredOrdersQuery($filter)->select('shop_orders.id'))
-            ->groupBy('producers.id')
-            ->pluck('id');
+        // Attribution-based: a farm appears when the allocation assigns it a
+        // share of the filtered demand (batches first, primary fallback for
+        // uncovered demand — see ProducerAllocationService).
+        $orders = $this->filteredOrdersQuery($filter)
+            ->with(['items.product'])
+            ->get();
+        $allocation = $this->farmerAllocation($orders);
+        $ids = [];
+        foreach ($allocation as $byPid) {
+            foreach ($byPid as $byVkey) {
+                foreach ($byVkey as $shares) {
+                    foreach ($shares as $producerId => $qty) {
+                        if ($producerId > 0 && $qty > 1e-9) {
+                            $ids[$producerId] = true;
+                        }
+                    }
+                }
+            }
+        }
+        $producers = array_keys($ids);
 
         $rows = Producer::query()
             ->whereIn('id', $producers)
@@ -768,53 +782,99 @@ class AdminShopOrderController extends Controller
      */
     private function buildFarmerOrderRows($orders, int $producerId): array
     {
-        $buckets = [];
+        // Demand + display metadata from the filtered order set, then the
+        // allocation decides which farm covers which share (batches first,
+        // uncovered demand falls back to the product's primary producer).
+        $allocation = $this->farmerAllocation($orders);
+
+        $meta = [];
         foreach ($orders as $order) {
             foreach ($order->items as $item) {
                 $product = $item->product;
-                if ($product === null || (int) $product->producer_id !== $producerId) {
+                if ($product === null) {
                     continue;
                 }
-
+                $metaKey = $product->id.'|'.($item->variant_id ?? 0);
+                if (isset($meta[$metaKey])) {
+                    continue;
+                }
                 $variant = $item->variant_id !== null
                     ? $product->variants->firstWhere('id', $item->variant_id)
                     : null;
-                $variantName = $variant?->localizedName();
-
                 $unit = $product->unit;
                 $displayUnit = $product->price_display_unit ?? $unit?->defaultDisplayUnit();
-                $factor = $unit !== null && $displayUnit !== null
-                    ? $unit->canonicalUnitsPerDisplay($displayUnit)
-                    : 1;
-                $displaySymbol = $product->localizedUnit();
-
-                $dateKey = $order->expected_delivery_date->toDateString();
-                $key = $dateKey.'|'.$product->id.'|'.($item->variant_id ?? 0);
-
-                if (! isset($buckets[$key])) {
-                    $buckets[$key] = [
-                        'date' => $order->expected_delivery_date,
-                        'product_name' => $product->name,
-                        'variant_name' => $variantName,
-                        'qty_display' => 0.0,
-                        'unit' => $displaySymbol,
-                    ];
-                }
-                $buckets[$key]['qty_display'] += $factor > 0
-                    ? (float) $item->quantity / $factor
-                    : (float) $item->quantity;
+                $meta[$metaKey] = [
+                    'product_name' => $product->name,
+                    'variant_name' => $variant?->localizedName(),
+                    'factor' => ($unit !== null && $displayUnit !== null)
+                        ? $unit->canonicalUnitsPerDisplay($displayUnit)
+                        : 1,
+                    'unit' => $product->localizedUnit(),
+                ];
             }
         }
 
-        $rows = array_values($buckets);
+        $rows = [];
+        foreach ($allocation as $iso => $byPid) {
+            foreach ($byPid as $pid => $byVkey) {
+                foreach ($byVkey as $vkey => $shares) {
+                    $qty = (float) ($shares[$producerId] ?? 0.0);
+                    if ($qty <= 1e-9) {
+                        continue;
+                    }
+                    $m = $meta[$pid.'|'.($vkey ?: 0)] ?? null;
+                    if ($m === null) {
+                        continue;
+                    }
+                    $rows[] = [
+                        'date' => Carbon::parse($iso),
+                        'product_name' => $m['product_name'],
+                        'variant_name' => $m['variant_name'],
+                        'qty_display' => round($m['factor'] > 0 ? $qty / $m['factor'] : $qty, 4),
+                        'unit' => $m['unit'],
+                    ];
+                }
+            }
+        }
+
         usort($rows, function (array $a, array $b): int {
             return [$a['date']->toDateString(), $a['product_name'], (string) ($a['variant_name'] ?? '')]
                 <=> [$b['date']->toDateString(), $b['product_name'], (string) ($b['variant_name'] ?? '')];
         });
 
-        return array_map(fn (array $r): array => array_merge($r, [
-            'qty_display' => round($r['qty_display'], 4),
-        ]), $rows);
+        return $rows;
+    }
+
+    /**
+     * Allocation of the given order set's demand across producers:
+     * [iso][pid][vkey][producerId => qty], demand injected from exactly
+     * these orders (the farmer export's filter set, not global commitments).
+     */
+    private function farmerAllocation($orders): array
+    {
+        $demand = [];
+        $dates = [];
+        foreach ($orders as $order) {
+            $iso = $order->expected_delivery_date?->toDateString();
+            if ($iso === null) {
+                continue;
+            }
+            foreach ($order->items as $item) {
+                if ($item->product_id === null) {
+                    continue; // custom lines have no farm
+                }
+                $pid = (int) $item->product_id;
+                $vkey = (int) ($item->variant_id ?? 0);
+                $demand[$pid][$vkey][$iso] = ($demand[$pid][$vkey][$iso] ?? 0.0) + (float) $item->quantity;
+                $dates[$iso] = true;
+            }
+        }
+        if ($demand === []) {
+            return [];
+        }
+
+        return app(ProducerAllocationService::class)
+            ->allocate(array_keys($demand), array_keys($dates), $demand);
     }
 
     /**

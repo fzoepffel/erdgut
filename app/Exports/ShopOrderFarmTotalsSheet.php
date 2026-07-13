@@ -4,8 +4,10 @@ namespace App\Exports;
 
 use App\Enums\ProductUnit;
 use App\Exports\Concerns\FormatsShopOrders;
+use App\Models\Producer;
 use App\Models\RestaurantOrder;
 use App\Models\ShopOrder;
+use App\Services\Admin\ProducerAllocationService;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -62,17 +64,37 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
     public function array(): array
     {
         /**
-         * Bucket keyed by `producerName||productName||displayUnit`. Order
-         * tokens are namespaced (`s{id}` / `r{id}`) so a shop order and a
-         * restaurant order sharing a numeric id count as two orders.
+         * Bucket keyed by product identity (`p{id}|{vkey}||display`, custom
+         * lines by name). The producer COLUMN is the allocation summary:
+         * one farm's name, or "Farm A 12 kg · Farm B 3 kg" when the demand
+         * splits across farms. Revenue/margin/counts stay per product
+         * bucket. Order tokens are namespaced (`s{id}` / `r{id}`) so a shop
+         * order and a restaurant order sharing a numeric id count as two.
          *
          * @var array<string, array{producer:string, product:string, qty_canonical:float, unit:?ProductUnit, display:string, unit_label_override:string, order_ids:array<string,true>, emails:array<string,true>, buying_per_unit:?float, revenue:float}>
          */
         $buckets = [];
+        $demand = [];
+        $dates = [];
+
+        $collectDemand = function ($order, $item) use (&$demand, &$dates): void {
+            if ($item->product_id === null) {
+                return;
+            }
+            $iso = $order->expected_delivery_date?->toDateString();
+            if ($iso === null) {
+                return;
+            }
+            $pid = (int) $item->product_id;
+            $vkey = (int) ($item->variant_id ?? 0);
+            $demand[$pid][$vkey][$iso] = ($demand[$pid][$vkey][$iso] ?? 0.0) + (float) $item->quantity;
+            $dates[$iso] = true;
+        };
 
         foreach ($this->orders as $order) {
             foreach ($order->items as $item) {
                 $this->accumulate($buckets, $item, 's'.$order->id, $order->email);
+                $collectDemand($order, $item);
             }
         }
 
@@ -84,8 +106,11 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
                     continue;
                 }
                 $this->accumulate($buckets, $item, 'r'.$order->id, $order->user?->email);
+                $collectDemand($order, $item);
             }
         }
+
+        $this->applyProducerAttribution($buckets, $demand, array_keys($dates));
 
         $rows = [];
         foreach ($buckets as $bucket) {
@@ -144,7 +169,11 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
             ?? $unit?->defaultDisplayUnit()
             ?? ($item->unit ?? '');
 
-        $key = $producerName.'||'.$productName.'||'.$display;
+        // Product-identity key; the producer label starts as the primary
+        // producer and is overwritten by the allocation summary afterwards.
+        $key = $product !== null
+            ? 'p'.$product->id.'|'.((int) ($item->variant_id ?? 0)).'||'.$display
+            : 'c'.$productName.'||'.$display;
         if (! isset($buckets[$key])) {
             $buckets[$key] = [
                 'producer' => $producerName,
@@ -166,5 +195,85 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
             $buckets[$key]['emails'][strtolower($email)] = true;
         }
         $buckets[$key]['revenue'] += (float) $item->line_total_eur;
+    }
+
+    /**
+     * Overwrite each catalog bucket's producer label with the allocation
+     * summary: the single farm's name, or "Farm A 12 kg · Farm B 3 kg"
+     * when the demand splits (shares summed over the sheet's date span,
+     * uncovered demand attributed to the primary producer).
+     *
+     * @param  array<string, array<string, mixed>>  $buckets
+     * @param  array<int, array<int, array<string, float>>>  $demand
+     * @param  list<string>  $dates
+     */
+    private function applyProducerAttribution(array &$buckets, array $demand, array $dates): void
+    {
+        if ($demand === [] || $dates === []) {
+            return;
+        }
+
+        $allocation = app(ProducerAllocationService::class)
+            ->allocate(array_keys($demand), $dates, $demand);
+
+        // Sum shares per (pid, vkey, producer) across the span.
+        $totals = [];
+        foreach ($allocation as $byPid) {
+            foreach ($byPid as $pid => $byVkey) {
+                foreach ($byVkey as $vkey => $shares) {
+                    foreach ($shares as $producerId => $qty) {
+                        $totals[$pid][$vkey][$producerId] = ($totals[$pid][$vkey][$producerId] ?? 0.0) + $qty;
+                    }
+                }
+            }
+        }
+
+        $producerIds = [];
+        foreach ($totals as $byVkey) {
+            foreach ($byVkey as $shares) {
+                foreach (array_keys($shares) as $id) {
+                    if ($id > 0) {
+                        $producerIds[$id] = true;
+                    }
+                }
+            }
+        }
+        $names = Producer::query()->with('translations')
+            ->whereIn('id', array_keys($producerIds))->get()
+            ->mapWithKeys(fn ($p) => [$p->id => (string) $p->name]);
+
+        foreach ($buckets as $key => $bucket) {
+            if (! str_starts_with($key, 'p')) {
+                continue; // custom lines keep the no-producer label
+            }
+            [$identity] = explode('||', $key, 2);
+            [$pid, $vkey] = array_map('intval', explode('|', substr($identity, 1)));
+            $shares = array_filter($totals[$pid][$vkey] ?? [], fn (float $q): bool => $q > 1e-9);
+            if ($shares === []) {
+                continue; // keep primary-producer label
+            }
+            arsort($shares);
+
+            if (count($shares) === 1) {
+                $only = array_key_first($shares);
+                $buckets[$key]['producer'] = $only > 0
+                    ? (string) ($names[$only] ?? $bucket['producer'])
+                    : (string) __('shop.export.no_producer');
+
+                continue;
+            }
+
+            $unit = $bucket['unit'];
+            $display = $bucket['display'];
+            $factor = ($unit instanceof ProductUnit && $display !== '') ? $unit->canonicalUnitsPerDisplay($display) : 1;
+            $symbol = $display !== '' ? ProductUnit::displaySymbol($display) : '';
+            $parts = [];
+            foreach ($shares as $producerId => $qty) {
+                $label = $producerId > 0 ? (string) ($names[$producerId] ?? '') : (string) __('shop.export.no_producer');
+                $qtyDisplay = rtrim(rtrim(number_format($factor > 0 ? $qty / $factor : $qty, 2, ',', '.'), '0'), ',');
+                $parts[] = trim($label.' '.$qtyDisplay.' '.$symbol);
+            }
+            $buckets[$key]['producer'] = implode(' · ', $parts);
+        }
     }
 }

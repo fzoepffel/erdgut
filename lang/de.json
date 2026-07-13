@@ -3464,6 +3464,7 @@
     "shop.admin.farmer_export_download": "PDF + CSV herunterladen",
     "shop.admin.farmer_export_pdf_title": "Hofbestellung an :producer",
     "shop.admin.farmer_export_pdf_subtitle": "Hofbestellung · erstellt",
+    "shop.admin.farmer_export_snapshot_hint": "Momentaufnahme. Die Mengen können sich bis zum Bestellschluss des jeweiligen Liefertags noch ändern.",
     "shop.admin.farmer_export_sender_label": "Bestellt von",
     "shop.admin.farmer_export_recipient_label": "Bestellung an",
     "shop.admin.farmer_export_window_label": "Lieferzeitraum",

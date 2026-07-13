@@ -1507,6 +1507,17 @@
                     this.refreshQuote();
                     this.scheduleCouponRefresh && this.scheduleCouponRefresh();
                 },
+                // Delete a single basket line by its jsId. Unlike
+                // removeFromBasketByProduct (which nukes every grade of a
+                // product), this only clears the addressed variant — used
+                // by the mini-basket chip so a customer can drop one grade
+                // without touching the others.
+                removeLine(jsId) {
+                    if (this.quantities[jsId] === undefined && !products.find((p) => p.id === jsId)) return;
+                    this.quantities[jsId] = 0;
+                    this.refreshQuote();
+                    this.scheduleCouponRefresh && this.scheduleCouponRefresh();
+                },
                 // ── Mini-basket chip ──────────────────────────────────────
                 chipOpen: false,
                 chipPulse: false,

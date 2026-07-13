@@ -3,8 +3,10 @@
 namespace App\Exports;
 
 use App\Exports\Concerns\FormatsShopOrders;
+use App\Models\Producer;
 use App\Models\RestaurantOrder;
 use App\Models\ShopOrder;
+use App\Services\Admin\ProducerAllocationService;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
@@ -99,7 +101,7 @@ class ShopOrderPicklistSheet implements FromArray, WithColumnWidths, WithHeading
                 if ($item->variant_name_snapshot !== null && $item->variant_name_snapshot !== '') {
                     $name .= ' · '.$item->variant_name_snapshot;
                 }
-                $producer = $product?->producer?->name;
+                $producer = $this->producerLabel($item) ?? $product?->producer?->name;
                 $positions[] = $producer ? sprintf('%s (%s)', $name, $producer) : $name;
 
                 if ($product !== null) {
@@ -182,7 +184,7 @@ class ShopOrderPicklistSheet implements FromArray, WithColumnWidths, WithHeading
             if ($item->variant_name_snapshot !== null && $item->variant_name_snapshot !== '') {
                 $name .= ' · '.$item->variant_name_snapshot;
             }
-            $producer = $product?->producer?->name;
+            $producer = $this->producerLabel($item) ?? $product?->producer?->name;
             $positions[] = $producer ? sprintf('%s (%s)', $name, $producer) : $name;
 
             if ($product !== null) {
@@ -294,5 +296,109 @@ class ShopOrderPicklistSheet implements FromArray, WithColumnWidths, WithHeading
             'S' => 12,  // payment
             'T' => 14,  // status
         ];
+    }
+
+    /**
+     * Allocation-based producer names for an item's (product, grade, date):
+     * the single farm, or "Farm A/Farm B" when the demand splits. Lazily
+     * computed once per workbook from both channels' items.
+     */
+    private ?array $producerLabelCache = null;
+
+    private function producerLabel(object $item): ?string
+    {
+        if ($item->product_id === null) {
+            return null;
+        }
+        if ($this->producerLabelCache === null) {
+            $this->producerLabelCache = $this->buildProducerLabels();
+        }
+
+        return $this->producerLabelCache[$item->product_id.'|'.((int) ($item->variant_id ?? 0))] ?? null;
+    }
+
+    /** @return array<string, string> */
+    private function buildProducerLabels(): array
+    {
+        $demand = [];
+        $dates = [];
+        $fold = function ($order, $item) use (&$demand, &$dates): void {
+            if ($item->product_id === null) {
+                return;
+            }
+            $iso = $order->expected_delivery_date?->toDateString();
+            if ($iso === null) {
+                return;
+            }
+            $pid = (int) $item->product_id;
+            $vkey = (int) ($item->variant_id ?? 0);
+            $demand[$pid][$vkey][$iso] = ($demand[$pid][$vkey][$iso] ?? 0.0) + (float) $item->quantity;
+            $dates[$iso] = true;
+        };
+        foreach ($this->orders as $order) {
+            foreach ($order->items as $item) {
+                $fold($order, $item);
+            }
+        }
+        foreach ($this->restaurantOrders as $order) {
+            foreach ($order->items as $item) {
+                if (method_exists($item, 'isConfirmedLine') && ! $item->isConfirmedLine()) {
+                    continue;
+                }
+                $fold($order, $item);
+            }
+        }
+        if ($demand === []) {
+            return [];
+        }
+
+        $allocation = app(ProducerAllocationService::class)
+            ->allocate(array_keys($demand), array_keys($dates), $demand);
+
+        $totals = [];
+        foreach ($allocation as $byPid) {
+            foreach ($byPid as $pid => $byVkey) {
+                foreach ($byVkey as $vkey => $shares) {
+                    foreach ($shares as $producerId => $qty) {
+                        $totals[$pid][$vkey][$producerId] = ($totals[$pid][$vkey][$producerId] ?? 0.0) + $qty;
+                    }
+                }
+            }
+        }
+        $ids = [];
+        foreach ($totals as $byVkey) {
+            foreach ($byVkey as $shares) {
+                foreach (array_keys($shares) as $id) {
+                    if ($id > 0) {
+                        $ids[$id] = true;
+                    }
+                }
+            }
+        }
+        $names = Producer::query()->with('translations')
+            ->whereIn('id', array_keys($ids))->get()
+            ->mapWithKeys(fn ($p) => [$p->id => (string) $p->name]);
+
+        $labels = [];
+        foreach ($totals as $pid => $byVkey) {
+            foreach ($byVkey as $vkey => $shares) {
+                $shares = array_filter($shares, fn (float $q): bool => $q > 1e-9);
+                if ($shares === []) {
+                    continue;
+                }
+                arsort($shares);
+                $parts = [];
+                foreach (array_keys($shares) as $producerId) {
+                    if ($producerId > 0 && isset($names[$producerId])) {
+                        $parts[] = (string) $names[$producerId];
+                    }
+                }
+                if ($parts !== []) {
+                    $labels[$pid.'|'.$vkey] = implode('/', $parts);
+                }
+            }
+        }
+
+        return $labels;
     }
 }

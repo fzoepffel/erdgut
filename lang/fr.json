@@ -3464,6 +3464,7 @@
     "shop.admin.farmer_export_download": "Télécharger PDF + CSV",
     "shop.admin.farmer_export_pdf_title": "Commande producteur · :producer",
     "shop.admin.farmer_export_pdf_subtitle": "Commande ferme · créée",
+    "shop.admin.farmer_export_snapshot_hint": "Instantané. Les quantités peuvent encore changer jusqu'à la clôture des commandes du jour de livraison.",
     "shop.admin.farmer_export_sender_label": "Commandé par",
     "shop.admin.farmer_export_recipient_label": "Commande à",
     "shop.admin.farmer_export_window_label": "Période de livraison",
