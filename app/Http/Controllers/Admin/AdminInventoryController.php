@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\ShopStockAudience;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminInventoryInflowStoreRequest;
 use App\Http\Requests\Admin\AdminInventoryInflowUpdateRequest;
@@ -63,6 +64,13 @@ class AdminInventoryController extends Controller
             return [$p->id => $this->inventory->availabilityWindow($p, $start, $end)];
         });
 
+        // Trade view of the same window: includes b2b_only batches. Where it
+        // exceeds the consumer value, the matrix shows the extra as
+        // gastro-reserved stock.
+        $b2bAvailabilityMatrix = $products->mapWithKeys(function (Product $p) use ($start, $end): array {
+            return [$p->id => $this->inventory->availabilityWindow($p, $start, $end, ShopStockAudience::BusinessTrade)];
+        });
+
         // Per-grade lanes for products that have grades, so the matrix shows
         // each grade's own stock under the product total. productId =>
         // (variantKey => (iso => qty)); variantKey 0 = the default grade.
@@ -85,6 +93,7 @@ class AdminInventoryController extends Controller
             'today' => Carbon::today()->toDateString(),
             'products' => $products,
             'availabilityMatrix' => $availabilityMatrix,
+            'b2bAvailabilityMatrix' => $b2bAvailabilityMatrix,
             'variantMatrix' => $variantMatrix,
             'inflows' => $inflows,
         ]);

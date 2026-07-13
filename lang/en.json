@@ -1679,6 +1679,8 @@
     "admin.inventory.section_manual": "Manual inflow",
     "admin.inventory.section_matrix": "Availability per day",
     "admin.inventory.section_matrix_hint": "Each cell shows available minus committed. Red cells are overbooked.",
+    "admin.inventory.b2b_stock_title": "Trade customers only (B2B inflow)",
+    "admin.inventory.b2b_stock_legend": "Amber values are available to trade customers only.",
     "admin.inventory.section_schedules": "Recurring inflows",
     "admin.inventory.section_schedules_hint": "One rule per product per weekday. Auto-materialises inflows for the coming weeks.",
     "admin.inventory.source_manual": "Manual",

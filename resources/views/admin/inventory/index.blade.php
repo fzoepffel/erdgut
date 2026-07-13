@@ -164,7 +164,7 @@
                         <h2 id="inventory-matrix-heading" class="text-base font-semibold text-gray-900">
                             {{ __('admin.inventory.section_matrix') }}
                         </h2>
-                        <p class="mt-1 text-sm text-gray-600">{{ __('admin.inventory.section_matrix_hint') }}</p>
+                        <p class="mt-1 text-sm text-gray-600">{{ __('admin.inventory.section_matrix_hint') }} <span class="font-medium text-amber-700">{{ __('admin.inventory.b2b_stock_legend') }}</span></p>
                     </div>
                 </div>
                 <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -191,6 +191,7 @@
                                             $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit() ?? 'piece';
                                             $factor = $product->unit?->canonicalUnitsPerDisplay($displayUnit) ?? 1;
                                             $row = $availabilityMatrix[$product->id] ?? [];
+                                            $b2bRow = $b2bAvailabilityMatrix[$product->id] ?? [];
                                             $scheduleCount = $product->stockInflowSchedules->count();
                                         @endphp
                                         <tr>
@@ -209,12 +210,17 @@
                                                     $iso = $date->toDateString();
                                                     $value = $row[$iso] ?? 0.0;
                                                     $display = $value / $factor;
+                                                    // Stock only the trade audience can buy (b2b_only batches).
+                                                    $b2bExtra = max(0.0, ($b2bRow[$iso] ?? 0.0) - $value);
+                                                    $b2bDisplay = $b2bExtra / $factor;
                                                 @endphp
-                                                <td class="px-2 py-2 text-center tabular-nums {{ $value <= 0 ? 'bg-gray-50 text-gray-400' : '' }}">
-                                                    @if ($value <= 0)
+                                                <td class="px-2 py-2 text-center tabular-nums {{ $value <= 0 && $b2bExtra <= 0 ? 'bg-gray-50 text-gray-400' : '' }}">
+                                                    @if ($value <= 0 && $b2bExtra <= 0)
                                                         —
+                                                    @elseif ($value <= 0)
+                                                        <span class="font-medium text-amber-700" title="{{ __('admin.inventory.b2b_stock_title') }}" data-testid="inventory-b2b-cell-{{ $product->id }}-{{ $iso }}">{{ rtrim(rtrim(number_format($b2bDisplay, 2, ',', '.'), '0'), ',') }}</span>
                                                     @else
-                                                        {{ rtrim(rtrim(number_format($display, 2, ',', '.'), '0'), ',') }}
+                                                        {{ rtrim(rtrim(number_format($display, 2, ',', '.'), '0'), ',') }}@if ($b2bExtra > 0)<span class="ml-0.5 text-[10px] font-medium text-amber-700" title="{{ __('admin.inventory.b2b_stock_title') }}">+{{ rtrim(rtrim(number_format($b2bDisplay, 2, ',', '.'), '0'), ',') }}</span>@endif
                                                     @endif
                                                 </td>
                                             @endforeach
