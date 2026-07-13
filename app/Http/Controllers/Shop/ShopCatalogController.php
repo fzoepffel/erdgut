@@ -151,9 +151,10 @@ class ShopCatalogController extends Controller
 
     public function producer(Producer $producer): View
     {
-        $producer->load(['translations', 'products.translations']);
+        $producer->load(['translations', 'products.translations', 'suppliedProducts.translations']);
 
-        $products = $producer->products
+        // All supplied products, not just primary ones.
+        $products = $producer->allProducts()
             ->filter(fn (Product $p): bool => $p->is_available && $p->is_published)
             ->filter(fn (Product $p): bool => $p->name !== '')
             ->values();

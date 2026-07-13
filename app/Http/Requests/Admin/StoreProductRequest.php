@@ -53,7 +53,8 @@ class StoreProductRequest extends FormRequest
 
         return [
             ...$translationRules,
-            'producer_id' => ['required', 'integer', 'exists:producers,id'],
+            'producer_ids' => ['required', 'array', 'min:1'],
+            'producer_ids.*' => ['integer', 'distinct', 'exists:producers,id'],
             'category' => ['required', 'string', Rule::in(ProductCategory::values())],
             'subcategory_id' => ['nullable', 'integer', 'exists:product_subcategories,id'],
             'unit' => ['required', 'string', Rule::in(ProductUnit::values())],
@@ -135,8 +136,24 @@ class StoreProductRequest extends FormRequest
         ];
     }
 
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'producer_ids.required' => __('admin.products.producers_required'),
+            'producer_ids.min' => __('admin.products.producers_required'),
+            'producer_ids.*.exists' => __('admin.products.producers_required'),
+        ];
+    }
+
     protected function prepareForValidation(): void
     {
+        // Back-compat: pre-P5 clients post a single producer_id. Fold it
+        // into the ordered multi-producer shape (first id = primary farm).
+        if (! $this->has('producer_ids') && $this->filled('producer_id')) {
+            $this->merge(['producer_ids' => [(int) $this->input('producer_id')]]);
+        }
+
         $subcategoryId = $this->input('subcategory_id');
         if ($subcategoryId === '' || $subcategoryId === '0' || $subcategoryId === 0) {
             $subcategoryId = null;

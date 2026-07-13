@@ -85,6 +85,23 @@ class ProducerDetailPageTest extends TestCase
         $response->assertSee($visible->displayPrice(), false);
     }
 
+    public function test_detail_page_lists_products_supplied_as_secondary_farm(): void
+    {
+        // The product's PRIMARY producer is another farm; this farm only
+        // supplies it via a secondary pivot row — it must still appear.
+        $secondary = $this->producerNamed('Secondary Supplier Farm');
+        $primary = Producer::factory()->create();
+
+        $product = Product::factory()->for($primary)->create(['is_available' => true, 'is_published' => true]);
+        $product->translations()->where('locale', 'en')->update(['name' => 'Shared Parsnip']);
+        $product->syncProducers([$primary->id, $secondary->id]);
+
+        $this->get(route('public.producers.show', $secondary))
+            ->assertOk()
+            ->assertSee('Shared Parsnip', false)
+            ->assertSee('data-testid="producer-product-card"', false);
+    }
+
     public function test_products_section_hidden_when_no_visible_products(): void
     {
         $producer = $this->producerNamed('No Products Farm');
