@@ -15,6 +15,7 @@ use App\Models\ShopOrderItem;
 use App\Models\SpargelOrder;
 use App\Support\BoxDeliveryDateResolver;
 use App\Support\InventoryCache;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -533,6 +534,50 @@ class InventoryService
     }
 
     /**
+     * Constrain a query to shop orders that still hold stock. Shared by the
+     * windowed accumulator and the per-date helper so the predicates never
+     * drift: cancelled/refunded/FAILED orders release their quantities, and
+     * PendingPayment orders older than the abandoned-checkout grace window
+     * are released without a cleanup cron.
+     */
+    private function applyCommittingShopOrderFilter(\Illuminate\Contracts\Database\Query\Builder|Builder $q, string $prefix = 'shop_orders.'): void
+    {
+        $abandonedAfter = now()->subMinutes(self::ABANDONED_PENDING_PAYMENT_MINUTES);
+
+        $q->whereNotIn($prefix.'status', [
+            ShopOrderStatus::Cancelled->value,
+            ShopOrderStatus::Refunded->value,
+            // A failed online payment is terminal; the order never ships.
+            ShopOrderStatus::Failed->value,
+        ])
+            ->where(function ($q) use ($abandonedAfter, $prefix): void {
+                $q->where($prefix.'status', '!=', ShopOrderStatus::PendingPayment->value)
+                    ->orWhere($prefix.'created_at', '>=', $abandonedAfter);
+            });
+    }
+
+    /**
+     * Constrain restaurant order-item rows to lines that hold stock: hard
+     * reserved at submit, OR a confirmed line of a firm ORDER (kind=order).
+     * The latter covers materialized weekly deliveries whose inflow is
+     * recorded only after materialization (their lines start as `requested`
+     * and the track never changes). Requests (kind=request) deliberately
+     * never commit: they cover separately-procured produce that is not
+     * recorded as an inflow. Declined lines never hold stock.
+     */
+    private function applyCommittingRestaurantLineFilter(\Illuminate\Contracts\Database\Query\Builder|Builder $q): void
+    {
+        $q->where(function ($q): void {
+            $q->where('restaurant_order_items.track', 'reserved')
+                ->orWhere(function ($q): void {
+                    $q->where('restaurant_order_items.line_status', 'confirmed')
+                        ->where('restaurant_orders.kind', 'order');
+                });
+        })
+            ->where('restaurant_order_items.line_status', '!=', 'declined');
+    }
+
+    /**
      * Add shop-order commitments to the per-product+grade+date bucket. Mirrors
      * {@see shopCommittedOnDate} but windowed and grouped in one query. A line's
      * `variant_id` (NULL = default grade) decides which grade it depletes.
@@ -547,29 +592,13 @@ class InventoryService
         string $toIso,
         ?CustomerType $customerType = null,
     ): void {
-        // Abandoned-checkout grace window: a PendingPayment order that hasn't
-        // been paid in this many minutes is treated as abandoned and its
-        // quantities are released back into the available pool. The SumUp
-        // hosted widget itself stays valid much longer, but holding inventory
-        // for hours after the customer walks away starves real shoppers.
-        $abandonedAfter = now()->subMinutes(self::ABANDONED_PENDING_PAYMENT_MINUTES);
-
         ShopOrderItem::query()
             ->join('shop_orders', 'shop_orders.id', '=', 'shop_order_items.shop_order_id')
             ->whereIn('shop_order_items.product_id', $productIds)
             ->whereDate('shop_orders.expected_delivery_date', '>=', $fromIso)
             ->whereDate('shop_orders.expected_delivery_date', '<=', $toIso)
             ->when($customerType !== null, fn ($q) => $q->where('shop_orders.customer_type', $customerType->value))
-            ->whereNotIn('shop_orders.status', [
-                ShopOrderStatus::Cancelled->value,
-                ShopOrderStatus::Refunded->value,
-            ])
-            ->where(function ($q) use ($abandonedAfter): void {
-                // Live-filter abandoned PendingPayment orders so freed stock
-                // shows up to the next visitor without a cleanup cron.
-                $q->where('shop_orders.status', '!=', ShopOrderStatus::PendingPayment->value)
-                    ->orWhere('shop_orders.created_at', '>=', $abandonedAfter);
-            })
+            ->tap(fn ($q) => $this->applyCommittingShopOrderFilter($q))
             ->groupBy('shop_order_items.product_id', 'shop_order_items.variant_id', 'shop_orders.expected_delivery_date')
             ->get([
                 'shop_order_items.product_id as product_id',
@@ -586,10 +615,12 @@ class InventoryService
     }
 
     /**
-     * Add restaurant (B2B) order commitments to the bucket. Only `reserved`
-     * lines hold stock (`requested` lines are out-of-stock requests that reserve
-     * nothing). A line reserves while its order is not Cancelled/Declined. There
-     * is no abandoned-grace clause — a restaurant submit is an immediate hold.
+     * Add restaurant (B2B) order commitments to the bucket. A line holds
+     * stock when it is hard-reserved OR a confirmed line of a firm order
+     * (see {@see applyCommittingRestaurantLineFilter} for the full rule and
+     * why requests never commit). A line reserves while its order is not
+     * Cancelled/Declined. There is no abandoned-grace clause — a restaurant
+     * submit is an immediate hold.
      *
      * Mirrors {@see accumulateShopCommitments}; the caller decides which pool
      * (shared and/or B2B-exclusive) to fold these into, so reserved restaurant
@@ -607,10 +638,7 @@ class InventoryService
         RestaurantOrderItem::query()
             ->join('restaurant_orders', 'restaurant_orders.id', '=', 'restaurant_order_items.restaurant_order_id')
             ->whereIn('restaurant_order_items.product_id', $productIds)
-            ->where('restaurant_order_items.track', 'reserved')
-            // A declined line never holds stock (redundant with track=reserved
-            // today, but keeps the reservation count correct if that ever changes).
-            ->where('restaurant_order_items.line_status', '!=', 'declined')
+            ->tap(fn ($q) => $this->applyCommittingRestaurantLineFilter($q))
             ->whereDate('restaurant_orders.expected_delivery_date', '>=', $fromIso)
             ->whereDate('restaurant_orders.expected_delivery_date', '<=', $toIso)
             ->whereIn('restaurant_orders.status', RestaurantOrderStatus::reservingValues())
@@ -731,6 +759,7 @@ class InventoryService
         $committed += $this->spargelCommittedOnDate($product, $iso);
         $committed += $this->boxCommittedOnDate($product, $iso);
         $committed += $this->shopCommittedOnDate($product, $iso);
+        $committed += $this->restaurantCommittedOnDate($product, $iso);
 
         return round($committed, 4);
     }
@@ -1006,17 +1035,25 @@ class InventoryService
     {
         // `shop_order_items.quantity` is in canonical product units (same
         // as inflows), so it aggregates directly. Only orders still on the
-        // hook for fulfilment commit stock — cancelled/refunded release it.
+        // hook for fulfilment commit stock (shared predicate).
         return (float) ShopOrderItem::query()
             ->where('shop_order_items.product_id', $product->id)
             ->whereHas('shopOrder', function ($q) use ($iso): void {
-                $q->whereDate('expected_delivery_date', $iso)
-                    ->whereNotIn('status', [
-                        ShopOrderStatus::Cancelled,
-                        ShopOrderStatus::Refunded,
-                    ]);
+                $q->whereDate('expected_delivery_date', $iso);
+                $this->applyCommittingShopOrderFilter($q, '');
             })
             ->sum('shop_order_items.quantity');
+    }
+
+    private function restaurantCommittedOnDate(Product $product, string $iso): float
+    {
+        return (float) RestaurantOrderItem::query()
+            ->join('restaurant_orders', 'restaurant_orders.id', '=', 'restaurant_order_items.restaurant_order_id')
+            ->where('restaurant_order_items.product_id', $product->id)
+            ->tap(fn ($q) => $this->applyCommittingRestaurantLineFilter($q))
+            ->whereDate('restaurant_orders.expected_delivery_date', $iso)
+            ->whereIn('restaurant_orders.status', RestaurantOrderStatus::reservingValues())
+            ->sum('restaurant_order_items.quantity');
     }
 
     private function boxCommittedOnDate(Product $product, string $iso): float
