@@ -7,6 +7,7 @@ use App\Enums\TasteProfile;
 use App\Services\Admin\InventoryService;
 use App\Services\ImageProcessor;
 use App\Support\HumanText;
+use App\Support\InventoryCache;
 use Carbon\CarbonInterface;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -112,6 +113,45 @@ class Product extends Model
     public function producer(): BelongsTo
     {
         return $this->belongsTo(Producer::class);
+    }
+
+    /**
+     * All producers supplying this product, primary first. The single
+     * `producer_id` column stays as the eager-loadable PRIMARY producer
+     * (mirror of the position-0 pivot row, maintained by syncProducers()).
+     */
+    public function producers(): BelongsToMany
+    {
+        return $this->belongsToMany(Producer::class, 'product_producer')
+            ->withPivot('position')
+            ->withTimestamps()
+            ->orderBy('product_producer.position')
+            ->orderBy('product_producer.id');
+    }
+
+    /**
+     * Single write path for the producer set: syncs the pivot (order =
+     * position) and mirrors the first id into producer_id, so column and
+     * pivot can never drift. Bumps the inventory cache explicitly because
+     * BelongsToMany::sync() fires no Product model events.
+     *
+     * @param  list<int>  $producerIds  ordered; first = primary; must not be empty
+     */
+    public function syncProducers(array $producerIds): void
+    {
+        $producerIds = array_values(array_unique(array_map('intval', $producerIds)));
+        if ($producerIds === []) {
+            throw new \InvalidArgumentException('A product needs at least one producer.');
+        }
+
+        $pivot = [];
+        foreach ($producerIds as $position => $id) {
+            $pivot[$id] = ['position' => $position];
+        }
+        $this->producers()->sync($pivot);
+        $this->forceFill(['producer_id' => $producerIds[0]])->save();
+
+        InventoryCache::bump();
     }
 
     public function subcategory(): BelongsTo

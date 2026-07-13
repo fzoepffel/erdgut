@@ -18,6 +18,13 @@ class ProductFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (Product $product): void {
+            // Mirror the single producer into the multi-producer pivot so
+            // factory-built products satisfy the column<->pivot invariant.
+            if ($product->producer_id !== null) {
+                $product->producers()->syncWithoutDetaching([
+                    $product->producer_id => ['position' => 0],
+                ]);
+            }
             foreach (['de', 'en', 'fr'] as $locale) {
                 ProductTranslation::query()->create([
                     'product_id' => $product->id,

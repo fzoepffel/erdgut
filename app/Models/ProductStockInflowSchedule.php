@@ -34,6 +34,7 @@ class ProductStockInflowSchedule extends Model
     protected $fillable = [
         'product_id',
         'variant_id',
+        'producer_id',
         'weekday',
         'planned_quantity',
         'freshness_window_days',
@@ -84,5 +85,10 @@ class ProductStockInflowSchedule extends Model
     public function isActive(): bool
     {
         return $this->ends_on === null || $this->ends_on->isFuture();
+    }
+
+    public function producer(): BelongsTo
+    {
+        return $this->belongsTo(Producer::class);
     }
 }

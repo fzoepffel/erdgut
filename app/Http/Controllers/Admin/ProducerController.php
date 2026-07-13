@@ -170,7 +170,7 @@ class ProducerController extends Controller
     {
         $this->authorize('delete', $producer);
 
-        if ($producer->products()->exists()) {
+        if ($producer->products()->exists() || $producer->suppliedProducts()->exists()) {
             return redirect()
                 ->route('app.admin.producers.index')
                 ->with('error', __('This producer cannot be deleted while products are still assigned. Reassign or delete those products first.'));

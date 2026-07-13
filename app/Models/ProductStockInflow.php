@@ -29,6 +29,7 @@ class ProductStockInflow extends Model
     protected $fillable = [
         'product_id',
         'variant_id',
+        'producer_id',
         'received_on',
         'original_received_on',
         'quantity',
@@ -111,5 +112,10 @@ class ProductStockInflow extends Model
         return $query
             ->whereDate('received_on', '<=', $iso)
             ->whereRaw($expiresExpression.' >= ?', [$iso]);
+    }
+
+    public function producer(): BelongsTo
+    {
+        return $this->belongsTo(Producer::class);
     }
 }
