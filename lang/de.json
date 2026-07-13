@@ -1679,6 +1679,8 @@
     "admin.inventory.section_manual": "Manueller Eingang",
     "admin.inventory.section_matrix": "Verfügbarkeit pro Tag",
     "admin.inventory.section_matrix_hint": "Jede Zelle zeigt verfügbar minus reserviert. Rote Zellen sind überbucht.",
+    "admin.inventory.b2b_stock_title": "Nur für Gastro-Kunden (B2B-Eingang)",
+    "admin.inventory.b2b_stock_legend": "Bernsteinfarbene Werte sind nur für Gastro-Kunden verfügbar.",
     "admin.inventory.section_schedules": "Wiederkehrende Eingänge",
     "admin.inventory.section_schedules_hint": "Pro Produkt eine Regel je Wochentag. Materialisiert automatisch Eingänge in den nächsten Wochen.",
     "admin.inventory.source_manual": "Manuell",

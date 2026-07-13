@@ -61,6 +61,28 @@ class AdminInventoryTest extends TestCase
             ->assertSee($product->producer->name);
     }
 
+    public function test_matrix_shows_b2b_only_stock_in_amber(): void
+    {
+        // A pure trade inflow was invisible before: the matrix only computed
+        // the consumer audience. It must render as gastro-reserved stock.
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'received_on' => '2026-05-20',
+            'quantity' => 5,
+            'freshness_window_days' => 2,
+            'b2b_only' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index'))
+            ->assertOk()
+            ->assertSee('data-testid="inventory-b2b-cell-'.$product->id.'-2026-05-20"', false)
+            ->assertSee(__('admin.inventory.b2b_stock_legend'));
+    }
+
     public function test_admin_can_record_a_manual_inflow_and_redirect_back(): void
     {
         $admin = User::factory()->admin()->create();

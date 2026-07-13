@@ -147,13 +147,13 @@ class InventoryService
      *
      * @return array<string, float>
      */
-    public function availabilityWindow(Product $product, Carbon $from, Carbon $to): array
+    public function availabilityWindow(Product $product, Carbon $from, Carbon $to, ShopStockAudience $audience = ShopStockAudience::Consumer): array
     {
         $from = $from->copy()->startOfDay();
         $to = $to->copy()->startOfDay();
 
         $row = $this->sumVariantAvailability(
-            $this->productAvailability([$product->id], $from, $to)[$product->id] ?? []
+            $this->productAvailability([$product->id], $from, $to, $audience)[$product->id] ?? []
         );
 
         // Preserve the contract of a value for every day in [from, to].
@@ -175,12 +175,12 @@ class InventoryService
      *
      * @return array<int, array<string, float>>
      */
-    public function variantAvailabilityWindow(Product $product, Carbon $from, Carbon $to): array
+    public function variantAvailabilityWindow(Product $product, Carbon $from, Carbon $to, ShopStockAudience $audience = ShopStockAudience::Consumer): array
     {
         $from = $from->copy()->startOfDay();
         $to = $to->copy()->startOfDay();
 
-        $perVariant = $this->productAvailability([$product->id], $from, $to)[$product->id] ?? [];
+        $perVariant = $this->productAvailability([$product->id], $from, $to, $audience)[$product->id] ?? [];
 
         $out = [];
         foreach ($perVariant as $vkey => $row) {
