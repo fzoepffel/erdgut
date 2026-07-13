@@ -220,11 +220,23 @@ class ProductMergeService
             }
 
             // Farms the winner lacks get appended (loser's order); the
-            // winner's primary stays at position 0.
+            // winner's primary stays at position 0. Appended farms carry
+            // their per-farm buying price over (loser's pivot value, else
+            // the loser's default) so the cost knowledge survives; farms
+            // both products share keep the winner's value.
             $currentFarmIds = $this->producerIds($winner);
+            $loserPivotPrices = DB::table('product_producer')
+                ->where('product_id', $loser->id)
+                ->pluck('buying_price_cents', 'producer_id');
             $merged = array_values(array_unique(array_merge($currentFarmIds, $this->producerIds($loser))));
             if ($merged !== [] && $merged !== $currentFarmIds) {
                 $winner->syncProducers($merged);
+                foreach (array_diff($merged, $currentFarmIds) as $appendedId) {
+                    $carried = $loserPivotPrices[$appendedId] ?? $loser->buying_price_cents;
+                    if ($carried !== null) {
+                        $winner->producers()->updateExistingPivot($appendedId, ['buying_price_cents' => (int) $carried]);
+                    }
+                }
             }
 
             AuditLogger::log('product', $winner->id, 'merge_absorbed', null, null, null, [

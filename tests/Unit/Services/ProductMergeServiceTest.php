@@ -250,6 +250,36 @@ class ProductMergeServiceTest extends TestCase
         );
     }
 
+    public function test_appended_farms_carry_their_buying_prices_over(): void
+    {
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $farmC = Producer::factory()->create();
+        $farmD = Producer::factory()->create();
+
+        // Winner: farms A + D, D with its own price.
+        $winner = $this->product($farmA);
+        $winner->syncProducers([$farmA->id, $farmD->id]);
+        $winner->producers()->updateExistingPivot($farmD->id, ['buying_price_cents' => 100]);
+
+        // Loser (default 180): B with override 250, C without, D with 999.
+        $loser = $this->product($farmB);
+        $loser->forceFill(['buying_price_cents' => 180])->save();
+        $loser->syncProducers([$farmB->id, $farmC->id, $farmD->id]);
+        $loser->producers()->updateExistingPivot($farmB->id, ['buying_price_cents' => 250]);
+        $loser->producers()->updateExistingPivot($farmD->id, ['buying_price_cents' => 999]);
+
+        $this->service->merge($winner, $loser->refresh());
+
+        $pivot = DB::table('product_producer')
+            ->where('product_id', $winner->id)
+            ->pluck('buying_price_cents', 'producer_id');
+        $this->assertSame(250, (int) $pivot[$farmB->id]);   // loser override carried
+        $this->assertSame(180, (int) $pivot[$farmC->id]);   // loser default carried
+        $this->assertSame(100, (int) $pivot[$farmD->id]);   // shared farm: winner wins
+        $this->assertNull($pivot[$farmA->id]);              // winner's own farm untouched
+    }
+
     public function test_losers_price_rules_are_dropped_and_pointers_nulled(): void
     {
         $winner = $this->product();

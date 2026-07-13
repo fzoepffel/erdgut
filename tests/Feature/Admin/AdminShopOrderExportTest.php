@@ -306,6 +306,58 @@ class AdminShopOrderExportTest extends TestCase
         $this->assertSame(7.5, $row[9]); // margin
     }
 
+    public function test_farm_totals_costs_each_share_at_its_farms_buying_price(): void
+    {
+        // Farm A (primary, default 3 €/kg) has 1 kg in stock, farm B
+        // (override 2 €/kg) has 5 kg. A 2.5 kg order: A drained first
+        // (equal anchor/breadth, lower id) → cost 1×3 + 1.5×2 = 6,
+        // weighted per-unit 6 / 2.5 = 2.4.
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $tomato = Product::factory()->create([
+            'producer_id' => $farmA->id,
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.006,
+            'buying_price_cents' => 300,
+        ]);
+        $tomato->syncProducers([$farmA->id, $farmB->id]);
+        $tomato->producers()->updateExistingPivot($farmB->id, ['buying_price_cents' => 200]);
+        foreach ([[$farmA->id, 1000], [$farmB->id, 5000]] as [$farmId, $qty]) {
+            ProductStockInflow::create([
+                'product_id' => $tomato->id, 'producer_id' => $farmId,
+                'received_on' => '2026-06-10', 'quantity' => $qty, 'freshness_window_days' => 2,
+            ]);
+        }
+
+        $order = ShopOrder::factory()->paid()->create([
+            'email' => 'a@example.com',
+            'expected_delivery_date' => '2026-06-10',
+        ]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $tomato->id,
+            'quantity' => 2500,
+            'unit' => 'g',
+            'line_total_eur' => 15.0,
+        ]);
+
+        $rows = collect((new ShopOrderFarmTotalsSheet(Collection::make([
+            $order->fresh(['items.product.producer.translations']),
+        ])))->array());
+
+        $row = $rows->firstWhere(1, $tomato->name);
+        $this->assertNotNull($row);
+        $this->assertSame(2.5, $row[2]);
+        $this->assertEqualsWithDelta(2.4, $row[6], 0.001); // weighted €/kg
+        $this->assertEqualsWithDelta(6.0, $row[7], 0.001); // buying total
+        $this->assertEqualsWithDelta(15.0, $row[8], 0.001);
+        $this->assertEqualsWithDelta(9.0, $row[9], 0.001); // margin
+        // Both farms named in the split label.
+        $this->assertStringContainsString($farmA->name, (string) $row[0]);
+        $this->assertStringContainsString($farmB->name, (string) $row[0]);
+    }
+
     public function test_route_sheet_includes_only_delivery_orders_with_payment_due(): void
     {
         $delivery = ShopOrder::factory()->create([

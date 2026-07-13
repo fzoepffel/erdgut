@@ -15,6 +15,7 @@ use App\Models\ShopOrderItem;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Numbers for the operations dashboard: weekly NET revenue for the two active
@@ -228,7 +229,16 @@ class AdminOperationsMetrics
         $marginTotalNet = 0.0;
         $hasPricedLines = false;
 
-        $fold = function (object $item, string $deliveryIso) use (&$buckets, &$grandTotal, &$marginNet, &$marginPricedNet, &$marginTotalNet, &$hasPricedLines, $from, $to, $weekStartIso, $weekEndIso): void {
+        // Current-week margin is costed AFTER folding: line quantities are
+        // aggregated per (delivery day, product, grade) and each aggregate is
+        // costed via the producer allocation, so every share pays the price
+        // of the farm that covers it (per-farm buying prices). Mirrors the
+        // farm-totals sheet (injected-demand mode).
+        $weekAgg = [];      // [iso][pid][vkey] => ['qty' => canonical, 'net' => float]
+        $weekDemand = [];   // [pid][vkey][iso] => canonical qty (allocation input)
+        $weekProducts = []; // [pid] => Product
+
+        $fold = function (object $item, string $deliveryIso) use (&$buckets, &$grandTotal, &$marginTotalNet, &$weekAgg, &$weekDemand, &$weekProducts, $from, $to, $weekStartIso, $weekEndIso): void {
             $lineNet = round((float) $item->line_total_eur - (float) $item->vat_amount_eur, 2);
 
             // 30d top-product window.
@@ -259,17 +269,22 @@ class AdminOperationsMetrics
                 $grandTotal += $lineNet;
             }
 
-            // Current-week margin over lines with a known buying price.
+            // Current-week margin: aggregate now, cost after the fold.
             if ($deliveryIso >= $weekStartIso && $deliveryIso <= $weekEndIso) {
                 $marginTotalNet += $lineNet;
                 $product = $item->product;
-                $perUnit = $this->buyingPricePerDisplayUnit($product);
-                if ($perUnit !== null && $product !== null) {
-                    [$qtyDisplay] = $this->displayQuantity($product->unit, $product->price_display_unit, (float) $item->quantity);
-                    $marginNet += $lineNet - round($perUnit * $qtyDisplay, 2);
-                    $marginPricedNet += $lineNet;
-                    $hasPricedLines = true;
+                if ($product !== null) {
+                    $vkey = (int) ($item->variant_id ?? 0);
+                    $qty = (float) $item->quantity;
+                    $agg = &$weekAgg[$deliveryIso][$product->id][$vkey];
+                    $agg ??= ['qty' => 0.0, 'net' => 0.0];
+                    $agg['qty'] += $qty;
+                    $agg['net'] += $lineNet;
+                    unset($agg);
+                    $weekDemand[$product->id][$vkey][$deliveryIso] = ($weekDemand[$product->id][$vkey][$deliveryIso] ?? 0.0) + $qty;
+                    $weekProducts[$product->id] = $product;
                 }
+                // Product-less custom lines stay unpriced, as before.
             }
         };
 
@@ -302,6 +317,65 @@ class AdminOperationsMetrics
                     $fold($item, $iso);
                 }
             });
+
+        // Cost the week's aggregates: allocation shares per (day, product,
+        // grade), each share at its farm's effective buying price (pivot
+        // override, else the product default). Any unpriced share leaves
+        // that aggregate out of the margin, matching the old per-line rule.
+        if ($weekAgg !== []) {
+            $weekDates = array_keys($weekAgg);
+            sort($weekDates);
+            $allocation = app(ProducerAllocationService::class)
+                ->allocate(array_keys($weekDemand), $weekDates, $weekDemand);
+
+            $pivotPrices = [];
+            $pivotRows = DB::table('product_producer')
+                ->whereIn('product_id', array_keys($weekDemand))
+                ->whereNotNull('buying_price_cents')
+                ->get(['product_id', 'producer_id', 'buying_price_cents']);
+            foreach ($pivotRows as $row) {
+                $pivotPrices[(int) $row->product_id][(int) $row->producer_id] = (int) $row->buying_price_cents;
+            }
+
+            foreach ($weekAgg as $iso => $byPid) {
+                foreach ($byPid as $pid => $byVkey) {
+                    foreach ($byVkey as $vkey => $agg) {
+                        $product = $weekProducts[$pid];
+                        $default = $this->buyingPricePerDisplayUnit($product);
+                        $shares = $allocation[$iso][$pid][$vkey] ?? [];
+
+                        $cost = 0.0;
+                        $priced = true;
+                        if ($shares === []) {
+                            // No allocation (zero-qty edge): default costing.
+                            if ($default === null) {
+                                $priced = false;
+                            } else {
+                                [$qtyDisplay] = $this->displayQuantity($product->unit, $product->price_display_unit, (float) $agg['qty']);
+                                $cost = $qtyDisplay * $default;
+                            }
+                        }
+                        foreach ($shares as $producerId => $qtyCanonical) {
+                            $price = ($producerId > 0 && isset($pivotPrices[$pid][$producerId]))
+                                ? round($pivotPrices[$pid][$producerId] / 100, 4)
+                                : $default;
+                            if ($price === null) {
+                                $priced = false;
+                                break;
+                            }
+                            [$qtyDisplay] = $this->displayQuantity($product->unit, $product->price_display_unit, (float) $qtyCanonical);
+                            $cost += $qtyDisplay * $price;
+                        }
+
+                        if ($priced) {
+                            $marginNet += $agg['net'] - round($cost, 2);
+                            $marginPricedNet += $agg['net'];
+                            $hasPricedLines = true;
+                        }
+                    }
+                }
+            }
+        }
 
         $top = collect($buckets)
             ->sortByDesc('net')
