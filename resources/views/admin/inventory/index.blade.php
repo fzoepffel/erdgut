@@ -37,6 +37,11 @@
             'display_unit' => $displayUnit,
             'display_unit_symbol' => \App\Enums\ProductUnit::displaySymbol($displayUnit),
             'default_freshness' => (int) ($product->default_freshness_window_days ?? 1),
+            'primary_producer_id' => $product->producer_id,
+            'producers' => $product->producers->map(fn ($p) => [
+                'id' => $p->id,
+                'name' => (string) $p->name,
+            ])->values()->all(),
             'schedule_count' => $product->stockInflowSchedules->count(),
             'variants' => $product->variants->map(fn ($v) => [
                 'id' => $v->id,
@@ -334,8 +339,14 @@
                                             <td class="px-3 py-2 tabular-nums">{{ $inflow->received_on?->translatedFormat('d.m.Y') }}</td>
                                             <td class="px-3 py-2">
                                                 {{ $product?->name ?? '—' }}
-                                                @if ($product?->producer?->name)
-                                                    <span class="text-xs text-gray-400">({{ $product->producer->name }})</span>
+                                                @php $inflowProducer = $inflow->producer ?? $product?->producer; @endphp
+                                                @if ($inflowProducer?->name)
+                                                    <span @class([
+                                                        'text-xs',
+                                                        // Amber when this batch comes from a non-primary supplier.
+                                                        'font-medium text-amber-700' => $inflow->producer_id !== null && $inflow->producer_id !== $product?->producer_id,
+                                                        'text-gray-400' => $inflow->producer_id === null || $inflow->producer_id === $product?->producer_id,
+                                                    ]) data-testid="inflow-producer-{{ $inflow->id }}">({{ $inflowProducer->name }})</span>
                                                 @endif
                                             </td>
                                             <td class="px-3 py-2 tabular-nums">
@@ -375,6 +386,8 @@
                                                             notes: @js((string) ($inflow->notes ?? '')),
                                                             variant_id: @js($inflow->variant_id !== null ? (int) $inflow->variant_id : ''),
                                                             variants: @js($product?->variants->map(fn ($v) => ['id' => $v->id, 'name' => $v->localizedName(), 'is_active' => (bool) $v->is_active])->values()->all() ?? []),
+                                                            producer_id: @js($inflow->producer_id !== null ? (int) $inflow->producer_id : ($product?->producer_id ?? '')),
+                                                            producers: @js($product?->producers->map(fn ($p) => ['id' => $p->id, 'name' => (string) $p->name])->values()->all() ?? []),
                                                             update_url: @js(route('app.admin.inventory.inflows.update', $inflow)),
                                                         })"
                                                         class="text-xs font-semibold text-emerald-700 hover:underline"
@@ -446,6 +459,14 @@
                                 </template>
                             </select>
                         </label>
+                        <label class="text-xs text-gray-700 sm:col-span-2" x-show="(ctx?.producers?.length ?? 0) > 1" x-cloak>
+                            {{ __('admin.inventory.inflow_producer_label') }}
+                            <select name="producer_id" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                <template x-for="p in (ctx?.producers ?? [])" :key="p.id">
+                                    <option :value="p.id" x-text="p.name" :selected="String(ctx?.primary_producer_id) === String(p.id)"></option>
+                                </template>
+                            </select>
+                        </label>
                         <label class="text-xs text-gray-700 sm:col-span-2">
                             {{ __('admin.inventory.manual_freshness') }}
                             <input type="number" name="freshness_window_days" min="1" max="60" :value="ctx?.default_freshness ?? 1" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
@@ -511,6 +532,14 @@
                                 <option value="" :selected="! ctx?.variant_id">{{ __('admin.inventory.variant_default') }}</option>
                                 <template x-for="v in (ctx?.variants ?? [])" :key="v.id">
                                     <option :value="v.id" x-text="v.name" :selected="String(ctx?.variant_id) === String(v.id)" :disabled="! v.is_active"></option>
+                                </template>
+                            </select>
+                        </label>
+                        <label class="text-xs text-gray-700 sm:col-span-2" x-show="(ctx?.producers?.length ?? 0) > 1" x-cloak>
+                            {{ __('admin.inventory.inflow_producer_label') }}
+                            <select name="producer_id" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                <template x-for="p in (ctx?.producers ?? [])" :key="p.id">
+                                    <option :value="p.id" x-text="p.name" :selected="String(ctx?.producer_id) === String(p.id)"></option>
                                 </template>
                             </select>
                         </label>
@@ -691,6 +720,16 @@
                                         {{ __('admin.inflow_schedules.field_freshness') }}
                                         <input type="number" name="freshness_window_days" min="1" max="60" value="{{ $defaultFreshness }}" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />
                                     </label>
+                                    @if ($product->producers->count() > 1)
+                                        <label class="text-xs text-gray-700">
+                                            {{ __('admin.inventory.inflow_producer_label') }}
+                                            <select name="producer_id" class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                                @foreach ($product->producers as $supplier)
+                                                    <option value="{{ $supplier->id }}" @selected($supplier->id === $product->producer_id)>{{ $supplier->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </label>
+                                    @endif
                                     <label class="text-xs text-gray-700">
                                         {{ __('admin.inflow_schedules.field_starts_on') }}
                                         <input type="date" name="starts_on" required class="mt-1 block w-full rounded border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600" />

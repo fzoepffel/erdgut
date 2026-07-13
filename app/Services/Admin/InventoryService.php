@@ -778,6 +778,7 @@ class InventoryService
         ?int $createdByUserId = null,
         bool $b2bOnly = false,
         ?int $variantId = null,
+        ?int $producerId = null,
     ): ProductStockInflow {
         $freshness = $freshnessWindowDays
             ?? (int) ($product->default_freshness_window_days ?? 1);
@@ -787,6 +788,7 @@ class InventoryService
         return ProductStockInflow::create([
             'product_id' => $product->id,
             'variant_id' => $variantId,
+            'producer_id' => $producerId ?? $product->producer_id,
             'received_on' => $iso,
             'original_received_on' => $iso,
             'quantity' => round($quantity, 4),
@@ -812,6 +814,7 @@ class InventoryService
         ?int $createdByUserId = null,
         bool $b2bOnly = false,
         ?int $variantId = null,
+        ?int $producerId = null,
     ): ProductStockInflowSchedule {
         if ($endsOn !== null && $endsOn->lt($startsOn)) {
             throw new \InvalidArgumentException('ends_on must be >= starts_on.');
@@ -820,10 +823,13 @@ class InventoryService
         $freshness = $freshnessWindowDays
             ?? (int) ($product->default_freshness_window_days ?? 1);
 
-        return DB::transaction(function () use ($product, $weekday, $plannedQuantity, $startsOn, $endsOn, $freshness, $notes, $createdByUserId, $b2bOnly, $variantId): ProductStockInflowSchedule {
+        $producerId = $producerId ?? $product->producer_id;
+
+        return DB::transaction(function () use ($product, $weekday, $plannedQuantity, $startsOn, $endsOn, $freshness, $notes, $createdByUserId, $b2bOnly, $variantId, $producerId): ProductStockInflowSchedule {
             $schedule = ProductStockInflowSchedule::create([
                 'product_id' => $product->id,
                 'variant_id' => $variantId,
+                'producer_id' => $producerId,
                 'weekday' => $weekday,
                 'planned_quantity' => round($plannedQuantity, 4),
                 'freshness_window_days' => max(1, $freshness),
@@ -907,6 +913,7 @@ class InventoryService
                 createdByUserId: $createdByUserId,
                 b2bOnly: (bool) $old->b2b_only,
                 variantId: $old->variant_id !== null ? (int) $old->variant_id : null,
+                producerId: $old->producer_id !== null ? (int) $old->producer_id : null,
             );
         });
     }
@@ -967,6 +974,7 @@ class InventoryService
                 ProductStockInflow::create([
                     'product_id' => $schedule->product_id,
                     'variant_id' => $schedule->variant_id,
+                    'producer_id' => $schedule->producer_id,
                     'received_on' => $cursor->toDateString(),
                     'original_received_on' => $cursor->toDateString(),
                     'quantity' => $schedule->planned_quantity,

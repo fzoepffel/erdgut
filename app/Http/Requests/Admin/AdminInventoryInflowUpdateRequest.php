@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Rules\ProducerSuppliesProduct;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -34,6 +35,8 @@ class AdminInventoryInflowUpdateRequest extends FormRequest
             'received_on' => ['required', 'date'],
             // Optional grade this batch belongs to. NULL = the default grade.
             'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
+            'producer_id' => ['nullable', 'integer', 'exists:producers,id',
+                new ProducerSuppliesProduct((int) ($this->route('inflow')?->product_id ?? 0) ?: null)],
             'quantity' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
             'freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
             'notes' => ['nullable', 'string', 'max:500'],

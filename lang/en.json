@@ -1681,6 +1681,8 @@
     "admin.inventory.section_matrix_hint": "Each cell shows available minus committed. Red cells are overbooked.",
     "admin.inventory.b2b_stock_title": "Trade customers only (B2B inflow)",
     "admin.inventory.b2b_stock_legend": "Amber values are available to trade customers only.",
+    "admin.inventory.inflow_producer_label": "Farm",
+    "validation.producer_not_supplier": "This farm is not registered as a supplier of the product.",
     "admin.inventory.section_schedules": "Recurring inflows",
     "admin.inventory.section_schedules_hint": "One rule per product per weekday. Auto-materialises inflows for the coming weeks.",
     "admin.inventory.source_manual": "Manual",
