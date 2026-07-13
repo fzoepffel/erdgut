@@ -279,6 +279,19 @@ class ProductController extends Controller
             // existing product's names (all locales), farm label and edit
             // URL, so typing a known name suggests extending that product
             // instead of creating a twin.
+            // Merge targets for the EDIT page's danger zone: every other
+            // product this one could be merged into (P6).
+            'mergeTargets' => $product === null ? null : Product::query()
+                ->where('id', '!=', $product->id)
+                ->with(['translations', 'producers.translations', 'producer.translations'])
+                ->get()
+                ->map(fn (Product $p): array => [
+                    'id' => $p->id,
+                    'name' => (string) $p->name,
+                    'producer' => ProducerLabels::label(
+                        $p->producers->isNotEmpty() ? $p->producers : collect([$p->producer])->filter()
+                    ),
+                ])->values()->all(),
             'existingProductNames' => $product !== null ? null : Product::query()
                 ->with(['translations', 'producers.translations', 'producer.translations'])
                 ->get()
@@ -827,17 +840,6 @@ class ProductController extends Controller
 
     private function deletePublicImage(?string $path): void
     {
-        if ($path === null || $path === '') {
-            return;
-        }
-
-        $disk = Storage::disk('public');
-
-        // Remove the stored original and its derived thumbnail together.
-        foreach ([$path, ImageProcessor::thumbPath($path)] as $target) {
-            if ($disk->exists($target)) {
-                $disk->delete($target);
-            }
-        }
+        ImageProcessor::deletePublicImage($path);
     }
 }

@@ -60,6 +60,25 @@ class ImageProcessor
     }
 
     /**
+     * Remove a stored public image together with its derived thumbnail.
+     * Shared by the admin product controller and the merge service.
+     */
+    public static function deletePublicImage(?string $path): void
+    {
+        if ($path === null || $path === '') {
+            return;
+        }
+
+        $disk = Storage::disk('public');
+
+        foreach ([$path, self::thumbPath($path)] as $target) {
+            if ($disk->exists($target)) {
+                $disk->delete($target);
+            }
+        }
+    }
+
+    /**
      * Thumbnail path derived from an original image path:
      * `products/5/abc.png` → `products/5/thumb_abc.jpg`.
      */
