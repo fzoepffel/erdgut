@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPackingController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
+use App\Http\Controllers\Admin\AdminProductMergeController;
 use App\Http\Controllers\Admin\AdminRequestAvailabilityController;
 use App\Http\Controllers\Admin\AdminRestaurantAccountController;
 use App\Http\Controllers\Admin\AdminRestaurantOrderController;
@@ -602,6 +603,13 @@ Route::middleware(['auth', 'verified'])
                 ->name('inflow-schedules.adjust');
 
             Route::resource('products', ProductController::class)->except(['show']);
+            // Merge a duplicate product into the one that stays (P6):
+            // confirm page first, destructive POST second.
+            Route::get('products/{product}/merge/confirm', [AdminProductMergeController::class, 'confirm'])
+                ->name('products.merge.confirm');
+            Route::post('products/{product}/merge', [AdminProductMergeController::class, 'execute'])
+                ->middleware('throttle:10,1')
+                ->name('products.merge.execute');
             // Per-product pricing calendar (date/period price overrides).
             Route::get('products/{product}/pricing', [ProductPriceRuleController::class, 'calendar'])->name('products.pricing');
             Route::post('products/{product}/pricing', [ProductPriceRuleController::class, 'store'])->name('products.pricing.store');
