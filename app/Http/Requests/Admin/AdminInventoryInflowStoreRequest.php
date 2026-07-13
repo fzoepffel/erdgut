@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Rules\ProducerSuppliesProduct;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -29,6 +30,10 @@ class AdminInventoryInflowStoreRequest extends FormRequest
             // Optional grade this batch belongs to. NULL = the default grade.
             // Belonging-to-product is enforced in the controller.
             'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
+            // Which farm delivered this batch. NULL = the product's primary
+            // producer; must be one of the product's registered suppliers.
+            'producer_id' => ['nullable', 'integer', 'exists:producers,id',
+                new ProducerSuppliesProduct((int) $this->input('product_id') ?: null)],
             'received_on' => ['required', 'date'],
             'quantity' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
             'freshness_window_days' => ['nullable', 'integer', 'between:1,60'],

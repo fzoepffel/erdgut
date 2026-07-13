@@ -44,7 +44,7 @@ class AdminInventoryController extends Controller
         // currently published, so admin can see lingering inventory
         // for an unpublished product.
         $products = Product::query()
-            ->with(['translations', 'producer.translations', 'variants'])
+            ->with(['translations', 'producer.translations', 'producers.translations', 'variants'])
             ->where(function ($q) use ($start, $end): void {
                 $q->where(function ($vis): void {
                     $vis->where('is_available', true)->where('is_published', true);
@@ -81,7 +81,7 @@ class AdminInventoryController extends Controller
         // Inflow batches in the window — used for section A's table.
         $inflows = ProductStockInflow::query()
             ->whereBetween('received_on', [$start->toDateString(), $end->toDateString()])
-            ->with(['product.translations', 'product.producer.translations', 'product.variants', 'sourceSchedule'])
+            ->with(['product.translations', 'product.producer.translations', 'product.producers.translations', 'product.variants', 'producer.translations', 'sourceSchedule'])
             ->orderBy('received_on')
             ->get();
 
@@ -122,6 +122,7 @@ class AdminInventoryController extends Controller
             sourceScheduleId: null,
             notes: $validated['notes'] ?? null,
             createdByUserId: (int) $request->user()->id,
+            producerId: isset($validated['producer_id']) ? (int) $validated['producer_id'] : null,
             b2bOnly: (bool) ($validated['b2b_only'] ?? false),
             variantId: $variantId,
         );
@@ -150,6 +151,9 @@ class AdminInventoryController extends Controller
         $inflow->fill([
             'received_on' => Carbon::parse($validated['received_on'])->startOfDay()->toDateString(),
             'variant_id' => $this->resolveVariantId($product, $validated['variant_id'] ?? null),
+            'producer_id' => isset($validated['producer_id'])
+                ? (int) $validated['producer_id']
+                : ($inflow->producer_id ?? $product?->producer_id),
             'quantity' => round((float) $validated['quantity'] * $factor, 4),
             'freshness_window_days' => max(1, (int) (
                 $validated['freshness_window_days']
