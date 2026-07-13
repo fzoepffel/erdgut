@@ -110,7 +110,7 @@
                         'jsId' => $product->id,
                         'productId' => $product->id,
                         'productName' => $product->name,
-                        'producerName' => $product->producer?->name,
+                        'producerName' => \App\Support\ProducerLabels::label($row['producers'] ?? []) ?: $product->producer?->name,
                         'unitKind' => $product->unit?->value,
                         'unitSymbol' => $product->canonicalUnitLabel(),
                         'displaySymbol' => $product->localizedUnit(),
@@ -161,7 +161,7 @@
                         'jsId' => 'v'.$variant->id,
                         'productId' => $product->id,
                         'productName' => $product->name,
-                        'producerName' => $product->producer?->name,
+                        'producerName' => \App\Support\ProducerLabels::label($row['producers'] ?? []) ?: $product->producer?->name,
                         'unitKind' => $product->unit?->value,
                         'unitSymbol' => $product->canonicalUnitLabel(),
                         'displaySymbol' => $product->localizedUnit(),
@@ -752,10 +752,17 @@
                                             {{-- Producer (height reserved by the parent's :has rule
                                                  only when at least one card has a producer). --}}
                                             <div class="shop-card-producer-slot mt-3">
-                                                @if ($product->producer)
-                                                    <a href="{{ route('public.shop.producers.show', $product->producer) }}" class="shop-card-producer-fill font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">
-                                                        {{ $product->producer->name }}
-                                                    </a>
+                                                @php
+                                                    $producerLinks = \App\Support\ProducerLabels::linkData($row['producers'] ?? []);
+                                                @endphp
+                                                @if ($producerLinks['collapsed'])
+                                                    <a href="{{ route('public.shop.producers.index') }}" class="shop-card-producer-fill font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">{{ __('shop.producers_multiple') }}</a>
+                                                @elseif ($producerLinks['items'] !== [])
+                                                    <span class="shop-card-producer-fill font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary">
+                                                        @foreach ($producerLinks['items'] as $producerLink)
+                                                            @if (! $loop->first)<span aria-hidden="true"> · </span>@endif<a href="{{ $producerLink['url'] }}" class="underline-offset-4 hover:underline">{{ $producerLink['name'] }}</a>
+                                                        @endforeach
+                                                    </span>
                                                 @endif
                                             </div>
 

@@ -137,7 +137,7 @@
                                     <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3" data-testid="request-season-item" data-product-id="{{ $product->id }}">
                                         <div class="min-w-0">
                                             <p class="text-sm text-shop-foreground">{{ $product->name }}@if ($grade['label']) · {{ $grade['label'] }}@endif</p>
-                                            <p class="text-xs text-shop-muted">{{ $product->producer?->name }} · @eur($grade['netPerDisplay'])/{{ $grade['unitSymbol'] }} {{ __('restaurant.plus_vat_suffix') }}</p>
+                                            <p class="text-xs text-shop-muted">{{ \App\Support\ProducerLabels::label($product->producers) ?: $product->producer?->name }} · @eur($grade['netPerDisplay'])/{{ $grade['unitSymbol'] }} {{ __('restaurant.plus_vat_suffix') }}</p>
                                         </div>
                                         <div class="flex shrink-0 flex-wrap items-center gap-2">
                                             <div class="flex items-center gap-1">

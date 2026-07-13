@@ -138,7 +138,7 @@
                 <div class="space-y-6 lg:pt-8">
                     <div>
                         <p class="eyebrow text-brand-ink/60">{{ __('products.producer_label') }}</p>
-                        <p class="mt-2 font-display text-2xl italic text-brand-ink">{{ $product->producer?->name ?? __('products.producer_unknown') }}</p>
+                        <p class="mt-2 font-display text-2xl italic text-brand-ink">{{ \App\Support\ProducerLabels::label($product->producers) ?: ($product->producer?->name ?? __('products.producer_unknown')) }}</p>
                     </div>
 
                     <div class="border-y border-brand-ink/15 py-6">
