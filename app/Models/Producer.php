@@ -7,6 +7,7 @@ use Database\Factories\ProducerFactory;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasMany as HasManyRelation;
 use Illuminate\Support\Facades\Storage;
@@ -47,6 +48,28 @@ class Producer extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    /** Products this producer supplies via the multi-producer pivot. */
+    public function suppliedProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_producer')
+            ->withPivot('position')
+            ->withTimestamps();
+    }
+
+    /**
+     * Union of the legacy hasMany (primary producer) and the pivot,
+     * deduplicated. Use for producer pages so retro-added products appear.
+     *
+     * @return \Illuminate\Support\Collection<int, Product>
+     */
+    public function allProducts(): \Illuminate\Support\Collection
+    {
+        return $this->products()->get()
+            ->concat($this->suppliedProducts()->get())
+            ->unique('id')
+            ->values();
     }
 
     /**
