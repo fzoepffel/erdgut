@@ -115,11 +115,10 @@ class AdminFormClarityTest extends TestCase
             ->get(route('app.admin.products.create', ['producer_id' => $producer->id]))
             ->assertOk();
 
-        // F3 (UX-review notes): the producer field is now an Alpine
-        // typeahead. The pre-selected value lives in the x-data
-        // initialiser (`selectedId: <id>,`) instead of a `<option ...
-        // selected>` attribute.
-        $response->assertSee('selectedId: '.$producer->id, false);
+        // The producer picker is a multi-farm chips combobox since P5;
+        // the preselect arrives as the first (primary) chip in the
+        // Alpine initialiser.
+        $response->assertSee('selected: [{"id":'.$producer->id.',', false);
         $response->assertSee($producer->name, false);
     }
 

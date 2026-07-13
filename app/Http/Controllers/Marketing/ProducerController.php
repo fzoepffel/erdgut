@@ -95,11 +95,13 @@ class ProducerController extends Controller
      */
     public function show(Producer $producer): View
     {
-        $producer->load(['translations', 'products.translations']);
+        $producer->load(['translations', 'products.translations', 'suppliedProducts.translations']);
 
         // Only surface catalog-visible products, rendered as full cards
-        // (image, name, price, note) just like the public catalogue.
-        $products = $producer->products
+        // (image, name, price, note) just like the public catalogue. All
+        // supplied products count, not just the ones with this farm as
+        // their primary producer.
+        $products = $producer->allProducts()
             ->filter(fn (Product $p): bool => $p->is_available && $p->is_published)
             ->filter(fn (Product $p): bool => $p->name !== '')
             ->values();

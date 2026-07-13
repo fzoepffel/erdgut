@@ -103,6 +103,25 @@ class AdminProducerTest extends TestCase
         $this->assertDatabaseMissing('producers', ['id' => $producer->id]);
     }
 
+    public function test_index_counts_products_supplied_via_secondary_pivot(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $secondary = Producer::factory()->create();
+        $primary = Producer::factory()->create();
+        $product = Product::factory()->create(['producer_id' => $primary->id]);
+        $product->syncProducers([$primary->id, $secondary->id]);
+
+        $response = $this->actingAs($admin)
+            ->get(route('app.admin.producers.index'))
+            ->assertOk();
+
+        // Both farms supply the product: each shows count 1, and neither
+        // gets the "0 products" add-product prompt.
+        $producers = $response->viewData('producers');
+        $this->assertSame(1, (int) $producers->firstWhere('id', $secondary->id)->products_count);
+        $this->assertSame(1, (int) $producers->firstWhere('id', $primary->id)->products_count);
+    }
+
     public function test_non_admin_does_not_see_producers_nav_link(): void
     {
         $user = User::factory()->create(['is_admin' => false]);

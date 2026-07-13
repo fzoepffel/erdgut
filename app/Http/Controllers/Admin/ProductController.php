@@ -18,6 +18,7 @@ use App\Models\ProductPriceRule;
 use App\Models\ProductTranslation;
 use App\Models\ProductVariant;
 use App\Services\ImageProcessor;
+use App\Support\ProducerLabels;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -107,7 +108,7 @@ class ProductController extends Controller
         // value the form blade picks up via `old()`.
         $preselectProducerId = $request->integer('producer_id');
         if ($preselectProducerId > 0) {
-            $request->session()->flashInput(['producer_id' => $preselectProducerId]);
+            $request->session()->flashInput(['producer_ids' => [$preselectProducerId]]);
         }
 
         return view('admin.products.create', $this->formViewData(null));
@@ -123,6 +124,7 @@ class ProductController extends Controller
 
         $product = DB::transaction(function () use ($payload, $validated, $request): Product {
             $product = Product::query()->create($payload);
+            $product->syncProducers(array_map('intval', $validated['producer_ids']));
 
             if ($request->hasFile('image')) {
                 $path = $this->storeUploadedImage($request->file('image'), $product);
@@ -188,6 +190,7 @@ class ProductController extends Controller
 
         DB::transaction(function () use ($request, $product, $payload, $validated): void {
             $product->update($payload);
+            $product->syncProducers(array_map('intval', $validated['producer_ids']));
 
             if ($request->hasFile('image')) {
                 $this->deletePublicImage($product->refresh()->image_path);
@@ -271,7 +274,24 @@ class ProductController extends Controller
             ->get();
 
         return [
-            'product' => $product?->load(['producer', 'translations', 'images', 'pairings.translations']),
+            'product' => $product?->load(['producer', 'producers', 'translations', 'images', 'pairings.translations']),
+            // Duplicate-name advisory data for the CREATE form only: every
+            // existing product's names (all locales), farm label and edit
+            // URL, so typing a known name suggests extending that product
+            // instead of creating a twin.
+            'existingProductNames' => $product !== null ? null : Product::query()
+                ->with(['translations', 'producers.translations', 'producer.translations'])
+                ->get()
+                ->map(fn (Product $p): array => [
+                    'id' => $p->id,
+                    'names' => collect(['de', 'en', 'fr'])->mapWithKeys(
+                        fn (string $l): array => [$l => (string) ($p->translations->firstWhere('locale', $l)?->name ?? '')]
+                    )->all(),
+                    'producer' => ProducerLabels::label(
+                        $p->producers->isNotEmpty() ? $p->producers : collect([$p->producer])->filter()
+                    ),
+                    'url' => route('app.admin.products.edit', $p),
+                ])->values()->all(),
             'producers' => Producer::query()
                 ->select('producers.*')
                 ->join('producer_translations as pt', function ($join) use ($locale): void {
@@ -568,7 +588,7 @@ class ProductController extends Controller
         );
 
         $payload = [
-            'producer_id' => $validated['producer_id'],
+            'producer_id' => (int) $validated['producer_ids'][0],
             'category' => $validated['category'],
             'subcategory_id' => isset($validated['subcategory_id']) && (int) $validated['subcategory_id'] > 0
                 ? (int) $validated['subcategory_id']

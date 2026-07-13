@@ -97,49 +97,67 @@
         @method($method)
     @endif
 
+    @if (($existingProductNames ?? null) !== null)
+        {{-- Duplicate-name advisory data (create form only): the name
+             fields match against this while typing. --}}
+        <script>window.erdgutExistingProducts = @json($existingProductNames);</script>
+    @endif
+
     @php
         // F3 (UX-review notes): the plain <select> doesn't scale past
-        // ~30 producers. We feed the same producer rows into an Alpine
-        // combobox below — it filters as the admin types, keyboard
-        // navigates with ↑/↓/Enter/Escape, and stores the chosen ID
-        // in a hidden input so the existing form contract is preserved.
+        // ~30 producers, so the picker is an Alpine combobox (filter as
+        // you type, ↑/↓/Enter/Escape). Since the multi-producer epic a
+        // product can be supplied by SEVERAL farms: selections render as
+        // ordered chips, the first chip is the primary farm (mirrored
+        // into products.producer_id), and each chip carries its own
+        // hidden producer_ids[] input so DOM order = pivot position.
         $producerOptions = $producers->map(fn ($p) => [
             'id' => (int) $p->id,
             'name' => (string) $p->name,
         ])->values()->all();
-        $initialProducerId = (int) old('producer_id', $product?->producer_id ?? 0);
-        $initialProducerName = '';
-        foreach ($producerOptions as $option) {
-            if ($option['id'] === $initialProducerId) {
-                $initialProducerName = $option['name'];
-                break;
-            }
+        $producerOptionsById = collect($producerOptions)->keyBy('id');
+
+        // Prefill priority: old() after a failed submit (or the E4
+        // preselect flash) → pivot order on edit → legacy single column.
+        $selectedProducerIds = old('producer_ids');
+        if (! is_array($selectedProducerIds)) {
+            $selectedProducerIds = $product !== null && $product->producers->isNotEmpty()
+                ? $product->producers->pluck('id')->all()
+                : array_filter([(int) old('producer_id', $product?->producer_id ?? 0)]);
         }
+        $initialSelectedProducers = collect($selectedProducerIds)
+            ->map(fn ($id) => $producerOptionsById->get((int) $id))
+            ->filter()
+            ->values()
+            ->all();
     @endphp
     <div
         x-data='{
             options: {!! json_encode($producerOptions, JSON_UNESCAPED_UNICODE) !!},
-            selectedId: {{ $initialProducerId ?: 'null' }},
-            query: {!! json_encode($initialProducerName) !!},
+            selected: {!! json_encode($initialSelectedProducers, JSON_UNESCAPED_UNICODE) !!},
+            query: "",
             open: false,
             highlight: 0,
+            get available() {
+                return this.options.filter(o => !this.selected.some(s => s.id === o.id));
+            },
             get filtered() {
                 const q = this.query.trim().toLocaleLowerCase();
-                if (q === "") return this.options;
-                return this.options.filter(o => o.name.toLocaleLowerCase().includes(q));
+                if (q === "") return this.available;
+                return this.available.filter(o => o.name.toLocaleLowerCase().includes(q));
             },
-            pick(option) {
-                this.selectedId = option.id;
-                this.query = option.name;
+            add(option) {
+                this.selected.push(option);
+                this.query = "";
+                this.highlight = 0;
                 this.open = false;
             },
-            onInput() {
-                this.open = true;
-                this.highlight = 0;
-                // Typing breaks the previous selection until the admin
-                // picks (or the input matches an option exactly).
-                const exact = this.options.find(o => o.name.toLocaleLowerCase() === this.query.trim().toLocaleLowerCase());
-                this.selectedId = exact ? exact.id : null;
+            remove(id) {
+                this.selected = this.selected.filter(s => s.id !== id);
+            },
+            makePrimary(id) {
+                const i = this.selected.findIndex(s => s.id === id);
+                if (i > 0) this.selected.unshift(this.selected.splice(i, 1)[0]);
             },
             onKey(ev) {
                 const list = this.filtered;
@@ -153,7 +171,7 @@
                 } else if (ev.key === "Enter") {
                     if (this.open && list[this.highlight]) {
                         ev.preventDefault();
-                        this.pick(list[this.highlight]);
+                        this.add(list[this.highlight]);
                     }
                 } else if (ev.key === "Escape") {
                     this.open = false;
@@ -163,13 +181,43 @@
         x-on:click.outside="open = false"
         class="relative"
     >
-        <x-input-label for="producer_id_search" :value="__('Producer')" required />
+        <x-input-label for="producer_ids_search" :value="__('admin.products.producers_label')" required />
+
+        {{-- Selected farms as ordered chips; the first is the primary. --}}
+        <div class="mt-1 flex flex-wrap items-center gap-1.5" data-testid="product-form-producer-chips">
+            <template x-for="(s, idx) in selected" :key="s.id">
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm text-emerald-900">
+                    <button
+                        type="button"
+                        x-on:click="makePrimary(s.id)"
+                        x-bind:title="idx === 0 ? '' : '{{ __('admin.products.producer_make_primary') }}'"
+                        class="inline-flex items-center gap-1.5"
+                    >
+                        <span x-text="s.name"></span>
+                        <span
+                            x-show="idx === 0"
+                            x-cloak
+                            class="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                            data-testid="producer-chip-primary-badge"
+                        >{{ __('admin.products.producer_primary_badge') }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        x-on:click="remove(s.id)"
+                        aria-label="{{ __('admin.products.producer_remove') }}"
+                        class="text-emerald-700 hover:text-emerald-900"
+                    >&times;</button>
+                    <input type="hidden" name="producer_ids[]" x-bind:value="s.id" />
+                </span>
+            </template>
+        </div>
+
         <input
-            id="producer_id_search"
+            id="producer_ids_search"
             type="text"
-            class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+            class="mt-2 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
             x-model="query"
-            x-on:input="onInput()"
+            x-on:input="open = true; highlight = 0"
             x-on:focus="open = true"
             x-on:keydown="onKey($event)"
             placeholder="{{ __('admin.products.producer_search_placeholder') }}"
@@ -181,11 +229,6 @@
             aria-controls="producer-combobox-listbox"
             data-testid="product-form-producer-combobox"
         />
-        {{-- Hidden input is what actually submits with the form. Stays
-             empty until a real option is picked, so the existing
-             `required|exists:producers,id` rule rejects free-form
-             garbage. --}}
-        <input type="hidden" name="producer_id" x-bind:value="selectedId ?? ''" />
 
         <ul
             id="producer-combobox-listbox"
@@ -197,11 +240,10 @@
             <template x-for="(option, idx) in filtered" :key="option.id">
                 <li
                     role="option"
-                    x-bind:aria-selected="selectedId === option.id"
                     x-bind:class="idx === highlight ? 'bg-emerald-50 text-emerald-900' : 'text-gray-700 hover:bg-gray-50'"
                     class="cursor-pointer px-3 py-2 text-sm"
                     x-on:mouseenter="highlight = idx"
-                    x-on:click="pick(option)"
+                    x-on:click="add(option)"
                     x-text="option.name"
                 ></li>
             </template>
@@ -213,7 +255,10 @@
             class="absolute z-20 mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg"
         >{{ __('No producers match.') }}</p>
 
-        <x-input-error class="mt-2" :messages="$errors->get('producer_id')" />
+        <x-input-error class="mt-2" :messages="$errors->get('producer_ids')" />
+        @foreach ($errors->get('producer_ids.*') as $producerIdMessages)
+            <x-input-error class="mt-2" :messages="$producerIdMessages" />
+        @endforeach
     </div>
 
     <div class="space-y-4"
@@ -289,7 +334,23 @@
 
             <div x-show="tab === '{{ $locale }}'" role="tabpanel" class="rounded border border-gray-200 bg-white p-4">
                 <div class="grid grid-cols-1 gap-6">
-                    <div>
+                    <div
+                        @if (($existingProductNames ?? null) !== null)
+                            x-data='{
+                                hits: [],
+                                check(v) {
+                                    const q = v.trim().toLocaleLowerCase();
+                                    if (q.length < 3) { this.hits = []; return; }
+                                    this.hits = (window.erdgutExistingProducts || []).filter(p =>
+                                        Object.values(p.names).some(n => {
+                                            const m = n.toLocaleLowerCase();
+                                            return m !== "" && (m.includes(q) || q.includes(m));
+                                        })
+                                    ).slice(0, 3);
+                                },
+                            }'
+                        @endif
+                    >
                         <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" required />
                         <x-text-input
                             :id="'translations_'.$locale.'_name'"
@@ -299,7 +360,28 @@
                             :value="old('translations.'.$locale.'.name', $t?->name)"
                             required
                             x-on:input="recheckTabs()"
+                            @if (($existingProductNames ?? null) !== null)
+                                x-on:input.debounce.250ms="check($event.target.value)"
+                            @endif
                         />
+                        @if (($existingProductNames ?? null) !== null)
+                            {{-- Advisory only: a matching name suggests adding the
+                                 farm to the existing product instead of creating a
+                                 twin. Never blocks saving. --}}
+                            <template x-if="hits.length > 0">
+                                <div class="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900" data-testid="product-duplicate-warning">
+                                    <span>{{ __('admin.products.duplicate_name_exists') }}</span>
+                                    <template x-for="hit in hits" :key="hit.id">
+                                        <a
+                                            x-bind:href="hit.url"
+                                            class="ms-1 font-medium underline underline-offset-2"
+                                            x-text="(hit.names['{{ $locale }}'] || Object.values(hit.names).find(n => n !== '') || '') + (hit.producer ? ' (' + hit.producer + ')' : '')"
+                                        ></a>
+                                    </template>
+                                    <p class="mt-1 text-xs text-amber-800">{{ __('admin.products.duplicate_name_hint') }}</p>
+                                </div>
+                            </template>
+                        @endif
                         <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.name')" />
                     </div>
 
