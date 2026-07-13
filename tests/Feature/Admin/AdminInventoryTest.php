@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ProductStockInflowSchedule;
@@ -59,6 +60,79 @@ class AdminInventoryTest extends TestCase
             ->get(route('app.admin.inventory.index'))
             ->assertOk()
             ->assertSee($product->producer->name);
+    }
+
+    public function test_inflow_stores_and_validates_the_supplying_producer(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
+        $secondFarm = Producer::factory()->create();
+        $foreignFarm = Producer::factory()->create();
+        $product->syncProducers([$product->producer_id, $secondFarm->id]);
+
+        // A farm outside the product's supplier set is rejected.
+        $this->actingAs($admin)->post(route('app.admin.inventory.inflows.store'), [
+            'product_id' => $product->id, 'received_on' => '2026-07-20',
+            'quantity' => 5, 'producer_id' => $foreignFarm->id,
+        ])->assertSessionHasErrors('producer_id');
+
+        // A registered supplier is stored on the batch.
+        $this->actingAs($admin)->post(route('app.admin.inventory.inflows.store'), [
+            'product_id' => $product->id, 'received_on' => '2026-07-20',
+            'quantity' => 5, 'producer_id' => $secondFarm->id,
+        ])->assertRedirect();
+        $this->assertSame($secondFarm->id, (int) ProductStockInflow::query()->latest('id')->firstOrFail()->producer_id);
+
+        // Omitting the field defaults to the primary producer.
+        $this->actingAs($admin)->post(route('app.admin.inventory.inflows.store'), [
+            'product_id' => $product->id, 'received_on' => '2026-07-21', 'quantity' => 3,
+        ])->assertRedirect();
+        $this->assertSame($product->producer_id, (int) ProductStockInflow::query()->latest('id')->firstOrFail()->producer_id);
+    }
+
+    public function test_schedule_carries_its_producer_into_materialized_inflows(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-13'));
+        try {
+            $admin = User::factory()->admin()->create();
+            $product = Product::factory()->create(['unit' => 'mass', 'price_display_unit' => 'kg']);
+            $secondFarm = Producer::factory()->create();
+            $product->syncProducers([$product->producer_id, $secondFarm->id]);
+
+            $this->actingAs($admin)->post(route('app.admin.inflow-schedules.store', $product), [
+                'weekday' => 3, 'planned_quantity' => 10, 'starts_on' => '2026-07-15',
+                'producer_id' => $secondFarm->id,
+            ])->assertRedirect();
+
+            $schedule = ProductStockInflowSchedule::query()->firstOrFail();
+            $this->assertSame($secondFarm->id, (int) $schedule->producer_id);
+            $materialized = ProductStockInflow::query()->where('source_schedule_id', $schedule->id)->get();
+            $this->assertNotEmpty($materialized);
+            foreach ($materialized as $inflow) {
+                $this->assertSame($secondFarm->id, (int) $inflow->producer_id);
+            }
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
+    public function test_inflow_list_shows_the_batch_producer(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create();
+        $secondFarm = Producer::factory()->create();
+        $product->syncProducers([$product->producer_id, $secondFarm->id]);
+        $inflow = ProductStockInflow::create([
+            'product_id' => $product->id, 'producer_id' => $secondFarm->id,
+            'received_on' => '2026-05-20', 'quantity' => 5, 'freshness_window_days' => 2,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index'))
+            ->assertOk()
+            ->assertSee('data-testid="inflow-producer-'.$inflow->id.'"', false)
+            ->assertSee($secondFarm->name);
     }
 
     public function test_matrix_shows_b2b_only_stock_in_amber(): void

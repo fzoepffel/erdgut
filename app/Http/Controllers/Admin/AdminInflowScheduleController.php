@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductStockInflowSchedule;
+use App\Rules\ProducerSuppliesProduct;
 use App\Services\Admin\InventoryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,6 +33,8 @@ class AdminInflowScheduleController extends Controller
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
             'notes' => ['nullable', 'string', 'max:500'],
             'b2b_only' => ['sometimes', 'boolean'],
+            'producer_id' => ['nullable', 'integer', 'exists:producers,id',
+                new ProducerSuppliesProduct($product->id)],
         ]);
 
         $this->inventory->createSchedule(
@@ -44,6 +47,7 @@ class AdminInflowScheduleController extends Controller
             notes: $validated['notes'] ?? null,
             createdByUserId: (int) $request->user()->id,
             b2bOnly: (bool) ($validated['b2b_only'] ?? false),
+            producerId: isset($validated['producer_id']) ? (int) $validated['producer_id'] : null,
         );
 
         return $this->redirectBack($request, __('admin.inflow_schedules.flash_created'));
