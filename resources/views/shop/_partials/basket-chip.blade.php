@@ -43,14 +43,46 @@
         class="absolute bottom-full right-0 mb-3 w-[min(20rem,calc(100vw-3rem))] border border-shop-border bg-shop-background p-4 shadow-xl"
     >
         <p class="eyebrow text-shop-primary">{{ __('shop.basket_chip_heading') }}</p>
-        <ul class="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+        <ul class="mt-3 max-h-72 space-y-3 overflow-y-auto pr-1">
             <template x-for="line in cartLines" :key="line.id">
-                <li class="flex items-start justify-between gap-3 border-b border-shop-border/40 pb-2 last:border-b-0 last:pb-0">
-                    <span class="text-sm leading-snug text-shop-foreground">
-                        <span x-text="line.name"></span>
-                        <span class="block font-mono text-[0.7rem] text-shop-muted" x-text="line.qty"></span>
-                    </span>
-                    <span class="shrink-0 font-mono text-xs tabular-nums text-shop-foreground" x-text="line.lineTotalLabel"></span>
+                <li class="space-y-2 border-b border-shop-border/40 pb-3 last:border-b-0 last:pb-0">
+                    <div class="flex items-start justify-between gap-3">
+                        <span class="text-sm leading-snug text-shop-foreground" x-text="line.name"></span>
+                        <span class="shrink-0 font-mono text-xs tabular-nums text-shop-foreground" x-text="line.lineTotalLabel"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="inline-flex items-center border border-shop-border bg-shop-paper">
+                            <button
+                                type="button"
+                                @click="dec(line.id)"
+                                :disabled="(quantities[line.id] || 0) <= 0"
+                                class="touch-manipulation flex h-8 w-8 items-center justify-center font-mono text-base text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                aria-label="−"
+                                :data-testid="'shop-basket-chip-dec-' + line.id"
+                            >−</button>
+                            <span class="min-w-[4rem] px-1 text-center font-mono text-[0.7rem] tabular-nums text-shop-muted" x-text="line.qty"></span>
+                            <button
+                                type="button"
+                                @click="inc(line.id)"
+                                :disabled="atCap(line.id)"
+                                class="touch-manipulation flex h-8 w-8 items-center justify-center font-mono text-base text-shop-foreground transition hover:text-shop-primary disabled:opacity-30"
+                                aria-label="+"
+                                :data-testid="'shop-basket-chip-inc-' + line.id"
+                            >+</button>
+                        </div>
+                        <button
+                            type="button"
+                            @click="removeLine(line.id)"
+                            class="touch-manipulation flex h-8 w-8 items-center justify-center text-shop-muted transition hover:text-shop-primary"
+                            aria-label="{{ __('shop.basket_remove') }}"
+                            :title="@js(__('shop.basket_remove'))"
+                            :data-testid="'shop-basket-chip-remove-' + line.id"
+                        >
+                            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M9 7V5.5A1.5 1.5 0 0110.5 4h3A1.5 1.5 0 0115 5.5V7m2 0v12a2 2 0 01-2 2H9a2 2 0 01-2-2V7h10zM10 11v6M14 11v6" />
+                            </svg>
+                        </button>
+                    </div>
                 </li>
             </template>
         </ul>
