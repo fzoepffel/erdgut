@@ -107,6 +107,7 @@
     <div class="header">
         <div class="brand">ERDGUT</div>
         <div class="meta">{{ __('shop.admin.farmer_export_pdf_subtitle') }} — {{ $generatedAt->locale('de')->isoFormat('D. MMMM YYYY, HH:mm') }}</div>
+        <div class="meta">{{ __('shop.admin.farmer_export_snapshot_hint') }}</div>
     </div>
 
     <div class="sender">

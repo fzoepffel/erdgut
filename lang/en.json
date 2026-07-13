@@ -3464,6 +3464,7 @@
     "shop.admin.farmer_export_download": "Download PDF + CSV",
     "shop.admin.farmer_export_pdf_title": "Farmer order · :producer",
     "shop.admin.farmer_export_pdf_subtitle": "Farm order · created",
+    "shop.admin.farmer_export_snapshot_hint": "Snapshot. Quantities can still change until the delivery day's order cutoff.",
     "shop.admin.farmer_export_sender_label": "Ordered by",
     "shop.admin.farmer_export_recipient_label": "Order to",
     "shop.admin.farmer_export_window_label": "Delivery window",

@@ -498,7 +498,7 @@ class InventoryService
             ->whereIn('product_id', $productIds)
             ->whereDate('received_on', '<=', $to->toDateString())
             ->whereRaw($expiresExpr.' >= ?', [$from->toDateString()])
-            ->get(['product_id', 'variant_id', 'received_on', 'quantity', 'freshness_window_days', 'b2b_only'])
+            ->get(['id', 'product_id', 'variant_id', 'producer_id', 'received_on', 'quantity', 'freshness_window_days', 'b2b_only'])
             ->each(function (ProductStockInflow $inflow) use (&$byPid): void {
                 $start = Carbon::parse($inflow->received_on)->startOfDay();
                 $end = $start->copy()->addDays(max(1, (int) $inflow->freshness_window_days) - 1);
@@ -508,10 +508,41 @@ class InventoryService
                     'end' => $end,
                     'qty' => (float) $inflow->quantity,
                     'b2b_only' => (bool) $inflow->b2b_only,
+                    // Attribution metadata for the producer-allocation
+                    // read-model. The availability allocator copies only
+                    // start/end/qty, so these keys never touch FEFO math.
+                    'inflow_id' => (int) $inflow->id,
+                    'producer_id' => $inflow->producer_id !== null ? (int) $inflow->producer_id : null,
                 ];
             });
 
         return $byPid;
+    }
+
+    /**
+     * Read-model API for the producer-allocation service: inflow batches
+     * keyed [productId][variantKey], each tuple carrying inflow_id and
+     * producer_id besides the FEFO fields. Same buffered-window semantics
+     * as the availability path (the caller supplies the window).
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, array<int, list<array{start: Carbon, end: Carbon, qty: float, b2b_only: bool, inflow_id: int, producer_id: ?int}>>>
+     */
+    public function batchesForAllocation(array $productIds, Carbon $from, Carbon $to): array
+    {
+        return $this->loadBatchesByProduct($productIds, $from, $to);
+    }
+
+    /**
+     * Read-model API: committed demand across ALL channels (shop,
+     * restaurant, spargel, boxes) as [productId][variantKey][iso => qty].
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, array<int, array<string, float>>>
+     */
+    public function committedForAllocation(array $productIds, Carbon $from, Carbon $to): array
+    {
+        return $this->sharedCommittedForProducts($productIds, $from, $to);
     }
 
     /**
