@@ -91,60 +91,51 @@
     }
 @endphp
 
-<form method="post" action="{{ $action }}" class="space-y-6" enctype="multipart/form-data">
-    @csrf
-    @if (($method ?? 'post') !== 'post')
-        @method($method)
-    @endif
+@php
+    // F3 (UX-review notes): the plain <select> doesn't scale past
+    // ~30 producers, so the picker is an Alpine combobox (filter as
+    // you type, ↑/↓/Enter/Escape). Since the multi-producer epic a
+    // product can be supplied by SEVERAL farms: selections render as
+    // ordered chips, the first chip is the primary farm (mirrored
+    // into products.producer_id), and each chip carries its own
+    // hidden producer_ids[] input so DOM order = pivot position.
+    $producerOptions = $producers->map(fn ($p) => [
+        'id' => (int) $p->id,
+        'name' => (string) $p->name,
+    ])->values()->all();
+    $producerOptionsById = collect($producerOptions)->keyBy('id');
 
-    @if (($existingProductNames ?? null) !== null)
-        {{-- Duplicate-name advisory data (create form only): the name
-             fields match against this while typing. --}}
-        <script>window.erdgutExistingProducts = @json($existingProductNames);</script>
-    @endif
+    // Prefill priority: old() after a failed submit (or the E4
+    // preselect flash) → pivot order on edit → legacy single column.
+    $selectedProducerIds = old('producer_ids');
+    if (! is_array($selectedProducerIds)) {
+        $selectedProducerIds = $product !== null && $product->producers->isNotEmpty()
+            ? $product->producers->pluck('id')->all()
+            : array_filter([(int) old('producer_id', $product?->producer_id ?? 0)]);
+    }
+    $initialSelectedProducers = collect($selectedProducerIds)
+        ->map(fn ($id) => $producerOptionsById->get((int) $id))
+        ->filter()
+        ->values()
+        ->all();
 
-    @php
-        // F3 (UX-review notes): the plain <select> doesn't scale past
-        // ~30 producers, so the picker is an Alpine combobox (filter as
-        // you type, ↑/↓/Enter/Escape). Since the multi-producer epic a
-        // product can be supplied by SEVERAL farms: selections render as
-        // ordered chips, the first chip is the primary farm (mirrored
-        // into products.producer_id), and each chip carries its own
-        // hidden producer_ids[] input so DOM order = pivot position.
-        $producerOptions = $producers->map(fn ($p) => [
-            'id' => (int) $p->id,
-            'name' => (string) $p->name,
-        ])->values()->all();
-        $producerOptionsById = collect($producerOptions)->keyBy('id');
-
-        // Prefill priority: old() after a failed submit (or the E4
-        // preselect flash) → pivot order on edit → legacy single column.
-        $selectedProducerIds = old('producer_ids');
-        if (! is_array($selectedProducerIds)) {
-            $selectedProducerIds = $product !== null && $product->producers->isNotEmpty()
-                ? $product->producers->pluck('id')->all()
-                : array_filter([(int) old('producer_id', $product?->producer_id ?? 0)]);
-        }
-        $initialSelectedProducers = collect($selectedProducerIds)
-            ->map(fn ($id) => $producerOptionsById->get((int) $id))
-            ->filter()
-            ->values()
-            ->all();
-
-        // Per-farm buying prices (display-unit euros): old() after a
-        // failed submit, else the pivot overrides on edit.
-        $initialProducerPrices = old('producer_buying_prices');
-        if (! is_array($initialProducerPrices)) {
-            $initialProducerPrices = [];
-            foreach (($product?->producers ?? collect()) as $supplier) {
-                if ($supplier->pivot->buying_price_cents !== null) {
-                    $initialProducerPrices[$supplier->id] = number_format(((int) $supplier->pivot->buying_price_cents) / 100, 2, '.', '');
-                }
+    // Per-farm buying prices (display-unit euros): old() after a
+    // failed submit, else the pivot overrides on edit.
+    $initialProducerPrices = old('producer_buying_prices');
+    if (! is_array($initialProducerPrices)) {
+        $initialProducerPrices = [];
+        foreach (($product?->producers ?? collect()) as $supplier) {
+            if ($supplier->pivot->buying_price_cents !== null) {
+                $initialProducerPrices[$supplier->id] = number_format(((int) $supplier->pivot->buying_price_cents) / 100, 2, '.', '');
             }
         }
-    @endphp
-    <div
-        x-data='{
+    }
+@endphp
+<form method="post" action="{{ $action }}" class="space-y-6" enctype="multipart/form-data"
+      {{-- Producer picker state lives on the form so both the farm
+           chips (top) and the per-farm buying prices (pricing
+           section) share it. --}}
+      x-data='{
             options: {!! json_encode($producerOptions, JSON_UNESCAPED_UNICODE) !!},
             selected: {!! json_encode($initialSelectedProducers, JSON_UNESCAPED_UNICODE) !!},
             prices: {!! json_encode($initialProducerPrices === [] ? new stdClass : $initialProducerPrices, JSON_UNESCAPED_UNICODE) !!},
@@ -190,7 +181,20 @@
                     this.open = false;
                 }
             },
-        }'
+      }'
+>
+    @csrf
+    @if (($method ?? 'post') !== 'post')
+        @method($method)
+    @endif
+
+    @if (($existingProductNames ?? null) !== null)
+        {{-- Duplicate-name advisory data (create form only): the name
+             fields match against this while typing. --}}
+        <script>window.erdgutExistingProducts = @json($existingProductNames);</script>
+    @endif
+
+    <div
         x-on:click.outside="open = false"
         class="relative"
     >
@@ -273,30 +277,6 @@
             <x-input-error class="mt-2" :messages="$producerIdMessages" />
         @endforeach
 
-        {{-- Per-farm buying price overrides (display-unit euros); empty
-             means the product's default buying price applies. --}}
-        <div class="mt-3 space-y-2" data-testid="product-form-producer-prices" x-show="selected.length > 0" x-cloak>
-            <p class="text-xs font-medium text-gray-700">{{ __('admin.products.producer_price_label') }}</p>
-            <template x-for="s in selected" :key="s.id">
-                <div class="flex items-center gap-3">
-                    <span class="w-48 truncate text-sm text-gray-700" x-text="s.name"></span>
-                    <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        class="block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
-                        x-bind:name="'producer_buying_prices[' + s.id + ']'"
-                        x-model="prices[s.id]"
-                        placeholder="{{ __('admin.products.producer_price_placeholder') }}"
-                    />
-                </div>
-            </template>
-            <p class="text-xs text-gray-500">{{ __('admin.products.producer_price_help') }}</p>
-            <x-input-error class="mt-2" :messages="$errors->get('producer_buying_prices')" />
-            @foreach ($errors->get('producer_buying_prices.*') as $producerPriceMessages)
-                <x-input-error class="mt-2" :messages="$producerPriceMessages" />
-            @endforeach
-        </div>
     </div>
 
     <div class="space-y-4"
@@ -713,6 +693,31 @@
                 <x-text-input id="buying_price" name="buying_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="$buyingPriceValue" />
                 <p class="mt-1 text-xs text-gray-500">{{ __('admin.products.buying_price_default_help') }}</p>
                 <x-input-error class="mt-2" :messages="$errors->get('buying_price')" />
+            
+                {{-- Per-farm buying price overrides (display-unit euros); empty
+                     means the product's default buying price applies. --}}
+                <div class="mt-3 space-y-2" data-testid="product-form-producer-prices" x-show="selected.length > 0" x-cloak>
+                    <p class="text-xs font-medium text-gray-700">{{ __('admin.products.producer_price_label') }}</p>
+                    <template x-for="s in selected" :key="s.id">
+                        <div class="flex items-center gap-3">
+                            <span class="w-48 truncate text-sm text-gray-700" x-text="s.name"></span>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
+                                x-bind:name="'producer_buying_prices[' + s.id + ']'"
+                                x-model="prices[s.id]"
+                                placeholder="{{ __('admin.products.producer_price_placeholder') }}"
+                            />
+                        </div>
+                    </template>
+                    <p class="text-xs text-gray-500">{{ __('admin.products.producer_price_help') }}</p>
+                    <x-input-error class="mt-2" :messages="$errors->get('producer_buying_prices')" />
+                    @foreach ($errors->get('producer_buying_prices.*') as $producerPriceMessages)
+                        <x-input-error class="mt-2" :messages="$producerPriceMessages" />
+                    @endforeach
+                </div>
             </div>
         </div>
 
