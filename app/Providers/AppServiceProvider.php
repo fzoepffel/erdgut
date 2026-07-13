@@ -26,6 +26,7 @@ use App\Policies\ProductPolicy;
 use App\Policies\UserPolicy;
 use App\Services\Shop\ShopOrderService;
 use App\Services\SpargelOrderService;
+use App\Support\QueueKicker;
 use App\Support\RequiredSecretValidator;
 use App\Support\SubscriberAccess;
 use App\Support\SumUpService;
@@ -33,6 +34,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Queue\Events\JobQueued;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -104,6 +106,11 @@ class AppServiceProvider extends ServiceProvider
         // via audit_events. Listener writes a 'mail.sent' row per recipient
         // that maps to a known User.
         Event::listen(MessageSent::class, LogSentMail::class);
+
+        // A request that queues a job kicks the queue endpoint once at
+        // terminate time, so queued mail leaves within seconds instead of
+        // waiting for the next cron tick. {@see \App\Support\QueueKicker}
+        Event::listen(JobQueued::class, fn () => QueueKicker::kick());
 
         // Currency Blade directives — keep template rendering one-liner.
         // {@see \App\Support\Money} is the canonical German-format helper.

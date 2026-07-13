@@ -59,6 +59,7 @@ use App\Http\Controllers\Onboarding\Trial\DeliveryStepController as TrialWizardD
 use App\Http\Controllers\Onboarding\Trial\PaymentStepController as TrialWizardPaymentController;
 use App\Http\Controllers\Operations\CronRunController;
 use App\Http\Controllers\Operations\HealthcheckController;
+use App\Http\Controllers\Operations\QueueKickController;
 use App\Http\Controllers\PaymentDiagnosticsController;
 use App\Http\Controllers\PaymentHistoryController;
 use App\Http\Controllers\PaymentSetupController;
@@ -90,6 +91,7 @@ if (app()->environment('local')) {
 
 Route::name('public.')->group(function () {
     Route::get('/cron/run', CronRunController::class)->name('cron.run');
+    Route::get('/cron/queue-kick', QueueKickController::class)->middleware('throttle:60,1')->name('cron.queue-kick');
     // Shop-first public surface. The root URL, /erdgut and /kontakt make up
     // the shop-focused marketing site (shop header, no account chrome). The
     // pre-launch "coming soon" holding page (ComingSoonController +
