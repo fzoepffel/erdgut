@@ -76,15 +76,19 @@
     // tabs are red on first render whenever a returning failed
     // submission has empty required fields. Alpine's recheckTabs()
     // then keeps the map current as the admin types.
+    // Only German is required; EN/FR are optional and fall back to the
+    // German texts on the storefront when left empty.
     $initialTabMissing = [];
     foreach ($locales as $locale => $_) {
         $hasMissing = false;
-        $t = $product?->translations?->firstWhere('locale', $locale);
-        foreach ($translationFields as $f) {
-            $current = old("translations.$locale.$f", $t?->$f);
-            if (trim((string) $current) === '') {
-                $hasMissing = true;
-                break;
+        if ($locale === 'de') {
+            $t = $product?->translations?->firstWhere('locale', $locale);
+            foreach ($translationFields as $f) {
+                $current = old("translations.$locale.$f", $t?->$f);
+                if (trim((string) $current) === '') {
+                    $hasMissing = true;
+                    break;
+                }
             }
         }
         $initialTabMissing[$locale] = $hasMissing;
@@ -131,6 +135,64 @@
         }
     }
 @endphp
+    {{-- Unit, display unit, and price live in a shared Alpine state so
+         the price label and the allowed display-unit options stay in
+         sync with the chosen kind. The admin enters the price in
+         whichever display unit they pick (€/g, €/100 g, €/kg, €/ml, €/L,
+         €/Stück, €/Bund); the controller divides by the kind's
+         canonical factor before persisting. --}}
+    @php
+        // Use the full block form rather than the single-line shorthand:
+        // the latter breaks subsequent block compilation. See
+        // docs/feedback_blade_php_shorthand.md.
+        $currentUnit = old('unit', $product?->unit?->value);
+        $currentDisplayUnit = old('price_display_unit', $product?->price_display_unit);
+
+        // Pre-fill the price using the currently-chosen display unit so
+        // the round-trip is stable. Storage = €/canonical; display =
+        // storage × canonicalUnitsPerDisplay.
+        $defaultPrice = null;
+        if ($product?->unit !== null && $product?->unit_price !== null) {
+            $du = $currentDisplayUnit ?? $product->unit->defaultDisplayUnit();
+            // Guard: after a failed save where the admin switched unit
+            // KIND, `old('price_display_unit')` can belong to a different
+            // kind than the persisted `$product->unit` (e.g. 'bunch' while
+            // the stored unit is still 'mass'). Converting against the
+            // stored kind would throw. Fall back to the stored kind's
+            // default display unit in that case.
+            if (! in_array($du, $product->unit->allowedDisplayUnits(), true)) {
+                $du = $product->unit->defaultDisplayUnit();
+            }
+            $factor = $product->unit->canonicalUnitsPerDisplay($du);
+            $defaultPrice = round((float) $product->unit_price * $factor, 2);
+        }
+        $oldPrice = old('price', $defaultPrice);
+
+        $allowedDisplayMap = [];
+        $kindLabels = [];
+        foreach (\App\Enums\ProductUnit::cases() as $uc) {
+            $allowedDisplayMap[$uc->value] = $uc->allowedDisplayUnits();
+            $kindLabels[$uc->value] = __('units.'.$uc->value);
+        }
+        $displayLabels = [
+            'g' => 'g',
+            '100g' => '100 g',
+            'kg' => 'kg',
+            'ml' => 'ml',
+            'l' => 'L',
+            'piece' => __('units.piece'),
+            'bunch' => __('units.bunch'),
+        ];
+
+        // Optional display word for piece products ("Topf", "Beutel", ...):
+        // singular forms for the select and the "€/<symbol>" hints.
+        $countLabelOptions = [];
+        foreach (\App\Enums\CountUnitLabel::cases() as $countCase) {
+            $countLabelOptions[$countCase->value] = trans_choice($countCase->labelKey(), 1);
+        }
+        $currentCountLabel = (string) old('count_unit_label', $product?->count_unit_label?->value ?? '');
+    @endphp
+
 <form method="post" action="{{ $action }}" class="space-y-6" enctype="multipart/form-data"
       {{-- Producer picker state lives on the form so both the farm
            chips (top) and the per-farm buying prices (pricing
@@ -181,6 +243,45 @@
                     this.open = false;
                 }
             },
+            unit: @js((string) ($currentUnit ?? '')),
+            displayUnit: @js((string) ($currentDisplayUnit ?? '')),
+            countLabel: @js($currentCountLabel),
+            countWords: @js($countLabelOptions),
+            allowedDisplayMap: @js($allowedDisplayMap),
+            displayLabels: @js($displayLabels),
+            init() {
+                // x-model on the <select> initializes BEFORE the <template
+                // x-for> renders its <option>s, so on edit the stored value
+                // (e.g. 'kg') has no matching option yet and the browser
+                // coerces the select to the empty default. Re-apply the
+                // value once the options exist so the saved choice sticks.
+                this.$nextTick(() => {
+                    if (this.$refs.displayUnitSelect) {
+                        this.$refs.displayUnitSelect.value = this.displayUnit;
+                    }
+                });
+                this.$watch('unit', (val) => {
+                    const allowed = this.allowedDisplayMap[val] ?? [];
+                    if (! allowed.includes(this.displayUnit)) {
+                        // Default to the largest (last) allowed display
+                        // unit for the kind (kg / L / piece / bunch).
+                        this.displayUnit = allowed.length ? allowed[allowed.length - 1] : '';
+                    }
+                    // The display word only exists for piece products.
+                    if (val !== 'piece') {
+                        this.countLabel = '';
+                    }
+                });
+            },
+            get allowed() { return this.allowedDisplayMap[this.unit] ?? []; },
+            get displaySymbol() {
+                if (this.unit === 'piece' && this.countLabel !== '') {
+                    return this.countWords[this.countLabel] ?? this.displayLabels[this.displayUnit] ?? this.displayUnit;
+                }
+                return this.displayLabels[this.displayUnit] ?? this.displayUnit;
+            },
+            get hasUnit() { return this.unit !== ''; },
+            get hasDisplay() { return this.displayUnit !== ''; },
       }'
 >
     @csrf
@@ -194,97 +295,21 @@
         <script>window.erdgutExistingProducts = @json($existingProductNames);</script>
     @endif
 
-    <div
-        x-on:click.outside="open = false"
-        class="relative"
-    >
-        <x-input-label for="producer_ids_search" :value="__('admin.products.producers_label')" required />
-
-        {{-- Selected farms as ordered chips; the first is the primary. --}}
-        <div class="mt-1 flex flex-wrap items-center gap-1.5" data-testid="product-form-producer-chips">
-            <template x-for="(s, idx) in selected" :key="s.id">
-                <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm text-emerald-900">
-                    <button
-                        type="button"
-                        x-on:click="makePrimary(s.id)"
-                        x-bind:title="idx === 0 ? '' : '{{ __('admin.products.producer_make_primary') }}'"
-                        class="inline-flex items-center gap-1.5"
-                    >
-                        <span x-text="s.name"></span>
-                        <span
-                            x-show="idx === 0"
-                            x-cloak
-                            class="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
-                            data-testid="producer-chip-primary-badge"
-                        >{{ __('admin.products.producer_primary_badge') }}</span>
-                    </button>
-                    <button
-                        type="button"
-                        x-on:click="remove(s.id)"
-                        aria-label="{{ __('admin.products.producer_remove') }}"
-                        class="text-emerald-700 hover:text-emerald-900"
-                    >&times;</button>
-                    <input type="hidden" name="producer_ids[]" x-bind:value="s.id" />
-                </span>
-            </template>
+    @if ($errors->any())
+        <div class="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert" data-testid="product-form-error-summary">
+            {{ trans_choice('admin.product_form.error_summary', $errors->count(), ['count' => $errors->count()]) }}
         </div>
+    @endif
 
-        <input
-            id="producer_ids_search"
-            type="text"
-            class="mt-2 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
-            x-model="query"
-            x-on:input="open = true; highlight = 0"
-            x-on:focus="open = true"
-            x-on:keydown="onKey($event)"
-            placeholder="{{ __('admin.products.producer_search_placeholder') }}"
-            autocomplete="off"
-            role="combobox"
-            aria-autocomplete="list"
-            aria-expanded="false"
-            x-bind:aria-expanded="open ? 'true' : 'false'"
-            aria-controls="producer-combobox-listbox"
-            data-testid="product-form-producer-combobox"
-        />
-
-        <ul
-            id="producer-combobox-listbox"
-            role="listbox"
-            x-show="open && filtered.length > 0"
-            x-cloak
-            class="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
-        >
-            <template x-for="(option, idx) in filtered" :key="option.id">
-                <li
-                    role="option"
-                    x-bind:class="idx === highlight ? 'bg-emerald-50 text-emerald-900' : 'text-gray-700 hover:bg-gray-50'"
-                    class="cursor-pointer px-3 py-2 text-sm"
-                    x-on:mouseenter="highlight = idx"
-                    x-on:click="add(option)"
-                    x-text="option.name"
-                ></li>
-            </template>
-        </ul>
-
-        <p
-            x-show="open && filtered.length === 0 && query.trim() !== ''"
-            x-cloak
-            class="absolute z-20 mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg"
-        >{{ __('No producers match.') }}</p>
-
-        <x-input-error class="mt-2" :messages="$errors->get('producer_ids')" />
-        @foreach ($errors->get('producer_ids.*') as $producerIdMessages)
-            <x-input-error class="mt-2" :messages="$producerIdMessages" />
-        @endforeach
-
-    </div>
-
+    <div class="rounded border border-gray-200 bg-white p-4 space-y-4">
+        <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.section_basics') }}</h2>
     <div class="space-y-4"
          x-data='{
             tab: "{{ $initialTab }}",
             tabMissing: {!! json_encode($initialTabMissing, JSON_UNESCAPED_UNICODE) !!},
             recheckTabs() {
                 Object.keys(this.tabMissing).forEach(loc => {
+                    if (loc !== "de") { this.tabMissing[loc] = false; return; }
                     const fields = ["name", "unit", "origin", "variety", "short_description", "taste_profile"];
                     let missing = false;
                     for (const f of fields) {
@@ -302,7 +327,7 @@
              columns. Inline at sm: where there's room. --}}
         <div class="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
             <h2 class="text-sm font-semibold text-gray-900">{{ __('Translations') }}</h2>
-            <p class="text-xs text-gray-600">{{ __('All three languages are required.') }}</p>
+            <p class="text-xs text-gray-600">{{ __('admin.product_form.translations_optional_hint') }}</p>
         </div>
 
         <div class="flex gap-1 border-b border-gray-200" role="tablist">
@@ -369,14 +394,14 @@
                             }'
                         @endif
                     >
-                        <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" required />
+                        <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" :required="$locale === 'de'" />
                         <x-text-input
                             :id="'translations_'.$locale.'_name'"
                             :name="'translations['.$locale.'][name]'"
                             type="text"
                             class="mt-1 block w-full"
                             :value="old('translations.'.$locale.'.name', $t?->name)"
-                            required
+                            :required="$locale === 'de'"
                             x-on:input="recheckTabs()"
                             @if (($existingProductNames ?? null) !== null)
                                 x-on:input.debounce.250ms="check($event.target.value)"
@@ -405,28 +430,28 @@
 
                     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
-                            <x-input-label :for="'translations_'.$locale.'_origin'" :value="__('Origin')" required />
+                            <x-input-label :for="'translations_'.$locale.'_origin'" :value="__('Origin')" :required="$locale === 'de'" />
                             <x-text-input
                                 :id="'translations_'.$locale.'_origin'"
                                 :name="'translations['.$locale.'][origin]'"
                                 type="text"
                                 class="mt-1 block w-full"
                                 :value="old('translations.'.$locale.'.origin', $t?->origin)"
-                                required
+                                :required="$locale === 'de'"
                                 x-on:input="recheckTabs()"
                             />
                             <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.origin')" />
                         </div>
 
                         <div>
-                            <x-input-label :for="'translations_'.$locale.'_variety'" :value="__('Variety')" required />
+                            <x-input-label :for="'translations_'.$locale.'_variety'" :value="__('Variety')" :required="$locale === 'de'" />
                             <x-text-input
                                 :id="'translations_'.$locale.'_variety'"
                                 :name="'translations['.$locale.'][variety]'"
                                 type="text"
                                 class="mt-1 block w-full"
                                 :value="old('translations.'.$locale.'.variety', $t?->variety)"
-                                required
+                                :required="$locale === 'de'"
                                 x-on:input="recheckTabs()"
                             />
                             <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.variety')" />
@@ -434,14 +459,14 @@
                     </div>
 
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_short_description'" :value="__('admin.product_form.short_description_label')" required />
+                        <x-input-label :for="'translations_'.$locale.'_short_description'" :value="__('admin.product_form.short_description_label')" :required="$locale === 'de'" />
                         <textarea
                             id="{{ 'translations_'.$locale.'_short_description' }}"
                             name="{{ 'translations['.$locale.'][short_description]' }}"
                             rows="2"
                             maxlength="240"
                             class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
-                            required
+                            @if ($locale === 'de') required @endif
                             x-on:input="recheckTabs()"
                         >{{ old('translations.'.$locale.'.short_description', $t?->short_description) }}</textarea>
                         <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.short_description_hint') }}</p>
@@ -449,13 +474,13 @@
                     </div>
 
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('admin.product_form.long_description_label')" required />
+                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('admin.product_form.long_description_label')" :required="$locale === 'de'" />
                         <textarea
                             id="{{ 'translations_'.$locale.'_taste_profile' }}"
                             name="{{ 'translations['.$locale.'][taste_profile]' }}"
                             rows="4"
                             class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
-                            required
+                            @if ($locale === 'de') required @endif
                             x-on:input="recheckTabs()"
                         >{{ old('translations.'.$locale.'.taste_profile', $t?->taste_profile) }}</textarea>
                         <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.long_description_hint') }}</p>
@@ -552,108 +577,98 @@
         </div>
     </div>
 
-    {{-- Unit, display unit, and price live in a shared Alpine state so
-         the price label and the allowed display-unit options stay in
-         sync with the chosen kind. The admin enters the price in
-         whichever display unit they pick (€/g, €/100 g, €/kg, €/ml, €/L,
-         €/Stück, €/Bund); the controller divides by the kind's
-         canonical factor before persisting. --}}
-    @php
-        // Use the full block form rather than the single-line shorthand:
-        // the latter breaks subsequent block compilation. See
-        // docs/feedback_blade_php_shorthand.md.
-        $currentUnit = old('unit', $product?->unit?->value);
-        $currentDisplayUnit = old('price_display_unit', $product?->price_display_unit);
+    </div>
 
-        // Pre-fill the price using the currently-chosen display unit so
-        // the round-trip is stable. Storage = €/canonical; display =
-        // storage × canonicalUnitsPerDisplay.
-        $defaultPrice = null;
-        if ($product?->unit !== null && $product?->unit_price !== null) {
-            $du = $currentDisplayUnit ?? $product->unit->defaultDisplayUnit();
-            // Guard: after a failed save where the admin switched unit
-            // KIND, `old('price_display_unit')` can belong to a different
-            // kind than the persisted `$product->unit` (e.g. 'bunch' while
-            // the stored unit is still 'mass'). Converting against the
-            // stored kind would throw. Fall back to the stored kind's
-            // default display unit in that case.
-            if (! in_array($du, $product->unit->allowedDisplayUnits(), true)) {
-                $du = $product->unit->defaultDisplayUnit();
-            }
-            $factor = $product->unit->canonicalUnitsPerDisplay($du);
-            $defaultPrice = round((float) $product->unit_price * $factor, 2);
-        }
-        $oldPrice = old('price', $defaultPrice);
-
-        $allowedDisplayMap = [];
-        $kindLabels = [];
-        foreach (\App\Enums\ProductUnit::cases() as $uc) {
-            $allowedDisplayMap[$uc->value] = $uc->allowedDisplayUnits();
-            $kindLabels[$uc->value] = __('units.'.$uc->value);
-        }
-        $displayLabels = [
-            'g' => 'g',
-            '100g' => '100 g',
-            'kg' => 'kg',
-            'ml' => 'ml',
-            'l' => 'L',
-            'piece' => __('units.piece'),
-            'bunch' => __('units.bunch'),
-        ];
-
-        // Optional display word for piece products ("Topf", "Beutel", ...):
-        // singular forms for the select and the "€/<symbol>" hints.
-        $countLabelOptions = [];
-        foreach (\App\Enums\CountUnitLabel::cases() as $countCase) {
-            $countLabelOptions[$countCase->value] = trans_choice($countCase->labelKey(), 1);
-        }
-        $currentCountLabel = (string) old('count_unit_label', $product?->count_unit_label?->value ?? '');
-    @endphp
-
+    <div class="rounded border border-gray-200 bg-white p-4 space-y-4">
     <div
-        x-data="{
-            unit: @js((string) ($currentUnit ?? '')),
-            displayUnit: @js((string) ($currentDisplayUnit ?? '')),
-            countLabel: @js($currentCountLabel),
-            countWords: @js($countLabelOptions),
-            allowedDisplayMap: @js($allowedDisplayMap),
-            displayLabels: @js($displayLabels),
-            init() {
-                // x-model on the <select> initializes BEFORE the <template
-                // x-for> renders its <option>s, so on edit the stored value
-                // (e.g. 'kg') has no matching option yet and the browser
-                // coerces the select to the empty default. Re-apply the
-                // value once the options exist so the saved choice sticks.
-                this.$nextTick(() => {
-                    if (this.$refs.displayUnitSelect) {
-                        this.$refs.displayUnitSelect.value = this.displayUnit;
-                    }
-                });
-                this.$watch('unit', (val) => {
-                    const allowed = this.allowedDisplayMap[val] ?? [];
-                    if (! allowed.includes(this.displayUnit)) {
-                        // Default to the largest (last) allowed display
-                        // unit for the kind (kg / L / piece / bunch).
-                        this.displayUnit = allowed.length ? allowed[allowed.length - 1] : '';
-                    }
-                    // The display word only exists for piece products.
-                    if (val !== 'piece') {
-                        this.countLabel = '';
-                    }
-                });
-            },
-            get allowed() { return this.allowedDisplayMap[this.unit] ?? []; },
-            get displaySymbol() {
-                if (this.unit === 'piece' && this.countLabel !== '') {
-                    return this.countWords[this.countLabel] ?? this.displayLabels[this.displayUnit] ?? this.displayUnit;
-                }
-                return this.displayLabels[this.displayUnit] ?? this.displayUnit;
-            },
-            get hasUnit() { return this.unit !== ''; },
-            get hasDisplay() { return this.displayUnit !== ''; },
-        }"
-        class="space-y-6"
+        x-on:click.outside="open = false"
+        class="relative"
     >
+        <x-input-label for="producer_ids_search" :value="__('admin.products.producers_label')" required />
+
+        {{-- Selected farms as ordered chips; the first is the primary. --}}
+        <div class="mt-1 flex flex-wrap items-center gap-1.5" data-testid="product-form-producer-chips">
+            <template x-for="(s, idx) in selected" :key="s.id">
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm text-emerald-900">
+                    <button
+                        type="button"
+                        x-on:click="makePrimary(s.id)"
+                        x-bind:title="idx === 0 ? '' : '{{ __('admin.products.producer_make_primary') }}'"
+                        class="inline-flex items-center gap-1.5"
+                    >
+                        <span x-text="s.name"></span>
+                        <span
+                            x-show="idx === 0"
+                            x-cloak
+                            class="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                            data-testid="producer-chip-primary-badge"
+                        >{{ __('admin.products.producer_primary_badge') }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        x-on:click="remove(s.id)"
+                        aria-label="{{ __('admin.products.producer_remove') }}"
+                        class="text-emerald-700 hover:text-emerald-900"
+                    >&times;</button>
+                    <input type="hidden" name="producer_ids[]" x-bind:value="s.id" />
+                </span>
+            </template>
+        </div>
+
+        <input
+            id="producer_ids_search"
+            type="text"
+            class="mt-2 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+            x-model="query"
+            x-on:input="open = true; highlight = 0"
+            x-on:focus="open = true"
+            x-on:keydown="onKey($event)"
+            placeholder="{{ __('admin.products.producer_search_placeholder') }}"
+            autocomplete="off"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded="false"
+            x-bind:aria-expanded="open ? 'true' : 'false'"
+            aria-controls="producer-combobox-listbox"
+            data-testid="product-form-producer-combobox"
+        />
+
+        <ul
+            id="producer-combobox-listbox"
+            role="listbox"
+            x-show="open && filtered.length > 0"
+            x-cloak
+            class="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+        >
+            <template x-for="(option, idx) in filtered" :key="option.id">
+                <li
+                    role="option"
+                    x-bind:class="idx === highlight ? 'bg-emerald-50 text-emerald-900' : 'text-gray-700 hover:bg-gray-50'"
+                    class="cursor-pointer px-3 py-2 text-sm"
+                    x-on:mouseenter="highlight = idx"
+                    x-on:click="add(option)"
+                    x-text="option.name"
+                ></li>
+            </template>
+        </ul>
+
+        <p
+            x-show="open && filtered.length === 0 && query.trim() !== ''"
+            x-cloak
+            class="absolute z-20 mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg"
+        >{{ __('No producers match.') }}</p>
+
+        <x-input-error class="mt-2" :messages="$errors->get('producer_ids')" />
+        @foreach ($errors->get('producer_ids.*') as $producerIdMessages)
+            <x-input-error class="mt-2" :messages="$producerIdMessages" />
+        @endforeach
+
+    </div>
+
+    </div>
+
+    <div class="rounded border border-gray-200 bg-white p-4 space-y-4">
+        <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.section_unit') }}</h2>
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
                 <x-input-label for="unit" :value="__('Unit')" required />
@@ -692,304 +707,6 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div>
-                <label for="price" class="block text-sm font-medium text-gray-700">
-                    <span x-show="!hasDisplay">{{ __('admin.product_form.price_label_pick_unit_first') }}</span>
-                    <span x-show="hasDisplay" x-cloak>
-                        {{ __('admin.product_form.price_label_per') }}
-                        <span x-text="displaySymbol" class="font-semibold"></span>
-                    </span>
-                    <span class="text-rose-500">*</span>
-                </label>
-                <x-text-input
-                    id="price"
-                    name="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    class="mt-1 block w-full"
-                    :value="$oldPrice"
-                    x-bind:placeholder="hasDisplay ? ('z. B. 21,50 €/' + displaySymbol) : ''"
-                    required
-                />
-                <p class="mt-1 text-xs text-gray-500" x-show="hasDisplay" x-cloak>
-                    {{ __('admin.product_form.price_hint_natural_unit') }}
-                </p>
-                <x-input-error class="mt-2" :messages="$errors->get('price')" />
-                <x-input-error class="mt-2" :messages="$errors->get('unit_price')" />
-            </div>
-            <div>
-                <x-input-label for="buying_price" :value="__('admin.products.buying_price_default_label')" />
-                <x-text-input id="buying_price" name="buying_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="$buyingPriceValue" />
-                <p class="mt-1 text-xs text-gray-500">{{ __('admin.products.buying_price_default_help') }}</p>
-                <x-input-error class="mt-2" :messages="$errors->get('buying_price')" />
-            
-                {{-- Per-farm buying price overrides (display-unit euros); empty
-                     means the product's default buying price applies. --}}
-                <div class="mt-3 space-y-2" data-testid="product-form-producer-prices" x-show="selected.length > 0" x-cloak>
-                    <p class="text-xs font-medium text-gray-700">{{ __('admin.products.producer_price_label') }}</p>
-                    <template x-for="s in selected" :key="s.id">
-                        <div class="flex items-center gap-3">
-                            <span class="w-48 truncate text-sm text-gray-700" x-text="s.name"></span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                class="block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
-                                x-bind:name="'producer_buying_prices[' + s.id + ']'"
-                                x-model="prices[s.id]"
-                                placeholder="{{ __('admin.products.producer_price_placeholder') }}"
-                            />
-                        </div>
-                    </template>
-                    <p class="text-xs text-gray-500">{{ __('admin.products.producer_price_help') }}</p>
-                    <x-input-error class="mt-2" :messages="$errors->get('producer_buying_prices')" />
-                    @foreach ($errors->get('producer_buying_prices.*') as $producerPriceMessages)
-                        <x-input-error class="mt-2" :messages="$producerPriceMessages" />
-                    @endforeach
-                </div>
-            </div>
-        </div>
-
-        {{-- Optional customer-group (business / B2B) price, in the display unit.
-             Empty = business customers pay the standard price. --}}
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div>
-                <label for="business_price" class="block text-sm font-medium text-gray-700">
-                    {{ __('admin.product_form.business_price_label') }}
-                    <span x-show="hasDisplay" x-cloak>(€/<span x-text="displaySymbol"></span>)</span>
-                </label>
-                <x-text-input id="business_price" name="business_price" type="number" step="0.01" min="0" class="mt-1 block w-full"
-                    :value="old('business_price', $businessPrice !== null ? number_format($businessPrice, 2, '.', '') : '')" />
-                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.business_price_hint') }}</p>
-                <x-input-error class="mt-2" :messages="$errors->get('business_price')" />
-            </div>
-        </div>
-
-        {{-- Grades / variants: same product sold in several qualities, each with
-             its own price (and, via the weekly catalog, its own stock). --}}
-        @php
-            // Per-farm buying prices for each grade, keyed producer id →
-            // display-unit euros; rides along the variant rows so it works
-            // at creation (rows have no ids yet).
-            $variantFarmPrices = [];
-            foreach (($product?->producerVariantPrices ?? collect()) as $gradePriceRow) {
-                $variantFarmPrices[$gradePriceRow->variant_id][$gradePriceRow->producer_id] = number_format($gradePriceRow->buying_price_cents / 100, 2, '.', '');
-            }
-            $variantSeed = old('variants', collect($existingVariants ?? [])->map(fn ($v) => [
-                'id' => $v['id'],
-                'name' => [
-                    'de' => $v['name']['de'] ?? '',
-                    'en' => $v['name']['en'] ?? '',
-                    'fr' => $v['name']['fr'] ?? '',
-                ],
-                'unit_price' => $v['price'] !== null ? number_format((float) $v['price'], 2, '.', '') : '',
-                'business_price' => ($v['business_price'] ?? null) !== null ? number_format((float) $v['business_price'], 2, '.', '') : '',
-                'is_active' => $v['is_active'],
-                'producer_buying_prices' => $variantFarmPrices[$v['id']] ?? [],
-                'tiers' => collect($v['tiers'] ?? [])->map(fn ($t) => [
-                    'id' => $t['id'],
-                    'min_quantity' => rtrim(rtrim(number_format((float) $t['min_quantity'], 3, '.', ''), '0'), '.'),
-                    'unit_price' => number_format((float) $t['unit_price'], 2, '.', ''),
-                ])->values()->all(),
-            ])->values()->all());
-            // Alpine needs an object (not []) so x-model can assign by
-            // farm id — also normalizes rows rehydrated via old().
-            $variantSeed = array_map(function (array $v): array {
-                $v['producer_buying_prices'] = (object) array_filter(
-                    (array) ($v['producer_buying_prices'] ?? []),
-                    fn ($value) => $value !== null && $value !== '',
-                );
-
-                return $v;
-            }, array_values($variantSeed));
-        @endphp
-        <div class="border-t border-gray-100 pt-6" x-data="{
-            variants: @js(array_values($variantSeed)),
-            add() { this.variants.push({ id: '', name: { de: '', en: '', fr: '' }, unit_price: '', business_price: '', is_active: true, producer_buying_prices: {}, tiers: [] }); },
-            remove(i) { this.variants.splice(i, 1); },
-            addTier(i) { this.variants[i].tiers.push({ id: '', min_quantity: '', unit_price: '' }); },
-            removeTier(i, j) { this.variants[i].tiers.splice(j, 1); },
-        }">
-            <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.grades_heading') }}</h3>
-            <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.grades_hint') }}</p>
-
-            <div class="mt-3 space-y-3">
-                <template x-for="(v, i) in variants" :key="i">
-                    <div class="rounded-md border border-gray-200 p-3">
-                        <input type="hidden" :name="'variants['+i+'][id]'" :value="v.id">
-                        <input type="hidden" :name="'variants['+i+'][is_active]'" :value="v.is_active ? 1 : 0">
-                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                            <label class="block text-xs text-gray-600">{{ __('admin.product_form.grades_name') }} (DE)
-                                <input type="text" maxlength="120" x-model="v.name.de" :name="'variants['+i+'][name][de]'" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                            </label>
-                            <label class="block text-xs text-gray-600">{{ __('admin.product_form.grades_name') }} (EN)
-                                <input type="text" maxlength="120" x-model="v.name.en" :name="'variants['+i+'][name][en]'" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                            </label>
-                            <label class="block text-xs text-gray-600">{{ __('admin.product_form.grades_name') }} (FR)
-                                <input type="text" maxlength="120" x-model="v.name.fr" :name="'variants['+i+'][name][fr]'" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                            </label>
-                        </div>
-                        <div class="mt-2 flex flex-wrap items-end gap-4">
-                            <label class="block text-xs text-gray-600">
-                                {{ __('admin.product_form.grades_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
-                                <input type="number" step="0.01" min="0.01" x-model="v.unit_price" :name="'variants['+i+'][unit_price]'"
-                                    x-bind:placeholder="document.getElementById('price')?.value || ''"
-                                    class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                            </label>
-                            <label class="block text-xs text-gray-600">
-                                {{ __('admin.product_form.grades_business_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
-                                <input type="number" step="0.01" min="0.01" x-model="v.business_price" :name="'variants['+i+'][business_price]'"
-                                    class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                            </label>
-                            <label class="flex items-center gap-2 pb-2 text-xs text-gray-700">
-                                <input type="checkbox" x-model="v.is_active" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600">
-                                {{ __('admin.product_form.grades_active') }}
-                            </label>
-                            <button type="button" @click="remove(i)" class="ml-auto pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.grades_remove') }}</button>
-                        </div>
-
-                        {{-- Optional buying price per farm for THIS grade;
-                             empty = the farm's price, then the default. Works
-                             at creation: the row identifies the grade. --}}
-                        <div class="mt-3 border-t border-gray-100 pt-3" data-testid="product-form-grade-farm-prices">
-                            <p class="text-[0.7rem] font-medium uppercase tracking-wide text-gray-500">{{ __('admin.products.producer_price_label') }}</p>
-                            <div class="mt-2 flex flex-wrap gap-3">
-                                <template x-for="s in selected" :key="s.id">
-                                    <label class="block text-xs text-gray-600">
-                                        <span x-text="s.name"></span>
-                                        <input type="number" step="0.01" min="0"
-                                            :name="'variants['+i+'][producer_buying_prices]['+s.id+']'"
-                                            x-model="v.producer_buying_prices[s.id]"
-                                            placeholder="{{ __('admin.products.producer_price_placeholder') }}"
-                                            class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                                    </label>
-                                </template>
-                            </div>
-                        </div>
-
-                        {{-- Per-grade volume tiers --}}
-                        <div class="mt-3 border-t border-gray-100 pt-3">
-                            <p class="text-[0.7rem] font-medium uppercase tracking-wide text-gray-500">{{ __('admin.product_form.tiers_heading') }}</p>
-                            <div class="mt-2 space-y-2">
-                                <template x-for="(t, j) in v.tiers" :key="j">
-                                    <div class="flex flex-wrap items-end gap-3">
-                                        <input type="hidden" :name="'variants['+i+'][tiers]['+j+'][id]'" :value="t.id">
-                                        <label class="block text-xs text-gray-600">
-                                            {{ __('admin.product_form.tiers_min_quantity') }}<span x-show="hasDisplay" x-cloak> (<span x-text="displaySymbol"></span>)</span>
-                                            <input type="number" step="0.001" min="0.001" x-model="t.min_quantity" :name="'variants['+i+'][tiers]['+j+'][min_quantity]'"
-                                                class="mt-1 block w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                                        </label>
-                                        <label class="block text-xs text-gray-600">
-                                            {{ __('admin.product_form.tiers_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
-                                            <input type="number" step="0.01" min="0.01" x-model="t.unit_price" :name="'variants['+i+'][tiers]['+j+'][unit_price]'"
-                                                class="mt-1 block w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                                        </label>
-                                        <button type="button" @click="removeTier(i, j)" class="pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.tiers_remove') }}</button>
-                                    </div>
-                                </template>
-                            </div>
-                            <button type="button" @click="addTier(i)" class="mt-2 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                                + {{ __('admin.product_form.tiers_add') }}
-                            </button>
-                        </div>
-                    </div>
-                </template>
-            </div>
-
-            <button type="button" @click="add()" class="mt-3 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                + {{ __('admin.product_form.grades_add') }}
-            </button>
-        </div>
-
-        {{-- Quantity tiers: volume discounts on the default grade. Threshold +
-             price are entered in the display unit (kg). --}}
-        @php
-            $tierSeed = old('tiers', collect($existingTiers ?? [])->map(fn ($t) => [
-                'id' => $t['id'],
-                'min_quantity' => rtrim(rtrim(number_format((float) $t['min_quantity'], 3, '.', ''), '0'), '.'),
-                'unit_price' => number_format((float) $t['unit_price'], 2, '.', ''),
-            ])->values()->all());
-        @endphp
-        <div class="border-t border-gray-100 pt-6" x-data="{
-            tiers: @js(array_values($tierSeed)),
-            add() { this.tiers.push({ id: '', min_quantity: '', unit_price: '' }); },
-            remove(i) { this.tiers.splice(i, 1); },
-        }">
-            <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.tiers_heading') }}</h3>
-            <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.tiers_hint') }}</p>
-
-            <div class="mt-3 space-y-2">
-                <template x-for="(t, i) in tiers" :key="i">
-                    <div class="flex flex-wrap items-end gap-3 rounded-md border border-gray-200 p-3">
-                        <input type="hidden" :name="'tiers['+i+'][id]'" :value="t.id">
-                        <label class="block text-xs text-gray-600">
-                            {{ __('admin.product_form.tiers_min_quantity') }}<span x-show="hasDisplay" x-cloak> (<span x-text="displaySymbol"></span>)</span>
-                            <input type="number" step="0.001" min="0.001" x-model="t.min_quantity" :name="'tiers['+i+'][min_quantity]'"
-                                class="mt-1 block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                        </label>
-                        <label class="block text-xs text-gray-600">
-                            {{ __('admin.product_form.tiers_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
-                            <input type="number" step="0.01" min="0.01" x-model="t.unit_price" :name="'tiers['+i+'][unit_price]'"
-                                x-bind:placeholder="document.getElementById('price')?.value || ''"
-                                class="mt-1 block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                        </label>
-                        <button type="button" @click="remove(i)" class="ml-auto pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.tiers_remove') }}</button>
-                    </div>
-                </template>
-            </div>
-
-            <button type="button" @click="add()" class="mt-3 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                + {{ __('admin.product_form.tiers_add') }}
-            </button>
-        </div>
-
-        @php
-            $currentVatRate = (int) old('vat_rate_percent', $product?->vat_rate_percent ?? 7);
-        @endphp
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div>
-                <x-input-label for="vat_rate_percent" :value="__('admin.product_form.vat_rate_label')" required />
-                <select
-                    id="vat_rate_percent"
-                    name="vat_rate_percent"
-                    class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
-                    required
-                >
-                    <option value="7" @selected($currentVatRate === 7)>{{ __('admin.product_form.vat_rate_7') }}</option>
-                    <option value="19" @selected($currentVatRate === 19)>{{ __('admin.product_form.vat_rate_19') }}</option>
-                </select>
-                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.vat_rate_hint') }}</p>
-                <x-input-error class="mt-2" :messages="$errors->get('vat_rate_percent')" />
-            </div>
-        </div>
-
-        @php
-            $freshnessValue = old(
-                'default_freshness_window_days',
-                $product?->default_freshness_window_days ?? 1
-            );
-        @endphp
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div>
-                <x-input-label for="default_freshness_window_days" :value="__('admin.product_form.freshness_label')" />
-                <x-text-input
-                    id="default_freshness_window_days"
-                    name="default_freshness_window_days"
-                    type="number"
-                    min="1"
-                    max="60"
-                    step="1"
-                    class="mt-1 block w-full sm:w-40"
-                    :value="$freshnessValue"
-                />
-                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.freshness_hint') }}</p>
-                <x-input-error class="mt-2" :messages="$errors->get('default_freshness_window_days')" />
-            </div>
-        </div>
-
-        {{-- Quantity step — shown only for mass / volume products --}}
         @php
             $quantityStepValue = old('quantity_step', $product?->quantity_step ?? '');
             $globalStep = (int) config('shop.quantity_step', 50);
@@ -1061,6 +778,316 @@
                     <x-input-error class="mt-2" :messages="$errors->get('unit_volume_ml')" />
                 </div>
             </div>
+        </div>
+        @php
+            $freshnessValue = old(
+                'default_freshness_window_days',
+                $product?->default_freshness_window_days ?? 1
+            );
+        @endphp
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <x-input-label for="default_freshness_window_days" :value="__('admin.product_form.freshness_label')" />
+                <x-text-input
+                    id="default_freshness_window_days"
+                    name="default_freshness_window_days"
+                    type="number"
+                    min="1"
+                    max="60"
+                    step="1"
+                    class="mt-1 block w-full sm:w-40"
+                    :value="$freshnessValue"
+                />
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.freshness_hint') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('default_freshness_window_days')" />
+            </div>
+        </div>
+
+        {{-- Quantity step — shown only for mass / volume products --}}
+    </div>
+
+    <div class="rounded border border-gray-200 bg-white p-4 space-y-4">
+        <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.section_prices') }}</h2>
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <label for="price" class="block text-sm font-medium text-gray-700">
+                    <span x-show="!hasDisplay">{{ __('admin.product_form.price_label_pick_unit_first') }}</span>
+                    <span x-show="hasDisplay" x-cloak>
+                        {{ __('admin.product_form.price_label_per') }}
+                        <span x-text="displaySymbol" class="font-semibold"></span>
+                    </span>
+                    <span class="text-rose-500">*</span>
+                </label>
+                <x-text-input
+                    id="price"
+                    name="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="mt-1 block w-full"
+                    :value="$oldPrice"
+                    x-bind:placeholder="hasDisplay ? ('z. B. 21,50 €/' + displaySymbol) : ''"
+                    required
+                />
+                <p class="mt-1 text-xs text-gray-500" x-show="hasDisplay" x-cloak>
+                    {{ __('admin.product_form.price_hint_natural_unit') }}
+                </p>
+                <x-input-error class="mt-2" :messages="$errors->get('price')" />
+                <x-input-error class="mt-2" :messages="$errors->get('unit_price')" />
+            </div>
+            <div>
+                <x-input-label for="buying_price" :value="__('admin.products.buying_price_default_label')" />
+                <x-text-input id="buying_price" name="buying_price" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="$buyingPriceValue" />
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.products.buying_price_default_help') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('buying_price')" />
+            
+                {{-- Per-farm buying price overrides (display-unit euros); empty
+                     means the product's default buying price applies. --}}
+                <div class="mt-3 space-y-2" data-testid="product-form-producer-prices" x-show="selected.length > 1" x-cloak>
+                    <p class="text-xs font-medium text-gray-700">{{ __('admin.products.producer_price_label') }}</p>
+                    <template x-for="s in selected" :key="s.id">
+                        <div class="flex items-center gap-3">
+                            <span class="w-48 truncate text-sm text-gray-700" x-text="s.name"></span>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
+                                x-bind:name="'producer_buying_prices[' + s.id + ']'"
+                                x-model="prices[s.id]"
+                                placeholder="{{ __('admin.products.producer_price_placeholder') }}"
+                            />
+                        </div>
+                    </template>
+                    <p class="text-xs text-gray-500">{{ __('admin.products.producer_price_help') }}</p>
+                    <x-input-error class="mt-2" :messages="$errors->get('producer_buying_prices')" />
+                    @foreach ($errors->get('producer_buying_prices.*') as $producerPriceMessages)
+                        <x-input-error class="mt-2" :messages="$producerPriceMessages" />
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
+        {{-- Optional customer-group (business / B2B) price, in the display unit.
+             Empty = business customers pay the standard price. --}}
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <label for="business_price" class="block text-sm font-medium text-gray-700">
+                    {{ __('admin.product_form.business_price_label') }}
+                    <span x-show="hasDisplay" x-cloak>(€/<span x-text="displaySymbol"></span>)</span>
+                </label>
+                <x-text-input id="business_price" name="business_price" type="number" step="0.01" min="0" class="mt-1 block w-full"
+                    :value="old('business_price', $businessPrice !== null ? number_format($businessPrice, 2, '.', '') : '')" />
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.business_price_hint') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('business_price')" />
+            </div>
+        </div>
+
+        @php
+            $currentVatRate = (int) old('vat_rate_percent', $product?->vat_rate_percent ?? 7);
+        @endphp
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <x-input-label for="vat_rate_percent" :value="__('admin.product_form.vat_rate_label')" required />
+                <select
+                    id="vat_rate_percent"
+                    name="vat_rate_percent"
+                    class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+                    required
+                >
+                    <option value="7" @selected($currentVatRate === 7)>{{ __('admin.product_form.vat_rate_7') }}</option>
+                    <option value="19" @selected($currentVatRate === 19)>{{ __('admin.product_form.vat_rate_19') }}</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.vat_rate_hint') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('vat_rate_percent')" />
+            </div>
+        </div>
+
+        {{-- Quantity tiers: volume discounts on the default grade. Threshold +
+             price are entered in the display unit (kg). --}}
+        @php
+            $tierSeed = old('tiers', collect($existingTiers ?? [])->map(fn ($t) => [
+                'id' => $t['id'],
+                'min_quantity' => rtrim(rtrim(number_format((float) $t['min_quantity'], 3, '.', ''), '0'), '.'),
+                'unit_price' => number_format((float) $t['unit_price'], 2, '.', ''),
+            ])->values()->all());
+        @endphp
+        <div x-data="{
+            tiers: @js(array_values($tierSeed)),
+            add() { this.tiers.push({ id: '', min_quantity: '', unit_price: '' }); },
+            remove(i) { this.tiers.splice(i, 1); },
+        }">
+            <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.tiers_heading') }}</h3>
+            <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.tiers_hint') }}</p>
+
+            <div class="mt-3 space-y-2">
+                <template x-for="(t, i) in tiers" :key="i">
+                    <div class="flex flex-wrap items-end gap-3 rounded-md border border-gray-200 p-3">
+                        <input type="hidden" :name="'tiers['+i+'][id]'" :value="t.id">
+                        <label class="block text-xs text-gray-600">
+                            {{ __('admin.product_form.tiers_min_quantity') }}<span x-show="hasDisplay" x-cloak> (<span x-text="displaySymbol"></span>)</span>
+                            <input type="number" step="0.001" min="0.001" x-model="t.min_quantity" :name="'tiers['+i+'][min_quantity]'"
+                                class="mt-1 block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        </label>
+                        <label class="block text-xs text-gray-600">
+                            {{ __('admin.product_form.tiers_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                            <input type="number" step="0.01" min="0.01" x-model="t.unit_price" :name="'tiers['+i+'][unit_price]'"
+                                x-bind:placeholder="document.getElementById('price')?.value || ''"
+                                class="mt-1 block w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        </label>
+                        <button type="button" @click="remove(i)" class="ml-auto pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.tiers_remove') }}</button>
+                    </div>
+                </template>
+            </div>
+
+            <button type="button" @click="add()" class="mt-3 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                + {{ __('admin.product_form.tiers_add') }}
+            </button>
+        </div>
+
+        <p class="text-xs text-gray-500">
+            {{ __('admin.product_form.pricing_calendar_hint') }}
+            @if ($isEdit)
+                <a href="{{ route('app.admin.products.pricing', $product) }}" class="font-medium text-emerald-700 hover:underline">{{ __('admin.product_form.pricing_calendar_link') }} →</a>
+            @endif
+        </p>
+    </div>
+
+    <div class="rounded border border-gray-200 bg-white p-4 space-y-4">
+        {{-- Grades / variants: same product sold in several qualities, each with
+             its own price (and, via the weekly catalog, its own stock). --}}
+        @php
+            // Per-farm buying prices for each grade, keyed producer id →
+            // display-unit euros; rides along the variant rows so it works
+            // at creation (rows have no ids yet).
+            $variantFarmPrices = [];
+            foreach (($product?->producerVariantPrices ?? collect()) as $gradePriceRow) {
+                $variantFarmPrices[$gradePriceRow->variant_id][$gradePriceRow->producer_id] = number_format($gradePriceRow->buying_price_cents / 100, 2, '.', '');
+            }
+            $variantSeed = old('variants', collect($existingVariants ?? [])->map(fn ($v) => [
+                'id' => $v['id'],
+                'name' => [
+                    'de' => $v['name']['de'] ?? '',
+                    'en' => $v['name']['en'] ?? '',
+                    'fr' => $v['name']['fr'] ?? '',
+                ],
+                'unit_price' => $v['price'] !== null ? number_format((float) $v['price'], 2, '.', '') : '',
+                'business_price' => ($v['business_price'] ?? null) !== null ? number_format((float) $v['business_price'], 2, '.', '') : '',
+                'is_active' => $v['is_active'],
+                'producer_buying_prices' => $variantFarmPrices[$v['id']] ?? [],
+                'tiers' => collect($v['tiers'] ?? [])->map(fn ($t) => [
+                    'id' => $t['id'],
+                    'min_quantity' => rtrim(rtrim(number_format((float) $t['min_quantity'], 3, '.', ''), '0'), '.'),
+                    'unit_price' => number_format((float) $t['unit_price'], 2, '.', ''),
+                ])->values()->all(),
+            ])->values()->all());
+            // Alpine needs an object (not []) so x-model can assign by
+            // farm id — also normalizes rows rehydrated via old().
+            $variantSeed = array_map(function (array $v): array {
+                $v['producer_buying_prices'] = (object) array_filter(
+                    (array) ($v['producer_buying_prices'] ?? []),
+                    fn ($value) => $value !== null && $value !== '',
+                );
+
+                return $v;
+            }, array_values($variantSeed));
+        @endphp
+        <div x-data="{
+            variants: @js(array_values($variantSeed)),
+            add() { this.variants.push({ id: '', name: { de: '', en: '', fr: '' }, unit_price: '', business_price: '', is_active: true, producer_buying_prices: {}, tiers: [] }); },
+            remove(i) { this.variants.splice(i, 1); },
+            addTier(i) { this.variants[i].tiers.push({ id: '', min_quantity: '', unit_price: '' }); },
+            removeTier(i, j) { this.variants[i].tiers.splice(j, 1); },
+        }">
+            <h3 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.grades_heading') }}</h3>
+            <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.grades_hint') }}</p>
+
+            <div class="mt-3 space-y-3">
+                <template x-for="(v, i) in variants" :key="i">
+                    <div class="rounded-md border border-gray-200 p-3">
+                        <input type="hidden" :name="'variants['+i+'][id]'" :value="v.id">
+                        <input type="hidden" :name="'variants['+i+'][is_active]'" :value="v.is_active ? 1 : 0">
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <label class="block text-xs text-gray-600">{{ __('admin.product_form.grades_name') }} (DE)
+                                <input type="text" maxlength="120" x-model="v.name.de" :name="'variants['+i+'][name][de]'" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                            <label class="block text-xs text-gray-600">{{ __('admin.product_form.grades_name') }} (EN)
+                                <input type="text" maxlength="120" x-model="v.name.en" :name="'variants['+i+'][name][en]'" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                            <label class="block text-xs text-gray-600">{{ __('admin.product_form.grades_name') }} (FR)
+                                <input type="text" maxlength="120" x-model="v.name.fr" :name="'variants['+i+'][name][fr]'" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                        </div>
+                        <div class="mt-2 flex flex-wrap items-end gap-4">
+                            <label class="block text-xs text-gray-600">
+                                {{ __('admin.product_form.grades_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                                <input type="number" step="0.01" min="0.01" x-model="v.unit_price" :name="'variants['+i+'][unit_price]'"
+                                    x-bind:placeholder="document.getElementById('price')?.value || ''"
+                                    class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                            <label class="block text-xs text-gray-600">
+                                {{ __('admin.product_form.grades_business_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                                <input type="number" step="0.01" min="0.01" x-model="v.business_price" :name="'variants['+i+'][business_price]'"
+                                    class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                            <label class="flex items-center gap-2 pb-2 text-xs text-gray-700">
+                                <input type="checkbox" x-model="v.is_active" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600">
+                                {{ __('admin.product_form.grades_active') }}
+                            </label>
+                            <button type="button" @click="remove(i)" class="ml-auto pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.grades_remove') }}</button>
+                        </div>
+
+                        {{-- Optional buying price per farm for THIS grade;
+                             empty = the farm's price, then the default. Works
+                             at creation: the row identifies the grade. --}}
+                        <div class="mt-3 border-t border-gray-100 pt-3" data-testid="product-form-grade-farm-prices" x-show="selected.length > 1" x-cloak>
+                            <p class="text-[0.7rem] font-medium uppercase tracking-wide text-gray-500">{{ __('admin.products.producer_price_label') }}</p>
+                            <div class="mt-2 flex flex-wrap gap-3">
+                                <template x-for="s in selected" :key="s.id">
+                                    <label class="block text-xs text-gray-600">
+                                        <span x-text="s.name"></span>
+                                        <input type="number" step="0.01" min="0"
+                                            :name="'variants['+i+'][producer_buying_prices]['+s.id+']'"
+                                            x-model="v.producer_buying_prices[s.id]"
+                                            placeholder="{{ __('admin.products.producer_price_placeholder') }}"
+                                            class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                    </label>
+                                </template>
+                            </div>
+                        </div>
+
+                        {{-- Per-grade volume tiers --}}
+                        <div class="mt-3 border-t border-gray-100 pt-3">
+                            <p class="text-[0.7rem] font-medium uppercase tracking-wide text-gray-500">{{ __('admin.product_form.tiers_heading') }}</p>
+                            <div class="mt-2 space-y-2">
+                                <template x-for="(t, j) in v.tiers" :key="j">
+                                    <div class="flex flex-wrap items-end gap-3">
+                                        <input type="hidden" :name="'variants['+i+'][tiers]['+j+'][id]'" :value="t.id">
+                                        <label class="block text-xs text-gray-600">
+                                            {{ __('admin.product_form.tiers_min_quantity') }}<span x-show="hasDisplay" x-cloak> (<span x-text="displaySymbol"></span>)</span>
+                                            <input type="number" step="0.001" min="0.001" x-model="t.min_quantity" :name="'variants['+i+'][tiers]['+j+'][min_quantity]'"
+                                                class="mt-1 block w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                        </label>
+                                        <label class="block text-xs text-gray-600">
+                                            {{ __('admin.product_form.tiers_price') }}<span x-show="hasDisplay" x-cloak> (€/<span x-text="displaySymbol"></span>)</span>
+                                            <input type="number" step="0.01" min="0.01" x-model="t.unit_price" :name="'variants['+i+'][tiers]['+j+'][unit_price]'"
+                                                class="mt-1 block w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                        </label>
+                                        <button type="button" @click="removeTier(i, j)" class="pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.tiers_remove') }}</button>
+                                    </div>
+                                </template>
+                            </div>
+                            <button type="button" @click="addTier(i)" class="mt-2 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                                + {{ __('admin.product_form.tiers_add') }}
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <button type="button" @click="add()" class="mt-3 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                + {{ __('admin.product_form.grades_add') }}
+            </button>
         </div>
 
     </div>
@@ -1224,86 +1251,37 @@
         <x-input-error class="mt-2" :messages="$errors->get('pairings')" />
     </div>
 
-    <div x-data="{ seasonal: {{ old('is_seasonal', $product?->is_seasonal) ? 'true' : 'false' }} }">
-    <div class="flex flex-col gap-2 sm:flex-row sm:gap-8">
-        <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_seasonal" value="1" x-model="seasonal" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_seasonal', $product?->is_seasonal))>
-            <span class="text-sm text-gray-700">{{ __('Seasonal') }}</span>
-        </label>
-        {{-- Both publication flags default to FALSE on create — operators
-             must explicitly opt in once the product is fully filled out.
-             On edit, fall back to whatever's stored on the row. --}}
-        <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_available" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_available', $product?->is_available ?? false))>
-            <span class="text-sm text-gray-700">{{ __('Available in shop') }}</span>
-        </label>
-        <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_published" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_published', $product?->is_published ?? false))>
-            <span class="text-sm text-gray-700">{{ __('Published') }}</span>
-        </label>
-        <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_egg_addon" value="1" class="rounded border-gray-300 text-amber-600 shadow-sm focus:ring-amber-600" @checked(old('is_egg_addon', $product?->is_egg_addon))>
-            <span class="text-sm text-gray-700">{{ __('admin.products.is_egg_addon_label') }}</span>
-        </label>
-        <label class="inline-flex items-center gap-2">
-            <input type="checkbox" name="is_test" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_test', $product?->is_test))>
-            <span class="text-sm text-gray-700">{{ __('Test data') }}</span>
-        </label>
-    </div>
-    <x-input-error class="mt-2" :messages="$errors->get('is_seasonal')" />
-
-    {{-- B2B Anfragen visibility override: 'auto' follows the season window,
-         'always' features the product there even out of season/stock
-         (sourceable gap-fillers), 'never' hides it from the request list. --}}
-    <div class="mt-4 max-w-md">
-        <label for="request_visibility" class="block text-sm font-medium text-gray-700">{{ __('products.request_visibility_label') }}</label>
-        <select id="request_visibility" name="request_visibility" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
-            @foreach (['auto', 'always', 'never'] as $opt)
-                <option value="{{ $opt }}" @selected(old('request_visibility', $product?->request_visibility ?? 'auto') === $opt)>{{ __('products.request_visibility_'.$opt) }}</option>
-            @endforeach
-        </select>
-        <p class="mt-1 text-xs text-gray-500">{{ __('products.request_visibility_hint') }}</p>
-        <x-input-error class="mt-2" :messages="$errors->get('request_visibility')" />
-    </div>
-
-    {{-- Recurring yearly season window (month + day). Only shown when the
-         product is flagged seasonal; the window repeats every year and may
-         wrap the year boundary (e.g. Nov → Feb). Consumed by the restaurant
-         (B2B) shop, not the consumer storefront. --}}
-    <div x-show="seasonal" x-cloak class="mt-3 rounded-md border border-gray-200 bg-gray-50 p-4">
-        <p class="text-sm font-semibold text-gray-800">{{ __('product.season_window_label') }}</p>
-        <p class="mt-1 text-xs text-gray-600">{{ __('product.season_hint') }}</p>
-        @php
-            $seasonMonths = [];
-            for ($m = 1; $m <= 12; $m++) {
-                $seasonMonths[$m] = \Illuminate\Support\Carbon::create(2024, $m, 1)->locale(app()->getLocale())->isoFormat('MMMM');
-            }
-        @endphp
-        <div class="mt-3 grid gap-4 sm:grid-cols-2">
-            @foreach (['start' => __('product.season_from'), 'end' => __('product.season_to')] as $key => $label)
-                <div>
-                    <label class="block text-xs font-medium uppercase tracking-wide text-gray-500">{{ $label }}</label>
-                    <div class="mt-1 flex gap-2">
-                        <select name="season_{{ $key }}_month" class="block w-full rounded border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600 text-sm">
-                            <option value="">{{ __('product.season_month') }}</option>
-                            @foreach ($seasonMonths as $num => $name)
-                                <option value="{{ $num }}" @selected((int) old('season_'.$key.'_month', $product?->{'season_'.$key.'_month'}) === $num)>{{ $name }}</option>
-                            @endforeach
-                        </select>
-                        <input type="number" min="1" max="31" name="season_{{ $key }}_day"
-                               placeholder="{{ __('product.season_day') }}"
-                               value="{{ old('season_'.$key.'_day', $product?->{'season_'.$key.'_day'}) }}"
-                               class="w-24 rounded border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600 text-sm">
-                    </div>
-                    <x-input-error class="mt-1" :messages="$errors->get('season_'.$key.'_month')" />
-                    <x-input-error class="mt-1" :messages="$errors->get('season_'.$key.'_day')" />
-                </div>
-            @endforeach
-        </div>
-    </div>
-    </div>
-
-    <p class="text-xs text-amber-700 -mt-1 sm:col-span-full">{{ __('admin.products.is_egg_addon_hint') }}</p>
+    <div class="rounded border border-gray-200 bg-white p-4 space-y-4">
+        <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.section_visibility') }}</h2>
+        <div x-data="{
+            seasonal: {{ old('is_seasonal', $product?->is_seasonal) ? 'true' : 'false' }},
+            published: {{ old('is_published', $product?->is_published ?? false) ? 'true' : 'false' }},
+            available: {{ old('is_available', $product?->is_available ?? false) ? 'true' : 'false' }},
+        }">
+            {{-- Both publication flags default to FALSE on create: operators
+                 opt in once the product is fully filled out. The shop needs
+                 BOTH (visibleInCatalog), spelled out in the explainer. --}}
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label class="flex items-start gap-2">
+                    <input type="checkbox" name="is_published" value="1" x-model="published" class="mt-0.5 rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_published', $product?->is_published ?? false))>
+                    <span>
+                        <span class="block text-sm text-gray-700">{{ __('Published') }}</span>
+                        <span class="block text-xs text-gray-500">{{ __('admin.products.visibility_published_hint') }}</span>
+                    </span>
+                </label>
+                <label class="flex items-start gap-2">
+                    <input type="checkbox" name="is_available" value="1" x-model="available" class="mt-0.5 rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_available', $product?->is_available ?? false))>
+                    <span>
+                        <span class="block text-sm text-gray-700">{{ __('Available in shop') }}</span>
+                        <span class="block text-xs text-gray-500">{{ __('admin.products.visibility_available_hint') }}</span>
+                    </span>
+                </label>
+            </div>
+            <p x-show="!published || !available" x-cloak class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" data-testid="product-visibility-warning">
+                {{ __('admin.products.visibility_hidden_warning') }}
+            </p>
+            <x-input-error class="mt-2" :messages="$errors->get('is_published')" />
+            <x-input-error class="mt-2" :messages="$errors->get('is_available')" />
 
     {{-- F5 (UX notes): the boolean trio (Published + Available + Seasonal)
          interacts non-trivially. The shop scope `visibleInCatalog` requires
@@ -1349,11 +1327,85 @@
             <p class="text-xs text-gray-600">{{ __('admin.products.visibility_explainer_seasonal_hint') }}</p>
         </div>
     </details>
-    <x-input-error class="mt-2" :messages="$errors->get('is_available')" />
-    <x-input-error class="mt-2" :messages="$errors->get('is_published')" />
-    <x-input-error class="mt-2" :messages="$errors->get('is_egg_addon')" />
-    <x-input-error class="mt-2" :messages="$errors->get('is_test')" />
 
+            <div class="mt-4 border-t border-gray-100 pt-4">
+                <label class="inline-flex items-center gap-2">
+                    <input type="checkbox" name="is_seasonal" value="1" x-model="seasonal" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_seasonal', $product?->is_seasonal))>
+                    <span class="text-sm text-gray-700">{{ __('Seasonal') }}</span>
+                </label>
+                <x-input-error class="mt-2" :messages="$errors->get('is_seasonal')" />
+    {{-- Recurring yearly season window (month + day). Only shown when the
+         product is flagged seasonal; the window repeats every year and may
+         wrap the year boundary (e.g. Nov → Feb). Consumed by the restaurant
+         (B2B) shop, not the consumer storefront. --}}
+    <div x-show="seasonal" x-cloak class="mt-3 rounded-md border border-gray-200 bg-gray-50 p-4">
+        <p class="text-sm font-semibold text-gray-800">{{ __('product.season_window_label') }}</p>
+        <p class="mt-1 text-xs text-gray-600">{{ __('product.season_hint') }}</p>
+        @php
+            $seasonMonths = [];
+            for ($m = 1; $m <= 12; $m++) {
+                $seasonMonths[$m] = \Illuminate\Support\Carbon::create(2024, $m, 1)->locale(app()->getLocale())->isoFormat('MMMM');
+            }
+        @endphp
+        <div class="mt-3 grid gap-4 sm:grid-cols-2">
+            @foreach (['start' => __('product.season_from'), 'end' => __('product.season_to')] as $key => $label)
+                <div>
+                    <label class="block text-xs font-medium uppercase tracking-wide text-gray-500">{{ $label }}</label>
+                    <div class="mt-1 flex gap-2">
+                        <select name="season_{{ $key }}_month" class="block w-full rounded border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600 text-sm">
+                            <option value="">{{ __('product.season_month') }}</option>
+                            @foreach ($seasonMonths as $num => $name)
+                                <option value="{{ $num }}" @selected((int) old('season_'.$key.'_month', $product?->{'season_'.$key.'_month'}) === $num)>{{ $name }}</option>
+                            @endforeach
+                        </select>
+                        <input type="number" min="1" max="31" name="season_{{ $key }}_day"
+                               placeholder="{{ __('product.season_day') }}"
+                               value="{{ old('season_'.$key.'_day', $product?->{'season_'.$key.'_day'}) }}"
+                               class="w-24 rounded border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600 text-sm">
+                    </div>
+                    <x-input-error class="mt-1" :messages="$errors->get('season_'.$key.'_month')" />
+                    <x-input-error class="mt-1" :messages="$errors->get('season_'.$key.'_day')" />
+                </div>
+            @endforeach
+        </div>
+    </div>
+    {{-- B2B Anfragen visibility override: 'auto' follows the season window,
+         'always' features the product there even out of season/stock
+         (sourceable gap-fillers), 'never' hides it from the request list. --}}
+    <div class="mt-4 max-w-md">
+        <label for="request_visibility" class="block text-sm font-medium text-gray-700">{{ __('products.request_visibility_label') }}</label>
+        <select id="request_visibility" name="request_visibility" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+            @foreach (['auto', 'always', 'never'] as $opt)
+                <option value="{{ $opt }}" @selected(old('request_visibility', $product?->request_visibility ?? 'auto') === $opt)>{{ __('products.request_visibility_'.$opt) }}</option>
+            @endforeach
+        </select>
+        <p class="mt-1 text-xs text-gray-500">{{ __('products.request_visibility_hint') }}</p>
+        <x-input-error class="mt-2" :messages="$errors->get('request_visibility')" />
+    </div>
+            </div>
+
+            {{-- System flags: not customer-facing content. --}}
+            <div class="mt-4 border-t border-gray-100 pt-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ __('admin.product_form.section_system') }}</p>
+                <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:gap-8">
+                    <label class="inline-flex items-center gap-2">
+                        <input type="checkbox" name="is_egg_addon" value="1" class="rounded border-gray-300 text-amber-600 shadow-sm focus:ring-amber-600" @checked(old('is_egg_addon', $product?->is_egg_addon))>
+                        <span class="text-sm text-gray-700">{{ __('admin.products.is_egg_addon_label') }}</span>
+                    </label>
+                    <label class="inline-flex items-center gap-2">
+                        <input type="checkbox" name="is_test" value="1" class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_test', $product?->is_test))>
+                        <span class="text-sm text-gray-700">{{ __('Test data') }}</span>
+                    </label>
+                </div>
+                <p class="mt-1 text-xs text-amber-700">{{ __('admin.products.is_egg_addon_hint') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('is_egg_addon')" />
+                <x-input-error class="mt-2" :messages="$errors->get('is_test')" />
+            </div>
+        </div>
+    </div>
+
+    <div class="rounded border border-gray-200 bg-white p-4 space-y-4">
+        <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.section_images') }}</h2>
     <div
         x-data="{
             previewUrl: null,
@@ -1435,8 +1487,15 @@
         </div>
     </div>
 
-    <div class="flex items-center gap-4">
-        <x-primary-button>{{ $isEdit ? __('Save') : __('Create product') }}</x-primary-button>
-        <a href="{{ route('app.admin.products.index') }}" class="text-sm text-gray-600 hover:text-gray-900 underline">{{ __('Cancel') }}</a>
+    </div>
+
+    <div class="sticky bottom-0 z-10 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <div class="flex items-center gap-4">
+            <x-primary-button>{{ $isEdit ? __('Save') : __('Create product') }}</x-primary-button>
+            <a href="{{ route('app.admin.products.index') }}" class="text-sm text-gray-600 hover:text-gray-900 underline">{{ __('Cancel') }}</a>
+            @if ($errors->any())
+                <span class="text-sm text-rose-600">{{ trans_choice('admin.product_form.error_summary', $errors->count(), ['count' => $errors->count()]) }}</span>
+            @endif
+        </div>
     </div>
 </form>

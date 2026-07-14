@@ -148,14 +148,27 @@ class ProductController extends Controller
 
         DB::transaction(function () use ($product, $translations): void {
             foreach ($this->locales() as $locale) {
+                // EN/FR are optional: a locale without a name is not stored
+                // (an existing row is removed), so the storefront falls back
+                // to the German texts via Product::translationFor().
+                $row = (array) ($translations[$locale] ?? []);
+                if ($locale !== 'de' && trim((string) ($row['name'] ?? '')) === '') {
+                    ProductTranslation::query()
+                        ->where('product_id', $product->id)
+                        ->where('locale', $locale)
+                        ->delete();
+
+                    continue;
+                }
+
                 ProductTranslation::query()->updateOrCreate(
                     ['product_id' => $product->id, 'locale' => $locale],
                     [
-                        'name' => $translations[$locale]['name'],
-                        'origin' => $translations[$locale]['origin'],
-                        'variety' => $translations[$locale]['variety'],
-                        'taste_profile' => $translations[$locale]['taste_profile'],
-                        'short_description' => $translations[$locale]['short_description'],
+                        'name' => (string) ($row['name'] ?? ''),
+                        'origin' => (string) ($row['origin'] ?? ''),
+                        'variety' => (string) ($row['variety'] ?? ''),
+                        'taste_profile' => (string) ($row['taste_profile'] ?? ''),
+                        'short_description' => (string) ($row['short_description'] ?? ''),
                     ]
                 );
             }
@@ -218,14 +231,27 @@ class ProductController extends Controller
 
         DB::transaction(function () use ($product, $translations): void {
             foreach ($this->locales() as $locale) {
+                // EN/FR are optional: a locale without a name is not stored
+                // (an existing row is removed), so the storefront falls back
+                // to the German texts via Product::translationFor().
+                $row = (array) ($translations[$locale] ?? []);
+                if ($locale !== 'de' && trim((string) ($row['name'] ?? '')) === '') {
+                    ProductTranslation::query()
+                        ->where('product_id', $product->id)
+                        ->where('locale', $locale)
+                        ->delete();
+
+                    continue;
+                }
+
                 ProductTranslation::query()->updateOrCreate(
                     ['product_id' => $product->id, 'locale' => $locale],
                     [
-                        'name' => $translations[$locale]['name'],
-                        'origin' => $translations[$locale]['origin'],
-                        'variety' => $translations[$locale]['variety'],
-                        'taste_profile' => $translations[$locale]['taste_profile'],
-                        'short_description' => $translations[$locale]['short_description'],
+                        'name' => (string) ($row['name'] ?? ''),
+                        'origin' => (string) ($row['origin'] ?? ''),
+                        'variety' => (string) ($row['variety'] ?? ''),
+                        'taste_profile' => (string) ($row['taste_profile'] ?? ''),
+                        'short_description' => (string) ($row['short_description'] ?? ''),
                     ]
                 );
             }
