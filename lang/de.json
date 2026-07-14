@@ -2022,6 +2022,8 @@
     "admin.products.producer_price_unknown_farm": "Einkaufspreise können nur für ausgewählte Höfe gesetzt werden.",
     "admin.products.buying_price_default_label": "Standard-Einkaufspreis",
     "admin.products.buying_price_default_help": "Was wir den Höfen standardmäßig zahlen. Preise je Hof darunter überschreiben ihn. Wird für die Margenauswertung verwendet.",
+    "admin.products.producer_grade_price_label": "Einkaufspreis je Sorte für diesen Hof",
+    "admin.products.producer_grade_price_unknown": "Sortenpreise können nur für gespeicherte Sorten dieses Produkts gesetzt werden.",
     "admin.products.producers_label": "Höfe",
     "admin.products.producer_primary_badge": "Primär",
     "admin.products.producer_make_primary": "Als Primärhof festlegen",

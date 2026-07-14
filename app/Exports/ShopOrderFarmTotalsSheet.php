@@ -257,6 +257,15 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
             $pivotPrices[(int) $row->product_id][(int) $row->producer_id] = (int) $row->buying_price_cents;
         }
 
+        // Grade-level overrides: [pid][vkey][producerId] => cents.
+        $variantPrices = [];
+        $variantRows = DB::table('product_producer_variant_prices')
+            ->whereIn('product_id', array_keys($totals))
+            ->get(['product_id', 'producer_id', 'variant_id', 'buying_price_cents']);
+        foreach ($variantRows as $row) {
+            $variantPrices[(int) $row->product_id][(int) $row->variant_id][(int) $row->producer_id] = (int) $row->buying_price_cents;
+        }
+
         foreach ($buckets as $key => $bucket) {
             if (! str_starts_with($key, 'p')) {
                 continue; // custom lines keep the no-producer label
@@ -285,9 +294,10 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
             $priced = true;
             foreach ($shares as $producerId => $qtyCanonical) {
                 $qtyDisplay = $factor > 0 ? $qtyCanonical / $factor : $qtyCanonical;
-                $price = ($producerId > 0 && isset($pivotPrices[$pid][$producerId]))
-                    ? round($pivotPrices[$pid][$producerId] / 100, 4)
-                    : $defaultPerUnit;
+                $cents = $producerId > 0
+                    ? ($variantPrices[$pid][$vkey][$producerId] ?? $pivotPrices[$pid][$producerId] ?? null)
+                    : null;
+                $price = $cents !== null ? round($cents / 100, 4) : $defaultPerUnit;
                 if ($price === null) {
                     $priced = false;
                     break;

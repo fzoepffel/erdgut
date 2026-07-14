@@ -127,7 +127,7 @@ class RestaurantCatalogService
 
         $products = Product::query()
             ->visibleInCatalog()
-            ->with(['translations', 'producer.translations', 'producers.translations', 'images', 'variants', 'priceRules'])
+            ->with(['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices', 'images', 'variants', 'priceRules'])
             ->get();
 
         $matrix = $this->inventory->availabilityMatrix($products, $date, $date, ShopStockAudience::BusinessTrade);
@@ -155,13 +155,49 @@ class RestaurantCatalogService
                     return null;
                 }
 
-                $row = $this->row($product, $date, $inStock, $requestable);
-                $row['producerLabel'] = $this->producerLabel($product, $inStock, $producersOnDate[$product->id] ?? []);
+                $sharesByVkey = $producersOnDate[$product->id] ?? [];
+                $row = $this->row($product, $date, $inStock, $requestable, $sharesByVkey);
+                $row['producerLabel'] = $this->producerLabel(
+                    $product,
+                    $inStock,
+                    ProducerAllocationService::unionShares($sharesByVkey),
+                );
 
                 return $row;
             })
             ->filter()
             ->values();
+    }
+
+    /**
+     * Farm label for ONE grade from its allocation shares (already qty
+     * desc). Empty when the grade has no shares; the view then falls
+     * back to the product-level label.
+     *
+     * @param  array<int, float>  $shares  [producerId => remainingQty]
+     */
+    private function gradeProducerLabel(Product $product, array $shares): string
+    {
+        if ($shares === []) {
+            return '';
+        }
+
+        $namesById = [];
+        foreach ($product->producers as $producer) {
+            $namesById[$producer->id] = (string) $producer->name;
+        }
+        if ($product->producer !== null) {
+            $namesById[$product->producer->id] ??= (string) $product->producer->name;
+        }
+
+        $names = [];
+        foreach (array_keys($shares) as $producerId) {
+            if (isset($namesById[$producerId])) {
+                $names[] = $namesById[$producerId];
+            }
+        }
+
+        return ProducerLabels::label($names);
     }
 
     /**
@@ -205,7 +241,7 @@ class RestaurantCatalogService
      *     displayUnit: string, priceFrom: bool
      * }
      */
-    private function row(Product $product, Carbon $date, bool $inStock, bool $inSeason): array
+    private function row(Product $product, Carbon $date, bool $inStock, bool $inSeason, array $sharesByVkey = []): array
     {
         $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit() ?? 'piece';
         $factor = $product->unit?->canonicalUnitsPerDisplay($displayUnit) ?? 1;
@@ -240,7 +276,7 @@ class RestaurantCatalogService
             'vatRate' => $vatRate,
             'displayUnit' => $displayUnit,
             'priceFrom' => $priceFrom,
-            'grades' => $this->gradesFor($product, $date, $displayUnit, $factor, $vatRate, $inSeason),
+            'grades' => $this->gradesFor($product, $date, $displayUnit, $factor, $vatRate, $inSeason, $sharesByVkey),
         ];
     }
 
@@ -253,15 +289,16 @@ class RestaurantCatalogService
      * non-seasonal product are dropped (nothing to order).
      *
      * @return list<array{key:string, variantId:?int, label:?string, netPerDisplay:float,
-     *     step:int, cap:?float, displayFactor:int, unitSymbol:string, unitKind:string}>
+     *     step:int, cap:?float, displayFactor:int, unitSymbol:string, unitKind:string,
+     *     producerLabel:string}>
      */
-    private function gradesFor(Product $product, Carbon $date, string $displayUnit, int $factor, int $vatRate, bool $inSeason): array
+    private function gradesFor(Product $product, Carbon $date, string $displayUnit, int $factor, int $vatRate, bool $inSeason, array $sharesByVkey = []): array
     {
         $step = max(1, $product->effectiveQuantityStep());
         $unitSymbol = ProductUnit::displaySymbol($displayUnit);
         $unitKind = $product->unit?->value ?? 'piece';
 
-        $build = function (?int $variantId, ?string $label, float $grossCanonical) use ($product, $date, $factor, $vatRate, $step, $unitSymbol, $unitKind, $inSeason): ?array {
+        $build = function (?int $variantId, ?string $label, float $grossCanonical) use ($product, $date, $factor, $vatRate, $step, $unitSymbol, $unitKind, $inSeason, $sharesByVkey): ?array {
             $remaining = $this->inventory->remainingForGrade($product, $date, $variantId, ShopStockAudience::BusinessTrade);
             // `cap` is ALWAYS the real floored stock (the shop's hard maximum) —
             // including for seasonal products that happen to be in stock. A
@@ -286,6 +323,9 @@ class RestaurantCatalogService
                 'displayFactor' => $factor,
                 'unitSymbol' => $unitSymbol,
                 'unitKind' => $unitKind,
+                // Grade-exact farm label; empty shares (request track, no
+                // batches) fall back to the product-level label in the view.
+                'producerLabel' => $this->gradeProducerLabel($product, $sharesByVkey[$variantId ?? 0] ?? []),
             ];
         };
 

@@ -94,7 +94,7 @@ class PriceResolver
         }
 
         // Margin floor guardrail: never resolve below buying price + min margin.
-        $floor = $this->marginFloor($product);
+        $floor = $this->marginFloor($product, $variantId);
         if ($floor !== null && $price < $floor) {
             Log::warning('PriceResolver clamped a price to the margin floor.', [
                 'product_id' => $product->id,
@@ -166,9 +166,9 @@ class PriceResolver
      * per-farm overrides and the product default), so the floor holds no
      * matter which farm ends up delivering.
      */
-    private function marginFloor(Product $product): ?float
+    private function marginFloor(Product $product, ?int $variantId = null): ?float
     {
-        $buyingCents = $product->maxBuyingPriceCents();
+        $buyingCents = $product->maxBuyingPriceCentsForVariant($variantId);
         if ($buyingCents === null) {
             return null;
         }

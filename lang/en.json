@@ -2022,6 +2022,8 @@
     "admin.products.producer_price_unknown_farm": "Buying prices can only be set for selected farms.",
     "admin.products.buying_price_default_label": "Default buying price",
     "admin.products.buying_price_default_help": "What we pay farms by default. Per-farm prices below override it. Used for margin reporting.",
+    "admin.products.producer_grade_price_label": "Buying price per grade for this farm",
+    "admin.products.producer_grade_price_unknown": "Grade prices can only be set for saved grades of this product.",
     "admin.products.producers_label": "Farms",
     "admin.products.producer_primary_badge": "Primary",
     "admin.products.producer_make_primary": "Make this the primary farm",

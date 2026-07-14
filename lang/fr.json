@@ -2022,6 +2022,8 @@
     "admin.products.producer_price_unknown_farm": "Les prix d'achat ne peuvent être définis que pour les fermes sélectionnées.",
     "admin.products.buying_price_default_label": "Prix d'achat standard",
     "admin.products.buying_price_default_help": "Ce que nous payons aux fermes par défaut. Les prix par ferme ci-dessous le remplacent. Utilisé pour le calcul des marges.",
+    "admin.products.producer_grade_price_label": "Prix d'achat par calibre pour cette ferme",
+    "admin.products.producer_grade_price_unknown": "Les prix par calibre ne peuvent être définis que pour les calibres enregistrés de ce produit.",
     "admin.products.producers_label": "Fermes",
     "admin.products.producer_primary_badge": "Principale",
     "admin.products.producer_make_primary": "Définir comme ferme principale",

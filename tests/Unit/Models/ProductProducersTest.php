@@ -4,6 +4,8 @@ namespace Tests\Unit\Models;
 
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductProducerVariantPrice;
+use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -80,6 +82,51 @@ class ProductProducersTest extends TestCase
         $product->forceFill(['buying_price_cents' => null])->save();
         $product->producers()->updateExistingPivot($farmB, ['buying_price_cents' => null]);
         $this->assertNull(Product::query()->findOrFail($product->id)->maxBuyingPriceEur());
+    }
+
+    public function test_grade_price_chain_resolves_override_then_farm_then_default(): void
+    {
+        $product = Product::factory()->create(['buying_price_cents' => 200]);
+        $farm = (int) $product->producer_id;
+        $variant = ProductVariant::factory()->create(['product_id' => $product->id]);
+        $product->producers()->updateExistingPivot($farm, ['buying_price_cents' => 250]);
+
+        // No grade row yet: farm price wins for the grade.
+        $fresh = Product::query()->findOrFail($product->id);
+        $this->assertSame(250, $fresh->buyingPriceCentsForProducer($farm, $variant->id));
+
+        ProductProducerVariantPrice::create([
+            'product_id' => $product->id, 'producer_id' => $farm,
+            'variant_id' => $variant->id, 'buying_price_cents' => 320,
+        ]);
+
+        // Grade override wins; with and without loaded relations.
+        $loaded = Product::query()->with(['producers', 'producerVariantPrices'])->findOrFail($product->id);
+        $this->assertSame(320, $loaded->buyingPriceCentsForProducer($farm, $variant->id));
+        $this->assertSame(320, Product::query()->findOrFail($product->id)->buyingPriceCentsForProducer($farm, $variant->id));
+        // Default grade untouched by the variant row.
+        $this->assertSame(250, $loaded->buyingPriceCentsForProducer($farm));
+        $this->assertSame(200, $loaded->buyingPriceCentsForProducer(null));
+    }
+
+    public function test_max_buying_price_for_variant_spans_the_effective_chain(): void
+    {
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = Product::factory()->create(['producer_id' => $farmA->id, 'buying_price_cents' => 200]);
+        $product->syncProducers([$farmA->id, $farmB->id]);
+        $variant = ProductVariant::factory()->create(['product_id' => $product->id]);
+        $product->producers()->updateExistingPivot($farmB->id, ['buying_price_cents' => 250]);
+        ProductProducerVariantPrice::create([
+            'product_id' => $product->id, 'producer_id' => $farmA->id,
+            'variant_id' => $variant->id, 'buying_price_cents' => 400,
+        ]);
+
+        $fresh = Product::query()->findOrFail($product->id);
+        // Variant: farm A effective 400 (grade row), farm B 250 (pivot) → 400.
+        $this->assertSame(400, $fresh->maxBuyingPriceCentsForVariant($variant->id));
+        // Default grade: max(default 200, pivot 250) → 250.
+        $this->assertSame(250, $fresh->maxBuyingPriceCentsForVariant(null));
     }
 
     public function test_sync_producers_preserves_pivot_buying_prices_on_reorder(): void
