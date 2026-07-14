@@ -71,9 +71,6 @@ class UpdateProductRequest extends FormRequest
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'producer_buying_prices' => ['nullable', 'array'],
             'producer_buying_prices.*' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
-            'producer_variant_buying_prices' => ['nullable', 'array'],
-            'producer_variant_buying_prices.*' => ['nullable', 'array'],
-            'producer_variant_buying_prices.*.*' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             // Optional customer-group (business) price, in the display unit.
             'business_price' => ['nullable', 'numeric', 'gt:0', 'decimal:0,2'],
             // Inline grades/variants repeater. Blank rows (no name) are dropped
@@ -85,6 +82,8 @@ class UpdateProductRequest extends FormRequest
             'variants.*.name.en' => ['nullable', 'string', 'max:120'],
             'variants.*.name.fr' => ['nullable', 'string', 'max:120'],
             'variants.*.unit_price' => ['nullable', 'numeric', 'gt:0'],
+            'variants.*.producer_buying_prices' => ['nullable', 'array'],
+            'variants.*.producer_buying_prices.*' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'variants.*.business_price' => ['nullable', 'numeric', 'gt:0'],
             'variants.*.is_active' => ['nullable', 'boolean'],
             'variants.*.position' => ['nullable', 'integer', 'min:0', 'max:9999'],
@@ -185,21 +184,13 @@ class UpdateProductRequest extends FormRequest
                 }
             }
 
-            // Grade-level overrides: farms must be selected, grades must
-            // be saved grades of this product.
-            $gradePrices = (array) $this->input('producer_variant_buying_prices', []);
-            if ($gradePrices !== []) {
-                $variantIds = $this->route('product')?->variants()->pluck('id')->map(fn ($id): int => (int) $id)->all() ?? [];
-                foreach ($gradePrices as $farmKey => $byVariant) {
+            // Grade-level farm prices ride along the variant rows; their
+            // farm keys must be selected farms too.
+            foreach ((array) $this->input('variants', []) as $variantRow) {
+                foreach (array_keys((array) ($variantRow['producer_buying_prices'] ?? [])) as $farmKey) {
                     if (! in_array((int) $farmKey, $farmIds, true)) {
-                        $v->errors()->add('producer_variant_buying_prices', __('admin.products.producer_price_unknown_farm'));
-                        break;
-                    }
-                    foreach (array_keys((array) $byVariant) as $variantKey) {
-                        if (! in_array((int) $variantKey, $variantIds, true)) {
-                            $v->errors()->add('producer_variant_buying_prices', __('admin.products.producer_grade_price_unknown'));
-                            break 2;
-                        }
+                        $v->errors()->add('variants', __('admin.products.producer_price_unknown_farm'));
+                        break 2;
                     }
                 }
             }
