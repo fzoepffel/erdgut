@@ -193,6 +193,17 @@ class Product extends Model
     }
 
     /**
+     * Buying price overrides per (farm, grade); see
+     * {@see buyingPriceCentsForProducer()} for the resolution chain.
+     *
+     * @return HasManyRelation<ProductProducerVariantPrice, $this>
+     */
+    public function producerVariantPrices(): HasManyRelation
+    {
+        return $this->hasMany(ProductProducerVariantPrice::class);
+    }
+
+    /**
      * Active named grades, ready for the storefront grade selector.
      *
      * @return Collection<int, ProductVariant>
@@ -540,10 +551,25 @@ class Product extends Model
      * per-farm pivot override when set, else the product default. A null
      * or 0 producer id ("unattributable") always means the default.
      */
-    public function buyingPriceCentsForProducer(?int $producerId): ?int
+    public function buyingPriceCentsForProducer(?int $producerId, ?int $variantId = null): ?int
     {
         if ($producerId === null || $producerId <= 0) {
             return $this->buying_price_cents !== null ? (int) $this->buying_price_cents : null;
+        }
+
+        // Grade-level override first: (farm, grade) row when present.
+        if ($variantId !== null && $variantId > 0) {
+            $gradeCents = $this->relationLoaded('producerVariantPrices')
+                ? $this->producerVariantPrices
+                    ->first(fn ($r): bool => (int) $r->producer_id === $producerId && (int) $r->variant_id === $variantId)
+                    ?->buying_price_cents
+                : $this->producerVariantPrices()
+                    ->where('producer_id', $producerId)
+                    ->where('variant_id', $variantId)
+                    ->value('buying_price_cents');
+            if ($gradeCents !== null) {
+                return (int) $gradeCents;
+            }
         }
 
         $pivotCents = $this->relationLoaded('producers')
@@ -556,9 +582,9 @@ class Product extends Model
     }
 
     /** Effective per-farm buying price in display-unit euros. */
-    public function buyingPriceForProducer(?int $producerId): ?float
+    public function buyingPriceForProducer(?int $producerId, ?int $variantId = null): ?float
     {
-        $cents = $this->buyingPriceCentsForProducer($producerId);
+        $cents = $this->buyingPriceCentsForProducer($producerId, $variantId);
 
         return $cents !== null ? round($cents / 100, 4) : null;
     }
@@ -585,6 +611,31 @@ class Product extends Model
         $cents = $this->maxBuyingPriceCents();
 
         return $cents !== null ? round($cents / 100, 4) : null;
+    }
+
+    /**
+     * The most expensive applicable buying price FOR ONE GRADE: the max
+     * over every registered farm's effective price for that grade
+     * ((farm, grade) override, else farm price, else default), plus the
+     * default itself. Null variant delegates to the product-level max.
+     */
+    public function maxBuyingPriceCentsForVariant(?int $variantId): ?int
+    {
+        if ($variantId === null || $variantId <= 0) {
+            return $this->maxBuyingPriceCents();
+        }
+
+        $farmIds = $this->relationLoaded('producers')
+            ? $this->producers->pluck('id')->map(fn ($v): int => (int) $v)->all()
+            : $this->producers()->pluck('producers.id')->map(fn ($v): int => (int) $v)->all();
+
+        $candidates = [$this->buying_price_cents];
+        foreach ($farmIds as $farmId) {
+            $candidates[] = $this->buyingPriceCentsForProducer($farmId, $variantId);
+        }
+        $candidates = array_filter($candidates, fn ($v): bool => $v !== null);
+
+        return $candidates !== [] ? (int) max($candidates) : null;
     }
 
     /**

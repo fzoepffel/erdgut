@@ -71,6 +71,9 @@ class UpdateProductRequest extends FormRequest
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'producer_buying_prices' => ['nullable', 'array'],
             'producer_buying_prices.*' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'producer_variant_buying_prices' => ['nullable', 'array'],
+            'producer_variant_buying_prices.*' => ['nullable', 'array'],
+            'producer_variant_buying_prices.*.*' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             // Optional customer-group (business) price, in the display unit.
             'business_price' => ['nullable', 'numeric', 'gt:0', 'decimal:0,2'],
             // Inline grades/variants repeater. Blank rows (no name) are dropped
@@ -179,6 +182,25 @@ class UpdateProductRequest extends FormRequest
                 if (! in_array((int) $key, $farmIds, true)) {
                     $v->errors()->add('producer_buying_prices', __('admin.products.producer_price_unknown_farm'));
                     break;
+                }
+            }
+
+            // Grade-level overrides: farms must be selected, grades must
+            // be saved grades of this product.
+            $gradePrices = (array) $this->input('producer_variant_buying_prices', []);
+            if ($gradePrices !== []) {
+                $variantIds = $this->route('product')?->variants()->pluck('id')->map(fn ($id): int => (int) $id)->all() ?? [];
+                foreach ($gradePrices as $farmKey => $byVariant) {
+                    if (! in_array((int) $farmKey, $farmIds, true)) {
+                        $v->errors()->add('producer_variant_buying_prices', __('admin.products.producer_price_unknown_farm'));
+                        break;
+                    }
+                    foreach (array_keys((array) $byVariant) as $variantKey) {
+                        if (! in_array((int) $variantKey, $variantIds, true)) {
+                            $v->errors()->add('producer_variant_buying_prices', __('admin.products.producer_grade_price_unknown'));
+                            break 2;
+                        }
+                    }
                 }
             }
         });

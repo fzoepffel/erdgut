@@ -337,6 +337,15 @@ class AdminOperationsMetrics
                 $pivotPrices[(int) $row->product_id][(int) $row->producer_id] = (int) $row->buying_price_cents;
             }
 
+            // Grade-level overrides: [pid][vkey][producerId] => cents.
+            $variantPrices = [];
+            $variantRows = DB::table('product_producer_variant_prices')
+                ->whereIn('product_id', array_keys($weekDemand))
+                ->get(['product_id', 'producer_id', 'variant_id', 'buying_price_cents']);
+            foreach ($variantRows as $row) {
+                $variantPrices[(int) $row->product_id][(int) $row->variant_id][(int) $row->producer_id] = (int) $row->buying_price_cents;
+            }
+
             foreach ($weekAgg as $iso => $byPid) {
                 foreach ($byPid as $pid => $byVkey) {
                     foreach ($byVkey as $vkey => $agg) {
@@ -356,9 +365,10 @@ class AdminOperationsMetrics
                             }
                         }
                         foreach ($shares as $producerId => $qtyCanonical) {
-                            $price = ($producerId > 0 && isset($pivotPrices[$pid][$producerId]))
-                                ? round($pivotPrices[$pid][$producerId] / 100, 4)
-                                : $default;
+                            $cents = $producerId > 0
+                                ? ($variantPrices[$pid][$vkey][$producerId] ?? $pivotPrices[$pid][$producerId] ?? null)
+                                : null;
+                            $price = $cents !== null ? round($cents / 100, 4) : $default;
                             if ($price === null) {
                                 $priced = false;
                                 break;

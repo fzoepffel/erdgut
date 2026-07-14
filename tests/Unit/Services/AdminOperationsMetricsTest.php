@@ -5,7 +5,9 @@ namespace Tests\Unit\Services;
 use App\Enums\ProductUnit;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductProducerVariantPrice;
 use App\Models\ProductStockInflow;
+use App\Models\ProductVariant;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantProfile;
 use App\Models\ShopOrder;
@@ -222,6 +224,32 @@ class AdminOperationsMetricsTest extends TestCase
         $this->shopOrder('2026-07-08', 107.0, 7.0);
 
         $this->assertNull($this->build()->marginThisWeekNet);
+    }
+
+    public function test_margin_costs_grade_shares_at_the_grade_price(): void
+    {
+        // The named grade comes from farm B at 3 euro/piece for THIS
+        // grade (farm price 2, default 4). 10 pieces → cost 30, margin 70.
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = $this->product(['producer_id' => $farmA->id, 'buying_price_cents' => 400]);
+        $product->syncProducers([$farmA->id, $farmB->id]);
+        $product->producers()->updateExistingPivot($farmB->id, ['buying_price_cents' => 200]);
+        $variant = ProductVariant::factory()->create([
+            'product_id' => $product->id, 'name' => ['de' => 'Premium'],
+        ]);
+        ProductProducerVariantPrice::create([
+            'product_id' => $product->id, 'producer_id' => $farmB->id,
+            'variant_id' => $variant->id, 'buying_price_cents' => 300,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'producer_id' => $farmB->id, 'variant_id' => $variant->id,
+            'received_on' => '2026-07-07', 'quantity' => 50, 'freshness_window_days' => 2,
+        ]);
+        $order = $this->shopOrder('2026-07-07', 107.0, 7.0, [], $product, 10);
+        $order->items()->first()->forceFill(['variant_id' => $variant->id])->save();
+
+        $this->assertEqualsWithDelta(70.0, $this->build()->marginThisWeekNet, 0.01);
     }
 
     public function test_margin_costs_each_allocation_share_at_its_farms_price(): void

@@ -142,6 +142,16 @@ class ProductMergeService
                     ->where('id', $loserVariant->id)
                     ->update(['product_id' => $winner->id, 'position' => $nextPosition++]);
             }
+            // Grade-level buying prices of MOVED grades travel with them
+            // (loser-exclusive variant ids, so the unique key cannot
+            // collide; all loser farms get appended below). Remapped
+            // grades' rows die via the variant_id cascade above.
+            $movedVariantIds = array_map(fn ($v): int => $v->id, $split['move']);
+            if ($movedVariantIds !== []) {
+                DB::table('product_producer_variant_prices')
+                    ->whereIn('variant_id', $movedVariantIds)
+                    ->update(['product_id' => $winner->id]);
+            }
 
             // Inflows recorded without a farm would silently re-attribute
             // to the WINNER's primary after the move — stamp them with the

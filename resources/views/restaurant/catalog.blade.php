@@ -194,11 +194,20 @@
                                     {{-- Grade rows: net price + capped quantity dropdown + recurrence.
                                          Grades without stock are not sellable here. --}}
                                     <div class="mt-4 space-y-3">
-                                        @foreach (array_filter($row['grades'], fn ($g) => ($g['cap'] ?? 0) > 0) as $grade)
+                                        @php
+                                            $sellableGrades = array_filter($row['grades'], fn ($g) => ($g['cap'] ?? 0) > 0);
+                                            // Per-grade farm labels only when the grades
+                                            // actually come from different farms.
+                                            $showGradeFarms = count(array_unique(array_map(fn ($g) => $g['producerLabel'] ?? '', $sellableGrades))) > 1;
+                                        @endphp
+                                        @foreach ($sellableGrades as $grade)
                                             <div class="border-t border-shop-border/60 pt-3 first:border-t-0 first:pt-0">
                                                 <div class="flex items-center justify-between gap-3">
                                                     <div class="min-w-0">
                                                         @if ($grade['label'])<p class="truncate text-sm text-shop-foreground">{{ $grade['label'] }}</p>@endif
+                                                        @if ($showGradeFarms && ($grade['producerLabel'] ?? '') !== '')
+                                                            <p class="truncate font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ $grade['producerLabel'] }}</p>
+                                                        @endif
                                                         <p class="font-mono text-sm tabular-nums text-shop-foreground">@eur($grade['netPerDisplay'])<span class="text-xs text-shop-muted">/{{ $grade['unitSymbol'] }} {{ __('restaurant.plus_vat_suffix') }}</span></p>
                                                     </div>
                                                     <div class="flex shrink-0 items-center gap-1">
