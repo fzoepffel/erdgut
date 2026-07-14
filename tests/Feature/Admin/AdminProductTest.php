@@ -456,20 +456,18 @@ class AdminProductTest extends TestCase
         $this->assertSame(19, $product->fresh()->vat_rate_percent);
     }
 
-    public function test_short_description_is_required_in_all_locales(): void
+    public function test_short_description_is_required_only_in_german(): void
     {
         $admin = User::factory()->admin()->create();
         $producer = Producer::factory()->create();
 
+        // German missing its short description → rejected.
         $this->actingAs($admin)
             ->from(route('app.admin.products.create'))
             ->post(route('app.admin.products.store'), [
                 'producer_id' => $producer->id,
                 'translations' => [
-                    // de has a short description, en/fr omit it.
-                    'de' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'kurz'],
-                    'en' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long'],
-                    'fr' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long'],
+                    'de' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long'],
                 ],
                 'category' => 'produce',
                 'unit' => 'mass',
@@ -477,10 +475,23 @@ class AdminProductTest extends TestCase
                 'price' => '1.00',
             ])
             ->assertRedirect(route('app.admin.products.create'))
-            ->assertSessionHasErrors([
-                'translations.en.short_description',
-                'translations.fr.short_description',
-            ]);
+            ->assertSessionHasErrors(['translations.de.short_description']);
+
+        // EN/FR omitting it are fine (optional locales).
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long', 'short_description' => 'kurz'],
+                    'en' => ['name' => 'X', 'origin' => 'r', 'variety' => '—', 'taste_profile' => 'long'],
+                ],
+                'category' => 'produce',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '1.00',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
     }
 
     public function test_admin_can_save_short_and_long_descriptions(): void
