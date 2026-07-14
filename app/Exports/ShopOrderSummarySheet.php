@@ -215,6 +215,7 @@ class ShopOrderSummarySheet implements FromArray, WithTitle
                         'name' => $name,
                         'unit' => $unit,
                         'display' => $display,
+                        'count_label' => $item->product?->unit === ProductUnit::Piece ? $item->product->count_unit_label : null,
                         'qty_canonical' => 0.0,
                         'revenue' => 0.0,
                     ];
@@ -230,7 +231,8 @@ class ShopOrderSummarySheet implements FromArray, WithTitle
             if ($unit instanceof ProductUnit && $display !== '') {
                 $factor = $unit->canonicalUnitsPerDisplay($display);
                 $qty = $factor > 0 ? $row['qty_canonical'] / $factor : $row['qty_canonical'];
-                $label = number_format($qty, 2).' '.ProductUnit::displaySymbol($display);
+                $word = ($row['count_label'] ?? null)?->label($qty) ?? ProductUnit::displaySymbol($display);
+                $label = number_format($qty, 2).' '.$word;
             } else {
                 $qty = $row['qty_canonical'];
                 $label = (string) $qty;

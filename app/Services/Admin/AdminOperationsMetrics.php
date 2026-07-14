@@ -261,6 +261,7 @@ class AdminOperationsMetrics
                         'qty_canonical' => 0.0,
                         'unit' => $unit,
                         'display' => $display,
+                        'count_label' => $product?->unit === ProductUnit::Piece ? $product->count_unit_label : null,
                         'net' => 0.0,
                     ];
                 }
@@ -396,7 +397,7 @@ class AdminOperationsMetrics
                 if ($unit instanceof ProductUnit && $display !== '') {
                     $factor = $unit->canonicalUnitsPerDisplay($display);
                     $qty = $factor > 0 ? $bucket['qty_canonical'] / $factor : $bucket['qty_canonical'];
-                    $symbol = ProductUnit::displaySymbol($display);
+                    $symbol = ($bucket['count_label'] ?? null)?->label($qty) ?? ProductUnit::displaySymbol($display);
                 } else {
                     $qty = $bucket['qty_canonical'];
                     $symbol = $display !== '' ? ProductUnit::displaySymbol($display) : '';

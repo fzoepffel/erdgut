@@ -120,7 +120,7 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
             if ($unit instanceof ProductUnit && $display !== '') {
                 $factor = $unit->canonicalUnitsPerDisplay($display);
                 $qty = $factor > 0 ? $bucket['qty_canonical'] / $factor : $bucket['qty_canonical'];
-                $unitLabel = ProductUnit::displaySymbol($display);
+                $unitLabel = ($bucket['count_label'] ?? null)?->label($qty) ?? ProductUnit::displaySymbol($display);
             } else {
                 $qty = $bucket['qty_canonical'];
                 $unitLabel = $bucket['unit_label_override'];
@@ -186,6 +186,9 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
                 'qty_canonical' => 0.0,
                 'unit' => $unit,
                 'display' => $display,
+                // Display word ("Töpfe") snapshotted here: rows render from
+                // aggregated buckets where no Product is at hand anymore.
+                'count_label' => $product?->unit === ProductUnit::Piece ? $product->count_unit_label : null,
                 'unit_label_override' => $unit === null && $display !== '' ? ProductUnit::displaySymbol($display) : '',
                 'order_ids' => [],
                 'emails' => [],

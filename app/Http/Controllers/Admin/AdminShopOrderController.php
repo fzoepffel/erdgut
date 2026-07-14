@@ -238,7 +238,7 @@ class AdminShopOrderController extends Controller
 
         $displayUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
 
-        return $product->unit->formatPrice($unitPriceEur, $displayUnit);
+        return $product->unit->formatPrice($unitPriceEur, $displayUnit, null, $product->countUnitWord());
     }
 
     /**

@@ -109,6 +109,7 @@ class ShopOrderPicklistSheet implements FromArray, WithColumnWidths, WithHeading
                         $product->unit,
                         $product->price_display_unit,
                         (float) $item->quantity,
+                        $product,
                     );
                     $quantities[] = trim(number_format($qtyDisplay, 2, '.', '').' '.$unitLabel);
                 } else {
@@ -192,6 +193,7 @@ class ShopOrderPicklistSheet implements FromArray, WithColumnWidths, WithHeading
                     $product->unit,
                     $product->price_display_unit,
                     (float) $item->quantity,
+                    $product,
                 );
                 $quantities[] = trim(number_format($qtyDisplay, 2, '.', '').' '.$unitLabel);
 

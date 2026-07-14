@@ -124,6 +124,65 @@ class AdminProductTest extends TestCase
             ->assertSessionHasErrors('category');
     }
 
+    public function test_count_unit_label_persists_for_piece_and_clears_on_kind_switch(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+
+        // Store a piece product with the display word.
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Basilikum im Topf', 'origin' => 'regional', 'variety' => 'x', 'taste_profile' => 'Frisch.', 'short_description' => 'Kurz'],
+                    'en' => ['name' => 'Potted basil', 'origin' => 'regional', 'variety' => 'x', 'taste_profile' => 'Fresh.', 'short_description' => 'Kurz'],
+                    'fr' => ['name' => 'Basilic en pot', 'origin' => 'régional', 'variety' => 'x', 'taste_profile' => 'Frais.', 'short_description' => 'Kurz'],
+                ],
+                'category' => 'produce',
+                'unit' => 'piece',
+                'price_display_unit' => 'piece',
+                'price' => '3.50',
+                'count_unit_label' => 'pot',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $product = Product::query()->latest('id')->firstOrFail();
+        $this->assertSame('pot', $product->count_unit_label?->value);
+
+        // Switching the kind to mass clears the word.
+        $this->actingAs($admin)
+            ->put(route('app.admin.products.update', $product), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Basilikum im Topf', 'origin' => 'regional', 'variety' => 'x', 'taste_profile' => 'Frisch.', 'short_description' => 'Kurz'],
+                    'en' => ['name' => 'Potted basil', 'origin' => 'regional', 'variety' => 'x', 'taste_profile' => 'Fresh.', 'short_description' => 'Kurz'],
+                    'fr' => ['name' => 'Basilic en pot', 'origin' => 'régional', 'variety' => 'x', 'taste_profile' => 'Frais.', 'short_description' => 'Kurz'],
+                ],
+                'category' => 'produce',
+                'unit' => 'mass',
+                'price_display_unit' => 'kg',
+                'price' => '12.00',
+                'count_unit_label' => 'pot',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertNull($product->refresh()->count_unit_label);
+
+        // Unknown word rejected.
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'category' => 'produce',
+                'unit' => 'piece',
+                'price_display_unit' => 'piece',
+                'price' => '3.50',
+                'count_unit_label' => 'barrel',
+            ])
+            ->assertSessionHasErrors('count_unit_label');
+    }
+
     public function test_admin_can_create_product_via_form_post(): void
     {
         $admin = User::factory()->admin()->create();

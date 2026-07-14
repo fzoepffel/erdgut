@@ -122,14 +122,16 @@ enum ProductUnit: string
      * Decimal formatting follows German conventions on `de` locale and
      * `.` for thousands in `en`/`fr`.
      */
-    public function formatQuantity(int|float $canonical, ?string $locale = null): string
+    public function formatQuantity(int|float $canonical, ?string $locale = null, ?string $countWordOverride = null): string
     {
         $locale ??= app()->getLocale();
         [$decimalSep, $thousandsSep] = Money::separators($locale);
 
         if ($this === self::Piece || $this === self::Bunch) {
             $count = (int) round((float) $canonical);
-            $label = (string) __('units.'.$this->value, [], $locale);
+            // Piece products may carry a display word ("Topf", "Beutel");
+            // see Product::countUnitWord().
+            $label = $countWordOverride ?? (string) __('units.'.$this->value, [], $locale);
 
             return number_format($count, 0, $decimalSep, $thousandsSep).' '.$label;
         }
@@ -160,7 +162,7 @@ enum ProductUnit: string
      * Render a price (stored per canonical unit) in the given display
      * unit, e.g. `21,50 €/kg`.
      */
-    public function formatPrice(float $pricePerCanonical, string $displayUnit, ?string $locale = null): string
+    public function formatPrice(float $pricePerCanonical, string $displayUnit, ?string $locale = null, ?string $symbolOverride = null): string
     {
         $locale ??= app()->getLocale();
         [$decimalSep, $thousandsSep] = Money::separators($locale);
@@ -168,7 +170,7 @@ enum ProductUnit: string
         $pricePerDisplay = $pricePerCanonical * $this->canonicalUnitsPerDisplay($displayUnit);
 
         return number_format($pricePerDisplay, 2, $decimalSep, $thousandsSep)
-            .' €/'.self::displaySymbol($displayUnit);
+            .' €/'.($symbolOverride ?? self::displaySymbol($displayUnit));
     }
 
     /**
