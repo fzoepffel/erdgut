@@ -14,7 +14,9 @@ use App\Exports\ShopOrdersExport;
 use App\Exports\ShopOrderSummarySheet;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductProducerVariantPrice;
 use App\Models\ProductStockInflow;
+use App\Models\ProductVariant;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantProfile;
 use App\Models\ShopOrder;
@@ -356,6 +358,58 @@ class AdminShopOrderExportTest extends TestCase
         // Both farms named in the split label.
         $this->assertStringContainsString($farmA->name, (string) $row[0]);
         $this->assertStringContainsString($farmB->name, (string) $row[0]);
+    }
+
+    public function test_farm_totals_costs_grade_shares_at_the_grade_price(): void
+    {
+        // The named grade comes only from farm B, which charges 4 euro/kg
+        // for THIS grade (farm price 2, default 3). 2 kg of the grade →
+        // buying total 8.
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $tomato = Product::factory()->create([
+            'producer_id' => $farmA->id,
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.006,
+            'buying_price_cents' => 300,
+        ]);
+        $tomato->syncProducers([$farmA->id, $farmB->id]);
+        $tomato->producers()->updateExistingPivot($farmB->id, ['buying_price_cents' => 200]);
+        $variant = ProductVariant::factory()->create([
+            'product_id' => $tomato->id, 'name' => ['de' => 'Premium'],
+        ]);
+        ProductProducerVariantPrice::create([
+            'product_id' => $tomato->id, 'producer_id' => $farmB->id,
+            'variant_id' => $variant->id, 'buying_price_cents' => 400,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $tomato->id, 'producer_id' => $farmB->id, 'variant_id' => $variant->id,
+            'received_on' => '2026-06-10', 'quantity' => 5000, 'freshness_window_days' => 2,
+        ]);
+
+        $order = ShopOrder::factory()->paid()->create([
+            'email' => 'a@example.com',
+            'expected_delivery_date' => '2026-06-10',
+        ]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $tomato->id,
+            'variant_id' => $variant->id,
+            'quantity' => 2000,
+            'unit' => 'g',
+            'line_total_eur' => 16.0,
+        ]);
+
+        $rows = collect((new ShopOrderFarmTotalsSheet(Collection::make([
+            $order->fresh(['items.product.producer.translations']),
+        ])))->array());
+
+        $row = $rows->first(fn ($r) => str_contains((string) $r[1], $tomato->name));
+        $this->assertNotNull($row);
+        $this->assertEqualsWithDelta(4.0, $row[6], 0.001);  // grade price €/kg
+        $this->assertEqualsWithDelta(8.0, $row[7], 0.001);  // buying total
+        $this->assertEqualsWithDelta(8.0, $row[9], 0.001);  // margin 16 − 8
     }
 
     public function test_route_sheet_includes_only_delivery_orders_with_payment_due(): void

@@ -442,7 +442,8 @@ class ShopOrderService
      *     remaining: float,
      *     available_on_selected: bool,
      *     available_dates: array<int, array{date: Carbon, remaining: float}>,
-     *     producers: list<Producer>
+     *     producers: list<Producer>,
+     *     gradeProducers: array<int, list<Producer>>
      * }>
      */
     public function weeklyProductsForDate(Carbon $date): Collection
@@ -465,7 +466,7 @@ class ShopOrderService
 
         $products = Product::query()
             ->visibleInCatalog()
-            ->with(['translations', 'producer.translations', 'producers.translations', 'images', 'priceRules', 'variants'])
+            ->with(['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices', 'images', 'priceRules', 'variants'])
             ->get();
 
         $matrix = $inventory->availabilityMatrix($products, $from, $weekEnd);
@@ -496,17 +497,30 @@ class ShopOrderService
                     ? 0.0
                     : (float) ($window[$selectedIso] ?? 0.0);
 
-                // Farms with stock on the selected day, share desc; empty
-                // (sold out, closed day, allocator divergence) falls back to
-                // the primary so the single-farm state renders as before.
-                $producers = [];
-                foreach (array_keys($producersOnSelected[$product->id] ?? []) as $producerId) {
-                    if (isset($producerModels[$producerId])) {
-                        $producers[] = $producerModels[$producerId];
+                // Farms with stock on the selected day. The card shows the
+                // UNION across grades (share desc); each grade row gets its
+                // own farm list so a grade supplied by only one farm is
+                // labelled with just that farm. Empty (sold out, closed day,
+                // allocator divergence) falls back to the primary so the
+                // single-farm state renders as before.
+                $sharesByVkey = $producersOnSelected[$product->id] ?? [];
+                $toModels = function (array $shares) use ($producerModels): array {
+                    $list = [];
+                    foreach (array_keys($shares) as $producerId) {
+                        if (isset($producerModels[$producerId])) {
+                            $list[] = $producerModels[$producerId];
+                        }
                     }
-                }
+
+                    return $list;
+                };
+                $producers = $toModels(ProducerAllocationService::unionShares($sharesByVkey));
                 if ($producers === [] && $product->producer !== null) {
                     $producers = [$product->producer];
+                }
+                $gradeProducers = [];
+                foreach ($sharesByVkey as $vkey => $shares) {
+                    $gradeProducers[$vkey] = $toModels($shares);
                 }
 
                 return [
@@ -515,6 +529,7 @@ class ShopOrderService
                     'available_on_selected' => ! $selectedClosed && $selectedRemaining > 0,
                     'available_dates' => $dates,
                     'producers' => $producers,
+                    'gradeProducers' => $gradeProducers,
                 ];
             })
             ->filter(fn (array $row): bool => $row['available_dates'] !== [])
@@ -529,7 +544,7 @@ class ShopOrderService
      * ids outside a product's registered farms need one extra query.
      *
      * @param  Collection<int, Product>  $products
-     * @param  array<int, array<int, float>>  $producersByProduct  [pid][producerId => qty]
+     * @param  array<int, array<int, array<int, float>>>  $producersByProduct  [pid][vkey][producerId => qty]
      * @return array<int, Producer>
      */
     private function producerModels(Collection $products, array $producersByProduct): array
@@ -545,10 +560,12 @@ class ShopOrderService
         }
 
         $missing = [];
-        foreach ($producersByProduct as $shares) {
-            foreach (array_keys($shares) as $producerId) {
-                if (! isset($models[$producerId])) {
-                    $missing[$producerId] = true;
+        foreach ($producersByProduct as $byVkey) {
+            foreach ($byVkey as $shares) {
+                foreach (array_keys($shares) as $producerId) {
+                    if (! isset($models[$producerId])) {
+                        $missing[$producerId] = true;
+                    }
                 }
             }
         }

@@ -7,6 +7,7 @@ use App\Enums\ProductUnit;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductPriceRule;
+use App\Models\ProductProducerVariantPrice;
 use App\Models\ProductStockInflow;
 use App\Models\ProductVariant;
 use App\Services\Shop\PriceResolver;
@@ -157,6 +158,41 @@ class PricingRulesTest extends TestCase
         $r = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private);
         $this->assertSame(9.0, $r->unitPriceEur);
         $this->assertSame('margin_floor', $r->reason);
+    }
+
+    public function test_margin_floor_is_grade_aware(): void
+    {
+        // Default 8.00; the named grade costs 10.00 from its farm. The
+        // grade's floor clamps to 10.00 while the default grade keeps 8.00.
+        $p = Product::factory()->create([
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 15.0,
+            'buying_price_cents' => 800,
+        ]);
+        $variant = ProductVariant::factory()->create([
+            'product_id' => $p->id, 'name' => ['de' => 'Premium'], 'unit_price' => 15.0,
+        ]);
+        ProductProducerVariantPrice::create([
+            'product_id' => $p->id, 'producer_id' => (int) $p->producer_id,
+            'variant_id' => $variant->id, 'buying_price_cents' => 1000,
+        ]);
+        ProductPriceRule::factory()->create([
+            'product_id' => $p->id,
+            'unit_price' => 5.0, // below every cost
+        ]);
+        ProductPriceRule::factory()->create([
+            'product_id' => $p->id,
+            'variant_id' => $variant->id,
+            'unit_price' => 5.0,
+        ]);
+
+        $default = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private);
+        $this->assertSame(8.0, $default->unitPriceEur);
+
+        $graded = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, null, $variant->id, $variant);
+        $this->assertSame(10.0, $graded->unitPriceEur);
+        $this->assertSame('margin_floor', $graded->reason);
     }
 
     public function test_order_snapshots_resolved_price_and_rule(): void

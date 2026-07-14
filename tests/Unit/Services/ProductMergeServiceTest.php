@@ -8,6 +8,7 @@ use App\Models\Box;
 use App\Models\BoxItem;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductProducerVariantPrice;
 use App\Models\ProductStockInflow;
 use App\Models\ProductVariant;
 use App\Models\RestaurantOrder;
@@ -278,6 +279,42 @@ class ProductMergeServiceTest extends TestCase
         $this->assertSame(180, (int) $pivot[$farmC->id]);   // loser default carried
         $this->assertSame(100, (int) $pivot[$farmD->id]);   // shared farm: winner wins
         $this->assertNull($pivot[$farmA->id]);              // winner's own farm untouched
+    }
+
+    public function test_moved_grades_carry_their_grade_prices_and_remapped_ones_drop_them(): void
+    {
+        $farmB = Producer::factory()->create();
+        $winner = $this->product();
+        $loser = $this->product($farmB);
+        $winnerVariant = ProductVariant::factory()->create([
+            'product_id' => $winner->id, 'name' => ['de' => 'Dünn'],
+        ]);
+        $movedVariant = ProductVariant::factory()->create([
+            'product_id' => $loser->id, 'name' => ['de' => 'Premium'],
+        ]);
+        $remappedVariant = ProductVariant::factory()->create([
+            'product_id' => $loser->id, 'name' => ['de' => 'Dünn'],
+        ]);
+        ProductProducerVariantPrice::create([
+            'product_id' => $loser->id, 'producer_id' => $farmB->id,
+            'variant_id' => $movedVariant->id, 'buying_price_cents' => 333,
+        ]);
+        ProductProducerVariantPrice::create([
+            'product_id' => $loser->id, 'producer_id' => $farmB->id,
+            'variant_id' => $remappedVariant->id, 'buying_price_cents' => 444,
+        ]);
+
+        $this->service->merge($winner, $loser);
+
+        $this->assertDatabaseHas('product_producer_variant_prices', [
+            'product_id' => $winner->id, 'producer_id' => $farmB->id,
+            'variant_id' => $movedVariant->id, 'buying_price_cents' => 333,
+        ]);
+        // The remapped grade died; its price row is gone, the winner's
+        // grade keeps its own (non-existent) pricing.
+        $this->assertDatabaseMissing('product_producer_variant_prices', ['buying_price_cents' => 444]);
+        $this->assertSame(0, DB::table('product_producer_variant_prices')
+            ->where('variant_id', $winnerVariant->id)->count());
     }
 
     public function test_losers_price_rules_are_dropped_and_pointers_nulled(): void

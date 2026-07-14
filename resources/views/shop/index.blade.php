@@ -110,7 +110,7 @@
                         'jsId' => $product->id,
                         'productId' => $product->id,
                         'productName' => $product->name,
-                        'producerName' => \App\Support\ProducerLabels::label($row['producers'] ?? []) ?: $product->producer?->name,
+                        'producerName' => \App\Support\ProducerLabels::label(($row['gradeProducers'][0] ?? null) ?: ($row['producers'] ?? [])) ?: $product->producer?->name,
                         'unitKind' => $product->unit?->value,
                         'unitSymbol' => $product->canonicalUnitLabel(),
                         'displaySymbol' => $product->localizedUnit(),
@@ -161,7 +161,7 @@
                         'jsId' => 'v'.$variant->id,
                         'productId' => $product->id,
                         'productName' => $product->name,
-                        'producerName' => \App\Support\ProducerLabels::label($row['producers'] ?? []) ?: $product->producer?->name,
+                        'producerName' => \App\Support\ProducerLabels::label(($row['gradeProducers'][$variant->id] ?? null) ?: ($row['producers'] ?? [])) ?: $product->producer?->name,
                         'unitKind' => $product->unit?->value,
                         'unitSymbol' => $product->canonicalUnitLabel(),
                         'displaySymbol' => $product->localizedUnit(),
@@ -1036,6 +1036,12 @@
                                               x-text="v.gradeLabel || @js(__('shop.variant.standard'))"></span>
                                         <span class="font-mono text-sm tabular-nums text-shop-muted" x-text="v.priceDisplay"></span>
                                     </div>
+                                    {{-- Grade-exact farm, only when the product's grades
+                                         come from different farms. --}}
+                                    <p class="mt-1 font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted"
+                                       x-show="pickerGradeFarmsDiffer() && v.producerName"
+                                       x-cloak
+                                       x-text="v.producerName"></p>
 
                                     {{-- Stepper: −/value/+ — the middle "value" is an
                                          invisible native <select> overlay so tapping it
@@ -1591,7 +1597,14 @@
                     const v = this.pickerVariants[0];
                     return v ? v.productName : '';
                 },
+                pickerGradeFarmsDiffer() {
+                    return new Set(this.pickerVariants.map(v => v.producerName || '')).size > 1;
+                },
                 pickerProducerName() {
+                    // With differing farms per grade the header would show
+                    // grade #1's farm for the whole product; the per-row
+                    // labels take over instead.
+                    if (this.pickerGradeFarmsDiffer()) return '';
                     const v = this.pickerVariants[0];
                     return v ? (v.producerName || '') : '';
                 },

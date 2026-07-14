@@ -6,7 +6,9 @@ use App\Enums\ProductUnit;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
+use App\Models\ProductVariant;
 use App\Models\RestaurantProfile;
+use App\Services\Restaurant\RestaurantCatalogService;
 use App\Services\Restaurant\RestaurantInvoiceService;
 use App\Services\Restaurant\RestaurantOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -98,6 +100,34 @@ class RestaurantMultiProducerDisplayTest extends TestCase
             ->get(route('app.restaurant.requests.index', ['date' => $this->date->toDateString()]))
             ->assertOk()
             ->assertSee($farmA->name.' · '.$farmB->name);
+    }
+
+    public function test_catalog_grades_carry_their_own_farm_labels(): void
+    {
+        // "Standard" only from farm A, "Premium" only from farm B.
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = $this->product($farmA, [$farmA->id, $farmB->id]);
+        $variant = ProductVariant::factory()->create([
+            'product_id' => $product->id, 'name' => ['de' => 'Premium', 'en' => 'Premium'],
+        ]);
+        $this->inflow($product, $farmA, 10);
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'producer_id' => $farmB->id, 'variant_id' => $variant->id,
+            'received_on' => $this->date->toDateString(), 'quantity' => 6, 'freshness_window_days' => 1,
+        ]);
+
+        $row = app(RestaurantCatalogService::class)
+            ->productsForDate($this->date)
+            ->firstWhere(fn (array $r): bool => $r['product']->id === $product->id);
+
+        $this->assertNotNull($row);
+        $labels = collect($row['grades'])->keyBy(fn (array $g) => $g['variantId'] ?? 0);
+        $this->assertSame($farmA->name, $labels[0]['producerLabel']);
+        $this->assertSame($farmB->name, $labels[$variant->id]['producerLabel']);
+        // Card label stays the union.
+        $this->assertStringContainsString($farmA->name, $row['producerLabel']);
+        $this->assertStringContainsString($farmB->name, $row['producerLabel']);
     }
 
     public function test_invoice_pdf_names_the_farm_that_actually_delivers(): void

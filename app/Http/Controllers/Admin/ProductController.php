@@ -15,6 +15,7 @@ use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductPriceRule;
+use App\Models\ProductProducerVariantPrice;
 use App\Models\ProductTranslation;
 use App\Models\ProductVariant;
 use App\Services\ImageProcessor;
@@ -204,6 +205,7 @@ class ProductController extends Controller
 
             $this->syncBusinessPrice($product, $validated, $request->user()?->id);
             $this->syncVariants($product, $validated, $request->user()?->id);
+            $this->syncProducerVariantBuyingPrices($product, $validated);
             $this->syncQuantityTiers($product, $validated, $request->user()?->id);
 
             $this->removeGalleryImages($validated['gallery_remove'] ?? [], $product);
@@ -276,7 +278,7 @@ class ProductController extends Controller
             ->get();
 
         return [
-            'product' => $product?->load(['producer', 'producers', 'translations', 'images', 'pairings.translations']),
+            'product' => $product?->load(['producer', 'producers', 'producerVariantPrices', 'translations', 'images', 'pairings.translations']),
             // Duplicate-name advisory data for the CREATE form only: every
             // existing product's names (all locales), farm label and edit
             // URL, so typing a known name suggests extending that product
@@ -326,6 +328,7 @@ class ProductController extends Controller
                 ? $product->variants()->get()->map(fn (ProductVariant $v): array => [
                     'id' => $v->id,
                     'name' => (array) $v->name,
+                    'label' => $v->localizedName(),
                     'price' => $v->unit_price !== null
                         ? round((float) $v->unit_price * $this->displayFactor($product), 2)
                         : null,
@@ -847,6 +850,44 @@ class ProductController extends Controller
      *
      * @param  array<string, mixed>  $validated
      */
+    /**
+     * Persist (farm, grade) buying price overrides. Runs AFTER
+     * syncVariants(), so deleted grades have already cascaded their
+     * rows; farms no longer selected are cleaned up explicitly because
+     * the producer pivot carries no FK into this table.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function syncProducerVariantBuyingPrices(Product $product, array $validated): void
+    {
+        $farmIds = array_map('intval', $validated['producer_ids']);
+        ProductProducerVariantPrice::query()
+            ->where('product_id', $product->id)
+            ->whereNotIn('producer_id', $farmIds)
+            ->delete();
+
+        $input = (array) ($validated['producer_variant_buying_prices'] ?? []);
+        $variantIds = $product->variants()->pluck('id')->map(fn ($v): int => (int) $v)->all();
+        foreach ($farmIds as $farmId) {
+            foreach ($variantIds as $variantId) {
+                $raw = $input[$farmId][$variantId] ?? null;
+                if ($raw === null || $raw === '') {
+                    ProductProducerVariantPrice::query()
+                        ->where('product_id', $product->id)
+                        ->where('producer_id', $farmId)
+                        ->where('variant_id', $variantId)
+                        ->delete();
+
+                    continue;
+                }
+                ProductProducerVariantPrice::query()->updateOrCreate(
+                    ['product_id' => $product->id, 'producer_id' => $farmId, 'variant_id' => $variantId],
+                    ['buying_price_cents' => (int) round(((float) $raw) * 100)],
+                );
+            }
+        }
+    }
+
     private function syncProducerBuyingPrices(Product $product, array $validated): void
     {
         $prices = (array) ($validated['producer_buying_prices'] ?? []);

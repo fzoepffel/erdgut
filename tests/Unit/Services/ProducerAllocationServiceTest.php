@@ -7,6 +7,7 @@ use App\Enums\ShopStockAudience;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
+use App\Models\ProductVariant;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use App\Services\Admin\ProducerAllocationService;
@@ -229,7 +230,7 @@ class ProducerAllocationServiceTest extends TestCase
 
         $remaining = $this->service->remainingByProducer([$product->id], ['2026-07-15']);
 
-        $shares = $remaining['2026-07-15'][$product->id];
+        $shares = $remaining['2026-07-15'][$product->id][0];
         $this->assertSame([$farmB->id, $farmA->id], array_keys($shares));
         $this->assertEqualsWithDelta(50.0, $shares[$farmB->id], 0.001);
         $this->assertEqualsWithDelta(4.0, $shares[$farmA->id], 0.001);
@@ -249,7 +250,7 @@ class ProducerAllocationServiceTest extends TestCase
 
         $remaining = $this->service->remainingByProducer([$product->id], ['2026-07-15']);
 
-        $shares = $remaining['2026-07-15'][$product->id];
+        $shares = $remaining['2026-07-15'][$product->id][0];
         $this->assertArrayNotHasKey($farmA->id, $shares);
         $this->assertEqualsWithDelta(50.0, $shares[$farmB->id], 0.001);
     }
@@ -268,7 +269,7 @@ class ProducerAllocationServiceTest extends TestCase
         $business = $this->service->remainingByProducer([$product->id], ['2026-07-15'], ShopStockAudience::BusinessTrade);
 
         $this->assertArrayNotHasKey($product->id, $consumer['2026-07-15'] ?? []);
-        $this->assertEqualsWithDelta(10.0, $business['2026-07-15'][$product->id][$farm->id], 0.001);
+        $this->assertEqualsWithDelta(10.0, $business['2026-07-15'][$product->id][0][$farm->id], 0.001);
     }
 
     public function test_remaining_by_producer_omits_products_without_batches(): void
@@ -292,7 +293,7 @@ class ProducerAllocationServiceTest extends TestCase
 
         $remaining = $this->service->remainingByProducer([$product->id], ['2026-07-15']);
 
-        $this->assertEqualsWithDelta(7.0, $remaining['2026-07-15'][$product->id][$farm->id], 0.001);
+        $this->assertEqualsWithDelta(7.0, $remaining['2026-07-15'][$product->id][0][$farm->id], 0.001);
     }
 
     public function test_remaining_by_producer_uses_end_state_across_days(): void
@@ -307,7 +308,7 @@ class ProducerAllocationServiceTest extends TestCase
 
         $remaining = $this->service->remainingByProducer([$product->id], ['2026-07-20']);
 
-        $this->assertEqualsWithDelta(3.0, $remaining['2026-07-20'][$product->id][$farm->id], 0.001);
+        $this->assertEqualsWithDelta(3.0, $remaining['2026-07-20'][$product->id][0][$farm->id], 0.001);
     }
 
     public function test_remaining_by_producer_leaves_allocate_untouched(): void
@@ -338,6 +339,44 @@ class ProducerAllocationServiceTest extends TestCase
         // Farm A is drained first (4), farm B covers the rest (6) — the
         // label orders by allocated share desc.
         $this->assertSame($farmB->name.' · '.$farmA->name, $names[$product->id.'|0']);
+    }
+
+    public function test_remaining_by_producer_keeps_grades_apart(): void
+    {
+        // Grade "Standard" (vkey 0) only from farm A, grade v1 only from
+        // farm B: the shares must stay disjoint per grade.
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = $this->product($farmA);
+        $product->syncProducers([$farmA->id, $farmB->id]);
+        $variant = ProductVariant::factory()->create([
+            'product_id' => $product->id, 'name' => ['de' => 'Premium'],
+        ]);
+        $this->inflow($product, $farmA, '2026-07-15', 10);
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'producer_id' => $farmB->id, 'variant_id' => $variant->id,
+            'received_on' => '2026-07-15', 'quantity' => 6, 'freshness_window_days' => 2,
+        ]);
+
+        $remaining = $this->service->remainingByProducer([$product->id], ['2026-07-15']);
+
+        $byVkey = $remaining['2026-07-15'][$product->id];
+        $this->assertSame([$farmA->id], array_keys($byVkey[0]));
+        $this->assertSame([$farmB->id], array_keys($byVkey[$variant->id]));
+        $this->assertEqualsWithDelta(10.0, $byVkey[0][$farmA->id], 0.001);
+        $this->assertEqualsWithDelta(6.0, $byVkey[$variant->id][$farmB->id], 0.001);
+    }
+
+    public function test_union_shares_sums_grades_and_orders_by_quantity(): void
+    {
+        $union = ProducerAllocationService::unionShares([
+            0 => [7 => 4.0, 9 => 1.0],
+            3 => [9 => 6.0],
+        ]);
+
+        $this->assertSame([9, 7], array_keys($union));
+        $this->assertEqualsWithDelta(7.0, $union[9], 0.001);
+        $this->assertEqualsWithDelta(4.0, $union[7], 0.001);
     }
 
     public function test_names_by_item_key_omits_products_without_demand(): void

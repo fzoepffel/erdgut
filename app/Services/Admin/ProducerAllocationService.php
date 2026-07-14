@@ -83,7 +83,7 @@ class ProducerAllocationService
      *
      * @param  list<int>  $productIds
      * @param  list<string>  $isoDates
-     * @return array<string, array<int, array<int, float>>> [iso][pid][producerId => remainingQty], qty desc
+     * @return array<string, array<int, array<int, array<int, float>>>> [iso][pid][vkey][producerId => remainingQty], qty desc per grade
      */
     public function remainingByProducer(array $productIds, array $isoDates, ShopStockAudience $audience = ShopStockAudience::Consumer): array
     {
@@ -95,30 +95,57 @@ class ProducerAllocationService
             return [];
         }
 
-        $suffix = 'palloc.remaining.'.$audience->value.'.'.md5(implode(',', $productIds).'|'.implode(',', $isoDates));
+        // remaining2: the shape gained the vkey level (grade-aware labels).
+        $suffix = 'palloc.remaining2.'.$audience->value.'.'.md5(implode(',', $productIds).'|'.implode(',', $isoDates));
 
         return InventoryCache::remember($suffix, function () use ($productIds, $isoDates, $audience): array {
             $pools = $this->compute($productIds, $isoDates, null)['remaining'];
 
             $out = [];
             foreach ($pools as $iso => $byPid) {
-                foreach ($byPid as $pid => $byProducer) {
-                    $shares = [];
-                    foreach ($byProducer as $producerId => $pool) {
-                        $qty = $pool['shared'] + ($audience === ShopStockAudience::BusinessTrade ? $pool['b2b'] : 0.0);
-                        if ($qty > 1e-9) {
-                            $shares[$producerId] = round($qty, 4);
+                foreach ($byPid as $pid => $byVkey) {
+                    foreach ($byVkey as $vkey => $byProducer) {
+                        $shares = [];
+                        foreach ($byProducer as $producerId => $pool) {
+                            $qty = $pool['shared'] + ($audience === ShopStockAudience::BusinessTrade ? $pool['b2b'] : 0.0);
+                            if ($qty > 1e-9) {
+                                $shares[$producerId] = round($qty, 4);
+                            }
                         }
-                    }
-                    if ($shares !== []) {
-                        uksort($shares, fn (int $a, int $b): int => [$shares[$b], $a] <=> [$shares[$a], $b]);
-                        $out[$iso][$pid] = $shares;
+                        if ($shares !== []) {
+                            uksort($shares, fn (int $a, int $b): int => [$shares[$b], $a] <=> [$shares[$a], $b]);
+                            $out[$iso][$pid][$vkey] = $shares;
+                        }
                     }
                 }
             }
 
             return $out;
         });
+    }
+
+    /**
+     * Collapse per-grade shares into the product-level view: quantities
+     * summed per farm across grades, ordered qty desc (same tiebreak as
+     * remainingByProducer). Storefront CARDS show this union while the
+     * grade rows use the per-vkey shares.
+     *
+     * @param  array<int, array<int, float>>  $byVkey  [vkey][producerId => qty]
+     * @return array<int, float> [producerId => qty]
+     */
+    public static function unionShares(array $byVkey): array
+    {
+        $union = [];
+        foreach ($byVkey as $shares) {
+            foreach ($shares as $producerId => $qty) {
+                $union[$producerId] = ($union[$producerId] ?? 0.0) + $qty;
+            }
+        }
+        if ($union !== []) {
+            uksort($union, fn (int $a, int $b): int => [$union[$b], $a] <=> [$union[$a], $b]);
+        }
+
+        return $union;
     }
 
     /**
@@ -201,7 +228,7 @@ class ProducerAllocationService
      * @param  list<int>  $productIds
      * @param  list<string>  $isoDates  sorted
      * @param  array<int, array<int, array<string, float>>>|null  $injectedDemand
-     * @return array{allocation: array<string, array<int, array<int, array<int, float>>>>, remaining: array<string, array<int, array<int, array{shared: float, b2b: float}>>>}
+     * @return array{allocation: array<string, array<int, array<int, array<int, float>>>>, remaining: array<string, array<int, array<int, array<int, array{shared: float, b2b: float}>>>>}
      */
     private function compute(array $productIds, array $isoDates, ?array $injectedDemand): array
     {
@@ -360,19 +387,21 @@ class ProducerAllocationService
             }
         }
 
-        // End-state batch remainders per producer for the requested days,
-        // split by pool (shared vs b2b_only) so remainingByProducer() can
-        // apply the audience view without a second compute.
+        // End-state batch remainders per producer AND grade for the
+        // requested days, split by pool (shared vs b2b_only) so
+        // remainingByProducer() can apply the audience view without a
+        // second compute. The vkey level lets storefronts label grades
+        // individually when farms differ per grade.
         $remaining = [];
         foreach ($isoDates as $iso) {
             $day = Carbon::parse($iso)->startOfDay();
             foreach ($state as $pid => $byVkey) {
-                foreach ($byVkey as $batches) {
+                foreach ($byVkey as $vkey => $batches) {
                     foreach ($batches as $b) {
                         if ($b['remaining'] <= 1e-9 || $b['producer_id'] <= 0 || $b['start']->gt($day) || $b['end']->lt($day)) {
                             continue;
                         }
-                        $pool = &$remaining[$iso][$pid][$b['producer_id']];
+                        $pool = &$remaining[$iso][$pid][$vkey][$b['producer_id']];
                         $pool ??= ['shared' => 0.0, 'b2b' => 0.0];
                         $pool[$b['b2b_only'] ? 'b2b' : 'shared'] += $b['remaining'];
                         unset($pool);

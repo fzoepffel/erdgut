@@ -6,6 +6,7 @@ use App\Enums\ProductUnit;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
+use App\Models\ProductVariant;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use App\Services\Shop\ShopOrderService;
@@ -129,6 +130,37 @@ class ShopMultiProducerDisplayTest extends TestCase
             ->assertOk()
             ->assertSee(route('public.shop.producers.show', $farm), false)
             ->assertSee($farm->name);
+    }
+
+    public function test_grade_rows_carry_their_own_farms(): void
+    {
+        // "Standard" only from farm A, the named grade only from farm B:
+        // each grade row lists just its farm, the card union shows both.
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = $this->productWithFarms($farmA, [$farmA->id, $farmB->id], [
+            $farmA->id => 10,
+        ]);
+        $variant = ProductVariant::factory()->create([
+            'product_id' => $product->id, 'name' => ['de' => 'Premium'],
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'producer_id' => $farmB->id, 'variant_id' => $variant->id,
+            'received_on' => self::DELIVERY_DATE, 'quantity' => 6, 'freshness_window_days' => 1,
+        ]);
+
+        $row = app(ShopOrderService::class)
+            ->weeklyProductsForDate(Carbon::parse(self::DELIVERY_DATE))
+            ->firstWhere(fn (array $r): bool => $r['product']->id === $product->id);
+
+        $this->assertNotNull($row);
+        $this->assertSame([$farmA->id], collect($row['gradeProducers'][0])->pluck('id')->all());
+        $this->assertSame([$farmB->id], collect($row['gradeProducers'][$variant->id])->pluck('id')->all());
+        // The card union names both farms.
+        $this->assertEqualsCanonicalizing(
+            [$farmA->id, $farmB->id],
+            collect($row['producers'])->pluck('id')->all(),
+        );
     }
 
     public function test_track_page_names_the_farm_that_actually_delivers(): void
