@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CountUnitLabel;
 use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
 use App\Services\Admin\InventoryService;
@@ -63,6 +64,7 @@ class Product extends Model
         'quantity_step',
         'unit_weight_grams',
         'unit_volume_ml',
+        'count_unit_label',
     ];
 
     /**
@@ -74,6 +76,7 @@ class Product extends Model
     {
         return [
             'unit' => ProductUnit::class,
+            'count_unit_label' => CountUnitLabel::class,
             // Storage is per *canonical* unit of the kind (g for mass,
             // ml for volume, piece, bunch). Decimal precision is 4 so
             // sub-canonical prices (€/g, €/ml) round-trip without
@@ -258,12 +261,31 @@ class Product extends Model
      */
     public function localizedUnit(?string $locale = null): string
     {
+        if (($word = $this->countUnitWord(1, $locale)) !== null) {
+            return $word;
+        }
+
         $display = $this->price_display_unit ?? $this->unit?->defaultDisplayUnit();
         if ($display === null) {
             return '';
         }
 
         return ProductUnit::displaySymbol($display);
+    }
+
+    /**
+     * The display word replacing "Stück" for THIS product (a pot of
+     * basil, a bag of flour), correctly pluralized. Null when the
+     * product is not piece-kind or carries no label, so a stale DB
+     * value on a mass product stays harmless everywhere.
+     */
+    public function countUnitWord(int|float $count = 1, ?string $locale = null): ?string
+    {
+        if ($this->unit !== ProductUnit::Piece || $this->count_unit_label === null) {
+            return null;
+        }
+
+        return $this->count_unit_label->label($count, $locale);
     }
 
     /**
@@ -283,7 +305,7 @@ class Product extends Model
         return match ($this->unit) {
             ProductUnit::Mass => 'g',
             ProductUnit::Volume => 'ml',
-            ProductUnit::Piece => 'Stück',
+            ProductUnit::Piece => $this->countUnitWord(1) ?? 'Stück',
             ProductUnit::Bunch => 'Bund',
             default => '',
         };
@@ -347,7 +369,7 @@ class Product extends Model
             return (string) $canonicalQuantity;
         }
 
-        return $this->unit->formatQuantity($canonicalQuantity, $locale);
+        return $this->unit->formatQuantity($canonicalQuantity, $locale, $this->countUnitWord($canonicalQuantity, $locale));
     }
 
     /**
@@ -363,7 +385,7 @@ class Product extends Model
 
         $displayUnit = $this->price_display_unit ?? $this->unit->defaultDisplayUnit();
 
-        return $this->unit->formatPrice((float) $this->unit_price, $displayUnit, $locale);
+        return $this->unit->formatPrice((float) $this->unit_price, $displayUnit, $locale, $this->countUnitWord(1, $locale));
     }
 
     public function localizedOrigin(?string $locale = null): string

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\Allergen;
+use App\Enums\CountUnitLabel;
 use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
@@ -74,6 +75,8 @@ class StoreProductRequest extends FormRequest
             // per product if storage allows.
             'default_freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            // Display-only word replacing "Stück"; stored for piece products only.
+            'count_unit_label' => ['nullable', 'string', Rule::enum(CountUnitLabel::class)],
             'producer_buying_prices' => ['nullable', 'array'],
             'producer_buying_prices.*' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             // Optional customer-group (business) price, in the display unit.
