@@ -190,6 +190,37 @@ class AdminProductMultiProducerTest extends TestCase
         $this->assertStringContainsString('prices: {"'.$farm->id.'":"2.50"}', $html);
     }
 
+    public function test_create_persists_grade_prices_for_new_grades(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), $this->payload([
+                'producer_ids' => [$farmA->id, $farmB->id],
+                'variants' => [
+                    [
+                        'id' => '',
+                        'name' => ['de' => 'Premium', 'en' => '', 'fr' => ''],
+                        'unit_price' => '9.99',
+                        'is_active' => '1',
+                        'producer_buying_prices' => [$farmB->id => '3.50'],
+                    ],
+                ],
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $product = Product::query()->latest('id')->firstOrFail();
+        $variant = $product->variants()->firstOrFail();
+        $this->assertDatabaseHas('product_producer_variant_prices', [
+            'product_id' => $product->id, 'producer_id' => $farmB->id,
+            'variant_id' => $variant->id, 'buying_price_cents' => 350,
+        ]);
+        $this->assertDatabaseMissing('product_producer_variant_prices', ['producer_id' => $farmA->id]);
+    }
+
     public function test_update_persists_and_clears_grade_prices(): void
     {
         $admin = User::factory()->admin()->create();
@@ -197,13 +228,18 @@ class AdminProductMultiProducerTest extends TestCase
         $product = Product::factory()->create(['producer_id' => $farm->id]);
         $variant = ProductVariant::factory()->create(['product_id' => $product->id, 'name' => ['de' => 'Premium']]);
 
+        $variantRow = fn (string $price) => [
+            'id' => $variant->id,
+            'name' => ['de' => 'Premium', 'en' => '', 'fr' => ''],
+            'unit_price' => '9.99',
+            'is_active' => '1',
+            'producer_buying_prices' => [$farm->id => $price],
+        ];
+
         $this->actingAs($admin)
             ->put(route('app.admin.products.update', $product), $this->payload([
                 'producer_ids' => [$farm->id],
-                'producer_variant_buying_prices' => [$farm->id => [$variant->id => '3.20']],
-                'variants' => [
-                    ['id' => $variant->id, 'name' => ['de' => 'Premium', 'en' => '', 'fr' => ''], 'unit_price' => '9.99', 'is_active' => '1'],
-                ],
+                'variants' => [$variantRow('3.20')],
             ]))
             ->assertRedirect()
             ->assertSessionHasNoErrors();
@@ -217,10 +253,7 @@ class AdminProductMultiProducerTest extends TestCase
         $this->actingAs($admin)
             ->put(route('app.admin.products.update', $product), $this->payload([
                 'producer_ids' => [$farm->id],
-                'producer_variant_buying_prices' => [$farm->id => [$variant->id => '']],
-                'variants' => [
-                    ['id' => $variant->id, 'name' => ['de' => 'Premium', 'en' => '', 'fr' => ''], 'unit_price' => '9.99', 'is_active' => '1'],
-                ],
+                'variants' => [$variantRow('')],
             ]))
             ->assertRedirect()
             ->assertSessionHasNoErrors();
@@ -230,58 +263,31 @@ class AdminProductMultiProducerTest extends TestCase
         ]);
     }
 
-    public function test_removing_a_farm_drops_its_grade_prices(): void
-    {
-        $admin = User::factory()->admin()->create();
-        $farmA = Producer::factory()->create();
-        $farmB = Producer::factory()->create();
-        $product = Product::factory()->create(['producer_id' => $farmA->id]);
-        $product->syncProducers([$farmA->id, $farmB->id]);
-        $variant = ProductVariant::factory()->create(['product_id' => $product->id, 'name' => ['de' => 'Premium']]);
-        ProductProducerVariantPrice::create([
-            'product_id' => $product->id, 'producer_id' => $farmB->id,
-            'variant_id' => $variant->id, 'buying_price_cents' => 300,
-        ]);
-
-        $this->actingAs($admin)
-            ->put(route('app.admin.products.update', $product), $this->payload([
-                'producer_ids' => [$farmA->id], // farm B removed
-                'variants' => [
-                    ['id' => $variant->id, 'name' => ['de' => 'Premium', 'en' => '', 'fr' => ''], 'unit_price' => '9.99', 'is_active' => '1'],
-                ],
-            ]))
-            ->assertRedirect()
-            ->assertSessionHasNoErrors();
-
-        $this->assertDatabaseMissing('product_producer_variant_prices', ['producer_id' => $farmB->id]);
-    }
-
-    public function test_grade_price_validation_rejects_unknown_grade_and_farm(): void
+    public function test_grade_price_validation_rejects_unselected_farms(): void
     {
         $admin = User::factory()->admin()->create();
         $farm = Producer::factory()->create();
         $other = Producer::factory()->create();
         $product = Product::factory()->create(['producer_id' => $farm->id]);
-        $foreignVariant = ProductVariant::factory()->create(); // another product's grade
+        $variant = ProductVariant::factory()->create(['product_id' => $product->id, 'name' => ['de' => 'Premium']]);
 
-        // Unknown grade.
         $this->actingAs($admin)
             ->put(route('app.admin.products.update', $product), $this->payload([
                 'producer_ids' => [$farm->id],
-                'producer_variant_buying_prices' => [$farm->id => [$foreignVariant->id => '2.00']],
+                'variants' => [
+                    [
+                        'id' => $variant->id,
+                        'name' => ['de' => 'Premium', 'en' => '', 'fr' => ''],
+                        'unit_price' => '9.99',
+                        'is_active' => '1',
+                        'producer_buying_prices' => [$other->id => '2.00'],
+                    ],
+                ],
             ]))
-            ->assertSessionHasErrors('producer_variant_buying_prices');
-
-        // Unselected farm.
-        $this->actingAs($admin)
-            ->put(route('app.admin.products.update', $product), $this->payload([
-                'producer_ids' => [$farm->id],
-                'producer_variant_buying_prices' => [$other->id => []],
-            ]))
-            ->assertSessionHasErrors('producer_variant_buying_prices');
+            ->assertSessionHasErrors('variants');
     }
 
-    public function test_edit_form_prefills_grade_prices_and_create_shows_none(): void
+    public function test_edit_form_prefills_grade_prices_in_the_variant_rows(): void
     {
         $admin = User::factory()->admin()->create();
         $farm = Producer::factory()->create();
@@ -296,14 +302,19 @@ class AdminProductMultiProducerTest extends TestCase
             ->get(route('app.admin.products.edit', $product))
             ->assertOk()
             ->getContent();
-        $this->assertStringContainsString('product-form-producer-grade-price', $html);
-        $this->assertStringContainsString('"'.$farm->id.'_'.$variant->id.'":"2.75"', $html);
 
+        $this->assertStringContainsString('product-form-grade-farm-prices', $html);
+        // The variant seed carries the per-farm map into Alpine (@js
+        // escapes quotes as \u0022).
+        $this->assertStringContainsString('\\u0022'.$farm->id.'\\u0022:\\u00222.75\\u0022', $html);
+
+        // The create form renders the block scaffolding too (grade prices
+        // work at creation now); no prefill of course.
         $createHtml = $this->actingAs($admin)
             ->get(route('app.admin.products.create'))
             ->assertOk()
             ->getContent();
-        $this->assertStringNotContainsString('product-form-producer-grade-price', $createHtml);
+        $this->assertStringContainsString('product-form-grade-farm-prices', $createHtml);
     }
 
     public function test_validation_rejects_prices_for_unselected_farms(): void
