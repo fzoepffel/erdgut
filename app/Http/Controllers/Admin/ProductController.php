@@ -205,7 +205,6 @@ class ProductController extends Controller
 
             $this->syncBusinessPrice($product, $validated, $request->user()?->id);
             $this->syncVariants($product, $validated, $request->user()?->id);
-            $this->syncProducerVariantBuyingPrices($product, $validated);
             $this->syncQuantityTiers($product, $validated, $request->user()?->id);
 
             $this->removeGalleryImages($validated['gallery_remove'] ?? [], $product);
@@ -436,6 +435,15 @@ class ProductController extends Controller
         // removing the last grade actually deletes it.
         $rows = is_array($validated['variants'] ?? null) ? $validated['variants'] : [];
 
+        // Grade-level farm prices ride along the rows. Rows of farms no
+        // longer selected are dropped here (the producer pivot carries no
+        // FK into the price table); deleted grades cascade via variant_id.
+        $farmIds = array_map('intval', (array) ($validated['producer_ids'] ?? []));
+        ProductProducerVariantPrice::query()
+            ->where('product_id', $product->id)
+            ->whereNotIn('producer_id', $farmIds ?: [0])
+            ->delete();
+
         $factor = $this->displayFactor($product);
         $keptIds = [];
 
@@ -467,9 +475,11 @@ class ProductController extends Controller
 
             $keptIds[] = $variant->id;
 
-            // Each grade carries its own optional business price + volume tiers.
+            // Each grade carries its own optional business price + volume
+            // tiers + per-farm buying prices.
             $this->upsertBusinessPrice($product, $variant->id, $row['business_price'] ?? null, $factor, $userId);
             $this->syncTiersFor($product, $variant->id, (array) ($row['tiers'] ?? []), $userId);
+            $this->syncGradeFarmPrices($product, $variant, (array) ($row['producer_buying_prices'] ?? []), $farmIds);
         }
 
         // Remove grades the admin deleted from the form, plus any price rules
@@ -851,40 +861,30 @@ class ProductController extends Controller
      * @param  array<string, mixed>  $validated
      */
     /**
-     * Persist (farm, grade) buying price overrides. Runs AFTER
-     * syncVariants(), so deleted grades have already cascaded their
-     * rows; farms no longer selected are cleaned up explicitly because
-     * the producer pivot carries no FK into this table.
+     * Buying price overrides per (farm, grade) for ONE grade row of the
+     * form (works at creation too: the row identifies the grade, not a
+     * pre-existing id). Empty input clears the override.
      *
-     * @param  array<string, mixed>  $validated
+     * @param  array<int|string, mixed>  $prices  [producerId => euros]
+     * @param  list<int>  $farmIds
      */
-    private function syncProducerVariantBuyingPrices(Product $product, array $validated): void
+    private function syncGradeFarmPrices(Product $product, ProductVariant $variant, array $prices, array $farmIds): void
     {
-        $farmIds = array_map('intval', $validated['producer_ids']);
-        ProductProducerVariantPrice::query()
-            ->where('product_id', $product->id)
-            ->whereNotIn('producer_id', $farmIds)
-            ->delete();
-
-        $input = (array) ($validated['producer_variant_buying_prices'] ?? []);
-        $variantIds = $product->variants()->pluck('id')->map(fn ($v): int => (int) $v)->all();
         foreach ($farmIds as $farmId) {
-            foreach ($variantIds as $variantId) {
-                $raw = $input[$farmId][$variantId] ?? null;
-                if ($raw === null || $raw === '') {
-                    ProductProducerVariantPrice::query()
-                        ->where('product_id', $product->id)
-                        ->where('producer_id', $farmId)
-                        ->where('variant_id', $variantId)
-                        ->delete();
+            $raw = $prices[$farmId] ?? null;
+            if ($raw === null || $raw === '') {
+                ProductProducerVariantPrice::query()
+                    ->where('product_id', $product->id)
+                    ->where('producer_id', $farmId)
+                    ->where('variant_id', $variant->id)
+                    ->delete();
 
-                    continue;
-                }
-                ProductProducerVariantPrice::query()->updateOrCreate(
-                    ['product_id' => $product->id, 'producer_id' => $farmId, 'variant_id' => $variantId],
-                    ['buying_price_cents' => (int) round(((float) $raw) * 100)],
-                );
+                continue;
             }
+            ProductProducerVariantPrice::query()->updateOrCreate(
+                ['product_id' => $product->id, 'producer_id' => $farmId, 'variant_id' => $variant->id],
+                ['buying_price_cents' => (int) round(((float) $raw) * 100)],
+            );
         }
     }
 

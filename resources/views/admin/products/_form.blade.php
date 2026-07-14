@@ -130,29 +130,6 @@
             }
         }
     }
-
-    // Grade-level buying price overrides: only SAVED grades get inputs
-    // (new grades in the repeater have no id yet); flat map keyed
-    // "producerId_variantId".
-    $gradePriceVariants = collect($existingVariants ?? [])
-        ->map(fn ($v) => ['id' => (int) $v['id'], 'label' => (string) ($v['label'] ?? '')])
-        ->values()
-        ->all();
-    $initialVariantPrices = [];
-    $oldVariantPrices = old('producer_variant_buying_prices');
-    if (is_array($oldVariantPrices)) {
-        foreach ($oldVariantPrices as $farmId => $byVariant) {
-            foreach ((array) $byVariant as $variantId => $value) {
-                if ($value !== null && $value !== '') {
-                    $initialVariantPrices[$farmId.'_'.$variantId] = (string) $value;
-                }
-            }
-        }
-    } else {
-        foreach (($product?->producerVariantPrices ?? collect()) as $priceRow) {
-            $initialVariantPrices[$priceRow->producer_id.'_'.$priceRow->variant_id] = number_format($priceRow->buying_price_cents / 100, 2, '.', '');
-        }
-    }
 @endphp
 <form method="post" action="{{ $action }}" class="space-y-6" enctype="multipart/form-data"
       {{-- Producer picker state lives on the form so both the farm
@@ -162,7 +139,6 @@
             options: {!! json_encode($producerOptions, JSON_UNESCAPED_UNICODE) !!},
             selected: {!! json_encode($initialSelectedProducers, JSON_UNESCAPED_UNICODE) !!},
             prices: {!! json_encode($initialProducerPrices === [] ? new stdClass : $initialProducerPrices, JSON_UNESCAPED_UNICODE) !!},
-            variantPrices: {!! json_encode($initialVariantPrices === [] ? new stdClass : $initialVariantPrices, JSON_UNESCAPED_UNICODE) !!},
             query: "",
             open: false,
             highlight: 0,
@@ -723,47 +699,23 @@
                 <div class="mt-3 space-y-2" data-testid="product-form-producer-prices" x-show="selected.length > 0" x-cloak>
                     <p class="text-xs font-medium text-gray-700">{{ __('admin.products.producer_price_label') }}</p>
                     <template x-for="s in selected" :key="s.id">
-                        <div class="space-y-1.5">
-                            <div class="flex items-center gap-3">
-                                <span class="w-48 truncate text-sm text-gray-700" x-text="s.name"></span>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    class="block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
-                                    x-bind:name="'producer_buying_prices[' + s.id + ']'"
-                                    x-model="prices[s.id]"
-                                    placeholder="{{ __('admin.products.producer_price_placeholder') }}"
-                                />
-                            </div>
-                            {{-- Saved grades of this product: optional override
-                                 per (farm, grade); empty falls back to the farm
-                                 price, then the default. New grades get inputs
-                                 after the first save. --}}
-                            @foreach ($gradePriceVariants as $gradePriceVariant)
-                                <div class="ml-6 flex items-center gap-3" data-testid="product-form-producer-grade-price">
-                                    <span class="w-44 truncate text-xs text-gray-500" title="{{ __('admin.products.producer_grade_price_label') }}">{{ $gradePriceVariant['label'] }}</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        class="block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
-                                        x-bind:name="'producer_variant_buying_prices[' + s.id + '][{{ $gradePriceVariant['id'] }}]'"
-                                        x-model="variantPrices[s.id + '_{{ $gradePriceVariant['id'] }}']"
-                                        placeholder="{{ __('admin.products.producer_price_placeholder') }}"
-                                    />
-                                </div>
-                            @endforeach
+                        <div class="flex items-center gap-3">
+                            <span class="w-48 truncate text-sm text-gray-700" x-text="s.name"></span>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
+                                x-bind:name="'producer_buying_prices[' + s.id + ']'"
+                                x-model="prices[s.id]"
+                                placeholder="{{ __('admin.products.producer_price_placeholder') }}"
+                            />
                         </div>
                     </template>
                     <p class="text-xs text-gray-500">{{ __('admin.products.producer_price_help') }}</p>
                     <x-input-error class="mt-2" :messages="$errors->get('producer_buying_prices')" />
                     @foreach ($errors->get('producer_buying_prices.*') as $producerPriceMessages)
                         <x-input-error class="mt-2" :messages="$producerPriceMessages" />
-                    @endforeach
-                    <x-input-error class="mt-2" :messages="$errors->get('producer_variant_buying_prices')" />
-                    @foreach ($errors->get('producer_variant_buying_prices.*.*') as $gradePriceMessages)
-                        <x-input-error class="mt-2" :messages="$gradePriceMessages" />
                     @endforeach
                 </div>
             </div>
@@ -787,6 +739,13 @@
         {{-- Grades / variants: same product sold in several qualities, each with
              its own price (and, via the weekly catalog, its own stock). --}}
         @php
+            // Per-farm buying prices for each grade, keyed producer id →
+            // display-unit euros; rides along the variant rows so it works
+            // at creation (rows have no ids yet).
+            $variantFarmPrices = [];
+            foreach (($product?->producerVariantPrices ?? collect()) as $gradePriceRow) {
+                $variantFarmPrices[$gradePriceRow->variant_id][$gradePriceRow->producer_id] = number_format($gradePriceRow->buying_price_cents / 100, 2, '.', '');
+            }
             $variantSeed = old('variants', collect($existingVariants ?? [])->map(fn ($v) => [
                 'id' => $v['id'],
                 'name' => [
@@ -797,16 +756,27 @@
                 'unit_price' => $v['price'] !== null ? number_format((float) $v['price'], 2, '.', '') : '',
                 'business_price' => ($v['business_price'] ?? null) !== null ? number_format((float) $v['business_price'], 2, '.', '') : '',
                 'is_active' => $v['is_active'],
+                'producer_buying_prices' => $variantFarmPrices[$v['id']] ?? [],
                 'tiers' => collect($v['tiers'] ?? [])->map(fn ($t) => [
                     'id' => $t['id'],
                     'min_quantity' => rtrim(rtrim(number_format((float) $t['min_quantity'], 3, '.', ''), '0'), '.'),
                     'unit_price' => number_format((float) $t['unit_price'], 2, '.', ''),
                 ])->values()->all(),
             ])->values()->all());
+            // Alpine needs an object (not []) so x-model can assign by
+            // farm id — also normalizes rows rehydrated via old().
+            $variantSeed = array_map(function (array $v): array {
+                $v['producer_buying_prices'] = (object) array_filter(
+                    (array) ($v['producer_buying_prices'] ?? []),
+                    fn ($value) => $value !== null && $value !== '',
+                );
+
+                return $v;
+            }, array_values($variantSeed));
         @endphp
         <div class="border-t border-gray-100 pt-6" x-data="{
             variants: @js(array_values($variantSeed)),
-            add() { this.variants.push({ id: '', name: { de: '', en: '', fr: '' }, unit_price: '', business_price: '', is_active: true, tiers: [] }); },
+            add() { this.variants.push({ id: '', name: { de: '', en: '', fr: '' }, unit_price: '', business_price: '', is_active: true, producer_buying_prices: {}, tiers: [] }); },
             remove(i) { this.variants.splice(i, 1); },
             addTier(i) { this.variants[i].tiers.push({ id: '', min_quantity: '', unit_price: '' }); },
             removeTier(i, j) { this.variants[i].tiers.splice(j, 1); },
@@ -847,6 +817,25 @@
                                 {{ __('admin.product_form.grades_active') }}
                             </label>
                             <button type="button" @click="remove(i)" class="ml-auto pb-2 text-xs font-medium text-rose-600 hover:text-rose-700">{{ __('admin.product_form.grades_remove') }}</button>
+                        </div>
+
+                        {{-- Optional buying price per farm for THIS grade;
+                             empty = the farm's price, then the default. Works
+                             at creation: the row identifies the grade. --}}
+                        <div class="mt-3 border-t border-gray-100 pt-3" data-testid="product-form-grade-farm-prices">
+                            <p class="text-[0.7rem] font-medium uppercase tracking-wide text-gray-500">{{ __('admin.products.producer_price_label') }}</p>
+                            <div class="mt-2 flex flex-wrap gap-3">
+                                <template x-for="s in selected" :key="s.id">
+                                    <label class="block text-xs text-gray-600">
+                                        <span x-text="s.name"></span>
+                                        <input type="number" step="0.01" min="0"
+                                            :name="'variants['+i+'][producer_buying_prices]['+s.id+']'"
+                                            x-model="v.producer_buying_prices[s.id]"
+                                            placeholder="{{ __('admin.products.producer_price_placeholder') }}"
+                                            class="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                    </label>
+                                </template>
+                            </div>
                         </div>
 
                         {{-- Per-grade volume tiers --}}
