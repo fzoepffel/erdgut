@@ -295,7 +295,7 @@ class RestaurantCatalogService
     private function gradesFor(Product $product, Carbon $date, string $displayUnit, int $factor, int $vatRate, bool $inSeason, array $sharesByVkey = []): array
     {
         $step = max(1, $product->effectiveQuantityStep());
-        $unitSymbol = ProductUnit::displaySymbol($displayUnit);
+        $unitSymbol = $product->countUnitWord(1) ?? ProductUnit::displaySymbol($displayUnit);
         $unitKind = $product->unit?->value ?? 'piece';
 
         $build = function (?int $variantId, ?string $label, float $grossCanonical) use ($product, $date, $factor, $vatRate, $step, $unitSymbol, $unitKind, $inSeason, $sharesByVkey): ?array {

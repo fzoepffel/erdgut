@@ -25,7 +25,7 @@ trait FormatsShopOrders
      *
      * @return array{0: float, 1: string}
      */
-    protected function displayQuantity(?ProductUnit $unit, ?string $priceDisplayUnit, float $canonical): array
+    protected function displayQuantity(?ProductUnit $unit, ?string $priceDisplayUnit, float $canonical, ?Product $product = null): array
     {
         if (! $unit instanceof ProductUnit) {
             return [$canonical, ''];
@@ -35,7 +35,7 @@ trait FormatsShopOrders
         $factor = $unit->canonicalUnitsPerDisplay($display);
         $qty = $factor > 0 ? $canonical / $factor : $canonical;
 
-        return [round($qty, 4), ProductUnit::displaySymbol($display)];
+        return [round($qty, 4), $product?->countUnitWord($qty) ?? ProductUnit::displaySymbol($display)];
     }
 
     /**

@@ -30,7 +30,7 @@
             $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit();
 
             return $product->unit !== null && $displayUnit !== null
-                ? $product->unit->formatPrice($canonical, $displayUnit, $locale)
+                ? $product->unit->formatPrice($canonical, $displayUnit, $locale, $product->countUnitWord(1, $locale))
                 : number_format($canonical, 2, ',', '.').' €';
         };
 

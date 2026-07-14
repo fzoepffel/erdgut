@@ -412,6 +412,37 @@ class AdminShopOrderExportTest extends TestCase
         $this->assertEqualsWithDelta(8.0, $row[9], 0.001);  // margin 16 − 8
     }
 
+    public function test_exports_use_the_count_unit_word(): void
+    {
+        app()->setLocale('de');
+        $farm = Producer::factory()->create();
+        $basil = Product::factory()->create([
+            'producer_id' => $farm->id,
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 3.0,
+            'count_unit_label' => 'pot',
+        ]);
+
+        $order = ShopOrder::factory()->paid()->create(['email' => 'a@example.com']);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $basil->id,
+            'quantity' => 2,
+            'unit' => 'piece',
+            'line_total_eur' => 6.0,
+        ]);
+
+        $rows = collect((new ShopOrderFarmTotalsSheet(Collection::make([
+            $order->fresh(['items.product.producer.translations']),
+        ])))->array());
+
+        $row = $rows->firstWhere(1, $basil->name);
+        $this->assertNotNull($row);
+        $this->assertSame(2.0, $row[2]);
+        $this->assertSame('Töpfe', $row[3]); // plural word instead of "Stück"
+    }
+
     public function test_route_sheet_includes_only_delivery_orders_with_payment_due(): void
     {
         $delivery = ShopOrder::factory()->create([

@@ -323,7 +323,7 @@ class ShopController extends Controller
         $displayUnit = $product->price_display_unit ?? $product->unit?->defaultDisplayUnit();
 
         return $product->unit !== null && $displayUnit !== null
-            ? $product->unit->formatPrice($canonical, $displayUnit)
+            ? $product->unit->formatPrice($canonical, $displayUnit, null, $product->countUnitWord())
             : Money::formatEur($canonical);
     }
 

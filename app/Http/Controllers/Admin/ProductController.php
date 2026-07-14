@@ -664,6 +664,13 @@ class ProductController extends Controller
             ? (int) $validated['unit_volume_ml']
             : null;
 
+        // Display word ("Topf", "Beutel"): only stored for piece; cleared
+        // for every other kind so a switched product loses the stale word.
+        $payload['count_unit_label'] = $unitEnum === ProductUnit::Piece
+            && ($validated['count_unit_label'] ?? '') !== ''
+            ? $validated['count_unit_label']
+            : null;
+
         // Recurring yearly season window. Only persisted when the product is
         // flagged seasonal; cleared otherwise so a toggled-off product doesn't
         // keep a stale window.

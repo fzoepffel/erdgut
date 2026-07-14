@@ -600,12 +600,22 @@
             'piece' => __('units.piece'),
             'bunch' => __('units.bunch'),
         ];
+
+        // Optional display word for piece products ("Topf", "Beutel", ...):
+        // singular forms for the select and the "€/<symbol>" hints.
+        $countLabelOptions = [];
+        foreach (\App\Enums\CountUnitLabel::cases() as $countCase) {
+            $countLabelOptions[$countCase->value] = trans_choice($countCase->labelKey(), 1);
+        }
+        $currentCountLabel = (string) old('count_unit_label', $product?->count_unit_label?->value ?? '');
     @endphp
 
     <div
         x-data="{
             unit: @js((string) ($currentUnit ?? '')),
             displayUnit: @js((string) ($currentDisplayUnit ?? '')),
+            countLabel: @js($currentCountLabel),
+            countWords: @js($countLabelOptions),
             allowedDisplayMap: @js($allowedDisplayMap),
             displayLabels: @js($displayLabels),
             init() {
@@ -626,10 +636,19 @@
                         // unit for the kind (kg / L / piece / bunch).
                         this.displayUnit = allowed.length ? allowed[allowed.length - 1] : '';
                     }
+                    // The display word only exists for piece products.
+                    if (val !== 'piece') {
+                        this.countLabel = '';
+                    }
                 });
             },
             get allowed() { return this.allowedDisplayMap[this.unit] ?? []; },
-            get displaySymbol() { return this.displayLabels[this.displayUnit] ?? this.displayUnit; },
+            get displaySymbol() {
+                if (this.unit === 'piece' && this.countLabel !== '') {
+                    return this.countWords[this.countLabel] ?? this.displayLabels[this.displayUnit] ?? this.displayUnit;
+                }
+                return this.displayLabels[this.displayUnit] ?? this.displayUnit;
+            },
             get hasUnit() { return this.unit !== ''; },
             get hasDisplay() { return this.displayUnit !== ''; },
         }"
@@ -658,6 +677,18 @@
                 </select>
                 <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.price_display_unit_hint') }}</p>
                 <x-input-error class="mt-2" :messages="$errors->get('price_display_unit')" />
+            </div>
+
+            <div x-show="unit === 'piece'" x-cloak>
+                <x-input-label for="count_unit_label" :value="__('admin.product_form.count_unit_label_label')" />
+                <select id="count_unit_label" name="count_unit_label" x-model="countLabel" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm">
+                    <option value="">{{ __('units.piece') }}</option>
+                    @foreach ($countLabelOptions as $countValue => $countWord)
+                        <option value="{{ $countValue }}">{{ $countWord }}</option>
+                    @endforeach
+                </select>
+                <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.count_unit_label_hint') }}</p>
+                <x-input-error class="mt-2" :messages="$errors->get('count_unit_label')" />
             </div>
         </div>
 
