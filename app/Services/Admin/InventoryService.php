@@ -584,7 +584,12 @@ class InventoryService
             ->where(function ($q) use ($abandonedAfter, $prefix): void {
                 $q->where($prefix.'status', '!=', ShopOrderStatus::PendingPayment->value)
                     ->orWhere($prefix.'created_at', '>=', $abandonedAfter);
-            });
+            })
+            // Mirror ShopOrders (restaurant_order_id set) duplicate lines the
+            // source RestaurantOrder already commits via
+            // applyCommittingRestaurantLineFilter — skip them here to avoid
+            // double-counting inventory outflow.
+            ->whereNull($prefix.'restaurant_order_id');
     }
 
     /**

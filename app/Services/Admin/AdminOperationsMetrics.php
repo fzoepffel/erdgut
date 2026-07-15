@@ -171,9 +171,13 @@ class AdminOperationsMetrics
     {
         [$net, , $count] = $this->shopOrdersByDate($from, $to, CustomerType::Business);
 
+        // A firm restaurant order whose mirror ShopOrder already exists is
+        // counted via the shopOrdersByDate call above (mirror is business,
+        // total_amount_eur === gross). Skip it here to avoid double-counting.
         $rows = RestaurantOrder::query()
             ->whereIn('status', [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value])
             ->whereBetween('expected_delivery_date', [$from->toDateString(), $to->toDateString()])
+            ->whereDoesntHave('mirroredShopOrder')
             ->groupBy('expected_delivery_date')
             ->selectRaw('expected_delivery_date as d, SUM(items_total_net_eur) as net, COUNT(*) as cnt')
             ->get();
@@ -331,6 +335,8 @@ class AdminOperationsMetrics
         RestaurantOrder::query()
             ->whereIn('status', [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value])
             ->whereBetween('expected_delivery_date', [$windowFrom, $windowTo])
+            // Mirrored orders are already folded via the ShopOrder pass above.
+            ->whereDoesntHave('mirroredShopOrder')
             ->with('items.product.producer.translations', 'items.product.translations')
             ->get()
             ->each(function (RestaurantOrder $order) use ($fold): void {

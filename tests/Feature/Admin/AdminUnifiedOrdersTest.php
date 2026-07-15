@@ -9,6 +9,7 @@ use App\Models\ProductStockInflow;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantProfile;
 use App\Models\RestaurantStandingOrder;
+use App\Models\ShopOrder;
 use App\Models\User;
 use App\Services\Restaurant\RestaurantOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,13 +17,21 @@ use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
- * The admin shop-orders overview is THE order list: B2C shop orders and firm
- * B2B restaurant orders side by side; pending requests stay in the Anfragen
- * queue (linked with an open count) until granted.
+ * The admin shop-orders overview is THE order list. Firm restaurant orders
+ * enter the list via their mirror ShopOrder (see
+ * RestaurantOrderService::ensureShopOrderMirror), so the row always links to
+ * shop-orders.show — the surface that carries the edit button and the source
+ * badge. Pending requests stay in the Anfragen queue until granted.
  */
 class AdminUnifiedOrdersTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function mirrorOf(RestaurantOrder $order): ShopOrder
+    {
+        return $order->refresh()->mirroredShopOrder
+            ?? $this->fail('No mirror ShopOrder was created for RestaurantOrder #'.$order->id);
+    }
 
     private function stockedProduct(float $qty = 100): Product
     {
@@ -71,17 +80,20 @@ class AdminUnifiedOrdersTest extends TestCase
         ]);
     }
 
-    public function test_unified_index_shows_confirmed_restaurant_orders_with_badge(): void
+    public function test_unified_index_shows_confirmed_restaurant_orders_via_their_mirror(): void
     {
         $order = $this->placeRestaurantOrder($this->stockedProduct());
+        $mirror = $this->mirrorOf($order);
         $admin = User::factory()->admin()->create();
 
         $this->actingAs($admin)
             ->get(route('app.admin.shop-orders.index'))
             ->assertOk()
-            ->assertSee('data-testid="shop-admin-restaurant-row-'.$order->id.'"', false)
+            // The row IS a shop-order row, linked to shop-orders.show, so the
+            // admin lands on the edit-capable surface.
+            ->assertSee('data-testid="shop-admin-row-'.$mirror->id.'"', false)
             ->assertSee(__('shop.admin.badge_b2b'))
-            ->assertSee(route('app.admin.restaurant-orders.show', $order), false);
+            ->assertSee(__('shop.admin.badge_from_request'));
     }
 
     public function test_pending_requests_stay_out_but_show_in_the_header_badge(): void
@@ -101,7 +113,7 @@ class AdminUnifiedOrdersTest extends TestCase
         $this->assertStringContainsString('>1</span>', $response->getContent());
     }
 
-    public function test_granted_request_is_pushed_into_the_unified_list(): void
+    public function test_granted_request_is_pushed_into_the_unified_list_via_its_mirror(): void
     {
         $request = $this->submitRequest($this->stockedProduct());
         $svc = app(RestaurantOrderService::class);
@@ -110,12 +122,13 @@ class AdminUnifiedOrdersTest extends TestCase
         }
         $this->assertSame('confirmed', $request->refresh()->status->value);
 
+        $mirror = $this->mirrorOf($request);
         $admin = User::factory()->admin()->create();
         $this->actingAs($admin)
             ->get(route('app.admin.shop-orders.index'))
             ->assertOk()
-            ->assertSee('data-testid="shop-admin-restaurant-row-'.$request->id.'"', false)
-            ->assertSee(__('restaurant.kind_request'));
+            ->assertSee('data-testid="shop-admin-row-'.$mirror->id.'"', false)
+            ->assertSee(__('shop.admin.badge_from_request'));
     }
 
     public function test_requests_queue_excludes_firm_orders(): void
@@ -138,17 +151,18 @@ class AdminUnifiedOrdersTest extends TestCase
     public function test_type_filter_isolates_restaurant_orders(): void
     {
         $order = $this->placeRestaurantOrder($this->stockedProduct());
+        $mirror = $this->mirrorOf($order);
         $admin = User::factory()->admin()->create();
 
         $this->actingAs($admin)
             ->get(route('app.admin.shop-orders.index', ['type' => 'b2b']))
             ->assertOk()
-            ->assertSee('data-testid="shop-admin-restaurant-row-'.$order->id.'"', false);
+            ->assertSee('data-testid="shop-admin-row-'.$mirror->id.'"', false);
 
         $this->actingAs($admin)
             ->get(route('app.admin.shop-orders.index', ['type' => 'b2c']))
             ->assertOk()
-            ->assertDontSee('data-testid="shop-admin-restaurant-row-'.$order->id.'"', false);
+            ->assertDontSee('data-testid="shop-admin-row-'.$mirror->id.'"', false);
     }
 
     public function test_default_view_focuses_the_next_delivery_day(): void
@@ -170,12 +184,15 @@ class AdminUnifiedOrdersTest extends TestCase
         ]);
         $admin = User::factory()->admin()->create();
 
+        $tomorrowMirror = $this->mirrorOf($tomorrow);
+        $laterMirror = $this->mirrorOf($later);
+
         // No date params → focused on the NEXT delivery day only.
         $this->actingAs($admin)
             ->get(route('app.admin.shop-orders.index'))
             ->assertOk()
-            ->assertSee('data-testid="shop-admin-restaurant-row-'.$tomorrow->id.'"', false)
-            ->assertDontSee('data-testid="shop-admin-restaurant-row-'.$later->id.'"', false)
+            ->assertSee('data-testid="shop-admin-row-'.$tomorrowMirror->id.'"', false)
+            ->assertDontSee('data-testid="shop-admin-row-'.$laterMirror->id.'"', false)
             ->assertSee('data-testid="shop-admin-calendar"', false)
             ->assertSee('data-testid="shop-admin-all-dates"', false);
 
@@ -183,8 +200,8 @@ class AdminUnifiedOrdersTest extends TestCase
         $this->actingAs($admin)
             ->get(route('app.admin.shop-orders.index', ['delivery_from' => '', 'delivery_to' => '']))
             ->assertOk()
-            ->assertSee('data-testid="shop-admin-restaurant-row-'.$tomorrow->id.'"', false)
-            ->assertSee('data-testid="shop-admin-restaurant-row-'.$later->id.'"', false);
+            ->assertSee('data-testid="shop-admin-row-'.$tomorrowMirror->id.'"', false)
+            ->assertSee('data-testid="shop-admin-row-'.$laterMirror->id.'"', false);
     }
 
     public function test_weekly_standing_order_shows_every_week_in_the_list(): void
@@ -209,7 +226,7 @@ class AdminUnifiedOrdersTest extends TestCase
             ->get(route('app.admin.shop-orders.index', ['delivery_from' => '', 'delivery_to' => '', 'type' => 'b2b']))
             ->assertOk()
             ->getContent();
-        $this->assertGreaterThanOrEqual(5, substr_count($html, 'data-testid="shop-admin-restaurant-row-'));
+        $this->assertGreaterThanOrEqual(5, substr_count($html, 'data-testid="shop-admin-row-'));
         Carbon::setTestNow(null);
     }
 
