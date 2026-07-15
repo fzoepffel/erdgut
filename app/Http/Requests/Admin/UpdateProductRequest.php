@@ -43,18 +43,17 @@ class UpdateProductRequest extends FormRequest
             'translations' => ['required', 'array'],
         ];
         foreach ($this->locales() as $locale) {
-            // Only German is required. EN/FR are optional: a locale without
-            // a name is not stored at all, and the storefront falls back to
-            // the German texts (Product::translationFor()).
-            $req = $locale === 'de' ? 'required' : 'nullable';
-            $translationRules["translations.$locale"] = [$req, 'array'];
-            $translationRules["translations.$locale.name"] = [$req, 'string', 'max:255'];
-            $translationRules["translations.$locale.origin"] = [$req, 'string', 'max:128'];
-            $translationRules["translations.$locale.variety"] = [$req, 'string', 'max:128'];
+            // All three locales are required in the FORM (Fred's call). The
+            // DISPLAY layer still tolerates missing rows for legacy data
+            // (Product::translationFor() falls back to German).
+            $translationRules["translations.$locale"] = ['required', 'array'];
+            $translationRules["translations.$locale.name"] = ['required', 'string', 'max:255'];
+            $translationRules["translations.$locale.origin"] = ['required', 'string', 'max:128'];
+            $translationRules["translations.$locale.variety"] = ['required', 'string', 'max:128'];
             // Long/detailed description (detail page). Stored in `taste_profile`.
-            $translationRules["translations.$locale.taste_profile"] = [$req, 'string', 'max:1500'];
+            $translationRules["translations.$locale.taste_profile"] = ['required', 'string', 'max:1500'];
             // Short, card-friendly description (catalogue + shop cards).
-            $translationRules["translations.$locale.short_description"] = [$req, 'string', 'max:240'];
+            $translationRules["translations.$locale.short_description"] = ['required', 'string', 'max:240'];
         }
 
         $selfId = $this->route('product')?->id;

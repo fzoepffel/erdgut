@@ -76,19 +76,15 @@
     // tabs are red on first render whenever a returning failed
     // submission has empty required fields. Alpine's recheckTabs()
     // then keeps the map current as the admin types.
-    // Only German is required; EN/FR are optional and fall back to the
-    // German texts on the storefront when left empty.
     $initialTabMissing = [];
     foreach ($locales as $locale => $_) {
         $hasMissing = false;
-        if ($locale === 'de') {
-            $t = $product?->translations?->firstWhere('locale', $locale);
-            foreach ($translationFields as $f) {
-                $current = old("translations.$locale.$f", $t?->$f);
-                if (trim((string) $current) === '') {
-                    $hasMissing = true;
-                    break;
-                }
+        $t = $product?->translations?->firstWhere('locale', $locale);
+        foreach ($translationFields as $f) {
+            $current = old("translations.$locale.$f", $t?->$f);
+            if (trim((string) $current) === '') {
+                $hasMissing = true;
+                break;
             }
         }
         $initialTabMissing[$locale] = $hasMissing;
@@ -309,7 +305,6 @@
             tabMissing: {!! json_encode($initialTabMissing, JSON_UNESCAPED_UNICODE) !!},
             recheckTabs() {
                 Object.keys(this.tabMissing).forEach(loc => {
-                    if (loc !== "de") { this.tabMissing[loc] = false; return; }
                     const fields = ["name", "unit", "origin", "variety", "short_description", "taste_profile"];
                     let missing = false;
                     for (const f of fields) {
@@ -327,7 +322,7 @@
              columns. Inline at sm: where there's room. --}}
         <div class="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
             <h2 class="text-sm font-semibold text-gray-900">{{ __('Translations') }}</h2>
-            <p class="text-xs text-gray-600">{{ __('admin.product_form.translations_optional_hint') }}</p>
+            <p class="text-xs text-gray-600">{{ __('All three languages are required.') }}</p>
         </div>
 
         <div class="flex gap-1 border-b border-gray-200" role="tablist">
@@ -377,35 +372,35 @@
 
             <div x-show="tab === '{{ $locale }}'" role="tabpanel" class="rounded border border-gray-200 bg-white p-4">
                 <div class="grid grid-cols-1 gap-6">
+                    {{-- The duplicate-check state is always present (the
+                         payload script only exists on create, so hits stay
+                         empty on edit). A blade @if INSIDE a component tag
+                         below would silently break compilation. --}}
                     <div
-                        @if (($existingProductNames ?? null) !== null)
-                            x-data='{
-                                hits: [],
-                                check(v) {
-                                    const q = v.trim().toLocaleLowerCase();
-                                    if (q.length < 3) { this.hits = []; return; }
-                                    this.hits = (window.erdgutExistingProducts || []).filter(p =>
-                                        Object.values(p.names).some(n => {
-                                            const m = n.toLocaleLowerCase();
-                                            return m !== "" && (m.includes(q) || q.includes(m));
-                                        })
-                                    ).slice(0, 3);
-                                },
-                            }'
-                        @endif
+                        x-data='{
+                            hits: [],
+                            check(v) {
+                                const q = v.trim().toLocaleLowerCase();
+                                if (q.length < 3) { this.hits = []; return; }
+                                this.hits = (window.erdgutExistingProducts || []).filter(p =>
+                                    Object.values(p.names).some(n => {
+                                        const m = n.toLocaleLowerCase();
+                                        return m !== "" && (m.includes(q) || q.includes(m));
+                                    })
+                                ).slice(0, 3);
+                            },
+                        }'
                     >
-                        <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" :required="$locale === 'de'" />
+                        <x-input-label :for="'translations_'.$locale.'_name'" :value="__('Name')" required />
                         <x-text-input
                             :id="'translations_'.$locale.'_name'"
                             :name="'translations['.$locale.'][name]'"
                             type="text"
                             class="mt-1 block w-full"
                             :value="old('translations.'.$locale.'.name', $t?->name)"
-                            :required="$locale === 'de'"
+                            required
                             x-on:input="recheckTabs()"
-                            @if (($existingProductNames ?? null) !== null)
-                                x-on:input.debounce.250ms="check($event.target.value)"
-                            @endif
+                            x-on:input.debounce.250ms="check($event.target.value)"
                         />
                         @if (($existingProductNames ?? null) !== null)
                             {{-- Advisory only: a matching name suggests adding the
@@ -430,28 +425,28 @@
 
                     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
-                            <x-input-label :for="'translations_'.$locale.'_origin'" :value="__('Origin')" :required="$locale === 'de'" />
+                            <x-input-label :for="'translations_'.$locale.'_origin'" :value="__('Origin')" required />
                             <x-text-input
                                 :id="'translations_'.$locale.'_origin'"
                                 :name="'translations['.$locale.'][origin]'"
                                 type="text"
                                 class="mt-1 block w-full"
                                 :value="old('translations.'.$locale.'.origin', $t?->origin)"
-                                :required="$locale === 'de'"
+                                required
                                 x-on:input="recheckTabs()"
                             />
                             <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.origin')" />
                         </div>
 
                         <div>
-                            <x-input-label :for="'translations_'.$locale.'_variety'" :value="__('Variety')" :required="$locale === 'de'" />
+                            <x-input-label :for="'translations_'.$locale.'_variety'" :value="__('Variety')" required />
                             <x-text-input
                                 :id="'translations_'.$locale.'_variety'"
                                 :name="'translations['.$locale.'][variety]'"
                                 type="text"
                                 class="mt-1 block w-full"
                                 :value="old('translations.'.$locale.'.variety', $t?->variety)"
-                                :required="$locale === 'de'"
+                                required
                                 x-on:input="recheckTabs()"
                             />
                             <x-input-error class="mt-2" :messages="$errors->get('translations.'.$locale.'.variety')" />
@@ -459,14 +454,14 @@
                     </div>
 
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_short_description'" :value="__('admin.product_form.short_description_label')" :required="$locale === 'de'" />
+                        <x-input-label :for="'translations_'.$locale.'_short_description'" :value="__('admin.product_form.short_description_label')" required />
                         <textarea
                             id="{{ 'translations_'.$locale.'_short_description' }}"
                             name="{{ 'translations['.$locale.'][short_description]' }}"
                             rows="2"
                             maxlength="240"
                             class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
-                            @if ($locale === 'de') required @endif
+                            required
                             x-on:input="recheckTabs()"
                         >{{ old('translations.'.$locale.'.short_description', $t?->short_description) }}</textarea>
                         <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.short_description_hint') }}</p>
@@ -474,13 +469,13 @@
                     </div>
 
                     <div>
-                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('admin.product_form.long_description_label')" :required="$locale === 'de'" />
+                        <x-input-label :for="'translations_'.$locale.'_taste_profile'" :value="__('admin.product_form.long_description_label')" required />
                         <textarea
                             id="{{ 'translations_'.$locale.'_taste_profile' }}"
                             name="{{ 'translations['.$locale.'][taste_profile]' }}"
                             rows="4"
                             class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
-                            @if ($locale === 'de') required @endif
+                            required
                             x-on:input="recheckTabs()"
                         >{{ old('translations.'.$locale.'.taste_profile', $t?->taste_profile) }}</textarea>
                         <p class="mt-1 text-xs text-gray-500">{{ __('admin.product_form.long_description_hint') }}</p>
