@@ -71,6 +71,7 @@
         x-data="{
             modal: null,
             ctx: null,
+            expandedFarms: {},
             open(name, productCtx) {
                 this.ctx = productCtx;
                 this.modal = name;
@@ -202,7 +203,20 @@
                                         <tr>
                                             <td class="sticky left-0 z-10 bg-white px-3 py-2 align-top">
                                                 <div class="font-medium text-gray-900">{{ $product->name }}</div>
-                                                @if ($product->producer?->name)
+                                                @if ($multiFarmProducts[$product->id] ?? false)
+                                                    {{-- Several farms hold stock: the row is the sum, the
+                                                         toggle reveals one lane per farm below. --}}
+                                                    <button
+                                                        type="button"
+                                                        x-on:click="expandedFarms[{{ $product->id }}] = ! expandedFarms[{{ $product->id }}]"
+                                                        aria-label="{{ __('admin.inventory.farms_toggle_aria') }}"
+                                                        class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:underline"
+                                                        data-testid="inventory-farm-toggle-{{ $product->id }}"
+                                                    >
+                                                        {{ __('shop.producers_multiple') }}
+                                                        <span aria-hidden="true" x-text="expandedFarms[{{ $product->id }}] ? '▾' : '▸'">▸</span>
+                                                    </button>
+                                                @elseif ($product->producer?->name)
                                                     <div class="text-[11px] text-gray-500">{{ $product->producer->name }}</div>
                                                 @endif
                                                 <div class="mt-0.5 text-[10px] text-gray-500">
@@ -252,6 +266,40 @@
                                                 </div>
                                             </td>
                                         </tr>
+
+                                        {{-- Per-farm lanes (multi-farm products only): the product
+                                             row above is the sum across farms; expanding shows each
+                                             farm's remaining per day, same end-state semantics. --}}
+                                        @if ($multiFarmProducts[$product->id] ?? false)
+                                            @foreach (array_keys($farmMatrix[$product->id]) as $farmId)
+                                                <tr class="bg-emerald-50/30" x-show="expandedFarms[{{ $product->id }}]" x-cloak data-testid="inventory-farm-lane-{{ $product->id }}-{{ $farmId }}">
+                                                    <td class="sticky left-0 z-10 bg-emerald-50/30 px-3 py-1.5 align-top">
+                                                        <div class="flex items-center gap-1.5 pl-3 text-xs text-gray-600">
+                                                            <span class="text-gray-300">&#x2514;</span>
+                                                            <span>{{ $farmNames[$farmId] ?? '' }}</span>
+                                                        </div>
+                                                    </td>
+                                                    @foreach ($dateColumns as $date)
+                                                        @php
+                                                            $iso = $date->toDateString();
+                                                            $farmCell = $farmMatrix[$product->id][$farmId][$iso] ?? null;
+                                                            $farmQty = ($farmCell['qty'] ?? 0.0) / $factor;
+                                                            $farmExtra = ($farmCell['b2bExtra'] ?? 0.0) / $factor;
+                                                        @endphp
+                                                        <td class="px-2 py-1.5 text-center text-xs tabular-nums {{ $farmQty <= 0 && $farmExtra <= 0 ? 'text-gray-300' : 'text-gray-600' }}">
+                                                            @if ($farmQty <= 0 && $farmExtra <= 0)
+                                                                &mdash;
+                                                            @elseif ($farmQty <= 0)
+                                                                <span class="font-medium text-amber-700" title="{{ __('admin.inventory.b2b_stock_title') }}">{{ rtrim(rtrim(number_format($farmExtra, 2, ',', '.'), '0'), ',') }}</span>
+                                                            @else
+                                                                {{ rtrim(rtrim(number_format($farmQty, 2, ',', '.'), '0'), ',') }}@if ($farmExtra > 0)<span class="ml-0.5 text-[10px] font-medium text-amber-700" title="{{ __('admin.inventory.b2b_stock_title') }}">+{{ rtrim(rtrim(number_format($farmExtra, 2, ',', '.'), '0'), ',') }}</span>@endif
+                                                            @endif
+                                                        </td>
+                                                    @endforeach
+                                                    <td class="sticky right-0 z-10 bg-emerald-50/30 px-3 py-1.5"></td>
+                                                </tr>
+                                            @endforeach
+                                        @endif
 
                                         {{-- Per-grade lanes: the product row above is the total; each
                                              grade (default + variants) gets its own indented lane. --}}
