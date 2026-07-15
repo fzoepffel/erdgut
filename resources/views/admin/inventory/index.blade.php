@@ -203,6 +203,7 @@
                                         <tr>
                                             <td class="sticky left-0 z-10 bg-white px-3 py-2 align-top">
                                                 <div class="font-medium text-gray-900">{{ $product->name }}</div>
+                                                @php $stockFarmIds = array_keys($farmMatrix[$product->id] ?? []); @endphp
                                                 @if ($multiFarmProducts[$product->id] ?? false)
                                                     {{-- Several farms hold stock: the row is the sum, the
                                                          toggle reveals one lane per farm below. --}}
@@ -216,6 +217,10 @@
                                                         {{ __('shop.producers_multiple') }}
                                                         <span aria-hidden="true" x-text="expandedFarms[{{ $product->id }}] ? '▾' : '▸'">▸</span>
                                                     </button>
+                                                @elseif (count($stockFarmIds) === 1 && ($farmNames[$stockFarmIds[0]] ?? '') !== '')
+                                                    {{-- All windowed stock comes from ONE farm: name that
+                                                         farm, even when it is not the primary. --}}
+                                                    <div class="text-[11px] text-gray-500" data-testid="inventory-farm-single-{{ $product->id }}">{{ $farmNames[$stockFarmIds[0]] }}</div>
                                                 @elseif ($product->producer?->name)
                                                     <div class="text-[11px] text-gray-500">{{ $product->producer->name }}</div>
                                                 @endif

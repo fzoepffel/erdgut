@@ -81,6 +81,32 @@ class AdminInventoryTest extends TestCase
         $this->assertStringContainsString(e($farmB->name), $html);
     }
 
+    public function test_row_names_the_actual_stocking_farm_when_it_is_not_the_primary(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $farmA->id, 'is_available' => true, 'is_published' => true,
+        ]);
+        $product->syncProducers([$farmA->id, $farmB->id]);
+        // The ONLY stock in the window comes from farm B.
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'producer_id' => $farmB->id,
+            'received_on' => '2026-05-20', 'quantity' => 7, 'freshness_window_days' => 1,
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('inventory-farm-single-'.$product->id, $html);
+        $this->assertStringContainsString(e($farmB->name), $html);
+        $this->assertStringNotContainsString('inventory-farm-toggle-'.$product->id, $html);
+    }
+
     public function test_single_farm_product_keeps_its_plain_producer_line(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-05-19'));
