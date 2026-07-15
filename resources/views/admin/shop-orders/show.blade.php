@@ -17,8 +17,30 @@
                 <p class="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status" data-testid="shop-admin-flash">{{ session('status') }}</p>
             @endif
 
+            @if (session('error'))
+                <p class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ session('error') }}</p>
+            @endif
+
             {{-- Actions --}}
             <div class="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
+                @if ($order->isEditableByAdmin())
+                    <a href="{{ route('app.admin.shop-orders.edit', $order) }}"
+                       class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                       data-testid="shop-admin-edit">
+                        {{ __('shop.admin.action_edit') }}
+                    </a>
+                @endif
+                @if ($order->hasOpenAmount())
+                    @php $openAmount = number_format(abs($order->outstandingAmountEur()), 2, ',', '.').' €'; @endphp
+                    <form method="POST" action="{{ route('app.admin.shop-orders.settle-outstanding', $order) }}">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center rounded-md border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800 transition hover:bg-amber-100" data-testid="shop-admin-settle-outstanding">
+                            {{ $order->outstandingAmountEur() > 0
+                                ? __('shop.admin.action_settle_collected', ['amount' => $openAmount])
+                                : __('shop.admin.action_settle_refunded', ['amount' => $openAmount]) }}
+                        </button>
+                    </form>
+                @endif
                 @if ($order->status === \App\Enums\ShopOrderStatus::PendingPayment)
                     <form method="POST" action="{{ route('app.admin.shop-orders.mark-paid', $order) }}">
                         @csrf
@@ -39,7 +61,7 @@
                     <form
                         method="POST"
                         action="{{ route('app.admin.shop-orders.refund', $order) }}"
-                        onsubmit="return confirm({{ Js::from(__('shop.admin.confirm_refund', ['id' => $order->id, 'amount' => \App\Support\Money::format($order->total_amount_eur)])) }})"
+                        onsubmit="return confirm({{ Js::from(__('shop.admin.confirm_refund', ['id' => $order->id, 'amount' => \App\Support\Money::format($order->effectivePaidAmountEur() ?? $order->total_amount_eur)])) }})"
                         class="flex items-center gap-2"
                     >
                         @csrf
@@ -168,6 +190,36 @@
                             <td colspan="3" class="px-4 py-2 text-right text-gray-800">{{ __('shop.summary_line_total') }}</td>
                             <td class="px-4 py-2 text-right tabular-nums text-gray-900">@eur($order->total_amount_eur)</td>
                         </tr>
+                        @if ($order->paid_at !== null && abs($order->outstandingAmountEur()) >= 0.01)
+                            <tr>
+                                <td colspan="3" class="px-4 py-2 text-right text-gray-600">{{ __('shop.admin.label_already_paid') }}</td>
+                                <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($order->effectivePaidAmountEur())</td>
+                            </tr>
+                            <tr class="font-semibold">
+                                @if ($order->outstandingAmountEur() > 0)
+                                    <td colspan="3" class="px-4 py-2 text-right text-amber-800">{{ __('shop.admin.label_open_amount') }}</td>
+                                    <td class="px-4 py-2 text-right tabular-nums text-amber-800" data-testid="shop-admin-open-amount">@eur($order->outstandingAmountEur())</td>
+                                @else
+                                    <td colspan="3" class="px-4 py-2 text-right text-violet-800">{{ __('shop.admin.label_refund_due') }}</td>
+                                    <td class="px-4 py-2 text-right tabular-nums text-violet-800" data-testid="shop-admin-refund-due">@eur(abs($order->outstandingAmountEur()))</td>
+                                @endif
+                            </tr>
+                        @elseif ($order->outstanding_settled_at !== null && $order->outstanding_settled_amount_eur !== null)
+                            {{-- The difference was settled in person; keep the trace visible. --}}
+                            <tr>
+                                <td colspan="4" class="px-4 py-2 text-right text-xs text-emerald-700" data-testid="shop-admin-settled-note">
+                                    {{ (float) $order->outstanding_settled_amount_eur >= 0
+                                        ? __('shop.admin.settled_collected_note', [
+                                            'amount' => number_format(abs((float) $order->outstanding_settled_amount_eur), 2, ',', '.').' €',
+                                            'date' => $order->outstanding_settled_at->locale(app()->getLocale())->isoFormat('D. MMM YYYY, HH:mm'),
+                                        ])
+                                        : __('shop.admin.settled_refunded_note', [
+                                            'amount' => number_format(abs((float) $order->outstanding_settled_amount_eur), 2, ',', '.').' €',
+                                            'date' => $order->outstanding_settled_at->locale(app()->getLocale())->isoFormat('D. MMM YYYY, HH:mm'),
+                                        ]) }}
+                                </td>
+                            </tr>
+                        @endif
                     </tfoot>
                 </table>
             </div>

@@ -686,6 +686,15 @@ Route::middleware(['auth', 'verified'])
             Route::post('shop-orders/packing/product', [AdminPackingController::class, 'packProduct'])
                 ->middleware('throttle:120,1')->name('packing.product');
             Route::get('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'show'])->name('shop-orders.show');
+            // Full order editing (lines, prices, fulfillment) with open-amount
+            // tracking for already-paid orders.
+            Route::get('shop-orders/{shopOrder}/edit', [AdminShopOrderController::class, 'edit'])->name('shop-orders.edit');
+            Route::put('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'update'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.update');
+            Route::post('shop-orders/{shopOrder}/settle-outstanding', [AdminShopOrderController::class, 'settleOutstanding'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.settle-outstanding');
             Route::post('shop-orders/{shopOrder}/mark-paid', [AdminShopOrderController::class, 'markPaid'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.mark-paid');

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CustomerType;
 use App\Enums\OrderSource;
 use App\Enums\ShopOrderStatus;
+use App\Services\Admin\InventoryService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -38,6 +39,10 @@ use Illuminate\Support\Carbon;
  * @property int $delivery_fee_vat_rate_percent
  * @property numeric $delivery_fee_vat_amount_eur
  * @property numeric $total_amount_eur
+ * @property numeric|null $paid_amount_eur
+ * @property numeric|null $outstanding_settled_amount_eur
+ * @property Carbon|null $outstanding_settled_at
+ * @property int|null $outstanding_settled_by_user_id
  * @property int|null $coupon_id
  * @property string|null $coupon_code
  * @property numeric $discount_eur
@@ -80,6 +85,10 @@ class ShopOrder extends Model
         'delivery_fee_vat_rate_percent',
         'delivery_fee_vat_amount_eur',
         'total_amount_eur',
+        'paid_amount_eur',
+        'outstanding_settled_amount_eur',
+        'outstanding_settled_at',
+        'outstanding_settled_by_user_id',
         'coupon_id',
         'coupon_code',
         'discount_eur',
@@ -127,6 +136,9 @@ class ShopOrder extends Model
             'delivery_fee_vat_rate_percent' => 'integer',
             'delivery_fee_vat_amount_eur' => 'decimal:2',
             'total_amount_eur' => 'decimal:2',
+            'paid_amount_eur' => 'decimal:2',
+            'outstanding_settled_amount_eur' => 'decimal:2',
+            'outstanding_settled_at' => 'datetime',
             'discount_eur' => 'decimal:2',
             'paid_at' => 'datetime',
             'marked_paid_by_admin_at' => 'datetime',
@@ -229,6 +241,91 @@ class ShopOrder extends Model
     {
         return $this->status === ShopOrderStatus::PendingPayment
             && $this->payment_method === 'online';
+    }
+
+    /**
+     * The amount actually collected from the customer, in EUR. Falls back
+     * to the order total for paid orders created before paid_amount_eur
+     * existed (their first admin edit snapshots it for real). Null when
+     * the order was never paid.
+     */
+    public function effectivePaidAmountEur(): ?float
+    {
+        if ($this->paid_amount_eur !== null) {
+            return (float) $this->paid_amount_eur;
+        }
+
+        return $this->paid_at !== null ? (float) $this->total_amount_eur : null;
+    }
+
+    /**
+     * Difference between the current total and what was already collected:
+     * positive = remainder to collect in person, negative = overpayment to
+     * refund in person. 0.0 for never-paid orders (a fully unpaid in-person
+     * order is "pending", not "open remainder").
+     */
+    public function outstandingAmountEur(): float
+    {
+        $paid = $this->effectivePaidAmountEur();
+        if ($paid === null) {
+            return 0.0;
+        }
+
+        return round((float) $this->total_amount_eur - $paid, 2);
+    }
+
+    /**
+     * Whether an edit left a difference between paid and owed that still
+     * needs settling in person (either direction).
+     */
+    public function hasOpenAmount(): bool
+    {
+        return $this->paid_at !== null && abs($this->outstandingAmountEur()) >= 0.01;
+    }
+
+    /**
+     * Whether the admin may edit this order's contents. Confirmed sales
+     * (in-person pending, paid, fulfilled) are editable; unfinished online
+     * checkouts are not (the SumUp checkout amount would desync), and
+     * terminal states (cancelled/failed/refunded) stay frozen.
+     */
+    public function isEditableByAdmin(): bool
+    {
+        if ($this->isAwaitingOnlinePayment()) {
+            return false;
+        }
+
+        return in_array($this->status, [
+            ShopOrderStatus::PendingPayment,
+            ShopOrderStatus::Paid,
+            ShopOrderStatus::Fulfilled,
+        ], true);
+    }
+
+    /**
+     * Whether the availability matrix still counts this order's quantities
+     * as committed. Mirrors InventoryService::applyCommittingShopOrderFilter:
+     * cancelled/refunded/failed orders released their stock, and pending
+     * orders past the abandoned-checkout grace window are released too.
+     * Used by the edit flow to decide whether the order's own quantities
+     * may be re-used against availability.
+     */
+    public function commitsStockNow(): bool
+    {
+        if (in_array($this->status, [
+            ShopOrderStatus::Cancelled,
+            ShopOrderStatus::Refunded,
+            ShopOrderStatus::Failed,
+        ], true)) {
+            return false;
+        }
+
+        if ($this->status === ShopOrderStatus::PendingPayment) {
+            return $this->created_at !== null
+                && $this->created_at->gte(now()->subMinutes(InventoryService::ABANDONED_PENDING_PAYMENT_MINUTES));
+        }
+
+        return true;
     }
 
     /**

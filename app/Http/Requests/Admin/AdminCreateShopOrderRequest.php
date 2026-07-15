@@ -162,7 +162,11 @@ class AdminCreateShopOrderRequest extends FormRequest
                     continue;
                 }
 
-                if (! ($product->is_available && $product->is_published)) {
+                // Hidden products are only acceptable when the order being
+                // edited already carries them (unpublished after purchase);
+                // newly added lines must be catalog-visible.
+                if (! ($product->is_available && $product->is_published)
+                    && ! in_array($product->id, $this->preexistingProductIds(), true)) {
                     $v->errors()->add(
                         "items.$index.product_id",
                         __('shop.errors.product_unavailable', ['name' => $product->name])
@@ -176,7 +180,8 @@ class AdminCreateShopOrderRequest extends FormRequest
                 // sold in 50 g increments). Stock is still checked so the admin
                 // sees a clear warning if they exceed available supply.
                 if ($date !== null) {
-                    $remaining = $inventory->availableOnDate($product, $date, $audience);
+                    $remaining = $inventory->availableOnDate($product, $date, $audience)
+                        + ($this->ownCommittedQuantities()[$product->id] ?? 0.0);
                     if ($quantity > $remaining + 1e-6) {
                         $v->errors()->add(
                             "items.$index.quantity",
@@ -199,5 +204,29 @@ class AdminCreateShopOrderRequest extends FormRequest
                 }
             }
         });
+    }
+
+    /**
+     * Quantities (per product id) that the order being validated may re-use
+     * because they are its own, already-committed stock. Creation has none;
+     * {@see AdminUpdateShopOrderRequest} returns the edited order's current
+     * line sums so an edit doesn't fail against itself on a tight date.
+     *
+     * @return array<int, float>
+     */
+    protected function ownCommittedQuantities(): array
+    {
+        return [];
+    }
+
+    /**
+     * Product ids that may stay on the order even though they are no longer
+     * catalog-visible (unpublished after purchase). Creation has none.
+     *
+     * @return array<int, int>
+     */
+    protected function preexistingProductIds(): array
+    {
+        return [];
     }
 }

@@ -12,6 +12,7 @@ use App\Exports\ShopOrdersExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
+use App\Http\Requests\Admin\AdminUpdateShopOrderRequest;
 use App\Mail\ShopOrderWindowMail;
 use App\Models\Producer;
 use App\Models\Product;
@@ -125,7 +126,74 @@ class AdminShopOrderController extends Controller
             }
         }
 
+        $grades = $this->addBackOwnQuantities($grades, $request, $date, $customerType);
+
         return response()->json($grades);
+    }
+
+    /**
+     * Order-edit support: the availability matrix counts the edited order's
+     * own quantities as committed, so without compensation the edit form
+     * would show its own order as "out of stock". When `exclude_order_id`
+     * is present (and the requested date matches the order's), each of the
+     * order's grades gets its own committed quantity added back onto
+     * `remaining`; grades that vanished from the list entirely (stock fully
+     * consumed by this order, or product unpublished since purchase) are
+     * re-appended so the prefilled lines stay selectable.
+     *
+     * @param  array<int, array<string, mixed>>  $grades
+     * @return array<int, array<string, mixed>>
+     */
+    private function addBackOwnQuantities(array $grades, Request $request, Carbon $date, CustomerType $customerType): array
+    {
+        $excludeOrderId = (int) $request->query('exclude_order_id', 0);
+        if ($excludeOrderId <= 0) {
+            return $grades;
+        }
+
+        $order = ShopOrder::query()->with('items')->find($excludeOrderId);
+        if ($order === null || ! $order->commitsStockNow() || ! $date->isSameDay($order->expected_delivery_date)) {
+            return $grades;
+        }
+
+        $own = [];
+        foreach ($order->items as $item) {
+            if ($item->product_id === null) {
+                continue;
+            }
+            $key = $item->variant_id !== null
+                ? $item->product_id.':'.$item->variant_id
+                : (string) $item->product_id;
+            $own[$key] = ($own[$key] ?? 0.0) + (float) $item->quantity;
+        }
+
+        $indexByKey = [];
+        foreach ($grades as $i => $grade) {
+            $indexByKey[(string) $grade['key']] = $i;
+        }
+
+        foreach ($own as $key => $quantity) {
+            if (isset($indexByKey[$key])) {
+                $grades[$indexByKey[$key]]['remaining'] = (float) $grades[$indexByKey[$key]]['remaining'] + $quantity;
+
+                continue;
+            }
+
+            [$productId, $variantId] = str_contains((string) $key, ':')
+                ? array_map('intval', explode(':', (string) $key, 2))
+                : [(int) $key, null];
+
+            $product = Product::query()->with(['priceRules', 'variants'])->find($productId);
+            if ($product === null) {
+                continue;
+            }
+            $variant = $variantId !== null ? $product->variants->firstWhere('id', $variantId) : null;
+
+            $remaining = (float) $this->inventory->remainingForGrade($product, $date, $variantId) + $quantity;
+            $grades[] = $this->buildGrade($product, $variant, $remaining, $date, $customerType);
+        }
+
+        return $grades;
     }
 
     /**
@@ -263,6 +331,9 @@ class AdminShopOrderController extends Controller
             ? CustomerType::Business
             : CustomerType::Private;
 
+        // Admin endpoint: tolerate products unpublished after purchase so the
+        // edit form's quote keeps covering every prefilled line (the picker
+        // itself never offers hidden products for new lines).
         $quote = $this->service->quote(
             $items,
             $fulfillmentMode,
@@ -270,6 +341,7 @@ class AdminShopOrderController extends Controller
             null,
             $quoteDate,
             $customerType,
+            includeHiddenProducts: true,
         );
 
         if ($quote['lines'] === []) {
@@ -977,12 +1049,153 @@ class AdminShopOrderController extends Controller
         ]);
     }
 
+    /**
+     * Edit form for an existing order — the manual-order form prefilled from
+     * the stored lines. Every prefilled line is marked "touched" so the
+     * debounced catalog quote never overwrites stored (possibly negotiated)
+     * prices; the admin re-triggers autofill per line by changing it.
+     */
+    public function edit(ShopOrder $shopOrder): View|RedirectResponse
+    {
+        if (! $shopOrder->isEditableByAdmin()) {
+            return redirect()
+                ->route('app.admin.shop-orders.show', $shopOrder)
+                ->with('error', __('shop.admin.edit_blocked_online_pending'));
+        }
+
+        $shopOrder->load('items');
+
+        $preselectedItems = $shopOrder->items->map(fn ($item): array => [
+            'custom' => $item->product_id === null,
+            'grade_key' => $item->product_id !== null
+                ? ($item->variant_id !== null ? $item->product_id.':'.$item->variant_id : (string) $item->product_id)
+                : '',
+            'product_id' => $item->product_id,
+            'variant_id' => $item->variant_id,
+            'name' => (string) ($item->name_snapshot ?? ''),
+            'unit' => (string) ($item->unit ?? ''),
+            'quantity' => (float) $item->quantity,
+            'line_total_eur' => (float) $item->line_total_eur,
+            'vat_rate_percent' => (int) $item->vat_rate_snapshot_percent,
+            'lineTouched' => true,
+            'vatTouched' => true,
+        ])->values()->all();
+
+        return view('admin.shop-orders.edit', [
+            'order' => $shopOrder,
+            'preselectedItems' => $preselectedItems,
+            'pickupLocations' => PickupLocations::all(),
+            'availableProductsUrl' => route('app.admin.shop-orders.available-products'),
+            'quoteUrl' => route('app.admin.shop-orders.quote'),
+        ]);
+    }
+
+    /**
+     * Persist an admin edit. Money history stays intact: what was collected
+     * remains in paid_amount_eur, and any difference to the new total shows
+     * up as an open remainder (or refund due) on the order.
+     */
+    public function update(AdminUpdateShopOrderRequest $request, ShopOrder $shopOrder): RedirectResponse
+    {
+        $snapshot = fn (ShopOrder $o): array => [
+            'items_total_eur' => (float) $o->items_total_eur,
+            'delivery_fee_eur' => (float) $o->delivery_fee_eur,
+            'total_amount_eur' => (float) $o->total_amount_eur,
+            'expected_delivery_date' => $o->expected_delivery_date->toDateString(),
+            'fulfillment_mode' => $o->fulfillment_mode,
+            'item_count' => $o->items()->count(),
+        ];
+        $before = $snapshot($shopOrder);
+
+        try {
+            $shopOrder = $this->service->updateOrder($shopOrder, $request->validated());
+        } catch (InsufficientStockException $e) {
+            return back()
+                ->withInput()
+                ->with('error', __('shop.errors.stock_vanished', ['name' => $e->product->name]));
+        }
+
+        $after = $snapshot($shopOrder);
+        $changed = array_keys(array_filter($before, fn ($value, $key): bool => $after[$key] !== $value, ARRAY_FILTER_USE_BOTH));
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: $shopOrder->id,
+            action: 'update',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            reason: null,
+            metadata: [
+                'channel' => 'admin',
+                'before' => $before,
+                'after' => $after,
+                'changed' => $changed,
+                'paid_amount_eur' => $shopOrder->paid_amount_eur !== null ? (float) $shopOrder->paid_amount_eur : null,
+                'outstanding_eur' => $shopOrder->outstandingAmountEur(),
+            ],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.shop-orders.show', $shopOrder)
+            ->with('status', __('shop.admin.order_updated_success'));
+    }
+
+    /**
+     * Record that the open difference between collected and owed was settled
+     * in person — either the remainder was collected, or the overpayment was
+     * refunded. Keeps a signed trace on the order so "was refunded" stays
+     * visible after the fact.
+     */
+    public function settleOutstanding(Request $request, ShopOrder $shopOrder): RedirectResponse
+    {
+        if (! $shopOrder->hasOpenAmount()) {
+            return redirect()
+                ->route('app.admin.shop-orders.show', $shopOrder)
+                ->with('error', __('shop.admin.errors.nothing_to_settle'));
+        }
+
+        $outstanding = $shopOrder->outstandingAmountEur();
+        $direction = $outstanding > 0 ? 'collected' : 'refunded';
+
+        $shopOrder->forceFill([
+            'paid_amount_eur' => $shopOrder->total_amount_eur,
+            'outstanding_settled_amount_eur' => $outstanding,
+            'outstanding_settled_at' => now(),
+            'outstanding_settled_by_user_id' => (int) $request->user()->id,
+        ])->save();
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: $shopOrder->id,
+            action: 'settle_outstanding',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            reason: null,
+            metadata: [
+                'channel' => 'admin',
+                'amount_eur' => $outstanding,
+                'direction' => $direction,
+            ],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        $amountLabel = number_format(abs($outstanding), 2, ',', '.').' €';
+
+        return redirect()
+            ->route('app.admin.shop-orders.show', $shopOrder)
+            ->with('status', $direction === 'collected'
+                ? __('shop.admin.flash_settled_collected', ['amount' => $amountLabel])
+                : __('shop.admin.flash_settled_refunded', ['amount' => $amountLabel]));
+    }
+
     public function markPaid(Request $request, ShopOrder $shopOrder): RedirectResponse
     {
         if ($shopOrder->status === ShopOrderStatus::PendingPayment) {
             $shopOrder->forceFill([
                 'status' => ShopOrderStatus::Paid,
                 'paid_at' => now(),
+                'paid_amount_eur' => $shopOrder->total_amount_eur,
                 'marked_paid_by_admin_at' => now(),
             ])->save();
 
@@ -1015,6 +1228,7 @@ class AdminShopOrderController extends Controller
         // In-person order completed in one click: flip paid + fulfilled at once.
         if ($shopOrder->status === ShopOrderStatus::PendingPayment) {
             $payload['paid_at'] = $now;
+            $payload['paid_amount_eur'] = $shopOrder->total_amount_eur;
             $payload['marked_paid_by_admin_at'] = $now;
         }
 
@@ -1145,7 +1359,9 @@ class AdminShopOrderController extends Controller
         }
 
         $reason = (string) $request->input('refund_reason', '');
-        $amount = (float) $shopOrder->total_amount_eur;
+        // Refund what was actually collected: after an admin edit the total
+        // can differ from the captured SumUp charge.
+        $amount = (float) ($shopOrder->effectivePaidAmountEur() ?? $shopOrder->total_amount_eur);
         $actorId = (int) $request->user()->id;
         $transactionId = (string) ($shopOrder->sumup_payment_id ?? '');
 
