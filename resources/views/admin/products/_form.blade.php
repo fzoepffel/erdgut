@@ -1256,22 +1256,24 @@
         <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.section_visibility') }}</h2>
         <div x-data="{
             seasonal: {{ old('is_seasonal', $product?->is_seasonal) ? 'true' : 'false' }},
-            published: {{ old('is_published', $product?->is_published ?? false) ? 'true' : 'false' }},
-            available: {{ old('is_available', $product?->is_available ?? false) ? 'true' : 'false' }},
+            published: {{ old('is_published', $product?->is_published ?? true) ? 'true' : 'false' }},
+            available: {{ old('is_available', $product?->is_available ?? true) ? 'true' : 'false' }},
         }">
-            {{-- Both publication flags default to FALSE on create: operators
-                 opt in once the product is fully filled out. The shop needs
-                 BOTH (visibleInCatalog), spelled out in the explainer. --}}
+            {{-- Both publication flags default to TRUE on create (they were
+                 forgotten too often); operators opt OUT for drafts. The shop
+                 needs BOTH (visibleInCatalog), spelled out in the explainer.
+                 The FormRequest merges booleans, so a validation bounce keeps
+                 an explicit uncheck. --}}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label class="flex items-start gap-2">
-                    <input type="checkbox" name="is_published" value="1" x-model="published" class="mt-0.5 rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_published', $product?->is_published ?? false))>
+                    <input type="checkbox" name="is_published" value="1" x-model="published" class="mt-0.5 rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_published', $product?->is_published ?? true))>
                     <span>
                         <span class="block text-sm text-gray-700">{{ __('Published') }}</span>
                         <span class="block text-xs text-gray-500">{{ __('admin.products.visibility_published_hint') }}</span>
                     </span>
                 </label>
                 <label class="flex items-start gap-2">
-                    <input type="checkbox" name="is_available" value="1" x-model="available" class="mt-0.5 rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_available', $product?->is_available ?? false))>
+                    <input type="checkbox" name="is_available" value="1" x-model="available" class="mt-0.5 rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-600" @checked(old('is_available', $product?->is_available ?? true))>
                     <span>
                         <span class="block text-sm text-gray-700">{{ __('Available in shop') }}</span>
                         <span class="block text-xs text-gray-500">{{ __('admin.products.visibility_available_hint') }}</span>
