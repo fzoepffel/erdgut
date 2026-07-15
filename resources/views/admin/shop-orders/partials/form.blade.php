@@ -66,6 +66,7 @@
          preselectedDeliveryFee: @js(old('delivery_fee_eur', $editing && $order->fulfillment_mode === 'delivery' ? (string) $order->delivery_fee_eur : null)),
          preselectedDeliveryVatRate: @js(old('delivery_fee_vat_rate_percent', $editing ? (string) $order->delivery_fee_vat_rate_percent : '7')),
          vatLineTemplate: @js(__('shop.summary_vat_rate_line')),
+         outOfStockLabel: @js(__('shop.admin.out_of_stock_tag')),
          priceHintLabels: @js([
              'reasons' => [
                  'base' => __('shop.admin.create_price_reason_base'),
@@ -190,8 +191,11 @@
                 <div class="p-6 space-y-3">
                     <x-input-error :messages="$errors->get('items')" class="mb-2" />
 
-                    <template x-if="availableProducts.length > 0">
-                        <div class="space-y-3">
+                    {{-- Always rendered (not gated on catalog hits): custom
+                         off-catalog lines must work even when nothing is in
+                         the catalog for that date, and edits must always show
+                         their prefilled lines. --}}
+                    <div class="space-y-3">
                             <div class="hidden sm:grid sm:grid-cols-12 sm:gap-3 sm:px-1 text-xs font-medium uppercase tracking-wide text-gray-500">
                                 <span class="sm:col-span-5">{{ __('admin.select_product') }}</span>
                                 <span class="sm:col-span-2">{{ __('admin.quantity') }}</span>
@@ -214,7 +218,7 @@
                                                 <template x-for="p in availableProducts" :key="p.id">
                                                     <option :value="String(p.id)"
                                                             :selected="String(p.id) === String(item.grade_key)"
-                                                            x-text="p.name + (p.producer ? ' (' + p.producer + ')' : '') + ' — ' + p.price + ' / ' + p.display_unit"></option>
+                                                            x-text="p.name + (p.producer ? ' (' + p.producer + ')' : '') + ' — ' + p.price + ' / ' + p.display_unit + (parseFloat(p.remaining) <= 0 ? ' · ' + outOfStockLabel : '')"></option>
                                                 </template>
                                             </select>
                                         </template>
@@ -317,12 +321,7 @@
                                     {{ __('shop.admin.create_add_custom_line') }}
                                 </button>
                             </div>
-                        </div>
-                    </template>
-
-                    <p class="text-sm text-gray-400" x-show="!loading && availableProducts.length === 0">
-                        {{ __('shop.admin.no_products_on_date') }}
-                    </p>
+                    </div>
                 </div>
             </div>
 
@@ -532,8 +531,10 @@
             </div>
 
             <div class="flex items-center gap-4" x-show="selectedDate" x-cloak>
+                {{-- Only gated on loading: an order may consist entirely of
+                     custom lines, so an empty catalog must not block submit. --}}
                 <button type="submit"
-                    :disabled="availableProducts.length === 0 || loading"
+                    :disabled="loading"
                     class="btn-solid-sm disabled:cursor-not-allowed disabled:opacity-40">
                     {{ $submitLabel }}
                 </button>
@@ -556,6 +557,7 @@ function adminOrderForm(config) {
         editing: config.editing || false,
         excludeOrderId: config.excludeOrderId || null,
         vatLineTemplate: config.vatLineTemplate || '',
+        outOfStockLabel: config.outOfStockLabel || '',
         priceHintLabels: config.priceHintLabels || { reasons: {}, tiers: {}, compare_template: '', used_template: '' },
         selectedDate: config.preselectedDate || '',
         customerType: config.customerType || 'private',

@@ -400,6 +400,7 @@ class ShopOrderService
     public function availableProductsForDate(
         Carbon $date,
         ShopStockAudience $audience = ShopStockAudience::Consumer,
+        bool $includeOutOfStock = false,
     ): Collection {
         $inventory = app(InventoryService::class);
 
@@ -417,7 +418,9 @@ class ShopOrderService
                 'product' => $product,
                 'remaining' => (float) ($matrix[$product->id][$iso] ?? 0.0),
             ])
-            ->filter(fn (array $row): bool => $row['remaining'] > 0)
+            // Admin ordering may deliberately pre-sell beyond stock, so the
+            // admin picker lists the whole catalog; the storefront never does.
+            ->filter(fn (array $row): bool => $includeOutOfStock || $row['remaining'] > 0)
             ->values();
     }
 
@@ -983,28 +986,33 @@ class ShopOrderService
 
         $audience = $this->stockAudienceForPayload($payload);
 
-        return DB::transaction(function () use ($payload, $fulfillmentMode, $deliveryDate, $quote, $audience): ShopOrder {
+        return DB::transaction(function () use ($payload, $fulfillmentMode, $deliveryDate, $quote, $audience, $isAdmin): ShopOrder {
             $inventory = app(InventoryService::class);
 
             // Re-check every line against live availability before we
             // commit. Lock the product rows so a concurrent order can't
-            // read the same "remaining" and double-book.
-            foreach ($quote['lines'] as $line) {
-                $product = $line['product'] ?? null;
-                if ($product === null) {
-                    continue; // custom line — no catalog stock to check
-                }
-                Product::query()->lockForUpdate()->find($product->id);
+            // read the same "remaining" and double-book. Admin orders skip
+            // the cap entirely: the operator may deliberately sell beyond
+            // stock (goods procured on demand); availability clamps at 0
+            // for the storefront either way.
+            if (! $isAdmin) {
+                foreach ($quote['lines'] as $line) {
+                    $product = $line['product'] ?? null;
+                    if ($product === null) {
+                        continue; // custom line — no catalog stock to check
+                    }
+                    Product::query()->lockForUpdate()->find($product->id);
 
-                // Cap against the chosen grade's own stock (NULL line → the
-                // default grade, key 0), so grades deplete independently.
-                $remaining = $inventory->availableOnDate($product, $deliveryDate, $audience, $line['variant_id'] ?? 0);
-                if ($line['quantity'] > $remaining + 1e-6) {
-                    throw new InsufficientStockException(
-                        $product,
-                        requested: $line['quantity'],
-                        remaining: max(0.0, $remaining),
-                    );
+                    // Cap against the chosen grade's own stock (NULL line → the
+                    // default grade, key 0), so grades deplete independently.
+                    $remaining = $inventory->availableOnDate($product, $deliveryDate, $audience, $line['variant_id'] ?? 0);
+                    if ($line['quantity'] > $remaining + 1e-6) {
+                        throw new InsufficientStockException(
+                            $product,
+                            requested: $line['quantity'],
+                            remaining: max(0.0, $remaining),
+                        );
+                    }
                 }
             }
 
@@ -1072,11 +1080,13 @@ class ShopOrderService
      * (or a refund due) instead of silently rewriting payment history.
      *
      * The stored coupon discount is frozen: no re-resolution against the
-     * new subtotal, the admin adjusts line prices instead.
+     * new subtotal, the admin adjusts line prices instead. There is no
+     * stock cap (admin may deliberately sell beyond stock, like admin
+     * creation); the edited quantities feed the availability matrix
+     * through the item rows.
      *
      * @param  array<string, mixed>  $payload
      *
-     * @throws InsufficientStockException
      * @throws ValidationException when the frozen discount exceeds the new subtotal
      */
     public function updateOrder(ShopOrder $order, array $payload): ShopOrder
@@ -1093,7 +1103,6 @@ class ShopOrderService
             throw new \InvalidArgumentException('expected_delivery_date is required.');
         }
         $deliveryDate = Carbon::parse((string) $expectedDeliveryDate)->startOfDay();
-        $dateUnchanged = $deliveryDate->isSameDay($order->expected_delivery_date);
 
         // Lazy legacy snapshot BEFORE any recompute: orders paid before
         // paid_amount_eur existed collected their pre-edit total.
@@ -1139,50 +1148,12 @@ class ShopOrderService
             ]);
         }
 
-        $audience = $this->stockAudienceForPayload([
-            'order_source' => ($order->order_source ?? OrderSource::Storefront)->value,
-            'customer_type' => ($order->customer_type ?? CustomerType::Private)->value,
-        ]);
-
-        // The order's own current quantities are still counted as committed
-        // by the availability matrix, so they can be re-used by this edit —
-        // but only while the date stays the same (a date change frees the
-        // old date and must fit the new one raw; slightly over-strict within
-        // overlapping batch windows, the workaround is a two-step edit) and
-        // only while the order actually still holds stock.
-        $ownCommitted = [];
-        if ($dateUnchanged && $order->commitsStockNow()) {
-            foreach ($order->items as $item) {
-                if ($item->product_id === null) {
-                    continue;
-                }
-                $key = $item->product_id.'|'.(int) ($item->variant_id ?? 0);
-                $ownCommitted[$key] = ($ownCommitted[$key] ?? 0.0) + (float) $item->quantity;
-            }
-        }
-
-        return DB::transaction(function () use ($order, $payload, $fulfillmentMode, $deliveryDate, $quote, $audience, $ownCommitted, $total): ShopOrder {
-            $inventory = app(InventoryService::class);
-
-            foreach ($quote['lines'] as $line) {
-                $product = $line['product'] ?? null;
-                if ($product === null) {
-                    continue; // custom line — no catalog stock to check
-                }
-                Product::query()->lockForUpdate()->find($product->id);
-
-                $key = $product->id.'|'.(int) ($line['variant_id'] ?? 0);
-                $remaining = $inventory->availableOnDate($product, $deliveryDate, $audience, $line['variant_id'] ?? 0)
-                    + ($ownCommitted[$key] ?? 0.0);
-                if ($line['quantity'] > $remaining + 1e-6) {
-                    throw new InsufficientStockException(
-                        $product,
-                        requested: $line['quantity'],
-                        remaining: max(0.0, $remaining),
-                    );
-                }
-            }
-
+        // NO stock cap on edits: like admin creation, the operator may
+        // deliberately sell beyond (or without) stock — goods are procured
+        // on demand. The edited quantities flow into the availability
+        // matrix via the item rows (InventoryCacheObserver bumps the cache),
+        // so storefront remaining amounts update immediately and clamp at 0.
+        return DB::transaction(function () use ($order, $payload, $fulfillmentMode, $deliveryDate, $quote, $total): ShopOrder {
             $this->syncOrderItems($order, $quote['lines']);
 
             // A fresh difference between paid and owed re-opens the

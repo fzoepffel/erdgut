@@ -98,7 +98,10 @@ class AdminShopOrderController extends Controller
             : ShopStockAudience::Consumer;
 
         $grades = [];
-        foreach ($this->service->availableProductsForDate($date, $audience) as $row) {
+        // Whole catalog, including out-of-stock grades: the admin may
+        // deliberately sell beyond stock (goods procured on demand), so
+        // nothing is hidden — remaining 0 is flagged in the form instead.
+        foreach ($this->service->availableProductsForDate($date, $audience, includeOutOfStock: true) as $row) {
             /** @var Product $product */
             $product = $row['product'];
             // priceRules + variants are needed for grade enumeration and tier
@@ -116,12 +119,9 @@ class AdminShopOrderController extends Controller
                 $grades[] = $this->buildGrade($product, null, $defaultRemaining, $date, $customerType);
             }
 
-            // Named grades.
+            // Named grades — out-of-stock ones included, flagged via remaining.
             foreach ($variants as $variant) {
                 $remaining = (float) $this->inventory->remainingForGrade($product, $date, $variant->id);
-                if ($remaining <= 0) {
-                    continue;
-                }
                 $grades[] = $this->buildGrade($product, $variant, $remaining, $date, $customerType);
             }
         }
@@ -1107,13 +1107,7 @@ class AdminShopOrderController extends Controller
         ];
         $before = $snapshot($shopOrder);
 
-        try {
-            $shopOrder = $this->service->updateOrder($shopOrder, $request->validated());
-        } catch (InsufficientStockException $e) {
-            return back()
-                ->withInput()
-                ->with('error', __('shop.errors.stock_vanished', ['name' => $e->product->name]));
-        }
+        $shopOrder = $this->service->updateOrder($shopOrder, $request->validated());
 
         $after = $snapshot($shopOrder);
         $changed = array_keys(array_filter($before, fn ($value, $key): bool => $after[$key] !== $value, ARRAY_FILTER_USE_BOTH));
