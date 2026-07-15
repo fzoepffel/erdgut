@@ -90,10 +90,27 @@ class HomepagePerformanceTest extends TestCase
         $response = $this->get(route('public.home'))->assertOk();
 
         // hero-video.js attaches the source on >=640px viewports; phones
-        // only ever load the poster image.
+        // only ever load the still image.
         $response->assertSee('data-video-src', false);
         $response->assertSee('preload="none"', false);
         $this->assertStringNotContainsString('<source', $response->getContent());
+    }
+
+    public function test_hero_still_image_sits_under_the_video(): void
+    {
+        $response = $this->get(route('public.home'))->assertOk();
+        $html = $response->getContent();
+
+        // The still is a real <img> that paints before the video arrives and
+        // remains the hero when autoplay is blocked (iOS battery-saving mode).
+        $response->assertSee('data-testid="shop-home-hero-still"', false);
+        $response->assertSee('images/mock/hero/shop-hero-poster.jpg', false);
+
+        // A `poster` attribute on the video would bring back the native play
+        // overlay when autoplay is refused; the underlay replaces it.
+        preg_match('/<video[^>]*>/', $html, $video);
+        $this->assertNotEmpty($video);
+        $this->assertStringNotContainsString('poster=', $video[0]);
     }
 
     public function test_chapter_art_is_webp_and_lazy(): void
