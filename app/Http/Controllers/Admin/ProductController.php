@@ -690,9 +690,10 @@ class ProductController extends Controller
             ? (int) $validated['unit_volume_ml']
             : null;
 
-        // Display word ("Topf", "Beutel"): only stored for piece; cleared
-        // for every other kind so a switched product loses the stale word.
-        $payload['count_unit_label'] = $unitEnum === ProductUnit::Piece
+        // Display word ("Topf", "Beutel"): only stored for the count kinds
+        // (piece/bunch); cleared for every other kind so a switched product
+        // loses the stale word.
+        $payload['count_unit_label'] = $isCount
             && ($validated['count_unit_label'] ?? '') !== ''
             ? $validated['count_unit_label']
             : null;

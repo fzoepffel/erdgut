@@ -78,7 +78,7 @@ class StoreProductRequest extends FormRequest
             // per product if storage allows.
             'default_freshness_window_days' => ['nullable', 'integer', 'between:1,60'],
             'buying_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
-            // Display-only word replacing "Stück"; stored for piece products only.
+            // Display-only word replacing "Stück"/"Bund"; stored for piece and bunch products.
             'count_unit_label' => ['nullable', 'string', Rule::enum(CountUnitLabel::class)],
             'producer_buying_prices' => ['nullable', 'array'],
             'producer_buying_prices.*' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
