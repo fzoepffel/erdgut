@@ -166,6 +166,29 @@ class AdminOperationsMetricsTest extends TestCase
         $this->assertSame(1, $snapshot->ordersThisWeekB2b);
     }
 
+    public function test_admin_created_business_shop_orders_route_to_the_b2b_bucket(): void
+    {
+        // Default storefront path → private → B2C.
+        $this->shopOrder('2026-07-08', 107.0, 7.0);
+        // Admin created a shop order for a trade customer and flagged it
+        // customer_type = business. It belongs in B2B, alongside every
+        // restaurant order.
+        $this->shopOrder('2026-07-08', 214.0, 14.0, ['customer_type' => 'business']);
+        $this->restaurantOrder('2026-07-08', 300.0, 'confirmed');
+
+        $snapshot = $this->build();
+        $current = $this->bucketFor($snapshot, '2026-07-06');
+
+        // B2C: only the private storefront order (107 gross − 7 VAT = 100 net).
+        $this->assertEqualsWithDelta(100.0, $current->b2cNet, 0.01);
+        // B2B: admin-flagged shop order (214 − 14 = 200 net) plus the
+        // restaurant order (300 net) = 500 net.
+        $this->assertEqualsWithDelta(500.0, $current->b2bNet, 0.01);
+        // Order counts follow the same split.
+        $this->assertSame(1, $snapshot->ordersThisWeekB2c);
+        $this->assertSame(2, $snapshot->ordersThisWeekB2b);
+    }
+
     public function test_top_products_merge_channels_and_skip_declined_lines(): void
     {
         $shared = $this->product();

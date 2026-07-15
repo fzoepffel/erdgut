@@ -2,6 +2,7 @@
 
 namespace App\Services\Admin;
 
+use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
 use App\Enums\RestaurantOrderStatus;
 use App\Enums\RestaurantVerificationStatus;
@@ -18,17 +19,24 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Numbers for the operations dashboard: weekly NET revenue for the two active
- * channels (B2C shop, B2B restaurants), top-sold products, and operational
- * KPIs. Revenue is attributed by expected_delivery_date (materialized weekly
- * B2B orders exist weeks ahead; those future weeks render as "committed").
+ * Numbers for the operations dashboard: weekly NET revenue split by channel
+ * (B2C vs B2B), top-sold products, and operational KPIs. Revenue is
+ * attributed by expected_delivery_date (materialized weekly B2B orders exist
+ * weeks ahead; those future weeks render as "committed").
  *
- * Net derivation per channel:
- *  - B2B: items_total_net_eur is maintained on the order (invoice truth).
- *  - B2C: total_amount_eur (gross) minus the item VAT snapshots minus the
- *    delivery-fee VAT. `discount_eur` carries no VAT split, so discounts are
- *    subtracted at gross value; net is slightly understated on discounted
- *    orders. Accepted approximation, single-farm scale.
+ * Channel routing is by customer_type on shop orders, not by table:
+ *  - B2C = shop orders with customer_type = private (the storefront default).
+ *  - B2B = shop orders with customer_type = business (admin-created for
+ *    restaurants, caterers, trade buyers) PLUS every restaurant order.
+ *
+ * Net derivation per source:
+ *  - Restaurant orders: items_total_net_eur is maintained on the order
+ *    (invoice truth).
+ *  - Shop orders (either channel): total_amount_eur (gross) minus the item
+ *    VAT snapshots minus the delivery-fee VAT. `discount_eur` carries no VAT
+ *    split, so discounts are subtracted at gross value; net is slightly
+ *    understated on discounted orders. Accepted approximation, single-farm
+ *    scale.
  *
  * Week bucketing happens in PHP (no SQL week functions) so MySQL and the
  * SQLite test database agree on ISO weeks.
@@ -149,8 +157,48 @@ class AdminOperationsMetrics
      */
     private function b2cByDate(Carbon $from, Carbon $to): array
     {
+        return $this->shopOrdersByDate($from, $to, CustomerType::Private);
+    }
+
+    /**
+     * B2B committed orders per delivery date: [netByDate, countByDate]. Merges
+     * two sources: admin-created shop orders flagged customer_type = business,
+     * plus every restaurant order in a revenue-eligible status.
+     *
+     * @return array{0: array<string, float>, 1: array<string, int>}
+     */
+    private function b2bByDate(Carbon $from, Carbon $to): array
+    {
+        [$net, , $count] = $this->shopOrdersByDate($from, $to, CustomerType::Business);
+
+        $rows = RestaurantOrder::query()
+            ->whereIn('status', [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value])
+            ->whereBetween('expected_delivery_date', [$from->toDateString(), $to->toDateString()])
+            ->groupBy('expected_delivery_date')
+            ->selectRaw('expected_delivery_date as d, SUM(items_total_net_eur) as net, COUNT(*) as cnt')
+            ->get();
+
+        foreach ($rows as $row) {
+            $iso = Carbon::parse($row->d)->toDateString();
+            $net[$iso] = ($net[$iso] ?? 0.0) + (float) $row->net;
+            $count[$iso] = ($count[$iso] ?? 0) + (int) $row->cnt;
+        }
+
+        return [$net, $count];
+    }
+
+    /**
+     * Finalized shop orders of the given customer_type, per delivery date:
+     * [netByDate, grossByDate, countByDate]. Net = gross − item VAT − delivery
+     * fee VAT (see class-level docblock).
+     *
+     * @return array{0: array<string, float>, 1: array<string, float>, 2: array<string, int>}
+     */
+    private function shopOrdersByDate(Carbon $from, Carbon $to, CustomerType $customerType): array
+    {
         $orders = ShopOrder::query()
             ->finalized()
+            ->where('customer_type', $customerType->value)
             ->whereBetween('expected_delivery_date', [$from->toDateString(), $to->toDateString()])
             ->groupBy('expected_delivery_date')
             ->selectRaw('expected_delivery_date as d, SUM(total_amount_eur) as gross, SUM(delivery_fee_vat_amount_eur) as fee_vat, COUNT(*) as cnt')
@@ -158,6 +206,7 @@ class AdminOperationsMetrics
 
         $itemVat = ShopOrderItem::query()
             ->join('shop_orders', 'shop_orders.id', '=', 'shop_order_items.shop_order_id')
+            ->where('shop_orders.customer_type', $customerType->value)
             ->where(function ($q): void {
                 $q->whereIn('shop_orders.status', [ShopOrderStatus::Paid->value, ShopOrderStatus::Fulfilled->value])
                     ->orWhere(function ($q): void {
@@ -181,31 +230,6 @@ class AdminOperationsMetrics
         }
 
         return [$net, $gross, $count];
-    }
-
-    /**
-     * B2B committed orders per delivery date: [netByDate, countByDate].
-     *
-     * @return array{0: array<string, float>, 1: array<string, int>}
-     */
-    private function b2bByDate(Carbon $from, Carbon $to): array
-    {
-        $rows = RestaurantOrder::query()
-            ->whereIn('status', [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value])
-            ->whereBetween('expected_delivery_date', [$from->toDateString(), $to->toDateString()])
-            ->groupBy('expected_delivery_date')
-            ->selectRaw('expected_delivery_date as d, SUM(items_total_net_eur) as net, COUNT(*) as cnt')
-            ->get();
-
-        $net = [];
-        $count = [];
-        foreach ($rows as $row) {
-            $iso = Carbon::parse($row->d)->toDateString();
-            $net[$iso] = (float) $row->net;
-            $count[$iso] = (int) $row->cnt;
-        }
-
-        return [$net, $count];
     }
 
     /**
