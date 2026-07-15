@@ -29,7 +29,7 @@
     }
 
     $suffix = $variant === 'white' ? '-white' : '';
-    $file = "images/chapters/{$mark}{$suffix}.png";
+    $file = "images/chapters/{$mark}{$suffix}.webp";
 
     $sizeClasses = match ($size) {
         'xs' => 'h-8 w-8',
@@ -46,5 +46,7 @@
 <img
     src="{{ asset($file) }}"
     alt="{{ $altText }}"
+    loading="lazy"
+    decoding="async"
     {{ $attributes->class(['select-none object-contain', $sizeClasses]) }}
 />
