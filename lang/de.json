@@ -1681,6 +1681,8 @@
     "admin.inventory.section_matrix_hint": "Jede Zelle zeigt verfügbar minus reserviert. Rote Zellen sind überbucht.",
     "admin.inventory.b2b_stock_title": "Nur für Gastro-Kunden (B2B-Eingang)",
     "admin.inventory.b2b_stock_legend": "Bernsteinfarbene Werte sind nur für Gastro-Kunden verfügbar.",
+    "admin.inventory.farms_expand_hint": "Mehrere Höfe: Zeile aufklappen für die Mengen je Hof.",
+    "admin.inventory.farms_toggle_aria": "Mengen je Hof anzeigen",
     "admin.inventory.inflow_producer_label": "Hof",
     "validation.producer_not_supplier": "Dieser Hof ist für das Produkt nicht als Lieferant hinterlegt.",
     "admin.inventory.section_schedules": "Wiederkehrende Eingänge",

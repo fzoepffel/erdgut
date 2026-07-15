@@ -50,8 +50,15 @@ class ProducerAttributionParityTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-07-14 08:00:00'));
         $this->date = '2026-07-15';
 
+        // Fixed, apostrophe-free names: the packing payload encodes labels
+        // via @js (apostrophes become \u0027), so faker names like
+        // "O'Conner ..." make raw-string assertions flake.
         $this->farmA = Producer::factory()->create();
+        $this->farmA->translations()->update(['name' => 'Parity Farm Alpha']);
+        $this->farmA = $this->farmA->fresh();
         $this->farmB = Producer::factory()->create();
+        $this->farmB->translations()->update(['name' => 'Parity Farm Beta']);
+        $this->farmB = $this->farmB->fresh();
 
         $this->stockedA = Product::factory()->create([
             'producer_id' => $this->farmA->id,

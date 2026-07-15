@@ -151,7 +151,7 @@ class RestaurantMultiProducerDisplayTest extends TestCase
 
         $html = $svc->renderPdf($order->refresh())->getDomPDF()->outputHtml();
 
-        $this->assertStringContainsString($farmB->name, $html);
-        $this->assertStringNotContainsString($farmA->name, $html);
+        $this->assertStringContainsString(e($farmB->name), $html);
+        $this->assertStringNotContainsString(e($farmA->name), $html);
     }
 }

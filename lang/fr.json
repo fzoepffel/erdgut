@@ -1681,6 +1681,8 @@
     "admin.inventory.section_matrix_hint": "Chaque cellule = disponible moins engagé. Les cellules rouges indiquent un dépassement.",
     "admin.inventory.b2b_stock_title": "Réservé aux clients pros (entrée B2B)",
     "admin.inventory.b2b_stock_legend": "Les valeurs ambrées sont réservées aux clients professionnels.",
+    "admin.inventory.farms_expand_hint": "Plusieurs fermes : déplie la ligne pour voir les quantités par ferme.",
+    "admin.inventory.farms_toggle_aria": "Afficher les quantités par ferme",
     "admin.inventory.inflow_producer_label": "Ferme",
     "validation.producer_not_supplier": "Cette ferme n'est pas enregistrée comme fournisseur de ce produit.",
     "admin.inventory.section_schedules": "Entrées récurrentes",

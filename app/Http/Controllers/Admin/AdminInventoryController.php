@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\AdminInventoryInflowUpdateRequest;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Services\Admin\InventoryService;
+use App\Services\Admin\ProducerAllocationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,7 +26,10 @@ use Illuminate\View\View;
  */
 class AdminInventoryController extends Controller
 {
-    public function __construct(private readonly InventoryService $inventory) {}
+    public function __construct(
+        private readonly InventoryService $inventory,
+        private readonly ProducerAllocationService $allocation,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -78,6 +82,53 @@ class AdminInventoryController extends Controller
             ->filter(fn (Product $p): bool => $p->variants->isNotEmpty())
             ->mapWithKeys(fn (Product $p): array => [$p->id => $this->inventory->variantAvailabilityWindow($p, $start, $end)]);
 
+        // Per-farm day quantities for products stocked by SEVERAL farms:
+        // the product row keeps the sum, the expandable sub-rows show each
+        // farm's remaining (same end-state semantics as the matrix). vkeys
+        // are summed; grade-level farm splits stay out on purpose.
+        $isoDates = [];
+        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
+            $isoDates[] = $cursor->toDateString();
+        }
+        $pids = $products->pluck('id')->all();
+        $farmConsumer = $this->allocation->remainingByProducer($pids, $isoDates);
+        $farmB2b = $this->allocation->remainingByProducer($pids, $isoDates, ShopStockAudience::BusinessTrade);
+
+        $farmMatrix = [];      // [pid][producerId][iso] => ['qty' => float, 'b2bExtra' => float]
+        $farmTotals = [];      // [pid][producerId] => window total, for ordering
+        foreach ($pids as $pid) {
+            foreach ($isoDates as $iso) {
+                $consumerShares = ProducerAllocationService::unionShares($farmConsumer[$iso][$pid] ?? []);
+                $b2bShares = ProducerAllocationService::unionShares($farmB2b[$iso][$pid] ?? []);
+                foreach (array_keys($b2bShares + $consumerShares) as $producerId) {
+                    $qty = $consumerShares[$producerId] ?? 0.0;
+                    $extra = max(0.0, ($b2bShares[$producerId] ?? 0.0) - $qty);
+                    if ($qty <= 1e-9 && $extra <= 1e-9) {
+                        continue;
+                    }
+                    $farmMatrix[$pid][$producerId][$iso] = ['qty' => $qty, 'b2bExtra' => $extra];
+                    $farmTotals[$pid][$producerId] = ($farmTotals[$pid][$producerId] ?? 0.0) + $qty + $extra;
+                }
+            }
+        }
+        $multiFarmProducts = [];
+        foreach ($farmMatrix as $pid => $byProducer) {
+            if (count($byProducer) > 1) {
+                $multiFarmProducts[$pid] = true;
+                arsort($farmTotals[$pid]);
+                $farmMatrix[$pid] = array_replace(array_fill_keys(array_keys($farmTotals[$pid]), []), $farmMatrix[$pid]);
+            }
+        }
+        $farmNames = [];
+        foreach ($products as $product) {
+            foreach ($product->producers as $producer) {
+                $farmNames[$producer->id] = (string) $producer->name;
+            }
+            if ($product->producer !== null) {
+                $farmNames[$product->producer->id] ??= (string) $product->producer->name;
+            }
+        }
+
         // Inflow batches in the window — used for section A's table.
         $inflows = ProductStockInflow::query()
             ->whereBetween('received_on', [$start->toDateString(), $end->toDateString()])
@@ -95,6 +146,9 @@ class AdminInventoryController extends Controller
             'availabilityMatrix' => $availabilityMatrix,
             'b2bAvailabilityMatrix' => $b2bAvailabilityMatrix,
             'variantMatrix' => $variantMatrix,
+            'farmMatrix' => $farmMatrix,
+            'multiFarmProducts' => $multiFarmProducts,
+            'farmNames' => $farmNames,
             'inflows' => $inflows,
         ]);
     }

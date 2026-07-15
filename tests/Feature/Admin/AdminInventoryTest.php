@@ -49,6 +49,114 @@ class AdminInventoryTest extends TestCase
             ->assertSee(__('admin.inventory.title'));
     }
 
+    public function test_multi_farm_product_row_collapses_to_an_expandable_toggle(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $farmA->id, 'is_available' => true, 'is_published' => true,
+        ]);
+        $product->syncProducers([$farmA->id, $farmB->id]);
+        foreach ([[$farmA->id, 6], [$farmB->id, 4]] as [$farmId, $qty]) {
+            ProductStockInflow::create([
+                'product_id' => $product->id, 'producer_id' => $farmId,
+                'received_on' => '2026-05-20', 'quantity' => $qty, 'freshness_window_days' => 1,
+            ]);
+        }
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index'))
+            ->assertOk()
+            ->getContent();
+
+        // Toggle instead of the primary farm name on the row.
+        $this->assertStringContainsString('inventory-farm-toggle-'.$product->id, $html);
+        $this->assertStringContainsString(__('shop.producers_multiple'), $html);
+        // One lane per farm carrying its own quantity.
+        $this->assertStringContainsString('inventory-farm-lane-'.$product->id.'-'.$farmA->id, $html);
+        $this->assertStringContainsString('inventory-farm-lane-'.$product->id.'-'.$farmB->id, $html);
+        $this->assertStringContainsString(e($farmA->name), $html);
+        $this->assertStringContainsString(e($farmB->name), $html);
+    }
+
+    public function test_row_names_the_actual_stocking_farm_when_it_is_not_the_primary(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $farmA->id, 'is_available' => true, 'is_published' => true,
+        ]);
+        $product->syncProducers([$farmA->id, $farmB->id]);
+        // The ONLY stock in the window comes from farm B.
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'producer_id' => $farmB->id,
+            'received_on' => '2026-05-20', 'quantity' => 7, 'freshness_window_days' => 1,
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('inventory-farm-single-'.$product->id, $html);
+        $this->assertStringContainsString(e($farmB->name), $html);
+        $this->assertStringNotContainsString('inventory-farm-toggle-'.$product->id, $html);
+    }
+
+    public function test_single_farm_product_keeps_its_plain_producer_line(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'producer_id' => $product->producer_id,
+            'received_on' => '2026-05-20', 'quantity' => 5, 'freshness_window_days' => 1,
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(e($product->producer->name), $html);
+        $this->assertStringNotContainsString('inventory-farm-toggle-'.$product->id, $html);
+    }
+
+    public function test_b2b_only_stock_from_a_second_farm_counts_as_multi_farm(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = Product::factory()->create([
+            'producer_id' => $farmA->id, 'is_available' => true, 'is_published' => true,
+        ]);
+        $product->syncProducers([$farmA->id, $farmB->id]);
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'producer_id' => $farmA->id,
+            'received_on' => '2026-05-20', 'quantity' => 6, 'freshness_window_days' => 1,
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $product->id, 'producer_id' => $farmB->id,
+            'received_on' => '2026-05-20', 'quantity' => 9, 'freshness_window_days' => 1,
+            'b2b_only' => true,
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('inventory-farm-toggle-'.$product->id, $html);
+        $this->assertStringContainsString('inventory-farm-lane-'.$product->id.'-'.$farmB->id, $html);
+        // Farm B's lane shows its stock as the amber trade-only figure.
+        $this->assertStringContainsString(e($farmB->name), $html);
+    }
+
     public function test_matrix_shows_the_producer_next_to_the_product(): void
     {
         // Two same-named products from different farms must be tellable apart.
