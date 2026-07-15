@@ -59,6 +59,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_test
  * @property OrderSource $order_source
  * @property CustomerType $customer_type
+ * @property int|null $restaurant_order_id
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
@@ -112,6 +113,7 @@ class ShopOrder extends Model
         'is_test',
         'order_source',
         'customer_type',
+        'restaurant_order_id',
         'locale',
     ];
 
@@ -162,6 +164,19 @@ class ShopOrder extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ShopOrderItem::class);
+    }
+
+    /**
+     * The restaurant request/order this ShopOrder mirrors, or null when the
+     * order originated from the storefront or admin's one-off create form.
+     * When set, this ShopOrder is the source of truth for fulfillment and
+     * revenue; the RestaurantOrder is the "as-requested" history.
+     *
+     * @return BelongsTo<RestaurantOrder, $this>
+     */
+    public function sourceRestaurantOrder(): BelongsTo
+    {
+        return $this->belongsTo(RestaurantOrder::class, 'restaurant_order_id');
     }
 
     /**

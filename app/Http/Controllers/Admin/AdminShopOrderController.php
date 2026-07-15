@@ -40,7 +40,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
@@ -533,11 +532,11 @@ class AdminShopOrderController extends Controller
     private const FILTER_FINALIZED = 'finalized';
 
     /**
-     * ONE order overview: B2C shop orders and B2B restaurant orders (firm
-     * orders + granted requests) interleaved by placement time, with a type
-     * filter. Unconfirmed restaurant requests never appear here — they live in
-     * the Anfragen queue (linked in the header with an open count) and get
-     * pushed into this list once granted.
+     * ONE order overview: every ShopOrder, with a type filter. B2B restaurant
+     * orders enter this list once granted through their mirror ShopOrder
+     * (created by RestaurantOrderService::ensureShopOrderMirror); unconfirmed
+     * requests still live in the Anfragen queue (linked in the header with an
+     * open count) until granted.
      */
     public function index(Request $request): View
     {
@@ -545,32 +544,13 @@ class AdminShopOrderController extends Controller
         $perPage = 30;
         $page = max(1, (int) $request->query('page', 1));
 
-        // Two sources, one list: fetch the top page-window from each, merge by
-        // placement time, slice the page. Correct for any page, no UNION needed.
-        $window = $page * $perPage;
-
         $shopQuery = $this->filteredOrdersQuery($filter);
-        $restaurantQuery = $this->filteredRestaurantOrdersQuery($filter);
 
-        $shopOrders = $shopQuery->with('items.product.translations')->orderByDesc('id')->limit($window)->get();
-        $restaurantOrders = $restaurantQuery === null
-            ? collect()
-            : $restaurantQuery->with(['user.restaurantProfile', 'items'])->orderByDesc('id')->limit($window)->get();
-
-        $total = $shopQuery->count() + ($restaurantQuery?->count() ?? 0);
-
-        $merged = $shopOrders->concat($restaurantOrders)
-            ->sortByDesc(fn ($o) => $o->created_at)
-            ->slice(($page - 1) * $perPage, $perPage)
-            ->values();
-
-        $orders = new LengthAwarePaginator(
-            $merged,
-            $total,
-            $perPage,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()],
-        );
+        $orders = $shopQuery
+            ->with(['items.product.translations', 'sourceRestaurantOrder'])
+            ->orderByDesc('id')
+            ->paginate($perPage, ['*'], 'page', $page)
+            ->withQueryString();
 
         $openRequests = RestaurantOrder::query()
             ->requests()
@@ -648,9 +628,12 @@ class AdminShopOrderController extends Controller
             ->selectRaw('DATE(expected_delivery_date) as d, COUNT(*) as c')
             ->groupBy('d')
             ->pluck('c', 'd');
+        // Mirrored restaurant orders are already counted via ShopOrder above;
+        // skip them here so a single logical order counts once.
         $restaurantCounts = RestaurantOrder::query()
             ->whereIn('status', [RestaurantOrderStatus::Confirmed->value, RestaurantOrderStatus::Fulfilled->value])
             ->whereBetween('expected_delivery_date', [$start->toDateString(), $end->toDateString()])
+            ->whereDoesntHave('mirroredShopOrder')
             ->selectRaw('DATE(expected_delivery_date) as d, COUNT(*) as c')
             ->groupBy('d')
             ->pluck('c', 'd');

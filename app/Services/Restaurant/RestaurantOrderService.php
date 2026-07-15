@@ -3,14 +3,17 @@
 namespace App\Services\Restaurant;
 
 use App\Enums\CustomerType;
+use App\Enums\OrderSource;
 use App\Enums\RestaurantOrderItemTrack;
 use App\Enums\RestaurantOrderKind;
 use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
+use App\Enums\ShopOrderStatus;
 use App\Enums\ShopStockAudience;
 use App\Models\Product;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantOrderItem;
+use App\Models\ShopOrder;
 use App\Models\User;
 use App\Services\Admin\InventoryService;
 use App\Services\Shop\PriceResolver;
@@ -236,6 +239,10 @@ class RestaurantOrderService
                 'items_total_net_eur' => round($totalGross - $totalVat, 2),
             ])->save();
 
+            if ($status === RestaurantOrderStatus::Confirmed) {
+                $this->ensureShopOrderMirror($order);
+            }
+
             return $order;
         });
     }
@@ -263,6 +270,7 @@ class RestaurantOrderService
         $order->forceFill(['status' => RestaurantOrderStatus::Confirmed])->save();
 
         $this->activateStandingIfPending($order);
+        $this->ensureShopOrderMirror($order);
 
         return true;
     }
@@ -444,9 +452,89 @@ class RestaurantOrderService
         if ($anyLive) {
             $order->forceFill(['status' => RestaurantOrderStatus::Confirmed])->save();
             $this->activateStandingIfPending($order);
+            $this->ensureShopOrderMirror($order);
         } else {
             $order->forceFill(['status' => RestaurantOrderStatus::Declined])->save();
         }
+    }
+
+    /**
+     * Create — if not already present — a mirror ShopOrder for a firm restaurant
+     * order so it lands in the unified admin shop-orders list and inherits the
+     * shop-order editing surface. Idempotent: safe to call at every status
+     * transition. Non-Declined item lines are copied with their money and unit
+     * snapshots. The mirror carries restaurant_order_id back to the source,
+     * which then serves as the "as-requested" history and is skipped by the
+     * B2B revenue query (see AdminOperationsMetrics::b2bByDate).
+     */
+    public function ensureShopOrderMirror(RestaurantOrder $order): ?ShopOrder
+    {
+        if (! in_array($order->status, [RestaurantOrderStatus::Confirmed, RestaurantOrderStatus::Fulfilled], true)) {
+            return null;
+        }
+
+        $existing = ShopOrder::query()->where('restaurant_order_id', $order->id)->first();
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        return DB::transaction(function () use ($order): ShopOrder {
+            $user = $order->user()->with('restaurantProfile')->first();
+            $profile = $user?->restaurantProfile;
+            $displayName = $profile?->business_name
+                ?? $profile?->contact_name
+                ?? $user?->name
+                ?? '';
+
+            $mirror = ShopOrder::create([
+                'name' => $displayName,
+                'email' => $user?->email ?? '',
+                'phone' => null,
+                'fulfillment_mode' => 'delivery',
+                'expected_delivery_date' => $order->expected_delivery_date->toDateString(),
+                'delivery_street' => $order->delivery_street,
+                'delivery_postal_code' => $order->delivery_postal_code,
+                'delivery_city' => $order->delivery_city,
+                'delivery_notes' => $order->delivery_notes,
+                'items_total_eur' => $order->items_total_gross_eur,
+                'delivery_fee_eur' => 0,
+                'delivery_fee_vat_rate_percent' => 0,
+                'delivery_fee_vat_amount_eur' => 0,
+                'total_amount_eur' => $order->items_total_gross_eur,
+                'discount_eur' => 0,
+                'payment_method' => 'in_person',
+                'status' => $order->status === RestaurantOrderStatus::Fulfilled
+                    ? ShopOrderStatus::Fulfilled->value
+                    : ShopOrderStatus::PendingPayment->value,
+                'payment_attempts' => 0,
+                'is_test' => false,
+                'order_source' => OrderSource::Admin->value,
+                'customer_type' => CustomerType::Business->value,
+                'restaurant_order_id' => $order->id,
+                'locale' => $order->locale,
+            ]);
+
+            foreach ($order->items()->get() as $item) {
+                if ($item->line_status === RestaurantOrderLineStatus::Declined) {
+                    continue;
+                }
+                $mirror->items()->create([
+                    'product_id' => $item->product_id,
+                    'variant_id' => $item->variant_id,
+                    'variant_name_snapshot' => $item->variant_name_snapshot,
+                    'name_snapshot' => $item->name_snapshot,
+                    'quantity' => $item->quantity,
+                    'unit' => $item->unit,
+                    'unit_price_snapshot_eur' => $item->unit_price_snapshot_eur,
+                    'price_rule_id' => $item->price_rule_id,
+                    'line_total_eur' => $item->line_total_eur,
+                    'vat_rate_snapshot_percent' => $item->vat_rate_snapshot_percent,
+                    'vat_amount_eur' => $item->vat_amount_eur,
+                ]);
+            }
+
+            return $mirror;
+        });
     }
 
     /** Confirming the first recurring order activates the standing order. */
