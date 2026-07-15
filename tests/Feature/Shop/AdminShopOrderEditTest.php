@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ShopOrder;
 use App\Models\User;
+use App\Services\Admin\InventoryService;
 use App\Services\Shop\ShopOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -215,29 +216,117 @@ class AdminShopOrderEditTest extends TestCase
             ->assertSessionHasNoErrors();
     }
 
-    public function test_quantity_beyond_remaining_plus_own_fails(): void
+    public function test_quantity_beyond_stock_is_allowed_and_clamps_remaining_at_zero(): void
     {
-        $order = $this->makeOrder(); // 2 committed, 8 remaining, 10 total
+        $order = $this->makeOrder(); // 2 committed, 10 in stock
 
         $this->actingAs($this->admin)
             ->put(route('app.admin.shop-orders.update', $order), $this->payload([
                 'items' => [
-                    ['product_id' => $this->product->id, 'quantity' => 11, 'line_total_eur' => '44.00', 'vat_rate_percent' => 7],
+                    ['product_id' => $this->product->id, 'quantity' => 12, 'line_total_eur' => '48.00', 'vat_rate_percent' => 7],
                 ],
             ]))
-            ->assertSessionHasErrors('items.0.quantity');
+            ->assertRedirect(route('app.admin.shop-orders.show', $order))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(12.0, (float) $order->refresh()->items()->first()->quantity);
+        // 12 committed against 10 in stock: storefront sees 0, never negative.
+        $remaining = app(InventoryService::class)
+            ->availableOnDate($this->product, Carbon::parse(self::DELIVERY_DATE));
+        $this->assertSame(0.0, $remaining);
     }
 
-    public function test_date_change_validates_against_new_date_raw(): void
+    public function test_date_change_to_stockless_date_is_allowed(): void
     {
         $order = $this->makeOrder();
 
-        // No stock at all on the new date.
+        // No stock at all on the new date: the admin may still move the
+        // order there and procure the goods on demand.
         $this->actingAs($this->admin)
             ->put(route('app.admin.shop-orders.update', $order), $this->payload([
                 'expected_delivery_date' => '2026-08-12',
             ]))
-            ->assertSessionHasErrors('items.0.quantity');
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('2026-08-12', $order->refresh()->expected_delivery_date->toDateString());
+    }
+
+    public function test_edit_updates_committed_stock_for_the_storefront(): void
+    {
+        $inventory = app(InventoryService::class);
+        $date = Carbon::parse(self::DELIVERY_DATE);
+
+        $order = $this->makeOrder(); // commits 2 of 10
+        $this->assertSame(8.0, $inventory->availableOnDate($this->product, $date));
+
+        $this->actingAs($this->admin)
+            ->put(route('app.admin.shop-orders.update', $order), $this->payload([
+                'items' => [
+                    ['product_id' => $this->product->id, 'quantity' => 5, 'line_total_eur' => '20.00', 'vat_rate_percent' => 7],
+                ],
+            ]))
+            ->assertRedirect();
+
+        // The cache versioning bumps on item writes, so availability
+        // reflects the edit immediately.
+        $this->assertSame(5.0, $inventory->availableOnDate($this->product, $date));
+    }
+
+    public function test_out_of_stock_catalog_product_can_be_added(): void
+    {
+        $noStock = Product::factory()->create([
+            'producer_id' => $this->product->producer_id,
+            'category' => 'produce',
+            'unit' => ProductUnit::Piece->value,
+            'price_display_unit' => 'piece',
+            'unit_price' => 3.00,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        $order = $this->makeOrder();
+
+        $this->actingAs($this->admin)
+            ->put(route('app.admin.shop-orders.update', $order), $this->payload([
+                'items' => [
+                    ['product_id' => $this->product->id, 'quantity' => 2, 'line_total_eur' => '8.00', 'vat_rate_percent' => 7],
+                    ['product_id' => $noStock->id, 'quantity' => 2, 'line_total_eur' => '6.00', 'vat_rate_percent' => 7],
+                ],
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $order->refresh();
+        $this->assertSame(14.00, (float) $order->items_total_eur);
+        $this->assertNotNull($order->items->firstWhere('product_id', $noStock->id));
+    }
+
+    public function test_order_can_become_custom_lines_only(): void
+    {
+        $order = $this->makeOrder();
+
+        // Replace the catalog line entirely with an off-catalog product that
+        // does not exist in the system: price + VAT entered manually, no
+        // stock is touched.
+        $this->actingAs($this->admin)
+            ->put(route('app.admin.shop-orders.update', $order), $this->payload([
+                'items' => [
+                    ['name' => 'Trüffelbutter vom Markt', 'unit' => 'piece', 'quantity' => 2, 'line_total_eur' => '13.00', 'vat_rate_percent' => 7],
+                ],
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $order->refresh()->load('items');
+        $this->assertCount(1, $order->items);
+        $this->assertNull($order->items->first()->product_id);
+        $this->assertSame('Trüffelbutter vom Markt', $order->items->first()->name_snapshot);
+        $this->assertSame(13.00, (float) $order->total_amount_eur);
+
+        // The catalog line is gone, so its commitment is released.
+        $remaining = app(InventoryService::class)
+            ->availableOnDate($this->product, Carbon::parse(self::DELIVERY_DATE));
+        $this->assertSame(10.0, $remaining);
     }
 
     public function test_packing_state_survives_quantity_edit_and_removed_lines_disappear(): void

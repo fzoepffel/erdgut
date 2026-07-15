@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\ShopOrder;
-use Illuminate\Support\Carbon;
 
 /**
  * Validates an admin edit of an existing shop order. Shares the manual-order
@@ -11,9 +10,9 @@ use Illuminate\Support\Carbon;
  * an edit: no coupon input (the stored discount is frozen), no recurring
  * B2B branch, no customer-type switch (pricing pools stay as sold).
  *
- * The stock check re-uses the order's own committed quantities (an order
- * that consumes all remaining stock must be re-savable unchanged) and
- * tolerates products that were unpublished after the order was placed.
+ * Like admin creation there is no stock cap (the operator may deliberately
+ * sell beyond stock); products that were unpublished after the order was
+ * placed may stay on it.
  */
 class AdminUpdateShopOrderRequest extends AdminCreateShopOrderRequest
 {
@@ -50,33 +49,6 @@ class AdminUpdateShopOrderRequest extends AdminCreateShopOrderRequest
         $order = $this->route('shopOrder');
 
         return $order instanceof ShopOrder ? $order : null;
-    }
-
-    /**
-     * @return array<int, float>
-     */
-    protected function ownCommittedQuantities(): array
-    {
-        $order = $this->order();
-        if ($order === null || ! $order->commitsStockNow()) {
-            return [];
-        }
-
-        // A date change frees the old date; the new one must fit raw.
-        $date = (string) $this->input('expected_delivery_date');
-        if ($date === '' || ! Carbon::parse($date)->isSameDay($order->expected_delivery_date)) {
-            return [];
-        }
-
-        $own = [];
-        foreach ($order->items as $item) {
-            if ($item->product_id === null) {
-                continue;
-            }
-            $own[$item->product_id] = ($own[$item->product_id] ?? 0.0) + (float) $item->quantity;
-        }
-
-        return $own;
     }
 
     /**
