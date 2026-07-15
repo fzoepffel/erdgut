@@ -168,6 +168,11 @@ Route::name('public.')->group(function () {
     // the date picker is driven by live admin inventory. Spargel stays
     // live alongside it, untouched.
     Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
+    // Incident signal from the storefront's empty state (mails admins,
+    // internally capped at once per hour).
+    Route::post('/shop/report-outage', [ShopController::class, 'reportOutage'])
+        ->middleware('throttle:5,60')
+        ->name('shop.report-outage');
     // 20/min per IP: this endpoint only creates a *pending* order (the
     // SumUp charge happens later at /pay), and the multi-field cart form
     // means a guest can legitimately resubmit several times after
