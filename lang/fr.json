@@ -1867,6 +1867,7 @@
     "admin.product_form.business_price_label": "Prix professionnels",
     "admin.product_form.business_price_hint": "Prix B2B optionnel. Vide = les professionnels paient le prix standard.",
     "admin.product_form.translations_optional_hint": "L'allemand est obligatoire. L'anglais et le français sont optionnels ; les langues vides affichent automatiquement les textes allemands.",
+    "admin.product_form.saving": "Enregistrement …",
     "admin.product_form.section_basics": "Informations de base",
     "admin.product_form.section_unit": "Unité et quantités",
     "admin.product_form.section_prices": "Prix",

@@ -1867,6 +1867,7 @@
     "admin.product_form.business_price_label": "Business price",
     "admin.product_form.business_price_hint": "Optional B2B price. Leave empty = business customers pay the standard price.",
     "admin.product_form.translations_optional_hint": "German is required. English and French are optional; empty languages automatically show the German texts.",
+    "admin.product_form.saving": "Saving …",
     "admin.product_form.section_basics": "Basics",
     "admin.product_form.section_unit": "Unit and quantities",
     "admin.product_form.section_prices": "Prices",

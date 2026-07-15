@@ -190,10 +190,12 @@
     @endphp
 
 <form method="post" action="{{ $action }}" class="space-y-6" enctype="multipart/form-data"
+      x-on:submit="submitting = true"
       {{-- Producer picker state lives on the form so both the farm
            chips (top) and the per-farm buying prices (pricing
            section) share it. --}}
       x-data='{
+            submitting: false,
             options: {!! json_encode($producerOptions, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
             selected: {!! json_encode($initialSelectedProducers, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
             prices: {!! json_encode($initialProducerPrices === [] ? new stdClass : $initialProducerPrices, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
@@ -300,6 +302,10 @@
     <div class="rounded border border-gray-200 bg-white p-4 space-y-4">
         <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.section_basics') }}</h2>
     <div class="space-y-4"
+         {{-- Native validation cannot focus required fields inside a
+              hidden tab panel and silently blocks submission; jump to the
+              tab holding the first invalid control instead. --}}
+         x-on:invalid.capture="const p = $event.target.closest('[data-tab-locale]'); if (p) { tab = p.dataset.tabLocale; }"
          x-data='{
             tab: "{{ $initialTab }}",
             tabMissing: {!! json_encode($initialTabMissing, JSON_UNESCAPED_UNICODE) !!},
@@ -370,7 +376,7 @@
                 $t = $product?->translations?->firstWhere('locale', $locale);
             @endphp
 
-            <div x-show="tab === '{{ $locale }}'" role="tabpanel" class="rounded border border-gray-200 bg-white p-4">
+            <div x-show="tab === '{{ $locale }}'" role="tabpanel" data-tab-locale="{{ $locale }}" class="rounded border border-gray-200 bg-white p-4">
                 <div class="grid grid-cols-1 gap-6">
                     {{-- The duplicate-check state is always present (the
                          payload script only exists on create, so hits stay
@@ -1486,7 +1492,13 @@
 
     <div class="sticky bottom-0 z-10 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div class="flex items-center gap-4">
-            <x-primary-button>{{ $isEdit ? __('Save') : __('Create product') }}</x-primary-button>
+            <x-primary-button x-bind:disabled="submitting" data-testid="product-form-submit">
+                <span x-show="!submitting">{{ $isEdit ? __('Save') : __('Create product') }}</span>
+                <span x-show="submitting" x-cloak class="inline-flex items-center gap-2">
+                    <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                    {{ __('admin.product_form.saving') }}
+                </span>
+            </x-primary-button>
             <a href="{{ route('app.admin.products.index') }}" class="text-sm text-gray-600 hover:text-gray-900 underline">{{ __('Cancel') }}</a>
             @if ($errors->any())
                 <span class="text-sm text-rose-600">{{ trans_choice('admin.product_form.error_summary', $errors->count(), ['count' => $errors->count()]) }}</span>

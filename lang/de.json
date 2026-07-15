@@ -1867,6 +1867,7 @@
     "admin.product_form.business_price_label": "Geschäftskundenpreis",
     "admin.product_form.business_price_hint": "Optionaler B2B-Preis. Leer lassen = Geschäftskunden zahlen den Standardpreis.",
     "admin.product_form.translations_optional_hint": "Deutsch ist Pflicht. Englisch und Französisch sind optional; leere Sprachen zeigen automatisch die deutschen Texte.",
+    "admin.product_form.saving": "Speichert …",
     "admin.product_form.section_basics": "Grunddaten",
     "admin.product_form.section_unit": "Einheit und Mengen",
     "admin.product_form.section_prices": "Preise",
