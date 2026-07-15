@@ -335,9 +335,10 @@
                 <div class="space-y-4 p-6">
                     @if (! $editing)
                         {{-- Pick a verified restaurant account to prefill contact +
-                             delivery address and switch to business pricing — or
-                             just type the details below as before. --}}
-                        <div>
+                             delivery address. Restaurant accounts are B2B-only, so
+                             the picker only shows for business customers; switching
+                             back to private clears the selection. --}}
+                        <div x-show="customerType === 'business'" x-cloak>
                             <label for="restaurant_user_id" class="block text-sm font-medium text-gray-700">{{ __('shop.admin.account_select_label') }}</label>
                             <select id="restaurant_user_id" name="restaurant_user_id" x-model="accountId" @change="applyAccount()"
                                     class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:max-w-md"
@@ -676,6 +677,12 @@ function adminOrderForm(config) {
         },
 
         async onCustomerTypeChange() {
+            // Restaurant accounts are B2B-only: dropping back to private
+            // clears a previously picked account (typed contact details
+            // stay untouched — the admin may have edited them).
+            if (this.customerType !== 'business') {
+                this.accountId = '';
+            }
             if (!this.selectedDate) return;
             await this.fetchProducts();
             this.scheduleQuote();

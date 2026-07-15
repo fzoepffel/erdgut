@@ -98,6 +98,14 @@ class AdminCreateShopOrderRequest extends FormRequest
 
             $items = (array) $this->input('items', []);
 
+            // Restaurant accounts are B2B-only: a private order must not
+            // carry one (the form hides the picker and clears the value,
+            // this guards direct requests).
+            if ((int) $this->input('restaurant_user_id') > 0
+                && $this->input('customer_type') !== CustomerType::Business->value) {
+                $v->errors()->add('restaurant_user_id', __('shop.admin.errors.account_business_only'));
+            }
+
             // Recurring weekly delivery: only for business customers tied to a
             // verified restaurant account, delivered (not picked up), and with
             // catalog lines only — the B2B machinery prices and materializes it.

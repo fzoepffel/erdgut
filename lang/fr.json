@@ -2780,6 +2780,7 @@
     "shop.admin.action_mark_paid": "Marquer comme payée",
     "shop.admin.action_refund": "Rembourser",
     "shop.admin.back_to_list": "Retour à la liste",
+    "shop.admin.errors.account_business_only": "Les comptes restaurant sont réservés aux clients professionnels. Passe le type de client en professionnel ou retire le compte.",
     "shop.admin.out_of_stock_tag": "pas en stock",
     "shop.admin.back_to_order": "Retour à la commande",
     "shop.admin.edit_heading": "Modifier la commande n° :id",

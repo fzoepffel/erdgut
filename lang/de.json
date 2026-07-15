@@ -2780,6 +2780,7 @@
     "shop.admin.action_mark_paid": "Als bezahlt markieren",
     "shop.admin.action_refund": "Erstatten",
     "shop.admin.back_to_list": "Zurück zur Liste",
+    "shop.admin.errors.account_business_only": "Restaurant-Konten gibt es nur für Geschäftskunden. Bitte Kundentyp auf Geschäftskunde stellen oder das Konto entfernen.",
     "shop.admin.out_of_stock_tag": "nicht auf Lager",
     "shop.admin.back_to_order": "Zurück zur Bestellung",
     "shop.admin.edit_heading": "Bestellung #:id bearbeiten",
