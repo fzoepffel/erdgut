@@ -75,7 +75,14 @@ class AdminRestaurantOrderController extends Controller
 
         $restaurantOrder->load(['user.restaurantProfile', 'standingOrder', 'items.product.translations', 'items.product.producer.translations']);
 
-        return view('admin.restaurant-orders.show', ['order' => $restaurantOrder]);
+        return view('admin.restaurant-orders.show', [
+            'order' => $restaurantOrder,
+            // Sequence preview so the operator can align the counter with
+            // manually issued invoices before the first system invoice.
+            'nextInvoiceNumber' => $restaurantOrder->isInvoiceable()
+                ? $this->invoices->nextInvoiceNumberPreview()
+                : null,
+        ]);
     }
 
     public function confirm(Request $request, RestaurantOrder $restaurantOrder): RedirectResponse
@@ -239,11 +246,46 @@ class AdminRestaurantOrderController extends Controller
         abort_if($restaurantOrder->isInvoiced(), 403);
         abort_unless($restaurantOrder->isInvoiceable(), 403);
 
-        $this->invoices->updatePricing($restaurantOrder, $request->validated('items'));
+        $this->invoices->updatePricing(
+            $restaurantOrder,
+            $request->validated('items'),
+            $request->filled('delivery_fee_net_eur') ? (float) $request->validated('delivery_fee_net_eur') : null,
+            $request->filled('delivery_fee_vat_rate_percent') ? (int) $request->validated('delivery_fee_vat_rate_percent') : null,
+        );
 
         return redirect()
             ->route('app.admin.restaurant-orders.show', $restaurantOrder)
             ->with('status', __('restaurant.admin_invoice_priced_flash'));
+    }
+
+    /**
+     * Align the yearly invoice-number sequence so the NEXT invoice gets the
+     * entered number. Needed because invoices were issued manually before the
+     * system took over and the counter must continue, not restart.
+     */
+    public function setInvoiceSequence(Request $request): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        $validated = $request->validate([
+            'next_invoice_number' => ['required', 'integer', 'min:1', 'max:9999'],
+        ]);
+
+        $this->invoices->setNextSequenceNumber((int) $validated['next_invoice_number']);
+
+        AuditLogger::log(
+            entityType: 'number_sequence',
+            entityId: (int) now()->year,
+            action: 'set_invoice_sequence',
+            fromState: null,
+            toState: (string) $validated['next_invoice_number'],
+            metadata: ['channel' => 'admin', 'next_number' => $this->invoices->nextInvoiceNumberPreview()],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return back()->with('status', __('restaurant.admin_invoice_sequence_set_flash', [
+            'number' => $this->invoices->nextInvoiceNumberPreview(),
+        ]));
     }
 
     public function issueInvoice(Request $request, RestaurantOrder $restaurantOrder): RedirectResponse

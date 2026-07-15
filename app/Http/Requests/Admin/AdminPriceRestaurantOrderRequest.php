@@ -28,6 +28,11 @@ class AdminPriceRestaurantOrderRequest extends FormRequest
             'items.*.vat_rate_percent' => ['nullable', 'integer', Rule::in([7, 19])],
             'items.*.quantity' => ['nullable', 'numeric', 'gt:0'],
             'items.*.remove' => ['nullable', 'boolean'],
+
+            // Optional delivery fee, entered NET; billed as its own invoice
+            // line ("Lieferung <address>"). Rate required once a fee is set.
+            'delivery_fee_net_eur' => ['nullable', 'numeric', 'min:0', 'max:999.99'],
+            'delivery_fee_vat_rate_percent' => ['nullable', 'required_with:delivery_fee_net_eur', 'integer', Rule::in([7, 19])],
         ];
     }
 }

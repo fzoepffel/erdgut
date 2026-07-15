@@ -74,9 +74,11 @@ return [
     'company_bank' => env('SHOP_COMPANY_BANK', ''),
     'company_register' => env('SHOP_COMPANY_REGISTER', ''),
 
-    // Restaurant (B2B) invoice numbering + terms.
-    'restaurant_invoice_prefix' => env('SHOP_RESTAURANT_INVOICE_PREFIX', 'RG'),
-    'restaurant_invoice_due_days' => (int) env('SHOP_RESTAURANT_INVOICE_DUE_DAYS', 14),
+    // Restaurant (B2B) invoice numbering + terms. Numbers read EB260046
+    // (prefix + two-digit year + 4-digit sequence); payment is due within
+    // this many days after DELIVERY (never before the invoice date).
+    'restaurant_invoice_prefix' => env('SHOP_RESTAURANT_INVOICE_PREFIX', 'EB'),
+    'restaurant_invoice_due_days' => (int) env('SHOP_RESTAURANT_INVOICE_DUE_DAYS', 7),
 
     // How many days ahead the scheduler generates the next recurring restaurant
     // (standing) order — stock is reserved + prices resolved this close to delivery.
