@@ -357,6 +357,18 @@
                     <p class="{{ $eyebrow }}">{{ __('shop.empty_eyebrow') }}</p>
                     <p class="mt-4 font-display text-3xl text-shop-foreground">{{ __('shop.empty_heading') }}</p>
                     <p class="mt-2 text-sm text-shop-muted">{{ __('shop.empty_body') }}</p>
+                    @if (session('outage_reported'))
+                        <p class="mx-auto mt-6 max-w-md border border-shop-border bg-shop-background px-4 py-3 text-sm text-shop-foreground" data-testid="shop-outage-thanks">
+                            {{ __('shop.outage_thanks') }}
+                        </p>
+                    @else
+                        <form method="POST" action="{{ route('public.shop.report-outage') }}" class="mt-6">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center border border-shop-foreground px-5 py-2.5 text-sm font-medium text-shop-foreground transition hover:bg-shop-foreground hover:text-shop-paper" data-testid="shop-outage-button">
+                                {{ __('shop.outage_button') }}
+                            </button>
+                        </form>
+                    @endif
                 </div>
             </div>
         @else

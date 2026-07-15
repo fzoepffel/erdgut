@@ -7,12 +7,14 @@ use App\Enums\ShopOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ShopOrderRequest;
 use App\Mail\ShopOrderConfirmationMail;
+use App\Mail\ShopOutageReportedMail;
 use App\Models\BoxWaitlistSignup;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductEngagementDaily;
 use App\Models\ProductSubcategory;
 use App\Models\ShopOrder;
+use App\Models\User;
 use App\Services\Admin\ProducerAllocationService;
 use App\Services\Shop\CheckoutDraft;
 use App\Services\Shop\CouponService;
@@ -30,6 +32,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Throwable;
@@ -607,6 +611,36 @@ class ShopController extends Controller
         ])->setPaper('a4');
 
         return $pdf->download('erdgut-beleg-'.$order->id.'.pdf');
+    }
+
+    /**
+     * A visitor pressed the notify button on the "nothing in stock"
+     * screen. The shop is expected to always carry stock, so this is
+     * treated as an incident signal: mail every admin, but at most once
+     * per hour no matter how many people press it.
+     */
+    public function reportOutage(): RedirectResponse
+    {
+        $alreadyReported = ! Cache::add('shop.outage.reported', now()->toDateTimeString(), now()->addHour());
+
+        if (! $alreadyReported) {
+            $reportedAt = now()->locale('de')->isoFormat('dd, D. MMM YYYY, HH:mm');
+            foreach (User::query()->where('is_admin', true)->pluck('email') as $email) {
+                try {
+                    Mail::to($email)->queue(new ShopOutageReportedMail($reportedAt));
+                } catch (Throwable $e) {
+                    Log::warning('shop.outage_report.send_failed', [
+                        'recipient' => $email,
+                        'exception_class' => $e::class,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
+        return redirect()
+            ->route('public.shop.index')
+            ->with('outage_reported', true);
     }
 
     /**
