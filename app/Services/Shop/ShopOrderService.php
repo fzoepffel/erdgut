@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
@@ -671,6 +672,7 @@ class ShopOrderService
         ?string $email = null,
         ?Carbon $deliveryDate = null,
         CustomerType $customerType = CustomerType::Private,
+        bool $includeHiddenProducts = false,
     ): array {
         $productIds = collect($cartLines)
             ->pluck('product_id')
@@ -678,8 +680,10 @@ class ShopOrderService
             ->unique()
             ->all();
 
+        // Order edits must keep lines for products that were unpublished
+        // after the order was placed; only the storefront path filters.
         $products = Product::query()
-            ->visibleInCatalog()
+            ->when(! $includeHiddenProducts, fn ($q) => $q->visibleInCatalog())
             ->with(['priceRules', 'variants'])
             ->whereIn('id', $productIds)
             ->get()
@@ -1058,6 +1062,210 @@ class ShopOrderService
         });
     }
 
+    /**
+     * Re-write an existing order's contents from an admin edit: lines
+     * (including custom ones and per-line price/VAT overrides), contact,
+     * fulfillment, delivery date and delivery fee. What was already
+     * collected stays collected — before anything changes, a paid order
+     * without a paid_amount_eur snapshot gets one from its pre-edit total,
+     * so the difference to the new total surfaces as an open remainder
+     * (or a refund due) instead of silently rewriting payment history.
+     *
+     * The stored coupon discount is frozen: no re-resolution against the
+     * new subtotal, the admin adjusts line prices instead.
+     *
+     * @param  array<string, mixed>  $payload
+     *
+     * @throws InsufficientStockException
+     * @throws ValidationException when the frozen discount exceeds the new subtotal
+     */
+    public function updateOrder(ShopOrder $order, array $payload): ShopOrder
+    {
+        if (! $order->isEditableByAdmin()) {
+            throw new \InvalidArgumentException('Shop order #'.$order->id.' is not editable.');
+        }
+
+        $fulfillmentMode = (string) ($payload['fulfillment_mode'] ?? 'pickup');
+        $cartLines = (array) ($payload['items'] ?? []);
+
+        $expectedDeliveryDate = $payload['expected_delivery_date'] ?? null;
+        if ($expectedDeliveryDate === null) {
+            throw new \InvalidArgumentException('expected_delivery_date is required.');
+        }
+        $deliveryDate = Carbon::parse((string) $expectedDeliveryDate)->startOfDay();
+        $dateUnchanged = $deliveryDate->isSameDay($order->expected_delivery_date);
+
+        // Lazy legacy snapshot BEFORE any recompute: orders paid before
+        // paid_amount_eur existed collected their pre-edit total.
+        if ($order->paid_at !== null && $order->paid_amount_eur === null) {
+            $order->forceFill(['paid_amount_eur' => $order->total_amount_eur])->save();
+        }
+
+        // Same product/custom split as the admin create path.
+        $productItems = [];
+        $customItems = [];
+        foreach ($cartLines as $item) {
+            if (! empty($item['product_id'])) {
+                $productItems[] = $item;
+            } elseif (trim((string) ($item['name'] ?? '')) !== '') {
+                $customItems[] = $item;
+            }
+        }
+
+        // Quote WITHOUT a coupon (the stored discount is frozen below) and
+        // with hidden products allowed: an order may hold lines for products
+        // unpublished after it was placed.
+        $quote = $this->quote(
+            $productItems,
+            $fulfillmentMode,
+            null,
+            null,
+            $deliveryDate,
+            $order->customer_type ?? CustomerType::Private,
+            includeHiddenProducts: true,
+        );
+        $quote = $this->applyAdminLinePricing($quote, array_merge($payload, ['items' => $productItems]));
+        $quote = $this->appendCustomLines($quote, $customItems);
+
+        if ($quote['lines'] === []) {
+            throw new \InvalidArgumentException('Cart is empty.');
+        }
+
+        $discount = (float) $order->discount_eur;
+        $total = round((float) $quote['items_total_eur'] - $discount + (float) $quote['delivery_fee_eur'], 2);
+        if ($total < 0) {
+            throw ValidationException::withMessages([
+                'items' => __('shop.admin.discount_no_longer_fits'),
+            ]);
+        }
+
+        $audience = $this->stockAudienceForPayload([
+            'order_source' => ($order->order_source ?? OrderSource::Storefront)->value,
+            'customer_type' => ($order->customer_type ?? CustomerType::Private)->value,
+        ]);
+
+        // The order's own current quantities are still counted as committed
+        // by the availability matrix, so they can be re-used by this edit —
+        // but only while the date stays the same (a date change frees the
+        // old date and must fit the new one raw; slightly over-strict within
+        // overlapping batch windows, the workaround is a two-step edit) and
+        // only while the order actually still holds stock.
+        $ownCommitted = [];
+        if ($dateUnchanged && $order->commitsStockNow()) {
+            foreach ($order->items as $item) {
+                if ($item->product_id === null) {
+                    continue;
+                }
+                $key = $item->product_id.'|'.(int) ($item->variant_id ?? 0);
+                $ownCommitted[$key] = ($ownCommitted[$key] ?? 0.0) + (float) $item->quantity;
+            }
+        }
+
+        return DB::transaction(function () use ($order, $payload, $fulfillmentMode, $deliveryDate, $quote, $audience, $ownCommitted, $total): ShopOrder {
+            $inventory = app(InventoryService::class);
+
+            foreach ($quote['lines'] as $line) {
+                $product = $line['product'] ?? null;
+                if ($product === null) {
+                    continue; // custom line — no catalog stock to check
+                }
+                Product::query()->lockForUpdate()->find($product->id);
+
+                $key = $product->id.'|'.(int) ($line['variant_id'] ?? 0);
+                $remaining = $inventory->availableOnDate($product, $deliveryDate, $audience, $line['variant_id'] ?? 0)
+                    + ($ownCommitted[$key] ?? 0.0);
+                if ($line['quantity'] > $remaining + 1e-6) {
+                    throw new InsufficientStockException(
+                        $product,
+                        requested: $line['quantity'],
+                        remaining: max(0.0, $remaining),
+                    );
+                }
+            }
+
+            $this->syncOrderItems($order, $quote['lines']);
+
+            // A fresh difference between paid and owed re-opens the
+            // settlement; the previous one stays in the audit log.
+            $reopens = $order->paid_at !== null
+                && abs($total - (float) $order->paid_amount_eur) >= 0.01;
+
+            $order->forceFill([
+                'name' => $payload['name'] ?? null,
+                'email' => $payload['email'] ?? null,
+                'phone' => $payload['phone'] ?? null,
+                'fulfillment_mode' => $fulfillmentMode,
+                'expected_delivery_date' => $deliveryDate->toDateString(),
+                'pickup_location' => $fulfillmentMode === 'pickup' ? ($payload['pickup_location'] ?? null) : null,
+                'delivery_street' => $fulfillmentMode === 'delivery' ? ($payload['delivery_street'] ?? null) : null,
+                'delivery_postal_code' => $fulfillmentMode === 'delivery' ? ($payload['delivery_postal_code'] ?? null) : null,
+                'delivery_city' => $fulfillmentMode === 'delivery' ? ($payload['delivery_city'] ?? null) : null,
+                'delivery_notes' => $payload['delivery_notes'] ?? null,
+                'items_total_eur' => $quote['items_total_eur'],
+                'delivery_fee_eur' => $quote['delivery_fee_eur'],
+                'delivery_fee_vat_rate_percent' => $quote['delivery_fee_vat_rate_percent'],
+                'delivery_fee_vat_amount_eur' => $quote['delivery_fee_vat_amount_eur'],
+                'total_amount_eur' => $total,
+            ] + ($reopens ? [
+                'outstanding_settled_amount_eur' => null,
+                'outstanding_settled_at' => null,
+                'outstanding_settled_by_user_id' => null,
+            ] : []))->save();
+
+            return $order->refresh();
+        });
+    }
+
+    /**
+     * Bring the order's item rows in line with the freshly quoted lines,
+     * keeping packing state where a line survives: existing items are
+     * matched by (product, grade, custom name) and updated in place, so
+     * packed_at/packed_by_user_id persist across quantity or price edits.
+     * Unmatched existing items are deleted, new lines created.
+     *
+     * @param  array<int, array<string, mixed>>  $quoteLines
+     */
+    private function syncOrderItems(ShopOrder $order, array $quoteLines): void
+    {
+        $existing = [];
+        foreach ($order->items()->get() as $item) {
+            $key = ((int) ($item->product_id ?? 0)).'|'.((int) ($item->variant_id ?? 0)).'|'.((string) ($item->name_snapshot ?? ''));
+            $existing[$key][] = $item;
+        }
+
+        foreach ($quoteLines as $line) {
+            $product = $line['product'] ?? null;
+            $key = ((int) ($product?->id ?? 0)).'|'.((int) ($line['variant_id'] ?? 0)).'|'.((string) ($line['name_snapshot'] ?? ''));
+
+            $attributes = [
+                'product_id' => $product?->id,
+                'variant_id' => $line['variant_id'] ?? null,
+                'variant_name_snapshot' => $line['variant_name_snapshot'] ?? null,
+                'name_snapshot' => $line['name_snapshot'] ?? null,
+                'quantity' => $line['quantity'],
+                'unit' => $line['unit'],
+                'unit_price_snapshot_eur' => $line['unit_price_eur'],
+                'price_rule_id' => $line['price_rule_id'] ?? null,
+                'line_total_eur' => $line['line_total_eur'],
+                'vat_rate_snapshot_percent' => $line['vat_rate_percent'],
+                'vat_amount_eur' => $line['vat_amount_eur'],
+            ];
+
+            $match = ($existing[$key] ?? []) !== [] ? array_shift($existing[$key]) : null;
+            if ($match !== null) {
+                $match->fill($attributes)->save();
+            } else {
+                $order->items()->create($attributes);
+            }
+        }
+
+        foreach ($existing as $leftovers) {
+            foreach ($leftovers as $item) {
+                $item->delete();
+            }
+        }
+    }
+
     public function initiateCheckout(ShopOrder $order, string $returnUrl): object
     {
         $reference = 'shop-'.$order->id.'-'.now()->timestamp;
@@ -1160,6 +1368,9 @@ class ShopOrderService
             $order->forceFill([
                 'status' => ShopOrderStatus::Paid,
                 'paid_at' => now(),
+                // Snapshot what was actually collected: admin edits may later
+                // change the total, leaving an open remainder to settle.
+                'paid_amount_eur' => $order->total_amount_eur,
                 'sumup_payment_id' => $paymentId !== '' ? $paymentId : null,
                 'provider_payload' => is_object($checkout) ? json_decode(json_encode($checkout), true) : null,
             ])->save();

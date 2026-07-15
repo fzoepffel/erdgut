@@ -17,3 +17,25 @@
 @else
     <x-status-badge :value="$order->status" type="shop_order" />
 @endif
+
+{{-- Open difference after an admin edit of a paid order: positive = collect
+     the remainder in person, negative = refund the overpayment in person. --}}
+@if ($order->hasOpenAmount())
+    @php
+        $openAmountLabel = number_format(abs($order->outstandingAmountEur()), 2, ',', '.').' €';
+    @endphp
+    @if ($order->outstandingAmountEur() > 0)
+        <span class="{{ $base }} mt-1 border border-amber-300 bg-amber-50 text-amber-800" data-testid="shop-order-open-amount">
+            {{ __('shop.admin.badge_open_amount', ['amount' => $openAmountLabel]) }}
+        </span>
+    @else
+        <span class="{{ $base }} mt-1 border border-violet-300 bg-violet-50 text-violet-800" data-testid="shop-order-refund-due">
+            {{ __('shop.admin.badge_refund_due', ['amount' => $openAmountLabel]) }}
+        </span>
+    @endif
+@elseif ($order->outstanding_settled_at !== null && (float) $order->outstanding_settled_amount_eur < 0)
+    {{-- The overpayment was refunded in person; keep that visible. --}}
+    <span class="{{ $base }} mt-1 border border-emerald-300 bg-emerald-50 text-emerald-800" data-testid="shop-order-settled-refunded">
+        {{ __('shop.admin.badge_settled_refunded') }}
+    </span>
+@endif
