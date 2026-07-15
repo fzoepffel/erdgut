@@ -261,7 +261,7 @@ class AdminOperationsMetrics
                         'qty_canonical' => 0.0,
                         'unit' => $unit,
                         'display' => $display,
-                        'count_label' => $product?->unit === ProductUnit::Piece ? $product->count_unit_label : null,
+                        'count_label' => in_array($product?->unit, [ProductUnit::Piece, ProductUnit::Bunch], true) ? $product->count_unit_label : null,
                         'net' => 0.0,
                     ];
                 }

@@ -183,6 +183,33 @@ class AdminProductTest extends TestCase
             ->assertSessionHasErrors('count_unit_label');
     }
 
+    public function test_count_unit_label_persists_for_bunch(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.store'), [
+                'producer_id' => $producer->id,
+                'translations' => [
+                    'de' => ['name' => 'Radieschen in der Kiste', 'origin' => 'regional', 'variety' => 'x', 'taste_profile' => 'Knackig.', 'short_description' => 'Kurz'],
+                    'en' => ['name' => 'Crated radishes', 'origin' => 'regional', 'variety' => 'x', 'taste_profile' => 'Crisp.', 'short_description' => 'Kurz'],
+                    'fr' => ['name' => 'Radis en caisse', 'origin' => 'régional', 'variety' => 'x', 'taste_profile' => 'Croquant.', 'short_description' => 'Kurz'],
+                ],
+                'category' => 'produce',
+                'unit' => 'bunch',
+                'price_display_unit' => 'bunch',
+                'price' => '2.50',
+                'count_unit_label' => 'crate',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $product = Product::query()->latest('id')->firstOrFail();
+        $this->assertSame('crate', $product->count_unit_label?->value);
+        $this->assertSame('Kiste', $product->countUnitWord(1, 'de'));
+    }
+
     public function test_admin_can_create_product_via_form_post(): void
     {
         $admin = User::factory()->admin()->create();

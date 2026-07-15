@@ -274,14 +274,16 @@ class Product extends Model
     }
 
     /**
-     * The display word replacing "Stück" for THIS product (a pot of
-     * basil, a bag of flour), correctly pluralized. Null when the
-     * product is not piece-kind or carries no label, so a stale DB
-     * value on a mass product stays harmless everywhere.
+     * The display word replacing "Stück"/"Bund" for THIS product (a pot
+     * of basil, a bag of flour, a crate of radishes), correctly
+     * pluralized. Null when the product is not count-kind (piece/bunch)
+     * or carries no label, so a stale DB value on a mass product stays
+     * harmless everywhere.
      */
     public function countUnitWord(int|float $count = 1, ?string $locale = null): ?string
     {
-        if ($this->unit !== ProductUnit::Piece || $this->count_unit_label === null) {
+        $isCountKind = $this->unit === ProductUnit::Piece || $this->unit === ProductUnit::Bunch;
+        if (! $isCountKind || $this->count_unit_label === null) {
             return null;
         }
 
@@ -306,7 +308,7 @@ class Product extends Model
             ProductUnit::Mass => 'g',
             ProductUnit::Volume => 'ml',
             ProductUnit::Piece => $this->countUnitWord(1) ?? 'Stück',
-            ProductUnit::Bunch => 'Bund',
+            ProductUnit::Bunch => $this->countUnitWord(1) ?? 'Bund',
             default => '',
         };
     }
