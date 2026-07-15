@@ -22,6 +22,7 @@ class RestaurantOrderItem extends Model
         'variant_id',
         'variant_name_snapshot',
         'name_snapshot',
+        'display_name_override',
         'quantity',
         'unit',
         'track',
@@ -103,6 +104,27 @@ class RestaurantOrderItem extends Model
     public function displayName(): string
     {
         return $this->product?->name ?? $this->name_snapshot ?? '';
+    }
+
+    /**
+     * The name AS PRINTED on this invoice: the per-invoice override when the
+     * admin renamed the line in the invoice editor, otherwise the catalog
+     * name with its grade, otherwise the custom-line name. Display-only —
+     * name_snapshot and the mirror ShopOrder keep the real name.
+     */
+    public function invoiceDisplayName(): string
+    {
+        $override = trim((string) ($this->display_name_override ?? ''));
+        if ($override !== '') {
+            return $override;
+        }
+
+        $name = $this->displayName();
+        if ($this->variant_name_snapshot) {
+            $name .= ' · '.$this->variant_name_snapshot;
+        }
+
+        return $name;
     }
 
     /**

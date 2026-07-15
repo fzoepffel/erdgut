@@ -477,6 +477,12 @@ Route::middleware(['auth', 'verified'])
                 ->name('restaurant-orders.invoice-sequence');
             Route::get('restaurant-orders/{restaurantOrder}', [AdminRestaurantOrderController::class, 'show'])->name('restaurant-orders.show');
             Route::get('restaurant-orders/{restaurantOrder}/invoice.pdf', [AdminRestaurantOrderController::class, 'invoicePdf'])->name('restaurant-orders.invoice-pdf');
+            // WYSIWYG invoice editor + live PDF preview.
+            Route::get('restaurant-orders/{restaurantOrder}/invoice-editor', [AdminRestaurantOrderController::class, 'invoiceEditor'])->name('restaurant-orders.invoice-editor');
+            Route::post('restaurant-orders/{restaurantOrder}/invoice-editor', [AdminRestaurantOrderController::class, 'saveInvoiceEditor'])
+                ->middleware('throttle:60,1')
+                ->name('restaurant-orders.invoice-editor.save');
+            Route::get('restaurant-orders/{restaurantOrder}/invoice-preview.pdf', [AdminRestaurantOrderController::class, 'invoicePreviewPdf'])->name('restaurant-orders.invoice-preview');
             Route::post('restaurant-orders/{restaurantOrder}/confirm', [AdminRestaurantOrderController::class, 'confirm'])->name('restaurant-orders.confirm');
             Route::post('restaurant-orders/{restaurantOrder}/decline', [AdminRestaurantOrderController::class, 'decline'])->name('restaurant-orders.decline');
             Route::post('restaurant-orders/{restaurantOrder}/cancel', [AdminRestaurantOrderController::class, 'cancel'])->name('restaurant-orders.cancel');

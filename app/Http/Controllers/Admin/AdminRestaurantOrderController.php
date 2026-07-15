@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\RestaurantOrderStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminInvoiceEditorRequest;
 use App\Http\Requests\Admin\AdminPriceRestaurantOrderRequest;
 use App\Mail\RestaurantOrderCancelledMail;
 use App\Mail\RestaurantOrderConfirmedMail;
@@ -256,6 +257,127 @@ class AdminRestaurantOrderController extends Controller
         return redirect()
             ->route('app.admin.restaurant-orders.show', $restaurantOrder)
             ->with('status', __('restaurant.admin_invoice_priced_flash'));
+    }
+
+    /**
+     * WYSIWYG invoice editor: a page that looks like the invoice where every
+     * variable part is an input. Available before AND after issuing (issued
+     * invoices stay editable by product decision; the number never changes).
+     */
+    public function invoiceEditor(RestaurantOrder $restaurantOrder): View
+    {
+        $this->authorize('admin');
+
+        $restaurantOrder->load(['user.restaurantProfile', 'items.product.translations', 'items.product.producer.translations']);
+        $profile = $restaurantOrder->user?->restaurantProfile;
+
+        // The same fallbacks the PDF uses, prefilled as editable values.
+        $billingAddress = $profile !== null
+            ? trim(($profile->billing_street ?? '').', '.trim(($profile->billing_postal_code ?? '').' '.($profile->billing_city ?? '')), ', ')
+            : '';
+        $deliveryAddress = trim($restaurantOrder->delivery_street.', '.$restaurantOrder->delivery_postal_code.' '.$restaurantOrder->delivery_city, ', ');
+        $dueDays = (int) config('shop.restaurant_invoice_due_days', 7);
+
+        $defaults = [
+            'seller_name' => (string) config('shop.company_name'),
+            'seller_register' => (string) config('shop.company_register'),
+            'seller_vat_id' => config('shop.company_vat_id') ? 'Umsatzsteuer-ID: '.config('shop.company_vat_id') : '',
+            'seller_address' => trim((string) config('shop.company_street').', '.(string) config('shop.company_postal_city'), ', '),
+            'seller_email' => (string) config('shop.company_email'),
+            'recipient_name' => (string) ($profile?->business_name ?? $restaurantOrder->user?->name ?? ''),
+            'recipient_extra' => $profile?->contact_name ? 'z. Hd. '.$profile->contact_name : '',
+            'recipient_address' => $billingAddress !== '' ? $billingAddress : $deliveryAddress,
+            'recipient_phone' => (string) ($profile?->phone ?? $restaurantOrder->user?->phone ?? ''),
+            'recipient_vat_id' => $profile?->ust_id_nr ? 'USt-IdNr.: '.$profile->ust_id_nr : '',
+            'bank_name' => (string) config('shop.company_bank'),
+            'bank_holder' => (string) config('shop.company_name'),
+            'bank_iban' => (string) config('shop.company_iban'),
+            'bank_reference' => (string) ($restaurantOrder->invoice_number ?? $this->invoices->nextInvoiceNumberPreview()),
+            'delivery_line_label' => 'Lieferung '.$deliveryAddress,
+            'questions_text' => trim((config('shop.company_email') ? 'Email '.config('shop.company_email') : '')
+                .(config('shop.company_phone') ? "\noder anrufen unter ".config('shop.company_phone') : '')),
+            'terms_text' => 'Der Rechnungsbetrag ist innerhalb von '.$dueDays.' Tagen nach Lieferung zahlbar. Leistungsdatum entspricht dem Lieferdatum.',
+        ];
+
+        $values = [];
+        foreach ($defaults as $key => $default) {
+            $values[$key] = $restaurantOrder->invoiceOverride($key) ?? $default;
+        }
+
+        $items = $restaurantOrder->items->reject(fn ($i) => $i->isDeclined())->values();
+
+        return view('admin.restaurant-orders.invoice-editor', [
+            'order' => $restaurantOrder,
+            'items' => $items,
+            'values' => $values,
+            'previewNumber' => $restaurantOrder->invoice_number ?? $this->invoices->nextInvoiceNumberPreview(),
+            'dueDays' => $dueDays,
+        ]);
+    }
+
+    /** Persist everything the invoice editor can change, in one save. */
+    public function saveInvoiceEditor(AdminInvoiceEditorRequest $request, RestaurantOrder $restaurantOrder): RedirectResponse
+    {
+        $before = [
+            'net' => (float) $restaurantOrder->items_total_net_eur,
+            'gross' => (float) $restaurantOrder->items_total_gross_eur,
+            'item_count' => $restaurantOrder->items()->count(),
+        ];
+
+        $this->invoices->updatePricing(
+            $restaurantOrder,
+            $request->validated('items'),
+            $request->filled('delivery_fee_net_eur') ? (float) $request->validated('delivery_fee_net_eur') : null,
+            $request->filled('delivery_fee_vat_rate_percent') ? (int) $request->validated('delivery_fee_vat_rate_percent') : null,
+        );
+
+        $this->invoices->saveInvoiceOverrides($restaurantOrder, (array) $request->validated('overrides', []));
+
+        if ($request->filled('invoice_due_date')) {
+            $restaurantOrder->forceFill(['invoice_due_date' => $request->validated('invoice_due_date')])->save();
+        }
+
+        $restaurantOrder->refresh();
+
+        AuditLogger::log(
+            entityType: 'restaurant_order',
+            entityId: (int) $restaurantOrder->id,
+            action: 'invoice_edit',
+            fromState: $restaurantOrder->status->value,
+            toState: $restaurantOrder->status->value,
+            metadata: [
+                'channel' => 'admin',
+                'before' => $before,
+                'after' => [
+                    'net' => (float) $restaurantOrder->items_total_net_eur,
+                    'gross' => (float) $restaurantOrder->items_total_gross_eur,
+                    'item_count' => $restaurantOrder->items()->count(),
+                ],
+                'override_keys' => array_keys((array) ($restaurantOrder->invoice_overrides ?? [])),
+                'invoiced' => $restaurantOrder->isInvoiced(),
+            ],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.restaurant-orders.invoice-editor', $restaurantOrder)
+            ->with('status', __('restaurant.invoice_editor_saved_flash'));
+    }
+
+    /**
+     * PDF exactly as it would print right now: the real document once
+     * issued, a clearly marked draft with the upcoming number before.
+     */
+    public function invoicePreviewPdf(RestaurantOrder $restaurantOrder): SymfonyResponse
+    {
+        $this->authorize('admin');
+
+        $preview = $restaurantOrder->invoice_number === null
+            ? $this->invoices->nextInvoiceNumberPreview()
+            : null;
+
+        return $this->invoices->renderPdf($restaurantOrder, $preview)
+            ->stream('erdgut-rechnung-vorschau-'.$restaurantOrder->id.'.pdf');
     }
 
     /**
