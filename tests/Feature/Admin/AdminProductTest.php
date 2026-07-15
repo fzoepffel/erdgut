@@ -890,7 +890,7 @@ class AdminProductTest extends TestCase
         $this->actingAs($admin)
             ->get(route('app.admin.products.edit', $product))
             ->assertOk()
-            ->assertSee("displayUnit: 'kg'", escape: false);
+            ->assertSee('displayUnit: "kg"', escape: false);
     }
 
     public function test_admin_can_assign_subcategory_on_product_update(): void

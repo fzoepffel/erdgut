@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Producer;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -55,5 +56,20 @@ class TranslationRequiredValidationTest extends TestCase
                 'translations.fr.taste_profile',
                 'translations.fr.short_description',
             ]);
+    }
+
+    public function test_display_falls_back_to_german_for_legacy_rows_without_a_locale(): void
+    {
+        // The FORM requires all three locales, but the DISPLAY layer stays
+        // tolerant: legacy products missing an EN/FR row render the German
+        // texts instead of breaking.
+        Producer::factory()->create();
+        $product = Product::factory()->create();
+        $product->translations()->where('locale', 'de')->update(['name' => 'Nur Deutsch']);
+        $product->translations()->whereIn('locale', ['en', 'fr'])->delete();
+
+        app()->setLocale('en');
+        $this->assertSame('Nur Deutsch', $product->fresh()->name);
+        app()->setLocale('de');
     }
 }

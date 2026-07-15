@@ -57,7 +57,7 @@
                     <form method="get" action="{{ route('app.admin.products.merge.confirm', $product) }}" class="mt-4">
                         <div
                             x-data='{
-                                options: {!! json_encode($mergeTargets, JSON_UNESCAPED_UNICODE) !!},
+                                options: {!! json_encode($mergeTargets, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
                                 selected: null,
                                 query: "",
                                 open: false,

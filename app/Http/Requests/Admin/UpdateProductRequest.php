@@ -43,6 +43,9 @@ class UpdateProductRequest extends FormRequest
             'translations' => ['required', 'array'],
         ];
         foreach ($this->locales() as $locale) {
+            // All three locales are required in the FORM (Fred's call). The
+            // DISPLAY layer still tolerates missing rows for legacy data
+            // (Product::translationFor() falls back to German).
             $translationRules["translations.$locale"] = ['required', 'array'];
             $translationRules["translations.$locale.name"] = ['required', 'string', 'max:255'];
             $translationRules["translations.$locale.origin"] = ['required', 'string', 'max:128'];
