@@ -537,6 +537,60 @@ class RestaurantOrderService
         });
     }
 
+    /**
+     * Bring an existing mirror ShopOrder back in line with its source after
+     * admin pricing edits or invoice issuance: items are replaced (Declined
+     * lines stay out) and the money columns re-copied, including the B2B
+     * delivery fee (stored net on the source, mirrored gross like every
+     * ShopOrder). Without this, pricing changes after confirmation would
+     * leave stale totals in the unified orders list and the revenue metrics.
+     * No-op when no mirror exists yet.
+     */
+    public function syncShopOrderMirror(RestaurantOrder $order): void
+    {
+        $mirror = ShopOrder::query()->where('restaurant_order_id', $order->id)->first();
+        if ($mirror === null) {
+            return;
+        }
+
+        DB::transaction(function () use ($order, $mirror): void {
+            $order->refresh()->load('items');
+
+            $feeGross = $order->deliveryFeeGrossEur();
+            $feeVat = $order->deliveryFeeVatEur();
+            // Source totals include the fee (see RestaurantInvoiceService::
+            // rerollTotals); the mirror splits it back out into its own
+            // delivery-fee columns so ShopOrder consumers add up correctly.
+            $mirror->forceFill([
+                'items_total_eur' => round((float) $order->items_total_gross_eur - $feeGross, 2),
+                'delivery_fee_eur' => $feeGross,
+                'delivery_fee_vat_rate_percent' => $feeGross > 0 ? (int) $order->delivery_fee_vat_rate_percent : 0,
+                'delivery_fee_vat_amount_eur' => $feeVat,
+                'total_amount_eur' => (float) $order->items_total_gross_eur,
+            ])->save();
+
+            $mirror->items()->delete();
+            foreach ($order->items as $item) {
+                if ($item->line_status === RestaurantOrderLineStatus::Declined) {
+                    continue;
+                }
+                $mirror->items()->create([
+                    'product_id' => $item->product_id,
+                    'variant_id' => $item->variant_id,
+                    'variant_name_snapshot' => $item->variant_name_snapshot,
+                    'name_snapshot' => $item->name_snapshot,
+                    'quantity' => $item->quantity,
+                    'unit' => $item->unit,
+                    'unit_price_snapshot_eur' => $item->unit_price_snapshot_eur,
+                    'price_rule_id' => $item->price_rule_id,
+                    'line_total_eur' => $item->line_total_eur,
+                    'vat_rate_snapshot_percent' => $item->vat_rate_snapshot_percent,
+                    'vat_amount_eur' => $item->vat_amount_eur,
+                ]);
+            }
+        });
+    }
+
     /** Confirming the first recurring order activates the standing order. */
     private function activateStandingIfPending(RestaurantOrder $order): void
     {

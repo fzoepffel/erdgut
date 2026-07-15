@@ -11,6 +11,7 @@ use Barryvdh\DomPDF\PDF as DomPDF;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -27,15 +28,27 @@ class RestaurantInvoiceService
      * automatically (InventoryService reads the live quantity), so no inventory
      * call is needed here.
      *
+     * The optional delivery fee is entered NET like the lines and billed as
+     * its own invoice line; passing null clears a previously set fee.
+     *
      * @param  array<int, array{id:int, net_total_eur?:mixed, vat_rate_percent?:mixed, quantity?:mixed, remove?:mixed}>  $lines
      */
-    public function updatePricing(RestaurantOrder $order, array $lines): RestaurantOrder
-    {
+    public function updatePricing(
+        RestaurantOrder $order,
+        array $lines,
+        ?float $deliveryFeeNetEur = null,
+        ?int $deliveryFeeVatRatePercent = null,
+    ): RestaurantOrder {
         if ($order->isInvoiced()) {
             throw new RuntimeException('Order already invoiced — locked.');
         }
 
-        return DB::transaction(function () use ($order, $lines): RestaurantOrder {
+        return DB::transaction(function () use ($order, $lines, $deliveryFeeNetEur, $deliveryFeeVatRatePercent): RestaurantOrder {
+            $order->forceFill([
+                'delivery_fee_net_eur' => $deliveryFeeNetEur !== null && $deliveryFeeNetEur > 0 ? round($deliveryFeeNetEur, 2) : null,
+                'delivery_fee_vat_rate_percent' => $deliveryFeeNetEur !== null && $deliveryFeeNetEur > 0 ? $deliveryFeeVatRatePercent : null,
+            ])->save();
+
             $items = $order->items()->lockForUpdate()->get()->keyBy('id');
 
             foreach ($lines as $payload) {
@@ -68,6 +81,10 @@ class RestaurantInvoiceService
             }
 
             $this->rerollTotals($order);
+
+            // A firm order already mirrors into the unified shop-orders list;
+            // pricing edits must not leave that mirror stale.
+            app(RestaurantOrderService::class)->syncShopOrderMirror($order);
 
             return $order;
         });
@@ -106,18 +123,75 @@ class RestaurantInvoiceService
             $invoicedAt = Carbon::now();
             $year = $invoicedAt->year;
             $seq = NumberSequence::next("restaurant_invoice:{$year}");
-            $number = sprintf('%s-%d-%04d', (string) config('shop.restaurant_invoice_prefix', 'RG'), $year, $seq);
+            // Compact number like EB260046: prefix + two-digit year + 4-digit
+            // sequence. Numbers issued under the old RG-2026-0046 format stay
+            // valid on their orders; the yearly sequence simply continues.
+            $number = sprintf('%s%s%04d', (string) config('shop.restaurant_invoice_prefix', 'EB'), $invoicedAt->format('y'), $seq);
+
+            // Payment terms count from DELIVERY ("zahlbar innerhalb von X
+            // Tagen nach Lieferung"), but a late-issued invoice is never due
+            // before its own date.
+            $dueDays = (int) config('shop.restaurant_invoice_due_days', 7);
+            $deliveryDate = $fresh->expected_delivery_date !== null
+                ? Carbon::parse($fresh->expected_delivery_date)
+                : $invoicedAt;
+            $dueDate = $deliveryDate->copy()->addDays($dueDays);
+            if ($dueDate->lt($invoicedAt)) {
+                $dueDate = $invoicedAt->copy()->addDays($dueDays);
+            }
 
             $fresh->forceFill([
                 'invoice_number' => $number,
                 'invoiced_at' => $invoicedAt,
-                'invoice_due_date' => $invoicedAt->copy()->addDays((int) config('shop.restaurant_invoice_due_days', 14))->toDateString(),
+                'invoice_due_date' => $dueDate->toDateString(),
             ])->save();
+
+            // rerollTotals above may have folded in a delivery fee set since
+            // the last pricing save; keep the mirror in step with the final,
+            // frozen invoice amounts.
+            app(RestaurantOrderService::class)->syncShopOrderMirror($fresh);
 
             return $fresh;
         });
 
         return $order->refresh();
+    }
+
+    /**
+     * The number the NEXT issued invoice would get, without consuming it.
+     * Shown in the admin so the operator can verify the sequence lines up
+     * with manually issued invoices before the first system invoice.
+     */
+    public function nextInvoiceNumberPreview(?Carbon $at = null): string
+    {
+        $at ??= Carbon::now();
+        $current = (int) (NumberSequence::query()->find('restaurant_invoice:'.$at->year)?->value ?? 0);
+
+        return sprintf('%s%s%04d', (string) config('shop.restaurant_invoice_prefix', 'EB'), $at->format('y'), $current + 1);
+    }
+
+    /**
+     * Align the current year's sequence so the NEXT invoice gets number
+     * $next. Only forward moves are allowed — lowering the counter could
+     * re-issue an already used number.
+     *
+     * @throws ValidationException
+     */
+    public function setNextSequenceNumber(int $next): void
+    {
+        $key = 'restaurant_invoice:'.Carbon::now()->year;
+
+        DB::transaction(function () use ($key, $next): void {
+            $row = NumberSequence::query()->lockForUpdate()->find($key);
+            $current = (int) ($row?->value ?? 0);
+            if ($next <= $current) {
+                throw ValidationException::withMessages([
+                    'next_invoice_number' => __('restaurant.admin_invoice_sequence_too_low', ['current' => $current + 1]),
+                ]);
+            }
+
+            NumberSequence::query()->updateOrCreate(['key' => $key], ['value' => $next - 1]);
+        });
     }
 
     /**
@@ -127,10 +201,18 @@ class RestaurantInvoiceService
      */
     public function vatByRate(RestaurantOrder $order): Collection
     {
-        return $order->items
+        $byRate = $order->items
+            ->reject(fn ($i) => $i->isDeclined())
             ->groupBy('vat_rate_snapshot_percent')
-            ->map(fn ($group) => round($group->sum(fn ($item) => (float) $item->vat_amount_eur), 2))
-            ->sortKeys();
+            ->map(fn ($group) => round($group->sum(fn ($item) => (float) $item->vat_amount_eur), 2));
+
+        // The delivery fee's VAT joins its rate bucket like any line.
+        if ($order->deliveryFeeVatEur() > 0) {
+            $rate = (int) $order->delivery_fee_vat_rate_percent;
+            $byRate[$rate] = round((float) ($byRate[$rate] ?? 0.0) + $order->deliveryFeeVatEur(), 2);
+        }
+
+        return $byRate->sortKeys();
     }
 
     /** Render the invoice PDF from the frozen order. Shared by download routes + mail. */
@@ -173,6 +255,12 @@ class RestaurantInvoiceService
         $live = $order->items->reject(fn ($i) => $i->isDeclined());
         $gross = round((float) $live->sum(fn ($i) => (float) $i->line_total_eur), 2);
         $vat = round((float) $live->sum(fn ($i) => (float) $i->vat_amount_eur), 2);
+
+        // The delivery fee bills like any other invoice line, so it is part
+        // of the stored totals — the column names say "items" for historical
+        // reasons but hold the full invoice amount every reader displays.
+        $gross = round($gross + $order->deliveryFeeGrossEur(), 2);
+        $vat = round($vat + $order->deliveryFeeVatEur(), 2);
 
         $order->forceFill([
             'items_total_gross_eur' => $gross,

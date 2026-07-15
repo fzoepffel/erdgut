@@ -257,11 +257,48 @@
                                     @endforeach
                                 </tbody>
                             </table>
+                            {{-- Optional delivery fee (net) — becomes its own
+                                 "Lieferung <address>" line on the Rechnung. --}}
+                            <div class="flex flex-wrap items-end gap-3 border-t border-gray-100 px-4 py-3">
+                                <div>
+                                    <label for="delivery_fee_net_eur" class="mb-1 block text-xs font-medium text-gray-600">{{ __('restaurant.admin_invoice_delivery_fee_label') }}</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" step="0.01" min="0" max="999.99" id="delivery_fee_net_eur" name="delivery_fee_net_eur"
+                                               value="{{ old('delivery_fee_net_eur', $order->delivery_fee_net_eur !== null ? number_format((float) $order->delivery_fee_net_eur, 2, '.', '') : '') }}"
+                                               placeholder="0.00" class="w-28 rounded border-gray-300 text-sm" data-testid="restaurant-invoice-delivery-fee">
+                                        <select name="delivery_fee_vat_rate_percent" class="rounded border-gray-300 text-sm">
+                                            <option value="7" @selected((int) old('delivery_fee_vat_rate_percent', $order->delivery_fee_vat_rate_percent ?? 7) === 7)>7 %</option>
+                                            <option value="19" @selected((int) old('delivery_fee_vat_rate_percent', $order->delivery_fee_vat_rate_percent ?? 7) === 19)>19 %</option>
+                                        </select>
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-400">{{ __('restaurant.admin_invoice_delivery_fee_hint', ['address' => trim($order->delivery_street.', '.$order->delivery_postal_code.' '.$order->delivery_city, ', ')]) }}</p>
+                                    <x-input-error :messages="$errors->get('delivery_fee_net_eur')" class="mt-1" />
+                                    <x-input-error :messages="$errors->get('delivery_fee_vat_rate_percent')" class="mt-1" />
+                                </div>
+                            </div>
                             <div class="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-4 py-3">
                                 <button type="submit" data-testid="restaurant-order-save-pricing" class="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-white">{{ __('restaurant.admin_invoice_save') }}</button>
                             </div>
                         </form>
-                        <div class="flex items-center justify-end border-t border-gray-100 px-4 py-3">
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
+                            {{-- Sequence alignment: invoices were issued manually before
+                                 the system took over, so the next number is adjustable
+                                 (forward only) until it matches the real ledger. --}}
+                            <div class="flex flex-wrap items-center gap-2">
+                                @if ($nextInvoiceNumber !== null)
+                                    <span class="text-xs text-gray-500" data-testid="restaurant-invoice-next-number">{{ __('restaurant.admin_invoice_next_number', ['number' => $nextInvoiceNumber]) }}</span>
+                                @endif
+                                <form method="POST" action="{{ route('app.admin.restaurant-orders.invoice-sequence') }}" class="flex items-center gap-1.5">
+                                    @csrf
+                                    <input type="number" name="next_invoice_number" min="1" max="9999"
+                                           placeholder="{{ __('restaurant.admin_invoice_set_sequence_placeholder') }}"
+                                           class="w-24 rounded border-gray-300 text-xs" required>
+                                    <button type="submit" data-testid="restaurant-invoice-set-sequence" class="rounded border border-gray-300 px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                                        {{ __('restaurant.admin_invoice_set_sequence_button') }}
+                                    </button>
+                                </form>
+                                <x-input-error :messages="$errors->get('next_invoice_number')" class="mt-0" />
+                            </div>
                             <form method="POST" action="{{ route('app.admin.restaurant-orders.invoice', $order) }}"
                                   onsubmit="return confirm(@js(__('restaurant.admin_invoice_issue_confirm')))">
                                 @csrf

@@ -471,6 +471,10 @@ Route::middleware(['auth', 'verified'])
             // Registered before the {restaurantOrder} wildcard: 'create' would otherwise bind as a model key.
             Route::get('restaurant-orders/create', [AdminRestaurantRequestController::class, 'create'])->name('restaurant-orders.create');
             Route::post('restaurant-orders', [AdminRestaurantRequestController::class, 'store'])->name('restaurant-orders.store');
+            // Static segment before the {restaurantOrder} wildcard.
+            Route::post('restaurant-orders/invoice-sequence', [AdminRestaurantOrderController::class, 'setInvoiceSequence'])
+                ->middleware('throttle:30,1')
+                ->name('restaurant-orders.invoice-sequence');
             Route::get('restaurant-orders/{restaurantOrder}', [AdminRestaurantOrderController::class, 'show'])->name('restaurant-orders.show');
             Route::get('restaurant-orders/{restaurantOrder}/invoice.pdf', [AdminRestaurantOrderController::class, 'invoicePdf'])->name('restaurant-orders.invoice-pdf');
             Route::post('restaurant-orders/{restaurantOrder}/confirm', [AdminRestaurantOrderController::class, 'confirm'])->name('restaurant-orders.confirm');

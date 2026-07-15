@@ -607,6 +607,7 @@ class ShopController extends Controller
                 'phone' => (string) config('shop.company_phone'),
                 'email' => (string) config('shop.company_email'),
                 'vat_id' => (string) config('shop.company_vat_id'),
+                'register' => (string) config('shop.company_register'),
             ],
         ])->setPaper('a4');
 
