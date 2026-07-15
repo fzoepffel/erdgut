@@ -23,6 +23,10 @@ class AdminProductDuplicateWarningTest extends TestCase
     {
         $admin = User::factory()->admin()->create();
         $farm = Producer::factory()->create();
+        // Deterministic name: faker farm names with apostrophes serialize as
+        // &#039; in the JSON payload and flake raw-string assertions.
+        $farm->translations()->update(['name' => 'Duplikat Hof Alpha']);
+        $farm->refresh();
         $product = Product::factory()->create(['producer_id' => $farm->id]);
         ProductTranslation::query()->updateOrCreate(
             ['product_id' => $product->id, 'locale' => 'de'],

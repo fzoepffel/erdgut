@@ -486,6 +486,22 @@ class AdminShopOrderCreateTest extends TestCase
             ->assertSessionHasNoErrors();
     }
 
+    public function test_restaurant_account_is_rejected_for_private_customer_type(): void
+    {
+        $restaurantUser = User::factory()->create();
+
+        // Restaurant accounts are B2B-only; a private order carrying one is
+        // rejected even when the request bypasses the form.
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.store'), $this->payload([
+                'customer_type' => 'private',
+                'restaurant_user_id' => $restaurantUser->id,
+            ]))
+            ->assertSessionHasErrors('restaurant_user_id');
+
+        $this->assertSame(0, ShopOrder::query()->count());
+    }
+
     public function test_payment_method_is_always_in_person_regardless_of_payload(): void
     {
         $this->actingAs($this->admin)

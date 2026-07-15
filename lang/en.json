@@ -2780,6 +2780,7 @@
     "shop.admin.action_mark_paid": "Mark as paid",
     "shop.admin.action_refund": "Refund",
     "shop.admin.back_to_list": "Back to list",
+    "shop.admin.errors.account_business_only": "Restaurant accounts are for business customers only. Switch the customer type to business or remove the account.",
     "shop.admin.out_of_stock_tag": "out of stock",
     "shop.admin.back_to_order": "Back to order",
     "shop.admin.edit_heading": "Edit order #:id",
