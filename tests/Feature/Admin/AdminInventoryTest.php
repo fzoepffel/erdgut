@@ -77,8 +77,8 @@ class AdminInventoryTest extends TestCase
         // One lane per farm carrying its own quantity.
         $this->assertStringContainsString('inventory-farm-lane-'.$product->id.'-'.$farmA->id, $html);
         $this->assertStringContainsString('inventory-farm-lane-'.$product->id.'-'.$farmB->id, $html);
-        $this->assertStringContainsString($farmA->name, $html);
-        $this->assertStringContainsString($farmB->name, $html);
+        $this->assertStringContainsString(e($farmA->name), $html);
+        $this->assertStringContainsString(e($farmB->name), $html);
     }
 
     public function test_single_farm_product_keeps_its_plain_producer_line(): void
@@ -96,7 +96,7 @@ class AdminInventoryTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString($product->producer->name, $html);
+        $this->assertStringContainsString(e($product->producer->name), $html);
         $this->assertStringNotContainsString('inventory-farm-toggle-'.$product->id, $html);
     }
 
@@ -128,7 +128,7 @@ class AdminInventoryTest extends TestCase
         $this->assertStringContainsString('inventory-farm-toggle-'.$product->id, $html);
         $this->assertStringContainsString('inventory-farm-lane-'.$product->id.'-'.$farmB->id, $html);
         // Farm B's lane shows its stock as the amber trade-only figure.
-        $this->assertStringContainsString($farmB->name, $html);
+        $this->assertStringContainsString(e($farmB->name), $html);
     }
 
     public function test_matrix_shows_the_producer_next_to_the_product(): void
