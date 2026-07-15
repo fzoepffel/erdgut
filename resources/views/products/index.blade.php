@@ -52,11 +52,11 @@
 
     // Catalogue-strip illustration images for the left spine (same assets as homepage).
     $chapterImage = [
-        'produce'  => 'catalog-strip-cabbage.png',
-        'meat'     => 'catalog-strip-waguy.png',
-        'fish'     => 'catalog-strip-sardines.png',
-        'eggdairy' => 'catalog-strip-eggs.png',
-        'bread'    => 'catalog-strip-wheat.png',
+        'produce'  => 'catalog-strip-cabbage.webp',
+        'meat'     => 'catalog-strip-waguy.webp',
+        'fish'     => 'catalog-strip-sardines.webp',
+        'eggdairy' => 'catalog-strip-eggs.webp',
+        'bread'    => 'catalog-strip-wheat.webp',
     ];
 
     // Active category chapter key.
