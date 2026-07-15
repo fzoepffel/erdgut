@@ -4,18 +4,20 @@
     {{-- Hero: video + editorial headline, sits below the olive-green masthead. --}}
     <section class="relative overflow-hidden" aria-labelledby="home-hero-heading">
         <div class="relative h-[82vh] min-h-[620px] w-full overflow-hidden bg-brand-ink/80">
+            {{-- No <source> in the markup: hero-video.js attaches it on
+                 viewports from 640px up, so phones only load the poster. --}}
             <video
                 class="absolute inset-0 h-full w-full object-cover opacity-90"
                 autoplay
                 muted
                 loop
                 playsinline
-                preload="metadata"
+                preload="none"
                 poster="{{ asset('images/mock/hero/hero-poster.jpg') }}"
+                data-video-src="{{ asset('videos/mock/newvid.mp4') }}"
+                data-video-type="video/mp4"
                 data-parallax
-            >
-                <source src="{{ asset('videos/mock/newvid.mp4') }}" type="video/mp4">
-            </video>
+            ></video>
             <div class="absolute inset-0 bg-gradient-to-b from-brand-ink/25 via-brand-ink/45 to-brand-ink/75"></div>
 
             {{-- Month stamp, catalogue style --}}
@@ -155,13 +157,13 @@
                         // the canonical category enum values now that
                         // the customer chips, admin labels, and these
                         // chapter slugs all share one taxonomy.
-                        ['slug' => 'produce', 'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'), 'href' => route('public.products.index', ['category' => 'produce']), 'image' => 'catalog-strip-cabbage.png'],
-                        ['slug' => 'meat', 'label' => __('Meat'), 'tagline' => __('Pasture-raised cuts'), 'href' => route('public.products.index', ['category' => 'meat']), 'image' => 'catalog-strip-waguy.png'],
-                        ['slug' => 'fish', 'label' => __('Fish & Seafood'), 'tagline' => __('Line-caught & smoked'), 'href' => route('public.products.index', ['category' => 'fish']), 'image' => 'catalog-strip-sardines.png'],
-                        ['slug' => 'eggdairy', 'label' => __('Eggs & Dairy'), 'tagline' => __('Milk, butter, cheese'), 'href' => route('public.products.index', ['category' => 'eggs_and_dairy']), 'image' => 'catalog-strip-eggs.png'],
-                        ['slug' => 'bread', 'label' => __('Bread'), 'tagline' => __('Sourdough & pastry'), 'href' => route('public.products.index', ['category' => 'bread']), 'image' => 'catalog-strip-wheat.png'],
-                        ['slug' => 'producers', 'label' => __('Producers'), 'tagline' => __('The people behind the food'), 'href' => route('public.producers'), 'image' => 'catalog-strip-producers.png'],
-                        ['slug' => 'almanach', 'label' => __('Almanac'), 'tagline' => __('Seasons, stories, traditions'), 'href' => route('public.about'), 'image' => 'catalog-strip-almanach.png'],
+                        ['slug' => 'produce', 'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'), 'href' => route('public.products.index', ['category' => 'produce']), 'image' => 'catalog-strip-cabbage.webp'],
+                        ['slug' => 'meat', 'label' => __('Meat'), 'tagline' => __('Pasture-raised cuts'), 'href' => route('public.products.index', ['category' => 'meat']), 'image' => 'catalog-strip-waguy.webp'],
+                        ['slug' => 'fish', 'label' => __('Fish & Seafood'), 'tagline' => __('Line-caught & smoked'), 'href' => route('public.products.index', ['category' => 'fish']), 'image' => 'catalog-strip-sardines.webp'],
+                        ['slug' => 'eggdairy', 'label' => __('Eggs & Dairy'), 'tagline' => __('Milk, butter, cheese'), 'href' => route('public.products.index', ['category' => 'eggs_and_dairy']), 'image' => 'catalog-strip-eggs.webp'],
+                        ['slug' => 'bread', 'label' => __('Bread'), 'tagline' => __('Sourdough & pastry'), 'href' => route('public.products.index', ['category' => 'bread']), 'image' => 'catalog-strip-wheat.webp'],
+                        ['slug' => 'producers', 'label' => __('Producers'), 'tagline' => __('The people behind the food'), 'href' => route('public.producers'), 'image' => 'catalog-strip-producers.webp'],
+                        ['slug' => 'almanach', 'label' => __('Almanac'), 'tagline' => __('Seasons, stories, traditions'), 'href' => route('public.about'), 'image' => 'catalog-strip-almanach.webp'],
                     ];
                     $chapterPanelBg = [
                         'produce' => 'bg-chapter-produce',

@@ -50,31 +50,27 @@
 
 @layer components {
     /* Scroll reveal primitive (Apple-style swoosh-in)
-       Elements start invisible + translated; toggle .is-visible via IntersectionObserver. */
+       The hidden start state (.reveal-pending) is applied by reveal-observer.js,
+       never by the stylesheet or the markup: when JS is slow, broken, or absent
+       the page renders fully visible and simply skips the animation. */
     .reveal {
-        opacity: 0;
-        transform: translateY(28px);
         transition:
             opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
             transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+
+    .reveal.reveal-pending {
+        opacity: 0;
+        transform: translateY(28px);
         will-change: opacity, transform;
     }
 
-    .reveal.is-visible {
-        opacity: 1;
+    .reveal--fade.reveal-pending {
         transform: none;
     }
 
-    .reveal--fade {
-        transform: none;
-    }
-
-    .reveal--scale {
+    .reveal--scale.reveal-pending {
         transform: translateY(28px) scale(0.98);
-    }
-
-    .reveal--scale.is-visible {
-        transform: none;
     }
 
     .reveal-stagger > * {
@@ -83,7 +79,6 @@
 
     @media (prefers-reduced-motion: reduce) {
         .reveal,
-        .reveal--scale,
         .reveal-stagger > * {
             opacity: 1 !important;
             transform: none !important;

@@ -4,18 +4,20 @@
     {{-- Hero: video + editorial headline, sits below the olive-green masthead. --}}
     <section class="relative overflow-hidden" aria-labelledby="shop-home-hero-heading">
         <div class="relative h-[82vh] min-h-[620px] w-full overflow-hidden bg-brand-ink/80">
+            {{-- No <source> in the markup: hero-video.js attaches it on
+                 viewports from 640px up, so phones only load the poster. --}}
             <video
                 class="absolute inset-0 h-full w-full object-cover opacity-90"
                 autoplay
                 muted
                 loop
                 playsinline
-                preload="metadata"
+                preload="none"
                 poster="{{ asset('images/mock/hero/shop-hero-poster.jpg') }}"
+                data-video-src="{{ asset('videos/mock/shop-hero.mp4') }}"
+                data-video-type="video/mp4"
                 data-parallax
-            >
-                <source src="{{ asset('videos/mock/shop-hero.mp4') }}" type="video/mp4">
-            </video>
+            ></video>
             <div class="absolute inset-0 bg-gradient-to-b from-brand-ink/25 via-brand-ink/45 to-brand-ink/75"></div>
 
             {{-- Month stamp, catalogue style --}}
@@ -199,7 +201,7 @@
                 </x-reveal>
                 <x-reveal variant="scale" class="lg:col-span-5">
                     <div class="aspect-[4/5] overflow-hidden">
-                        <img src="{{ asset('images/about/producers-circle.jpg') }}" alt="" class="h-full w-full object-cover" loading="lazy" data-testid="shop-home-producers-image">
+                        <img src="{{ asset('images/about/producers-circle.jpg') }}" alt="" class="h-full w-full object-cover" loading="lazy" decoding="async" data-testid="shop-home-producers-image">
                     </div>
                 </x-reveal>
             </div>
@@ -223,11 +225,14 @@
                     @foreach ($inSeasonProducts as $product)
                         <x-reveal variant="fade-up" class="grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-14" data-testid="shop-home-in-season-item">
                             <div @class(['aspect-[4/3] overflow-hidden', 'lg:order-2' => $loop->odd])>
+                                {{-- thumbUrl() serves the ~600px card thumbnail and only
+                                     falls back to the full-size original when none exists. --}}
                                 <img
-                                    src="{{ $product->imageUrl() ?? $product->thumbUrl() }}"
+                                    src="{{ $product->thumbUrl() }}"
                                     alt="{{ $product->name }}"
                                     class="h-full w-full object-cover"
                                     loading="lazy"
+                                    decoding="async"
                                 >
                             </div>
                             <div @class(['lg:order-1' => $loop->odd])>
@@ -272,11 +277,11 @@
                 // Five product chapters only — Producers and Almanac removed.
                 // `category` drives the coming-soon check against $availableCategories.
                 $homeChapters = [
-                    ['slug' => 'produce',  'category' => 'produce',       'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'),   'href' => route('public.shop.products.index', ['category' => 'produce']),        'image' => 'catalog-strip-cabbage.png'],
-                    ['slug' => 'eggdairy', 'category' => 'eggs_and_dairy','label' => __('Eggs & Dairy'),      'tagline' => __('Milk, butter, cheese'),   'href' => route('public.shop.products.index', ['category' => 'eggs_and_dairy']), 'image' => 'catalog-strip-eggs.png'],
-                    ['slug' => 'meat',     'category' => 'meat',          'label' => __('Meat'),               'tagline' => __('Pasture-raised cuts'),    'href' => route('public.shop.products.index', ['category' => 'meat']),           'image' => 'catalog-strip-waguy.png'],
-                    ['slug' => 'fish',     'category' => 'fish',          'label' => __('Fish & Seafood'),     'tagline' => __('products.chapter_subtitle_fish'),   'href' => route('public.shop.products.index', ['category' => 'fish']),           'image' => 'catalog-strip-sardines.png'],
-                    ['slug' => 'bread',    'category' => 'bread',         'label' => __('Bread'),             'tagline' => __('products.chapter_subtitle_bread'),      'href' => route('public.shop.products.index', ['category' => 'bread']),          'image' => 'catalog-strip-wheat.png'],
+                    ['slug' => 'produce',  'category' => 'produce',       'label' => __('Fruit & Vegetables'), 'tagline' => __('Roots, greens, fruit'),   'href' => route('public.shop.products.index', ['category' => 'produce']),        'image' => 'catalog-strip-cabbage.webp'],
+                    ['slug' => 'eggdairy', 'category' => 'eggs_and_dairy','label' => __('Eggs & Dairy'),      'tagline' => __('Milk, butter, cheese'),   'href' => route('public.shop.products.index', ['category' => 'eggs_and_dairy']), 'image' => 'catalog-strip-eggs.webp'],
+                    ['slug' => 'meat',     'category' => 'meat',          'label' => __('Meat'),               'tagline' => __('Pasture-raised cuts'),    'href' => route('public.shop.products.index', ['category' => 'meat']),           'image' => 'catalog-strip-waguy.webp'],
+                    ['slug' => 'fish',     'category' => 'fish',          'label' => __('Fish & Seafood'),     'tagline' => __('products.chapter_subtitle_fish'),   'href' => route('public.shop.products.index', ['category' => 'fish']),           'image' => 'catalog-strip-sardines.webp'],
+                    ['slug' => 'bread',    'category' => 'bread',         'label' => __('Bread'),             'tagline' => __('products.chapter_subtitle_bread'),      'href' => route('public.shop.products.index', ['category' => 'bread']),          'image' => 'catalog-strip-wheat.webp'],
                 ];
                 $chapterPanelBg = [
                     'produce'  => 'bg-chapter-produce',
@@ -311,6 +316,8 @@
                                     aria-hidden="true"
                                     class="h-full w-full select-none object-cover object-center"
                                     style="filter: brightness(0) invert(1); opacity: 0.9; transform: scale(1.1);"
+                                    loading="lazy"
+                                    decoding="async"
                                 />
                             </div>
 
