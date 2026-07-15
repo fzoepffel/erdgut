@@ -123,16 +123,20 @@ class AdminShopOrderCreateTest extends TestCase
             ->assertJsonFragment(['product_id' => $this->product->id]);
     }
 
-    public function test_available_products_endpoint_excludes_out_of_stock_products(): void
+    public function test_available_products_endpoint_includes_out_of_stock_products_flagged(): void
     {
+        // Admins may deliberately sell beyond stock, so the picker lists the
+        // whole catalog; out-of-stock rows carry remaining 0 for the UI tag.
         $noStock = Product::factory()->create(['is_available' => true, 'is_published' => true]);
 
         $response = $this->actingAs($this->admin)
             ->getJson(route('app.admin.shop-orders.available-products', ['date' => self::DELIVERY_DATE]));
 
-        $productIds = collect($response->json())->pluck('product_id')->all();
-        $this->assertContains($this->product->id, $productIds);
-        $this->assertNotContains($noStock->id, $productIds);
+        $rows = collect($response->json());
+        $this->assertContains($this->product->id, $rows->pluck('product_id')->all());
+        $noStockRow = $rows->firstWhere('product_id', $noStock->id);
+        $this->assertNotNull($noStockRow);
+        $this->assertSame(0.0, (float) $noStockRow['remaining']);
     }
 
     public function test_available_products_endpoint_returns_tier_aware_prices(): void
@@ -404,15 +408,21 @@ class AdminShopOrderCreateTest extends TestCase
         $this->assertEqualsWithDelta(40.0, $remaining, 0.01);
     }
 
-    public function test_over_stock_quantity_shows_validation_error(): void
+    public function test_over_stock_quantity_is_allowed_and_clamps_remaining_at_zero(): void
     {
-        $response = $this->actingAs($this->admin)
+        // Deliberate overbooking: the admin sells beyond stock and procures
+        // the goods on demand. The storefront keeps its hard check.
+        $this->actingAs($this->admin)
             ->post(route('app.admin.shop-orders.store'), $this->payload([
-                'items' => [['product_id' => $this->product->id, 'quantity' => 9999]],
-            ]));
+                'items' => [['product_id' => $this->product->id, 'quantity' => 60]],
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
 
-        $response->assertSessionHasErrors();
-        $this->assertSame(0, ShopOrder::query()->where('order_source', 'admin')->count());
+        $this->assertSame(1, ShopOrder::query()->where('order_source', 'admin')->count());
+        // 50 in stock, 60 committed — the storefront sees 0, never negative.
+        $remaining = $this->product->availableOnDate(Carbon::parse(self::DELIVERY_DATE));
+        $this->assertSame(0.0, $remaining);
     }
 
     public function test_business_admin_order_can_book_b2b_only_stock(): void
@@ -440,7 +450,7 @@ class AdminShopOrderCreateTest extends TestCase
         $this->assertSame(1, ShopOrder::query()->where('customer_type', CustomerType::Business)->count());
     }
 
-    public function test_private_admin_order_cannot_book_b2b_only_stock(): void
+    public function test_private_audience_sees_b2b_only_stock_as_out_of_stock(): void
     {
         $b2bProduct = Product::factory()->create([
             'is_available' => true,
@@ -455,20 +465,25 @@ class AdminShopOrderCreateTest extends TestCase
             'b2b_only' => true,
         ]);
 
+        // The consumer audience doesn't get the B2B pool: the product shows
+        // up (whole catalog) but with remaining 0, so the admin sees the
+        // out-of-stock tag. Booking it anyway is a deliberate overbook.
         $response = $this->actingAs($this->admin)
             ->getJson(route('app.admin.shop-orders.available-products', [
                 'date' => self::DELIVERY_DATE,
                 'customer_type' => 'private',
             ]));
 
-        $productIds = collect($response->json())->pluck('product_id')->all();
-        $this->assertNotContains($b2bProduct->id, $productIds);
+        $row = collect($response->json())->firstWhere('product_id', $b2bProduct->id);
+        $this->assertNotNull($row);
+        $this->assertSame(0.0, (float) $row['remaining']);
 
         $this->actingAs($this->admin)
             ->post(route('app.admin.shop-orders.store'), $this->payload([
                 'items' => [['product_id' => $b2bProduct->id, 'quantity' => 5]],
             ]))
-            ->assertSessionHasErrors('items.0.quantity');
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
     }
 
     public function test_payment_method_is_always_in_person_regardless_of_payload(): void

@@ -247,6 +247,29 @@
                             {{ __('shop.summary_vat_detail', ['rate' => $rate, 'amount' => \App\Support\Money::formatEur($amount)]) }}
                         </p>
                     @endforeach
+
+                    {{-- The order changed after the online payment: show what is
+                         already covered and what will be settled on handover. --}}
+                    @if ($order->paid_at !== null && abs($order->outstandingAmountEur()) >= 0.01)
+                        <div class="mt-5 border border-brand-ink/15 bg-brand-cream/60 px-4 py-3" data-testid="shop-track-open-amount">
+                            <div class="flex items-baseline justify-between gap-4">
+                                <span class="font-mono text-[0.65rem] uppercase tracking-eyebrow text-brand-ink/55">{{ __('shop.track.paid_online') }}</span>
+                                <span class="font-mono text-sm tabular-nums text-brand-ink/80">@eur($order->effectivePaidAmountEur())</span>
+                            </div>
+                            <div class="mt-1 flex items-baseline justify-between gap-4">
+                                @if ($order->outstandingAmountEur() > 0)
+                                    <span class="font-mono text-[0.65rem] uppercase tracking-eyebrow text-chapter-meat">{{ __('shop.track.open_amount') }}</span>
+                                    <span class="font-mono text-sm font-semibold tabular-nums text-chapter-meat">@eur($order->outstandingAmountEur())</span>
+                                @else
+                                    <span class="font-mono text-[0.65rem] uppercase tracking-eyebrow text-chapter-produce">{{ __('shop.track.refund_due') }}</span>
+                                    <span class="font-mono text-sm font-semibold tabular-nums text-chapter-produce">@eur(abs($order->outstandingAmountEur()))</span>
+                                @endif
+                            </div>
+                            @if ($order->outstandingAmountEur() > 0)
+                                <p class="mt-2 text-xs leading-relaxed text-brand-ink/65">{{ __('shop.track.open_amount_hint') }}</p>
+                            @endif
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

@@ -3,13 +3,10 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\CustomerType;
-use App\Enums\ShopStockAudience;
 use App\Models\Product;
 use App\Models\User;
-use App\Services\Admin\InventoryService;
 use App\Support\PickupLocations;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -22,15 +19,13 @@ use Illuminate\Validation\Validator;
  *    restaurant and trade orders negotiated by phone).
  *  - No `consent` checkbox — admin is acting on behalf of the buyer.
  *  - `expected_delivery_date` accepts any valid date; the availability-horizon
- *    restriction is removed (admin knows what they're doing, and the stock
- *    check inside {@see ShopOrderService::createOrder()} will
- *    fail naturally if there is no supply on the chosen date).
+ *    restriction is removed (admin knows what they're doing).
+ *  - NO stock cap: the admin may deliberately sell beyond (or without)
+ *    stock — goods are procured on demand. The form flags out-of-stock
+ *    grades; only the storefront path enforces availability.
  *  - `customer_type` field for B2C / B2B classification.
  *  - Per-line gross totals and VAT rates for negotiated B2B pricing.
  *  - `order_source` is hardcoded to 'admin' by the controller — not a form field.
- *
- * Quantity-step rules and catalog-visibility checks are kept identical so
- * the service receives well-formed data.
  */
 class AdminCreateShopOrderRequest extends FormRequest
 {
@@ -130,19 +125,11 @@ class AdminCreateShopOrderRequest extends FormRequest
                 }
             }
 
-            $deliveryDate = (string) $this->input('expected_delivery_date');
-            $date = $deliveryDate !== '' ? Carbon::parse($deliveryDate) : null;
-
             $productIds = collect($items)->pluck('product_id')->map(fn ($id): int => (int) $id)->all();
             $products = Product::query()->whereIn('id', $productIds)->get()->keyBy('id');
-            $audience = $this->input('customer_type') === CustomerType::Business->value
-                ? ShopStockAudience::BusinessTrade
-                : ShopStockAudience::Consumer;
-            $inventory = app(InventoryService::class);
 
             foreach ($items as $index => $line) {
                 $productId = (int) ($line['product_id'] ?? 0);
-                $quantity = (float) ($line['quantity'] ?? 0);
                 $hasName = trim((string) ($line['name'] ?? '')) !== '';
 
                 // Every line must be either a catalog product or a named custom line.
@@ -157,35 +144,25 @@ class AdminCreateShopOrderRequest extends FormRequest
 
                 $product = $products->get($productId);
 
-                // Custom line (no product) — nothing to stock-check.
+                // Custom line (no product) — nothing more to check.
                 if ($product === null) {
                     continue;
                 }
 
-                if (! ($product->is_available && $product->is_published)) {
+                // Hidden products are only acceptable when the order being
+                // edited already carries them (unpublished after purchase);
+                // newly added lines must be catalog-visible.
+                //
+                // NO stock cap for admin orders: the operator may deliberately
+                // sell beyond (or without) stock — goods are procured on
+                // demand. The form shows the remaining quantity as a hint,
+                // and the storefront path keeps its hard check.
+                if (! ($product->is_available && $product->is_published)
+                    && ! in_array($product->id, $this->preexistingProductIds(), true)) {
                     $v->errors()->add(
                         "items.$index.product_id",
                         __('shop.errors.product_unavailable', ['name' => $product->name])
                     );
-
-                    continue;
-                }
-
-                // No quantity-step restriction for admin orders — the operator
-                // may need to enter any amount (e.g. 37 g on a product normally
-                // sold in 50 g increments). Stock is still checked so the admin
-                // sees a clear warning if they exceed available supply.
-                if ($date !== null) {
-                    $remaining = $inventory->availableOnDate($product, $date, $audience);
-                    if ($quantity > $remaining + 1e-6) {
-                        $v->errors()->add(
-                            "items.$index.quantity",
-                            __('shop.errors.quantity_stock', [
-                                'name' => $product->name,
-                                'remaining' => $product->displayQuantity(max(0, (int) floor($remaining))),
-                            ])
-                        );
-                    }
                 }
             }
 
@@ -199,5 +176,16 @@ class AdminCreateShopOrderRequest extends FormRequest
                 }
             }
         });
+    }
+
+    /**
+     * Product ids that may stay on the order even though they are no longer
+     * catalog-visible (unpublished after purchase). Creation has none.
+     *
+     * @return array<int, int>
+     */
+    protected function preexistingProductIds(): array
+    {
+        return [];
     }
 }

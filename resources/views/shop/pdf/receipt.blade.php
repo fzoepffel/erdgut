@@ -246,6 +246,23 @@
             <td class="label">Gesamtbetrag</td>
             <td class="amount">{{ number_format((float) $order->total_amount_eur, 2, ',', '.') }} €</td>
         </tr>
+        {{-- Admin edit changed the total after an online payment: show what
+             was already collected and what is still open (or to refund). --}}
+        @if ($order->paid_at !== null && abs($order->outstandingAmountEur()) >= 0.01)
+            <tr>
+                <td class="label">Bereits bezahlt (Online-Zahlung)</td>
+                <td class="amount">{{ number_format((float) $order->effectivePaidAmountEur(), 2, ',', '.') }} €</td>
+            </tr>
+            <tr>
+                @if ($order->outstandingAmountEur() > 0)
+                    <td class="label">Offener Betrag (Zahlung vor Ort)</td>
+                    <td class="amount">{{ number_format($order->outstandingAmountEur(), 2, ',', '.') }} €</td>
+                @else
+                    <td class="label">Zu erstatten</td>
+                    <td class="amount">{{ number_format(abs($order->outstandingAmountEur()), 2, ',', '.') }} €</td>
+                @endif
+            </tr>
+        @endif
     </table>
     {{-- Per-rate VAT breakdown --}}
     @foreach ($vatByRate as $rate => $amount)
@@ -268,7 +285,15 @@
             @if ($company['vat_id'])
                 Ust.-ID: {{ $company['vat_id'] }}<br>
             @endif
-            Zahlung: {{ $order->payment_method === 'in_person' ? 'Barzahlung / Kartenzahlung vor Ort' : 'Online-Zahlung' }}
+            @if ($order->payment_method === 'in_person')
+                Zahlung: Barzahlung / Kartenzahlung vor Ort
+            @elseif ($order->paid_at !== null && $order->outstandingAmountEur() >= 0.01)
+                Zahlung: Online-Zahlung, Restbetrag vor Ort
+            @elseif ($order->paid_at !== null && $order->outstandingAmountEur() <= -0.01)
+                Zahlung: Online-Zahlung, Erstattung vor Ort
+            @else
+                Zahlung: Online-Zahlung
+            @endif
         </div>
     </div>
     <div class="legal-note">
