@@ -188,7 +188,7 @@ class ShopOrderFarmTotalsSheet implements FromArray, WithHeadings, WithTitle
                 'display' => $display,
                 // Display word ("Töpfe") snapshotted here: rows render from
                 // aggregated buckets where no Product is at hand anymore.
-                'count_label' => $product?->unit === ProductUnit::Piece ? $product->count_unit_label : null,
+                'count_label' => in_array($product?->unit, [ProductUnit::Piece, ProductUnit::Bunch], true) ? $product->count_unit_label : null,
                 'unit_label_override' => $unit === null && $display !== '' ? ProductUnit::displaySymbol($display) : '',
                 'order_ids' => [],
                 'emails' => [],

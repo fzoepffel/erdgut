@@ -215,7 +215,7 @@ class ShopOrderSummarySheet implements FromArray, WithTitle
                         'name' => $name,
                         'unit' => $unit,
                         'display' => $display,
-                        'count_label' => $item->product?->unit === ProductUnit::Piece ? $item->product->count_unit_label : null,
+                        'count_label' => in_array($item->product?->unit, [ProductUnit::Piece, ProductUnit::Bunch], true) ? $item->product->count_unit_label : null,
                         'qty_canonical' => 0.0,
                         'revenue' => 0.0,
                     ];

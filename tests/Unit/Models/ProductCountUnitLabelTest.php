@@ -10,8 +10,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * The count-unit display word replaces "Stück" in every product-level
- * rendering while the unit math stays piece.
+ * The count-unit display word replaces "Stück" (piece) or "Bund" (bunch)
+ * in every product-level rendering while the unit math stays a count.
  */
 class ProductCountUnitLabelTest extends TestCase
 {
@@ -19,11 +19,16 @@ class ProductCountUnitLabelTest extends TestCase
 
     private function pieceProduct(?CountUnitLabel $label): Product
     {
+        return $this->countProduct(ProductUnit::Piece, $label);
+    }
+
+    private function countProduct(ProductUnit $unit, ?CountUnitLabel $label): Product
+    {
         Producer::factory()->create();
 
         return Product::factory()->create([
-            'unit' => ProductUnit::Piece->value,
-            'price_display_unit' => 'piece',
+            'unit' => $unit->value,
+            'price_display_unit' => $unit->value,
             'unit_price' => 4.50,
             'count_unit_label' => $label?->value,
         ]);
@@ -51,6 +56,30 @@ class ProductCountUnitLabelTest extends TestCase
         $this->assertSame('Stück', $product->localizedUnit());
         $this->assertSame('Stück', $product->canonicalUnitLabel());
         $this->assertStringEndsWith('€/Stück', $product->displayPrice());
+    }
+
+    public function test_labelled_bunch_product_renders_the_word_everywhere(): void
+    {
+        app()->setLocale('de');
+        $product = $this->countProduct(ProductUnit::Bunch, CountUnitLabel::Crate);
+
+        $this->assertSame('1 Kiste', $product->displayQuantity(1));
+        $this->assertSame('3 Kisten', $product->displayQuantity(3));
+        $this->assertSame('Kiste', $product->localizedUnit());
+        $this->assertSame('Kiste', $product->canonicalUnitLabel());
+        $this->assertStringEndsWith('€/Kiste', $product->displayPrice());
+        $this->assertSame(1, $product->effectiveQuantityStep());
+    }
+
+    public function test_unlabelled_bunch_product_keeps_bund(): void
+    {
+        app()->setLocale('de');
+        $product = $this->countProduct(ProductUnit::Bunch, null);
+
+        $this->assertSame('3 Bund', $product->displayQuantity(3));
+        $this->assertSame('Bund', $product->localizedUnit());
+        $this->assertSame('Bund', $product->canonicalUnitLabel());
+        $this->assertStringEndsWith('€/Bund', $product->displayPrice());
     }
 
     public function test_stale_label_on_a_mass_product_is_ignored(): void

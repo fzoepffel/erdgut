@@ -265,15 +265,15 @@
                         // unit for the kind (kg / L / piece / bunch).
                         this.displayUnit = allowed.length ? allowed[allowed.length - 1] : "";
                     }
-                    // The display word only exists for piece products.
-                    if (val !== "piece") {
+                    // The display word only exists for count kinds (piece/bunch).
+                    if (val !== "piece" && val !== "bunch") {
                         this.countLabel = "";
                     }
                 });
             },
             get allowed() { return this.allowedDisplayMap[this.unit] ?? []; },
             get displaySymbol() {
-                if (this.unit === "piece" && this.countLabel !== "") {
+                if ((this.unit === "piece" || this.unit === "bunch") && this.countLabel !== "") {
                     return this.countWords[this.countLabel] ?? this.displayLabels[this.displayUnit] ?? this.displayUnit;
                 }
                 return this.displayLabels[this.displayUnit] ?? this.displayUnit;
@@ -695,10 +695,11 @@
                 <x-input-error class="mt-2" :messages="$errors->get('price_display_unit')" />
             </div>
 
-            <div x-show="unit === 'piece'" x-cloak>
+            <div x-show="unit === 'piece' || unit === 'bunch'" x-cloak>
                 <x-input-label for="count_unit_label" :value="__('admin.product_form.count_unit_label_label')" />
                 <select id="count_unit_label" name="count_unit_label" x-model="countLabel" class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm">
-                    <option value="">{{ __('units.piece') }}</option>
+                    {{-- Empty choice keeps the kind's own word (Stück / Bund). --}}
+                    <option value="" x-text="unit === 'bunch' ? {{ Js::from(__('units.bunch')) }} : {{ Js::from(__('units.piece')) }}">{{ __('units.piece') }}</option>
                     @foreach ($countLabelOptions as $countValue => $countWord)
                         <option value="{{ $countValue }}">{{ $countWord }}</option>
                     @endforeach
