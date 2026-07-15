@@ -46,6 +46,14 @@
     ::selection {
         @apply bg-brand-moss text-brand-cream;
     }
+
+    /* Decorative autoplay heroes carry a still <img> underneath, so never
+       show the native play glyph WebKit paints when autoplay is blocked
+       (e.g. iOS battery-saving mode). */
+    video[data-video-src]::-webkit-media-controls-start-playback-button {
+        display: none !important;
+        -webkit-appearance: none;
+    }
 }
 
 @layer components {

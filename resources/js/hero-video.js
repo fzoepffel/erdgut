@@ -5,7 +5,8 @@
  * `data-video-src` (optional `data-video-type`, defaults to video/mp4).
  * The source is only attached on viewports from 640px up and when the
  * visitor does not prefer reduced motion. Phones and no-JS visitors get
- * the poster image instead of a multi-megabyte download.
+ * the still <img> that sits underneath the video instead of a
+ * multi-megabyte download.
  */
 
 function initHeroVideos() {
@@ -25,7 +26,10 @@ function initHeroVideos() {
         const playing = video.play();
         if (playing && typeof playing.catch === 'function') {
             playing.catch(() => {
-                // Autoplay refused: the poster stays, which is fine.
+                // Autoplay refused (e.g. battery-saving mode): drop the
+                // video so the still image underneath shows, instead of
+                // the browser's native play overlay.
+                video.style.display = 'none';
             });
         }
     });
