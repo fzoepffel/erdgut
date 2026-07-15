@@ -4,8 +4,22 @@
     {{-- Hero: video + editorial headline, sits below the olive-green masthead. --}}
     <section class="relative overflow-hidden" aria-labelledby="home-hero-heading">
         <div class="relative h-[82vh] min-h-[620px] w-full overflow-hidden bg-brand-ink/80">
+            {{-- The still image is a real <img> under the video: it paints
+                 immediately while the video streams in and stays as the hero
+                 when autoplay is blocked (e.g. iOS battery-saving mode),
+                 without the native play overlay a video poster would get. --}}
+            <img
+                src="{{ asset('images/mock/hero/hero-poster.jpg') }}"
+                alt=""
+                aria-hidden="true"
+                fetchpriority="high"
+                class="absolute inset-0 h-full w-full object-cover opacity-90"
+                data-parallax
+                data-testid="home-hero-still"
+            >
             {{-- No <source> in the markup: hero-video.js attaches it on
-                 viewports from 640px up, so phones only load the poster. --}}
+                 viewports from 640px up, so phones only load the still image.
+                 When autoplay is refused it hides the video entirely. --}}
             <video
                 class="absolute inset-0 h-full w-full object-cover opacity-90"
                 autoplay
@@ -13,7 +27,6 @@
                 loop
                 playsinline
                 preload="none"
-                poster="{{ asset('images/mock/hero/hero-poster.jpg') }}"
                 data-video-src="{{ asset('videos/mock/newvid.mp4') }}"
                 data-video-type="video/mp4"
                 data-parallax
