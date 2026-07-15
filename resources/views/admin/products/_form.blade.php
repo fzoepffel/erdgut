@@ -198,9 +198,9 @@
            chips (top) and the per-farm buying prices (pricing
            section) share it. --}}
       x-data='{
-            options: {!! json_encode($producerOptions, JSON_UNESCAPED_UNICODE) !!},
-            selected: {!! json_encode($initialSelectedProducers, JSON_UNESCAPED_UNICODE) !!},
-            prices: {!! json_encode($initialProducerPrices === [] ? new stdClass : $initialProducerPrices, JSON_UNESCAPED_UNICODE) !!},
+            options: {!! json_encode($producerOptions, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
+            selected: {!! json_encode($initialSelectedProducers, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
+            prices: {!! json_encode($initialProducerPrices === [] ? new stdClass : $initialProducerPrices, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
             query: "",
             open: false,
             highlight: 0,
@@ -243,16 +243,16 @@
                     this.open = false;
                 }
             },
-            unit: @js((string) ($currentUnit ?? '')),
-            displayUnit: @js((string) ($currentDisplayUnit ?? '')),
-            countLabel: @js($currentCountLabel),
-            countWords: @js($countLabelOptions),
-            allowedDisplayMap: @js($allowedDisplayMap),
-            displayLabels: @js($displayLabels),
+            unit: {!! json_encode((string) ($currentUnit ?? ''), JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
+            displayUnit: {!! json_encode((string) ($currentDisplayUnit ?? ''), JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
+            countLabel: {!! json_encode($currentCountLabel, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
+            countWords: {!! json_encode($countLabelOptions, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
+            allowedDisplayMap: {!! json_encode($allowedDisplayMap, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
+            displayLabels: {!! json_encode($displayLabels, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
             init() {
                 // x-model on the <select> initializes BEFORE the <template
                 // x-for> renders its <option>s, so on edit the stored value
-                // (e.g. 'kg') has no matching option yet and the browser
+                // (e.g. kg) has no matching option yet and the browser
                 // coerces the select to the empty default. Re-apply the
                 // value once the options exist so the saved choice sticks.
                 this.$nextTick(() => {
@@ -260,28 +260,28 @@
                         this.$refs.displayUnitSelect.value = this.displayUnit;
                     }
                 });
-                this.$watch('unit', (val) => {
+                this.$watch("unit", (val) => {
                     const allowed = this.allowedDisplayMap[val] ?? [];
                     if (! allowed.includes(this.displayUnit)) {
                         // Default to the largest (last) allowed display
                         // unit for the kind (kg / L / piece / bunch).
-                        this.displayUnit = allowed.length ? allowed[allowed.length - 1] : '';
+                        this.displayUnit = allowed.length ? allowed[allowed.length - 1] : "";
                     }
                     // The display word only exists for piece products.
-                    if (val !== 'piece') {
-                        this.countLabel = '';
+                    if (val !== "piece") {
+                        this.countLabel = "";
                     }
                 });
             },
             get allowed() { return this.allowedDisplayMap[this.unit] ?? []; },
             get displaySymbol() {
-                if (this.unit === 'piece' && this.countLabel !== '') {
+                if (this.unit === "piece" && this.countLabel !== "") {
                     return this.countWords[this.countLabel] ?? this.displayLabels[this.displayUnit] ?? this.displayUnit;
                 }
                 return this.displayLabels[this.displayUnit] ?? this.displayUnit;
             },
-            get hasUnit() { return this.unit !== ''; },
-            get hasDisplay() { return this.displayUnit !== ''; },
+            get hasUnit() { return this.unit !== ""; },
+            get hasDisplay() { return this.displayUnit !== ""; },
       }'
 >
     @csrf
