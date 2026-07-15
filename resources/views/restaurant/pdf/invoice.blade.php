@@ -30,11 +30,19 @@
         $qty = (float) $item->quantity;
         $product = $item->product;
 
+        // The document is always German; unit words must not follow the
+        // admin's session locale (displaySymbol translates piece/bunch).
+        $germanSymbol = fn (string $u) => match ($u) {
+            'piece' => 'Stück',
+            'bunch' => 'Bund',
+            default => ProductUnit::displaySymbol($u),
+        };
+
         if ($product?->unit !== null) {
             $display = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
             $factor = max(1, $product->unit->canonicalUnitsPerDisplay($display));
             $displayQty = $qty / $factor;
-            $unitLabel = ProductUnit::displaySymbol($display);
+            $unitLabel = $germanSymbol($display);
         } else {
             // Custom line: the admin entered the unit. Scale g/ml up to kg/L
             // so the unit price reads like a shelf price, not a per-gram one.
@@ -45,7 +53,7 @@
                 'g' => 'kg',
                 'ml' => 'L',
                 '' => '',
-                default => ProductUnit::displaySymbol($customUnit),
+                default => $germanSymbol($customUnit),
             };
         }
 
@@ -61,6 +69,18 @@
     $deliveryAddress = trim($order->delivery_street.', '.$order->delivery_postal_code.' '.$order->delivery_city, ', ');
     $dueDays = (int) config('shop.restaurant_invoice_due_days', 7);
     $fmt = fn ($d) => $d !== null ? \Illuminate\Support\Carbon::parse($d)->format('d/m/Y') : '';
+
+    // Per-invoice display overrides from the WYSIWYG editor; blank/unset
+    // falls back to the real default (config / restaurant profile).
+    $ov = fn (string $key, ?string $default = null) => $order->invoiceOverride($key) ?? $default;
+
+    // Draft preview: no number assigned yet — render with the number the
+    // invoice WOULD get and today's dates, clearly marked as Entwurf.
+    $isPreview = $order->invoice_number === null;
+    $number = $order->invoice_number ?? ($previewNumber ?? '');
+    $invoiceDate = $order->invoiced_at ?? now();
+    $dueDate = $order->invoice_due_date
+        ?? ($order->expected_delivery_date !== null ? \Illuminate\Support\Carbon::parse($order->expected_delivery_date)->addDays($dueDays) : now()->addDays($dueDays));
 @endphp
 <!DOCTYPE html>
 <html lang="de">
@@ -127,21 +147,21 @@
 
 <div class="page-footer">
     <table width="100%"><tr>
-        <td>RECHNUNG: {{ $order->invoice_number }}</td>
+        <td>RECHNUNG: {{ $number }}</td>
         <td style="text-align:right;" class="pagenum"></td>
     </tr></table>
 </div>
 
-<h1 class="doc-title">RECHNUNG: <span class="nr">{{ $order->invoice_number }}</span></h1>
+<h1 class="doc-title">RECHNUNG: <span class="nr">{{ $number }}</span></h1>
 
 <div class="id-block clearfix">
     @if ($logoData !== null)
         <div class="id-logo"><img src="{{ $logoData }}" alt="Erdgut"></div>
     @endif
     <div class="id-meta">
-        <div>Rechnung No: <strong>{{ $order->invoice_number }}</strong></div>
-        <div>Rechnungsdatum: <strong>{{ $fmt($order->invoiced_at) }}</strong></div>
-        <div>Fälligkeitsdatum: <strong>{{ $fmt($order->invoice_due_date) }}</strong></div>
+        <div>Rechnung No: <strong>{{ $number }}</strong>@if ($isPreview) <span style="color:#b3b3b0;">(Entwurf)</span>@endif</div>
+        <div>Rechnungsdatum: <strong>{{ $fmt($invoiceDate) }}</strong></div>
+        <div>Fälligkeitsdatum: <strong>{{ $fmt($dueDate) }}</strong></div>
         <div>Lieferdatum: <strong>{{ $fmt($order->expected_delivery_date) }}</strong></div>
     </div>
 </div>
@@ -151,26 +171,38 @@
 <div class="parties clearfix">
     <div class="party">
         <h2>Von</h2>
-        <div>{{ $seller['name'] }}</div>
-        @if ($seller['register'])<div>{{ $seller['register'] }}</div>@endif
-        @if ($seller['vat_id'])<div>Umsatzsteuer-ID: {{ $seller['vat_id'] }}</div>@endif
-        @if ($seller['street'] || $seller['postal_city'])<div>{{ trim($seller['street'].', '.$seller['postal_city'], ', ') }}</div>@endif
-        @if ($seller['email'])<div>{{ $seller['email'] }}</div>@endif
+        @php
+            $sellerName = $ov('seller_name', $seller['name']);
+            $sellerRegister = $ov('seller_register', $seller['register']);
+            $sellerVatId = $ov('seller_vat_id', $seller['vat_id'] ? 'Umsatzsteuer-ID: '.$seller['vat_id'] : null);
+            $sellerAddress = $ov('seller_address', trim($seller['street'].', '.$seller['postal_city'], ', '));
+            $sellerEmail = $ov('seller_email', $seller['email']);
+        @endphp
+        <div>{{ $sellerName }}</div>
+        @if ($sellerRegister)<div>{{ $sellerRegister }}</div>@endif
+        @if ($sellerVatId)<div>{{ $sellerVatId }}</div>@endif
+        @if ($sellerAddress)<div>{{ $sellerAddress }}</div>@endif
+        @if ($sellerEmail)<div>{{ $sellerEmail }}</div>@endif
     </div>
     <div class="party">
         <h2>Empfänger</h2>
-        <div>{{ $profile?->business_name ?? $order->user?->name }}</div>
-        @if ($profile?->contact_name)<div>z. Hd. {{ $profile->contact_name }}</div>@endif
         {{-- Billing address (§ 14 UStG); the delivery address appears on the
              Lieferung line and via the Lieferdatum. --}}
         @php
             $billingAddress = $profile !== null
                 ? trim(($profile->billing_street ?? '').', '.trim(($profile->billing_postal_code ?? '').' '.($profile->billing_city ?? '')), ', ')
                 : '';
+            $recipientName = $ov('recipient_name', $profile?->business_name ?? $order->user?->name);
+            $recipientExtra = $ov('recipient_extra', $profile?->contact_name ? 'z. Hd. '.$profile->contact_name : null);
+            $recipientAddress = $ov('recipient_address', $billingAddress !== '' ? $billingAddress : $deliveryAddress);
+            $recipientPhone = $ov('recipient_phone', $profile?->phone ?? $order->user?->phone);
+            $recipientVatId = $ov('recipient_vat_id', $profile?->ust_id_nr ? 'USt-IdNr.: '.$profile->ust_id_nr : null);
         @endphp
-        <div>{{ $billingAddress !== '' ? $billingAddress : $deliveryAddress }}</div>
-        @if ($profile?->phone ?? $order->user?->phone)<div>{{ $profile?->phone ?? $order->user?->phone }}</div>@endif
-        @if ($profile?->ust_id_nr)<div>USt-IdNr.: {{ $profile->ust_id_nr }}</div>@endif
+        <div>{{ $recipientName }}</div>
+        @if ($recipientExtra)<div>{{ $recipientExtra }}</div>@endif
+        <div>{{ $recipientAddress }}</div>
+        @if ($recipientPhone)<div>{{ $recipientPhone }}</div>@endif
+        @if ($recipientVatId)<div>{{ $recipientVatId }}</div>@endif
     </div>
 </div>
 
@@ -197,7 +229,7 @@
             @endphp
             <tr>
                 <td>
-                    {{ $item->displayName() }}@if ($item->variant_name_snapshot) · {{ $item->variant_name_snapshot }}@endif
+                    {{ $item->invoiceDisplayName() }}
                     @if ($farm)<div style="font-size:8px; color:#9a9a96;">{{ $farm }}</div>@endif
                 </td>
                 <td>{{ $eur($view['unit_net']) }}</td>
@@ -207,7 +239,7 @@
         @endforeach
         @if ($order->deliveryFeeNetEur() > 0)
             <tr>
-                <td>Lieferung {{ $deliveryAddress }}</td>
+                <td>{{ $ov('delivery_line_label', 'Lieferung '.$deliveryAddress) }}</td>
                 <td>{{ $eur($order->deliveryFeeNetEur()) }}</td>
                 <td>1</td>
                 <td>{{ $eur($order->deliveryFeeNetEur()) }}</td>
@@ -219,14 +251,20 @@
 <div class="bottom clearfix">
     <div class="pay-block">
         <h2>Zahlungsmethoden</h2>
+        @php
+            $bankName = $ov('bank_name', $seller['bank']);
+            $bankHolder = $ov('bank_holder', $seller['name']);
+            $bankIban = $ov('bank_iban', $seller['iban']);
+            $bankReference = $ov('bank_reference', $number);
+        @endphp
         <div class="method">Banküberweisung</div>
-        @if ($seller['bank'])<div>Bankname: {{ $seller['bank'] }}</div>@endif
-        <div>Kontoinhaber: {{ $seller['name'] }}</div>
-        @if ($seller['iban'])
+        @if ($bankName)<div>Bankname: {{ $bankName }}</div>@endif
+        <div>Kontoinhaber: {{ $bankHolder }}</div>
+        @if ($bankIban)
             <div>IBAN:</div>
-            <div>{{ $seller['iban'] }}</div>
+            <div>{{ $bankIban }}</div>
         @endif
-        <div>Verwendungszweck: {{ $order->invoice_number }}</div>
+        <div>Verwendungszweck: {{ $bankReference }}</div>
     </div>
     <div class="totals-block">
         <div class="line">Gesamtbetrag Netto: <strong>{{ $eur($order->items_total_net_eur) }}</strong></div>
@@ -238,17 +276,19 @@
     </div>
 </div>
 
+@php
+    $questionsDefault = trim(($seller['email'] ? 'Email '.$seller['email'] : '')
+        .($seller['phone'] ? "\noder anrufen unter ".$seller['phone'] : ''));
+    $termsDefault = 'Der Rechnungsbetrag ist innerhalb von '.$dueDays.' Tagen nach Lieferung zahlbar. Leistungsdatum entspricht dem Lieferdatum.';
+@endphp
 <div class="foot-cols clearfix">
     <div class="foot-col">
         <h2>Fragen?</h2>
-        <p>
-            @if ($seller['email'])Email {{ $seller['email'] }}@endif
-            @if ($seller['phone'])<br>oder anrufen unter {{ $seller['phone'] }}@endif
-        </p>
+        <p>{!! nl2br(e($ov('questions_text', $questionsDefault))) !!}</p>
     </div>
     <div class="foot-col">
         <h2>Zahlungsbedingungen</h2>
-        <p>Der Rechnungsbetrag ist innerhalb von {{ $dueDays }} Tagen nach Lieferung zahlbar. Leistungsdatum entspricht dem Lieferdatum.</p>
+        <p>{!! nl2br(e($ov('terms_text', $termsDefault))) !!}</p>
         @if ($seller['tax_number'])<p style="margin-top:4px; color:#8a8a86;">Steuernr.: {{ $seller['tax_number'] }}</p>@endif
     </div>
 </div>

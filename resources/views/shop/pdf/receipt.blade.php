@@ -29,11 +29,19 @@
         $qty = (float) $item->quantity;
         $product = $item->product;
 
+        // The document is always German; unit words must not follow the
+        // downloader's session locale (displaySymbol translates piece/bunch).
+        $germanSymbol = fn (string $u) => match ($u) {
+            'piece' => 'Stück',
+            'bunch' => 'Bund',
+            default => ProductUnit::displaySymbol($u),
+        };
+
         if ($product?->unit !== null) {
             $display = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
             $factor = max(1, $product->unit->canonicalUnitsPerDisplay($display));
             $displayQty = $qty / $factor;
-            $unitLabel = $product->countUnitWord((int) round($displayQty)) ?? ProductUnit::displaySymbol($display);
+            $unitLabel = $product->countUnitWord((int) round($displayQty), 'de') ?? $germanSymbol($display);
         } else {
             // Custom line: the admin entered the unit. Scale g/ml up to kg/L
             // so the unit price reads like a shelf price, not a per-gram one.
@@ -44,7 +52,7 @@
                 'g' => 'kg',
                 'ml' => 'L',
                 '' => '',
-                default => ProductUnit::displaySymbol($customUnit),
+                default => $germanSymbol($customUnit),
             };
         }
 

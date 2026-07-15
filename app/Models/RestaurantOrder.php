@@ -40,6 +40,7 @@ class RestaurantOrder extends Model
         'invoiced_at',
         'invoice_due_date',
         'invoice_paid_at',
+        'invoice_overrides',
         'locale',
         'submitted_at',
     ];
@@ -59,6 +60,7 @@ class RestaurantOrder extends Model
             'invoiced_at' => 'datetime',
             'invoice_due_date' => 'date',
             'invoice_paid_at' => 'datetime',
+            'invoice_overrides' => 'array',
             'adjusted_at' => 'datetime',
             'submitted_at' => 'datetime',
         ];
@@ -92,6 +94,18 @@ class RestaurantOrder extends Model
     public function deliveryFeeGrossEur(): float
     {
         return round($this->deliveryFeeNetEur() + $this->deliveryFeeVatEur(), 2);
+    }
+
+    /**
+     * A per-invoice display override (recipient/seller/bank block lines,
+     * terms text, ...) set in the WYSIWYG invoice editor. Null when unset or
+     * blank, so callers can fall back to the real default.
+     */
+    public function invoiceOverride(string $key): ?string
+    {
+        $value = trim((string) (($this->invoice_overrides ?? [])[$key] ?? ''));
+
+        return $value !== '' ? $value : null;
     }
 
     /** @return BelongsTo<User, $this> */

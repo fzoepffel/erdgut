@@ -217,18 +217,27 @@ class RestaurantInvoiceTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_issue_blocks_re_edit_and_re_issue(): void
+    public function test_issued_invoice_stays_editable_but_cannot_be_reissued(): void
     {
         $svc = app(RestaurantInvoiceService::class);
         $order = $this->confirmedOrder();
         $svc->updatePricing($order, [['id' => $order->items()->firstOrFail()->id, 'net_total_eur' => 50, 'vat_rate_percent' => 7]]);
         $svc->issueInvoice($order);
-        $number = $order->refresh()->invoice_number;
+        $order->refresh();
+        $number = $order->invoice_number;
+        $invoicedAt = $order->invoiced_at;
 
+        // Editing after issue is an explicit product decision: totals move,
+        // number and invoice date never do.
+        $svc->updatePricing($order, [['id' => $order->items()->firstOrFail()->id, 'net_total_eur' => 999, 'vat_rate_percent' => 7]]);
+        $order->refresh();
+        $this->assertEqualsWithDelta(999.00, (float) $order->items_total_net_eur, 0.01);
+        $this->assertSame($number, $order->invoice_number);
+        $this->assertSame($invoicedAt->toIso8601String(), $order->invoiced_at->toIso8601String());
+
+        // Re-issuing (a second number) stays blocked.
         $this->expectException(\RuntimeException::class);
-        $svc->updatePricing($order, [['id' => $order->items()->firstOrFail()->id, 'net_total_eur' => 999]]);
-
-        $this->assertSame($number, $order->refresh()->invoice_number);
+        $svc->issueInvoice($order);
     }
 
     public function test_cannot_invoice_submitted_or_zero_total(): void
