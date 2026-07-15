@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * A restaurant (B2B) order/request. Tied to a verified restaurant user; no
@@ -75,6 +76,20 @@ class RestaurantOrder extends Model
     public function standingOrder(): BelongsTo
     {
         return $this->belongsTo(RestaurantStandingOrder::class, 'source_standing_order_id');
+    }
+
+    /**
+     * The mirror ShopOrder created when this restaurant order becomes firm
+     * (Confirmed / Fulfilled). The mirror is the surface the admin edits and
+     * the record that feeds revenue; this RestaurantOrder is the "as-requested"
+     * history. Null on Submitted / Declined / Cancelled orders and on legacy
+     * firm orders that predate the mirror rollout.
+     *
+     * @return HasOne<ShopOrder, $this>
+     */
+    public function mirroredShopOrder(): HasOne
+    {
+        return $this->hasOne(ShopOrder::class, 'restaurant_order_id');
     }
 
     public function isSubmitted(): bool
