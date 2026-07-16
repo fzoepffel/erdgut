@@ -76,6 +76,10 @@
             : (string) $order->pickup_location;
     }
 
+    // Per-receipt display overrides from the WYSIWYG editor; blank/unset
+    // falls back to the real default.
+    $ov = fn (string $key, ?string $default = null) => $order->receiptOverride($key) ?? ($default !== null && trim($default) !== '' ? $default : null);
+
     $statusLabel = match ($order->status->value ?? '') {
         'paid' => 'Bezahlt',
         'pending_payment' => 'Ausstehend',
@@ -178,18 +182,31 @@
 <div class="parties clearfix">
     <div class="party">
         <h2>Von</h2>
-        <div>{{ $company['name'] }}</div>
-        @if (($company['register'] ?? '') !== '')<div>{{ $company['register'] }}</div>@endif
-        @if ($company['vat_id'])<div>Umsatzsteuer-ID: {{ $company['vat_id'] }}</div>@endif
-        @if ($company['street'] || $company['postal_city'])<div>{{ trim($company['street'].', '.$company['postal_city'], ', ') }}</div>@endif
-        @if ($company['email'])<div>{{ $company['email'] }}</div>@endif
+        @php
+            $sellerName = $ov('seller_name', $company['name']);
+            $sellerRegister = $ov('seller_register', $company['register'] ?? '');
+            $sellerVatId = $ov('seller_vat_id', $company['vat_id'] ? 'Umsatzsteuer-ID: '.$company['vat_id'] : null);
+            $sellerAddress = $ov('seller_address', trim($company['street'].', '.$company['postal_city'], ', '));
+            $sellerEmail = $ov('seller_email', $company['email']);
+        @endphp
+        <div>{{ $sellerName }}</div>
+        @if ($sellerRegister)<div>{{ $sellerRegister }}</div>@endif
+        @if ($sellerVatId)<div>{{ $sellerVatId }}</div>@endif
+        @if ($sellerAddress)<div>{{ $sellerAddress }}</div>@endif
+        @if ($sellerEmail)<div>{{ $sellerEmail }}</div>@endif
     </div>
     <div class="party">
         <h2>Empfänger</h2>
-        <div>{{ $order->name }}</div>
-        @if ($order->email)<div>{{ $order->email }}</div>@endif
-        @if ($order->phone)<div>{{ $order->phone }}</div>@endif
-        <div>{{ $fulfillmentLabel }}: {{ $fulfillmentAddress }}</div>
+        @php
+            $recipientName = $ov('recipient_name', $order->name);
+            $recipientEmail = $ov('recipient_email', $order->email);
+            $recipientPhone = $ov('recipient_phone', $order->phone);
+            $recipientFulfillment = $ov('recipient_fulfillment', $fulfillmentLabel.': '.$fulfillmentAddress);
+        @endphp
+        <div>{{ $recipientName }}</div>
+        @if ($recipientEmail)<div>{{ $recipientEmail }}</div>@endif
+        @if ($recipientPhone)<div>{{ $recipientPhone }}</div>@endif
+        <div>{{ $recipientFulfillment }}</div>
     </div>
 </div>
 
@@ -214,7 +231,7 @@
             @endphp
             <tr>
                 <td>
-                    {{ $item->displayName() }}@if ($item->variant_name_snapshot) · {{ $item->variant_name_snapshot }}@endif
+                    {{ $item->receiptDisplayName() }}
                     @if ($farm)<div style="font-size:8px; color:#9a9a96;">{{ $farm }}</div>@endif
                 </td>
                 <td>{{ $eur($view['unit_gross']) }}</td>
@@ -232,7 +249,7 @@
         @endif
         @if ((float) $order->delivery_fee_eur > 0)
             <tr>
-                <td>Lieferung {{ $fulfillmentAddress }}</td>
+                <td>{{ $ov('delivery_line_label', 'Lieferung '.$fulfillmentAddress) }}</td>
                 <td>{{ $eur($order->delivery_fee_eur) }}</td>
                 <td>1</td>
                 <td>{{ $eur($order->delivery_fee_eur) }}</td>
@@ -244,15 +261,15 @@
 <div class="bottom clearfix">
     <div class="pay-block">
         <h2>Zahlung</h2>
-        @if ($order->payment_method === 'in_person')
-            <div class="method">Barzahlung / Kartenzahlung vor Ort</div>
-        @elseif ($order->paid_at !== null && $order->outstandingAmountEur() >= 0.01)
-            <div class="method">Online-Zahlung, Restbetrag vor Ort</div>
-        @elseif ($order->paid_at !== null && $order->outstandingAmountEur() <= -0.01)
-            <div class="method">Online-Zahlung, Erstattung vor Ort</div>
-        @else
-            <div class="method">Online-Zahlung</div>
-        @endif
+        @php
+            $paymentDefault = match (true) {
+                $order->payment_method === 'in_person' => 'Barzahlung / Kartenzahlung vor Ort',
+                $order->paid_at !== null && $order->outstandingAmountEur() >= 0.01 => 'Online-Zahlung, Restbetrag vor Ort',
+                $order->paid_at !== null && $order->outstandingAmountEur() <= -0.01 => 'Online-Zahlung, Erstattung vor Ort',
+                default => 'Online-Zahlung',
+            };
+        @endphp
+        <div class="method">{{ $ov('payment_text', $paymentDefault) }}</div>
         @if ($order->paid_at !== null)
             <div>Bezahlt am {{ $fmt($order->paid_at) }}</div>
         @endif
@@ -279,19 +296,17 @@
 <div class="foot-cols clearfix">
     <div class="foot-col">
         <h2>Fragen?</h2>
-        <p>
-            @if ($company['email'])Email {{ $company['email'] }}@endif
-            @if ($company['phone'])<br>oder anrufen unter {{ $company['phone'] }}@endif
-        </p>
+        @php
+            $questionsDefault = trim(($company['email'] ? 'Email '.$company['email'] : '')
+                .($company['phone'] ? "\noder anrufen unter ".$company['phone'] : ''));
+            $notesDefault = 'Alle Preise sind Bruttopreise und enthalten die gesetzliche Mehrwertsteuer.'
+                .($order->total_amount_eur <= 250 ? ' Dieser Beleg gilt als Kleinbetragsrechnung gem. § 33 UStDV.' : '');
+        @endphp
+        <p>{!! nl2br(e($ov('questions_text', $questionsDefault))) !!}</p>
     </div>
     <div class="foot-col">
         <h2>Hinweise</h2>
-        <p>
-            Alle Preise sind Bruttopreise und enthalten die gesetzliche Mehrwertsteuer.
-            @if ($order->total_amount_eur <= 250)
-                Dieser Beleg gilt als Kleinbetragsrechnung gem. § 33 UStDV.
-            @endif
-        </p>
+        <p>{!! nl2br(e($ov('notes_text', $notesDefault))) !!}</p>
     </div>
 </div>
 

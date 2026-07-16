@@ -38,6 +38,7 @@ class ShopOrderItem extends Model
         'variant_id',
         'variant_name_snapshot',
         'name_snapshot',
+        'display_name_override',
         'quantity',
         'unit',
         'unit_price_snapshot_eur',
@@ -83,6 +84,27 @@ class ShopOrderItem extends Model
             ?? ($this->name_snapshot !== null && $this->name_snapshot !== ''
                 ? $this->name_snapshot
                 : (string) __('shop.admin.deleted_product'));
+    }
+
+    /**
+     * The name AS PRINTED on the receipt: the per-receipt override when the
+     * admin renamed the line in the receipt editor, otherwise the catalog
+     * name with its grade, otherwise the custom-line name. Display-only —
+     * the real product reference stays untouched.
+     */
+    public function receiptDisplayName(): string
+    {
+        $override = trim((string) ($this->display_name_override ?? ''));
+        if ($override !== '') {
+            return $override;
+        }
+
+        $name = $this->displayName();
+        if ($this->variant_name_snapshot) {
+            $name .= ' · '.$this->variant_name_snapshot;
+        }
+
+        return $name;
     }
 
     /**
