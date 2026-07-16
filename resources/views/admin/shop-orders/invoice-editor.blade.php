@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-                <a href="{{ route('app.admin.restaurant-orders.show', $order) }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ __('restaurant.invoice_editor_back') }}</a>
+                <a href="{{ $backUrl }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ __('restaurant.invoice_editor_back') }}</a>
                 <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('restaurant.invoice_editor_heading', ['number' => $previewNumber]) }}</h1>
             </div>
         </div>
@@ -104,14 +104,14 @@
                 {{-- Submits the CURRENT (possibly unsaved) sheet to the live
                      preview route, which renders and rolls back. --}}
                 <button type="submit" form="invoice-editor-form"
-                        formaction="{{ route('app.admin.restaurant-orders.invoice-editor.preview', $order) }}"
+                        formaction="{{ route('app.admin.shop-orders.invoice-editor.preview', $order) }}"
                         formtarget="_blank"
                         class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                         data-testid="invoice-editor-preview">
                     {{ __('restaurant.invoice_editor_preview') }}
                 </button>
                 @if ($order->isInvoiced())
-                    <a href="{{ route('app.admin.restaurant-orders.invoice-mail', $order) }}"
+                    <a href="{{ route('app.admin.shop-orders.invoice-mail', $order) }}"
                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">
                         {{ __('restaurant.invoice_mail_open') }}
                     </a>
@@ -139,7 +139,7 @@
             <p class="px-1 text-xs text-gray-400">{{ __('restaurant.invoice_editor_hint_defaults') }}</p>
 
             {{-- ── The sheet: looks like the invoice, edits like a form ── --}}
-            <form id="invoice-editor-form" method="POST" action="{{ route('app.admin.restaurant-orders.invoice-editor.save', $order) }}">
+            <form id="invoice-editor-form" method="POST" action="{{ route('app.admin.shop-orders.invoice-editor.save', $order) }}">
                 @csrf
                 <div class="mx-auto bg-white px-8 py-10 shadow-md sm:px-12" style="font-size: 12px; line-height: 1.45;">
 

@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantProfile;
+use App\Models\ShopOrder;
 use App\Models\User;
 use App\Services\Restaurant\RestaurantInvoiceService;
 use App\Services\Restaurant\RestaurantOrderService;
@@ -70,7 +71,7 @@ class RestaurantInvoiceMailTest extends TestCase
         $order = $this->invoicedOrder();
 
         $response = $this->actingAs($this->admin)
-            ->get(route('app.admin.restaurant-orders.invoice-mail', $order))
+            ->get(route('app.admin.shop-orders.invoice-mail', $order))
             ->assertOk()
             ->assertSee($order->user->email, false)
             ->assertSee('data-testid="invoice-mail-send"', false)
@@ -93,12 +94,12 @@ class RestaurantInvoiceMailTest extends TestCase
         ]);
 
         $this->actingAs($this->admin)
-            ->get(route('app.admin.restaurant-orders.invoice-mail', $order))
+            ->get(route('app.admin.shop-orders.invoice-mail', $order))
             ->assertForbidden();
 
         $invoiced = $this->invoicedOrder();
         $this->actingAs(User::factory()->create())
-            ->get(route('app.admin.restaurant-orders.invoice-mail', $invoiced))
+            ->get(route('app.admin.shop-orders.invoice-mail', $invoiced))
             ->assertForbidden();
     }
 
@@ -107,13 +108,16 @@ class RestaurantInvoiceMailTest extends TestCase
         Mail::fake();
         $order = $this->invoicedOrder();
 
+        // Redirects into the ORDER context: firm orders mirror into the
+        // unified shop-orders list, so that is where the admin lands.
+        $mirror = ShopOrder::query()->where('restaurant_order_id', $order->id)->firstOrFail();
         $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-mail.send', $order), [
+            ->post(route('app.admin.shop-orders.invoice-mail.send', $order), [
                 'recipients' => $order->user->email.', buchhaltung@technotofu.de',
                 'subject' => 'Deine Rechnung '.$order->invoice_number,
                 'body' => "Hallo Kim,\n\nanbei die Rechnung.\n\nHerzliche Grüße",
             ])
-            ->assertRedirect(route('app.admin.restaurant-orders.show', $order));
+            ->assertRedirect(route('app.admin.shop-orders.show', $mirror));
 
         Mail::assertQueued(RestaurantInvoiceCustomMail::class, fn ($m) => $m->hasTo($order->user->email)
             && $m->mailSubject === 'Deine Rechnung '.$order->invoice_number);
@@ -137,7 +141,7 @@ class RestaurantInvoiceMailTest extends TestCase
         $order = $this->invoicedOrder();
 
         $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-mail.send', $order), [
+            ->post(route('app.admin.shop-orders.invoice-mail.send', $order), [
                 'recipients' => 'kein-email-format',
                 'subject' => 'Betreff',
                 'body' => 'Text',

@@ -168,6 +168,35 @@ class AdminReceiptEditorTest extends TestCase
         $this->assertStringContainsString('Offener Betrag (Zahlung vor Ort)', $html);
     }
 
+    public function test_mirror_show_page_offers_invoice_download_and_mail_instead_of_receipt(): void
+    {
+        $restaurantOrder = RestaurantOrder::query()->create([
+            'user_id' => User::factory()->create()->id,
+            'status' => 'confirmed',
+            'kind' => 'order',
+            'expected_delivery_date' => now()->addDay()->toDateString(),
+            'delivery_street' => 'Teststr. 1',
+            'delivery_postal_code' => '10115',
+            'delivery_city' => 'Berlin',
+            'items_total_net_eur' => 100,
+            'items_total_gross_eur' => 107,
+            'vat_total_eur' => 7,
+            'invoice_number' => 'EB260042',
+            'invoiced_at' => now(),
+            'invoice_due_date' => now()->addDays(7)->toDateString(),
+        ]);
+        $mirror = $this->makeOrder(['restaurant_order_id' => $restaurantOrder->id]);
+
+        // The B2B document actions live on the order level: Rechnung
+        // download + mail, and no (wrong) Kaufbeleg download.
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-orders.show', $mirror))
+            ->assertOk()
+            ->assertSee('data-testid="shop-admin-invoice-download"', false)
+            ->assertSee('data-testid="shop-admin-invoice-mail"', false)
+            ->assertDontSee('data-testid="shop-admin-receipt"', false);
+    }
+
     public function test_restaurant_mirror_routes_to_the_invoice_editor(): void
     {
         $producer = Producer::query()->first();
@@ -187,6 +216,6 @@ class AdminReceiptEditorTest extends TestCase
 
         $this->actingAs($this->admin)
             ->get(route('app.admin.shop-orders.receipt-editor', $mirror))
-            ->assertRedirect(route('app.admin.restaurant-orders.invoice-editor', $restaurantOrder->id));
+            ->assertRedirect(route('app.admin.shop-orders.invoice-editor', $restaurantOrder->id));
     }
 }

@@ -307,7 +307,7 @@ class RestaurantInvoiceTest extends TestCase
         // No auto-mail: issuing routes into the mail editor for review.
         $this->actingAs($admin)
             ->post(route('app.admin.restaurant-orders.invoice', $order))
-            ->assertRedirect(route('app.admin.restaurant-orders.invoice-mail', $order));
+            ->assertRedirect(route('app.admin.shop-orders.invoice-mail', $order));
 
         $order->refresh();
         $this->assertNotNull($order->invoice_number);
