@@ -110,6 +110,10 @@ class AdminFormClarityTest extends TestCase
     {
         $admin = $this->admin();
         $producer = Producer::factory()->create();
+        // Fixed name: faker company names can carry apostrophes, which the
+        // Alpine initialiser JSON-escapes (JSON_HEX_APOS → \u0027) and a
+        // raw assertSee then misses. This was a recurring CI flake.
+        $producer->translations()->update(['name' => 'Hof Sonnenacker']);
 
         $response = $this->actingAs($admin)
             ->get(route('app.admin.products.create', ['producer_id' => $producer->id]))
@@ -119,7 +123,7 @@ class AdminFormClarityTest extends TestCase
         // the preselect arrives as the first (primary) chip in the
         // Alpine initialiser.
         $response->assertSee('selected: [{"id":'.$producer->id.',', false);
-        $response->assertSee($producer->name, false);
+        $response->assertSee('Hof Sonnenacker', false);
     }
 
     // ---------------------------------------------------------------------
