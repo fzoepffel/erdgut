@@ -6,6 +6,7 @@ use App\Enums\ShopStockAudience;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminInventoryInflowStoreRequest;
 use App\Http\Requests\Admin\AdminInventoryInflowUpdateRequest;
+use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Services\Admin\InventoryService;
@@ -129,12 +130,50 @@ class AdminInventoryController extends Controller
             }
         }
 
-        // Inflow batches in the window — used for section A's table.
+        // Inflow batches in the window — used for section A's table. The
+        // optional filters shrink the table without changing the availability
+        // matrix above: the admin still sees the full window at a glance and
+        // can drill down to a product or a farm.
+        $inflowProductFilter = trim((string) $request->query('inflow_product', ''));
+        $inflowProducerFilter = (int) $request->query('inflow_producer', 0);
+
         $inflows = ProductStockInflow::query()
             ->whereBetween('received_on', [$start->toDateString(), $end->toDateString()])
+            ->when($inflowProductFilter !== '', function ($q) use ($inflowProductFilter): void {
+                $needle = '%'.mb_strtolower($inflowProductFilter).'%';
+                $q->whereHas('product.translations', function ($tq) use ($needle): void {
+                    $tq->whereRaw('LOWER(name) LIKE ?', [$needle]);
+                });
+            })
+            ->when($inflowProducerFilter > 0, function ($q) use ($inflowProducerFilter): void {
+                // Match when the delivering farm on the batch IS the filter,
+                // OR the product lists it among its producers (pivot includes
+                // the primary, so this covers the products.producer_id case).
+                $q->where(function ($or) use ($inflowProducerFilter): void {
+                    $or->where('producer_id', $inflowProducerFilter)
+                        ->orWhereHas('product.producers', function ($pq) use ($inflowProducerFilter): void {
+                            $pq->where('producers.id', $inflowProducerFilter);
+                        });
+                });
+            })
             ->with(['product.translations', 'product.producer.translations', 'product.producers.translations', 'product.variants', 'producer.translations', 'sourceSchedule'])
             ->orderBy('received_on')
             ->get();
+
+        // Dropdown for the producer filter — every producer, ordered by
+        // localized name for the current locale.
+        $inflowProducerOptions = Producer::query()
+            ->with('translations')
+            ->get()
+            ->sortBy(fn (Producer $p) => mb_strtolower((string) $p->name), SORT_NATURAL)
+            ->values();
+
+        // Preserve the inflow filter values on window navigation links so
+        // stepping forward/backward doesn't drop the customer's filter.
+        $navQuery = array_filter([
+            'inflow_product' => $inflowProductFilter !== '' ? $inflowProductFilter : null,
+            'inflow_producer' => $inflowProducerFilter > 0 ? $inflowProducerFilter : null,
+        ], fn ($v) => $v !== null);
 
         return view('admin.inventory.index', [
             'start' => $start,
@@ -150,6 +189,10 @@ class AdminInventoryController extends Controller
             'multiFarmProducts' => $multiFarmProducts,
             'farmNames' => $farmNames,
             'inflows' => $inflows,
+            'inflowProductFilter' => $inflowProductFilter,
+            'inflowProducerFilter' => $inflowProducerFilter,
+            'inflowProducerOptions' => $inflowProducerOptions,
+            'navQuery' => $navQuery,
         ]);
     }
 
