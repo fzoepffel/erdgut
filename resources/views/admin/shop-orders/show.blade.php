@@ -272,7 +272,7 @@
                 $sumCols = $isBusiness ? 4 : 3;
                 $vatTotal = round($order->items->sum(fn ($i) => (float) $i->vat_amount_eur) + (float) $order->delivery_fee_vat_amount_eur, 2);
             @endphp
-            <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
+            <div class="overflow-x-auto rounded-lg border border-gray-100 bg-white shadow-sm">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
                         <tr class="text-left text-xs font-medium uppercase tracking-wide text-gray-600">
@@ -293,9 +293,9 @@
                                 <td class="px-4 py-2 text-gray-600">{{ $item->displayQuantityLabel() }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ $item->vat_rate_snapshot_percent }}%</td>
                                 @if ($isBusiness)
-                                    <td class="px-4 py-2 text-right tabular-nums text-gray-600" data-testid="shop-admin-line-net">@eur(round((float) $item->line_total_eur - (float) $item->vat_amount_eur, 2))</td>
+                                    <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-gray-600" data-testid="shop-admin-line-net">@eur(round((float) $item->line_total_eur - (float) $item->vat_amount_eur, 2))</td>
                                 @endif
-                                <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($item->line_total_eur)</td>
+                                <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-gray-800">@eur($item->line_total_eur)</td>
                             </tr>
                         @endforeach
                     </tbody>
