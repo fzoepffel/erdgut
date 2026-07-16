@@ -41,6 +41,9 @@ class AdminInvoiceEditorRequest extends FormRequest
             'delivery_fee_vat_rate_percent' => ['nullable', 'required_with:delivery_fee_net_eur', 'integer', Rule::in([7, 19])],
 
             'invoice_due_date' => ['nullable', 'date'],
+            // The delivery date is editable on the sheet; stock holds and
+            // the mirror follow the order row automatically.
+            'expected_delivery_date' => ['nullable', 'date'],
 
             'overrides' => ['nullable', 'array'],
         ];

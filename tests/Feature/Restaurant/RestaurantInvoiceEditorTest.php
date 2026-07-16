@@ -277,6 +277,63 @@ class RestaurantInvoiceEditorTest extends TestCase
             ->assertHeader('content-type', 'application/pdf');
     }
 
+    public function test_delivery_date_is_editable_and_mirror_follows(): void
+    {
+        $order = $this->confirmedOrder();
+        $newDate = $this->date->copy()->addDays(3)->toDateString();
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.restaurant-orders.invoice-editor.save', $order), $this->payload($order, [
+                'expected_delivery_date' => $newDate,
+            ]))
+            ->assertRedirect();
+
+        $this->assertSame($newDate, $order->refresh()->expected_delivery_date->toDateString());
+
+        $mirror = ShopOrder::query()->where('restaurant_order_id', $order->id)->firstOrFail();
+        $this->assertSame($newDate, $mirror->expected_delivery_date->toDateString());
+    }
+
+    public function test_live_preview_renders_unsaved_changes_without_persisting(): void
+    {
+        $order = $this->confirmedOrder();
+        $item = $order->items()->firstOrFail();
+        $originalNet = $item->lineNetEur();
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('app.admin.restaurant-orders.invoice-editor.preview', $order), [
+                'items' => [
+                    ['id' => $item->id, 'display_name' => 'Nur in der Vorschau', 'quantity' => 10, 'net_total_eur' => '555.00', 'vat_rate_percent' => 7],
+                ],
+                'overrides' => ['recipient_name' => 'Vorschau Empfänger GmbH'],
+            ]);
+
+        $response->assertOk()->assertHeader('content-type', 'application/pdf');
+
+        // Nothing persisted: the rollback undid pricing, name and override.
+        $order->refresh();
+        $item->refresh();
+        $this->assertEqualsWithDelta($originalNet, $item->lineNetEur(), 0.001);
+        $this->assertNull($item->display_name_override);
+        $this->assertNull($order->invoiceOverride('recipient_name'));
+    }
+
+    public function test_company_defaults_carry_bank_and_register(): void
+    {
+        // The real master data ships as config defaults (printed on every
+        // invoice anyway) so the editor prefills without .env setup.
+        $this->assertSame('Vivid', config('shop.company_bank'));
+        $this->assertSame('DE32 2022 0800 0040 2029 90', config('shop.company_iban'));
+        $this->assertSame('HRB 286220 B', config('shop.company_register'));
+
+        $order = $this->confirmedOrder();
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.restaurant-orders.invoice-editor', $order))
+            ->assertOk()
+            ->assertSee('DE32 2022 0800 0040 2029 90', false)
+            ->assertSee('HRB 286220 B', false);
+    }
+
     public function test_new_line_without_name_is_rejected(): void
     {
         $order = $this->confirmedOrder();

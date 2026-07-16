@@ -19,6 +19,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Mailable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
@@ -336,6 +337,11 @@ class AdminRestaurantOrderController extends Controller
         if ($request->filled('invoice_due_date')) {
             $restaurantOrder->forceFill(['invoice_due_date' => $request->validated('invoice_due_date')])->save();
         }
+        if ($request->filled('expected_delivery_date')) {
+            $restaurantOrder->forceFill(['expected_delivery_date' => $request->validated('expected_delivery_date')])->save();
+            // Stock holds read the order row live; the mirror carries the date too.
+            $this->orders->syncShopOrderMirror($restaurantOrder);
+        }
 
         $restaurantOrder->refresh();
 
@@ -362,6 +368,44 @@ class AdminRestaurantOrderController extends Controller
         return redirect()
             ->route('app.admin.restaurant-orders.invoice-editor', $restaurantOrder)
             ->with('status', __('restaurant.invoice_editor_saved_flash'));
+    }
+
+    /**
+     * Live PDF preview from the editor: the submitted (possibly UNSAVED)
+     * form state is applied inside a transaction, the PDF rendered, and
+     * everything rolled back — the admin sees exactly what the current
+     * sheet would print without persisting anything.
+     */
+    public function invoiceEditorLivePreview(AdminInvoiceEditorRequest $request, RestaurantOrder $restaurantOrder): SymfonyResponse
+    {
+        DB::beginTransaction();
+        try {
+            $this->invoices->updatePricing(
+                $restaurantOrder,
+                $request->validated('items'),
+                $request->filled('delivery_fee_net_eur') ? (float) $request->validated('delivery_fee_net_eur') : null,
+                $request->filled('delivery_fee_vat_rate_percent') ? (int) $request->validated('delivery_fee_vat_rate_percent') : null,
+            );
+            $this->invoices->saveInvoiceOverrides($restaurantOrder, (array) $request->validated('overrides', []));
+            if ($request->filled('invoice_due_date')) {
+                $restaurantOrder->forceFill(['invoice_due_date' => $request->validated('invoice_due_date')])->save();
+            }
+            if ($request->filled('expected_delivery_date')) {
+                $restaurantOrder->forceFill(['expected_delivery_date' => $request->validated('expected_delivery_date')])->save();
+            }
+
+            $preview = $restaurantOrder->invoice_number === null
+                ? $this->invoices->nextInvoiceNumberPreview()
+                : null;
+            $pdf = $this->invoices->renderPdf($restaurantOrder->refresh(), $preview)->output();
+        } finally {
+            DB::rollBack();
+        }
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="erdgut-rechnung-vorschau-'.$restaurantOrder->id.'.pdf"',
+        ]);
     }
 
     /**

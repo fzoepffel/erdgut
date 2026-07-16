@@ -10,7 +10,7 @@
 
     @php
         // Seamless "part of the bill" input styling: invisible until hover/focus.
-        $inp = 'w-full rounded-none border-0 border-b border-dashed border-transparent bg-transparent p-0 text-[13px] leading-relaxed text-gray-900 placeholder:text-gray-300 hover:border-gray-300 focus:border-emerald-500 focus:ring-0';
+        $inp = 'w-full rounded-none border-0 border-b border-dashed border-transparent bg-transparent p-0 text-[12px] leading-snug text-gray-900 placeholder:text-gray-300 hover:border-gray-300 focus:border-emerald-500 focus:ring-0';
         $inpRight = $inp.' text-right tabular-nums';
 
         // factor converts canonical quantity to the display unit (g→kg etc.)
@@ -101,11 +101,15 @@
                 <button type="submit" form="invoice-editor-form" class="btn-solid-sm" data-testid="invoice-editor-save">
                     {{ __('restaurant.invoice_editor_save') }}
                 </button>
-                <a href="{{ route('app.admin.restaurant-orders.invoice-preview', $order) }}" target="_blank" rel="noopener"
-                   class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                   data-testid="invoice-editor-preview">
+                {{-- Submits the CURRENT (possibly unsaved) sheet to the live
+                     preview route, which renders and rolls back. --}}
+                <button type="submit" form="invoice-editor-form"
+                        formaction="{{ route('app.admin.restaurant-orders.invoice-editor.preview', $order) }}"
+                        formtarget="_blank"
+                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        data-testid="invoice-editor-preview">
                     {{ __('restaurant.invoice_editor_preview') }}
-                </a>
+                </button>
                 @if (! $order->isInvoiced() && $order->isInvoiceable())
                     <form method="POST" action="{{ route('app.admin.restaurant-orders.invoice', $order) }}"
                           onsubmit="return confirm(@js(__('restaurant.admin_invoice_issue_confirm')))">
@@ -131,12 +135,12 @@
             {{-- ── The sheet: looks like the invoice, edits like a form ── --}}
             <form id="invoice-editor-form" method="POST" action="{{ route('app.admin.restaurant-orders.invoice-editor.save', $order) }}">
                 @csrf
-                <div class="mx-auto bg-white px-10 py-12 shadow-md sm:px-14" style="font-size: 13px; line-height: 1.5;">
+                <div class="mx-auto bg-white px-8 py-10 shadow-md sm:px-12" style="font-size: 12px; line-height: 1.45;">
 
-                    <h2 class="mb-8 text-3xl font-bold tracking-tight text-gray-900">RECHNUNG: {{ $previewNumber }}</h2>
+                    <h2 class="mb-6 text-2xl font-bold tracking-tight text-gray-900">RECHNUNG: {{ $previewNumber }}</h2>
 
-                    <div class="mb-8 flex items-start gap-6">
-                        <img src="{{ asset('images/logo/erdgut-invoice.png') }}" alt="Erdgut" class="h-20 w-20 object-contain">
+                    <div class="mb-6 flex items-start gap-5">
+                        <img src="{{ asset('images/logo/erdgut-invoice.png') }}" alt="Erdgut" class="h-16 w-16 object-contain">
                         <div class="pt-1 text-[13px] text-gray-700">
                             <div>Rechnung No: <strong>{{ $previewNumber }}</strong>
                                 @unless ($order->isInvoiced())
@@ -150,7 +154,13 @@
                                        class="rounded-none border-0 border-b border-dashed border-gray-300 bg-transparent p-0 text-[13px] font-bold text-gray-900 focus:border-emerald-500 focus:ring-0"
                                        data-testid="invoice-editor-due-date">
                             </div>
-                            <div>Lieferdatum: <strong>{{ $order->expected_delivery_date?->format('d/m/Y') }}</strong></div>
+                            <div class="flex items-center gap-1.5">
+                                <span>Lieferdatum:</span>
+                                <input type="date" name="expected_delivery_date"
+                                       value="{{ old('expected_delivery_date', $order->expected_delivery_date?->toDateString()) }}"
+                                       class="rounded-none border-0 border-b border-dashed border-gray-300 bg-transparent p-0 text-[13px] font-bold text-gray-900 focus:border-emerald-500 focus:ring-0"
+                                       data-testid="invoice-editor-delivery-date">
+                            </div>
                         </div>
                     </div>
 
@@ -178,29 +188,26 @@
                     <div class="my-5 border-t border-gray-200"></div>
 
                     <h3 class="mb-3 text-sm font-bold text-gray-900">Produkte &amp; Preise</h3>
-                    <table class="w-full border border-gray-200 text-[13px]">
+                    <table class="w-full border border-gray-200 text-[12px]">
                         <thead>
                             <tr class="bg-gray-50 text-left text-[11px] text-gray-400">
-                                <th class="border-b border-r border-gray-200 px-2.5 py-1.5 font-normal" style="width:42%">Bezeichnung</th>
-                                <th class="border-b border-r border-gray-200 px-2.5 py-1.5 font-normal" style="width:17%">Preis (ohne MwSt.)</th>
-                                <th class="border-b border-r border-gray-200 px-2.5 py-1.5 font-normal" style="width:17%">Menge</th>
-                                <th class="border-b border-r border-gray-200 px-2.5 py-1.5 font-normal" style="width:20%">Gesamt (ohne MwSt.)</th>
+                                <th class="border-b border-r border-gray-200 px-2 py-1 font-normal" style="width:42%">Bezeichnung</th>
+                                <th class="border-b border-r border-gray-200 px-2 py-1 font-normal" style="width:17%">Preis (ohne MwSt.)</th>
+                                <th class="border-b border-r border-gray-200 px-2 py-1 font-normal" style="width:17%">Menge</th>
+                                <th class="border-b border-r border-gray-200 px-2 py-1 font-normal" style="width:20%">Gesamt (ohne MwSt.)</th>
                                 <th class="border-b border-gray-200 px-1 py-1.5" style="width:4%"></th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($items as $i => $item)
                                 <tr :class="existing[{{ $i }}].removed && 'opacity-30'">
-                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
+                                    <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}">
                                         <input type="text" name="items[{{ $i }}][display_name]"
                                                value="{{ old('items.'.$i.'.display_name', $item->invoiceDisplayName()) }}"
                                                class="{{ $inp }}" data-testid="invoice-editor-line-name-{{ $i }}">
-                                        @if (! $item->isCustom() && $item->product?->producer?->name)
-                                            <div class="text-[10px] text-gray-400">{{ $item->product->producer->name }}</div>
-                                        @endif
                                     </td>
-                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
+                                    <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         <span class="flex items-baseline gap-1">
                                             <input type="number" step="0.01" min="0" x-model.number="existing[{{ $i }}].price"
                                                    x-on:input="existing[{{ $i }}].touched = true"
@@ -208,7 +215,7 @@
                                             <span class="shrink-0 text-gray-500">€ / {{ $priceUnitLabels[$i] }}</span>
                                         </span>
                                     </td>
-                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
+                                    <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         <span class="flex items-baseline gap-1">
                                             <input type="number" step="0.0001" min="0.0001" name="items[{{ $i }}][quantity]"
                                                    x-model.number="existing[{{ $i }}].qty"
@@ -217,7 +224,7 @@
                                             <span class="text-gray-500">{{ $item->isCustom() ? \App\Enums\ProductUnit::displaySymbol((string) $item->unit) : $item->product?->canonicalUnitLabel() }}</span>
                                         </span>
                                     </td>
-                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
+                                    <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         {{-- Computed: Preis × Menge. The hidden input submits the
                                              exact stored total while the line is untouched. --}}
                                         <span class="tabular-nums text-gray-900" x-text="fmt(lineNet(existing[{{ $i }}]))" data-testid="invoice-editor-line-total-{{ $i }}"></span>
@@ -240,19 +247,19 @@
                             {{-- New off-catalog lines. --}}
                             <template x-for="(line, idx) in extra" :key="idx">
                                 <tr>
-                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
+                                    <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         <input type="text" :name="'items[' + ({{ count($items) }} + idx) + '][name]'"
                                                x-model="line.name" placeholder="{{ __('restaurant.invoice_editor_new_line_placeholder') }}"
                                                class="{{ $inp }}" required>
                                     </td>
-                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
+                                    <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         <span class="flex items-baseline gap-1">
                                             <input type="number" step="0.01" min="0" x-model.number="line.price"
                                                    class="{{ $inpRight }}" required>
                                             <span class="shrink-0 text-gray-500">€ / <span x-text="priceUnitLabel(line.unit)"></span></span>
                                         </span>
                                     </td>
-                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
+                                    <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         <span class="flex items-baseline gap-1">
                                             <input type="number" step="0.0001" min="0.0001" :name="'items[' + ({{ count($items) }} + idx) + '][quantity]'"
                                                    x-model.number="line.qty" class="{{ $inpRight }}" style="max-width:70px;">
@@ -264,7 +271,7 @@
                                             </select>
                                         </span>
                                     </td>
-                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
+                                    <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         <span class="tabular-nums text-gray-900" x-text="fmt(lineNet(line))"></span>
                                         <input type="hidden" :name="'items[' + ({{ count($items) }} + idx) + '][net_total_eur]'" :value="lineNet(line).toFixed(2)">
                                         <select :name="'items[' + ({{ count($items) }} + idx) + '][vat_rate_percent]'" x-model.number="line.vat"
@@ -281,16 +288,16 @@
 
                             {{-- Delivery fee as its own line, like on the PDF. --}}
                             <tr :class="!(feeNet > 0) && 'opacity-40'">
-                                <td class="border-r border-gray-100 px-2.5 py-2 align-top">
+                                <td class="border-r border-gray-100 px-2 py-1 align-top">
                                     <input type="text" name="overrides[delivery_line_label]"
                                            value="{{ old('overrides.delivery_line_label', $values['delivery_line_label']) }}"
                                            class="{{ $inp }}">
                                 </td>
-                                <td class="border-r border-gray-100 px-2.5 py-2 align-top text-gray-700">
+                                <td class="border-r border-gray-100 px-2 py-1 align-top text-gray-700">
                                     <span x-text="feeNet > 0 ? fmt(feeNet) : ''"></span>
                                 </td>
-                                <td class="border-r border-gray-100 px-2.5 py-2 align-top text-gray-700">1</td>
-                                <td class="border-r border-gray-100 px-2.5 py-2 align-top">
+                                <td class="border-r border-gray-100 px-2 py-1 align-top text-gray-700">1</td>
+                                <td class="border-r border-gray-100 px-2 py-1 align-top">
                                     <span class="flex items-baseline gap-1">
                                         <input type="number" step="0.01" min="0" max="999.99" name="delivery_fee_net_eur"
                                                x-model.number="feeNet" placeholder="0,00"
