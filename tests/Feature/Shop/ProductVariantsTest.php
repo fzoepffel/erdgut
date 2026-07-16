@@ -285,11 +285,12 @@ class ProductVariantsTest extends TestCase
         $this->assertEqualsWithDelta(0.0060, (float) $businessRule->unit_price, 1e-6);
 
         // The resolver applies it to a business order of that grade. Prices
-        // resolve in canonical units (€/g), so 6,00 €/kg → 0,006 €/g.
+        // resolve in canonical units (€/g) and business rules are NET, so
+        // 6,00 €/kg net → 0,006 €/g net → 0,00642 €/g gross (+7 %).
         $resolver = app(PriceResolver::class);
         $product->refresh()->load('priceRules');
         $resolved = $resolver->resolve($product, Carbon::today(), CustomerType::Business, null, $variant->id, $variant->fresh());
-        $this->assertEqualsWithDelta(0.006, $resolved->unitPriceEur, 1e-6);
+        $this->assertEqualsWithDelta(0.00642, $resolved->unitPriceEur, 1e-6);
         $this->assertSame('customer_group', $resolved->reason);
     }
 

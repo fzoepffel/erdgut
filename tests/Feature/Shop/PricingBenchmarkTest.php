@@ -108,7 +108,7 @@ class PricingBenchmarkTest extends TestCase
         // Default grade.
         $this->assertSame(10.0, $this->resolve(self::NORMAL, $P, 1), 'default/private/normal/low → base');
         $this->assertSame(6.0, $this->resolve(self::NORMAL, $P, 5), 'default/private/normal/qty≥5 → tier');
-        $this->assertSame(8.0, $this->resolve(self::NORMAL, $B, 1), 'default/business → business price');
+        $this->assertSame(8.56, $this->resolve(self::NORMAL, $B, 1), 'default/business → business net price + 7 % VAT');
         $this->assertSame(7.0, $this->resolve(self::OVERRIDE, $P, 1), 'default/private/override day → date override');
         // Override (bounded window) outranks the tier on its day.
         $this->assertSame(7.0, $this->resolve(self::OVERRIDE, $P, 5), 'default/override day/qty≥5 → date override wins');
@@ -116,7 +116,7 @@ class PricingBenchmarkTest extends TestCase
         // Thin grade.
         $this->assertSame(6.0, $this->resolve(self::NORMAL, $P, 1, $this->thin), 'thin/private/normal/low → grade base');
         $this->assertSame(4.0, $this->resolve(self::NORMAL, $P, 4, $this->thin), 'thin/private/normal/qty≥4 → grade tier');
-        $this->assertSame(5.0, $this->resolve(self::NORMAL, $B, 1, $this->thin), 'thin/business → grade business price');
+        $this->assertSame(5.35, $this->resolve(self::NORMAL, $B, 1, $this->thin), 'thin/business → grade business net price + 7 % VAT');
         $this->assertSame(3.5, $this->resolve(self::OVERRIDE, $P, 1, $this->thin), 'thin/override day → grade date override');
 
         // Bundle grade has no tier → the default tier must NOT leak to it.

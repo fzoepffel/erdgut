@@ -158,9 +158,9 @@ class AdminShopOrderCreateTest extends TestCase
         $businessResponse->assertOk();
         $row = collect($businessResponse->json())->firstWhere('product_id', $this->product->id);
         $this->assertNotNull($row);
-        // Business sees 3,50 as the picked tier; price is the per-canonical
-        // float since piece has factor 1, the display price equals it.
-        $this->assertEqualsWithDelta(3.50, (float) $row['unit_price_eur'], 0.01);
+        // Business rule prices are net: 3,50 net → 3,745 gross per piece
+        // (piece has factor 1, so display equals canonical).
+        $this->assertEqualsWithDelta(3.745, (float) $row['unit_price_eur'], 0.01);
         $this->assertSame('customer_group', $row['price_reason']);
         // Alt tier (private) falls back to the base unit_price (5,00).
         $this->assertEqualsWithDelta(5.00, (float) $row['alt_unit_price_eur'], 0.01);
@@ -175,8 +175,8 @@ class AdminShopOrderCreateTest extends TestCase
         $row = collect($privateResponse->json())->firstWhere('product_id', $this->product->id);
         $this->assertEqualsWithDelta(5.00, (float) $row['unit_price_eur'], 0.01);
         $this->assertSame('base', $row['price_reason']);
-        // Alt tier (business) shows the discount as the comparison hint.
-        $this->assertEqualsWithDelta(3.50, (float) $row['alt_unit_price_eur'], 0.01);
+        // Alt tier (business) shows the discount as the comparison hint (gross).
+        $this->assertEqualsWithDelta(3.745, (float) $row['alt_unit_price_eur'], 0.01);
         $this->assertSame('customer_group', $row['alt_price_reason']);
     }
 

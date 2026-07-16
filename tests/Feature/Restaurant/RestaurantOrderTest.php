@@ -161,8 +161,11 @@ class RestaurantOrderTest extends TestCase
         ]);
 
         $item = $order->items()->firstOrFail();
-        $this->assertEqualsWithDelta(8.00, (float) $item->unit_price_snapshot_eur, 0.001);
-        $this->assertEqualsWithDelta(16.00, (float) $item->line_total_eur, 0.01);
+        // 8,00 € NET business rule → 8,56 € gross snapshot; the invoice
+        // derives the 8,00 net back out of it.
+        $this->assertEqualsWithDelta(8.56, (float) $item->unit_price_snapshot_eur, 0.001);
+        $this->assertEqualsWithDelta(17.12, (float) $item->line_total_eur, 0.01);
+        $this->assertEqualsWithDelta(16.00, $item->lineNetEur(), 0.01);
     }
 
     public function test_restaurant_order_price_ignores_consumer_volume_tiers(): void
