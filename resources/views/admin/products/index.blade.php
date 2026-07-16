@@ -237,6 +237,7 @@
                                             </td>
                                             <td class="py-3 pe-0 text-end space-x-4 whitespace-nowrap">
                                                 <a href="{{ route('app.admin.products.edit', $product) }}" class="text-emerald-700 hover:text-emerald-900 font-medium">{{ __('Edit') }}</a>
+                                                <a href="{{ route('app.admin.products.price-history', $product) }}" class="font-medium text-gray-500 hover:text-gray-700" data-testid="admin-product-price-history-{{ $product->id }}">{{ __('admin.price_history.link') }}</a>
                                                 {{-- E5 (UX notes): destructive action is now the
                                                      same visual register as Edit (text link, red).
                                                      The confirm-modal still gates the actual

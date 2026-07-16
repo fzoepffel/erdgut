@@ -638,6 +638,8 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:10,1')
                 ->name('products.merge.execute');
             // Per-product pricing calendar (date/period price overrides).
+            // Price development chart (recorded list prices over time).
+            Route::get('products/{product}/price-history', [ProductController::class, 'priceHistory'])->name('products.price-history');
             Route::get('products/{product}/pricing', [ProductPriceRuleController::class, 'calendar'])->name('products.pricing');
             Route::post('products/{product}/pricing', [ProductPriceRuleController::class, 'store'])->name('products.pricing.store');
             Route::delete('products/{product}/pricing', [ProductPriceRuleController::class, 'destroy'])->name('products.pricing.destroy');
