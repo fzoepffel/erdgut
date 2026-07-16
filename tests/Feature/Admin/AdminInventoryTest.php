@@ -393,4 +393,78 @@ class AdminInventoryTest extends TestCase
         $this->assertFalse(Route::has('app.admin.products.weekly.show'));
         $this->assertFalse(Route::has('app.admin.products.weekly.save'));
     }
+
+    public function test_inflow_filter_by_product_name_narrows_the_table(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        // Two distinct products, each with their own inflow batch this week.
+        $spargel = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+        $spargel->translations()->update(['name' => 'Weißer Spargel']);
+        $rhabarber = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+        $rhabarber->translations()->update(['name' => 'Rhabarber']);
+        foreach ([$spargel, $rhabarber] as $p) {
+            ProductStockInflow::create([
+                'product_id' => $p->id, 'producer_id' => $p->producer_id,
+                'received_on' => '2026-05-20', 'quantity' => 5, 'freshness_window_days' => 3,
+            ]);
+        }
+
+        $spargelInflow = ProductStockInflow::where('product_id', $spargel->id)->firstOrFail();
+        $rhabarberInflow = ProductStockInflow::where('product_id', $rhabarber->id)->firstOrFail();
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index', ['inflow_product' => 'spargel']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('inflow-producer-'.$spargelInflow->id, $html);
+        $this->assertStringNotContainsString('inflow-producer-'.$rhabarberInflow->id, $html);
+    }
+
+    public function test_inflow_filter_by_producer_matches_delivering_farm_and_pivot(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $farmC = Producer::factory()->create();
+
+        // Multi-producer product: primary A, also supplied by B. The batch
+        // this week is delivered by B (non-primary supplier).
+        $multi = Product::factory()->create([
+            'producer_id' => $farmA->id, 'is_available' => true, 'is_published' => true,
+        ]);
+        $multi->syncProducers([$farmA->id, $farmB->id]);
+        $multiInflow = ProductStockInflow::create([
+            'product_id' => $multi->id, 'producer_id' => $farmB->id,
+            'received_on' => '2026-05-20', 'quantity' => 4, 'freshness_window_days' => 3,
+        ]);
+
+        // Unrelated product from farm C — must never appear.
+        $unrelated = Product::factory()->create([
+            'producer_id' => $farmC->id, 'is_available' => true, 'is_published' => true,
+        ]);
+        $unrelatedInflow = ProductStockInflow::create([
+            'product_id' => $unrelated->id, 'producer_id' => $farmC->id,
+            'received_on' => '2026-05-20', 'quantity' => 2, 'freshness_window_days' => 3,
+        ]);
+
+        // Filter by farm A: the primary supplier for the multi-producer
+        // product, even though this batch was delivered by farm B.
+        $htmlA = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index', ['inflow_producer' => $farmA->id]))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('inflow-producer-'.$multiInflow->id, $htmlA);
+        $this->assertStringNotContainsString('inflow-producer-'.$unrelatedInflow->id, $htmlA);
+
+        // Filter by farm B: matches via the delivering farm on the batch.
+        $htmlB = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index', ['inflow_producer' => $farmB->id]))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('inflow-producer-'.$multiInflow->id, $htmlB);
+        $this->assertStringNotContainsString('inflow-producer-'.$unrelatedInflow->id, $htmlB);
+    }
 }
