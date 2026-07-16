@@ -264,7 +264,14 @@
                 </div>
             </div>
 
-            {{-- Items + totals --}}
+            {{-- Items + totals. B2B orders get an extra net column: the
+                 business price list is net, so the operative view should
+                 read like it (the gross Total column stays authoritative). --}}
+            @php
+                $isBusiness = $order->customer_type === \App\Enums\CustomerType::Business;
+                $sumCols = $isBusiness ? 4 : 3;
+                $vatTotal = round($order->items->sum(fn ($i) => (float) $i->vat_amount_eur) + (float) $order->delivery_fee_vat_amount_eur, 2);
+            @endphp
             <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
@@ -272,6 +279,9 @@
                             <th class="px-4 py-2">{{ __('shop.admin.col_product') }}</th>
                             <th class="px-4 py-2">{{ __('shop.admin.col_quantity') }}</th>
                             <th class="px-4 py-2 text-right">{{ __('shop.admin.col_vat_rate') }}</th>
+                            @if ($isBusiness)
+                                <th class="px-4 py-2 text-right">{{ __('shop.admin.col_net_total') }}</th>
+                            @endif
                             <th class="px-4 py-2 text-right">{{ __('shop.admin.col_line_total') }}</th>
                         </tr>
                     </thead>
@@ -282,52 +292,65 @@
                                     @if ($item->isCustom())<span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide text-gray-500">{{ __('shop.admin.custom_line_tag') }}</span>@endif</td>
                                 <td class="px-4 py-2 text-gray-600">{{ $item->displayQuantityLabel() }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ $item->vat_rate_snapshot_percent }}%</td>
+                                @if ($isBusiness)
+                                    <td class="px-4 py-2 text-right tabular-nums text-gray-600" data-testid="shop-admin-line-net">@eur(round((float) $item->line_total_eur - (float) $item->vat_amount_eur, 2))</td>
+                                @endif
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($item->line_total_eur)</td>
                             </tr>
                         @endforeach
                     </tbody>
                     <tfoot class="bg-gray-50 text-sm">
                         <tr>
-                            <td colspan="3" class="px-4 py-2 text-right text-gray-600">{{ __('shop.summary_line_items') }}</td>
+                            <td colspan="{{ $sumCols }}" class="px-4 py-2 text-right text-gray-600">{{ __('shop.summary_line_items') }}</td>
                             <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($order->items_total_eur)</td>
                         </tr>
                         @if ((float) $order->discount_eur > 0)
                             <tr>
-                                <td colspan="3" class="px-4 py-2 text-right text-gray-600">{{ __('coupon.discount_line') }} {{ $order->coupon_code }}</td>
+                                <td colspan="{{ $sumCols }}" class="px-4 py-2 text-right text-gray-600">{{ __('coupon.discount_line') }} {{ $order->coupon_code }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-emerald-700">− @eur($order->discount_eur)</td>
                             </tr>
                         @endif
                         @if ($order->fulfillment_mode === 'delivery')
                             <tr>
-                                <td colspan="3" class="px-4 py-2 text-right text-gray-600">
+                                <td colspan="{{ $sumCols }}" class="px-4 py-2 text-right text-gray-600">
                                     {{ __('shop.summary_line_delivery') }}
-                                    <span class="text-gray-400">({{ $order->delivery_fee_vat_rate_percent }}% {{ __('shop.admin.col_vat_rate') }})</span>
+                                    <span class="text-gray-400">({{ $order->delivery_fee_vat_rate_percent }}% {{ __('shop.admin.col_vat_rate') }}@if ($isBusiness), {{ __('shop.admin.col_net_total') }} @eur(round((float) $order->delivery_fee_eur - (float) $order->delivery_fee_vat_amount_eur, 2))@endif)</span>
                                 </td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($order->delivery_fee_eur)</td>
                             </tr>
                         @endif
+                        @if ($isBusiness)
+                            <tr class="text-xs text-gray-500">
+                                <td colspan="{{ $sumCols }}" class="px-4 py-1 text-right">{{ __('shop.admin.label_net_total') }}</td>
+                                <td class="px-4 py-1 text-right tabular-nums" data-testid="shop-admin-net-total">@eur(round((float) $order->total_amount_eur - $vatTotal, 2))</td>
+                            </tr>
+                            <tr class="text-xs text-gray-500">
+                                <td colspan="{{ $sumCols }}" class="px-4 py-1 text-right">{{ __('shop.admin.label_vat_total') }}</td>
+                                <td class="px-4 py-1 text-right tabular-nums">@eur($vatTotal)</td>
+                            </tr>
+                        @endif
                         <tr class="font-semibold">
-                            <td colspan="3" class="px-4 py-2 text-right text-gray-800">{{ __('shop.summary_line_total') }}</td>
+                            <td colspan="{{ $sumCols }}" class="px-4 py-2 text-right text-gray-800">{{ __('shop.summary_line_total') }}</td>
                             <td class="px-4 py-2 text-right tabular-nums text-gray-900">@eur($order->total_amount_eur)</td>
                         </tr>
                         @if ($order->paid_at !== null && abs($order->outstandingAmountEur()) >= 0.01)
                             <tr>
-                                <td colspan="3" class="px-4 py-2 text-right text-gray-600">{{ __('shop.admin.label_already_paid') }}</td>
+                                <td colspan="{{ $sumCols }}" class="px-4 py-2 text-right text-gray-600">{{ __('shop.admin.label_already_paid') }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-800">@eur($order->effectivePaidAmountEur())</td>
                             </tr>
                             <tr class="font-semibold">
                                 @if ($order->outstandingAmountEur() > 0)
-                                    <td colspan="3" class="px-4 py-2 text-right text-amber-800">{{ __('shop.admin.label_open_amount') }}</td>
+                                    <td colspan="{{ $sumCols }}" class="px-4 py-2 text-right text-amber-800">{{ __('shop.admin.label_open_amount') }}</td>
                                     <td class="px-4 py-2 text-right tabular-nums text-amber-800" data-testid="shop-admin-open-amount">@eur($order->outstandingAmountEur())</td>
                                 @else
-                                    <td colspan="3" class="px-4 py-2 text-right text-violet-800">{{ __('shop.admin.label_refund_due') }}</td>
+                                    <td colspan="{{ $sumCols }}" class="px-4 py-2 text-right text-violet-800">{{ __('shop.admin.label_refund_due') }}</td>
                                     <td class="px-4 py-2 text-right tabular-nums text-violet-800" data-testid="shop-admin-refund-due">@eur(abs($order->outstandingAmountEur()))</td>
                                 @endif
                             </tr>
                         @elseif ($order->outstanding_settled_at !== null && $order->outstanding_settled_amount_eur !== null)
                             {{-- The difference was settled in person; keep the trace visible. --}}
                             <tr>
-                                <td colspan="4" class="px-4 py-2 text-right text-xs text-emerald-700" data-testid="shop-admin-settled-note">
+                                <td colspan="{{ $sumCols + 1 }}" class="px-4 py-2 text-right text-xs text-emerald-700" data-testid="shop-admin-settled-note">
                                     {{ (float) $order->outstanding_settled_amount_eur >= 0
                                         ? __('shop.admin.settled_collected_note', [
                                             'amount' => number_format(abs((float) $order->outstanding_settled_amount_eur), 2, ',', '.').' €',

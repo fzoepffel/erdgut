@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Shop;
 
+use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
 use App\Enums\ShopOrderStatus;
 use App\Mail\ShopInvoiceCustomMail;
@@ -17,6 +18,7 @@ use App\Services\Restaurant\RestaurantOrderService;
 use App\Services\Shop\ShopOrderInvoiceService;
 use App\Services\Shop\ShopOrderService;
 use App\Support\InvoiceSequence;
+use App\Support\Money;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
@@ -559,6 +561,25 @@ class ShopOrderInvoiceTest extends TestCase
         // Rolled back: the stored line is untouched.
         $this->assertEqualsWithDelta(107.00, (float) $item->refresh()->line_total_eur, 0.001);
         $this->assertEqualsWithDelta(107.00, (float) $order->refresh()->total_amount_eur, 0.01);
+    }
+
+    public function test_show_page_adds_net_column_and_totals_for_business_orders(): void
+    {
+        $b2b = $this->makeOrder(['customer_type' => CustomerType::Business]);
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-orders.show', $b2b))
+            ->assertOk()
+            ->assertSee('data-testid="shop-admin-line-net"', false)
+            ->assertSee('data-testid="shop-admin-net-total"', false)
+            // Line gross 107,00 at 7 % → net 100,00 (locale-aware format).
+            ->assertSee(e(Money::formatEur(100.00)), false);
+
+        // B2C orders keep the pure gross view.
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-orders.show', $this->makeOrder(['customer_type' => CustomerType::Private])))
+            ->assertOk()
+            ->assertDontSee('data-testid="shop-admin-line-net"', false)
+            ->assertDontSee('data-testid="shop-admin-net-total"', false);
     }
 
     public function test_receipt_and_invoice_editor_overrides_merge_instead_of_wiping(): void
