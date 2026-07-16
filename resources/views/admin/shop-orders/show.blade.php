@@ -186,6 +186,19 @@
                         >
                             {{ __('shop.admin.invoice_preview') }}
                         </a>
+                        {{-- Shared yearly ledger: aligning the sequence here
+                             moves the next number for shop AND restaurant
+                             invoices alike. --}}
+                        <form method="POST" action="{{ route('app.admin.restaurant-orders.invoice-sequence') }}" class="flex items-center gap-1.5" data-testid="shop-admin-invoice-sequence">
+                            @csrf
+                            <span class="text-xs text-gray-500">{{ __('restaurant.admin_invoice_next_number', ['number' => \App\Support\InvoiceSequence::preview()]) }}</span>
+                            <input type="number" name="next_invoice_number" min="1" max="9999"
+                                   placeholder="{{ __('restaurant.admin_invoice_set_sequence_placeholder') }}"
+                                   class="w-20 rounded border-gray-300 text-xs" required>
+                            <button type="submit" class="rounded border border-gray-300 px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                                {{ __('restaurant.admin_invoice_set_sequence_button') }}
+                            </button>
+                        </form>
                     @endif
                 @endif
 

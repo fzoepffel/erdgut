@@ -348,7 +348,8 @@ class ShopOrderInvoiceTest extends TestCase
             ->get(route('app.admin.shop-orders.show', $this->makeOrder()))
             ->assertOk()
             ->assertSee('data-testid="shop-admin-issue-invoice"', false)
-            ->assertSee('data-testid="shop-admin-invoice-preview"', false);
+            ->assertSee('data-testid="shop-admin-invoice-preview"', false)
+            ->assertSee('data-testid="shop-admin-invoice-sequence"', false);
 
         // Coupon discount: blocked hint instead of the issue button.
         $this->actingAs($this->admin)
