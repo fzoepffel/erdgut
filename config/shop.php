@@ -60,23 +60,28 @@ return [
     |
     */
 
-    'company_name' => env('SHOP_COMPANY_NAME', 'Erdgut'),
-    'company_street' => env('SHOP_COMPANY_STREET', ''),
-    'company_postal_city' => env('SHOP_COMPANY_POSTAL_CITY', ''),
-    'company_phone' => env('SHOP_COMPANY_PHONE', ''),
+    'company_name' => env('SHOP_COMPANY_NAME', 'Erdgut UG (haftungsbeschränkt)'),
+    'company_street' => env('SHOP_COMPANY_STREET', 'Gotenstraße 19'),
+    'company_postal_city' => env('SHOP_COMPANY_POSTAL_CITY', '10829 Berlin'),
+    'company_phone' => env('SHOP_COMPANY_PHONE', '+33 7 83 38 85 93'),
     'company_email' => env('SHOP_COMPANY_EMAIL', 'kontakt@erd-gut.de'),
+    // Company master data as printed on invoices/receipts. The real values
+    // ship as defaults (they are public on every document anyway); override
+    // via .env if they ever change.
     // Umsatzsteuer-Identifikationsnummer or Steuernummer of the seller.
-    'company_vat_id' => env('SHOP_COMPANY_VAT_ID', ''),
+    'company_vat_id' => env('SHOP_COMPANY_VAT_ID', 'DE462049505'),
     // Additional seller details required on a full B2B invoice (§ 14 UStG):
     // Steuernummer, bank/IBAN for payment, and Handelsregister entry.
     'company_tax_number' => env('SHOP_COMPANY_TAX_NUMBER', ''),
-    'company_iban' => env('SHOP_COMPANY_IBAN', ''),
-    'company_bank' => env('SHOP_COMPANY_BANK', ''),
-    'company_register' => env('SHOP_COMPANY_REGISTER', ''),
+    'company_iban' => env('SHOP_COMPANY_IBAN', 'DE32 2022 0800 0040 2029 90'),
+    'company_bank' => env('SHOP_COMPANY_BANK', 'Vivid'),
+    'company_register' => env('SHOP_COMPANY_REGISTER', 'HRB 286220 B'),
 
-    // Restaurant (B2B) invoice numbering + terms.
-    'restaurant_invoice_prefix' => env('SHOP_RESTAURANT_INVOICE_PREFIX', 'RG'),
-    'restaurant_invoice_due_days' => (int) env('SHOP_RESTAURANT_INVOICE_DUE_DAYS', 14),
+    // Restaurant (B2B) invoice numbering + terms. Numbers read EB260046
+    // (prefix + two-digit year + 4-digit sequence); payment is due within
+    // this many days after DELIVERY (never before the invoice date).
+    'restaurant_invoice_prefix' => env('SHOP_RESTAURANT_INVOICE_PREFIX', 'EB'),
+    'restaurant_invoice_due_days' => (int) env('SHOP_RESTAURANT_INVOICE_DUE_DAYS', 7),
 
     // How many days ahead the scheduler generates the next recurring restaurant
     // (standing) order — stock is reserved + prices resolved this close to delivery.

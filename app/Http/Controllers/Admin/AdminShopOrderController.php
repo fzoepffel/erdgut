@@ -12,7 +12,9 @@ use App\Exports\ShopOrdersExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
+use App\Http\Requests\Admin\AdminShopInvoiceEditorRequest;
 use App\Http\Requests\Admin\AdminUpdateShopOrderRequest;
+use App\Mail\ShopInvoiceCustomMail;
 use App\Mail\ShopOrderWindowMail;
 use App\Models\Producer;
 use App\Models\Product;
@@ -28,8 +30,10 @@ use App\Services\Restaurant\RestaurantStandingOrderService;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\PriceResolver;
+use App\Services\Shop\ShopOrderInvoiceService;
 use App\Services\Shop\ShopOrderService;
 use App\Support\AuditLogger;
+use App\Support\InvoiceSequence;
 use App\Support\PickupLocations;
 use App\Support\RestaurantAccountProvisioner;
 use App\Support\SumUpCheckoutLogger;
@@ -42,12 +46,14 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Throwable;
 use ZipArchive;
 
@@ -1033,6 +1039,132 @@ class AdminShopOrderController extends Controller
     }
 
     /**
+     * WYSIWYG receipt editor: a page that looks like the Kaufbeleg where
+     * every text is an input. Display-only — money edits go through the
+     * order editor, which tracks paid/open amounts. Available for every
+     * shop order; mirrors of restaurant orders route to their invoice
+     * editor instead (their document is the Rechnung).
+     */
+    public function receiptEditor(ShopOrder $shopOrder): View|RedirectResponse
+    {
+        if ($shopOrder->restaurant_order_id !== null) {
+            return redirect()->route('app.admin.shop-orders.invoice-editor', $shopOrder->restaurant_order_id);
+        }
+
+        $shopOrder->load('items.product.translations', 'items.product.producer.translations');
+
+        return view('admin.shop-orders.receipt-editor', [
+            'values' => $this->documentOverrideValues($shopOrder),
+            'order' => $shopOrder,
+            'vatByRate' => ShopOrderService::vatByRate($shopOrder),
+        ]);
+    }
+
+    /**
+     * Prefill values for the receipt and invoice editors: every whitelisted
+     * override key resolved to its stored override or the same default the
+     * PDFs fall back to.
+     *
+     * @return array<string, string>
+     */
+    private function documentOverrideValues(ShopOrder $shopOrder): array
+    {
+        if ($shopOrder->fulfillment_mode === 'delivery') {
+            $deliveryAddress = trim($shopOrder->delivery_street.', '.$shopOrder->delivery_postal_code.' '.$shopOrder->delivery_city, ', ');
+            $fulfillmentDefault = 'Lieferung: '.$deliveryAddress;
+        } else {
+            $pickup = ShopOrderService::pickupLocation($shopOrder->pickup_location);
+            $deliveryAddress = $pickup !== null
+                ? trim(($pickup['street'] ?? '').', '.trim(($pickup['postal_code'] ?? '').' '.($pickup['city'] ?? '')), ', ')
+                : (string) $shopOrder->pickup_location;
+            $fulfillmentDefault = 'Abholung: '.$deliveryAddress;
+        }
+
+        $paymentDefault = match (true) {
+            $shopOrder->payment_method === 'in_person' => 'Barzahlung / Kartenzahlung vor Ort',
+            $shopOrder->paid_at !== null && $shopOrder->outstandingAmountEur() >= 0.01 => 'Online-Zahlung, Restbetrag vor Ort',
+            $shopOrder->paid_at !== null && $shopOrder->outstandingAmountEur() <= -0.01 => 'Online-Zahlung, Erstattung vor Ort',
+            default => 'Online-Zahlung',
+        };
+
+        $isDelivery = $shopOrder->fulfillment_mode === 'delivery';
+
+        $defaults = [
+            'seller_name' => (string) config('shop.company_name'),
+            'seller_register' => (string) config('shop.company_register'),
+            'seller_vat_id' => config('shop.company_vat_id') ? 'Umsatzsteuer-ID: '.config('shop.company_vat_id') : '',
+            'seller_address' => trim((string) config('shop.company_street').', '.(string) config('shop.company_postal_city'), ', '),
+            'seller_email' => (string) config('shop.company_email'),
+            'recipient_name' => (string) $shopOrder->name,
+            'recipient_extra' => '',
+            'recipient_email' => (string) ($shopOrder->email ?? ''),
+            'recipient_phone' => (string) ($shopOrder->phone ?? ''),
+            'recipient_vat_id' => '',
+            'recipient_fulfillment' => $fulfillmentDefault,
+            'delivery_line_label' => 'Lieferung '.$deliveryAddress,
+            'payment_text' => $paymentDefault,
+            'questions_text' => trim((config('shop.company_email') ? 'Email '.config('shop.company_email') : '')
+                .(config('shop.company_phone') ? "\noder anrufen unter ".config('shop.company_phone') : '')),
+            'notes_text' => 'Alle Preise sind Bruttopreise und enthalten die gesetzliche Mehrwertsteuer.'
+                .((float) $shopOrder->total_amount_eur <= 250 ? ' Dieser Beleg gilt als Kleinbetragsrechnung gem. § 33 UStDV.' : ''),
+            // Invoice-only fields (rendered on the Rechnung, never the Beleg).
+            'bank_name' => (string) config('shop.company_bank'),
+            'bank_holder' => (string) config('shop.company_name'),
+            'bank_iban' => (string) config('shop.company_iban'),
+            'bank_reference' => (string) ($shopOrder->invoice_number ?? InvoiceSequence::preview()),
+            'terms_text' => 'Der Rechnungsbetrag ist innerhalb von '.(int) config('shop.restaurant_invoice_due_days', 7)
+                .' Tagen nach '.($isDelivery ? 'Lieferung' : 'Abholung').' zahlbar. Leistungsdatum entspricht dem '
+                .($isDelivery ? 'Lieferdatum' : 'Abholdatum').'.',
+        ];
+
+        $values = [];
+        foreach ($defaults as $key => $default) {
+            $values[$key] = $shopOrder->receiptOverride($key) ?? $default;
+        }
+
+        return $values;
+    }
+
+    /** Persist the receipt editor's display overrides + per-line names. */
+    public function saveReceiptEditor(Request $request, ShopOrder $shopOrder): RedirectResponse
+    {
+        $rules = [
+            'items' => ['nullable', 'array'],
+            'items.*.id' => ['required', 'integer'],
+            'items.*.display_name' => ['nullable', 'string', 'max:160'],
+            'overrides' => ['nullable', 'array'],
+        ];
+        foreach (ShopOrderService::RECEIPT_OVERRIDE_KEYS as $key => $maxLength) {
+            $rules["overrides.$key"] = ['nullable', 'string', "max:$maxLength"];
+        }
+        $validated = $request->validate($rules);
+
+        $this->service->saveReceiptOverrides(
+            $shopOrder,
+            (array) ($validated['overrides'] ?? []),
+            (array) ($validated['items'] ?? []),
+        );
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: $shopOrder->id,
+            action: 'receipt_edit',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            reason: null,
+            metadata: [
+                'channel' => 'admin',
+                'override_keys' => array_keys((array) ($shopOrder->refresh()->receipt_overrides ?? [])),
+            ],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.shop-orders.receipt-editor', $shopOrder)
+            ->with('status', __('shop.admin.receipt_editor_saved_flash'));
+    }
+
+    /**
      * Edit form for an existing order — the manual-order form prefilled from
      * the stored lines. Every prefilled line is marked "touched" so the
      * debounced catalog quote never overwrites stored (possibly negotiated)
@@ -1423,5 +1555,296 @@ class AdminShopOrderController extends Controller
         return redirect()
             ->route('app.admin.shop-orders.show', $shopOrder)
             ->with('status', __('shop.admin.flash_refunded', ['id' => $shopOrder->id]));
+    }
+
+    /**
+     * Issue a proper Rechnung for a shop order: number from the shared
+     * yearly ledger (same series as restaurant invoices). Mirrors invoice
+     * through the B2B path; the service guards mirror/re-issue/discount/
+     * status and throws with a user-facing message.
+     */
+    public function issueInvoice(Request $request, ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        try {
+            $shopOrder = $invoices->issueInvoice($shopOrder);
+        } catch (\RuntimeException $e) {
+            return redirect()
+                ->route('app.admin.shop-orders.show', $shopOrder)
+                ->with('status', $e->getMessage());
+        }
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: (int) $shopOrder->id,
+            action: 'invoice',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            metadata: ['channel' => 'admin', 'invoice_number' => $shopOrder->invoice_number],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        // No auto-mail: the admin reviews and sends the invoice email in the
+        // mail editor (precrafted text, editable subject/recipients/body).
+        return redirect()
+            ->route('app.admin.shop-orders.shop-invoice-mail', $shopOrder)
+            ->with('status', __('shop.admin.invoice_issued_flash', ['number' => $shopOrder->invoice_number]));
+    }
+
+    public function invoicePdf(ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): SymfonyResponse
+    {
+        $this->authorize('admin');
+        abort_unless($shopOrder->isInvoiced(), 404);
+
+        return $invoices->renderPdf($shopOrder)
+            ->download('erdgut-rechnung-'.$shopOrder->invoice_number.'.pdf');
+    }
+
+    /**
+     * PDF exactly as it would print right now: the real document once
+     * issued, a clearly marked draft with the upcoming number before.
+     */
+    public function invoicePreviewPdf(ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): SymfonyResponse
+    {
+        $this->authorize('admin');
+        abort_if($shopOrder->restaurant_order_id !== null, 404);
+
+        $preview = $shopOrder->invoice_number === null
+            ? InvoiceSequence::preview()
+            : null;
+
+        return $invoices->renderPdf($shopOrder, $preview)
+            ->stream('erdgut-rechnung-vorschau-'.$shopOrder->id.'.pdf');
+    }
+
+    /**
+     * WYSIWYG invoice editor for shop orders, same UX as the B2B editor:
+     * the sheet looks like the Rechnung, every text is an input, lines are
+     * priced net-first (Preis × Menge), and money edits flow through the
+     * order's paid/outstanding tracking. Mirrors edit through the B2B
+     * editor instead.
+     */
+    public function shopInvoiceEditor(ShopOrder $shopOrder): View|RedirectResponse
+    {
+        $this->authorize('admin');
+
+        if ($shopOrder->restaurant_order_id !== null) {
+            return redirect()->route('app.admin.shop-orders.invoice-editor', $shopOrder->restaurant_order_id);
+        }
+
+        $shopOrder->load('items.product.translations');
+
+        return view('admin.shop-orders.shop-invoice-editor', [
+            'order' => $shopOrder,
+            'items' => $shopOrder->items->values(),
+            'values' => $this->documentOverrideValues($shopOrder),
+            'previewNumber' => $shopOrder->invoice_number ?? InvoiceSequence::preview(),
+            'dueDays' => (int) config('shop.restaurant_invoice_due_days', 7),
+            'backUrl' => route('app.admin.shop-orders.show', $shopOrder),
+        ]);
+    }
+
+    /** Persist everything the shop invoice editor can change, in one save. */
+    public function saveShopInvoiceEditor(AdminShopInvoiceEditorRequest $request, ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): RedirectResponse
+    {
+        $before = [
+            'total' => (float) $shopOrder->total_amount_eur,
+            'item_count' => $shopOrder->items()->count(),
+        ];
+
+        $this->applyShopInvoiceEditor($request, $shopOrder, $invoices);
+        $shopOrder->refresh();
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: (int) $shopOrder->id,
+            action: 'invoice_edit',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            metadata: [
+                'channel' => 'admin',
+                'before' => $before,
+                'after' => [
+                    'total' => (float) $shopOrder->total_amount_eur,
+                    'item_count' => $shopOrder->items()->count(),
+                ],
+                'override_keys' => array_keys((array) ($shopOrder->receipt_overrides ?? [])),
+                'invoiced' => $shopOrder->isInvoiced(),
+            ],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.shop-orders.shop-invoice-editor', $shopOrder)
+            ->with('status', __('restaurant.invoice_editor_saved_flash'));
+    }
+
+    /**
+     * Live PDF preview from the editor: the submitted (possibly UNSAVED)
+     * form state is applied inside a transaction, the PDF rendered, and
+     * everything rolled back.
+     */
+    public function shopInvoiceEditorLivePreview(AdminShopInvoiceEditorRequest $request, ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): SymfonyResponse
+    {
+        DB::beginTransaction();
+        try {
+            $this->applyShopInvoiceEditor($request, $shopOrder, $invoices);
+
+            $preview = $shopOrder->invoice_number === null ? InvoiceSequence::preview() : null;
+            $pdf = $invoices->renderPdf($shopOrder->refresh(), $preview)->output();
+        } finally {
+            DB::rollBack();
+        }
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="erdgut-rechnung-vorschau-'.$shopOrder->id.'.pdf"',
+        ]);
+    }
+
+    /** The one write path both save and live preview share. */
+    private function applyShopInvoiceEditor(AdminShopInvoiceEditorRequest $request, ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): void
+    {
+        $invoices->updatePricing(
+            $shopOrder,
+            $request->validated('items'),
+            $request->filled('delivery_fee_net_eur') ? (float) $request->validated('delivery_fee_net_eur') : null,
+            $request->filled('delivery_fee_vat_rate_percent') ? (int) $request->validated('delivery_fee_vat_rate_percent') : null,
+        );
+
+        // Overrides only; line names were already handled by updatePricing.
+        $this->service->saveReceiptOverrides($shopOrder, (array) $request->validated('overrides', []));
+
+        $dates = [];
+        if ($request->filled('invoice_due_date')) {
+            $dates['invoice_due_date'] = $request->validated('invoice_due_date');
+        }
+        if ($request->filled('expected_delivery_date')) {
+            $dates['expected_delivery_date'] = $request->validated('expected_delivery_date');
+        }
+        if ($dates !== []) {
+            $shopOrder->forceFill($dates)->save();
+        }
+    }
+
+    /**
+     * WYSIWYG mail editor for the invoice email (same view as B2B):
+     * precrafted German du-text, English one click away, editable subject,
+     * body and recipients. Reachable right after issuing and any time later
+     * for a resend.
+     */
+    public function invoiceMailEditor(ShopOrder $shopOrder): View
+    {
+        $this->authorize('admin');
+        abort_unless($shopOrder->isInvoiced(), 403);
+
+        return view('admin.shop-orders.invoice-mail', [
+            'recipients' => (string) ($shopOrder->email ?? ''),
+            'templates' => $this->invoiceMailTemplates($shopOrder),
+            'backUrl' => route('app.admin.shop-orders.show', $shopOrder),
+            'sendUrl' => route('app.admin.shop-orders.shop-invoice-mail.send', $shopOrder),
+            'number' => (string) $shopOrder->invoice_number,
+            'attachmentName' => 'erdgut-rechnung-'.$shopOrder->invoice_number.'.pdf',
+        ]);
+    }
+
+    /** Send the composed invoice email to every recipient, PDF attached. */
+    public function sendInvoiceMail(Request $request, ShopOrder $shopOrder): RedirectResponse
+    {
+        $this->authorize('admin');
+        abort_unless($shopOrder->isInvoiced(), 403);
+
+        $validated = $request->validate([
+            'recipients' => ['required', 'string', 'max:500'],
+            'subject' => ['required', 'string', 'max:200'],
+            'body' => ['required', 'string', 'max:5000'],
+        ]);
+
+        // One field, several recipients: split on commas/semicolons and
+        // validate each address individually.
+        $recipients = collect(preg_split('/[,;]+/', $validated['recipients']))
+            ->map(fn ($email) => trim((string) $email))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $invalid = $recipients->reject(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL) !== false);
+        if ($recipients->isEmpty() || $invalid->isNotEmpty()) {
+            return back()->withInput()->withErrors([
+                'recipients' => __('restaurant.invoice_mail_invalid_recipients', ['emails' => $invalid->implode(', ')]),
+            ]);
+        }
+
+        foreach ($recipients as $email) {
+            try {
+                Mail::to($email)->queue(new ShopInvoiceCustomMail(
+                    $shopOrder,
+                    $validated['subject'],
+                    $validated['body'],
+                ));
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: (int) $shopOrder->id,
+            action: 'invoice_mail_sent',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            metadata: [
+                'channel' => 'admin',
+                'invoice_number' => $shopOrder->invoice_number,
+                'recipients' => $recipients->all(),
+                'subject' => $validated['subject'],
+            ],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.shop-orders.show', $shopOrder)
+            ->with('status', __('restaurant.invoice_mail_sent_flash', ['recipients' => $recipients->implode(', ')]));
+    }
+
+    /**
+     * Precrafted subject + body in German (informal du) and English; the
+     * mail editor starts on German and swaps the texts on button click.
+     *
+     * @return array<string, array{subject: string, body: string}>
+     */
+    private function invoiceMailTemplates(ShopOrder $order): array
+    {
+        $name = (string) ($order->name ?? '');
+        $number = (string) $order->invoice_number;
+        $total = number_format((float) $order->total_amount_eur, 2, ',', '.').' €';
+        $totalEn = number_format((float) $order->total_amount_eur, 2, '.', ',').' EUR';
+        $isPickup = $order->fulfillment_mode !== 'delivery';
+        $eventDe = $isPickup ? 'Abholung' : 'Lieferung';
+        $eventEn = $isPickup ? 'pickup' : 'delivery';
+        $dateDe = $order->expected_delivery_date?->format('d.m.Y') ?? '';
+        $dateEn = $order->expected_delivery_date?->format('d/m/Y') ?? '';
+        $dueDe = $order->invoice_due_date?->format('d.m.Y') ?? '';
+        $dueEn = $order->invoice_due_date?->format('d/m/Y') ?? '';
+
+        return [
+            'de' => [
+                'subject' => 'Deine Rechnung '.$number.' von Erdgut',
+                'body' => 'Hallo'.($name !== '' ? ' '.$name : '').",\n\n"
+                    ."anbei findest du die Rechnung {$number} zu deiner {$eventDe} vom {$dateDe} über {$total}.\n\n"
+                    ."Der Betrag ist bis zum {$dueDe} auf das in der Rechnung angegebene Konto zahlbar. Bitte gib die Rechnungsnummer als Verwendungszweck an.\n\n"
+                    ."Wenn etwas nicht stimmt oder du Fragen hast, melde dich gern direkt bei uns.\n\n"
+                    ."Herzliche Grüße\ndein Erdgut-Team",
+            ],
+            'en' => [
+                'subject' => 'Your invoice '.$number.' from Erdgut',
+                'body' => 'Hello'.($name !== '' ? ' '.$name : '').",\n\n"
+                    ."please find attached invoice {$number} for your {$eventEn} of {$dateEn}, totalling {$totalEn}.\n\n"
+                    ."The amount is due by {$dueEn} to the bank account stated on the invoice. Please use the invoice number as the payment reference.\n\n"
+                    ."If anything looks off or you have questions, just reply to this email.\n\n"
+                    ."Best regards\nyour Erdgut team",
+            ],
+        ];
     }
 }

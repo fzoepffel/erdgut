@@ -130,10 +130,11 @@ class RestaurantMultiProducerDisplayTest extends TestCase
         $this->assertStringContainsString($farmB->name, $row['producerLabel']);
     }
 
-    public function test_invoice_pdf_names_the_farm_that_actually_delivers(): void
+    public function test_invoice_pdf_names_no_farms(): void
     {
-        // Primary is farm A, but the stock covering the date comes from
-        // farm B — the invoice's producer column must say farm B.
+        // Deliberate design change (Fred, 16.07.2026): the customer-facing
+        // Rechnung matches the manually issued template and carries NO farm
+        // attribution — farms stay on internal documents and the storefront.
         $farmA = Producer::factory()->create();
         $farmB = Producer::factory()->create();
         $product = $this->product($farmA, [$farmA->id, $farmB->id]);
@@ -149,9 +150,12 @@ class RestaurantMultiProducerDisplayTest extends TestCase
         $svc = app(RestaurantInvoiceService::class);
         $svc->issueInvoice($order);
 
-        $html = $svc->renderPdf($order->refresh())->getDomPDF()->outputHtml();
+        // dompdf entity-encodes umlauts/apostrophes in outputHtml with its
+        // own scheme; decode and compare the raw names to stay flake-free
+        // for faker names like O'Conner or Häberli.
+        $html = html_entity_decode($svc->renderPdf($order->refresh())->getDomPDF()->outputHtml());
 
-        $this->assertStringContainsString(e($farmB->name), $html);
-        $this->assertStringNotContainsString(e($farmA->name), $html);
+        $this->assertStringNotContainsString($farmB->name, $html);
+        $this->assertStringNotContainsString($farmA->name, $html);
     }
 }

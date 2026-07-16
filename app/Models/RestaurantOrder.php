@@ -34,10 +34,13 @@ class RestaurantOrder extends Model
         'items_total_net_eur',
         'items_total_gross_eur',
         'vat_total_eur',
+        'delivery_fee_net_eur',
+        'delivery_fee_vat_rate_percent',
         'invoice_number',
         'invoiced_at',
         'invoice_due_date',
         'invoice_paid_at',
+        'invoice_overrides',
         'locale',
         'submitted_at',
     ];
@@ -52,9 +55,12 @@ class RestaurantOrder extends Model
             'items_total_net_eur' => 'decimal:2',
             'items_total_gross_eur' => 'decimal:2',
             'vat_total_eur' => 'decimal:2',
+            'delivery_fee_net_eur' => 'decimal:2',
+            'delivery_fee_vat_rate_percent' => 'integer',
             'invoiced_at' => 'datetime',
             'invoice_due_date' => 'date',
             'invoice_paid_at' => 'datetime',
+            'invoice_overrides' => 'array',
             'adjusted_at' => 'datetime',
             'submitted_at' => 'datetime',
         ];
@@ -64,6 +70,42 @@ class RestaurantOrder extends Model
     public function items(): HasMany
     {
         return $this->hasMany(RestaurantOrderItem::class);
+    }
+
+    /**
+     * Optional delivery fee, entered NET at the pricing step and billed as
+     * its own line on the invoice. Net entry mirrors how line pricing works.
+     */
+    public function deliveryFeeNetEur(): float
+    {
+        return (float) ($this->delivery_fee_net_eur ?? 0.0);
+    }
+
+    public function deliveryFeeVatEur(): float
+    {
+        $net = $this->deliveryFeeNetEur();
+        if ($net <= 0) {
+            return 0.0;
+        }
+
+        return round($net * (int) ($this->delivery_fee_vat_rate_percent ?? 0) / 100, 2);
+    }
+
+    public function deliveryFeeGrossEur(): float
+    {
+        return round($this->deliveryFeeNetEur() + $this->deliveryFeeVatEur(), 2);
+    }
+
+    /**
+     * A per-invoice display override (recipient/seller/bank block lines,
+     * terms text, ...) set in the WYSIWYG invoice editor. Null when unset or
+     * blank, so callers can fall back to the real default.
+     */
+    public function invoiceOverride(string $key): ?string
+    {
+        $value = trim((string) (($this->invoice_overrides ?? [])[$key] ?? ''));
+
+        return $value !== '' ? $value : null;
     }
 
     /** @return BelongsTo<User, $this> */

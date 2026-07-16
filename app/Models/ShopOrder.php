@@ -90,6 +90,10 @@ class ShopOrder extends Model
         'outstanding_settled_amount_eur',
         'outstanding_settled_at',
         'outstanding_settled_by_user_id',
+        'receipt_overrides',
+        'invoice_number',
+        'invoiced_at',
+        'invoice_due_date',
         'coupon_id',
         'coupon_code',
         'discount_eur',
@@ -141,6 +145,9 @@ class ShopOrder extends Model
             'paid_amount_eur' => 'decimal:2',
             'outstanding_settled_amount_eur' => 'decimal:2',
             'outstanding_settled_at' => 'datetime',
+            'receipt_overrides' => 'array',
+            'invoiced_at' => 'datetime',
+            'invoice_due_date' => 'date',
             'discount_eur' => 'decimal:2',
             'paid_at' => 'datetime',
             'marked_paid_by_admin_at' => 'datetime',
@@ -325,6 +332,27 @@ class ShopOrder extends Model
      * Used by the edit flow to decide whether the order's own quantities
      * may be re-used against availability.
      */
+    /**
+     * A per-receipt display override (recipient/seller block lines, texts)
+     * set in the WYSIWYG receipt editor. Null when unset or blank, so
+     * callers fall back to the real default.
+     */
+    public function receiptOverride(string $key): ?string
+    {
+        $value = trim((string) (($this->receipt_overrides ?? [])[$key] ?? ''));
+
+        return $value !== '' ? $value : null;
+    }
+
+    /**
+     * Whether a proper Rechnung has been issued for this order. The number
+     * comes from the shared yearly invoice ledger and never changes.
+     */
+    public function isInvoiced(): bool
+    {
+        return $this->invoice_number !== null;
+    }
+
     public function commitsStockNow(): bool
     {
         if (in_array($this->status, [

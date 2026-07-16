@@ -1188,6 +1188,85 @@ class ShopOrderService
     }
 
     /**
+     * Every text override the receipt editor may set, with its max length.
+     * Display-only: money edits go through updateOrder(), which tracks
+     * paid/open amounts.
+     *
+     * @var array<string, int>
+     */
+    public const RECEIPT_OVERRIDE_KEYS = [
+        'seller_name' => 160,
+        'seller_register' => 160,
+        'seller_vat_id' => 160,
+        'seller_address' => 160,
+        'seller_email' => 160,
+        'recipient_name' => 160,
+        'recipient_email' => 160,
+        'recipient_phone' => 160,
+        'recipient_fulfillment' => 160,
+        // Invoice recipient extras, same semantics as the B2B invoice: a
+        // free second line (z. Hd. ...) and the buyer's USt-IdNr. Useful
+        // for admin-created B2B shop orders, which have no restaurant
+        // profile to pull these from.
+        'recipient_extra' => 160,
+        'recipient_vat_id' => 160,
+        'delivery_line_label' => 160,
+        'payment_text' => 160,
+        'questions_text' => 500,
+        'notes_text' => 500,
+        // Invoice-only fields (the Kaufbeleg ignores them): bank block and
+        // payment terms on the shop-order Rechnung.
+        'bank_name' => 160,
+        'bank_holder' => 160,
+        'bank_iban' => 160,
+        'bank_reference' => 160,
+        'terms_text' => 500,
+    ];
+
+    /**
+     * Persist per-receipt display overrides + per-line print names from the
+     * WYSIWYG receipt editor. Whitelisted keys only; blank values drop the
+     * key so the document falls back to its real default.
+     *
+     * @param  array<string, mixed>  $overrides
+     * @param  array<int, array{id?:mixed, display_name?:mixed}>  $lineNames
+     */
+    public function saveReceiptOverrides(ShopOrder $order, array $overrides, array $lineNames = []): void
+    {
+        // MERGE semantics: the receipt editor and the invoice editor each
+        // submit only their own subset of keys. Keys absent from the input
+        // stay untouched; a key submitted blank drops its override.
+        $clean = (array) ($order->receipt_overrides ?? []);
+        foreach (self::RECEIPT_OVERRIDE_KEYS as $key => $maxLength) {
+            if (! array_key_exists($key, $overrides)) {
+                continue;
+            }
+            $value = trim((string) ($overrides[$key] ?? ''));
+            if ($value !== '') {
+                $clean[$key] = mb_substr($value, 0, $maxLength);
+            } else {
+                unset($clean[$key]);
+            }
+        }
+
+        $order->forceFill(['receipt_overrides' => $clean !== [] ? $clean : null])->save();
+
+        if ($lineNames === []) {
+            return;
+        }
+
+        $items = $order->items()->get()->keyBy('id');
+        foreach ($lineNames as $line) {
+            $item = $items->get((int) ($line['id'] ?? 0));
+            if ($item === null || ! array_key_exists('display_name', $line)) {
+                continue;
+            }
+            $name = trim((string) $line['display_name']);
+            $item->forceFill(['display_name_override' => $name !== '' ? mb_substr($name, 0, 160) : null])->save();
+        }
+    }
+
+    /**
      * Bring the order's item rows in line with the freshly quoted lines,
      * keeping packing state where a line survives: existing items are
      * matched by (product, grade, custom name) and updated in place, so

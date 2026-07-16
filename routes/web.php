@@ -471,8 +471,30 @@ Route::middleware(['auth', 'verified'])
             // Registered before the {restaurantOrder} wildcard: 'create' would otherwise bind as a model key.
             Route::get('restaurant-orders/create', [AdminRestaurantRequestController::class, 'create'])->name('restaurant-orders.create');
             Route::post('restaurant-orders', [AdminRestaurantRequestController::class, 'store'])->name('restaurant-orders.store');
+            // Static segment before the {restaurantOrder} wildcard.
+            Route::post('restaurant-orders/invoice-sequence', [AdminRestaurantOrderController::class, 'setInvoiceSequence'])
+                ->middleware('throttle:30,1')
+                ->name('restaurant-orders.invoice-sequence');
             Route::get('restaurant-orders/{restaurantOrder}', [AdminRestaurantOrderController::class, 'show'])->name('restaurant-orders.show');
             Route::get('restaurant-orders/{restaurantOrder}/invoice.pdf', [AdminRestaurantOrderController::class, 'invoicePdf'])->name('restaurant-orders.invoice-pdf');
+            // WYSIWYG invoice editor + live PDF preview. Named under
+            // shop-orders on purpose: invoicing is an order-level activity
+            // (firm B2B orders live in the unified shop-orders list), so the
+            // sidebar highlights Bestellungen, not the requests queue.
+            Route::get('restaurant-orders/{restaurantOrder}/invoice-editor', [AdminRestaurantOrderController::class, 'invoiceEditor'])->name('shop-orders.invoice-editor');
+            Route::post('restaurant-orders/{restaurantOrder}/invoice-editor', [AdminRestaurantOrderController::class, 'saveInvoiceEditor'])
+                ->middleware('throttle:60,1')
+                ->name('shop-orders.invoice-editor.save');
+            Route::get('restaurant-orders/{restaurantOrder}/invoice-preview.pdf', [AdminRestaurantOrderController::class, 'invoicePreviewPdf'])->name('shop-orders.invoice-preview');
+            // Live preview of UNSAVED editor state (applied + rolled back).
+            Route::post('restaurant-orders/{restaurantOrder}/invoice-editor/preview', [AdminRestaurantOrderController::class, 'invoiceEditorLivePreview'])
+                ->middleware('throttle:60,1')
+                ->name('shop-orders.invoice-editor.preview');
+            // Invoice email editor (opens after issuing; resend any time).
+            Route::get('restaurant-orders/{restaurantOrder}/invoice-mail', [AdminRestaurantOrderController::class, 'invoiceMailEditor'])->name('shop-orders.invoice-mail');
+            Route::post('restaurant-orders/{restaurantOrder}/invoice-mail', [AdminRestaurantOrderController::class, 'sendInvoiceMail'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.invoice-mail.send');
             Route::post('restaurant-orders/{restaurantOrder}/confirm', [AdminRestaurantOrderController::class, 'confirm'])->name('restaurant-orders.confirm');
             Route::post('restaurant-orders/{restaurantOrder}/decline', [AdminRestaurantOrderController::class, 'decline'])->name('restaurant-orders.decline');
             Route::post('restaurant-orders/{restaurantOrder}/cancel', [AdminRestaurantOrderController::class, 'cancel'])->name('restaurant-orders.cancel');
@@ -689,6 +711,31 @@ Route::middleware(['auth', 'verified'])
             // Full order editing (lines, prices, fulfillment) with open-amount
             // tracking for already-paid orders.
             Route::get('shop-orders/{shopOrder}/edit', [AdminShopOrderController::class, 'edit'])->name('shop-orders.edit');
+            // Rechnung for a non-mirror shop order: same shared EB ledger as
+            // the restaurant invoices. Route names carry a shop- prefix where
+            // the plain name is already taken by the B2B invoice pages above.
+            Route::post('shop-orders/{shopOrder}/issue-invoice', [AdminShopOrderController::class, 'issueInvoice'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.issue-invoice');
+            Route::get('shop-orders/{shopOrder}/invoice.pdf', [AdminShopOrderController::class, 'invoicePdf'])->name('shop-orders.invoice-pdf');
+            Route::get('shop-orders/{shopOrder}/invoice-preview.pdf', [AdminShopOrderController::class, 'invoicePreviewPdf'])->name('shop-orders.shop-invoice-preview');
+            // WYSIWYG invoice editor (shop variant of the B2B editor).
+            Route::get('shop-orders/{shopOrder}/invoice-editor', [AdminShopOrderController::class, 'shopInvoiceEditor'])->name('shop-orders.shop-invoice-editor');
+            Route::post('shop-orders/{shopOrder}/invoice-editor', [AdminShopOrderController::class, 'saveShopInvoiceEditor'])
+                ->middleware('throttle:60,1')
+                ->name('shop-orders.shop-invoice-editor.save');
+            Route::post('shop-orders/{shopOrder}/invoice-editor/preview', [AdminShopOrderController::class, 'shopInvoiceEditorLivePreview'])
+                ->middleware('throttle:60,1')
+                ->name('shop-orders.shop-invoice-editor.preview');
+            Route::get('shop-orders/{shopOrder}/invoice-mail', [AdminShopOrderController::class, 'invoiceMailEditor'])->name('shop-orders.shop-invoice-mail');
+            Route::post('shop-orders/{shopOrder}/invoice-mail', [AdminShopOrderController::class, 'sendInvoiceMail'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.shop-invoice-mail.send');
+            // WYSIWYG receipt editor (display-only text overrides).
+            Route::get('shop-orders/{shopOrder}/receipt-editor', [AdminShopOrderController::class, 'receiptEditor'])->name('shop-orders.receipt-editor');
+            Route::post('shop-orders/{shopOrder}/receipt-editor', [AdminShopOrderController::class, 'saveReceiptEditor'])
+                ->middleware('throttle:60,1')
+                ->name('shop-orders.receipt-editor.save');
             Route::put('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'update'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.update');

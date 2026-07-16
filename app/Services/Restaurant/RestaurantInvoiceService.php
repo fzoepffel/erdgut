@@ -2,15 +2,18 @@
 
 namespace App\Services\Restaurant;
 
+use App\Enums\RestaurantOrderItemTrack;
+use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
-use App\Models\NumberSequence;
 use App\Models\RestaurantOrder;
 use App\Services\Admin\ProducerAllocationService;
+use App\Support\InvoiceSequence;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPDF;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -27,20 +30,62 @@ class RestaurantInvoiceService
      * automatically (InventoryService reads the live quantity), so no inventory
      * call is needed here.
      *
-     * @param  array<int, array{id:int, net_total_eur?:mixed, vat_rate_percent?:mixed, quantity?:mixed, remove?:mixed}>  $lines
+     * The optional delivery fee is entered NET like the lines and billed as
+     * its own invoice line; passing null clears a previously set fee.
+     *
+     * Lines may carry a `display_name` (per-invoice print name, display-only)
+     * and NEW entries without an id ({name, quantity, unit, net_total_eur,
+     * vat_rate_percent}) become custom items — no product, no stock hold.
+     *
+     * Issued invoices stay editable by explicit product decision (the number
+     * and invoiced_at never change; re-issuing stays blocked).
+     *
+     * @param  array<int, array{id?:int, net_total_eur?:mixed, vat_rate_percent?:mixed, quantity?:mixed, remove?:mixed, display_name?:mixed, name?:mixed, unit?:mixed}>  $lines
      */
-    public function updatePricing(RestaurantOrder $order, array $lines): RestaurantOrder
-    {
-        if ($order->isInvoiced()) {
-            throw new RuntimeException('Order already invoiced — locked.');
-        }
+    public function updatePricing(
+        RestaurantOrder $order,
+        array $lines,
+        ?float $deliveryFeeNetEur = null,
+        ?int $deliveryFeeVatRatePercent = null,
+    ): RestaurantOrder {
+        return DB::transaction(function () use ($order, $lines, $deliveryFeeNetEur, $deliveryFeeVatRatePercent): RestaurantOrder {
+            $order->forceFill([
+                'delivery_fee_net_eur' => $deliveryFeeNetEur !== null && $deliveryFeeNetEur > 0 ? round($deliveryFeeNetEur, 2) : null,
+                'delivery_fee_vat_rate_percent' => $deliveryFeeNetEur !== null && $deliveryFeeNetEur > 0 ? $deliveryFeeVatRatePercent : null,
+            ])->save();
 
-        return DB::transaction(function () use ($order, $lines): RestaurantOrder {
             $items = $order->items()->lockForUpdate()->get()->keyBy('id');
 
             foreach ($lines as $payload) {
                 $item = $items->get((int) ($payload['id'] ?? 0));
+
+                // New line (no id): an off-catalog custom item, priced net.
+                // No product, track Requested → never holds stock.
                 if ($item === null) {
+                    $name = trim((string) ($payload['name'] ?? ''));
+                    if ($name === '' || ! empty($payload['remove'])) {
+                        continue;
+                    }
+
+                    $qty = round((float) ($payload['quantity'] ?? 1), 4);
+                    $rate = (int) ($payload['vat_rate_percent'] ?? (int) config('shop.vat_rate_percent', 7));
+                    $net = round((float) ($payload['net_total_eur'] ?? 0), 2);
+                    $gross = round($net * (100 + $rate) / 100, 2);
+
+                    $order->items()->create([
+                        'product_id' => null,
+                        'variant_id' => null,
+                        'name_snapshot' => $name,
+                        'quantity' => $qty > 0 ? $qty : 1,
+                        'unit' => trim((string) ($payload['unit'] ?? '')) !== '' ? (string) $payload['unit'] : 'piece',
+                        'track' => RestaurantOrderItemTrack::Requested,
+                        'line_status' => RestaurantOrderLineStatus::Confirmed,
+                        'unit_price_snapshot_eur' => $qty > 0 ? round($gross / $qty, 4) : $gross,
+                        'vat_rate_snapshot_percent' => $rate,
+                        'line_total_eur' => $gross,
+                        'vat_amount_eur' => round($gross - $net, 2),
+                    ]);
+
                     continue;
                 }
 
@@ -64,10 +109,18 @@ class RestaurantInvoiceService
                     'unit_price_snapshot_eur' => $qty > 0 ? round($gross / $qty, 4) : 0,
                     'line_total_eur' => $gross,
                     'vat_amount_eur' => $vat,
+                    // Per-invoice print name; blank resets to the real name.
+                    'display_name_override' => array_key_exists('display_name', $payload)
+                        ? (trim((string) $payload['display_name']) !== '' ? trim((string) $payload['display_name']) : null)
+                        : $item->display_name_override,
                 ])->save();
             }
 
             $this->rerollTotals($order);
+
+            // A firm order already mirrors into the unified shop-orders list;
+            // pricing edits must not leave that mirror stale.
+            app(RestaurantOrderService::class)->syncShopOrderMirror($order);
 
             return $order;
         });
@@ -104,20 +157,111 @@ class RestaurantInvoiceService
             }
 
             $invoicedAt = Carbon::now();
-            $year = $invoicedAt->year;
-            $seq = NumberSequence::next("restaurant_invoice:{$year}");
-            $number = sprintf('%s-%d-%04d', (string) config('shop.restaurant_invoice_prefix', 'RG'), $year, $seq);
+            // One shared yearly ledger for ALL invoices (restaurant + shop
+            // orders); numbers issued under the old RG-2026-0046 format stay
+            // valid on their orders, the sequence simply continues.
+            $number = InvoiceSequence::next($invoicedAt);
+
+            // Payment terms count from DELIVERY ("zahlbar innerhalb von X
+            // Tagen nach Lieferung"), but a late-issued invoice is never due
+            // before its own date. A due date already set in the invoice
+            // editor wins over the computed default.
+            if ($fresh->invoice_due_date !== null) {
+                $dueDate = Carbon::parse($fresh->invoice_due_date);
+            } else {
+                $dueDays = (int) config('shop.restaurant_invoice_due_days', 7);
+                $deliveryDate = $fresh->expected_delivery_date !== null
+                    ? Carbon::parse($fresh->expected_delivery_date)
+                    : $invoicedAt;
+                $dueDate = $deliveryDate->copy()->addDays($dueDays);
+                if ($dueDate->lt($invoicedAt)) {
+                    $dueDate = $invoicedAt->copy()->addDays($dueDays);
+                }
+            }
 
             $fresh->forceFill([
                 'invoice_number' => $number,
                 'invoiced_at' => $invoicedAt,
-                'invoice_due_date' => $invoicedAt->copy()->addDays((int) config('shop.restaurant_invoice_due_days', 14))->toDateString(),
+                'invoice_due_date' => $dueDate->toDateString(),
             ])->save();
+
+            // rerollTotals above may have folded in a delivery fee set since
+            // the last pricing save; keep the mirror in step with the final,
+            // frozen invoice amounts.
+            app(RestaurantOrderService::class)->syncShopOrderMirror($fresh);
 
             return $fresh;
         });
 
         return $order->refresh();
+    }
+
+    /**
+     * Every text override the invoice editor may set, with its max length.
+     * Everything else in a submitted overrides payload is dropped.
+     *
+     * @var array<string, int>
+     */
+    public const OVERRIDE_KEYS = [
+        'seller_name' => 160,
+        'seller_register' => 160,
+        'seller_vat_id' => 160,
+        'seller_address' => 160,
+        'seller_email' => 160,
+        'recipient_name' => 160,
+        'recipient_extra' => 160,
+        'recipient_address' => 160,
+        'recipient_phone' => 160,
+        'recipient_vat_id' => 160,
+        'bank_name' => 160,
+        'bank_holder' => 160,
+        'bank_iban' => 160,
+        'bank_reference' => 160,
+        'delivery_line_label' => 160,
+        'questions_text' => 500,
+        'terms_text' => 500,
+    ];
+
+    /**
+     * Persist per-invoice display overrides from the WYSIWYG editor. Only
+     * whitelisted keys survive; blank values drop the key so the document
+     * falls back to its real default (config/profile).
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    public function saveInvoiceOverrides(RestaurantOrder $order, array $overrides): void
+    {
+        $clean = [];
+        foreach (self::OVERRIDE_KEYS as $key => $maxLength) {
+            $value = trim((string) ($overrides[$key] ?? ''));
+            if ($value !== '') {
+                $clean[$key] = mb_substr($value, 0, $maxLength);
+            }
+        }
+
+        $order->forceFill(['invoice_overrides' => $clean !== [] ? $clean : null])->save();
+    }
+
+    /**
+     * The number the NEXT issued invoice would get, without consuming it.
+     * Shown in the admin so the operator can verify the sequence lines up
+     * with manually issued invoices before the first system invoice.
+     */
+    public function nextInvoiceNumberPreview(?Carbon $at = null): string
+    {
+        return InvoiceSequence::preview($at);
+    }
+
+    /**
+     * Align the current year's sequence so the NEXT invoice gets number
+     * $next. Only forward moves are allowed — lowering the counter could
+     * re-issue an already used number.
+     *
+     * @throws ValidationException
+     */
+    public function setNextSequenceNumber(int $next): void
+    {
+        InvoiceSequence::setNext($next);
     }
 
     /**
@@ -127,14 +271,26 @@ class RestaurantInvoiceService
      */
     public function vatByRate(RestaurantOrder $order): Collection
     {
-        return $order->items
+        $byRate = $order->items
+            ->reject(fn ($i) => $i->isDeclined())
             ->groupBy('vat_rate_snapshot_percent')
-            ->map(fn ($group) => round($group->sum(fn ($item) => (float) $item->vat_amount_eur), 2))
-            ->sortKeys();
+            ->map(fn ($group) => round($group->sum(fn ($item) => (float) $item->vat_amount_eur), 2));
+
+        // The delivery fee's VAT joins its rate bucket like any line.
+        if ($order->deliveryFeeVatEur() > 0) {
+            $rate = (int) $order->delivery_fee_vat_rate_percent;
+            $byRate[$rate] = round((float) ($byRate[$rate] ?? 0.0) + $order->deliveryFeeVatEur(), 2);
+        }
+
+        return $byRate->sortKeys();
     }
 
-    /** Render the invoice PDF from the frozen order. Shared by download routes + mail. */
-    public function renderPdf(RestaurantOrder $order): DomPDF
+    /**
+     * Render the invoice PDF. Shared by download routes + mail. For orders
+     * without a number yet, $previewNumber renders a clearly marked draft
+     * (the editor's PDF preview).
+     */
+    public function renderPdf(RestaurantOrder $order, ?string $previewNumber = null): DomPDF
     {
         $order->loadMissing(['items.product.producer.translations', 'user.restaurantProfile']);
 
@@ -148,6 +304,7 @@ class RestaurantInvoiceService
 
         return Pdf::loadView('restaurant.pdf.invoice', [
             'order' => $order,
+            'previewNumber' => $previewNumber,
             'profile' => $order->user?->restaurantProfile,
             'producerNames' => $producerNames,
             'vatByRate' => $this->vatByRate($order),
@@ -173,6 +330,12 @@ class RestaurantInvoiceService
         $live = $order->items->reject(fn ($i) => $i->isDeclined());
         $gross = round((float) $live->sum(fn ($i) => (float) $i->line_total_eur), 2);
         $vat = round((float) $live->sum(fn ($i) => (float) $i->vat_amount_eur), 2);
+
+        // The delivery fee bills like any other invoice line, so it is part
+        // of the stored totals — the column names say "items" for historical
+        // reasons but hold the full invoice amount every reader displays.
+        $gross = round($gross + $order->deliveryFeeGrossEur(), 2);
+        $vat = round($vat + $order->deliveryFeeVatEur(), 2);
 
         $order->forceFill([
             'items_total_gross_eur' => $gross,
