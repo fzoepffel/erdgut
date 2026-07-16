@@ -23,13 +23,39 @@
                 $factor = in_array((string) $item->unit, ['g', 'ml'], true) ? 1000 : 1;
             }
 
+            $displayQty = $factor > 0 ? ((float) $item->quantity) / $factor : (float) $item->quantity;
+
             return [
                 'qty' => (float) $item->quantity,
                 'net' => round($item->lineNetEur(), 2),
+                // Prefilled net price per display unit; editing price or
+                // quantity recomputes the total (price-first UX). Untouched
+                // lines submit their exact stored total, so no rounding
+                // drift on a plain re-save.
+                'price' => $displayQty > 0 ? round($item->lineNetEur() / $displayQty, 4) : 0.0,
                 'vat' => (int) $item->vat_rate_snapshot_percent,
                 'factor' => $factor,
+                'touched' => false,
                 'removed' => false,
             ];
+        })->values()->all();
+
+        // German price-unit suffix ("/ kg") per line for the Preis column.
+        $priceUnitLabels = $items->map(function ($item) {
+            if ($item->product?->unit !== null) {
+                $display = $item->product->price_display_unit ?? $item->product->unit->defaultDisplayUnit();
+
+                return match ($display) {
+                    'piece' => 'Stück',
+                    'bunch' => 'Bund',
+                    default => \App\Enums\ProductUnit::displaySymbol($display),
+                };
+            }
+
+            return match ((string) $item->unit) {
+                'g' => 'kg', 'ml' => 'L', 'piece' => 'Stück', 'bunch' => 'Bund',
+                default => \App\Enums\ProductUnit::displaySymbol((string) $item->unit),
+            };
         })->values()->all();
 
         $unitOptions = [
@@ -174,24 +200,28 @@
                                             <div class="text-[10px] text-gray-400">{{ $item->product->producer->name }}</div>
                                         @endif
                                     </td>
-                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top text-gray-700">
-                                        <span x-text="unitPrice(existing[{{ $i }}])"></span>
+                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
+                                        <span class="flex items-baseline gap-1">
+                                            <input type="number" step="0.01" min="0" x-model.number="existing[{{ $i }}].price"
+                                                   x-on:input="existing[{{ $i }}].touched = true"
+                                                   class="{{ $inpRight }}" data-testid="invoice-editor-line-price-{{ $i }}">
+                                            <span class="shrink-0 text-gray-500">€ / {{ $priceUnitLabels[$i] }}</span>
+                                        </span>
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
                                         <span class="flex items-baseline gap-1">
                                             <input type="number" step="0.0001" min="0.0001" name="items[{{ $i }}][quantity]"
                                                    x-model.number="existing[{{ $i }}].qty"
+                                                   x-on:input="existing[{{ $i }}].touched = true"
                                                    class="{{ $inpRight }}" style="max-width:70px;">
                                             <span class="text-gray-500">{{ $item->isCustom() ? \App\Enums\ProductUnit::displaySymbol((string) $item->unit) : $item->product?->canonicalUnitLabel() }}</span>
                                         </span>
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
-                                        <span class="flex items-baseline gap-1">
-                                            <input type="number" step="0.01" min="0" name="items[{{ $i }}][net_total_eur]"
-                                                   x-model.number="existing[{{ $i }}].net"
-                                                   class="{{ $inpRight }}" data-testid="invoice-editor-line-net-{{ $i }}">
-                                            <span class="text-gray-500">€</span>
-                                        </span>
+                                        {{-- Computed: Preis × Menge. The hidden input submits the
+                                             exact stored total while the line is untouched. --}}
+                                        <span class="tabular-nums text-gray-900" x-text="fmt(lineNet(existing[{{ $i }}]))" data-testid="invoice-editor-line-total-{{ $i }}"></span>
+                                        <input type="hidden" name="items[{{ $i }}][net_total_eur]" :value="lineNet(existing[{{ $i }}]).toFixed(2)">
                                         <select name="items[{{ $i }}][vat_rate_percent]" x-model.number="existing[{{ $i }}].vat"
                                                 class="mt-0.5 w-full border-0 bg-transparent p-0 text-[10px] text-gray-400 focus:ring-0">
                                             <option value="7" @selected($item->vat_rate_snapshot_percent === 7)>zzgl. 7 % MwSt.</option>
@@ -215,8 +245,12 @@
                                                x-model="line.name" placeholder="{{ __('restaurant.invoice_editor_new_line_placeholder') }}"
                                                class="{{ $inp }}" required>
                                     </td>
-                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top text-gray-700">
-                                        <span x-text="unitPrice(line)"></span>
+                                    <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
+                                        <span class="flex items-baseline gap-1">
+                                            <input type="number" step="0.01" min="0" x-model.number="line.price"
+                                                   class="{{ $inpRight }}" required>
+                                            <span class="shrink-0 text-gray-500">€ / <span x-text="priceUnitLabel(line.unit)"></span></span>
+                                        </span>
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
                                         <span class="flex items-baseline gap-1">
@@ -231,11 +265,8 @@
                                         </span>
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2.5 py-2 align-top">
-                                        <span class="flex items-baseline gap-1">
-                                            <input type="number" step="0.01" min="0" :name="'items[' + ({{ count($items) }} + idx) + '][net_total_eur]'"
-                                                   x-model.number="line.net" class="{{ $inpRight }}" required>
-                                            <span class="text-gray-500">€</span>
-                                        </span>
+                                        <span class="tabular-nums text-gray-900" x-text="fmt(lineNet(line))"></span>
+                                        <input type="hidden" :name="'items[' + ({{ count($items) }} + idx) + '][net_total_eur]'" :value="lineNet(line).toFixed(2)">
                                         <select :name="'items[' + ({{ count($items) }} + idx) + '][vat_rate_percent]'" x-model.number="line.vat"
                                                 class="mt-0.5 w-full border-0 bg-transparent p-0 text-[10px] text-gray-400 focus:ring-0">
                                             <option value="7">zzgl. 7 % MwSt.</option>
@@ -332,7 +363,29 @@
             feeVat: config.feeVat || 7,
 
             addLine() {
-                this.extra.push({ name: "", qty: 1, unit: "piece", net: null, vat: 7, factor: 1 });
+                this.extra.push({ name: "", qty: 1, unit: "piece", price: null, net: null, vat: 7, factor: 1, touched: true });
+            },
+
+            // g/ml quantities pair with a per-kg/per-L price.
+            effectiveFactor(line) {
+                if (line.unit === "g" || line.unit === "ml") return 1000;
+                return parseFloat(line.factor) || 1;
+            },
+
+            // The net line total: Preis × Menge for edited lines; untouched
+            // lines keep their exact stored total (no rounding drift).
+            lineNet(line) {
+                if (!line.touched && line.net !== null && line.net !== undefined) {
+                    return parseFloat(line.net) || 0;
+                }
+                const price = parseFloat(line.price) || 0;
+                const qty = (parseFloat(line.qty) || 0) / this.effectiveFactor(line);
+                return Math.round(price * qty * 100) / 100;
+            },
+
+            priceUnitLabel(unit) {
+                const labels = { piece: "Stück", bunch: "Bund", kg: "kg", g: "kg", l: "L", ml: "L" };
+                return labels[unit] || unit || "";
             },
 
             liveLines() {
@@ -341,14 +394,14 @@
 
             get netTotal() {
                 const fee = parseFloat(this.feeNet);
-                return this.liveLines().reduce((sum, l) => sum + (parseFloat(l.net) || 0), 0)
+                return this.liveLines().reduce((sum, l) => sum + this.lineNet(l), 0)
                     + (Number.isNaN(fee) ? 0 : fee);
             },
 
             get vatRows() {
                 const byRate = {};
                 this.liveLines().forEach((l) => {
-                    const net = parseFloat(l.net) || 0;
+                    const net = this.lineNet(l);
                     const rate = parseInt(l.vat, 10) || 0;
                     if (net <= 0) return;
                     byRate[rate] = (byRate[rate] || 0) + net * rate / 100;
@@ -366,18 +419,6 @@
 
             get grossTotal() {
                 return this.netTotal + this.vatRows.reduce((sum, r) => sum + r.amount, 0);
-            },
-
-            unitPrice(line) {
-                const net = parseFloat(line.net) || 0;
-                // Per display unit (g/ml scale up to kg/L), like on the PDF.
-                let factor = parseFloat(line.factor) || 1;
-                if (line.unit === "g" || line.unit === "ml") {
-                    factor = 1000;
-                }
-                const qty = (parseFloat(line.qty) || 0) / factor;
-                if (net <= 0 || qty <= 0) return "";
-                return this.fmt(net / qty);
             },
 
             fmt(value) {
