@@ -64,6 +64,26 @@
                 @endif
             </div>
 
+            @if ($quantityChart !== null)
+                @include('admin.products._bar-chart', [
+                    'chart' => $quantityChart,
+                    'heading' => __('admin.product_stats.quantity_heading'),
+                    'unitSuffix' => $unitLabel.' / '.__('admin.product_stats.per_week'),
+                    'testId' => 'product-stats-quantity',
+                ])
+            @endif
+            @if ($revenueChart !== null)
+                @include('admin.products._bar-chart', [
+                    'chart' => $revenueChart,
+                    'heading' => __('admin.product_stats.revenue_heading'),
+                    'unitSuffix' => '€ / '.__('admin.product_stats.per_week'),
+                    'testId' => 'product-stats-revenue',
+                ])
+            @endif
+            @if ($quantityChart !== null || $revenueChart !== null)
+                <p class="px-1 text-xs text-gray-400">{{ __('admin.product_stats.note') }}</p>
+            @endif
+
             @if ($entries->isNotEmpty())
                 <div class="overflow-x-auto rounded-lg border border-gray-100 bg-white shadow-sm">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">

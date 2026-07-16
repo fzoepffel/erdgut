@@ -7,6 +7,7 @@ use App\Enums\CustomerType;
 use App\Enums\DietaryTag;
 use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
+use App\Enums\ShopOrderStatus;
 use App\Enums\TasteProfile;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreProductRequest;
@@ -17,8 +18,10 @@ use App\Models\ProductImage;
 use App\Models\ProductPriceHistory;
 use App\Models\ProductPriceRule;
 use App\Models\ProductProducerVariantPrice;
+use App\Models\ProductStockInflow;
 use App\Models\ProductTranslation;
 use App\Models\ProductVariant;
+use App\Models\ShopOrderItem;
 use App\Services\Admin\PriceHistoryRecorder;
 use App\Services\ImageProcessor;
 use App\Support\ProducerLabels;
@@ -26,6 +29,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -1046,6 +1050,8 @@ class ProductController extends Controller
             ? ($product->price_display_unit ?? $product->unit->defaultDisplayUnit())
             : 'piece';
 
+        [$quantityChart, $revenueChart] = $this->weeklyProductCharts($product, $factor ?? $this->displayFactor($product));
+
         return view('admin.products.price-history', [
             'product' => $product,
             'series' => $series,
@@ -1055,6 +1061,140 @@ class ProductController extends Controller
             'variantOptions' => $product->variants->whereIn('id', $variantIdsWithHistory)->values(),
             'entries' => $rows->sortByDesc('recorded_at')->take(50)->values(),
             'entryLabel' => $seriesLabel,
+            'quantityChart' => $quantityChart,
+            'revenueChart' => $revenueChart,
         ]);
+    }
+
+    /**
+     * Weekly bar charts for the last 12 weeks: goods received (stock
+     * inflows) vs. goods sold (finalized orders, mirrors included so B2B
+     * counts once), plus gross revenue. Quantities in the display unit;
+     * grades are aggregated — this is the whole-product view.
+     *
+     * @return array{0: ?array<string, mixed>, 1: ?array<string, mixed>}
+     */
+    private function weeklyProductCharts(Product $product, int $factor): array
+    {
+        $weeks = 12;
+        $start = now()->startOfWeek()->subWeeks($weeks - 1);
+
+        // Bucket skeleton: ISO week keys in chronological order.
+        $buckets = [];
+        for ($i = 0; $i < $weeks; $i++) {
+            $w = $start->copy()->addWeeks($i);
+            $buckets[$w->format('o-W')] = ['label' => 'KW'.$w->isoWeek(), 'inflow' => 0.0, 'sold' => 0.0, 'revenue' => 0.0];
+        }
+
+        foreach (ProductStockInflow::query()
+            ->where('product_id', $product->id)
+            ->whereDate('received_on', '>=', $start->toDateString())
+            ->get(['received_on', 'quantity']) as $inflow) {
+            $key = Carbon::parse($inflow->received_on)->format('o-W');
+            if (isset($buckets[$key])) {
+                $buckets[$key]['inflow'] += (float) $inflow->quantity / $factor;
+            }
+        }
+
+        $soldRows = ShopOrderItem::query()
+            ->join('shop_orders', 'shop_orders.id', '=', 'shop_order_items.shop_order_id')
+            ->where('shop_order_items.product_id', $product->id)
+            ->whereDate('shop_orders.expected_delivery_date', '>=', $start->toDateString())
+            // Same definition as ShopOrder::scopeFinalized, column-qualified
+            // for the join: paid/fulfilled plus in-person awaiting payment.
+            ->where(function ($inner): void {
+                $inner->whereIn('shop_orders.status', [
+                    ShopOrderStatus::Paid->value,
+                    ShopOrderStatus::Fulfilled->value,
+                ])->orWhere(function ($pickup): void {
+                    $pickup->where('shop_orders.status', ShopOrderStatus::PendingPayment->value)
+                        ->where('shop_orders.payment_method', 'in_person');
+                });
+            })
+            ->get(['shop_orders.expected_delivery_date as d', 'shop_order_items.quantity as q', 'shop_order_items.line_total_eur as t']);
+        foreach ($soldRows as $row) {
+            $key = Carbon::parse($row->d)->format('o-W');
+            if (isset($buckets[$key])) {
+                $buckets[$key]['sold'] += (float) $row->q / $factor;
+                $buckets[$key]['revenue'] += (float) $row->t;
+            }
+        }
+
+        $buckets = array_values($buckets);
+        $hasData = collect($buckets)->contains(fn ($b) => $b['inflow'] > 0 || $b['sold'] > 0 || $b['revenue'] > 0);
+        if (! $hasData) {
+            return [null, null];
+        }
+
+        $qty = $this->barChartGeometry($buckets, [
+            ['field' => 'inflow', 'color' => '#047857', 'label' => __('admin.product_stats.series_inflow')],
+            ['field' => 'sold', 'color' => '#1d4ed8', 'label' => __('admin.product_stats.series_sold')],
+        ]);
+        $rev = $this->barChartGeometry($buckets, [
+            ['field' => 'revenue', 'color' => '#b45309', 'label' => __('admin.product_stats.series_revenue')],
+        ]);
+
+        return [$qty, $rev];
+    }
+
+    /**
+     * Precomputed SVG geometry for a grouped weekly bar chart, so the
+     * Blade partial stays presentation-only.
+     *
+     * @param  array<int, array<string, mixed>>  $buckets
+     * @param  array<int, array{field: string, color: string, label: string}>  $seriesDefs
+     * @return array<string, mixed>
+     */
+    private function barChartGeometry(array $buckets, array $seriesDefs): array
+    {
+        $w = 720;
+        $h = 220;
+        $padL = 56;
+        $padR = 16;
+        $padT = 12;
+        $padB = 28;
+        $plotW = $w - $padL - $padR;
+        $plotH = $h - $padT - $padB;
+        $groupW = $plotW / max(1, count($buckets));
+        $barW = round($groupW * (count($seriesDefs) === 1 ? 0.5 : 0.32), 1);
+
+        $vMax = 0.0;
+        foreach ($buckets as $b) {
+            foreach ($seriesDefs as $def) {
+                $vMax = max($vMax, (float) $b[$def['field']]);
+            }
+        }
+        $vMax = max($vMax * 1.1, 0.01);
+
+        $groups = [];
+        foreach ($buckets as $i => $b) {
+            $x0 = $padL + $groupW * $i;
+            $bars = [];
+            foreach ($seriesDefs as $j => $def) {
+                $v = (float) $b[$def['field']];
+                $height = round($v / $vMax * $plotH, 1);
+                $bars[] = [
+                    'x' => round($x0 + $groupW / 2 - ($barW * count($seriesDefs)) / 2 + $j * $barW, 1),
+                    'y' => round($h - $padB - $height, 1),
+                    'w' => $barW,
+                    'h' => $height,
+                    'color' => $def['color'],
+                    'title' => $def['label'].' '.$b['label'].': '.number_format($v, 2, ',', '.'),
+                ];
+            }
+            $groups[] = ['label' => $b['label'], 'labelX' => round($x0 + $groupW / 2, 1), 'bars' => $bars];
+        }
+
+        $yTicks = [];
+        for ($i = 0; $i <= 4; $i++) {
+            $v = $vMax / 4 * $i;
+            $yTicks[] = ['y' => round($h - $padB - $v / $vMax * $plotH, 1), 'label' => number_format($v, $vMax >= 20 ? 0 : 1, ',', '.')];
+        }
+
+        return [
+            'w' => $w, 'h' => $h, 'padL' => $padL, 'padR' => $padR, 'padB' => $padB,
+            'groups' => $groups, 'yTicks' => $yTicks,
+            'legend' => array_map(fn ($d) => ['color' => $d['color'], 'label' => $d['label']], $seriesDefs),
+        ];
     }
 }

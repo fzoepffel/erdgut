@@ -4,12 +4,15 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
+use App\Enums\ShopOrderStatus;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductPriceHistory;
 use App\Models\ProductPriceRule;
 use App\Models\ProductProducerVariantPrice;
+use App\Models\ProductStockInflow;
 use App\Models\ProductVariant;
+use App\Models\ShopOrder;
 use App\Models\User;
 use App\Services\Admin\PriceHistoryRecorder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -145,6 +148,55 @@ class ProductPriceHistoryTest extends TestCase
             ->assertOk()
             ->assertSee('data-testid="price-history-chart"', false)
             ->assertSee('data-testid="price-history-legend"', false);
+    }
+
+    public function test_quantity_and_revenue_charts_aggregate_inflows_and_finalized_sales(): void
+    {
+        ProductStockInflow::create([
+            'product_id' => $this->product->id,
+            'producer_id' => $this->farm->id,
+            'received_on' => now()->toDateString(),
+            'quantity' => 5000, // 5 kg
+            'freshness_window_days' => 3,
+        ]);
+        $sold = ShopOrder::factory()->create([
+            'status' => ShopOrderStatus::Paid,
+            'payment_method' => 'online', 'paid_at' => now(),
+            'fulfillment_mode' => 'pickup', 'pickup_location' => 'karl_kunger',
+            'expected_delivery_date' => now()->toDateString(),
+            'items_total_eur' => 8.00, 'delivery_fee_eur' => 0, 'discount_eur' => 0, 'total_amount_eur' => 8.00,
+        ]);
+        $sold->items()->create([
+            'product_id' => $this->product->id, 'quantity' => 2000, 'unit' => 'g',
+            'unit_price_snapshot_eur' => 0.004, 'line_total_eur' => 8.00,
+            'vat_rate_snapshot_percent' => 7, 'vat_amount_eur' => 0.52,
+        ]);
+        // Cancelled orders must not count as sold.
+        $cancelled = ShopOrder::factory()->create([
+            'status' => ShopOrderStatus::Cancelled,
+            'fulfillment_mode' => 'pickup', 'pickup_location' => 'karl_kunger',
+            'expected_delivery_date' => now()->toDateString(),
+            'items_total_eur' => 99, 'delivery_fee_eur' => 0, 'discount_eur' => 0, 'total_amount_eur' => 99,
+        ]);
+        $cancelled->items()->create([
+            'product_id' => $this->product->id, 'quantity' => 9000, 'unit' => 'g',
+            'unit_price_snapshot_eur' => 0.011, 'line_total_eur' => 99.00,
+            'vat_rate_snapshot_percent' => 7, 'vat_amount_eur' => 6.48,
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->get(route('app.admin.products.price-history', $this->product))
+            ->assertOk()
+            ->assertSee('data-testid="product-stats-quantity"', false)
+            ->assertSee('data-testid="product-stats-revenue"', false);
+
+        // Tooltips carry the aggregated display-unit values: 5 kg in, 2 kg
+        // sold, 8,00 € revenue — and NOT the cancelled 9 kg.
+        $html = $response->getContent();
+        $this->assertStringContainsString(': 5,00', $html);
+        $this->assertStringContainsString(': 2,00', $html);
+        $this->assertStringContainsString(': 8,00', $html);
+        $this->assertStringNotContainsString(': 9,00', $html);
     }
 
     public function test_page_shows_empty_state_without_data(): void
