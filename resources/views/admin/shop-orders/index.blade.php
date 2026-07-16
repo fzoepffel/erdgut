@@ -279,7 +279,11 @@
                                 </tr>
                                 @continue
                             @endif
-                            <tr class="align-top" data-testid="shop-admin-row-{{ $order->id }}">
+                            {{-- Whole row opens the order; clicks on the inner
+                                 delivery-window form (inputs/button) must not
+                                 navigate, hence the closest() guard. --}}
+                            <tr class="cursor-pointer align-top hover:bg-gray-50" data-testid="shop-admin-row-{{ $order->id }}"
+                                onclick="if (!event.target.closest('a, button, input, select, textarea, label, form')) window.location='{{ route('app.admin.shop-orders.show', $order) }}'">
                                 <td class="whitespace-nowrap px-3 py-2 font-mono text-gray-700">#{{ $order->id }}</td>
                                 <td class="whitespace-nowrap px-3 py-2 text-gray-500">
                                     {{ $order->created_at->locale(app()->getLocale())->isoFormat('D. MMM, HH:mm') }}
