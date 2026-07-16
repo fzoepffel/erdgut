@@ -562,6 +562,10 @@ class RestaurantOrderService
             // rerollTotals); the mirror splits it back out into its own
             // delivery-fee columns so ShopOrder consumers add up correctly.
             $mirror->forceFill([
+                'expected_delivery_date' => $order->expected_delivery_date?->toDateString(),
+                'delivery_street' => $order->delivery_street,
+                'delivery_postal_code' => $order->delivery_postal_code,
+                'delivery_city' => $order->delivery_city,
                 'items_total_eur' => round((float) $order->items_total_gross_eur - $feeGross, 2),
                 'delivery_fee_eur' => $feeGross,
                 'delivery_fee_vat_rate_percent' => $feeGross > 0 ? (int) $order->delivery_fee_vat_rate_percent : 0,

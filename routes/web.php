@@ -483,6 +483,10 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:60,1')
                 ->name('restaurant-orders.invoice-editor.save');
             Route::get('restaurant-orders/{restaurantOrder}/invoice-preview.pdf', [AdminRestaurantOrderController::class, 'invoicePreviewPdf'])->name('restaurant-orders.invoice-preview');
+            // Live preview of UNSAVED editor state (applied + rolled back).
+            Route::post('restaurant-orders/{restaurantOrder}/invoice-editor/preview', [AdminRestaurantOrderController::class, 'invoiceEditorLivePreview'])
+                ->middleware('throttle:60,1')
+                ->name('restaurant-orders.invoice-editor.preview');
             Route::post('restaurant-orders/{restaurantOrder}/confirm', [AdminRestaurantOrderController::class, 'confirm'])->name('restaurant-orders.confirm');
             Route::post('restaurant-orders/{restaurantOrder}/decline', [AdminRestaurantOrderController::class, 'decline'])->name('restaurant-orders.decline');
             Route::post('restaurant-orders/{restaurantOrder}/cancel', [AdminRestaurantOrderController::class, 'cancel'])->name('restaurant-orders.cancel');
