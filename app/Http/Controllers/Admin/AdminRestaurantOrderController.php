@@ -6,10 +6,10 @@ use App\Enums\RestaurantOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminInvoiceEditorRequest;
 use App\Http\Requests\Admin\AdminPriceRestaurantOrderRequest;
+use App\Mail\RestaurantInvoiceCustomMail;
 use App\Mail\RestaurantOrderCancelledMail;
 use App\Mail\RestaurantOrderConfirmedMail;
 use App\Mail\RestaurantOrderDeclinedMail;
-use App\Mail\RestaurantOrderInvoicedMail;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantOrderItem;
 use App\Services\Restaurant\RestaurantInvoiceService;
@@ -478,19 +478,128 @@ class AdminRestaurantOrderController extends Controller
             actorUserId: (int) $request->user()->id,
         );
 
-        if ($restaurantOrder->user !== null) {
+        // No auto-mail: the admin reviews and sends the invoice email in the
+        // mail editor (precrafted text, editable subject/recipients/body).
+        return redirect()
+            ->route('app.admin.restaurant-orders.invoice-mail', $restaurantOrder)
+            ->with('status', __('restaurant.admin_invoice_issued_flash', ['number' => $restaurantOrder->invoice_number]));
+    }
+
+    /**
+     * WYSIWYG mail editor for the invoice email: precrafted German du-text
+     * (English template one click away), editable subject, body and
+     * recipients (several possible). Reachable right after issuing and any
+     * time later for a resend.
+     */
+    public function invoiceMailEditor(RestaurantOrder $restaurantOrder): View
+    {
+        $this->authorize('admin');
+        abort_unless($restaurantOrder->isInvoiced(), 403);
+
+        $restaurantOrder->load('user.restaurantProfile');
+
+        return view('admin.restaurant-orders.invoice-mail', [
+            'order' => $restaurantOrder,
+            'recipients' => (string) ($restaurantOrder->user?->email ?? ''),
+            'templates' => $this->invoiceMailTemplates($restaurantOrder),
+        ]);
+    }
+
+    /** Send the composed invoice email to every recipient, PDF attached. */
+    public function sendInvoiceMail(Request $request, RestaurantOrder $restaurantOrder): RedirectResponse
+    {
+        $this->authorize('admin');
+        abort_unless($restaurantOrder->isInvoiced(), 403);
+
+        $validated = $request->validate([
+            'recipients' => ['required', 'string', 'max:500'],
+            'subject' => ['required', 'string', 'max:200'],
+            'body' => ['required', 'string', 'max:5000'],
+        ]);
+
+        // One field, several recipients: split on commas/semicolons and
+        // validate each address individually.
+        $recipients = collect(preg_split('/[,;]+/', $validated['recipients']))
+            ->map(fn ($email) => trim((string) $email))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $invalid = $recipients->reject(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL) !== false);
+        if ($recipients->isEmpty() || $invalid->isNotEmpty()) {
+            return back()->withInput()->withErrors([
+                'recipients' => __('restaurant.invoice_mail_invalid_recipients', ['emails' => $invalid->implode(', ')]),
+            ]);
+        }
+
+        foreach ($recipients as $email) {
             try {
-                Mail::to($restaurantOrder->user->email)
-                    ->locale($restaurantOrder->locale ?? app()->getLocale())
-                    ->queue(new RestaurantOrderInvoicedMail($restaurantOrder));
+                Mail::to($email)->queue(new RestaurantInvoiceCustomMail(
+                    $restaurantOrder,
+                    $validated['subject'],
+                    $validated['body'],
+                ));
             } catch (\Throwable $e) {
                 report($e);
             }
         }
 
+        AuditLogger::log(
+            entityType: 'restaurant_order',
+            entityId: (int) $restaurantOrder->id,
+            action: 'invoice_mail_sent',
+            fromState: $restaurantOrder->status->value,
+            toState: $restaurantOrder->status->value,
+            metadata: [
+                'channel' => 'admin',
+                'invoice_number' => $restaurantOrder->invoice_number,
+                'recipients' => $recipients->all(),
+                'subject' => $validated['subject'],
+            ],
+            actorUserId: (int) $request->user()->id,
+        );
+
         return redirect()
             ->route('app.admin.restaurant-orders.show', $restaurantOrder)
-            ->with('status', __('restaurant.admin_invoice_issued_flash', ['number' => $restaurantOrder->invoice_number]));
+            ->with('status', __('restaurant.invoice_mail_sent_flash', ['recipients' => $recipients->implode(', ')]));
+    }
+
+    /**
+     * Precrafted subject + body in German (informal du) and English; the
+     * mail editor starts on German and swaps the texts on button click.
+     *
+     * @return array<string, array{subject: string, body: string}>
+     */
+    private function invoiceMailTemplates(RestaurantOrder $order): array
+    {
+        $name = $order->user?->restaurantProfile?->contact_name
+            ?: ($order->user?->restaurantProfile?->business_name ?? $order->user?->name ?? '');
+        $number = (string) $order->invoice_number;
+        $total = number_format((float) $order->items_total_gross_eur, 2, ',', '.').' €';
+        $totalEn = number_format((float) $order->items_total_gross_eur, 2, '.', ',').' EUR';
+        $deliveryDe = $order->expected_delivery_date?->format('d.m.Y') ?? '';
+        $deliveryEn = $order->expected_delivery_date?->format('d/m/Y') ?? '';
+        $dueDe = $order->invoice_due_date?->format('d.m.Y') ?? '';
+        $dueEn = $order->invoice_due_date?->format('d/m/Y') ?? '';
+
+        return [
+            'de' => [
+                'subject' => 'Deine Rechnung '.$number.' von Erdgut',
+                'body' => 'Hallo'.($name !== '' ? ' '.$name : '').",\n\n"
+                    ."anbei findest du die Rechnung {$number} zu deiner Lieferung vom {$deliveryDe} über {$total}.\n\n"
+                    ."Der Betrag ist bis zum {$dueDe} auf das in der Rechnung angegebene Konto zahlbar. Bitte gib die Rechnungsnummer als Verwendungszweck an.\n\n"
+                    ."Wenn etwas nicht stimmt oder du Fragen hast, melde dich gern direkt bei uns.\n\n"
+                    ."Herzliche Grüße\ndein Erdgut-Team",
+            ],
+            'en' => [
+                'subject' => 'Your invoice '.$number.' from Erdgut',
+                'body' => 'Hello'.($name !== '' ? ' '.$name : '').",\n\n"
+                    ."please find attached invoice {$number} for your delivery of {$deliveryEn}, totalling {$totalEn}.\n\n"
+                    ."The amount is due by {$dueEn} to the bank account stated on the invoice. Please use the invoice number as the payment reference.\n\n"
+                    ."If anything looks off or you have questions, just reply to this email.\n\n"
+                    ."Best regards\nyour Erdgut team",
+            ],
+        ];
     }
 
     /** Mark an issued invoice as paid (bank transfer arrived). Idempotent. */

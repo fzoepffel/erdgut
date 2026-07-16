@@ -5,7 +5,6 @@ namespace Tests\Feature\Restaurant;
 use App\Enums\ProductUnit;
 use App\Enums\RestaurantOrderStatus;
 use App\Enums\ShopStockAudience;
-use App\Mail\RestaurantOrderInvoicedMail;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
@@ -292,7 +291,7 @@ class RestaurantInvoiceTest extends TestCase
         $this->actingAs($admin)->post(route('app.admin.restaurant-orders.invoice-paid', $fresh))->assertForbidden();
     }
 
-    public function test_admin_issue_route_mails_invoice_and_blocks_non_admin(): void
+    public function test_admin_issue_route_opens_mail_editor_and_blocks_non_admin(): void
     {
         Mail::fake();
         $order = $this->confirmedOrder();
@@ -305,11 +304,14 @@ class RestaurantInvoiceTest extends TestCase
             ->post(route('app.admin.restaurant-orders.invoice', $order))->assertForbidden();
 
         $admin = User::factory()->admin()->create();
-        $this->actingAs($admin)->post(route('app.admin.restaurant-orders.invoice', $order))->assertRedirect();
+        // No auto-mail: issuing routes into the mail editor for review.
+        $this->actingAs($admin)
+            ->post(route('app.admin.restaurant-orders.invoice', $order))
+            ->assertRedirect(route('app.admin.restaurant-orders.invoice-mail', $order));
 
         $order->refresh();
         $this->assertNotNull($order->invoice_number);
-        Mail::assertQueued(RestaurantOrderInvoicedMail::class, fn ($m) => $m->hasTo($order->user->email));
+        Mail::assertNothingQueued();
 
         // Re-issue blocked (already invoiced).
         $this->actingAs($admin)->post(route('app.admin.restaurant-orders.invoice', $order))->assertForbidden();

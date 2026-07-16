@@ -103,6 +103,7 @@
                     <a href="{{ route('app.admin.restaurant-orders.invoice-editor', $order) }}" class="rounded border border-emerald-600 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50" data-testid="restaurant-order-open-editor">{{ __('restaurant.invoice_editor_open') }}</a>
                     @if ($order->isInvoiced())
                         <a href="{{ route('app.admin.restaurant-orders.invoice-pdf', $order) }}" class="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">{{ __('restaurant.invoice_download') }}</a>
+                        <a href="{{ route('app.admin.restaurant-orders.invoice-mail', $order) }}" class="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50" data-testid="restaurant-order-invoice-mail">{{ __('restaurant.invoice_mail_open') }}</a>
                         @unless ($order->isInvoicePaid())
                             <form method="POST" action="{{ route('app.admin.restaurant-orders.invoice-paid', $order) }}">
                                 @csrf
