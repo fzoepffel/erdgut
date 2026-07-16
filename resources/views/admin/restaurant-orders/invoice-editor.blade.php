@@ -110,6 +110,12 @@
                         data-testid="invoice-editor-preview">
                     {{ __('restaurant.invoice_editor_preview') }}
                 </button>
+                @if ($order->isInvoiced())
+                    <a href="{{ route('app.admin.restaurant-orders.invoice-mail', $order) }}"
+                       class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">
+                        {{ __('restaurant.invoice_mail_open') }}
+                    </a>
+                @endif
                 @if (! $order->isInvoiced() && $order->isInvoiceable())
                     <form method="POST" action="{{ route('app.admin.restaurant-orders.invoice', $order) }}"
                           onsubmit="return confirm(@js(__('restaurant.admin_invoice_issue_confirm')))">
@@ -209,7 +215,9 @@
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         <span class="flex items-baseline gap-1">
-                                            <input type="number" step="0.01" min="0" x-model.number="existing[{{ $i }}].price"
+                                            {{-- step=any: the prefilled unit price is derived from
+                                                 total/quantity and may carry 4 decimals (2,5235). --}}
+                                            <input type="number" step="any" min="0" x-model.number="existing[{{ $i }}].price"
                                                    x-on:input="existing[{{ $i }}].touched = true"
                                                    class="{{ $inpRight }}" data-testid="invoice-editor-line-price-{{ $i }}">
                                             <span class="shrink-0 text-gray-500">€ / {{ $priceUnitLabels[$i] }}</span>
@@ -254,7 +262,7 @@
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         <span class="flex items-baseline gap-1">
-                                            <input type="number" step="0.01" min="0" x-model.number="line.price"
+                                            <input type="number" step="any" min="0" x-model.number="line.price"
                                                    class="{{ $inpRight }}" required>
                                             <span class="shrink-0 text-gray-500">€ / <span x-text="priceUnitLabel(line.unit)"></span></span>
                                         </span>

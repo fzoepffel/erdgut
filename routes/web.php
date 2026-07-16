@@ -487,6 +487,11 @@ Route::middleware(['auth', 'verified'])
             Route::post('restaurant-orders/{restaurantOrder}/invoice-editor/preview', [AdminRestaurantOrderController::class, 'invoiceEditorLivePreview'])
                 ->middleware('throttle:60,1')
                 ->name('restaurant-orders.invoice-editor.preview');
+            // Invoice email editor (opens after issuing; resend any time).
+            Route::get('restaurant-orders/{restaurantOrder}/invoice-mail', [AdminRestaurantOrderController::class, 'invoiceMailEditor'])->name('restaurant-orders.invoice-mail');
+            Route::post('restaurant-orders/{restaurantOrder}/invoice-mail', [AdminRestaurantOrderController::class, 'sendInvoiceMail'])
+                ->middleware('throttle:30,1')
+                ->name('restaurant-orders.invoice-mail.send');
             Route::post('restaurant-orders/{restaurantOrder}/confirm', [AdminRestaurantOrderController::class, 'confirm'])->name('restaurant-orders.confirm');
             Route::post('restaurant-orders/{restaurantOrder}/decline', [AdminRestaurantOrderController::class, 'decline'])->name('restaurant-orders.decline');
             Route::post('restaurant-orders/{restaurantOrder}/cancel', [AdminRestaurantOrderController::class, 'cancel'])->name('restaurant-orders.cancel');
