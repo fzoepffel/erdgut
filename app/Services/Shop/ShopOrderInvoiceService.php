@@ -73,6 +73,125 @@ class ShopOrderInvoiceService
     }
 
     /**
+     * Money edits from the WYSIWYG invoice editor, net-forward like the B2B
+     * editor: per-line net entry converts to the gross snapshots the shop
+     * order stores (gross = net × (100 + rate)/100, VAT = gross − net).
+     * Handles renames, removals, NEW off-catalog lines and the delivery fee
+     * (net entry). Recomputes the order totals and, exactly like
+     * ShopOrderService::updateOrder, re-opens the paid/outstanding
+     * settlement when the owed total moves away from what was paid.
+     * Quantity changes flow into stock via the item rows
+     * (InventoryCacheObserver), the same path the order editor uses.
+     *
+     * @param  array<int, array<string, mixed>>  $lines
+     */
+    public function updatePricing(
+        ShopOrder $order,
+        array $lines,
+        ?float $deliveryFeeNetEur = null,
+        ?int $deliveryFeeVatRatePercent = null,
+    ): ShopOrder {
+        if ($order->restaurant_order_id !== null) {
+            throw new RuntimeException(__('shop.admin.invoice_blocked_mirror'));
+        }
+
+        return DB::transaction(function () use ($order, $lines, $deliveryFeeNetEur, $deliveryFeeVatRatePercent): ShopOrder {
+            // Lazy legacy snapshot BEFORE any recompute: orders paid before
+            // paid_amount_eur existed collected their pre-edit total.
+            if ($order->paid_at !== null && $order->paid_amount_eur === null) {
+                $order->forceFill(['paid_amount_eur' => $order->total_amount_eur])->save();
+            }
+
+            $items = $order->items()->lockForUpdate()->get()->keyBy('id');
+
+            foreach ($lines as $payload) {
+                $item = $items->get((int) ($payload['id'] ?? 0));
+
+                // New line (no id): an off-catalog custom item, priced net.
+                if ($item === null) {
+                    $name = trim((string) ($payload['name'] ?? ''));
+                    if ($name === '' || ! empty($payload['remove'])) {
+                        continue;
+                    }
+
+                    $qty = round((float) ($payload['quantity'] ?? 1), 4);
+                    $rate = (int) ($payload['vat_rate_percent'] ?? (int) config('shop.vat_rate_percent', 7));
+                    $net = round((float) ($payload['net_total_eur'] ?? 0), 2);
+                    $gross = round($net * (100 + $rate) / 100, 2);
+
+                    $order->items()->create([
+                        'product_id' => null,
+                        'variant_id' => null,
+                        'name_snapshot' => $name,
+                        'quantity' => $qty > 0 ? $qty : 1,
+                        'unit' => trim((string) ($payload['unit'] ?? '')) !== '' ? (string) $payload['unit'] : 'piece',
+                        'unit_price_snapshot_eur' => $qty > 0 ? round($gross / $qty, 4) : $gross,
+                        'vat_rate_snapshot_percent' => $rate,
+                        'line_total_eur' => $gross,
+                        'vat_amount_eur' => round($gross - $net, 2),
+                    ]);
+
+                    continue;
+                }
+
+                if (! empty($payload['remove'])) {
+                    $item->delete();
+
+                    continue;
+                }
+
+                $qty = round((float) ($payload['quantity'] ?? $item->quantity), 4);
+                $rate = (int) ($payload['vat_rate_percent'] ?? $item->vat_rate_snapshot_percent);
+                $net = round((float) ($payload['net_total_eur'] ?? ((float) $item->line_total_eur - (float) $item->vat_amount_eur)), 2);
+
+                $gross = round($net * (100 + $rate) / 100, 2);
+
+                $item->forceFill([
+                    'quantity' => $qty,
+                    'vat_rate_snapshot_percent' => $rate,
+                    'unit_price_snapshot_eur' => $qty > 0 ? round($gross / $qty, 4) : 0,
+                    'line_total_eur' => $gross,
+                    'vat_amount_eur' => round($gross - $net, 2),
+                    // Per-document print name; blank resets to the real name.
+                    'display_name_override' => array_key_exists('display_name', $payload)
+                        ? (trim((string) $payload['display_name']) !== '' ? trim((string) $payload['display_name']) : null)
+                        : $item->display_name_override,
+                ])->save();
+            }
+
+            // Delivery fee, net entry. Pickup orders never carry a fee.
+            if ($order->fulfillment_mode === 'delivery' && $deliveryFeeNetEur !== null) {
+                $feeRate = (int) ($deliveryFeeVatRatePercent ?? $order->delivery_fee_vat_rate_percent ?? 7);
+                $feeGross = $deliveryFeeNetEur > 0 ? round($deliveryFeeNetEur * (100 + $feeRate) / 100, 2) : 0.0;
+                $order->forceFill([
+                    'delivery_fee_eur' => $feeGross,
+                    'delivery_fee_vat_rate_percent' => $feeRate,
+                    'delivery_fee_vat_amount_eur' => $feeGross > 0 ? round($feeGross - $deliveryFeeNetEur, 2) : 0.0,
+                ])->save();
+            }
+
+            $itemsTotal = round((float) $order->items()->sum('line_total_eur'), 2);
+            $total = round($itemsTotal - (float) $order->discount_eur + (float) $order->delivery_fee_eur, 2);
+
+            // A fresh difference between paid and owed re-opens the
+            // settlement; the previous one stays in the audit log.
+            $reopens = $order->paid_at !== null
+                && abs($total - (float) $order->paid_amount_eur) >= 0.01;
+
+            $order->forceFill([
+                'items_total_eur' => $itemsTotal,
+                'total_amount_eur' => $total,
+            ] + ($reopens ? [
+                'outstanding_settled_amount_eur' => null,
+                'outstanding_settled_at' => null,
+                'outstanding_settled_by_user_id' => null,
+            ] : []))->save();
+
+            return $order->refresh();
+        });
+    }
+
+    /**
      * Render the Rechnung PDF for a shop order. $previewNumber marks a
      * draft for not-yet-issued orders.
      */

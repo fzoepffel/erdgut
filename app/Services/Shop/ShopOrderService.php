@@ -1204,6 +1204,12 @@ class ShopOrderService
         'recipient_email' => 160,
         'recipient_phone' => 160,
         'recipient_fulfillment' => 160,
+        // Invoice recipient extras, same semantics as the B2B invoice: a
+        // free second line (z. Hd. ...) and the buyer's USt-IdNr. Useful
+        // for admin-created B2B shop orders, which have no restaurant
+        // profile to pull these from.
+        'recipient_extra' => 160,
+        'recipient_vat_id' => 160,
         'delivery_line_label' => 160,
         'payment_text' => 160,
         'questions_text' => 500,
@@ -1227,11 +1233,19 @@ class ShopOrderService
      */
     public function saveReceiptOverrides(ShopOrder $order, array $overrides, array $lineNames = []): void
     {
-        $clean = [];
+        // MERGE semantics: the receipt editor and the invoice editor each
+        // submit only their own subset of keys. Keys absent from the input
+        // stay untouched; a key submitted blank drops its override.
+        $clean = (array) ($order->receipt_overrides ?? []);
         foreach (self::RECEIPT_OVERRIDE_KEYS as $key => $maxLength) {
+            if (! array_key_exists($key, $overrides)) {
+                continue;
+            }
             $value = trim((string) ($overrides[$key] ?? ''));
             if ($value !== '') {
                 $clean[$key] = mb_substr($value, 0, $maxLength);
+            } else {
+                unset($clean[$key]);
             }
         }
 

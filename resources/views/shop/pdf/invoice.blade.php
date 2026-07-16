@@ -203,13 +203,19 @@
         <h2>Empfänger</h2>
         @php
             $recipientName = $ov('recipient_name', $order->name);
+            // B2B parity: a free second line (z. Hd. ...) and the buyer's
+            // USt-IdNr., blank unless the admin sets them in the editor.
+            $recipientExtra = $ov('recipient_extra');
             $recipientEmail = $ov('recipient_email', $order->email);
             $recipientPhone = $ov('recipient_phone', $order->phone);
+            $recipientVatId = $ov('recipient_vat_id');
             $recipientFulfillment = $ov('recipient_fulfillment', $fulfillmentLabel.': '.$fulfillmentAddress);
         @endphp
         <div>{{ $recipientName }}</div>
+        @if ($recipientExtra)<div>{{ $recipientExtra }}</div>@endif
         @if ($recipientEmail)<div>{{ $recipientEmail }}</div>@endif
         @if ($recipientPhone)<div>{{ $recipientPhone }}</div>@endif
+        @if ($recipientVatId)<div>{{ $recipientVatId }}</div>@endif
         @if ($recipientFulfillment)<div>{{ $recipientFulfillment }}</div>@endif
     </div>
 </div>

@@ -12,6 +12,7 @@ use App\Exports\ShopOrdersExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
+use App\Http\Requests\Admin\AdminShopInvoiceEditorRequest;
 use App\Http\Requests\Admin\AdminUpdateShopOrderRequest;
 use App\Mail\ShopInvoiceCustomMail;
 use App\Mail\ShopOrderWindowMail;
@@ -45,6 +46,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Str;
@@ -1051,9 +1053,25 @@ class AdminShopOrderController extends Controller
 
         $shopOrder->load('items.product.translations', 'items.product.producer.translations');
 
+        return view('admin.shop-orders.receipt-editor', [
+            'values' => $this->documentOverrideValues($shopOrder),
+            'order' => $shopOrder,
+            'vatByRate' => ShopOrderService::vatByRate($shopOrder),
+        ]);
+    }
+
+    /**
+     * Prefill values for the receipt and invoice editors: every whitelisted
+     * override key resolved to its stored override or the same default the
+     * PDFs fall back to.
+     *
+     * @return array<string, string>
+     */
+    private function documentOverrideValues(ShopOrder $shopOrder): array
+    {
         if ($shopOrder->fulfillment_mode === 'delivery') {
-            $fulfillmentDefault = 'Lieferung: '.trim($shopOrder->delivery_street.', '.$shopOrder->delivery_postal_code.' '.$shopOrder->delivery_city, ', ');
             $deliveryAddress = trim($shopOrder->delivery_street.', '.$shopOrder->delivery_postal_code.' '.$shopOrder->delivery_city, ', ');
+            $fulfillmentDefault = 'Lieferung: '.$deliveryAddress;
         } else {
             $pickup = ShopOrderService::pickupLocation($shopOrder->pickup_location);
             $deliveryAddress = $pickup !== null
@@ -1069,6 +1087,8 @@ class AdminShopOrderController extends Controller
             default => 'Online-Zahlung',
         };
 
+        $isDelivery = $shopOrder->fulfillment_mode === 'delivery';
+
         $defaults = [
             'seller_name' => (string) config('shop.company_name'),
             'seller_register' => (string) config('shop.company_register'),
@@ -1076,8 +1096,10 @@ class AdminShopOrderController extends Controller
             'seller_address' => trim((string) config('shop.company_street').', '.(string) config('shop.company_postal_city'), ', '),
             'seller_email' => (string) config('shop.company_email'),
             'recipient_name' => (string) $shopOrder->name,
+            'recipient_extra' => '',
             'recipient_email' => (string) ($shopOrder->email ?? ''),
             'recipient_phone' => (string) ($shopOrder->phone ?? ''),
+            'recipient_vat_id' => '',
             'recipient_fulfillment' => $fulfillmentDefault,
             'delivery_line_label' => 'Lieferung '.$deliveryAddress,
             'payment_text' => $paymentDefault,
@@ -1089,10 +1111,10 @@ class AdminShopOrderController extends Controller
             'bank_name' => (string) config('shop.company_bank'),
             'bank_holder' => (string) config('shop.company_name'),
             'bank_iban' => (string) config('shop.company_iban'),
-            'bank_reference' => (string) ($shopOrder->invoice_number ?? ''),
+            'bank_reference' => (string) ($shopOrder->invoice_number ?? InvoiceSequence::preview()),
             'terms_text' => 'Der Rechnungsbetrag ist innerhalb von '.(int) config('shop.restaurant_invoice_due_days', 7)
-                .' Tagen nach '.($shopOrder->fulfillment_mode === 'delivery' ? 'Lieferung' : 'Abholung').' zahlbar. Leistungsdatum entspricht dem '
-                .($shopOrder->fulfillment_mode === 'delivery' ? 'Lieferdatum' : 'Abholdatum').'.',
+                .' Tagen nach '.($isDelivery ? 'Lieferung' : 'Abholung').' zahlbar. Leistungsdatum entspricht dem '
+                .($isDelivery ? 'Lieferdatum' : 'Abholdatum').'.',
         ];
 
         $values = [];
@@ -1100,11 +1122,7 @@ class AdminShopOrderController extends Controller
             $values[$key] = $shopOrder->receiptOverride($key) ?? $default;
         }
 
-        return view('admin.shop-orders.receipt-editor', [
-            'order' => $shopOrder,
-            'values' => $values,
-            'vatByRate' => ShopOrderService::vatByRate($shopOrder),
-        ]);
+        return $values;
     }
 
     /** Persist the receipt editor's display overrides + per-line names. */
@@ -1598,6 +1616,116 @@ class AdminShopOrderController extends Controller
 
         return $invoices->renderPdf($shopOrder, $preview)
             ->stream('erdgut-rechnung-vorschau-'.$shopOrder->id.'.pdf');
+    }
+
+    /**
+     * WYSIWYG invoice editor for shop orders, same UX as the B2B editor:
+     * the sheet looks like the Rechnung, every text is an input, lines are
+     * priced net-first (Preis × Menge), and money edits flow through the
+     * order's paid/outstanding tracking. Mirrors edit through the B2B
+     * editor instead.
+     */
+    public function shopInvoiceEditor(ShopOrder $shopOrder): View|RedirectResponse
+    {
+        $this->authorize('admin');
+
+        if ($shopOrder->restaurant_order_id !== null) {
+            return redirect()->route('app.admin.shop-orders.invoice-editor', $shopOrder->restaurant_order_id);
+        }
+
+        $shopOrder->load('items.product.translations');
+
+        return view('admin.shop-orders.shop-invoice-editor', [
+            'order' => $shopOrder,
+            'items' => $shopOrder->items->values(),
+            'values' => $this->documentOverrideValues($shopOrder),
+            'previewNumber' => $shopOrder->invoice_number ?? InvoiceSequence::preview(),
+            'dueDays' => (int) config('shop.restaurant_invoice_due_days', 7),
+            'backUrl' => route('app.admin.shop-orders.show', $shopOrder),
+        ]);
+    }
+
+    /** Persist everything the shop invoice editor can change, in one save. */
+    public function saveShopInvoiceEditor(AdminShopInvoiceEditorRequest $request, ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): RedirectResponse
+    {
+        $before = [
+            'total' => (float) $shopOrder->total_amount_eur,
+            'item_count' => $shopOrder->items()->count(),
+        ];
+
+        $this->applyShopInvoiceEditor($request, $shopOrder, $invoices);
+        $shopOrder->refresh();
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: (int) $shopOrder->id,
+            action: 'invoice_edit',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            metadata: [
+                'channel' => 'admin',
+                'before' => $before,
+                'after' => [
+                    'total' => (float) $shopOrder->total_amount_eur,
+                    'item_count' => $shopOrder->items()->count(),
+                ],
+                'override_keys' => array_keys((array) ($shopOrder->receipt_overrides ?? [])),
+                'invoiced' => $shopOrder->isInvoiced(),
+            ],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.shop-orders.shop-invoice-editor', $shopOrder)
+            ->with('status', __('restaurant.invoice_editor_saved_flash'));
+    }
+
+    /**
+     * Live PDF preview from the editor: the submitted (possibly UNSAVED)
+     * form state is applied inside a transaction, the PDF rendered, and
+     * everything rolled back.
+     */
+    public function shopInvoiceEditorLivePreview(AdminShopInvoiceEditorRequest $request, ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): SymfonyResponse
+    {
+        DB::beginTransaction();
+        try {
+            $this->applyShopInvoiceEditor($request, $shopOrder, $invoices);
+
+            $preview = $shopOrder->invoice_number === null ? InvoiceSequence::preview() : null;
+            $pdf = $invoices->renderPdf($shopOrder->refresh(), $preview)->output();
+        } finally {
+            DB::rollBack();
+        }
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="erdgut-rechnung-vorschau-'.$shopOrder->id.'.pdf"',
+        ]);
+    }
+
+    /** The one write path both save and live preview share. */
+    private function applyShopInvoiceEditor(AdminShopInvoiceEditorRequest $request, ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): void
+    {
+        $invoices->updatePricing(
+            $shopOrder,
+            $request->validated('items'),
+            $request->filled('delivery_fee_net_eur') ? (float) $request->validated('delivery_fee_net_eur') : null,
+            $request->filled('delivery_fee_vat_rate_percent') ? (int) $request->validated('delivery_fee_vat_rate_percent') : null,
+        );
+
+        // Overrides only; line names were already handled by updatePricing.
+        $this->service->saveReceiptOverrides($shopOrder, (array) $request->validated('overrides', []));
+
+        $dates = [];
+        if ($request->filled('invoice_due_date')) {
+            $dates['invoice_due_date'] = $request->validated('invoice_due_date');
+        }
+        if ($request->filled('expected_delivery_date')) {
+            $dates['expected_delivery_date'] = $request->validated('expected_delivery_date');
+        }
+        if ($dates !== []) {
+            $shopOrder->forceFill($dates)->save();
+        }
     }
 
     /**

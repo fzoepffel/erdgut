@@ -83,17 +83,33 @@
                     </form>
                 @endif
 
-                {{-- WYSIWYG receipt editor (or the invoice editor for
-                     restaurant mirrors, whose document is the Rechnung). --}}
-                <a
-                    href="{{ $order->restaurant_order_id !== null
-                        ? route('app.admin.shop-orders.invoice-editor', $order->restaurant_order_id)
-                        : route('app.admin.shop-orders.receipt-editor', $order) }}"
-                    class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                    data-testid="shop-admin-receipt-editor"
-                >
-                    {{ $order->restaurant_order_id !== null ? __('restaurant.invoice_editor_open') : __('shop.admin.receipt_editor_open') }}
-                </a>
+                {{-- WYSIWYG editors: mirrors get the B2B invoice editor,
+                     regular orders get the receipt AND the shop invoice
+                     editor (same UX as B2B). --}}
+                @if ($order->restaurant_order_id !== null)
+                    <a
+                        href="{{ route('app.admin.shop-orders.invoice-editor', $order->restaurant_order_id) }}"
+                        class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        data-testid="shop-admin-receipt-editor"
+                    >
+                        {{ __('restaurant.invoice_editor_open') }}
+                    </a>
+                @else
+                    <a
+                        href="{{ route('app.admin.shop-orders.receipt-editor', $order) }}"
+                        class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        data-testid="shop-admin-receipt-editor"
+                    >
+                        {{ __('shop.admin.receipt_editor_open') }}
+                    </a>
+                    <a
+                        href="{{ route('app.admin.shop-orders.shop-invoice-editor', $order) }}"
+                        class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        data-testid="shop-admin-invoice-editor"
+                    >
+                        {{ __('shop.admin.invoice_editor_open') }}
+                    </a>
+                @endif
 
                 @if ($order->restaurant_order_id !== null)
                     {{-- B2B mirror: the customer document is the Rechnung,

@@ -719,6 +719,14 @@ Route::middleware(['auth', 'verified'])
                 ->name('shop-orders.issue-invoice');
             Route::get('shop-orders/{shopOrder}/invoice.pdf', [AdminShopOrderController::class, 'invoicePdf'])->name('shop-orders.invoice-pdf');
             Route::get('shop-orders/{shopOrder}/invoice-preview.pdf', [AdminShopOrderController::class, 'invoicePreviewPdf'])->name('shop-orders.shop-invoice-preview');
+            // WYSIWYG invoice editor (shop variant of the B2B editor).
+            Route::get('shop-orders/{shopOrder}/invoice-editor', [AdminShopOrderController::class, 'shopInvoiceEditor'])->name('shop-orders.shop-invoice-editor');
+            Route::post('shop-orders/{shopOrder}/invoice-editor', [AdminShopOrderController::class, 'saveShopInvoiceEditor'])
+                ->middleware('throttle:60,1')
+                ->name('shop-orders.shop-invoice-editor.save');
+            Route::post('shop-orders/{shopOrder}/invoice-editor/preview', [AdminShopOrderController::class, 'shopInvoiceEditorLivePreview'])
+                ->middleware('throttle:60,1')
+                ->name('shop-orders.shop-invoice-editor.preview');
             Route::get('shop-orders/{shopOrder}/invoice-mail', [AdminShopOrderController::class, 'invoiceMailEditor'])->name('shop-orders.shop-invoice-mail');
             Route::post('shop-orders/{shopOrder}/invoice-mail', [AdminShopOrderController::class, 'sendInvoiceMail'])
                 ->middleware('throttle:30,1')

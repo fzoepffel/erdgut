@@ -422,4 +422,161 @@ class ShopOrderInvoiceTest extends TestCase
             ->get(route('app.admin.shop-orders.shop-invoice-mail', $this->makeOrder()))
             ->assertForbidden();
     }
+
+    // ── WYSIWYG invoice editor ──────────────────────────────────────────
+
+    public function test_invoice_editor_renders_and_mirrors_redirect_to_the_b2b_editor(): void
+    {
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-orders.shop-invoice-editor', $this->makeOrder()))
+            ->assertOk()
+            ->assertSee('data-testid="invoice-editor-save"', false)
+            ->assertSee('data-testid="invoice-editor-preview"', false)
+            ->assertSee('data-testid="invoice-editor-issue"', false);
+
+        $mirror = $this->mirrorOrder();
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-orders.shop-invoice-editor', $mirror))
+            ->assertRedirect(route('app.admin.shop-orders.invoice-editor', $mirror->restaurant_order_id));
+    }
+
+    public function test_editor_save_converts_net_entry_to_gross_snapshots(): void
+    {
+        $order = $this->makeOrder();
+        $item = $order->items()->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
+                'items' => [[
+                    'id' => $item->id,
+                    'display_name' => 'Marktgemüse gemischt',
+                    'net_total_eur' => '50.00',
+                    'vat_rate_percent' => 7,
+                    'quantity' => 2,
+                ]],
+            ])
+            ->assertRedirect(route('app.admin.shop-orders.shop-invoice-editor', $order));
+
+        $item->refresh();
+        $this->assertEqualsWithDelta(53.50, (float) $item->line_total_eur, 0.001);
+        $this->assertEqualsWithDelta(3.50, (float) $item->vat_amount_eur, 0.001);
+        $this->assertSame('Marktgemüse gemischt', $item->display_name_override);
+
+        $order->refresh();
+        $this->assertEqualsWithDelta(53.50, (float) $order->total_amount_eur, 0.01);
+        $this->assertDatabaseHas('audit_events', [
+            'entity_type' => 'shop_order',
+            'entity_id' => $order->id,
+            'action' => 'invoice_edit',
+        ]);
+    }
+
+    public function test_editor_save_adds_custom_lines_removes_lines_and_reopens_settlement(): void
+    {
+        // Paid 107; editing to 53.50 + 10.70 = 64.20 owed reopens the
+        // settlement (to-refund 42.80 shows on the order again).
+        $order = $this->makeOrder([
+            'paid_amount_eur' => 107.00,
+            'outstanding_settled_amount_eur' => 0,
+            'outstanding_settled_at' => now(),
+        ]);
+        $item = $order->items()->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
+                'items' => [
+                    ['id' => $item->id, 'net_total_eur' => '50.00', 'vat_rate_percent' => 7, 'quantity' => 2],
+                    ['name' => 'Marktstand-Aufbau', 'unit' => 'piece', 'quantity' => 1, 'net_total_eur' => '10.00', 'vat_rate_percent' => 7],
+                ],
+            ])
+            ->assertRedirect();
+
+        $order->refresh();
+        $this->assertSame(2, $order->items()->count());
+        $custom = $order->items()->whereNull('product_id')->firstOrFail();
+        $this->assertEqualsWithDelta(10.70, (float) $custom->line_total_eur, 0.001);
+        $this->assertEqualsWithDelta(64.20, (float) $order->total_amount_eur, 0.01);
+        $this->assertNull($order->outstanding_settled_at);
+        $this->assertEqualsWithDelta(-42.80, $order->outstandingAmountEur(), 0.01);
+
+        // Removing the custom line brings the total back down.
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
+                'items' => [
+                    ['id' => $item->id, 'net_total_eur' => '50.00', 'vat_rate_percent' => 7, 'quantity' => 2],
+                    ['id' => $custom->id, 'remove' => 1],
+                ],
+            ])
+            ->assertRedirect();
+
+        $order->refresh();
+        $this->assertSame(1, $order->items()->count());
+        $this->assertEqualsWithDelta(53.50, (float) $order->total_amount_eur, 0.01);
+    }
+
+    public function test_editor_save_sets_delivery_fee_net_and_dates(): void
+    {
+        $order = $this->makeOrder([
+            'fulfillment_mode' => 'delivery',
+            'pickup_location' => null,
+            'delivery_street' => 'Lieferstr. 2',
+            'delivery_postal_code' => '10117',
+            'delivery_city' => 'Berlin',
+        ]);
+        $item = $order->items()->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
+                'items' => [['id' => $item->id, 'net_total_eur' => '100.00', 'vat_rate_percent' => 7, 'quantity' => 2]],
+                'delivery_fee_net_eur' => '4.20',
+                'delivery_fee_vat_rate_percent' => 19,
+                'invoice_due_date' => now()->addDays(21)->toDateString(),
+                'expected_delivery_date' => now()->addDays(5)->toDateString(),
+            ])
+            ->assertRedirect();
+
+        $order->refresh();
+        $this->assertEqualsWithDelta(5.00, (float) $order->delivery_fee_eur, 0.001);
+        $this->assertEqualsWithDelta(0.80, (float) $order->delivery_fee_vat_amount_eur, 0.001);
+        $this->assertEqualsWithDelta(112.00, (float) $order->total_amount_eur, 0.01);
+        $this->assertSame(now()->addDays(21)->toDateString(), $order->invoice_due_date->toDateString());
+        $this->assertSame(now()->addDays(5)->toDateString(), $order->expected_delivery_date->toDateString());
+    }
+
+    public function test_editor_live_preview_renders_unsaved_state_without_persisting(): void
+    {
+        $order = $this->makeOrder();
+        $item = $order->items()->firstOrFail();
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.preview', $order), [
+                'items' => [['id' => $item->id, 'net_total_eur' => '999.00', 'vat_rate_percent' => 7, 'quantity' => 2]],
+            ]);
+
+        $response->assertOk()->assertHeader('content-type', 'application/pdf');
+
+        // Rolled back: the stored line is untouched.
+        $this->assertEqualsWithDelta(107.00, (float) $item->refresh()->line_total_eur, 0.001);
+        $this->assertEqualsWithDelta(107.00, (float) $order->refresh()->total_amount_eur, 0.01);
+    }
+
+    public function test_receipt_and_invoice_editor_overrides_merge_instead_of_wiping(): void
+    {
+        $order = $this->makeOrder();
+        $svc = app(ShopOrderService::class);
+
+        // Invoice editor saves its subset ...
+        $svc->saveReceiptOverrides($order, ['bank_iban' => 'DE00 1234', 'terms_text' => 'Sofort zahlbar.']);
+        // ... then the receipt editor saves ITS subset (no bank keys).
+        $svc->saveReceiptOverrides($order->refresh(), ['payment_text' => 'Barzahlung', 'notes_text' => 'Hinweis']);
+
+        $order->refresh();
+        $this->assertSame('DE00 1234', $order->receiptOverride('bank_iban'));
+        $this->assertSame('Sofort zahlbar.', $order->receiptOverride('terms_text'));
+        $this->assertSame('Barzahlung', $order->receiptOverride('payment_text'));
+
+        // A key submitted blank drops its override.
+        $svc->saveReceiptOverrides($order, ['bank_iban' => '']);
+        $this->assertNull($order->refresh()->receiptOverride('bank_iban'));
+    }
 }

@@ -28,10 +28,10 @@
                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">
                     {{ __('shop.admin.receipt_editor_pdf') }}
                 </a>
-                <a href="{{ route('app.admin.shop-orders.shop-invoice-preview', $order) }}" target="_blank" rel="noopener"
+                <a href="{{ route('app.admin.shop-orders.shop-invoice-editor', $order) }}"
                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                   data-testid="receipt-editor-invoice-preview">
-                    {{ __('shop.admin.invoice_preview') }}
+                   data-testid="receipt-editor-invoice-editor">
+                    {{ __('shop.admin.invoice_editor_open') }}
                 </a>
                 @if ($order->isEditableByAdmin())
                     <a href="{{ route('app.admin.shop-orders.edit', $order) }}"
@@ -163,25 +163,9 @@
                         </div>
                     </div>
 
-                    {{-- Invoice-only fields: bank block + payment terms as
-                         printed on the Rechnung. The Kaufbeleg ignores them. --}}
-                    <div class="mt-8 border-t border-gray-200 pt-5">
-                        <h3 class="mb-1 text-sm font-bold text-gray-900">{{ __('shop.admin.receipt_editor_invoice_section') }}</h3>
-                        <p class="mb-3 text-xs text-gray-400">{{ __('shop.admin.receipt_editor_invoice_section_hint') }}</p>
-                        <div class="grid grid-cols-2 gap-8">
-                            <div>
-                                <div class="text-[13px] font-bold">Banküberweisung</div>
-                                <input type="text" name="overrides[bank_name]" value="{{ old('overrides.bank_name', $values['bank_name']) }}" placeholder="Bankname" class="{{ $inp }}" data-testid="receipt-editor-bank-name">
-                                <input type="text" name="overrides[bank_holder]" value="{{ old('overrides.bank_holder', $values['bank_holder']) }}" placeholder="Kontoinhaber" class="{{ $inp }}">
-                                <input type="text" name="overrides[bank_iban]" value="{{ old('overrides.bank_iban', $values['bank_iban']) }}" placeholder="IBAN" class="{{ $inp }}">
-                                <input type="text" name="overrides[bank_reference]" value="{{ old('overrides.bank_reference', $values['bank_reference']) }}" placeholder="{{ __('shop.admin.receipt_editor_bank_reference_placeholder') }}" class="{{ $inp }}">
-                            </div>
-                            <div>
-                                <h4 class="mb-1.5 text-[13px] font-bold text-gray-900">Zahlungsbedingungen</h4>
-                                <textarea name="overrides[terms_text]" rows="3" class="{{ $inp }} resize-none" data-testid="receipt-editor-terms">{{ old('overrides.terms_text', $values['terms_text']) }}</textarea>
-                            </div>
-                        </div>
-                    </div>
+                    {{-- Bank block, payment terms and the other invoice-only
+                         fields live in the shop invoice editor; both editors
+                         share the same stored overrides. --}}
 
                     <div class="mt-10 flex items-center justify-between text-[10px] text-gray-300">
                         <span>BELEG: #{{ $order->id }}</span>
