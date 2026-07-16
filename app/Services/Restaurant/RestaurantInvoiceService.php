@@ -5,9 +5,9 @@ namespace App\Services\Restaurant;
 use App\Enums\RestaurantOrderItemTrack;
 use App\Enums\RestaurantOrderLineStatus;
 use App\Enums\RestaurantOrderStatus;
-use App\Models\NumberSequence;
 use App\Models\RestaurantOrder;
 use App\Services\Admin\ProducerAllocationService;
+use App\Support\InvoiceSequence;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPDF;
 use Illuminate\Support\Carbon;
@@ -157,12 +157,10 @@ class RestaurantInvoiceService
             }
 
             $invoicedAt = Carbon::now();
-            $year = $invoicedAt->year;
-            $seq = NumberSequence::next("restaurant_invoice:{$year}");
-            // Compact number like EB260046: prefix + two-digit year + 4-digit
-            // sequence. Numbers issued under the old RG-2026-0046 format stay
-            // valid on their orders; the yearly sequence simply continues.
-            $number = sprintf('%s%s%04d', (string) config('shop.restaurant_invoice_prefix', 'EB'), $invoicedAt->format('y'), $seq);
+            // One shared yearly ledger for ALL invoices (restaurant + shop
+            // orders); numbers issued under the old RG-2026-0046 format stay
+            // valid on their orders, the sequence simply continues.
+            $number = InvoiceSequence::next($invoicedAt);
 
             // Payment terms count from DELIVERY ("zahlbar innerhalb von X
             // Tagen nach Lieferung"), but a late-issued invoice is never due
@@ -251,10 +249,7 @@ class RestaurantInvoiceService
      */
     public function nextInvoiceNumberPreview(?Carbon $at = null): string
     {
-        $at ??= Carbon::now();
-        $current = (int) (NumberSequence::query()->find('restaurant_invoice:'.$at->year)?->value ?? 0);
-
-        return sprintf('%s%s%04d', (string) config('shop.restaurant_invoice_prefix', 'EB'), $at->format('y'), $current + 1);
+        return InvoiceSequence::preview($at);
     }
 
     /**
@@ -266,19 +261,7 @@ class RestaurantInvoiceService
      */
     public function setNextSequenceNumber(int $next): void
     {
-        $key = 'restaurant_invoice:'.Carbon::now()->year;
-
-        DB::transaction(function () use ($key, $next): void {
-            $row = NumberSequence::query()->lockForUpdate()->find($key);
-            $current = (int) ($row?->value ?? 0);
-            if ($next <= $current) {
-                throw ValidationException::withMessages([
-                    'next_invoice_number' => __('restaurant.admin_invoice_sequence_too_low', ['current' => $current + 1]),
-                ]);
-            }
-
-            NumberSequence::query()->updateOrCreate(['key' => $key], ['value' => $next - 1]);
-        });
+        InvoiceSequence::setNext($next);
     }
 
     /**

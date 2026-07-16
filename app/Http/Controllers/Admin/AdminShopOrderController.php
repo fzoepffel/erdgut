@@ -13,6 +13,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Requests\Admin\AdminCreateShopOrderRequest;
 use App\Http\Requests\Admin\AdminUpdateShopOrderRequest;
+use App\Mail\ShopInvoiceCustomMail;
 use App\Mail\ShopOrderWindowMail;
 use App\Models\Producer;
 use App\Models\Product;
@@ -28,8 +29,10 @@ use App\Services\Restaurant\RestaurantStandingOrderService;
 use App\Services\Shop\CouponService;
 use App\Services\Shop\InsufficientStockException;
 use App\Services\Shop\PriceResolver;
+use App\Services\Shop\ShopOrderInvoiceService;
 use App\Services\Shop\ShopOrderService;
 use App\Support\AuditLogger;
+use App\Support\InvoiceSequence;
 use App\Support\PickupLocations;
 use App\Support\RestaurantAccountProvisioner;
 use App\Support\SumUpCheckoutLogger;
@@ -48,6 +51,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Throwable;
 use ZipArchive;
 
@@ -1081,6 +1085,14 @@ class AdminShopOrderController extends Controller
                 .(config('shop.company_phone') ? "\noder anrufen unter ".config('shop.company_phone') : '')),
             'notes_text' => 'Alle Preise sind Bruttopreise und enthalten die gesetzliche Mehrwertsteuer.'
                 .((float) $shopOrder->total_amount_eur <= 250 ? ' Dieser Beleg gilt als Kleinbetragsrechnung gem. § 33 UStDV.' : ''),
+            // Invoice-only fields (rendered on the Rechnung, never the Beleg).
+            'bank_name' => (string) config('shop.company_bank'),
+            'bank_holder' => (string) config('shop.company_name'),
+            'bank_iban' => (string) config('shop.company_iban'),
+            'bank_reference' => (string) ($shopOrder->invoice_number ?? ''),
+            'terms_text' => 'Der Rechnungsbetrag ist innerhalb von '.(int) config('shop.restaurant_invoice_due_days', 7)
+                .' Tagen nach '.($shopOrder->fulfillment_mode === 'delivery' ? 'Lieferung' : 'Abholung').' zahlbar. Leistungsdatum entspricht dem '
+                .($shopOrder->fulfillment_mode === 'delivery' ? 'Lieferdatum' : 'Abholdatum').'.',
         ];
 
         $values = [];
@@ -1525,5 +1537,186 @@ class AdminShopOrderController extends Controller
         return redirect()
             ->route('app.admin.shop-orders.show', $shopOrder)
             ->with('status', __('shop.admin.flash_refunded', ['id' => $shopOrder->id]));
+    }
+
+    /**
+     * Issue a proper Rechnung for a shop order: number from the shared
+     * yearly ledger (same series as restaurant invoices). Mirrors invoice
+     * through the B2B path; the service guards mirror/re-issue/discount/
+     * status and throws with a user-facing message.
+     */
+    public function issueInvoice(Request $request, ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        try {
+            $shopOrder = $invoices->issueInvoice($shopOrder);
+        } catch (\RuntimeException $e) {
+            return redirect()
+                ->route('app.admin.shop-orders.show', $shopOrder)
+                ->with('status', $e->getMessage());
+        }
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: (int) $shopOrder->id,
+            action: 'invoice',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            metadata: ['channel' => 'admin', 'invoice_number' => $shopOrder->invoice_number],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        // No auto-mail: the admin reviews and sends the invoice email in the
+        // mail editor (precrafted text, editable subject/recipients/body).
+        return redirect()
+            ->route('app.admin.shop-orders.shop-invoice-mail', $shopOrder)
+            ->with('status', __('shop.admin.invoice_issued_flash', ['number' => $shopOrder->invoice_number]));
+    }
+
+    public function invoicePdf(ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): SymfonyResponse
+    {
+        $this->authorize('admin');
+        abort_unless($shopOrder->isInvoiced(), 404);
+
+        return $invoices->renderPdf($shopOrder)
+            ->download('erdgut-rechnung-'.$shopOrder->invoice_number.'.pdf');
+    }
+
+    /**
+     * PDF exactly as it would print right now: the real document once
+     * issued, a clearly marked draft with the upcoming number before.
+     */
+    public function invoicePreviewPdf(ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): SymfonyResponse
+    {
+        $this->authorize('admin');
+        abort_if($shopOrder->restaurant_order_id !== null, 404);
+
+        $preview = $shopOrder->invoice_number === null
+            ? InvoiceSequence::preview()
+            : null;
+
+        return $invoices->renderPdf($shopOrder, $preview)
+            ->stream('erdgut-rechnung-vorschau-'.$shopOrder->id.'.pdf');
+    }
+
+    /**
+     * WYSIWYG mail editor for the invoice email (same view as B2B):
+     * precrafted German du-text, English one click away, editable subject,
+     * body and recipients. Reachable right after issuing and any time later
+     * for a resend.
+     */
+    public function invoiceMailEditor(ShopOrder $shopOrder): View
+    {
+        $this->authorize('admin');
+        abort_unless($shopOrder->isInvoiced(), 403);
+
+        return view('admin.shop-orders.invoice-mail', [
+            'recipients' => (string) ($shopOrder->email ?? ''),
+            'templates' => $this->invoiceMailTemplates($shopOrder),
+            'backUrl' => route('app.admin.shop-orders.show', $shopOrder),
+            'sendUrl' => route('app.admin.shop-orders.shop-invoice-mail.send', $shopOrder),
+            'number' => (string) $shopOrder->invoice_number,
+            'attachmentName' => 'erdgut-rechnung-'.$shopOrder->invoice_number.'.pdf',
+        ]);
+    }
+
+    /** Send the composed invoice email to every recipient, PDF attached. */
+    public function sendInvoiceMail(Request $request, ShopOrder $shopOrder): RedirectResponse
+    {
+        $this->authorize('admin');
+        abort_unless($shopOrder->isInvoiced(), 403);
+
+        $validated = $request->validate([
+            'recipients' => ['required', 'string', 'max:500'],
+            'subject' => ['required', 'string', 'max:200'],
+            'body' => ['required', 'string', 'max:5000'],
+        ]);
+
+        // One field, several recipients: split on commas/semicolons and
+        // validate each address individually.
+        $recipients = collect(preg_split('/[,;]+/', $validated['recipients']))
+            ->map(fn ($email) => trim((string) $email))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $invalid = $recipients->reject(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL) !== false);
+        if ($recipients->isEmpty() || $invalid->isNotEmpty()) {
+            return back()->withInput()->withErrors([
+                'recipients' => __('restaurant.invoice_mail_invalid_recipients', ['emails' => $invalid->implode(', ')]),
+            ]);
+        }
+
+        foreach ($recipients as $email) {
+            try {
+                Mail::to($email)->queue(new ShopInvoiceCustomMail(
+                    $shopOrder,
+                    $validated['subject'],
+                    $validated['body'],
+                ));
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: (int) $shopOrder->id,
+            action: 'invoice_mail_sent',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            metadata: [
+                'channel' => 'admin',
+                'invoice_number' => $shopOrder->invoice_number,
+                'recipients' => $recipients->all(),
+                'subject' => $validated['subject'],
+            ],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.shop-orders.show', $shopOrder)
+            ->with('status', __('restaurant.invoice_mail_sent_flash', ['recipients' => $recipients->implode(', ')]));
+    }
+
+    /**
+     * Precrafted subject + body in German (informal du) and English; the
+     * mail editor starts on German and swaps the texts on button click.
+     *
+     * @return array<string, array{subject: string, body: string}>
+     */
+    private function invoiceMailTemplates(ShopOrder $order): array
+    {
+        $name = (string) ($order->name ?? '');
+        $number = (string) $order->invoice_number;
+        $total = number_format((float) $order->total_amount_eur, 2, ',', '.').' €';
+        $totalEn = number_format((float) $order->total_amount_eur, 2, '.', ',').' EUR';
+        $isPickup = $order->fulfillment_mode !== 'delivery';
+        $eventDe = $isPickup ? 'Abholung' : 'Lieferung';
+        $eventEn = $isPickup ? 'pickup' : 'delivery';
+        $dateDe = $order->expected_delivery_date?->format('d.m.Y') ?? '';
+        $dateEn = $order->expected_delivery_date?->format('d/m/Y') ?? '';
+        $dueDe = $order->invoice_due_date?->format('d.m.Y') ?? '';
+        $dueEn = $order->invoice_due_date?->format('d/m/Y') ?? '';
+
+        return [
+            'de' => [
+                'subject' => 'Deine Rechnung '.$number.' von Erdgut',
+                'body' => 'Hallo'.($name !== '' ? ' '.$name : '').",\n\n"
+                    ."anbei findest du die Rechnung {$number} zu deiner {$eventDe} vom {$dateDe} über {$total}.\n\n"
+                    ."Der Betrag ist bis zum {$dueDe} auf das in der Rechnung angegebene Konto zahlbar. Bitte gib die Rechnungsnummer als Verwendungszweck an.\n\n"
+                    ."Wenn etwas nicht stimmt oder du Fragen hast, melde dich gern direkt bei uns.\n\n"
+                    ."Herzliche Grüße\ndein Erdgut-Team",
+            ],
+            'en' => [
+                'subject' => 'Your invoice '.$number.' from Erdgut',
+                'body' => 'Hello'.($name !== '' ? ' '.$name : '').",\n\n"
+                    ."please find attached invoice {$number} for your {$eventEn} of {$dateEn}, totalling {$totalEn}.\n\n"
+                    ."The amount is due by {$dueEn} to the bank account stated on the invoice. Please use the invoice number as the payment reference.\n\n"
+                    ."If anything looks off or you have questions, just reply to this email.\n\n"
+                    ."Best regards\nyour Erdgut team",
+            ],
+        ];
     }
 }

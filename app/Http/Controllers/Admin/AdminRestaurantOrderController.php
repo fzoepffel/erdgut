@@ -501,10 +501,12 @@ class AdminRestaurantOrderController extends Controller
         $restaurantOrder->load('user.restaurantProfile');
 
         return view('admin.shop-orders.invoice-mail', [
-            'order' => $restaurantOrder,
             'recipients' => (string) ($restaurantOrder->user?->email ?? ''),
             'templates' => $this->invoiceMailTemplates($restaurantOrder),
             'backUrl' => $this->orderContextUrl($restaurantOrder),
+            'sendUrl' => route('app.admin.shop-orders.invoice-mail.send', $restaurantOrder),
+            'number' => (string) $restaurantOrder->invoice_number,
+            'attachmentName' => 'erdgut-rechnung-'.$restaurantOrder->invoice_number.'.pdf',
         ]);
     }
 

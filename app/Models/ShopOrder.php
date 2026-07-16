@@ -91,6 +91,9 @@ class ShopOrder extends Model
         'outstanding_settled_at',
         'outstanding_settled_by_user_id',
         'receipt_overrides',
+        'invoice_number',
+        'invoiced_at',
+        'invoice_due_date',
         'coupon_id',
         'coupon_code',
         'discount_eur',
@@ -143,6 +146,8 @@ class ShopOrder extends Model
             'outstanding_settled_amount_eur' => 'decimal:2',
             'outstanding_settled_at' => 'datetime',
             'receipt_overrides' => 'array',
+            'invoiced_at' => 'datetime',
+            'invoice_due_date' => 'date',
             'discount_eur' => 'decimal:2',
             'paid_at' => 'datetime',
             'marked_paid_by_admin_at' => 'datetime',
@@ -337,6 +342,15 @@ class ShopOrder extends Model
         $value = trim((string) (($this->receipt_overrides ?? [])[$key] ?? ''));
 
         return $value !== '' ? $value : null;
+    }
+
+    /**
+     * Whether a proper Rechnung has been issued for this order. The number
+     * comes from the shared yearly invoice ledger and never changes.
+     */
+    public function isInvoiced(): bool
+    {
+        return $this->invoice_number !== null;
     }
 
     public function commitsStockNow(): bool

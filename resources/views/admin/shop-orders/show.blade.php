@@ -126,6 +126,51 @@
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
                         {{ __('shop.admin.action_download_receipt') }}
                     </a>
+
+                    {{-- Rechnung: real invoice with an EB number from the
+                         shared ledger, parallel to the Kaufbeleg. --}}
+                    @if ($order->isInvoiced())
+                        <a
+                            href="{{ route('app.admin.shop-orders.invoice-pdf', $order) }}"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                            data-testid="shop-admin-invoice-download"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                            {{ __('shop.admin.action_download_invoice') }}
+                        </a>
+                        <a
+                            href="{{ route('app.admin.shop-orders.shop-invoice-mail', $order) }}"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                            data-testid="shop-admin-invoice-mail"
+                        >
+                            {{ __('restaurant.invoice_mail_open') }}
+                        </a>
+                        <span class="text-xs text-gray-500" data-testid="shop-admin-invoice-meta">
+                            {{ __('shop.admin.invoice_meta_line', ['number' => $order->invoice_number, 'date' => $order->invoiced_at?->format('d.m.Y')]) }}
+                        </span>
+                    @elseif ((float) $order->discount_eur > 0)
+                        <span class="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-500"
+                              data-testid="shop-admin-invoice-blocked"
+                              title="{{ __('shop.admin.invoice_blocked_discount') }}">
+                            {{ __('shop.admin.invoice_blocked_discount') }}
+                        </span>
+                    @else
+                        <form method="POST" action="{{ route('app.admin.shop-orders.issue-invoice', $order) }}"
+                              onsubmit="return confirm({{ Js::from(__('shop.admin.confirm_issue_invoice')) }})">
+                            @csrf
+                            <button type="submit" class="btn-solid-sm" data-testid="shop-admin-issue-invoice">
+                                {{ __('shop.admin.action_issue_invoice') }}
+                            </button>
+                        </form>
+                        <a
+                            href="{{ route('app.admin.shop-orders.shop-invoice-preview', $order) }}"
+                            target="_blank"
+                            class="text-sm text-gray-500 underline hover:text-gray-700"
+                            data-testid="shop-admin-invoice-preview"
+                        >
+                            {{ __('shop.admin.invoice_preview') }}
+                        </a>
+                    @endif
                 @endif
 
                 <form

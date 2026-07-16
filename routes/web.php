@@ -711,6 +711,18 @@ Route::middleware(['auth', 'verified'])
             // Full order editing (lines, prices, fulfillment) with open-amount
             // tracking for already-paid orders.
             Route::get('shop-orders/{shopOrder}/edit', [AdminShopOrderController::class, 'edit'])->name('shop-orders.edit');
+            // Rechnung for a non-mirror shop order: same shared EB ledger as
+            // the restaurant invoices. Route names carry a shop- prefix where
+            // the plain name is already taken by the B2B invoice pages above.
+            Route::post('shop-orders/{shopOrder}/issue-invoice', [AdminShopOrderController::class, 'issueInvoice'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.issue-invoice');
+            Route::get('shop-orders/{shopOrder}/invoice.pdf', [AdminShopOrderController::class, 'invoicePdf'])->name('shop-orders.invoice-pdf');
+            Route::get('shop-orders/{shopOrder}/invoice-preview.pdf', [AdminShopOrderController::class, 'invoicePreviewPdf'])->name('shop-orders.shop-invoice-preview');
+            Route::get('shop-orders/{shopOrder}/invoice-mail', [AdminShopOrderController::class, 'invoiceMailEditor'])->name('shop-orders.shop-invoice-mail');
+            Route::post('shop-orders/{shopOrder}/invoice-mail', [AdminShopOrderController::class, 'sendInvoiceMail'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.shop-invoice-mail.send');
             // WYSIWYG receipt editor (display-only text overrides).
             Route::get('shop-orders/{shopOrder}/receipt-editor', [AdminShopOrderController::class, 'receiptEditor'])->name('shop-orders.receipt-editor');
             Route::post('shop-orders/{shopOrder}/receipt-editor', [AdminShopOrderController::class, 'saveReceiptEditor'])

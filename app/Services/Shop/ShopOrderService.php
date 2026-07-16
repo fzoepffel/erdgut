@@ -1208,6 +1208,13 @@ class ShopOrderService
         'payment_text' => 160,
         'questions_text' => 500,
         'notes_text' => 500,
+        // Invoice-only fields (the Kaufbeleg ignores them): bank block and
+        // payment terms on the shop-order Rechnung.
+        'bank_name' => 160,
+        'bank_holder' => 160,
+        'bank_iban' => 160,
+        'bank_reference' => 160,
+        'terms_text' => 500,
     ];
 
     /**

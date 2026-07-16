@@ -1,8 +1,11 @@
+{{-- Shared by restaurant AND shop invoices: the controller passes
+     $sendUrl/$backUrl/$number/$attachmentName, nothing here is tied to a
+     specific order model. --}}
 <x-admin-layout>
     <x-slot name="header">
         <div class="flex items-center gap-3">
             <a href="{{ $backUrl }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ __('restaurant.invoice_editor_back') }}</a>
-            <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('restaurant.invoice_mail_heading', ['number' => $order->invoice_number]) }}</h1>
+            <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('restaurant.invoice_mail_heading', ['number' => $number]) }}</h1>
         </div>
     </x-slot>
 
@@ -52,7 +55,7 @@
             <p class="px-1 text-xs text-gray-400">{{ __('restaurant.invoice_mail_hint') }}</p>
 
             {{-- ── The email, editable like a draft in a mail client ── --}}
-            <form id="invoice-mail-form" method="POST" action="{{ route('app.admin.shop-orders.invoice-mail.send', $order) }}">
+            <form id="invoice-mail-form" method="POST" action="{{ $sendUrl }}">
                 @csrf
                 <div class="bg-white px-8 py-8 shadow-md sm:px-10" style="font-size: 13px; line-height: 1.5;">
                     <div class="space-y-2 border-b border-gray-200 pb-4">
@@ -69,7 +72,7 @@
                         </div>
                         <div class="flex items-baseline gap-2">
                             <span class="w-20 shrink-0 text-[12px] font-semibold uppercase tracking-wide text-gray-400">{{ __('restaurant.invoice_mail_attachment') }}</span>
-                            <span class="text-[12px] text-gray-600">erdgut-rechnung-{{ $order->invoice_number }}.pdf</span>
+                            <span class="text-[12px] text-gray-600">{{ $attachmentName }}</span>
                         </div>
                     </div>
 
