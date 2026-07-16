@@ -250,6 +250,33 @@ class RestaurantInvoiceEditorTest extends TestCase
             ->assertHeader('content-type', 'application/pdf');
     }
 
+    public function test_editor_opens_for_a_submitted_request_too(): void
+    {
+        // Wherever a document can be downloaded it can be edited: the editor
+        // is not gated on confirmed/invoiceable status.
+        $seasonal = Product::factory()->create([
+            'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece',
+            'unit_price' => 5.00, 'vat_rate_percent' => 7,
+            'is_seasonal' => true, 'is_available' => true, 'is_published' => true,
+        ]);
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $submitted = app(RestaurantOrderService::class)->submitRequest($profile->user, [
+            'items' => [['product_id' => $seasonal->id, 'variant_id' => null, 'quantity' => 1]],
+            'expected_delivery_date' => $this->date->toDateString(),
+            'delivery_street' => 'S', 'delivery_postal_code' => '1', 'delivery_city' => 'B',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.restaurant-orders.invoice-editor', $submitted))
+            ->assertOk()
+            ->assertSee('data-testid="invoice-editor-save"', false);
+
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.restaurant-orders.invoice-preview', $submitted))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+    }
+
     public function test_new_line_without_name_is_rejected(): void
     {
         $order = $this->confirmedOrder();

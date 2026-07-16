@@ -73,6 +73,7 @@
                             @csrf
                             <button type="submit" data-testid="restaurant-order-confirm" class="rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">{{ __('restaurant.admin_orders_confirm') }}</button>
                         </form>
+                        <a href="{{ route('app.admin.restaurant-orders.invoice-editor', $order) }}" class="rounded border border-emerald-600 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50" data-testid="restaurant-order-open-editor-request">{{ __('restaurant.invoice_editor_open') }}</a>
                         <form method="POST" action="{{ route('app.admin.restaurant-orders.decline', $order) }}"
                               onsubmit="return confirm(@js(__('restaurant.admin_orders_decline_confirm')))">
                             @csrf
@@ -96,9 +97,10 @@
                             <button type="submit" data-testid="restaurant-order-fulfil" class="rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">{{ __('restaurant.admin_orders_fulfil') }}</button>
                         </form>
                     @endif
-                    @if ($order->isInvoiceable() || $order->isInvoiced())
-                        <a href="{{ route('app.admin.restaurant-orders.invoice-editor', $order) }}" class="rounded border border-emerald-600 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50" data-testid="restaurant-order-open-editor">{{ __('restaurant.invoice_editor_open') }}</a>
-                    @endif
+                    {{-- The editor is available for every order, not only
+                         invoiceable ones: wherever a document can be
+                         downloaded, it can be edited. --}}
+                    <a href="{{ route('app.admin.restaurant-orders.invoice-editor', $order) }}" class="rounded border border-emerald-600 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50" data-testid="restaurant-order-open-editor">{{ __('restaurant.invoice_editor_open') }}</a>
                     @if ($order->isInvoiced())
                         <a href="{{ route('app.admin.restaurant-orders.invoice-pdf', $order) }}" class="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">{{ __('restaurant.invoice_download') }}</a>
                         @unless ($order->isInvoicePaid())

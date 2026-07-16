@@ -699,6 +699,11 @@ Route::middleware(['auth', 'verified'])
             // Full order editing (lines, prices, fulfillment) with open-amount
             // tracking for already-paid orders.
             Route::get('shop-orders/{shopOrder}/edit', [AdminShopOrderController::class, 'edit'])->name('shop-orders.edit');
+            // WYSIWYG receipt editor (display-only text overrides).
+            Route::get('shop-orders/{shopOrder}/receipt-editor', [AdminShopOrderController::class, 'receiptEditor'])->name('shop-orders.receipt-editor');
+            Route::post('shop-orders/{shopOrder}/receipt-editor', [AdminShopOrderController::class, 'saveReceiptEditor'])
+                ->middleware('throttle:60,1')
+                ->name('shop-orders.receipt-editor.save');
             Route::put('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'update'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.update');

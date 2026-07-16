@@ -1033,6 +1033,108 @@ class AdminShopOrderController extends Controller
     }
 
     /**
+     * WYSIWYG receipt editor: a page that looks like the Kaufbeleg where
+     * every text is an input. Display-only — money edits go through the
+     * order editor, which tracks paid/open amounts. Available for every
+     * shop order; mirrors of restaurant orders route to their invoice
+     * editor instead (their document is the Rechnung).
+     */
+    public function receiptEditor(ShopOrder $shopOrder): View|RedirectResponse
+    {
+        if ($shopOrder->restaurant_order_id !== null) {
+            return redirect()->route('app.admin.restaurant-orders.invoice-editor', $shopOrder->restaurant_order_id);
+        }
+
+        $shopOrder->load('items.product.translations', 'items.product.producer.translations');
+
+        if ($shopOrder->fulfillment_mode === 'delivery') {
+            $fulfillmentDefault = 'Lieferung: '.trim($shopOrder->delivery_street.', '.$shopOrder->delivery_postal_code.' '.$shopOrder->delivery_city, ', ');
+            $deliveryAddress = trim($shopOrder->delivery_street.', '.$shopOrder->delivery_postal_code.' '.$shopOrder->delivery_city, ', ');
+        } else {
+            $pickup = ShopOrderService::pickupLocation($shopOrder->pickup_location);
+            $deliveryAddress = $pickup !== null
+                ? trim(($pickup['street'] ?? '').', '.trim(($pickup['postal_code'] ?? '').' '.($pickup['city'] ?? '')), ', ')
+                : (string) $shopOrder->pickup_location;
+            $fulfillmentDefault = 'Abholung: '.$deliveryAddress;
+        }
+
+        $paymentDefault = match (true) {
+            $shopOrder->payment_method === 'in_person' => 'Barzahlung / Kartenzahlung vor Ort',
+            $shopOrder->paid_at !== null && $shopOrder->outstandingAmountEur() >= 0.01 => 'Online-Zahlung, Restbetrag vor Ort',
+            $shopOrder->paid_at !== null && $shopOrder->outstandingAmountEur() <= -0.01 => 'Online-Zahlung, Erstattung vor Ort',
+            default => 'Online-Zahlung',
+        };
+
+        $defaults = [
+            'seller_name' => (string) config('shop.company_name'),
+            'seller_register' => (string) config('shop.company_register'),
+            'seller_vat_id' => config('shop.company_vat_id') ? 'Umsatzsteuer-ID: '.config('shop.company_vat_id') : '',
+            'seller_address' => trim((string) config('shop.company_street').', '.(string) config('shop.company_postal_city'), ', '),
+            'seller_email' => (string) config('shop.company_email'),
+            'recipient_name' => (string) $shopOrder->name,
+            'recipient_email' => (string) ($shopOrder->email ?? ''),
+            'recipient_phone' => (string) ($shopOrder->phone ?? ''),
+            'recipient_fulfillment' => $fulfillmentDefault,
+            'delivery_line_label' => 'Lieferung '.$deliveryAddress,
+            'payment_text' => $paymentDefault,
+            'questions_text' => trim((config('shop.company_email') ? 'Email '.config('shop.company_email') : '')
+                .(config('shop.company_phone') ? "\noder anrufen unter ".config('shop.company_phone') : '')),
+            'notes_text' => 'Alle Preise sind Bruttopreise und enthalten die gesetzliche Mehrwertsteuer.'
+                .((float) $shopOrder->total_amount_eur <= 250 ? ' Dieser Beleg gilt als Kleinbetragsrechnung gem. § 33 UStDV.' : ''),
+        ];
+
+        $values = [];
+        foreach ($defaults as $key => $default) {
+            $values[$key] = $shopOrder->receiptOverride($key) ?? $default;
+        }
+
+        return view('admin.shop-orders.receipt-editor', [
+            'order' => $shopOrder,
+            'values' => $values,
+            'vatByRate' => ShopOrderService::vatByRate($shopOrder),
+        ]);
+    }
+
+    /** Persist the receipt editor's display overrides + per-line names. */
+    public function saveReceiptEditor(Request $request, ShopOrder $shopOrder): RedirectResponse
+    {
+        $rules = [
+            'items' => ['nullable', 'array'],
+            'items.*.id' => ['required', 'integer'],
+            'items.*.display_name' => ['nullable', 'string', 'max:160'],
+            'overrides' => ['nullable', 'array'],
+        ];
+        foreach (ShopOrderService::RECEIPT_OVERRIDE_KEYS as $key => $maxLength) {
+            $rules["overrides.$key"] = ['nullable', 'string', "max:$maxLength"];
+        }
+        $validated = $request->validate($rules);
+
+        $this->service->saveReceiptOverrides(
+            $shopOrder,
+            (array) ($validated['overrides'] ?? []),
+            (array) ($validated['items'] ?? []),
+        );
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: $shopOrder->id,
+            action: 'receipt_edit',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            reason: null,
+            metadata: [
+                'channel' => 'admin',
+                'override_keys' => array_keys((array) ($shopOrder->refresh()->receipt_overrides ?? [])),
+            ],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.shop-orders.receipt-editor', $shopOrder)
+            ->with('status', __('shop.admin.receipt_editor_saved_flash'));
+    }
+
+    /**
      * Edit form for an existing order — the manual-order form prefilled from
      * the stored lines. Every prefilled line is marked "touched" so the
      * debounced catalog quote never overwrites stored (possibly negotiated)
