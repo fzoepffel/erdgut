@@ -114,8 +114,10 @@ class RestaurantCatalogServiceTest extends TestCase
 
         $row = $this->service()->productsForDate($date)->firstWhere('product.id', $product->id);
 
-        $this->assertSame(8.00, $row['grossPerDisplay']);
-        $this->assertSame(round(8.00 - ShopOrderService::vatAmountFromGross(8.00, 7), 2), $row['netPerDisplay']);
+        // Business rule prices are NET: the catalog shows exactly the
+        // maintained 8,00 € net, gross = net + 7 %.
+        $this->assertSame(8.56, $row['grossPerDisplay']);
+        $this->assertSame(8.00, $row['netPerDisplay']);
     }
 
     public function test_selectable_dates_exclude_closed_days(): void

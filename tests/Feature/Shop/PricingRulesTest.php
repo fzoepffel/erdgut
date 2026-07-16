@@ -101,7 +101,8 @@ class PricingRulesTest extends TestCase
         $business = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Business);
         $private = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private);
 
-        $this->assertSame(8.0, $business->unitPriceEur);
+        // Business rule prices are NET; the resolver returns gross (+7 %).
+        $this->assertSame(8.56, $business->unitPriceEur);
         $this->assertSame('customer_group', $business->reason);
         $this->assertSame(10.0, $private->unitPriceEur);
     }
@@ -116,7 +117,8 @@ class PricingRulesTest extends TestCase
             'unit_price' => 6.0,
         ]);
 
-        $this->assertSame(6.0, $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Business)->unitPriceEur);
+        // 6,00 € net business rule wins over the generic gross rule → 6,42 € gross.
+        $this->assertSame(6.42, $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Business)->unitPriceEur);
     }
 
     public function test_margin_floor_clamps_below_cost(): void
@@ -296,12 +298,42 @@ class PricingRulesTest extends TestCase
         $this->assertSame(1.0, $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Private, 50.0)->unitPriceEur);
         // Business at qty 50 → flat group price, tier ignored.
         $b = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Business, 50.0);
-        $this->assertSame(2.0, $b->unitPriceEur);
+        $this->assertSame(2.14, $b->unitPriceEur); // 2,00 € net + 7 %
         $this->assertSame('customer_group', $b->reason);
 
-        // An EXPLICITLY Business-typed tier still applies (deliberate B2B tier).
+        // An EXPLICITLY Business-typed tier still applies (deliberate B2B
+        // tier), and its price is net like every business rule → +7 %.
         ProductPriceRule::factory()->create(['product_id' => $p->id, 'customer_type' => CustomerType::Business->value, 'min_quantity' => 40, 'unit_price' => 1.8]);
-        $this->assertSame(1.8, $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Business, 50.0)->unitPriceEur);
+        $this->assertSame(1.926, $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Business, 50.0)->unitPriceEur);
+    }
+
+    public function test_business_net_price_survives_per_gram_rounding(): void
+    {
+        // The real-world case that motivated net semantics: 26,50 €/kg net
+        // maintained, canonical unit is grams. 0,5 kg must come out at
+        // exactly 13,25 € net on the invoice (gross 14,18, VAT 0,93).
+        $p = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.04, // 40,00 €/kg gross B2C base
+            'vat_rate_percent' => 7,
+            'buying_price_cents' => null,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        ProductPriceRule::factory()->create([
+            'product_id' => $p->id,
+            'customer_type' => CustomerType::Business->value,
+            'unit_price' => 0.0265, // 26,50 €/kg net
+        ]);
+
+        $gross = $this->resolver()->resolve($p->fresh(), Carbon::today(), CustomerType::Business)->unitPriceEur;
+        $this->assertEqualsWithDelta(0.028355, $gross, 1e-9);
+
+        $lineGross = round($gross * 500, 2);
+        $this->assertEqualsWithDelta(14.18, $lineGross, 0.001);
+        $net = round($lineGross - ShopOrderService::vatAmountFromGross($lineGross, 7), 2);
+        $this->assertEqualsWithDelta(13.25, $net, 0.001);
     }
 
     public function test_quantity_tiers_are_grade_specific(): void

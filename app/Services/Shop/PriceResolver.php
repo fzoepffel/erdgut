@@ -13,6 +13,11 @@ use Illuminate\Support\Facades\Log;
  * Resolves the effective gross unit price (per canonical unit) for a product,
  * given a delivery date, customer type and ordered quantity.
  *
+ * Price semantics: base prices and untyped rules are GROSS (B2C shelf
+ * prices). Business-typed rule prices are maintained NET and converted to
+ * gross here, so every consumer keeps its gross contract while the B2B
+ * price list reads like a proper net list.
+ *
  * Precedence (designed for all phases; this phase exercises base + period
  * overrides + customer-group prices + the margin floor):
  *   1. Candidate rules: active, date in window, customer_type matches or null,
@@ -83,6 +88,17 @@ class PriceResolver
 
         if ($winner !== null) {
             $price = (float) $winner->unit_price;
+            // Business-typed rule prices are maintained as NET (the usual
+            // B2B convention; the admin field says "Geschäftskundenpreis
+            // (netto)"). Everything downstream works gross, so convert here.
+            // Untyped rules and the base price stay gross: a business
+            // customer without a business rule pays the B2C shelf price.
+            if ($winner->customer_type === CustomerType::Business) {
+                // 6 decimals, not 4: canonical prices are per gram, and
+                // 0,006 €/g × 1,07 = 0,00642 must survive the rounding so
+                // line totals land on the maintained net exactly.
+                $price = round($price * (100 + (int) $product->vat_rate_percent) / 100, 6);
+            }
             $reason = $this->reasonFor($winner);
             $ruleId = (int) $winner->id;
         } else {
@@ -106,7 +122,7 @@ class PriceResolver
             return new ResolvedPrice($floor, 'margin_floor', $ruleId);
         }
 
-        return new ResolvedPrice(round($price, 4), $reason, $ruleId);
+        return new ResolvedPrice(round($price, 6), $reason, $ruleId);
     }
 
     /**
