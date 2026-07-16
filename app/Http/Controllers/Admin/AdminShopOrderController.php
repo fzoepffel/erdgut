@@ -1042,7 +1042,7 @@ class AdminShopOrderController extends Controller
     public function receiptEditor(ShopOrder $shopOrder): View|RedirectResponse
     {
         if ($shopOrder->restaurant_order_id !== null) {
-            return redirect()->route('app.admin.restaurant-orders.invoice-editor', $shopOrder->restaurant_order_id);
+            return redirect()->route('app.admin.shop-orders.invoice-editor', $shopOrder->restaurant_order_id);
         }
 
         $shopOrder->load('items.product.translations', 'items.product.producer.translations');

@@ -87,7 +87,7 @@
                      restaurant mirrors, whose document is the Rechnung). --}}
                 <a
                     href="{{ $order->restaurant_order_id !== null
-                        ? route('app.admin.restaurant-orders.invoice-editor', $order->restaurant_order_id)
+                        ? route('app.admin.shop-orders.invoice-editor', $order->restaurant_order_id)
                         : route('app.admin.shop-orders.receipt-editor', $order) }}"
                     class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                     data-testid="shop-admin-receipt-editor"
@@ -95,15 +95,38 @@
                     {{ $order->restaurant_order_id !== null ? __('restaurant.invoice_editor_open') : __('shop.admin.receipt_editor_open') }}
                 </a>
 
-                {{-- PDF receipt — always available, same signed URL the customer uses --}}
-                <a
-                    href="{{ \App\Services\Shop\ShopOrderService::receiptUrl($order) }}"
-                    class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                    data-testid="shop-admin-receipt"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
-                    {{ __('shop.admin.action_download_receipt') }}
-                </a>
+                @if ($order->restaurant_order_id !== null)
+                    {{-- B2B mirror: the customer document is the Rechnung,
+                         so its download + email actions live right here on
+                         the order level once it is issued. --}}
+                    @if ($order->sourceRestaurantOrder?->isInvoiced())
+                        <a
+                            href="{{ route('app.admin.restaurant-orders.invoice-pdf', $order->restaurant_order_id) }}"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                            data-testid="shop-admin-invoice-download"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                            {{ __('restaurant.invoice_download') }}
+                        </a>
+                        <a
+                            href="{{ route('app.admin.shop-orders.invoice-mail', $order->restaurant_order_id) }}"
+                            class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                            data-testid="shop-admin-invoice-mail"
+                        >
+                            {{ __('restaurant.invoice_mail_open') }}
+                        </a>
+                    @endif
+                @else
+                    {{-- PDF receipt — always available, same signed URL the customer uses --}}
+                    <a
+                        href="{{ \App\Services\Shop\ShopOrderService::receiptUrl($order) }}"
+                        class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        data-testid="shop-admin-receipt"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                        {{ __('shop.admin.action_download_receipt') }}
+                    </a>
+                @endif
 
                 <form
                     method="POST"

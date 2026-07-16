@@ -87,9 +87,9 @@ class RestaurantInvoiceEditorTest extends TestCase
         $order = $this->confirmedOrder();
         $user = User::factory()->create();
 
-        $this->actingAs($user)->get(route('app.admin.restaurant-orders.invoice-editor', $order))->assertForbidden();
-        $this->actingAs($user)->post(route('app.admin.restaurant-orders.invoice-editor.save', $order), $this->payload($order))->assertForbidden();
-        $this->actingAs($user)->get(route('app.admin.restaurant-orders.invoice-preview', $order))->assertForbidden();
+        $this->actingAs($user)->get(route('app.admin.shop-orders.invoice-editor', $order))->assertForbidden();
+        $this->actingAs($user)->post(route('app.admin.shop-orders.invoice-editor.save', $order), $this->payload($order))->assertForbidden();
+        $this->actingAs($user)->get(route('app.admin.shop-orders.invoice-preview', $order))->assertForbidden();
     }
 
     public function test_editor_prefills_defaults_from_config_and_profile(): void
@@ -99,7 +99,7 @@ class RestaurantInvoiceEditorTest extends TestCase
         $order = $this->confirmedOrder();
 
         $this->actingAs($this->admin)
-            ->get(route('app.admin.restaurant-orders.invoice-editor', $order))
+            ->get(route('app.admin.shop-orders.invoice-editor', $order))
             ->assertOk()
             ->assertSee('Bistro Beet', false)
             ->assertSee('Marktstr. 1', false)
@@ -115,14 +115,14 @@ class RestaurantInvoiceEditorTest extends TestCase
         $svc = app(RestaurantInvoiceService::class);
 
         $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-editor.save', $order), $this->payload($order, [
+            ->post(route('app.admin.shop-orders.invoice-editor.save', $order), $this->payload($order, [
                 'overrides' => [
                     'recipient_name' => 'Technotofu UG',
                     'bank_name' => 'Monobank',
                     'terms_text' => 'Zahlbar sofort ohne Abzug.',
                 ],
             ]))
-            ->assertRedirect(route('app.admin.restaurant-orders.invoice-editor', $order));
+            ->assertRedirect(route('app.admin.shop-orders.invoice-editor', $order));
 
         $html = $svc->renderPdf($order->refresh(), 'EB260099')->getDomPDF()->outputHtml();
         $this->assertStringContainsString('Technotofu UG', $html);
@@ -132,7 +132,7 @@ class RestaurantInvoiceEditorTest extends TestCase
 
         // Clearing the recipient override restores the profile default.
         $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-editor.save', $order), $this->payload($order, [
+            ->post(route('app.admin.shop-orders.invoice-editor.save', $order), $this->payload($order, [
                 'overrides' => ['recipient_name' => ''],
             ]))
             ->assertRedirect();
@@ -148,7 +148,7 @@ class RestaurantInvoiceEditorTest extends TestCase
         $item = $order->items()->firstOrFail();
 
         $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-editor.save', $order), [
+            ->post(route('app.admin.shop-orders.invoice-editor.save', $order), [
                 'items' => [
                     ['id' => $item->id, 'display_name' => 'Feiner Bergkäse (Rechnungstext)', 'quantity' => 10, 'net_total_eur' => '100.00', 'vat_rate_percent' => 7],
                 ],
@@ -173,7 +173,7 @@ class RestaurantInvoiceEditorTest extends TestCase
         $remainingBefore = $inventory->availableOnDate($this->product, $this->date, ShopStockAudience::BusinessTrade);
 
         $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-editor.save', $order), [
+            ->post(route('app.admin.shop-orders.invoice-editor.save', $order), [
                 'items' => [
                     ['id' => $item->id, 'quantity' => 10, 'net_total_eur' => '100.00', 'vat_rate_percent' => 7],
                     ['name' => 'Anfahrt Sondertour', 'unit' => 'piece', 'quantity' => 1, 'net_total_eur' => '12.00', 'vat_rate_percent' => 19],
@@ -210,7 +210,7 @@ class RestaurantInvoiceEditorTest extends TestCase
 
         // Editor-set due date survives issuing.
         $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-editor.save', $order), $this->payload($order, [
+            ->post(route('app.admin.shop-orders.invoice-editor.save', $order), $this->payload($order, [
                 'invoice_due_date' => '2027-01-15',
             ]))
             ->assertRedirect();
@@ -222,7 +222,7 @@ class RestaurantInvoiceEditorTest extends TestCase
 
         // Still editable after issue; number stays.
         $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-editor.save', $order), $this->payload($order, [
+            ->post(route('app.admin.shop-orders.invoice-editor.save', $order), $this->payload($order, [
                 'overrides' => ['recipient_name' => 'Nachtrag GmbH'],
             ]))
             ->assertRedirect();
@@ -232,7 +232,7 @@ class RestaurantInvoiceEditorTest extends TestCase
         $this->assertSame('Nachtrag GmbH', $order->invoiceOverride('recipient_name'));
 
         $this->actingAs($this->admin)
-            ->get(route('app.admin.restaurant-orders.invoice-editor', $order))
+            ->get(route('app.admin.shop-orders.invoice-editor', $order))
             ->assertOk()
             ->assertSee('Nachtrag GmbH', false);
     }
@@ -245,7 +245,7 @@ class RestaurantInvoiceEditorTest extends TestCase
         ]);
 
         $this->actingAs($this->admin)
-            ->get(route('app.admin.restaurant-orders.invoice-preview', $order))
+            ->get(route('app.admin.shop-orders.invoice-preview', $order))
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf');
     }
@@ -267,12 +267,12 @@ class RestaurantInvoiceEditorTest extends TestCase
         ]);
 
         $this->actingAs($this->admin)
-            ->get(route('app.admin.restaurant-orders.invoice-editor', $submitted))
+            ->get(route('app.admin.shop-orders.invoice-editor', $submitted))
             ->assertOk()
             ->assertSee('data-testid="invoice-editor-save"', false);
 
         $this->actingAs($this->admin)
-            ->get(route('app.admin.restaurant-orders.invoice-preview', $submitted))
+            ->get(route('app.admin.shop-orders.invoice-preview', $submitted))
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf');
     }
@@ -283,7 +283,7 @@ class RestaurantInvoiceEditorTest extends TestCase
         $newDate = $this->date->copy()->addDays(3)->toDateString();
 
         $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-editor.save', $order), $this->payload($order, [
+            ->post(route('app.admin.shop-orders.invoice-editor.save', $order), $this->payload($order, [
                 'expected_delivery_date' => $newDate,
             ]))
             ->assertRedirect();
@@ -301,7 +301,7 @@ class RestaurantInvoiceEditorTest extends TestCase
         $originalNet = $item->lineNetEur();
 
         $response = $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-editor.preview', $order), [
+            ->post(route('app.admin.shop-orders.invoice-editor.preview', $order), [
                 'items' => [
                     ['id' => $item->id, 'display_name' => 'Nur in der Vorschau', 'quantity' => 10, 'net_total_eur' => '555.00', 'vat_rate_percent' => 7],
                 ],
@@ -328,7 +328,7 @@ class RestaurantInvoiceEditorTest extends TestCase
 
         $order = $this->confirmedOrder();
         $this->actingAs($this->admin)
-            ->get(route('app.admin.restaurant-orders.invoice-editor', $order))
+            ->get(route('app.admin.shop-orders.invoice-editor', $order))
             ->assertOk()
             ->assertSee('DE32 2022 0800 0040 2029 90', false)
             ->assertSee('HRB 286220 B', false);
@@ -340,7 +340,7 @@ class RestaurantInvoiceEditorTest extends TestCase
         $item = $order->items()->firstOrFail();
 
         $this->actingAs($this->admin)
-            ->post(route('app.admin.restaurant-orders.invoice-editor.save', $order), [
+            ->post(route('app.admin.shop-orders.invoice-editor.save', $order), [
                 'items' => [
                     ['id' => $item->id, 'quantity' => 10, 'net_total_eur' => '100.00', 'vat_rate_percent' => 7],
                     ['name' => '', 'quantity' => 1, 'net_total_eur' => '5.00', 'vat_rate_percent' => 7],

@@ -12,6 +12,7 @@ use App\Mail\RestaurantOrderConfirmedMail;
 use App\Mail\RestaurantOrderDeclinedMail;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantOrderItem;
+use App\Models\ShopOrder;
 use App\Services\Restaurant\RestaurantInvoiceService;
 use App\Services\Restaurant\RestaurantOrderService;
 use App\Support\AuditLogger;
@@ -307,12 +308,13 @@ class AdminRestaurantOrderController extends Controller
 
         $items = $restaurantOrder->items->reject(fn ($i) => $i->isDeclined())->values();
 
-        return view('admin.restaurant-orders.invoice-editor', [
+        return view('admin.shop-orders.invoice-editor', [
             'order' => $restaurantOrder,
             'items' => $items,
             'values' => $values,
             'previewNumber' => $restaurantOrder->invoice_number ?? $this->invoices->nextInvoiceNumberPreview(),
             'dueDays' => $dueDays,
+            'backUrl' => $this->orderContextUrl($restaurantOrder),
         ]);
     }
 
@@ -366,7 +368,7 @@ class AdminRestaurantOrderController extends Controller
         );
 
         return redirect()
-            ->route('app.admin.restaurant-orders.invoice-editor', $restaurantOrder)
+            ->route('app.admin.shop-orders.invoice-editor', $restaurantOrder)
             ->with('status', __('restaurant.invoice_editor_saved_flash'));
     }
 
@@ -481,7 +483,7 @@ class AdminRestaurantOrderController extends Controller
         // No auto-mail: the admin reviews and sends the invoice email in the
         // mail editor (precrafted text, editable subject/recipients/body).
         return redirect()
-            ->route('app.admin.restaurant-orders.invoice-mail', $restaurantOrder)
+            ->route('app.admin.shop-orders.invoice-mail', $restaurantOrder)
             ->with('status', __('restaurant.admin_invoice_issued_flash', ['number' => $restaurantOrder->invoice_number]));
     }
 
@@ -498,10 +500,11 @@ class AdminRestaurantOrderController extends Controller
 
         $restaurantOrder->load('user.restaurantProfile');
 
-        return view('admin.restaurant-orders.invoice-mail', [
+        return view('admin.shop-orders.invoice-mail', [
             'order' => $restaurantOrder,
             'recipients' => (string) ($restaurantOrder->user?->email ?? ''),
             'templates' => $this->invoiceMailTemplates($restaurantOrder),
+            'backUrl' => $this->orderContextUrl($restaurantOrder),
         ]);
     }
 
@@ -559,9 +562,23 @@ class AdminRestaurantOrderController extends Controller
             actorUserId: (int) $request->user()->id,
         );
 
-        return redirect()
-            ->route('app.admin.restaurant-orders.show', $restaurantOrder)
+        return redirect($this->orderContextUrl($restaurantOrder))
             ->with('status', __('restaurant.invoice_mail_sent_flash', ['recipients' => $recipients->implode(', ')]));
+    }
+
+    /**
+     * Where invoice pages lead back to: the mirror ShopOrder in the unified
+     * orders list when one exists (firm orders always mirror), otherwise the
+     * restaurant request page. Keeps the admin in the Bestellungen context;
+     * invoicing has nothing to do with the requests queue.
+     */
+    private function orderContextUrl(RestaurantOrder $order): string
+    {
+        $mirror = ShopOrder::query()->where('restaurant_order_id', $order->id)->first();
+
+        return $mirror !== null
+            ? route('app.admin.shop-orders.show', $mirror)
+            : route('app.admin.restaurant-orders.show', $order);
     }
 
     /**

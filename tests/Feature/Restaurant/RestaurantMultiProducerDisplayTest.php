@@ -149,9 +149,12 @@ class RestaurantMultiProducerDisplayTest extends TestCase
         $svc = app(RestaurantInvoiceService::class);
         $svc->issueInvoice($order);
 
-        $html = $svc->renderPdf($order->refresh())->getDomPDF()->outputHtml();
+        // dompdf entity-encodes umlauts/apostrophes in outputHtml with its
+        // own scheme; decode and compare the raw names to stay flake-free
+        // for faker names like O'Conner or Häberli.
+        $html = html_entity_decode($svc->renderPdf($order->refresh())->getDomPDF()->outputHtml());
 
-        $this->assertStringContainsString(e($farmB->name), $html);
-        $this->assertStringNotContainsString(e($farmA->name), $html);
+        $this->assertStringContainsString($farmB->name, $html);
+        $this->assertStringNotContainsString($farmA->name, $html);
     }
 }

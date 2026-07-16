@@ -1,7 +1,7 @@
 <x-admin-layout>
     <x-slot name="header">
         <div class="flex items-center gap-3">
-            <a href="{{ route('app.admin.restaurant-orders.show', $order) }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ __('restaurant.invoice_editor_back') }}</a>
+            <a href="{{ $backUrl }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; {{ __('restaurant.invoice_editor_back') }}</a>
             <h1 class="text-xl font-semibold leading-tight text-gray-800">{{ __('restaurant.invoice_mail_heading', ['number' => $order->invoice_number]) }}</h1>
         </div>
     </x-slot>
@@ -45,14 +45,14 @@
                             :class="lang === 'en' ? 'bg-emerald-700 text-white' : 'text-gray-600 hover:bg-gray-50'"
                             class="rounded px-2.5 py-1 text-xs font-semibold" data-testid="invoice-mail-lang-en">English</button>
                 </div>
-                <a href="{{ route('app.admin.restaurant-orders.show', $order) }}" class="ml-auto text-sm text-gray-500 hover:text-gray-700">
+                <a href="{{ $backUrl }}" class="ml-auto text-sm text-gray-500 hover:text-gray-700">
                     {{ __('restaurant.invoice_mail_skip') }}
                 </a>
             </div>
             <p class="px-1 text-xs text-gray-400">{{ __('restaurant.invoice_mail_hint') }}</p>
 
             {{-- ── The email, editable like a draft in a mail client ── --}}
-            <form id="invoice-mail-form" method="POST" action="{{ route('app.admin.restaurant-orders.invoice-mail.send', $order) }}">
+            <form id="invoice-mail-form" method="POST" action="{{ route('app.admin.shop-orders.invoice-mail.send', $order) }}">
                 @csrf
                 <div class="bg-white px-8 py-8 shadow-md sm:px-10" style="font-size: 13px; line-height: 1.5;">
                     <div class="space-y-2 border-b border-gray-200 pb-4">
