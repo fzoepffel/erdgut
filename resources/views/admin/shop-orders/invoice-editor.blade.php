@@ -233,15 +233,17 @@
                                         </span>
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
-                                        {{-- Computed: Preis × Menge. The hidden input submits the
-                                             exact stored total while the line is untouched. --}}
-                                        <span class="tabular-nums text-gray-900" x-text="fmt(lineNet(existing[{{ $i }}]))" data-testid="invoice-editor-line-total-{{ $i }}"></span>
+                                        {{-- Computed: Preis × Menge, VAT select inline. The hidden
+                                             input submits the exact stored total while untouched. --}}
+                                        <span class="flex items-baseline justify-between gap-1">
+                                            <span class="tabular-nums text-gray-900" x-text="fmt(lineNet(existing[{{ $i }}]))" data-testid="invoice-editor-line-total-{{ $i }}"></span>
+                                            <select name="items[{{ $i }}][vat_rate_percent]" x-model.number="existing[{{ $i }}].vat"
+                                                    class="w-auto border-0 bg-transparent p-0 pr-5 text-[10px] text-gray-400 focus:ring-0">
+                                                <option value="7" @selected($item->vat_rate_snapshot_percent === 7)>+7 %</option>
+                                                <option value="19" @selected($item->vat_rate_snapshot_percent === 19)>+19 %</option>
+                                            </select>
+                                        </span>
                                         <input type="hidden" name="items[{{ $i }}][net_total_eur]" :value="lineNet(existing[{{ $i }}]).toFixed(2)">
-                                        <select name="items[{{ $i }}][vat_rate_percent]" x-model.number="existing[{{ $i }}].vat"
-                                                class="mt-0.5 w-full border-0 bg-transparent p-0 text-[10px] text-gray-400 focus:ring-0">
-                                            <option value="7" @selected($item->vat_rate_snapshot_percent === 7)>zzgl. 7 % MwSt.</option>
-                                            <option value="19" @selected($item->vat_rate_snapshot_percent === 19)>zzgl. 19 % MwSt.</option>
-                                        </select>
                                     </td>
                                     <td class="border-b border-gray-100 px-1 py-2 text-center align-top">
                                         <label class="cursor-pointer text-gray-300 hover:text-red-500" title="{{ __('restaurant.invoice_editor_remove_line') }}">
@@ -280,13 +282,15 @@
                                         </span>
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
-                                        <span class="tabular-nums text-gray-900" x-text="fmt(lineNet(line))"></span>
+                                        <span class="flex items-baseline justify-between gap-1">
+                                            <span class="tabular-nums text-gray-900" x-text="fmt(lineNet(line))"></span>
+                                            <select :name="'items[' + ({{ count($items) }} + idx) + '][vat_rate_percent]'" x-model.number="line.vat"
+                                                    class="w-auto border-0 bg-transparent p-0 pr-5 text-[10px] text-gray-400 focus:ring-0">
+                                                <option value="7">+7 %</option>
+                                                <option value="19">+19 %</option>
+                                            </select>
+                                        </span>
                                         <input type="hidden" :name="'items[' + ({{ count($items) }} + idx) + '][net_total_eur]'" :value="lineNet(line).toFixed(2)">
-                                        <select :name="'items[' + ({{ count($items) }} + idx) + '][vat_rate_percent]'" x-model.number="line.vat"
-                                                class="mt-0.5 w-full border-0 bg-transparent p-0 text-[10px] text-gray-400 focus:ring-0">
-                                            <option value="7">zzgl. 7 % MwSt.</option>
-                                            <option value="19">zzgl. 19 % MwSt.</option>
-                                        </select>
                                     </td>
                                     <td class="border-b border-gray-100 px-1 py-2 text-center align-top">
                                         <button type="button" class="text-gray-300 hover:text-red-500" x-on:click="extra.splice(idx, 1)" title="{{ __('restaurant.invoice_editor_remove_line') }}">✕</button>
@@ -310,13 +314,13 @@
                                         <input type="number" step="0.01" min="0" max="999.99" name="delivery_fee_net_eur"
                                                x-model.number="feeNet" placeholder="0,00"
                                                class="{{ $inpRight }}" data-testid="invoice-editor-fee">
-                                        <span class="text-gray-500">€</span>
+                                        <span class="shrink-0 text-gray-500">€</span>
+                                        <select name="delivery_fee_vat_rate_percent" x-model.number="feeVat"
+                                                class="w-auto shrink-0 border-0 bg-transparent p-0 pr-5 text-[10px] text-gray-400 focus:ring-0">
+                                            <option value="7">+7 %</option>
+                                            <option value="19">+19 %</option>
+                                        </select>
                                     </span>
-                                    <select name="delivery_fee_vat_rate_percent" x-model.number="feeVat"
-                                            class="mt-0.5 w-full border-0 bg-transparent p-0 text-[10px] text-gray-400 focus:ring-0">
-                                        <option value="7">zzgl. 7 % MwSt.</option>
-                                        <option value="19">zzgl. 19 % MwSt.</option>
-                                    </select>
                                 </td>
                                 <td class="px-1 py-2"></td>
                             </tr>

@@ -114,8 +114,8 @@
 
     h2.items-heading { font-size: 12px; font-weight: bold; margin: 4px 0 10px; }
     table.items { width: 100%; border-collapse: collapse; border: 1px solid #e3e3e0; }
-    table.items th { font-size: 8.5px; font-weight: normal; color: #8a8a86; border-bottom: 1px solid #e3e3e0; border-right: 1px solid #eeeeeb; padding: 5px 8px; text-align: left; background: #fbfbfa; }
-    table.items td { font-size: 9.5px; padding: 6px 8px; border-bottom: 1px solid #f0f0ed; border-right: 1px solid #f5f5f2; vertical-align: top; }
+    table.items th { font-size: 8px; font-weight: normal; color: #8a8a86; border-bottom: 1px solid #e3e3e0; border-right: 1px solid #eeeeeb; padding: 3px 6px; text-align: left; background: #fbfbfa; }
+    table.items td { font-size: 9px; padding: 3px 6px; border-bottom: 1px solid #f0f0ed; border-right: 1px solid #f5f5f2; vertical-align: top; }
     table.items th:last-child, table.items td:last-child { border-right: none; }
     table.items tr:last-child td { border-bottom: none; }
 
@@ -220,18 +220,9 @@
     </thead>
     <tbody>
         @foreach ($order->items->reject(fn ($i) => $i->isDeclined()) as $item)
-            @php
-                $view = $lineView($item);
-                // The farm that actually delivers (allocation over recorded
-                // inflows), falling back to the product's primary producer.
-                $farm = ($producerNames ?? [])[$item->product_id.'|'.(int) ($item->variant_id ?? 0)]
-                    ?? $item->product?->producer?->name;
-            @endphp
+            @php $view = $lineView($item); @endphp
             <tr>
-                <td>
-                    {{ $item->invoiceDisplayName() }}
-                    @if ($farm)<div style="font-size:8px; color:#9a9a96;">{{ $farm }}</div>@endif
-                </td>
+                <td>{{ $item->invoiceDisplayName() }}</td>
                 <td>{{ $eur($view['unit_net']) }}</td>
                 <td>{{ $view['qty'] }}</td>
                 <td>{{ $eur($item->lineNetEur()) }}</td>
