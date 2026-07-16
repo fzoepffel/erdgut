@@ -2793,7 +2793,7 @@
     "shop.admin.receipt_editor_invoice_section_hint": "Ces informations apparaissent uniquement sur la facture, pas sur le reçu.",
     "shop.admin.receipt_editor_bank_reference_placeholder": "Référence de paiement (vide = numéro de facture)",
     "shop.admin.receipt_editor_heading": "Modifier le reçu de la commande n° :id",
-    "shop.admin.receipt_editor_open": "Modifier le reçu",
+    "shop.admin.receipt_editor_open": "Modifier le reçu/la facture",
     "shop.admin.receipt_editor_save": "Enregistrer",
     "shop.admin.receipt_editor_pdf": "Reçu PDF",
     "shop.admin.receipt_editor_hint": "Tous les textes du document sont directement modifiables. Un champ vidé revient à sa valeur par défaut à l'enregistrement.",

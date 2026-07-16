@@ -2793,7 +2793,7 @@
     "shop.admin.receipt_editor_invoice_section_hint": "Diese Angaben erscheinen nur auf der Rechnung, nicht auf dem Beleg.",
     "shop.admin.receipt_editor_bank_reference_placeholder": "Verwendungszweck (leer = Rechnungsnummer)",
     "shop.admin.receipt_editor_heading": "Beleg zu Bestellung #:id bearbeiten",
-    "shop.admin.receipt_editor_open": "Beleg bearbeiten",
+    "shop.admin.receipt_editor_open": "Beleg/Rechnung bearbeiten",
     "shop.admin.receipt_editor_save": "Speichern",
     "shop.admin.receipt_editor_pdf": "Beleg-PDF",
     "shop.admin.receipt_editor_hint": "Alle Texte auf dem Blatt sind direkt editierbar. Ein geleertes Feld fällt beim Speichern auf den Standardwert zurück.",

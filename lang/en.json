@@ -2793,7 +2793,7 @@
     "shop.admin.receipt_editor_invoice_section_hint": "These details only appear on the invoice, not on the receipt.",
     "shop.admin.receipt_editor_bank_reference_placeholder": "Payment reference (blank = invoice number)",
     "shop.admin.receipt_editor_heading": "Edit receipt for order #:id",
-    "shop.admin.receipt_editor_open": "Edit receipt",
+    "shop.admin.receipt_editor_open": "Edit receipt/invoice",
     "shop.admin.receipt_editor_save": "Save",
     "shop.admin.receipt_editor_pdf": "Receipt PDF",
     "shop.admin.receipt_editor_hint": "Every text on the sheet is directly editable. A cleared field falls back to its default on save.",
