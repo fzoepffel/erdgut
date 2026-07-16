@@ -14,10 +14,12 @@ use App\Http\Requests\Admin\UpdateProductRequest;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductPriceHistory;
 use App\Models\ProductPriceRule;
 use App\Models\ProductProducerVariantPrice;
 use App\Models\ProductTranslation;
 use App\Models\ProductVariant;
+use App\Services\Admin\PriceHistoryRecorder;
 use App\Services\ImageProcessor;
 use App\Support\ProducerLabels;
 use Illuminate\Database\Eloquent\Collection;
@@ -174,6 +176,8 @@ class ProductController extends Controller
             }
         });
 
+        app(PriceHistoryRecorder::class)->record($product->fresh()->load('variants', 'producers'));
+
         // Redirect to the index for clearer "X created" feedback (matching the
         // producer-create flow); the inline edit link in the flash gets the
         // admin straight back to the form if they want to keep editing.
@@ -256,6 +260,8 @@ class ProductController extends Controller
                 );
             }
         });
+
+        app(PriceHistoryRecorder::class)->record($product->fresh()->load('variants', 'producers'));
 
         return redirect()
             ->route('app.admin.products.edit', $product)
@@ -935,5 +941,120 @@ class ProductController extends Controller
     private function deletePublicImage(?string $path): void
     {
         ImageProcessor::deletePublicImage($path);
+    }
+
+    /**
+     * Price development page: a step chart of the recorded list prices
+     * (B2C gross, B2B net, buying per farm), one grade at a time. The
+     * chart is a server-rendered SVG; coordinates are precomputed here so
+     * the Blade stays presentation-only.
+     */
+    public function priceHistory(Request $request, Product $product): View
+    {
+        $product->load('variants', 'producers.translations');
+
+        // Grade selector: null = the base product; only grades that have
+        // history rows of their own appear.
+        $variantId = $request->integer('variant') ?: null;
+        $variantIdsWithHistory = ProductPriceHistory::query()
+            ->where('product_id', $product->id)->whereNotNull('variant_id')
+            ->distinct()->pluck('variant_id')->all();
+
+        $rows = ProductPriceHistory::query()
+            ->where('product_id', $product->id)
+            ->where(fn ($q) => $variantId === null ? $q->whereNull('variant_id') : $q->where('variant_id', $variantId))
+            ->orderBy('recorded_at')->orderBy('id')
+            ->get();
+
+        $producerNames = $product->producers->keyBy('id')->map(fn ($p) => (string) $p->name);
+        $seriesLabel = function (ProductPriceHistory $h) use ($producerNames): string {
+            return match ($h->kind) {
+                ProductPriceHistory::KIND_BASE_GROSS => __('admin.price_history.series_base'),
+                ProductPriceHistory::KIND_BUSINESS_NET => __('admin.price_history.series_business'),
+                default => trim(__('admin.price_history.series_buying').' '.($h->producer_id !== null ? ($producerNames[$h->producer_id] ?? '#'.$h->producer_id) : '')),
+            };
+        };
+
+        // Group into series and extend each one to "now" (step chart:
+        // the last price is still valid today).
+        $palette = ['#047857', '#1d4ed8', '#b45309', '#9333ea', '#0e7490', '#be123c', '#4d7c0f', '#6b7280'];
+        $series = [];
+        foreach ($rows as $row) {
+            $key = $row->kind.'|'.($row->producer_id ?? 0);
+            $series[$key]['label'] ??= $seriesLabel($row);
+            $series[$key]['kind'] ??= $row->kind;
+            $series[$key]['points'][] = ['t' => $row->recorded_at->getTimestamp(), 'v' => (float) $row->price, 'date' => $row->recorded_at->format('d.m.Y H:i')];
+        }
+        $series = array_values($series);
+        foreach ($series as $i => &$s) {
+            $s['color'] = $palette[$i % count($palette)];
+            $last = end($s['points']);
+            if ($last['t'] < now()->getTimestamp()) {
+                $s['points'][] = ['t' => now()->getTimestamp(), 'v' => $last['v'], 'date' => null];
+            }
+        }
+        unset($s);
+
+        // Scale to SVG space (step lines; x = time, y = € per display unit).
+        $allT = collect($series)->flatMap(fn ($s) => array_column($s['points'], 't'));
+        $allV = collect($series)->flatMap(fn ($s) => array_column($s['points'], 'v'));
+        $chart = null;
+        if ($allT->isNotEmpty()) {
+            $w = 720;
+            $h = 260;
+            $padL = 56;
+            $padR = 16;
+            $padT = 12;
+            $padB = 28;
+            $t0 = (int) $allT->min();
+            $t1 = max((int) $allT->max(), $t0 + 1);
+            $vMax = max((float) $allV->max() * 1.1, 0.01);
+            $sx = fn (int $t): float => round($padL + ($t - $t0) / ($t1 - $t0) * ($w - $padL - $padR), 1);
+            $sy = fn (float $v): float => round($h - $padB - ($v / $vMax) * ($h - $padT - $padB), 1);
+
+            foreach ($series as &$s) {
+                $path = '';
+                $prevY = null;
+                foreach ($s['points'] as $j => $p) {
+                    $x = $sx($p['t']);
+                    $y = $sy($p['v']);
+                    $path .= $j === 0 ? "M{$x},{$y}" : "H{$x}V{$y}";
+                    $s['points'][$j]['x'] = $x;
+                    $s['points'][$j]['y'] = $y;
+                }
+                $s['path'] = $path;
+            }
+            unset($s);
+
+            // 4 horizontal grid lines + a handful of date ticks.
+            $yTicks = [];
+            for ($i = 0; $i <= 4; $i++) {
+                $v = $vMax / 4 * $i;
+                $yTicks[] = ['y' => $sy($v), 'label' => number_format($v, 2, ',', '.')];
+            }
+            $xTicks = [];
+            $tickCount = min(5, max(2, (int) floor(($t1 - $t0) / 86400) + 1));
+            for ($i = 0; $i < $tickCount; $i++) {
+                $t = (int) round($t0 + ($t1 - $t0) / max(1, $tickCount - 1) * $i);
+                $xTicks[] = ['x' => $sx($t), 'label' => date('d.m.', $t)];
+            }
+
+            $chart = compact('w', 'h', 'padL', 'padR', 'padT', 'padB', 'yTicks', 'xTicks');
+        }
+
+        $displayUnit = $product->unit !== null
+            ? ($product->price_display_unit ?? $product->unit->defaultDisplayUnit())
+            : 'piece';
+
+        return view('admin.products.price-history', [
+            'product' => $product,
+            'series' => $series,
+            'chart' => $chart,
+            'unitLabel' => ProductUnit::displaySymbol($displayUnit),
+            'variantId' => $variantId,
+            'variantOptions' => $product->variants->whereIn('id', $variantIdsWithHistory)->values(),
+            'entries' => $rows->sortByDesc('recorded_at')->take(50)->values(),
+            'entryLabel' => $seriesLabel,
+        ]);
     }
 }
