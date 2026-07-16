@@ -138,12 +138,12 @@
                                 class="rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                             />
                         </div>
-                        {{-- Preserve any active inflow filter on date changes. --}}
-                        @if ($inflowProductFilter !== '')
-                            <input type="hidden" name="inflow_product" value="{{ $inflowProductFilter }}" />
+                        {{-- Preserve the page filter on date changes. --}}
+                        @if ($productFilter !== '')
+                            <input type="hidden" name="product" value="{{ $productFilter }}" />
                         @endif
-                        @if ($inflowProducerFilter > 0)
-                            <input type="hidden" name="inflow_producer" value="{{ $inflowProducerFilter }}" />
+                        @if ($producerFilter > 0)
+                            <input type="hidden" name="producer" value="{{ $producerFilter }}" />
                         @endif
                         <x-primary-button size="sm">{{ __('admin.inventory.jump_go') }}</x-primary-button>
                     </form>
@@ -169,6 +169,55 @@
                     </a>
                 </div>
             </div>
+
+            {{-- Page-level filter: narrows BOTH the availability matrix
+                 below and the inflow table further down. --}}
+            <form method="get" action="{{ route('app.admin.inventory.index') }}"
+                  class="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm text-sm"
+                  data-testid="inventory-filter-form">
+                <input type="hidden" name="from" value="{{ $start->toDateString() }}" />
+                <div class="flex-1 min-w-[10rem]">
+                    <label for="inventory-filter-product" class="block text-xs font-medium text-gray-600 mb-1">
+                        {{ __('admin.inventory.filter_product_label') }}
+                    </label>
+                    <input
+                        id="inventory-filter-product"
+                        type="text"
+                        name="product"
+                        value="{{ $productFilter }}"
+                        placeholder="{{ __('admin.inventory.filter_product_placeholder') }}"
+                        class="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                        data-testid="inventory-filter-product"
+                    />
+                </div>
+                <div class="min-w-[10rem]">
+                    <label for="inventory-filter-producer" class="block text-xs font-medium text-gray-600 mb-1">
+                        {{ __('admin.inventory.filter_producer_label') }}
+                    </label>
+                    <select
+                        id="inventory-filter-producer"
+                        name="producer"
+                        class="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                        data-testid="inventory-filter-producer"
+                    >
+                        <option value="">{{ __('admin.inventory.filter_producer_any') }}</option>
+                        @foreach ($producerOptions as $producerOption)
+                            <option value="{{ $producerOption->id }}"
+                                @selected($producerFilter === $producerOption->id)>
+                                {{ $producerOption->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <x-primary-button size="sm">{{ __('admin.inventory.filter_apply') }}</x-primary-button>
+                @if ($productFilter !== '' || $producerFilter > 0)
+                    <a href="{{ route('app.admin.inventory.index', ['from' => $start->toDateString()]) }}"
+                       class="text-xs text-gray-500 underline hover:text-gray-700"
+                       data-testid="inventory-filter-clear">
+                        {{ __('admin.inventory.filter_clear') }}
+                    </a>
+                @endif
+            </form>
 
             {{-- MAIN: Availability matrix with per-row controls --}}
             <section class="space-y-3" aria-labelledby="inventory-matrix-heading">
@@ -372,55 +421,7 @@
                             {{ $inflows->count() }}
                         </span>
                     </summary>
-                    <div class="border-t border-gray-100">
-                        <form method="get" action="{{ route('app.admin.inventory.index') }}"
-                              class="flex flex-wrap items-end gap-3 border-b border-gray-100 bg-gray-50 px-4 py-3 text-sm"
-                              data-testid="inflow-filter-form">
-                            {{-- Keep the current 14-day window. --}}
-                            <input type="hidden" name="from" value="{{ $start->toDateString() }}" />
-                            <div class="flex-1 min-w-[10rem]">
-                                <label for="inflow-filter-product" class="block text-xs font-medium text-gray-600 mb-1">
-                                    {{ __('admin.inventory.filter_product_label') }}
-                                </label>
-                                <input
-                                    id="inflow-filter-product"
-                                    type="text"
-                                    name="inflow_product"
-                                    value="{{ $inflowProductFilter }}"
-                                    placeholder="{{ __('admin.inventory.filter_product_placeholder') }}"
-                                    class="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                    data-testid="inflow-filter-product"
-                                />
-                            </div>
-                            <div class="min-w-[10rem]">
-                                <label for="inflow-filter-producer" class="block text-xs font-medium text-gray-600 mb-1">
-                                    {{ __('admin.inventory.filter_producer_label') }}
-                                </label>
-                                <select
-                                    id="inflow-filter-producer"
-                                    name="inflow_producer"
-                                    class="w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                    data-testid="inflow-filter-producer"
-                                >
-                                    <option value="">{{ __('admin.inventory.filter_producer_any') }}</option>
-                                    @foreach ($inflowProducerOptions as $producerOption)
-                                        <option value="{{ $producerOption->id }}"
-                                            @selected($inflowProducerFilter === $producerOption->id)>
-                                            {{ $producerOption->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <x-primary-button size="sm">{{ __('admin.inventory.filter_apply') }}</x-primary-button>
-                            @if ($inflowProductFilter !== '' || $inflowProducerFilter > 0)
-                                <a href="{{ route('app.admin.inventory.index', ['from' => $start->toDateString()]) }}"
-                                   class="text-xs text-gray-500 underline hover:text-gray-700"
-                                   data-testid="inflow-filter-clear">
-                                    {{ __('admin.inventory.filter_clear') }}
-                                </a>
-                            @endif
-                        </form>
-                        <div class="overflow-x-auto">
+                    <div class="border-t border-gray-100 overflow-x-auto">
                         @if ($inflows->isEmpty())
                             <p class="p-6 text-sm text-gray-500">{{ __('admin.inventory.empty_inflows') }}</p>
                         @else
@@ -522,7 +523,6 @@
                                 </tbody>
                             </table>
                         @endif
-                        </div>
                     </div>
                 </details>
             </section>

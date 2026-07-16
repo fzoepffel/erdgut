@@ -394,7 +394,7 @@ class AdminInventoryTest extends TestCase
         $this->assertFalse(Route::has('app.admin.products.weekly.save'));
     }
 
-    public function test_inflow_filter_by_product_name_narrows_the_table(): void
+    public function test_filter_by_product_name_narrows_both_the_matrix_and_inflows(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-05-19'));
         $admin = User::factory()->admin()->create();
@@ -414,15 +414,20 @@ class AdminInventoryTest extends TestCase
         $rhabarberInflow = ProductStockInflow::where('product_id', $rhabarber->id)->firstOrFail();
 
         $html = $this->actingAs($admin)
-            ->get(route('app.admin.inventory.index', ['inflow_product' => 'spargel']))
+            ->get(route('app.admin.inventory.index', ['product' => 'spargel']))
             ->assertOk()
             ->getContent();
 
+        // Matrix (Verfügbarkeit pro Tag) is narrowed too — the product-name
+        // filter drives both tables from the same query params.
+        $this->assertStringContainsString(e($spargel->name), $html);
+        $this->assertStringNotContainsString(e($rhabarber->name), $html);
+        // Inflow batch table follows the same filter.
         $this->assertStringContainsString('inflow-producer-'.$spargelInflow->id, $html);
         $this->assertStringNotContainsString('inflow-producer-'.$rhabarberInflow->id, $html);
     }
 
-    public function test_inflow_filter_by_producer_matches_delivering_farm_and_pivot(): void
+    public function test_filter_by_producer_narrows_both_the_matrix_and_inflows(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-05-19'));
         $admin = User::factory()->admin()->create();
@@ -450,20 +455,26 @@ class AdminInventoryTest extends TestCase
             'received_on' => '2026-05-20', 'quantity' => 2, 'freshness_window_days' => 3,
         ]);
 
-        // Filter by farm A: the primary supplier for the multi-producer
-        // product, even though this batch was delivered by farm B.
+        // Filter by farm A: still matches the multi-producer product because
+        // A is one of its listed suppliers, even though THIS batch was
+        // delivered by farm B.
         $htmlA = $this->actingAs($admin)
-            ->get(route('app.admin.inventory.index', ['inflow_producer' => $farmA->id]))
+            ->get(route('app.admin.inventory.index', ['producer' => $farmA->id]))
             ->assertOk()
             ->getContent();
+        $this->assertStringContainsString(e($multi->name), $htmlA);
+        $this->assertStringNotContainsString(e($unrelated->name), $htmlA);
         $this->assertStringContainsString('inflow-producer-'.$multiInflow->id, $htmlA);
         $this->assertStringNotContainsString('inflow-producer-'.$unrelatedInflow->id, $htmlA);
 
-        // Filter by farm B: matches via the delivering farm on the batch.
+        // Filter by farm B: same match — B is the delivering farm on the
+        // batch AND a listed supplier for the product.
         $htmlB = $this->actingAs($admin)
-            ->get(route('app.admin.inventory.index', ['inflow_producer' => $farmB->id]))
+            ->get(route('app.admin.inventory.index', ['producer' => $farmB->id]))
             ->assertOk()
             ->getContent();
+        $this->assertStringContainsString(e($multi->name), $htmlB);
+        $this->assertStringNotContainsString(e($unrelated->name), $htmlB);
         $this->assertStringContainsString('inflow-producer-'.$multiInflow->id, $htmlB);
         $this->assertStringNotContainsString('inflow-producer-'.$unrelatedInflow->id, $htmlB);
     }

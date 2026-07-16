@@ -44,6 +44,19 @@ class AdminInventoryController extends Controller
         // 14-day window, inclusive on both ends.
         $end = $start->copy()->addDays(13);
 
+        // Optional page-level filters — applied to BOTH the availability
+        // matrix and the inflow table so the two views stay in sync.
+        //   product   case-insensitive substring match on the localized
+        //             product name (via product_translations)
+        //   producer  match products whose supplier list includes this
+        //             producer (the pivot carries the primary, so the
+        //             products.producer_id case is included). The inflow
+        //             query also matches when the delivering farm on the
+        //             batch itself is the filter, catching batches from
+        //             a non-registered supplier.
+        $productFilter = trim((string) $request->query('product', ''));
+        $producerFilter = (int) $request->query('producer', 0);
+
         // Products surfaced on the page: anything visible-in-catalog,
         // plus anything with an inflow row in this window even if not
         // currently published, so admin can see lingering inventory
@@ -55,6 +68,17 @@ class AdminInventoryController extends Controller
                     $vis->where('is_available', true)->where('is_published', true);
                 })->orWhereHas('stockInflows', function ($iq) use ($start, $end): void {
                     $iq->whereBetween('received_on', [$start->toDateString(), $end->toDateString()]);
+                });
+            })
+            ->when($productFilter !== '', function ($q) use ($productFilter): void {
+                $needle = '%'.mb_strtolower($productFilter).'%';
+                $q->whereHas('translations', function ($tq) use ($needle): void {
+                    $tq->whereRaw('LOWER(name) LIKE ?', [$needle]);
+                });
+            })
+            ->when($producerFilter > 0, function ($q) use ($producerFilter): void {
+                $q->whereHas('producers', function ($pq) use ($producerFilter): void {
+                    $pq->where('producers.id', $producerFilter);
                 });
             })
             ->get()
@@ -130,29 +154,23 @@ class AdminInventoryController extends Controller
             }
         }
 
-        // Inflow batches in the window — used for section A's table. The
-        // optional filters shrink the table without changing the availability
-        // matrix above: the admin still sees the full window at a glance and
-        // can drill down to a product or a farm.
-        $inflowProductFilter = trim((string) $request->query('inflow_product', ''));
-        $inflowProducerFilter = (int) $request->query('inflow_producer', 0);
-
+        // Inflow batches in the window — same page-level filter as the matrix
+        // above, plus a fallback on the batch's own producer_id so a delivery
+        // from a non-registered supplier still matches when the admin filters
+        // by that farm.
         $inflows = ProductStockInflow::query()
             ->whereBetween('received_on', [$start->toDateString(), $end->toDateString()])
-            ->when($inflowProductFilter !== '', function ($q) use ($inflowProductFilter): void {
-                $needle = '%'.mb_strtolower($inflowProductFilter).'%';
+            ->when($productFilter !== '', function ($q) use ($productFilter): void {
+                $needle = '%'.mb_strtolower($productFilter).'%';
                 $q->whereHas('product.translations', function ($tq) use ($needle): void {
                     $tq->whereRaw('LOWER(name) LIKE ?', [$needle]);
                 });
             })
-            ->when($inflowProducerFilter > 0, function ($q) use ($inflowProducerFilter): void {
-                // Match when the delivering farm on the batch IS the filter,
-                // OR the product lists it among its producers (pivot includes
-                // the primary, so this covers the products.producer_id case).
-                $q->where(function ($or) use ($inflowProducerFilter): void {
-                    $or->where('producer_id', $inflowProducerFilter)
-                        ->orWhereHas('product.producers', function ($pq) use ($inflowProducerFilter): void {
-                            $pq->where('producers.id', $inflowProducerFilter);
+            ->when($producerFilter > 0, function ($q) use ($producerFilter): void {
+                $q->where(function ($or) use ($producerFilter): void {
+                    $or->where('producer_id', $producerFilter)
+                        ->orWhereHas('product.producers', function ($pq) use ($producerFilter): void {
+                            $pq->where('producers.id', $producerFilter);
                         });
                 });
             })
@@ -162,17 +180,17 @@ class AdminInventoryController extends Controller
 
         // Dropdown for the producer filter — every producer, ordered by
         // localized name for the current locale.
-        $inflowProducerOptions = Producer::query()
+        $producerOptions = Producer::query()
             ->with('translations')
             ->get()
             ->sortBy(fn (Producer $p) => mb_strtolower((string) $p->name), SORT_NATURAL)
             ->values();
 
-        // Preserve the inflow filter values on window navigation links so
-        // stepping forward/backward doesn't drop the customer's filter.
+        // Preserve the filter values on window navigation links so stepping
+        // forward/backward doesn't drop them.
         $navQuery = array_filter([
-            'inflow_product' => $inflowProductFilter !== '' ? $inflowProductFilter : null,
-            'inflow_producer' => $inflowProducerFilter > 0 ? $inflowProducerFilter : null,
+            'product' => $productFilter !== '' ? $productFilter : null,
+            'producer' => $producerFilter > 0 ? $producerFilter : null,
         ], fn ($v) => $v !== null);
 
         return view('admin.inventory.index', [
@@ -189,9 +207,9 @@ class AdminInventoryController extends Controller
             'multiFarmProducts' => $multiFarmProducts,
             'farmNames' => $farmNames,
             'inflows' => $inflows,
-            'inflowProductFilter' => $inflowProductFilter,
-            'inflowProducerFilter' => $inflowProducerFilter,
-            'inflowProducerOptions' => $inflowProducerOptions,
+            'productFilter' => $productFilter,
+            'producerFilter' => $producerFilter,
+            'producerOptions' => $producerOptions,
             'navQuery' => $navQuery,
         ]);
     }
