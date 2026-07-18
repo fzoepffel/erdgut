@@ -7,9 +7,9 @@
             foreach ($row['grades'] as $grade) {
                 $jsRows[] = [
                     'key' => $grade['key'],
-                    'productId' => $row['product']->id,
+                    'productId' => $grade['productId'] ?? $row['product']->id,
                     'variantId' => $grade['variantId'],
-                    'name' => $row['product']->name.($grade['label'] ? ' · '.$grade['label'] : ''),
+                    'name' => ($row['groupName'] ?? $row['product']->name).($grade['label'] ? ' · '.$grade['label'] : ''),
                     'unitSymbol' => $grade['unitSymbol'],
                     'factor' => $grade['displayFactor'],
                     'step' => $grade['step'],
@@ -136,7 +136,7 @@
                                 @foreach ($row['grades'] as $grade)
                                     <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3" data-testid="request-season-item" data-product-id="{{ $product->id }}">
                                         <div class="min-w-0">
-                                            <p class="text-sm text-shop-foreground">{{ $product->name }}@if ($grade['label']) · {{ $grade['label'] }}@endif</p>
+                                            <p class="text-sm text-shop-foreground">{{ $row['groupName'] ?? $product->name }}@if ($grade['label']) · {{ $grade['label'] }}@endif</p>
                                             <p class="text-xs text-shop-muted">{{ \App\Support\ProducerLabels::label($product->producers) ?: $product->producer?->name }} · @eur($grade['netPerDisplay'])/{{ $grade['unitSymbol'] }} {{ __('restaurant.plus_vat_suffix') }}</p>
                                         </div>
                                         <div class="flex shrink-0 flex-wrap items-center gap-2">

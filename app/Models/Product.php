@@ -35,6 +35,9 @@ class Product extends Model
      */
     protected $fillable = [
         'producer_id',
+        'group_id',
+        'group_label',
+        'group_position',
         'category',
         'subcategory_id',
         'unit',
@@ -76,6 +79,8 @@ class Product extends Model
     {
         return [
             'unit' => ProductUnit::class,
+            'group_label' => 'array',
+            'group_position' => 'integer',
             'count_unit_label' => CountUnitLabel::class,
             // Storage is per *canonical* unit of the kind (g for mass,
             // ml for volume, piece, bunch). Decimal precision is 4 so
@@ -113,6 +118,42 @@ class Product extends Model
     /**
      * Get the producer that owns the product.
      */
+    /**
+     * The display group this product belongs to (nullable). See
+     * {@see ProductGroup}: the group is the card, this product is a grade.
+     *
+     * @return BelongsTo<ProductGroup, $this>
+     */
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(ProductGroup::class, 'group_id');
+    }
+
+    /**
+     * Short grade label inside the group's card (localized, fallback chain
+     * like {@see ProductVariant::localizedName}); '' when unset — callers
+     * fall back to the producer name.
+     */
+    public function localizedGroupLabel(?string $locale = null): string
+    {
+        $locale ??= app()->getLocale();
+        $label = (array) ($this->group_label ?? []);
+
+        foreach (array_unique([$locale, 'de', 'en', 'fr']) as $l) {
+            if (isset($label[$l]) && is_string($label[$l]) && trim($label[$l]) !== '') {
+                return trim($label[$l]);
+            }
+        }
+
+        foreach ($label as $value) {
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return '';
+    }
+
     public function producer(): BelongsTo
     {
         return $this->belongsTo(Producer::class);

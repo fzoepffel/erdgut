@@ -34,7 +34,7 @@
         </div>
     </x-slot>
 
-    <div class="py-8 sm:py-12" x-data="{ deleteAction: '', deleteLabel: '' }">
+    <div class="py-8 sm:py-12" x-data="{ deleteAction: '', deleteLabel: '', groupSelection: [], groupModalOpen: false, groupChoice: '' }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
             @if (session('status'))
                 <div class="flex flex-wrap items-center justify-between gap-3 rounded-md bg-emerald-50 p-4 text-sm text-emerald-800" role="status">
@@ -63,6 +63,18 @@
 
             <div class="rounded-lg border border-gray-100 bg-white shadow-sm sm:rounded-lg">
                 <div class="p-4 sm:p-6 space-y-4 text-gray-900">
+                    {{-- Bulk grouping: pick duplicate offerings via the row
+                         checkboxes, bundle them into one storefront card. --}}
+                    <div x-show="groupSelection.length > 0" x-cloak class="flex items-center gap-3 rounded-md border border-violet-200 bg-violet-50 px-3 py-2">
+                        <span class="text-sm text-violet-900" x-text="groupSelection.length + ' ' + @js(__('admin.products.group_selected_suffix'))"></span>
+                        <button type="button" @click="groupModalOpen = true"
+                                class="rounded-md bg-violet-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-800"
+                                data-testid="admin-products-group-assign-open">
+                            {{ __('admin.products.group_assign_button') }}
+                        </button>
+                        <button type="button" @click="groupSelection = []" class="text-xs text-violet-700 underline">{{ __('admin.products.group_clear_selection') }}</button>
+                    </div>
+
                     <form method="get" action="{{ route('app.admin.products.index') }}" class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                         <div class="min-w-0 flex-1 sm:min-w-[12rem]">
                             <label for="admin-products-q" class="block text-xs font-medium text-gray-600 mb-1">{{ __('Search') }}</label>
@@ -153,9 +165,11 @@
                                 </caption>
                                 <thead>
                                     <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th scope="col" class="py-2 pe-2 w-8"><span class="sr-only">{{ __('admin.products.group_assign_button') }}</span></th>
                                         <th scope="col" class="py-2 pe-2 w-12">{{ __('Image') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Name') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Producer') }}</th>
+                                        <th scope="col" class="py-2 pe-4">{{ __('admin.products.group_column') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Category') }}</th>
                                         <th scope="col" class="py-2 pe-4">{{ __('Price') }}</th>
                                         {{-- F6 (UX notes): expose margin (or "—" when buying
@@ -173,6 +187,12 @@
                                     @foreach ($products as $product)
                                         <tr>
                                             <td class="py-2 pe-2 align-middle">
+                                                <input type="checkbox" value="{{ $product->id }}" x-model="groupSelection"
+                                                       class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-600"
+                                                       aria-label="{{ __('admin.products.group_assign_button') }}"
+                                                       data-testid="admin-product-group-check-{{ $product->id }}">
+                                            </td>
+                                            <td class="py-2 pe-2 align-middle">
                                                 @if ($product->imageUrl())
                                                     <img
                                                         src="{{ $product->imageUrl() }}"
@@ -187,6 +207,13 @@
                                             </td>
                                             <td class="py-3 pe-4 font-medium text-gray-900">{{ $product->name }}</td>
                                             <td class="py-3 pe-4 text-gray-600">{{ $product->producer?->name ?? '—' }}</td>
+                                            <td class="py-3 pe-4 text-gray-600">
+                                                @if ($product->group !== null)
+                                                    <span class="rounded bg-violet-50 px-1.5 py-0.5 text-xs font-medium text-violet-800" data-testid="admin-product-group-badge-{{ $product->id }}">{{ $product->group->localizedName() }}</span>
+                                                @else
+                                                    <span class="text-gray-300">—</span>
+                                                @endif
+                                            </td>
                                             <td class="py-3 pe-4 text-gray-600">
                                                 @php $catEnum = \App\Enums\ProductCategory::tryFrom($product->category); @endphp
                                                 {{ $catEnum ? __('admin.category.'.$catEnum->value) : $product->category }}
@@ -269,6 +296,47 @@
                     @endif
                 </div>
             </div>
+        </div>
+
+        {{-- Bulk group-assign modal --}}
+        <div x-show="groupModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div class="absolute inset-0 bg-gray-900/40" @click="groupModalOpen = false"></div>
+            <form method="POST" action="{{ route('app.admin.products.group-assign') }}"
+                  class="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl space-y-4"
+                  data-testid="admin-products-group-assign-form">
+                @csrf
+                <h2 class="text-lg font-medium text-gray-900">{{ __('admin.products.group_assign_modal_title') }}</h2>
+                <template x-for="pid in groupSelection" :key="pid">
+                    <input type="hidden" name="product_ids[]" :value="pid">
+                </template>
+                <div>
+                    <label for="bulk-group-id" class="block text-xs font-medium text-gray-600 mb-1">{{ __('admin.products.group_select_label') }}</label>
+                    <select id="bulk-group-id" name="group_id" x-model="groupChoice" required
+                            class="block w-full rounded-md border-gray-300 focus:border-emerald-600 focus:ring-emerald-600">
+                        <option value="" disabled>{{ __('admin.products.group_select_label') }}</option>
+                        @foreach ($groups as $groupOption)
+                            <option value="{{ $groupOption->id }}">{{ $groupOption->localizedName() }}</option>
+                        @endforeach
+                        <option value="new">{{ __('admin.products.group_create_option') }}</option>
+                    </select>
+                </div>
+                <div x-show="groupChoice === 'new'" x-cloak class="space-y-2">
+                    @foreach (['de', 'en', 'fr'] as $groupLocale)
+                        <div>
+                            <label for="bulk-group-name-{{ $groupLocale }}" class="block text-xs font-medium text-gray-600 mb-1">{{ __('admin.products.group_new_name_label') }} ({{ strtoupper($groupLocale) }})</label>
+                            <input id="bulk-group-name-{{ $groupLocale }}" type="text" name="new_group_name[{{ $groupLocale }}]" maxlength="120"
+                                   class="block w-full rounded-md border-gray-300 focus:border-emerald-600 focus:ring-emerald-600"
+                                   data-testid="admin-products-group-name-{{ $groupLocale }}">
+                        </div>
+                    @endforeach
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" @click="groupModalOpen = false" class="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">{{ __('Cancel') }}</button>
+                    <button type="submit" class="rounded-md bg-violet-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-800" data-testid="admin-products-group-assign-submit">
+                        {{ __('admin.products.group_assign_button') }}
+                    </button>
+                </div>
+            </form>
         </div>
 
         <x-modal name="confirm-admin-product-delete" focusable>

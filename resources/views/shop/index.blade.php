@@ -57,10 +57,26 @@
 
         $gradeRowsByProduct = $products
             ->filter(fn ($row) => $row['available_on_selected'])
-            ->mapWithKeys(function ($row) use ($buildSteps, $inventoryService, $priceResolver, $formatCanonical, $selectedDate, $locale) {
+            ->mapWithKeys(function ($cardRow) use ($buildSteps, $inventoryService, $priceResolver, $formatCanonical, $selectedDate, $locale) {
+                // Grouped cards render one grade section per MEMBER product,
+                // each computed from ITS product (unit, price, step, cap), so
+                // kg and Stück members coexist on one card.
+                $cardId = $cardRow['product']->id;
+                $group = $cardRow['group'] ?? null;
+                $memberRows = $cardRow['members'] ?? [$cardRow];
+                $cardEntries = [];
+                foreach ($memberRows as $row) {
+                    if (! ($row['available_on_selected'] ?? false)) {
+                        continue;
+                    }
                 $product = $row['product'];
                 $activeVariants = $product->activeVariants();
                 $entries = [];
+                $memberGradeLabel = $group !== null
+                    ? ($product->localizedGroupLabel($locale) !== ''
+                        ? $product->localizedGroupLabel($locale)
+                        : (\App\Support\ProducerLabels::label($row['producers'] ?? []) ?: (string) $product->producer?->name))
+                    : null;
 
                 // Prices are resolved for the selected delivery date and a
                 // private customer, so date overrides / grade prices show on the
@@ -116,7 +132,11 @@
                         'displaySymbol' => $product->localizedUnit(),
                         'displayFactor' => $displayFactor,
                         'formName' => 'quantities['.$product->id.']',
-                        'gradeLabel' => $activeVariants->isEmpty() ? null : __('shop.variant.standard'),
+                        'cardId' => $cardId,
+                        'cardTitle' => $group?->localizedName($locale),
+                        'gradeLabel' => $group !== null
+                            ? $memberGradeLabel
+                            : ($activeVariants->isEmpty() ? null : __('shop.variant.standard')),
                         'name' => $product->name,
                         'unitPrice' => $standardPrice,
                         'vatRate' => (int) $product->vat_rate_percent,
@@ -167,7 +187,11 @@
                         'displaySymbol' => $product->localizedUnit(),
                         'displayFactor' => $displayFactor,
                         'formName' => 'variant_quantities['.$variant->id.']',
-                        'gradeLabel' => $variant->localizedName($locale),
+                        'cardId' => $cardId,
+                        'cardTitle' => $group?->localizedName($locale),
+                        'gradeLabel' => $group !== null
+                            ? $memberGradeLabel.' · '.$variant->localizedName($locale)
+                            : $variant->localizedName($locale),
                         'name' => $product->name.' · '.$variant->localizedName($locale),
                         'unitPrice' => $price,
                         'vatRate' => (int) $product->vat_rate_percent,
@@ -178,7 +202,10 @@
                     ]);
                 }
 
-                return [$product->id => $entries];
+                $cardEntries = array_merge($cardEntries, $entries);
+                }
+
+                return [$cardId => $cardEntries];
             });
 
         // Flat registry handed to Alpine — every grade across every product.
@@ -187,6 +214,8 @@
             ->map(fn ($e) => [
                 'id' => $e['jsId'],
                 'productId' => $e['productId'],
+                'cardId' => $e['cardId'] ?? $e['productId'],
+                'cardTitle' => $e['cardTitle'] ?? null,
                 'productName' => $e['productName'],
                 'producerName' => $e['producerName'],
                 'gradeLabel' => $e['gradeLabel'],
@@ -209,12 +238,19 @@
 
         // Per-card filter metadata in render order, for the "show first N" grid
         // limit (keeps low-end phones from painting/decoding 30+ cards at once).
-        $alpineCards = $products->map(fn ($row) => [
-            'id' => $row['product']->id,
-            'name' => mb_strtolower($row['product']->name),
-            'category' => $row['product']->category,
-            'subcat' => (int) ($row['product']->subcategory_id ?? 0),
-        ])->values();
+        $alpineCards = $products->map(function ($row) {
+            $names = collect([$row['group'] ?? null ? $row['group']->localizedName() : null])
+                ->concat(collect($row['members'] ?? [$row])->map(fn ($m) => $m['product']->name))
+                ->filter()
+                ->implode(' ');
+
+            return [
+                'id' => $row['product']->id,
+                'name' => mb_strtolower($names !== '' ? $names : $row['product']->name),
+                'category' => $row['product']->category,
+                'subcat' => (int) ($row['product']->subcategory_id ?? 0),
+            ];
+        })->values();
 
         // Date-stamp in the hero corner: MONTH · YEAR · HOFLADEN.
         $stampDate = $selectedDate ?? now();
@@ -757,7 +793,9 @@
 
                                             {{-- Title + divider --}}
                                             <h3 class="mt-4 font-display text-2xl leading-tight">
-                                                <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline">{{ $product->name }}</a>
+                                                {{-- Grouped cards carry the GROUP's own name ("Apfelsäfte");
+                                                     the link still leads to the lead member's page. --}}
+                                                <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline">{{ isset($row['group']) && $row['group'] !== null ? $row['group']->localizedName() : $product->name }}</a>
                                             </h3>
                                             <div class="mt-2 h-px bg-shop-border"></div>
 
@@ -825,9 +863,7 @@
                                                             @if ($tieredGrade !== $firstGrade)
                                                                 <span class="font-mono uppercase tracking-wider text-shop-primary">{{ $tieredGrade['gradeLabel'] }}</span>
                                                             @endif
-                                                            @foreach ($tieredGrade['tiers'] as $tier)
-                                                                {{ __('shop.tier_from', ['qty' => $product->displayQuantity($tier['min']), 'price' => $formatCanonical($product, $tier['price'])]) }}@if (! $loop->last) · @endif
-                                                            @endforeach
+                                                            {{ $tieredGrade['tiersHint'] ?? '' }}
                                                         </p>
                                                     @endif
                                                 </div>
@@ -1461,7 +1497,7 @@
                 //   'staged'    — staged > 0 but not yet committed
                 //   'in_basket' — basket has a line for this product
                 cardState(productId) {
-                    const v = products.find((p) => p.productId === productId);
+                    const v = products.find((p) => (p.cardId ?? p.productId) === productId);
                     if (!v) return 'empty';
                     if ((this.quantities[v.id] || 0) > 0) return 'in_basket';
                     if ((this._stagedByProduct[productId] || 0) > 0) return 'staged';
@@ -1506,13 +1542,13 @@
                     return i >= p.steps.length - 1;
                 },
                 setStage(productId, qty) {
-                    const v = products.find((p) => p.productId === productId);
+                    const v = products.find((p) => (p.cardId ?? p.productId) === productId);
                     if (!v) return;
                     const n = Math.max(0, Number(qty) || 0);
                     this._stagedByProduct[productId] = n;
                 },
                 commitStage(productId) {
-                    const v = products.find((p) => p.productId === productId);
+                    const v = products.find((p) => (p.cardId ?? p.productId) === productId);
                     if (!v) return;
                     const n = this._stagedByProduct[productId] || 0;
                     if (n <= 0) return;
@@ -1525,7 +1561,7 @@
                     this._pulseChip();
                 },
                 removeFromBasketByProduct(productId) {
-                    const v = products.find((p) => p.productId === productId);
+                    const v = products.find((p) => (p.cardId ?? p.productId) === productId);
                     if (!v) return;
                     this.quantities[v.id] = 0;
                     this._stagedByProduct[productId] = 0;
@@ -1565,7 +1601,7 @@
                 pickerLocalQty: {},   // jsId -> canonical quantity, modal-local
                 openPicker(productId) {
                     this.pickerProductId = productId;
-                    const variants = products.filter((p) => p.productId === productId);
+                    const variants = products.filter((p) => (p.cardId ?? p.productId) === productId);
                     this.pickerLocalQty = {};
                     variants.forEach((v) => {
                         this.pickerLocalQty[v.id] = this.quantities[v.id] || 0;
@@ -1603,11 +1639,11 @@
                 },
                 get pickerVariants() {
                     if (this.pickerProductId === null) return [];
-                    return products.filter((p) => p.productId === this.pickerProductId);
+                    return products.filter((p) => (p.cardId ?? p.productId) === this.pickerProductId);
                 },
                 pickerTitleFor() {
                     const v = this.pickerVariants[0];
-                    return v ? v.productName : '';
+                    return v ? (v.cardTitle || v.productName) : '';
                 },
                 pickerGradeFarmsDiffer() {
                     return new Set(this.pickerVariants.map(v => v.producerName || '')).size > 1;
@@ -1733,7 +1769,7 @@
                 // Card-level "what's currently in the cart for this product" line.
                 // Returns "" when nothing is selected so x-show hides the row.
                 cartLabelFor(productId) {
-                    const variants = products.filter((p) => p.productId === productId);
+                    const variants = products.filter((p) => (p.cardId ?? p.productId) === productId);
                     const filled = variants.filter((v) => (this.quantities[v.id] || 0) > 0);
                     if (filled.length === 0) return '';
                     return filled

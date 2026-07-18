@@ -11,6 +11,7 @@ use App\Enums\TasteProfile;
 use App\Http\Requests\Admin\Concerns\NormalizesProductTranslationInput;
 use App\Http\Requests\Admin\Concerns\ValidatesProductSeasonWindow;
 use App\Models\Product;
+use App\Models\ProductGroup;
 use App\Models\ProductSubcategory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -62,6 +63,23 @@ class UpdateProductRequest extends FormRequest
             ...$translationRules,
             'producer_ids' => ['required', 'array', 'min:1'],
             'producer_ids.*' => ['integer', 'distinct', 'exists:producers,id'],
+            // Product group: an existing id, 'new' (creates one from
+            // new_group_name), or empty = ungrouped.
+            'group_id' => ['nullable', function (string $attribute, mixed $value, \Closure $fail): void {
+                if ($value !== null && $value !== '' && $value !== 'new'
+                    && ! ProductGroup::query()->whereKey((int) $value)->exists()) {
+                    $fail(__('admin.products.group_invalid'));
+                }
+            }],
+            'new_group_name' => ['nullable', 'array'],
+            'new_group_name.de' => ['required_if:group_id,new', 'nullable', 'string', 'max:120'],
+            'new_group_name.en' => ['nullable', 'string', 'max:120'],
+            'new_group_name.fr' => ['nullable', 'string', 'max:120'],
+            'group_label' => ['nullable', 'array'],
+            'group_label.de' => ['nullable', 'string', 'max:60'],
+            'group_label.en' => ['nullable', 'string', 'max:60'],
+            'group_label.fr' => ['nullable', 'string', 'max:60'],
+            'group_position' => ['nullable', 'integer', 'min:0', 'max:65000'],
             'category' => ['required', 'string', Rule::in(ProductCategory::values())],
             'subcategory_id' => ['nullable', 'integer', 'exists:product_subcategories,id'],
             'unit' => ['required', 'string', Rule::in(ProductUnit::values())],

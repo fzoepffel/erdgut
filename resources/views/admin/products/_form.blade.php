@@ -668,6 +668,64 @@
 
     </div>
 
+    {{-- ── Product group: bundle this product with sibling offerings (other
+         farms, possibly other units) into ONE storefront/B2B card. The group
+         carries its own name; this product contributes a short grade label. --}}
+    <div class="rounded border border-gray-200 bg-white p-4 space-y-4"
+         x-data="{ groupChoice: @js(old('group_id', (string) ($product?->group_id ?? ''))) }"
+         data-testid="product-form-group-card">
+        <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.products.group_section_label') }}</h2>
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <x-input-label for="group_id" :value="__('admin.products.group_select_label')" />
+                <select id="group_id" name="group_id" x-model="groupChoice"
+                        class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+                        data-testid="product-form-group-select">
+                    <option value="">{{ __('admin.products.group_none') }}</option>
+                    @foreach ($groups as $groupOption)
+                        <option value="{{ $groupOption->id }}">{{ $groupOption->localizedName() }}</option>
+                    @endforeach
+                    <option value="new">{{ __('admin.products.group_create_option') }}</option>
+                </select>
+                <x-input-error class="mt-2" :messages="$errors->get('group_id')" />
+            </div>
+            <div>
+                <x-input-label for="group_position" :value="__('admin.products.group_position_label')" />
+                <input id="group_position" type="number" name="group_position" min="0"
+                       value="{{ old('group_position', (string) ($product?->group_position ?? 0)) }}"
+                       class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm" />
+                <x-input-error class="mt-2" :messages="$errors->get('group_position')" />
+            </div>
+        </div>
+        <div x-show="groupChoice === 'new'" x-cloak class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            @foreach (['de', 'en', 'fr'] as $groupLocale)
+                <div>
+                    <x-input-label for="new_group_name_{{ $groupLocale }}" :value="__('admin.products.group_new_name_label').' ('.strtoupper($groupLocale).')'" />
+                    <input id="new_group_name_{{ $groupLocale }}" type="text" name="new_group_name[{{ $groupLocale }}]" maxlength="120"
+                           value="{{ old('new_group_name.'.$groupLocale) }}"
+                           class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+                           data-testid="product-form-group-name-{{ $groupLocale }}" />
+                    <x-input-error class="mt-2" :messages="$errors->get('new_group_name.'.$groupLocale)" />
+                </div>
+            @endforeach
+        </div>
+        <div x-show="groupChoice !== ''" x-cloak>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                @foreach (['de', 'en', 'fr'] as $groupLocale)
+                    <div>
+                        <x-input-label for="group_label_{{ $groupLocale }}" :value="__('admin.products.group_label_label').' ('.strtoupper($groupLocale).')'" />
+                        <input id="group_label_{{ $groupLocale }}" type="text" name="group_label[{{ $groupLocale }}]" maxlength="60"
+                               value="{{ old('group_label.'.$groupLocale, (string) (($product?->group_label ?? [])[$groupLocale] ?? '')) }}"
+                               class="mt-1 block w-full border-gray-300 focus:border-emerald-600 focus:ring-emerald-600 rounded-md shadow-sm"
+                               data-testid="product-form-group-label-{{ $groupLocale }}" />
+                        <x-input-error class="mt-2" :messages="$errors->get('group_label.'.$groupLocale)" />
+                    </div>
+                @endforeach
+            </div>
+            <p class="mt-1 text-xs text-gray-500">{{ __('admin.products.group_label_hint') }}</p>
+        </div>
+    </div>
+
     <div class="rounded border border-gray-200 bg-white p-4 space-y-4">
         <h2 class="text-sm font-semibold text-gray-900">{{ __('admin.product_form.section_unit') }}</h2>
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">

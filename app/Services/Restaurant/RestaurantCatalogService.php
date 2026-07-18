@@ -127,7 +127,7 @@ class RestaurantCatalogService
 
         $products = Product::query()
             ->visibleInCatalog()
-            ->with(['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices', 'images', 'variants', 'priceRules'])
+            ->with(['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices', 'images', 'variants', 'priceRules', 'group'])
             ->get();
 
         $matrix = $this->inventory->availabilityMatrix($products, $date, $date, ShopStockAudience::BusinessTrade);
@@ -166,7 +166,98 @@ class RestaurantCatalogService
                 return $row;
             })
             ->filter()
+            ->pipe(fn (Collection $rows): Collection => $this->collapseGroupedRows($rows))
             ->values();
+    }
+
+    /**
+     * Collapse rows sharing a ProductGroup into ONE catalog row: the group's
+     * own name becomes the card title, grades are the concatenation of every
+     * member's grades (each keeping ITS unit/step/cap/net price), and the
+     * headline is the cheapest member with a "from" prefix. Members never
+     * render as standalone rows.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function collapseGroupedRows(Collection $rows): Collection
+    {
+        $byGroup = [];
+        foreach ($rows as $row) {
+            $groupId = $row['product']->group_id;
+            if ($groupId !== null) {
+                $byGroup[$groupId][] = $row;
+            }
+        }
+
+        $out = collect();
+        $emitted = [];
+        foreach ($rows as $row) {
+            $groupId = $row['product']->group_id;
+            if ($groupId === null) {
+                $out->push($row);
+
+                continue;
+            }
+            if (isset($emitted[$groupId])) {
+                continue;
+            }
+            $emitted[$groupId] = true;
+
+            $memberRows = $byGroup[$groupId];
+            usort($memberRows, fn (array $a, array $b): int => [$a['product']->group_position, $a['product']->id]
+                <=> [$b['product']->group_position, $b['product']->id]);
+            $lead = $memberRows[0];
+
+            $grades = [];
+            $producerLabels = [];
+            $nets = [];
+            foreach ($memberRows as $memberRow) {
+                $member = $memberRow['product'];
+                $memberLabel = $member->localizedGroupLabel() !== ''
+                    ? $member->localizedGroupLabel()
+                    : ((string) ($memberRow['producerLabel'] ?? '') !== ''
+                        ? (string) $memberRow['producerLabel']
+                        : (string) $member->producer?->name);
+
+                foreach ($memberRow['grades'] as $grade) {
+                    $grade['label'] = $grade['label'] === null
+                        ? $memberLabel
+                        : trim($memberLabel.' · '.$grade['label']);
+                    $grades[] = $grade;
+                    $nets[] = (float) $grade['netPerDisplay'];
+                }
+                if ((string) ($memberRow['producerLabel'] ?? '') !== '') {
+                    $producerLabels[] = (string) $memberRow['producerLabel'];
+                }
+            }
+
+            // Headline: the cheapest grade's member supplies net price AND
+            // display unit (mixed-unit groups must not mix €/kg with €/Stück).
+            $cheapest = $lead;
+            foreach ($memberRows as $memberRow) {
+                if ((float) $memberRow['netPerDisplay'] < (float) $cheapest['netPerDisplay']) {
+                    $cheapest = $memberRow;
+                }
+            }
+
+            $merged = $lead;
+            $merged['groupName'] = $lead['product']->group?->localizedName() ?: $lead['product']->name;
+            $merged['inStock'] = (bool) array_reduce($memberRows, fn (bool $c, array $r): bool => $c || $r['inStock'], false);
+            $merged['inSeason'] = (bool) array_reduce($memberRows, fn (bool $c, array $r): bool => $c || $r['inSeason'], false);
+            $merged['available_on_selected'] = $merged['inStock'];
+            $merged['netPerDisplay'] = $cheapest['netPerDisplay'];
+            $merged['grossPerDisplay'] = $cheapest['grossPerDisplay'];
+            $merged['displayUnit'] = $cheapest['displayUnit'];
+            $merged['vatRate'] = $cheapest['vatRate'];
+            $merged['priceFrom'] = count(array_unique(array_map(fn (float $n): string => number_format($n, 2), $nets))) > 1;
+            $merged['grades'] = $grades;
+            $merged['producerLabel'] = implode(' · ', array_unique($producerLabels));
+
+            $out->push($merged);
+        }
+
+        return $out;
     }
 
     /**
@@ -315,6 +406,7 @@ class RestaurantCatalogService
 
             return [
                 'key' => $variantId === null ? (string) $product->id : 'v'.$variantId,
+                'productId' => $product->id,
                 'variantId' => $variantId,
                 'label' => $label,
                 'netPerDisplay' => $netPerDisplay,
