@@ -568,8 +568,11 @@ class InventoryService
      * Constrain a query to shop orders that still hold stock. Shared by the
      * windowed accumulator and the per-date helper so the predicates never
      * drift: cancelled/refunded/FAILED orders release their quantities, and
-     * PendingPayment orders older than the abandoned-checkout grace window
-     * are released without a cleanup cron.
+     * ONLINE PendingPayment orders older than the abandoned-checkout grace
+     * window are released without a cleanup cron. In-person orders (admin
+     * manual orders, storefront pay-at-pickup) are exempt: there is no
+     * online checkout to abandon — they stay pending until handover and
+     * must hold their stock the whole time.
      */
     private function applyCommittingShopOrderFilter(\Illuminate\Contracts\Database\Query\Builder|Builder $q, string $prefix = 'shop_orders.'): void
     {
@@ -583,6 +586,7 @@ class InventoryService
         ])
             ->where(function ($q) use ($abandonedAfter, $prefix): void {
                 $q->where($prefix.'status', '!=', ShopOrderStatus::PendingPayment->value)
+                    ->orWhere($prefix.'payment_method', 'in_person')
                     ->orWhere($prefix.'created_at', '>=', $abandonedAfter);
             })
             // Mirror ShopOrders (restaurant_order_id set) duplicate lines the
