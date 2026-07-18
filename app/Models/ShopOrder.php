@@ -364,6 +364,12 @@ class ShopOrder extends Model
         }
 
         if ($this->status === ShopOrderStatus::PendingPayment) {
+            // In-person orders have no online checkout to abandon: they stay
+            // pending until handover and hold their stock the whole time.
+            if ($this->payment_method === 'in_person') {
+                return true;
+            }
+
             return $this->created_at !== null
                 && $this->created_at->gte(now()->subMinutes(InventoryService::ABANDONED_PENDING_PAYMENT_MINUTES));
         }

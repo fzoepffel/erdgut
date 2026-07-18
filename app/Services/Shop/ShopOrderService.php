@@ -1278,7 +1278,9 @@ class ShopOrderService
     private function syncOrderItems(ShopOrder $order, array $quoteLines): void
     {
         $existing = [];
-        foreach ($order->items()->get() as $item) {
+        // Row-lock the items so two concurrent admin edits cannot interleave
+        // (same pattern as RestaurantOrderService::ownerUpdateLines).
+        foreach ($order->items()->lockForUpdate()->get() as $item) {
             $key = ((int) ($item->product_id ?? 0)).'|'.((int) ($item->variant_id ?? 0)).'|'.((string) ($item->name_snapshot ?? ''));
             $existing[$key][] = $item;
         }
