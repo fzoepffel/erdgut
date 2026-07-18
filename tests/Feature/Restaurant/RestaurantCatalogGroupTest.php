@@ -43,6 +43,7 @@ class RestaurantCatalogGroupTest extends TestCase
             'price_display_unit' => 'kg',
             'unit_price' => 0.004,
             'vat_rate_percent' => 7,
+            'is_seasonal' => false,
             'is_available' => true, 'is_published' => true,
             'group_id' => $this->group->id, 'group_position' => 0,
             'group_label' => ['de' => 'lose'],
@@ -52,6 +53,9 @@ class RestaurantCatalogGroupTest extends TestCase
             'price_display_unit' => 'piece',
             'unit_price' => 1.50,
             'vat_rate_percent' => 7,
+            // Fixed: a seasonal member without stock would legitimately stay
+            // visible as a request-track grade and break the drop assertion.
+            'is_seasonal' => false,
             'is_available' => true, 'is_published' => true,
             'group_id' => $this->group->id, 'group_position' => 1,
         ]);
