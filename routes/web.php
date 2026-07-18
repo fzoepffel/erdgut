@@ -629,6 +629,11 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:30,1')
                 ->name('inflow-schedules.adjust');
 
+            // Bulk "put selected products into a group" — declared before the
+            // resource so 'group-assign' isn't read as a model id.
+            Route::post('products/group-assign', [ProductController::class, 'assignGroup'])
+                ->middleware('throttle:30,1')
+                ->name('products.group-assign');
             Route::resource('products', ProductController::class)->except(['show']);
             // Merge a duplicate product into the one that stays (P6):
             // confirm page first, destructive POST second.

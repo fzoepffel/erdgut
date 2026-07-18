@@ -266,7 +266,7 @@ class ShopOrderService
     {
         $horizonWeeks ??= (int) config('shop.horizon_weeks', 8);
 
-        $products = Product::query()->visibleInCatalog()->with(['translations', 'producer.translations', 'producers.translations'])->get();
+        $products = Product::query()->visibleInCatalog()->with(['translations', 'producer.translations', 'producers.translations', 'group'])->get();
 
         if ($products->isEmpty()) {
             return ['dates' => collect(), 'products' => collect()];
@@ -283,20 +283,38 @@ class ShopOrderService
         $states = $closures->statesForRange($start, $end);
         $closedIso = array_fill_keys($closures->effectiveClosedIsoDatesBetween($start, $end), true);
 
-        $dateProductIds = [];    // iso => int[]
-        $productDateCount = [];  // product_id => int
+        // Grouped members collapse to their group's LEAD id so date counts,
+        // the filter combobox and ?product[]= deep links all address the one
+        // card the grid actually renders.
+        $leadIdByProduct = [];
+        $groupMembers = $products->filter(fn (Product $p): bool => $p->group_id !== null)
+            ->groupBy('group_id');
+        foreach ($groupMembers as $members) {
+            $lead = $members->sortBy(fn (Product $p): array => [$p->group_position, $p->id])->first();
+            foreach ($members as $member) {
+                $leadIdByProduct[$member->id] = $lead->id;
+            }
+        }
+
+        $dateProductIds = [];    // iso => int[] (lead ids, deduped)
+        $productDateIso = [];    // lead id => iso => true
 
         foreach ($products as $product) {
-            $datesForProduct = 0;
+            $cardId = $leadIdByProduct[$product->id] ?? $product->id;
 
             foreach ($matrix[$product->id] ?? [] as $iso => $remaining) {
                 if ($remaining > 0 && ! isset($closedIso[$iso])) {
-                    $dateProductIds[$iso][] = $product->id;
-                    $datesForProduct++;
+                    $productDateIso[$cardId][$iso] = true;
                 }
             }
+        }
 
-            $productDateCount[$product->id] = $datesForProduct;
+        $productDateCount = [];  // lead id => int
+        foreach ($productDateIso as $cardId => $isoSet) {
+            $productDateCount[$cardId] = count($isoSet);
+            foreach (array_keys($isoSet) as $iso) {
+                $dateProductIds[$iso][] = $cardId;
+            }
         }
 
         ksort($dateProductIds);
@@ -324,15 +342,25 @@ class ShopOrderService
             ->values();
 
         $catalogProducts = $products
-            ->filter(fn (Product $p): bool => ($productDateCount[$p->id] ?? 0) > 0)
-            ->map(fn (Product $p): array => [
-                'id' => $p->id,
-                'name' => $p->name,
-                // All registered farms, uncollapsed, so the client-side
-                // search matches every supplier of a multi-farm product.
-                'producer' => $p->producers->map(fn ($x) => (string) $x->name)->filter()->implode(' · ') ?: ($p->producer?->name ?? ''),
-                'date_count' => $productDateCount[$p->id] ?? 0,
-            ])
+            // One list entry per CARD: ungrouped products plus each group's
+            // lead (members resolve to the lead id above).
+            ->filter(fn (Product $p): bool => ($leadIdByProduct[$p->id] ?? $p->id) === $p->id
+                && ($productDateCount[$p->id] ?? 0) > 0)
+            ->map(function (Product $p) use ($productDateCount, $groupMembers): array {
+                $members = $p->group_id !== null ? $groupMembers[$p->group_id] : collect([$p]);
+                $farms = $members
+                    ->flatMap(fn (Product $m) => $m->producers->map(fn ($x) => (string) $x->name))
+                    ->filter()->unique()->implode(' · ');
+
+                return [
+                    'id' => $p->id,
+                    'name' => $p->group?->localizedName() ?: $p->name,
+                    // All registered farms across the card's members, so the
+                    // client-side search matches every supplier.
+                    'producer' => $farms ?: ($p->producer?->name ?? ''),
+                    'date_count' => $productDateCount[$p->id] ?? 0,
+                ];
+            })
             ->values();
 
         return ['dates' => $dates, 'products' => $catalogProducts];
@@ -470,7 +498,7 @@ class ShopOrderService
 
         $products = Product::query()
             ->visibleInCatalog()
-            ->with(['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices', 'images', 'priceRules', 'variants'])
+            ->with(['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices', 'images', 'priceRules', 'variants', 'group'])
             ->get();
 
         $matrix = $inventory->availabilityMatrix($products, $from, $weekEnd);
@@ -536,10 +564,96 @@ class ShopOrderService
                     'gradeProducers' => $gradeProducers,
                 ];
             })
+            ->pipe(fn (Collection $rows): Collection => $this->collapseGroupedRows($rows))
             ->filter(fn (array $row): bool => $row['available_dates'] !== [])
             // Orderable-today products first; everything else keeps catalog order.
             ->sortByDesc(fn (array $row): bool => $row['available_on_selected'])
             ->values();
+    }
+
+    /**
+     * Collapse product rows sharing a ProductGroup into ONE card row: the
+     * lead (lowest group_position, then id) supplies image/link/category,
+     * the group supplies the card title, and every member survives in
+     * 'members' so the view can render each member's grades with its OWN
+     * unit, price and stock. Availability is the union across members.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function collapseGroupedRows(Collection $rows): Collection
+    {
+        // Two passes so the collapsed card keeps the catalog position of
+        // its FIRST member instead of sinking to the end of the grid.
+        $byGroup = [];
+        foreach ($rows as $row) {
+            $groupId = $row['product']->group_id;
+            if ($groupId !== null) {
+                $byGroup[$groupId][] = $row;
+            }
+        }
+
+        $out = collect();
+        $emitted = [];
+        foreach ($rows as $row) {
+            $groupId = $row['product']->group_id;
+            if ($groupId === null) {
+                $out->push($row);
+
+                continue;
+            }
+            if (isset($emitted[$groupId])) {
+                continue;
+            }
+            $emitted[$groupId] = true;
+            $out->push($this->collapsedGroupRow($byGroup[$groupId]));
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $memberRows
+     * @return array<string, mixed>
+     */
+    private function collapsedGroupRow(array $memberRows): array
+    {
+        usort($memberRows, fn (array $a, array $b): int => [$a['product']->group_position, $a['product']->id]
+                <=> [$b['product']->group_position, $b['product']->id]);
+
+        $lead = $memberRows[0];
+
+        // Union of available dates: same iso merges, remaining summed.
+        $datesByIso = [];
+        foreach ($memberRows as $row) {
+            foreach ($row['available_dates'] as $entry) {
+                $iso = $entry['date']->toDateString();
+                if (isset($datesByIso[$iso])) {
+                    $datesByIso[$iso]['remaining'] += $entry['remaining'];
+                } else {
+                    $datesByIso[$iso] = $entry;
+                }
+            }
+        }
+        ksort($datesByIso);
+
+        $producers = [];
+        foreach ($memberRows as $row) {
+            foreach ($row['producers'] as $producer) {
+                $producers[$producer->id] = $producer;
+            }
+        }
+
+        return [
+            'product' => $lead['product'],
+            'remaining' => array_sum(array_map(fn (array $r): float => (float) $r['remaining'], $memberRows)),
+            'available_on_selected' => (bool) array_reduce($memberRows, fn (bool $c, array $r): bool => $c || $r['available_on_selected'], false),
+            'available_dates' => array_values($datesByIso),
+            'producers' => array_values($producers),
+            'gradeProducers' => $lead['gradeProducers'],
+            'group' => $lead['product']->group,
+            'members' => $memberRows,
+        ];
     }
 
     /**

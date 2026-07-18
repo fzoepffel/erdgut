@@ -14,6 +14,7 @@ use App\Http\Requests\Admin\StoreProductRequest;
 use App\Http\Requests\Admin\UpdateProductRequest;
 use App\Models\Producer;
 use App\Models\Product;
+use App\Models\ProductGroup;
 use App\Models\ProductImage;
 use App\Models\ProductPriceHistory;
 use App\Models\ProductPriceRule;
@@ -24,6 +25,7 @@ use App\Models\ProductVariant;
 use App\Models\ShopOrderItem;
 use App\Services\Admin\PriceHistoryRecorder;
 use App\Services\ImageProcessor;
+use App\Support\AuditLogger;
 use App\Support\ProducerLabels;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
@@ -66,7 +68,7 @@ class ProductController extends Controller
             ->leftJoin('producer_translations as prt', function ($join) use ($locale): void {
                 $join->on('prt.producer_id', '=', 'producers.id')->where('prt.locale', '=', $locale);
             })
-            ->with(['producer.translations', 'translations']);
+            ->with(['producer.translations', 'translations', 'group']);
 
         $search = isset($validated['q']) ? trim($validated['q']) : '';
         if ($search !== '') {
@@ -101,6 +103,7 @@ class ProductController extends Controller
 
         return view('admin.products.index', [
             'products' => $products,
+            'groups' => ProductGroup::query()->orderBy('position')->orderBy('id')->get(),
             'categories' => ProductCategory::casesSortedByLabel(),
         ]);
     }
@@ -142,6 +145,7 @@ class ProductController extends Controller
             $this->syncPairings($product, $validated['pairings'] ?? []);
 
             $this->syncBusinessPrice($product, $validated, $request->user()?->id);
+            $this->syncGroup($product, $validated);
             $this->syncVariants($product, $validated, $request->user()?->id);
             $this->syncQuantityTiers($product, $validated, $request->user()?->id);
 
@@ -225,6 +229,7 @@ class ProductController extends Controller
             $this->syncPairings($product, $validated['pairings'] ?? []);
 
             $this->syncBusinessPrice($product, $validated, $request->user()?->id);
+            $this->syncGroup($product, $validated);
             $this->syncVariants($product, $validated, $request->user()?->id);
             $this->syncQuantityTiers($product, $validated, $request->user()?->id);
 
@@ -314,6 +319,7 @@ class ProductController extends Controller
 
         return [
             'product' => $product?->load(['producer', 'producers', 'producerVariantPrices', 'translations', 'images', 'pairings.translations']),
+            'groups' => ProductGroup::query()->orderBy('position')->orderBy('id')->get(),
             // Duplicate-name advisory data for the CREATE form only: every
             // existing product's names (all locales), farm label and edit
             // URL, so typing a known name suggests extending that product
@@ -940,6 +946,118 @@ class ProductController extends Controller
             $cents = ($raw === null || $raw === '') ? null : (int) round(((float) $raw) * 100);
             $product->producers()->updateExistingPivot($id, ['buying_price_cents' => $cents]);
         }
+    }
+
+    /**
+     * Wire the product into its ProductGroup from the form: an existing id,
+     * 'new' (create from new_group_name), or empty = ungrouped. A group the
+     * product leaves is deleted once it has no members left, so stale empty
+     * groups never linger.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function syncGroup(Product $product, array $validated): void
+    {
+        if (! array_key_exists('group_id', $validated)) {
+            return;
+        }
+
+        $previousGroupId = $product->group_id;
+        $choice = (string) ($validated['group_id'] ?? '');
+
+        $groupId = null;
+        if ($choice === 'new') {
+            $name = array_filter(array_map(
+                fn ($v) => trim((string) $v),
+                (array) ($validated['new_group_name'] ?? []),
+            ));
+            $groupId = ProductGroup::create(['name' => $name, 'position' => 0])->id;
+        } elseif ($choice !== '') {
+            $groupId = (int) $choice;
+        }
+
+        $label = array_filter(array_map(
+            fn ($v) => trim((string) $v),
+            (array) ($validated['group_label'] ?? []),
+        ));
+
+        $product->forceFill([
+            'group_id' => $groupId,
+            'group_label' => $groupId !== null && $label !== [] ? $label : null,
+            'group_position' => (int) ($validated['group_position'] ?? 0),
+        ])->save();
+
+        $this->deleteGroupIfEmpty($previousGroupId, $groupId);
+    }
+
+    private function deleteGroupIfEmpty(?int $previousGroupId, ?int $currentGroupId): void
+    {
+        if ($previousGroupId === null || $previousGroupId === $currentGroupId) {
+            return;
+        }
+        ProductGroup::query()
+            ->whereKey($previousGroupId)
+            ->whereDoesntHave('products')
+            ->delete();
+    }
+
+    /**
+     * Bulk action from the products index: put the selected products into a
+     * group (existing or freshly named) so duplicates from different farms
+     * become one card. New members queue behind existing ones.
+     */
+    public function assignGroup(Request $request): RedirectResponse
+    {
+        $this->authorize('create', Product::class);
+
+        $validated = $request->validate([
+            'product_ids' => ['required', 'array', 'min:1'],
+            'product_ids.*' => ['integer', 'distinct', 'exists:products,id'],
+            'group_id' => ['required', function (string $attribute, mixed $value, \Closure $fail): void {
+                if ($value !== 'new' && ! ProductGroup::query()->whereKey((int) $value)->exists()) {
+                    $fail(__('admin.products.group_invalid'));
+                }
+            }],
+            'new_group_name' => ['nullable', 'array'],
+            'new_group_name.de' => ['required_if:group_id,new', 'nullable', 'string', 'max:120'],
+            'new_group_name.en' => ['nullable', 'string', 'max:120'],
+            'new_group_name.fr' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $group = $validated['group_id'] === 'new'
+            ? ProductGroup::create(['name' => array_filter(array_map(fn ($v) => trim((string) $v), (array) ($validated['new_group_name'] ?? []))), 'position' => 0])
+            : ProductGroup::query()->findOrFail((int) $validated['group_id']);
+
+        $position = (int) (Product::query()->where('group_id', $group->id)->max('group_position') ?? -1);
+        $products = Product::query()->findMany($validated['product_ids']);
+
+        foreach ($validated['product_ids'] as $productId) {
+            $product = $products->firstWhere('id', (int) $productId);
+            if ($product === null || $product->group_id === $group->id) {
+                continue;
+            }
+            $previousGroupId = $product->group_id;
+            $product->forceFill([
+                'group_id' => $group->id,
+                'group_position' => ++$position,
+            ])->save();
+            $this->deleteGroupIfEmpty($previousGroupId, $group->id);
+        }
+
+        AuditLogger::log(
+            entityType: 'product_group',
+            entityId: (int) $group->id,
+            action: 'product_group_assign',
+            metadata: ['channel' => 'admin', 'product_ids' => array_map('intval', $validated['product_ids'])],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.products.index')
+            ->with('status', __('admin.products.group_assign_flash', [
+                'name' => $group->localizedName(),
+                'count' => count($validated['product_ids']),
+            ]));
     }
 
     private function deletePublicImage(?string $path): void

@@ -10,9 +10,11 @@
                 }
                 $jsRows[] = [
                     'key' => $grade['key'],
-                    'productId' => $row['product']->id,
+                    // Grouped rows carry grades from SEVERAL member products;
+                    // the grade's own productId keeps the order line correct.
+                    'productId' => $grade['productId'] ?? $row['product']->id,
                     'variantId' => $grade['variantId'],
-                    'name' => $row['product']->name.($grade['label'] ? ' · '.$grade['label'] : ''),
+                    'name' => ($row['groupName'] ?? $row['product']->name).($grade['label'] ? ' · '.$grade['label'] : ''),
                     'unitSymbol' => $grade['unitSymbol'],
                     'factor' => $grade['displayFactor'],
                     'step' => $grade['step'],
@@ -170,7 +172,7 @@
                                 $product = $row['product'];
                                 $imageUrl = $product->thumbUrl();
                             @endphp
-                            <div x-show="cardVisible({{ json_encode(mb_strtolower($product->name)) }}, '{{ $product->category }}', {{ $product->subcategory_id ?? 0 }})"
+                            <div x-show="cardVisible({{ json_encode(mb_strtolower(($row['groupName'] ?? $product->name).' '.$product->name)) }}, '{{ $product->category }}', {{ $product->subcategory_id ?? 0 }})"
                                  data-testid="restaurant-catalog-item" data-product-id="{{ $product->id }}">
                                 <article class="group flex flex-col">
                                     <a href="{{ route('public.shop.products.show', $product) }}" class="relative block aspect-square overflow-hidden bg-shop-paper">
@@ -184,7 +186,7 @@
                                     </a>
 
                                     <h3 class="mt-4 font-display text-2xl leading-tight">
-                                        <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline">{{ $product->name }}</a>
+                                        <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline">{{ $row['groupName'] ?? $product->name }}</a>
                                     </h3>
                                     <div class="mt-2 h-px bg-shop-border"></div>
                                     @if (($row['producerLabel'] ?? '') !== '')
