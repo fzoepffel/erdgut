@@ -97,9 +97,9 @@ class RestaurantCatalogGroupTest extends TestCase
         $this->assertEqualsWithDelta(5000, $massGrade['cap'], 0.001);
         $this->assertSame('piece', $pieceGrade['unitKind']);
         $this->assertEqualsWithDelta(10, $pieceGrade['cap'], 0.001);
-        // Grade labels: explicit group_label vs producer fallback.
+        // Grade labels: explicit group_label vs PRODUCT-name fallback.
         $this->assertSame('lose', $massGrade['label']);
-        $this->assertNotSame('', (string) $pieceGrade['label']);
+        $this->assertSame((string) $this->pieceMember->name, $pieceGrade['label']);
         // Keys stay globally unique (member product ids).
         $this->assertSame((string) $this->massMember->id, $massGrade['key']);
         $this->assertSame((string) $this->pieceMember->id, $pieceGrade['key']);
@@ -128,5 +128,7 @@ class RestaurantCatalogGroupTest extends TestCase
         $this->assertTrue($row['inStock']);
         $this->assertCount(1, $row['grades']);
         $this->assertSame($this->massMember->id, $row['grades'][0]['productId']);
+        // Single stocked member → the card is titled with ITS product name.
+        $this->assertSame((string) $this->massMember->name, $row['groupName']);
     }
 }
