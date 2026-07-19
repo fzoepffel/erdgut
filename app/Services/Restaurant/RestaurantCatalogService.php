@@ -214,11 +214,11 @@ class RestaurantCatalogService
             $nets = [];
             foreach ($memberRows as $memberRow) {
                 $member = $memberRow['product'];
+                // Explicit group_label wins, otherwise the member PRODUCT's
+                // name — the farm renders separately via producerLabel.
                 $memberLabel = $member->localizedGroupLabel() !== ''
                     ? $member->localizedGroupLabel()
-                    : ((string) ($memberRow['producerLabel'] ?? '') !== ''
-                        ? (string) $memberRow['producerLabel']
-                        : (string) $member->producer?->name);
+                    : (string) $member->name;
 
                 foreach ($memberRow['grades'] as $grade) {
                     $grade['label'] = $grade['label'] === null
@@ -242,7 +242,13 @@ class RestaurantCatalogService
             }
 
             $merged = $lead;
-            $merged['groupName'] = $lead['product']->group?->localizedName() ?: $lead['product']->name;
+            // Card title: the group's own name — except when only ONE member
+            // contributes grades, where that member's product name says
+            // exactly what you buy.
+            $membersWithGrades = array_values(array_filter($memberRows, fn (array $r): bool => $r['grades'] !== []));
+            $merged['groupName'] = count($membersWithGrades) === 1
+                ? (string) $membersWithGrades[0]['product']->name
+                : ($lead['product']->group?->localizedName() ?: $lead['product']->name);
             $merged['inStock'] = (bool) array_reduce($memberRows, fn (bool $c, array $r): bool => $c || $r['inStock'], false);
             $merged['inSeason'] = (bool) array_reduce($memberRows, fn (bool $c, array $r): bool => $c || $r['inSeason'], false);
             $merged['available_on_selected'] = $merged['inStock'];

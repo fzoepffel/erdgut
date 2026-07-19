@@ -105,8 +105,10 @@ class ProductGroupStorefrontTest extends TestCase
             // Both members' hidden quantity inputs live in the ONE card.
             ->assertSee('name="quantities['.$this->massMember->id.']"', false)
             ->assertSee('name="quantities['.$this->pieceMember->id.']"', false)
-            // Member grade labels: explicit group_label and producer fallback.
-            ->assertSee('lose (kg)');
+            // Member grade labels: explicit group_label for the kg member,
+            // the PRODUCT name (not the farm) for the unlabeled piece member.
+            ->assertSee('lose (kg)')
+            ->assertSee(e($this->pieceMember->name), false);
 
         // Members must not render as standalone cards: the piece member's
         // own product name appears only in the registry, not as a card title.
@@ -156,9 +158,12 @@ class ProductGroupStorefrontTest extends TestCase
         $this->assertCount(1, $rows);
         $this->assertTrue($rows->first()['available_on_selected']);
 
+        // With a single available member the card heading is THAT product's
+        // name, not the group name — the customer must see what they buy.
         $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
             ->assertOk()
-            ->assertSee('Zucchini-Auswahl')
+            ->assertSee(e($this->massMember->name).'</a>', false)
+            ->assertDontSee('Zucchini-Auswahl</a>', false)
             ->assertSee('name="quantities['.$this->massMember->id.']"', false)
             ->assertDontSee('name="quantities['.$this->pieceMember->id.']"', false);
     }

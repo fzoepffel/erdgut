@@ -72,10 +72,14 @@
                 $product = $row['product'];
                 $activeVariants = $product->activeVariants();
                 $entries = [];
+                // Selector label: explicit group_label wins, otherwise the
+                // member PRODUCT's name — "Kapuzinerkresseblätter" vs
+                // "Kapuzinerkresseblüten" must be distinguishable; the farm
+                // already renders as its own secondary line (producerName).
                 $memberGradeLabel = $group !== null
                     ? ($product->localizedGroupLabel($locale) !== ''
                         ? $product->localizedGroupLabel($locale)
-                        : (\App\Support\ProducerLabels::label($row['producers'] ?? []) ?: (string) $product->producer?->name))
+                        : (string) $product->name)
                     : null;
 
                 // Prices are resolved for the selected delivery date and a
@@ -792,10 +796,19 @@
                                             </a>
 
                                             {{-- Title + divider --}}
+                                            @php
+                                                // Grouped cards carry the GROUP's own name ("Apfelsäfte") —
+                                                // except when only ONE member has stock today: then the card
+                                                // says exactly what you buy (that member's product name).
+                                                $cardMemberIds = collect($gradeRows)->pluck('productId')->unique();
+                                                $cardHeading = isset($row['group']) && $row['group'] !== null
+                                                    ? ($cardMemberIds->count() === 1 && $gradeRows !== []
+                                                        ? (string) collect($gradeRows)->first()['productName']
+                                                        : $row['group']->localizedName())
+                                                    : $product->name;
+                                            @endphp
                                             <h3 class="mt-4 font-display text-2xl leading-tight">
-                                                {{-- Grouped cards carry the GROUP's own name ("Apfelsäfte");
-                                                     the link still leads to the lead member's page. --}}
-                                                <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline">{{ isset($row['group']) && $row['group'] !== null ? $row['group']->localizedName() : $product->name }}</a>
+                                                <a href="{{ route('public.shop.products.show', $product) }}" class="underline-offset-4 hover:underline">{{ $cardHeading }}</a>
                                             </h3>
                                             <div class="mt-2 h-px bg-shop-border"></div>
 
@@ -1643,7 +1656,13 @@
                 },
                 pickerTitleFor() {
                     const v = this.pickerVariants[0];
-                    return v ? (v.cardTitle || v.productName) : '';
+                    if (!v) return '';
+                    const names = new Set(this.pickerVariants.map((p) => p.productName));
+                    // One member product (possibly several of its own grades):
+                    // the product name says what you buy; the group name only
+                    // helps when members differ.
+                    if (names.size === 1) return v.productName;
+                    return v.cardTitle || v.productName;
                 },
                 pickerGradeFarmsDiffer() {
                     return new Set(this.pickerVariants.map(v => v.producerName || '')).size > 1;
