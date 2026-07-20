@@ -158,7 +158,7 @@
             @endphp
             <dl class="mt-20 grid gap-x-8 gap-y-12 border-t border-brand-ink/10 pt-14 sm:grid-cols-3" data-testid="shop-home-figures">
                 @foreach ($letterFigures as $i => $figure)
-                    <x-reveal variant="fade-up" delay="{{ $i * 80 }}" class="flex flex-col">
+                    <x-reveal variant="fade-up" delay="{{ $i * 80 }}" class="flex flex-col text-center">
                         {{-- The problem --}}
                         <dt class="font-display text-4xl leading-none text-accent-star sm:text-5xl">{{ $figure['value'] }}</dt>
                         <dd class="mt-3 font-editorial text-sm leading-snug text-brand-ink/55">{{ $figure['caption'] }}</dd>
@@ -167,7 +167,7 @@
                         <p class="mt-2 font-editorial text-base leading-snug text-brand-moss">{{ $figure['answer'] }}</p>
                         <a
                             href="{{ $figure['href'] }}"
-                            class="mt-auto self-start pt-5 font-mono text-xs uppercase leading-relaxed tracking-widest text-chapter-produce underline decoration-chapter-produce/40 underline-offset-4 transition hover:decoration-chapter-produce"
+                            class="mt-auto self-center pt-5 font-mono text-xs uppercase leading-relaxed tracking-widest text-chapter-produce underline decoration-chapter-produce/40 underline-offset-4 transition hover:decoration-chapter-produce"
                         >
                             {{ $figure['cta'] }} <span aria-hidden="true">&rarr;</span>
                         </a>
