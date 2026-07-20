@@ -56,6 +56,7 @@ class ProductController extends Controller
             'category' => ['nullable', 'string', 'in:'.implode(',', ProductCategory::values())],
             'published' => ['nullable', 'string', Rule::in(['0', '1'])],
             'available' => ['nullable', 'string', Rule::in(['0', '1'])],
+            'group_id' => ['nullable', 'string', Rule::in(['none', ...ProductGroup::query()->pluck('id')->map(fn ($id) => (string) $id)->all()])],
         ]);
 
         $locale = app()->getLocale();
@@ -94,6 +95,14 @@ class ProductController extends Controller
 
         if (isset($validated['available'])) {
             $query->where('is_available', $validated['available'] === '1');
+        }
+
+        if (isset($validated['group_id'])) {
+            if ($validated['group_id'] === 'none') {
+                $query->whereNull('products.group_id');
+            } else {
+                $query->where('products.group_id', (int) $validated['group_id']);
+            }
         }
 
         $products = $query

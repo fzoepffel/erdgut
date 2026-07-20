@@ -2,7 +2,8 @@
     $hasFilters = filled(trim((string) request('q')))
         || filled(request('category'))
         || request()->filled('published')
-        || request()->filled('available');
+        || request()->filled('available')
+        || request()->filled('group_id');
 @endphp
 
 <x-admin-layout>
@@ -125,6 +126,22 @@
                                 <option value="">{{ __('admin.catalog.filter_any') }}</option>
                                 <option value="1" @selected(old('available', request('available')) === '1')>{{ __('Available') }}</option>
                                 <option value="0" @selected(old('available', request('available')) === '0')>{{ __('Hidden') }}</option>
+                            </select>
+                        </div>
+                        <div class="w-full sm:w-auto">
+                            <label for="admin-products-group" class="block text-xs font-medium text-gray-600 mb-1">{{ __('admin.products.group_column') }}</label>
+                            <select
+                                id="admin-products-group"
+                                name="group_id"
+                                class="block w-full sm:w-44 rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600 text-sm"
+                            >
+                                <option value="">{{ __('admin.catalog.filter_any') }}</option>
+                                <option value="none" @selected(old('group_id', request('group_id')) === 'none')>{{ __('admin.products.group_none') }}</option>
+                                @foreach ($groups as $group)
+                                    <option value="{{ $group->id }}" @selected(old('group_id', request('group_id')) === (string) $group->id)>
+                                        {{ $group->localizedName() }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="flex gap-2">
