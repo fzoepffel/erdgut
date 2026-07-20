@@ -254,7 +254,7 @@ class ShopCheckoutController extends Controller
         // ShopController::queueConfirmationMail already does.
         try {
             Mail::to($order->email)
-                ->locale(app()->getLocale())
+                ->locale($order->locale ?? app()->getLocale())
                 ->queue(new ShopOrderConfirmationMail($order));
         } catch (Throwable $e) {
             report($e);
