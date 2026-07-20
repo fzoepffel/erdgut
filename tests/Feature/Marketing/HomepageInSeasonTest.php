@@ -5,6 +5,7 @@ namespace Tests\Feature\Marketing;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
+use App\Models\ProductSubcategory;
 use App\Models\ProductTranslation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -28,7 +29,7 @@ class HomepageInSeasonTest extends TestCase
         parent::tearDown();
     }
 
-    private function makeProduct(string $longDescription, ?string $imagePath, ?string $receivedOn): Product
+    private function makeProduct(string $longDescription, ?string $imagePath, ?string $receivedOn, ?int $subcategoryId = null): Product
     {
         $producer = Producer::factory()->create();
         $product = Product::factory()->create([
@@ -38,6 +39,7 @@ class HomepageInSeasonTest extends TestCase
             'is_available' => true,
             'is_published' => true,
             'image_path' => $imagePath,
+            'subcategory_id' => $subcategoryId,
         ]);
         // Replace the factory's short taste_profile with a controlled one.
         ProductTranslation::query()->where('product_id', $product->id)->update([
@@ -146,5 +148,32 @@ class HomepageInSeasonTest extends TestCase
         $response->assertSee('Or browse the full catalogue', false);
         // Heading now carries a trailing period.
         $response->assertSee('The people behind our food.', false);
+    }
+
+    public function test_in_season_products_prefer_different_subcategories(): void
+    {
+        $long = str_repeat('Eine wunderbar aromatische Sorte aus der Region. ', 5);
+
+        $subcatA = ProductSubcategory::create(['category' => 'produce', 'label_de' => 'Wurzeln', 'label_en' => 'Roots', 'label_fr' => 'Racines', 'sort_order' => 1]);
+        $subcatB = ProductSubcategory::create(['category' => 'produce', 'label_de' => 'Blattgemüse', 'label_en' => 'Leaves', 'label_fr' => 'Feuilles', 'sort_order' => 2]);
+        $subcatC = ProductSubcategory::create(['category' => 'produce', 'label_de' => 'Früchte', 'label_en' => 'Fruits', 'label_fr' => 'Fruits', 'sort_order' => 3]);
+
+        // Two products from subcategory A (same), one from B, one from C.
+        $pA1 = $this->makeProduct($long, 'products/a1.jpg', '2026-06-11', $subcatA->id);
+        $pA2 = $this->makeProduct($long, 'products/a2.jpg', '2026-06-11', $subcatA->id);
+        $pB = $this->makeProduct($long, 'products/b.jpg', '2026-06-11', $subcatB->id);
+        $pC = $this->makeProduct($long, 'products/c.jpg', '2026-06-11', $subcatC->id);
+
+        $response = $this->get(route('public.home'))->assertOk();
+
+        // All three distinct subcategories must be represented.
+        $response->assertSee($pA1->name, false);
+        $response->assertSee($pB->name, false);
+        $response->assertSee($pC->name, false);
+
+        // Only one of the two subcategory-A products should appear.
+        $bothAVisible = str_contains($response->content(), $pA1->name)
+                     && str_contains($response->content(), $pA2->name);
+        $this->assertFalse($bothAVisible, 'Both subcategory-A products should not appear simultaneously.');
     }
 }
