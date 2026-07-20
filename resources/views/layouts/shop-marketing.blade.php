@@ -17,6 +17,8 @@
         <meta property="og:description" content="{{ $description ?? __('Frisches Gemüse aus Berliner Bauernhand.') }}">
         <meta property="og:url" content="{{ url()->current() }}">
         <meta property="og:image" content="{{ asset('images/og/erdgut-og-default.png') }}">
+
+        <link rel="canonical" href="{{ url()->current() }}">
         <meta property="og:image:width" content="1200">
         <meta property="og:image:height" content="630">
         <meta property="og:locale" content="{{ app()->getLocale() === 'de' ? 'de_DE' : (app()->getLocale() === 'fr' ? 'fr_FR' : 'en_US') }}">
