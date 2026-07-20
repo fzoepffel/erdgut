@@ -43,6 +43,9 @@
         'vat_rate_percent' => (string) ($i['vat_rate_percent'] ?? '7'),
         'lineTouched' => isset($i['line_total_eur']),
         'vatTouched' => isset($i['vat_rate_percent']),
+        '_comboOpen' => false,
+        '_comboQuery' => '',
+        '_comboHighlight' => 0,
     ])->values()->all();
     $itemPrefill = $oldItemPrefill !== [] ? $oldItemPrefill : ($preselectedItems ?? []);
 
@@ -208,19 +211,50 @@
                                 <div class="grid grid-cols-1 gap-3 rounded-md border border-gray-100 p-3 sm:grid-cols-12 sm:items-start sm:border-0 sm:p-0">
                                     <div class="sm:col-span-5">
                                         <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('admin.select_product') }}</label>
-                                        {{-- Catalog line: pick a product/grade. --}}
+                                        {{-- Catalog line: searchable product combobox. --}}
                                         <template x-if="!item.custom">
-                                            <select x-model="item.grade_key"
-                                                @change="onLineProductChange(item)"
-                                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                                required>
-                                                <option value="">{{ __('admin.select_product') }}</option>
-                                                <template x-for="p in availableProducts" :key="p.id">
-                                                    <option :value="String(p.id)"
-                                                            :selected="String(p.id) === String(item.grade_key)"
-                                                            x-text="p.name + (p.producer ? ' (' + p.producer + ')' : '') + ' — ' + p.price + ' / ' + p.display_unit + (parseFloat(p.remaining) <= 0 ? ' · ' + outOfStockLabel : '')"></option>
-                                                </template>
-                                            </select>
+                                            <div class="relative" @click.outside="item._comboOpen = false">
+                                                {{-- Selected state: badge with product label + clear button --}}
+                                                <div x-show="item.grade_key !== ''"
+                                                     class="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-[7px] text-sm shadow-sm">
+                                                    <span class="min-w-0 flex-1 truncate text-gray-900"
+                                                          x-text="productLabel(item)"></span>
+                                                    <button type="button"
+                                                            @click.stop="clearProduct(item)"
+                                                            class="shrink-0 text-lg leading-none text-gray-400 hover:text-gray-700"
+                                                            aria-label="{{ __('Clear') }}">&times;</button>
+                                                </div>
+                                                {{-- Search mode: filter input + dropdown --}}
+                                                <div x-show="item.grade_key === ''" class="relative">
+                                                    <input type="text"
+                                                           x-model="item._comboQuery"
+                                                           @focus="item._comboOpen = true; item._comboHighlight = 0"
+                                                           @input="item._comboOpen = true; item._comboHighlight = 0"
+                                                           @keydown="handleProductComboKey($event, item)"
+                                                           placeholder="{{ __('admin.select_product') }}…"
+                                                           autocomplete="off"
+                                                           class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                                    <ul x-show="item._comboOpen && filteredProducts(item).length > 0"
+                                                        x-cloak
+                                                        class="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                                                        <template x-for="(p, idx) in filteredProducts(item)" :key="p.id">
+                                                            <li :class="idx === item._comboHighlight ? 'bg-emerald-50 text-emerald-900' : 'text-gray-700 hover:bg-gray-50'"
+                                                                class="cursor-pointer px-3 py-2 text-sm leading-snug"
+                                                                @mouseenter="item._comboHighlight = idx"
+                                                                @mousedown.prevent="selectProduct(item, p)">
+                                                                <span x-text="p.name"></span>
+                                                                <span x-show="p.producer" class="text-xs text-gray-500 ml-1.5" x-text="p.producer"></span>
+                                                                <span x-show="parseFloat(p.remaining) <= 0" class="text-xs text-amber-600 ml-1.5" x-text="'· ' + outOfStockLabel"></span>
+                                                            </li>
+                                                        </template>
+                                                    </ul>
+                                                    <p x-show="item._comboOpen && item._comboQuery.trim() !== '' && filteredProducts(item).length === 0"
+                                                       x-cloak
+                                                       class="absolute z-30 mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg">
+                                                        {{ __('shop.admin.no_products_on_date') }}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </template>
                                         {{-- Custom (off-catalog) line: free-text name. --}}
                                         <template x-if="item.custom">
@@ -592,9 +626,14 @@ function adminOrderForm(config) {
         loading: false,
         quoteLoading: false,
         mode: config.pickupMode || 'pickup',
-        items: config.preselectedItems && config.preselectedItems.length
+        items: (config.preselectedItems && config.preselectedItems.length
             ? config.preselectedItems
-            : [emptyLine()],
+            : [emptyLine()]).map(item => ({
+            ...item,
+            _comboOpen: false,
+            _comboQuery: item._comboQuery || '',
+            _comboHighlight: 0,
+        })),
         deliveryFeeEur: config.preselectedDeliveryFee ?? '',
         deliveryVatRate: String(config.preselectedDeliveryVatRate ?? '7'),
         discountEur: config.frozenDiscount || 0,
@@ -867,6 +906,57 @@ function adminOrderForm(config) {
                 .replace(/>/g, '&gt;');
         },
 
+        filteredProducts(item) {
+            const q = (item._comboQuery || '').trim().toLocaleLowerCase();
+            if (q === '') return this.availableProducts;
+            return this.availableProducts.filter((p) =>
+                p.name.toLocaleLowerCase().includes(q) ||
+                (p.producer && p.producer.toLocaleLowerCase().includes(q))
+            );
+        },
+
+        productLabel(item) {
+            const p = this.availableProducts.find((p) => String(p.id) === String(item.grade_key));
+            if (!p) return '';
+            return p.name + (p.producer ? ' · ' + p.producer : '') + ' — ' + p.price + ' / ' + p.display_unit;
+        },
+
+        selectProduct(item, p) {
+            item.grade_key = String(p.id);
+            item._comboQuery = '';
+            item._comboOpen = false;
+            item._comboHighlight = 0;
+            this.onLineProductChange(item);
+        },
+
+        clearProduct(item) {
+            item.grade_key = '';
+            item.product_id = '';
+            item.variant_id = '';
+            item._comboQuery = '';
+            item._comboOpen = false;
+            item._comboHighlight = 0;
+        },
+
+        handleProductComboKey(event, item) {
+            const list = this.filteredProducts(item);
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                item._comboOpen = true;
+                item._comboHighlight = Math.min(list.length - 1, (item._comboHighlight || 0) + 1);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                item._comboHighlight = Math.max(0, (item._comboHighlight || 0) - 1);
+            } else if (event.key === 'Enter') {
+                if (item._comboOpen && list[item._comboHighlight]) {
+                    event.preventDefault();
+                    this.selectProduct(item, list[item._comboHighlight]);
+                }
+            } else if (event.key === 'Escape') {
+                item._comboOpen = false;
+            }
+        },
+
         async fetchProducts() {
             this.loading = true;
             try {
@@ -930,6 +1020,9 @@ function emptyLine() {
         vat_rate_percent: '7',
         lineTouched: false,
         vatTouched: false,
+        _comboOpen: false,
+        _comboQuery: '',
+        _comboHighlight: 0,
     };
 }
 

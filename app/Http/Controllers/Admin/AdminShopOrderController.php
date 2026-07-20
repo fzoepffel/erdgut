@@ -133,6 +133,8 @@ class AdminShopOrderController extends Controller
 
         $grades = $this->addBackOwnQuantities($grades, $request, $date, $customerType);
 
+        usort($grades, fn ($a, $b) => strcmp((string) $a['name'], (string) $b['name']));
+
         return response()->json($grades);
     }
 
