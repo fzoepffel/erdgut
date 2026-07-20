@@ -710,7 +710,9 @@ class ShopController extends Controller
     private function queueConfirmationMail(ShopOrder $order): void
     {
         try {
-            Mail::to($order->email)->queue(new ShopOrderConfirmationMail($order));
+            Mail::to($order->email)
+                ->locale($order->locale ?? app()->getLocale())
+                ->queue(new ShopOrderConfirmationMail($order));
         } catch (Throwable $e) {
             report($e);
             SumUpCheckoutLogger::warning('Shop order: failed to queue confirmation email.', [

@@ -1412,7 +1412,9 @@ class AdminShopOrderController extends Controller
     private function queueWindowMail(ShopOrder $order): void
     {
         try {
-            Mail::to($order->email)->queue(new ShopOrderWindowMail($order));
+            Mail::to($order->email)
+                ->locale($order->locale ?? app()->getLocale())
+                ->queue(new ShopOrderWindowMail($order));
         } catch (Throwable $e) {
             report($e);
             SumUpCheckoutLogger::warning('Shop order: failed to queue delivery-window email.', [
