@@ -184,7 +184,7 @@
             @endif
 
             {{-- ── Step: Products + per-line pricing ──────────────── --}}
-            <div class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
+            <div class="rounded-lg border border-gray-100 bg-white shadow-sm"
                  x-show="selectedDate"
                  x-cloak>
                 <div class="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
