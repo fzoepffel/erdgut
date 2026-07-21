@@ -4566,7 +4566,7 @@
     "admin.reduced_offer.status_reduced": "The shop is currently showing the reduced-offer banner.",
     "admin.reduced_offer.status_reopens": "Full offer returns on :date.",
     "admin.reduced_offer.status_full": "The shop is showing the full offer.",
-    "admin.reduced_offer.subscriber_count": ":count people on the waitlist.",
+    "admin.reduced_offer.subscriber_count": "{0} No one on the waitlist yet.|{1} :count person on the waitlist.|[2,*] :count people on the waitlist.",
     "admin.reduced_offer.open_now_button": "Open now and notify",
     "admin.reduced_offer.open_now_hint": "Ends the reduced offer immediately and emails everyone on the waitlist.",
     "admin.reduced_offer.open_now_confirm": "Open the full offer now and notify everyone on the waitlist?",
@@ -4593,5 +4593,8 @@
     "admin.reduced_offer.flash_opened": "Full offer opened. :count notification(s) sent.",
     "admin.reduced_offer.flash_not_reduced": "The shop was not in reduced mode.",
     "admin.reduced_offer.flash_rule_saved": "Rule saved.",
-    "admin.reduced_offer.flash_rule_deleted": "Rule deleted."
+    "admin.reduced_offer.flash_rule_deleted": "Rule deleted.",
+    "emails.shop_offer_reopened.greeting": "Hi,",
+    "emails.shop_offer_reopened.signoff": "Best,",
+    "emails.shop_offer_reopened.signoff_name": "Fred from the Erdgut farm shop"
 }

@@ -4566,7 +4566,7 @@
     "admin.reduced_offer.status_reduced": "La boutique affiche actuellement la bannière d'offre réduite.",
     "admin.reduced_offer.status_reopens": "L'offre complète revient le :date.",
     "admin.reduced_offer.status_full": "La boutique affiche l'offre complète.",
-    "admin.reduced_offer.subscriber_count": ":count personnes sur la liste d'attente.",
+    "admin.reduced_offer.subscriber_count": "{0} Personne sur la liste d'attente pour le moment.|{1} :count personne sur la liste d'attente.|[2,*] :count personnes sur la liste d'attente.",
     "admin.reduced_offer.open_now_button": "Ouvrir maintenant et prévenir",
     "admin.reduced_offer.open_now_hint": "Termine l'offre réduite immédiatement et envoie un e-mail à toute la liste d'attente.",
     "admin.reduced_offer.open_now_confirm": "Ouvrir l'offre complète maintenant et prévenir toute la liste d'attente ?",
@@ -4593,5 +4593,8 @@
     "admin.reduced_offer.flash_opened": "Offre complète ouverte. :count notification(s) envoyée(s).",
     "admin.reduced_offer.flash_not_reduced": "La boutique n'était pas en mode réduit.",
     "admin.reduced_offer.flash_rule_saved": "Règle enregistrée.",
-    "admin.reduced_offer.flash_rule_deleted": "Règle supprimée."
+    "admin.reduced_offer.flash_rule_deleted": "Règle supprimée.",
+    "emails.shop_offer_reopened.greeting": "Bonjour,",
+    "emails.shop_offer_reopened.signoff": "Bien à vous,",
+    "emails.shop_offer_reopened.signoff_name": "Fred de la ferme Erdgut"
 }
