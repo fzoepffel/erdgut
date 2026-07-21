@@ -57,6 +57,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('trials:send-conversion-reminders')->dailyAt('11:00')->withoutOverlapping();
         $schedule->command('onboarding:prune-drafts')->dailyAt('03:30')->withoutOverlapping();
         $schedule->command('dashboard:purge-click-events')->dailyAt('03:45')->withoutOverlapping();
+        // Reduced-offer: email the waitlist shortly after a window auto-reopens.
+        $schedule->command('shop:notify-offer-reopen')->everyFifteenMinutes()->withoutOverlapping();
     })
     ->withRouting(
         web: __DIR__.'/../routes/web.php',

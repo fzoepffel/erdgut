@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\AdminPackingController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
 use App\Http\Controllers\Admin\AdminProductMergeController;
+use App\Http\Controllers\Admin\AdminReducedOfferController;
 use App\Http\Controllers\Admin\AdminRequestAvailabilityController;
 use App\Http\Controllers\Admin\AdminRestaurantAccountController;
 use App\Http\Controllers\Admin\AdminRestaurantOrderController;
@@ -79,6 +80,7 @@ use App\Http\Controllers\Restaurant\RestaurantVerificationController;
 use App\Http\Controllers\Shop\ShopCatalogController;
 use App\Http\Controllers\Shop\ShopCheckoutController;
 use App\Http\Controllers\Shop\ShopController;
+use App\Http\Controllers\Shop\ShopOfferNotifyController;
 use App\Http\Controllers\SpargelAdminController;
 use App\Http\Controllers\SpargelOrderController;
 use App\Http\Controllers\SubscriptionController;
@@ -173,6 +175,14 @@ Route::name('public.')->group(function () {
     Route::post('/shop/report-outage', [ShopController::class, 'reportOutage'])
         ->middleware('throttle:5,60')
         ->name('shop.report-outage');
+    // Reduced-offer waitlist: sign up from the banner to be notified when the
+    // full offer returns, and one-click unsubscribe from the emailed link.
+    Route::post('/shop/notify', [ShopOfferNotifyController::class, 'store'])
+        ->middleware('throttle:contact')
+        ->name('shop.notify.store');
+    Route::get('/shop/notify/unsubscribe/{token}', [ShopOfferNotifyController::class, 'unsubscribe'])
+        ->middleware('throttle:20,1')
+        ->name('shop.notify.unsubscribe');
     // 20/min per IP: this endpoint only creates a *pending* order (the
     // SumUp charge happens later at /pay), and the multi-field cart form
     // means a guest can legitimately resubmit several times after
@@ -685,6 +695,21 @@ Route::middleware(['auth', 'verified'])
             Route::delete('shop-closures/rules/{rule}', [AdminShopClosureController::class, 'rulesDestroy'])
                 ->middleware('throttle:60,1')
                 ->name('shop-closures.rules.destroy');
+
+            // Reduced-offer mode (banner + waitlist), managed alongside the
+            // delivery-closure calendar on the same admin page.
+            Route::post('shop-closures/reduced/start', [AdminReducedOfferController::class, 'start'])
+                ->middleware('throttle:60,1')
+                ->name('shop-closures.reduced.start');
+            Route::post('shop-closures/reduced/open-now', [AdminReducedOfferController::class, 'openNow'])
+                ->middleware('throttle:60,1')
+                ->name('shop-closures.reduced.open-now');
+            Route::post('shop-closures/reduced/rules', [AdminReducedOfferController::class, 'rulesStore'])
+                ->middleware('throttle:60,1')
+                ->name('shop-closures.reduced.rules.store');
+            Route::delete('shop-closures/reduced/rules/{rule}', [AdminReducedOfferController::class, 'rulesDestroy'])
+                ->middleware('throttle:60,1')
+                ->name('shop-closures.reduced.rules.destroy');
 
             Route::get('shop-orders', [AdminShopOrderController::class, 'index'])->name('shop-orders.index');
             // Manual order creation — declared before {shopOrder} wildcard.

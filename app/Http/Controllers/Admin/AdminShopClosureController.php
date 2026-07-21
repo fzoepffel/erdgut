@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ShopClosureRule;
+use App\Models\ShopReducedOfferRule;
 use App\Services\Shop\ShopClosureService;
+use App\Services\Shop\ShopReducedOfferService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -13,7 +15,10 @@ use Illuminate\View\View;
 
 class AdminShopClosureController extends Controller
 {
-    public function __construct(private readonly ShopClosureService $closures) {}
+    public function __construct(
+        private readonly ShopClosureService $closures,
+        private readonly ShopReducedOfferService $reducedOffer,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -26,7 +31,47 @@ class AdminShopClosureController extends Controller
         return view('admin.shop-closures.index', [
             'calendar' => $this->calendarPayload($month),
             'rules' => $this->rulesPayload(),
+            'reducedOffer' => $this->reducedOfferPayload(),
         ]);
+    }
+
+    /**
+     * Current reduced-offer state for the admin panel: whether the shop is
+     * reduced now, the reopen target, subscriber count, and the recurring rules.
+     *
+     * @return array{is_reduced: bool, reopens_at: ?string, reopens_label: ?string, source: ?string, subscriber_count: int, rules: list<array{id: int, starts_weekday: int, starts_time: string, reopens_weekday: int, reopens_time: string, is_active: bool, summary: string}>}
+     */
+    private function reducedOfferPayload(): array
+    {
+        $window = $this->reducedOffer->currentWindow();
+
+        $rules = ShopReducedOfferRule::query()
+            ->orderBy('starts_weekday')
+            ->get()
+            ->map(fn (ShopReducedOfferRule $rule): array => [
+                'id' => (int) $rule->id,
+                'starts_weekday' => (int) $rule->starts_weekday,
+                'starts_time' => Carbon::parse((string) $rule->starts_time)->format('H:i'),
+                'reopens_weekday' => (int) $rule->reopens_weekday,
+                'reopens_time' => Carbon::parse((string) $rule->reopens_time)->format('H:i'),
+                'is_active' => (bool) $rule->is_active,
+                'summary' => __('admin.reduced_offer.rule_summary', [
+                    'start_day' => $this->weekdayLabel((int) $rule->starts_weekday),
+                    'start_time' => Carbon::parse((string) $rule->starts_time)->format('H:i'),
+                    'reopen_day' => $this->weekdayLabel((int) $rule->reopens_weekday),
+                    'reopen_time' => Carbon::parse((string) $rule->reopens_time)->format('H:i'),
+                ]),
+            ])
+            ->all();
+
+        return [
+            'is_reduced' => $window !== null,
+            'reopens_at' => $window ? $window['reopens_at']->format('Y-m-d\TH:i') : null,
+            'reopens_label' => $window ? $window['reopens_at']->translatedFormat('l, j. F H:i') : null,
+            'source' => $window['source'] ?? null,
+            'subscriber_count' => $this->reducedOffer->subscriberCount(),
+            'rules' => $rules,
+        ];
     }
 
     public function calendar(Request $request): JsonResponse
