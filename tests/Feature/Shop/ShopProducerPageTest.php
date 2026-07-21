@@ -44,6 +44,37 @@ class ShopProducerPageTest extends TestCase
     }
 
     /**
+     * A long catalogue is split: the first batch renders visibly and the rest
+     * sit behind a "show all" button. Every card stays in the HTML (crawlers
+     * still see each product link); only the initial paint is trimmed.
+     */
+    public function test_producer_page_shows_expand_button_for_long_catalogues(): void
+    {
+        $producer = Producer::factory()->create();
+        Product::factory()->count(15)->for($producer)->create(['is_available' => true, 'is_published' => true]);
+
+        $response = $this->get(route('public.shop.producers.show', $producer))->assertOk();
+
+        // All 15 cards are present in the HTML for SEO, even the hidden ones.
+        $this->assertSame(
+            15,
+            substr_count($response->getContent(), 'data-testid="producer-product-card"'),
+            'Every product card should render in the HTML, hidden or not.',
+        );
+        $response->assertSee(__('producer.detail.show_all_products', ['count' => 15]), false);
+    }
+
+    public function test_producer_page_hides_expand_button_for_short_catalogues(): void
+    {
+        $producer = Producer::factory()->create();
+        Product::factory()->count(5)->for($producer)->create(['is_available' => true, 'is_published' => true]);
+
+        $this->get(route('public.shop.producers.show', $producer))
+            ->assertOk()
+            ->assertDontSee(__('producer.detail.show_all_products', ['count' => 5]), false);
+    }
+
+    /**
      * The availability CTAs must be resolved in one batched pass, not per
      * product day-by-day. Before batching, each product walked the whole
      * horizon calling availableOnDate() (~4 queries/day → hundreds of queries
