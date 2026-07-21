@@ -1,7 +1,10 @@
 {{-- Deliberately lean and self-contained (does NOT extend emails.layout).
      A plain, personal, conversational note with a single inline text link
      reads as transactional to Gmail and tends to land in the Primary tab,
-     unlike the branded newsletter template which gets filed under Promotions. --}}
+     unlike the branded newsletter template which gets filed under Promotions.
+     A single small wordmark at the top adds a touch of brand without the
+     newsletter chrome (no colored CTA button, no multi-image layout, no
+     multi-column bands) that triggers the Promotions tab. --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -11,6 +14,9 @@
 </head>
 <body style="margin: 0; padding: 0; background-color: #ffffff;">
     <div style="max-width: 520px; margin: 0 auto; padding: 24px 22px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #2c241c;">
+        <div style="margin: 0 0 22px 0; padding-bottom: 18px; border-bottom: 1px solid #ece5db;">
+            <img src="{{ asset('images/logo/erdgut-wordmark-dark.png') }}" alt="Erdgut" height="24" style="display: block; height: 24px; width: auto; border: 0;">
+        </div>
         <p style="margin: 0 0 16px 0;">{{ __('emails.shop_offer_reopened.greeting') }}</p>
         <p style="margin: 0 0 16px 0;">{{ __('emails.shop_offer_reopened.intro') }}</p>
         <p style="margin: 0 0 20px 0;">
