@@ -1,5 +1,47 @@
 @extends('layouts.shop-marketing')
 
+@push('head')
+@php
+    $postalCity = config('shop.company_postal_city', '10829 Berlin');
+    [$postalCode, $addressLocality] = array_pad(explode(' ', $postalCity, 2), 2, '');
+@endphp
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "GroceryStore",
+    "name": "Erdgut",
+    "description": "Hofladen online: Gemüse, Obst, Eier, Brot und mehr von kleinen Höfen aus Berlin und Brandenburg. Saisonal geerntet, berlinweit geliefert.",
+    "url": "{{ config('app.url') }}",
+    "logo": "{{ asset('images/logo/erdgut-favicon-512.png') }}",
+    "image": "{{ asset('images/og/erdgut-og-default.png') }}",
+    "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "{{ config('shop.company_street', 'Gotenstraße 19') }}",
+        "postalCode": "{{ $postalCode }}",
+        "addressLocality": "{{ $addressLocality }}",
+        "addressCountry": "DE"
+    },
+    "areaServed": {
+        "@type": "City",
+        "name": "Berlin"
+    },
+    "currenciesAccepted": "EUR",
+    "priceRange": "€€",
+    "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Saisonales Sortiment",
+        "itemListElement": [
+            { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Gemüse" } },
+            { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Obst" } },
+            { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Eier und Milchprodukte" } },
+            { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Brot und Backwaren" } },
+            { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Fisch und Meeresfrüchte" } }
+        ]
+    }
+}
+</script>
+@endpush
+
 @section('content')
     {{-- Hero: video + editorial headline, sits below the olive-green masthead. --}}
     <section class="relative overflow-hidden" aria-labelledby="shop-home-hero-heading">
