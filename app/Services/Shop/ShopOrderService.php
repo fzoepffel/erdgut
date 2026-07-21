@@ -146,7 +146,7 @@ class ShopOrderService
             ->filter(fn ($remaining): bool => $remaining > 0)
             ->count();
 
-        return $products
+        $sorted = $products
             ->filter(function (Product $p) use ($availableDays, $minDescriptionChars, $locale): bool {
                 if ($availableDays($p) === 0) {
                     return false;
@@ -155,8 +155,39 @@ class ShopOrderService
                 return mb_strlen(trim($p->localizedTasteProfile($locale))) >= $minDescriptionChars;
             })
             ->sortByDesc($availableDays)
-            ->take($limit)
             ->values();
+
+        // Greedy subcategory diversification: prefer one product per subcategory.
+        $picked = collect();
+        $seenSubcategories = [];
+
+        foreach ($sorted as $product) {
+            if ($picked->count() >= $limit) {
+                break;
+            }
+            $sub = $product->subcategory_id;
+            if ($sub === null || ! in_array($sub, $seenSubcategories, true)) {
+                $picked->push($product);
+                if ($sub !== null) {
+                    $seenSubcategories[] = $sub;
+                }
+            }
+        }
+
+        // Fill remaining slots from products not yet picked (any subcategory).
+        if ($picked->count() < $limit) {
+            $pickedIds = $picked->pluck('id')->all();
+            foreach ($sorted as $product) {
+                if ($picked->count() >= $limit) {
+                    break;
+                }
+                if (! in_array($product->id, $pickedIds, true)) {
+                    $picked->push($product);
+                }
+            }
+        }
+
+        return $picked->values();
     }
 
     /**
