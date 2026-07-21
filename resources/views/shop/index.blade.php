@@ -1,4 +1,4 @@
-<x-shop-layout nav-active="shop">
+<x-shop-layout nav-active="shop" indexable :description="__('shop.meta_description')">
     @php
         // Mono eyebrow — prototype voice: JetBrains Mono, uppercase, 0.1em
         // tracking (Tailwind `tracking-widest`), primary green.

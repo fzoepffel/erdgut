@@ -1,4 +1,4 @@
-<x-shop-layout :title="$title" nav-active="producers">
+<x-shop-layout :title="$title" nav-active="producers" indexable :description="\Illuminate\Support\Str::limit($producer->description ?: __('shop.producers_meta_description'), 160)">
     @include('marketing._partials.producer-detail', [
         'producer' => $producer,
         'products' => $products,

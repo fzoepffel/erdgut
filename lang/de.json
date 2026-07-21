@@ -4596,5 +4596,8 @@
     "admin.reduced_offer.flash_rule_deleted": "Regel gelöscht.",
     "emails.shop_offer_reopened.greeting": "Hallo,",
     "emails.shop_offer_reopened.signoff": "Viele Grüße",
-    "emails.shop_offer_reopened.signoff_name": "Fred vom Erdgut-Hofladen"
+    "emails.shop_offer_reopened.signoff_name": "Fred vom Erdgut-Hofladen",
+    "shop.meta_description": "Frisches Bio-Gemüse und Hofprodukte aus dem Berliner Umland, direkt vom Bauern in den Hofladen. Jede Woche neu, fair und regional.",
+    "shop.products_meta_description": "Alle Produkte im Erdgut-Hofladen: frisches Gemüse, Obst und Hofprodukte von Höfen aus dem Berliner Umland, wöchentlich frisch geliefert.",
+    "shop.producers_meta_description": "Die Höfe hinter Erdgut: regionale Erzeuger aus dem Berliner Umland, die unseren Hofladen jede Woche mit frischer Ware beliefern."
 }

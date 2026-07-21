@@ -4596,5 +4596,8 @@
     "admin.reduced_offer.flash_rule_deleted": "Règle supprimée.",
     "emails.shop_offer_reopened.greeting": "Bonjour,",
     "emails.shop_offer_reopened.signoff": "Bien à vous,",
-    "emails.shop_offer_reopened.signoff_name": "Fred de la ferme Erdgut"
+    "emails.shop_offer_reopened.signoff_name": "Fred de la ferme Erdgut",
+    "shop.meta_description": "Légumes bio frais et produits fermiers de la région de Berlin, directement de la ferme à la boutique. Chaque semaine, équitable et régional.",
+    "shop.products_meta_description": "Tous les produits de la ferme Erdgut : légumes, fruits et produits fermiers frais de fermes autour de Berlin, livrés chaque semaine.",
+    "shop.producers_meta_description": "Les fermes derrière Erdgut : des producteurs régionaux autour de Berlin qui approvisionnent notre boutique en produits frais chaque semaine."
 }
