@@ -19,6 +19,10 @@
         <meta property="og:image" content="{{ asset('images/og/erdgut-og-default.png') }}">
 
         <link rel="canonical" href="{{ url()->current() }}">
+        <link rel="alternate" hreflang="de" href="{{ url()->current() }}">
+        <link rel="alternate" hreflang="en" href="{{ url()->current() }}">
+        <link rel="alternate" hreflang="fr" href="{{ url()->current() }}">
+        <link rel="alternate" hreflang="x-default" href="{{ url()->current() }}">
         <meta property="og:image:width" content="1200">
         <meta property="og:image:height" content="630">
         <meta property="og:locale" content="{{ app()->getLocale() === 'de' ? 'de_DE' : (app()->getLocale() === 'fr' ? 'fr_FR' : 'en_US') }}">
