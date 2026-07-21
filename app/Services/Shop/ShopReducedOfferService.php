@@ -6,6 +6,7 @@ use App\Mail\ShopOfferReopenedMail;
 use App\Models\ShopOfferSubscriber;
 use App\Models\ShopReducedOfferPeriod;
 use App\Models\ShopReducedOfferRule;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -67,9 +68,28 @@ class ShopReducedOfferService
     /**
      * The active reduced window at $at, or null. Manual periods win over rules.
      *
+     * This is read on every public shop render (and its error pages), so a
+     * database problem (e.g. the tables not yet migrated) must never take the
+     * shop down over a decorative banner: on a query failure we simply show no
+     * banner and log it.
+     *
      * @return array{starts_at: Carbon, reopens_at: Carbon, source: string, rule: ?ShopReducedOfferRule, period: ?ShopReducedOfferPeriod}|null
      */
     public function currentWindow(?Carbon $at = null): ?array
+    {
+        try {
+            return $this->resolveWindow($at);
+        } catch (QueryException $e) {
+            Log::warning('Reduced-offer window lookup failed; hiding banner.', ['exception' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @return array{starts_at: Carbon, reopens_at: Carbon, source: string, rule: ?ShopReducedOfferRule, period: ?ShopReducedOfferPeriod}|null
+     */
+    private function resolveWindow(?Carbon $at): ?array
     {
         $now = $at?->copy() ?? Carbon::now();
 

@@ -11,6 +11,7 @@ use App\Services\Shop\ShopReducedOfferService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
@@ -178,6 +179,17 @@ class ShopReducedOfferTest extends TestCase
         $this->get(route('public.shop.index'))
             ->assertOk()
             ->assertDontSee('data-testid="reduced-offer-banner"', false);
+    }
+
+    public function test_window_lookup_degrades_gracefully_when_tables_missing(): void
+    {
+        // A decorative banner must never take the shop (or its error pages)
+        // down: if the query fails (e.g. tables not yet migrated), show none.
+        Schema::drop('shop_reduced_offer_periods');
+        Schema::drop('shop_reduced_offer_rules');
+
+        $this->assertNull($this->service()->currentWindow());
+        $this->assertFalse($this->service()->isReduced());
     }
 
     // ---- Waitlist subscribe / unsubscribe ----------------------------------
