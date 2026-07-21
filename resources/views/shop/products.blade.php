@@ -1,4 +1,4 @@
-<x-shop-layout :title="$title" nav-active="products">
+<x-shop-layout :title="$title" nav-active="products" indexable :description="__('shop.products_meta_description')">
     {{-- Isolated product catalogue: same body as the marketing /products page,
          but every link points back into the shop chrome. --}}
     @include('products._partials.public-index', [

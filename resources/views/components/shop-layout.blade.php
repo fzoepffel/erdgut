@@ -19,6 +19,12 @@
     // When set (to 'shop' | 'orders' | 'standing' | any truthy key), renders the
     // persistent restaurant (B2B) nav below the header, full-width.
     'restaurantNav' => null,
+    // SEO. This layout backs both public catalog pages AND private surfaces
+    // (B2B, checkout, account, errors), so indexing is OFF by default: a page
+    // must explicitly opt in with `indexable`. B2B (restaurantNav) never
+    // indexes even if a caller sets it. `description` fills the meta tag.
+    'indexable' => false,
+    'description' => null,
 ])
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -26,7 +32,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="robots" content="noindex, nofollow">
+    @if ($indexable && ! $restaurantNav)
+        <meta name="robots" content="index, follow">
+    @else
+        <meta name="robots" content="noindex, nofollow">
+    @endif
+    <meta name="description" content="{{ $description ?? __('Frisches Gemüse aus Berliner Bauernhand.') }}">
     <x-csp :sumup="$allowSumup" />
 
     <title>{{ $title }}</title>

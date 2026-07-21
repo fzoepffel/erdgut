@@ -4596,5 +4596,8 @@
     "admin.reduced_offer.flash_rule_deleted": "Rule deleted.",
     "emails.shop_offer_reopened.greeting": "Hi,",
     "emails.shop_offer_reopened.signoff": "Best,",
-    "emails.shop_offer_reopened.signoff_name": "Fred from the Erdgut farm shop"
+    "emails.shop_offer_reopened.signoff_name": "Fred from the Erdgut farm shop",
+    "shop.meta_description": "Fresh organic vegetables and farm goods from the region around Berlin, straight from the farm to the shop. New every week, fair and regional.",
+    "shop.products_meta_description": "All products in the Erdgut farm shop: fresh vegetables, fruit and farm goods from farms around Berlin, delivered fresh every week.",
+    "shop.producers_meta_description": "The farms behind Erdgut: regional producers around Berlin who supply our farm shop with fresh goods every week."
 }
