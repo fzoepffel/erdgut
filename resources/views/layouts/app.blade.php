@@ -16,7 +16,7 @@
         <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo/erdgut-favicon-180.png') }}">
 
         <!-- Fonts (Inter + Fraunces imported via resources/css/app.css) -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
+        @include('partials.head-fonts')
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])

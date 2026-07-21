@@ -35,7 +35,7 @@
         <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('images/logo/erdgut-favicon-512.png') }}">
         <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo/erdgut-favicon-180.png') }}">
 
-        <link rel="preconnect" href="https://fonts.bunny.net">
+        @include('partials.head-fonts')
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         @stack('head')

@@ -32,3 +32,13 @@
         Header set Cache-Control "public, max-age=31536000, immutable"
     </FilesMatch>
 </IfModule>
+
+# Long-lived caching for the Vite build bundle. Every JS/CSS/font asset under
+# public/build/assets is content-hashed (app-B5ReNWi4.js etc.), so a year of
+# immutable caching is safe: a rebuild emits new filenames. Clears the
+# PageSpeed "efficient cache lifetimes" warning for the app bundle.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|mjs|css|woff2|woff|ttf|eot)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>
