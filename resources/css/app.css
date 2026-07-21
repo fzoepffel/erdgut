@@ -6,10 +6,12 @@
                       a serif).
    JetBrains Mono   — eyebrow + metadata labels (Box №, KW 21, ZEIT, weekday
                       stamps). Mono at 0.18em tracking lands the printed-
-                      almanac voice the redesign asks for. */
-@import url('https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap');
-@import url('https://fonts.bunny.net/css?family=instrument-serif:400,400i&display=swap');
-@import url('https://fonts.bunny.net/css?family=jetbrains-mono:400,500,600&display=swap');
+                      almanac voice the redesign asks for.
+
+   The font stylesheets are NOT @import-ed here anymore: a CSS @import forces
+   a render-blocking waterfall (download app.css → parse → only then fetch the
+   fonts). They are loaded as parallel <link>s via resources/views/partials/
+   head-fonts.blade.php, included in every <head> that ships this file. */
 
 @tailwind base;
 @tailwind components;
