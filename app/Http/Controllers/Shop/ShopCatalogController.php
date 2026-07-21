@@ -162,9 +162,7 @@ class ShopCatalogController extends Controller
         return view('shop.producer', [
             'producer' => $producer,
             'products' => $products,
-            'shopCtas' => $products->mapWithKeys(fn (Product $p): array => [
-                $p->id => $this->service->productAvailabilityCta($p),
-            ]),
+            'shopCtas' => $this->service->productAvailabilityCtas($products),
             'title' => $producer->name.' · '.__('producer.detail.eyebrow').' · '.config('app.name', 'Erdgut').' '.__('shop.eyebrow'),
         ]);
     }

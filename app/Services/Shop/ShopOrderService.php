@@ -748,33 +748,73 @@ class ShopOrderService
      */
     public function productAvailabilityCta(Product $product, ?int $horizonWeeks = null): array
     {
+        return $this->productAvailabilityCtas([$product], $horizonWeeks)[$product->id];
+    }
+
+    /**
+     * Batched {@see productAvailabilityCta} for many products at once.
+     *
+     * The per-product method walked the horizon day-by-day calling
+     * `availableOnDate()`, which costs ~4 DB queries per day — so an
+     * unavailable product alone burned `56 × 4` queries, and a producer page
+     * with N products multiplied that N times (hundreds of queries). This
+     * loads the whole availability window for every product in a handful of
+     * queries via {@see InventoryService::availabilityMatrix} and resolves the
+     * closed-days set once, then scans the in-memory matrix.
+     *
+     * @param  iterable<int, Product>  $products
+     * @return array<int, array{state: string, date: ?Carbon, url: string}> productId => cta
+     */
+    public function productAvailabilityCtas(iterable $products, ?int $horizonWeeks = null): array
+    {
         $horizonWeeks ??= (int) config('shop.horizon_weeks', 8);
 
-        $inventory = app(InventoryService::class);
-        $closures = app(ShopClosureService::class);
+        $products = collect($products);
 
         $cursor = Carbon::today()->addDay();
         $twoWeekEnd = Carbon::today()->endOfWeek(Carbon::SUNDAY)->addWeek();
         $horizonEnd = Carbon::today()->addDays(7 * $horizonWeeks);
-        $closedIso = array_fill_keys($closures->effectiveClosedIsoDatesBetween($cursor, $horizonEnd), true);
 
-        while ($cursor->lte($horizonEnd)) {
-            if (! isset($closedIso[$cursor->toDateString()]) && $inventory->availableOnDate($product, $cursor) > 0) {
-                return [
-                    'state' => $cursor->lte($twoWeekEnd) ? 'this_week' : 'future',
-                    'date' => $cursor->copy()->startOfDay(),
-                    'url' => route('public.shop.index', ['date' => $cursor->toDateString()]),
-                ];
-            }
-
-            $cursor->addDay();
-        }
-
-        return [
+        $noneCta = [
             'state' => 'none',
             'date' => null,
             'url' => route('public.shop.index'),
         ];
+
+        if ($products->isEmpty()) {
+            return [];
+        }
+
+        $inventory = app(InventoryService::class);
+        $closures = app(ShopClosureService::class);
+
+        $closedIso = array_fill_keys($closures->effectiveClosedIsoDatesBetween($cursor, $horizonEnd), true);
+        $matrix = $inventory->availabilityMatrix($products, $cursor, $horizonEnd);
+
+        $ctas = [];
+        foreach ($products as $product) {
+            $days = $matrix[$product->id] ?? [];
+            $cta = $noneCta;
+
+            $day = $cursor->copy();
+            while ($day->lte($horizonEnd)) {
+                $iso = $day->toDateString();
+                if (! isset($closedIso[$iso]) && ($days[$iso] ?? 0.0) > 0) {
+                    $cta = [
+                        'state' => $day->lte($twoWeekEnd) ? 'this_week' : 'future',
+                        'date' => $day->copy()->startOfDay(),
+                        'url' => route('public.shop.index', ['date' => $iso]),
+                    ];
+                    break;
+                }
+
+                $day->addDay();
+            }
+
+            $ctas[$product->id] = $cta;
+        }
+
+        return $ctas;
     }
 
     /**
