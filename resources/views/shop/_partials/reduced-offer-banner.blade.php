@@ -13,17 +13,17 @@
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div class="max-w-2xl">
-                <p class="text-xs uppercase tracking-eyebrow text-[#ce7720]">{{ __('shop.reduced_offer.eyebrow') }}</p>
+                <p class="text-xs font-semibold uppercase tracking-eyebrow text-[#e8590c]">{{ __('shop.reduced_offer.eyebrow') }}</p>
                 <p class="mt-2 text-base leading-relaxed text-brand-ink">
                     {{ __('shop.reduced_offer.body', ['date' => $reopenLabel]) }}
                 </p>
 
                 {{-- Countdown --}}
-                <div class="mt-4 flex items-center gap-3 font-mono text-[#ce7720]" role="timer" aria-live="off">
+                <div class="mt-5 flex items-center gap-2.5 font-mono text-[#e8590c] sm:gap-3" role="timer" aria-live="off">
                     <template x-for="unit in units" :key="unit.key">
-                        <div class="flex flex-col items-center">
-                            <span class="text-2xl tabular-nums" x-text="unit.value"></span>
-                            <span class="text-[0.6rem] uppercase tracking-widest text-[#ce7720]/70" x-text="unit.label"></span>
+                        <div class="flex min-w-[3.5rem] flex-col items-center rounded-lg border border-[#e8590c]/25 bg-white/60 px-3 py-2">
+                            <span class="text-3xl font-bold leading-none tabular-nums sm:text-4xl" x-text="unit.value"></span>
+                            <span class="mt-1.5 text-[0.6rem] font-semibold uppercase tracking-widest text-[#e8590c]/75" x-text="unit.label"></span>
                         </div>
                     </template>
                 </div>
@@ -49,7 +49,7 @@
                             placeholder="{{ __('shop.reduced_offer.email_placeholder') }}"
                             class="min-w-0 flex-1 border border-shop-border bg-brand-cream px-3 py-2 text-sm text-brand-ink placeholder:text-brand-ink/40 focus:border-brand-ink focus:outline-none"
                         >
-                        <button type="submit" class="shrink-0 bg-[#ce7720] px-4 py-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream transition hover:opacity-80">
+                        <button type="submit" class="shrink-0 bg-[#e8590c] px-4 py-2 text-xs font-semibold uppercase tracking-eyebrow text-brand-cream transition hover:opacity-80">
                             {{ __('shop.reduced_offer.signup_button') }}
                         </button>
                     </form>
