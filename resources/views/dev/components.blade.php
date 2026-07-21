@@ -23,7 +23,7 @@
     <title>Erdgut components — dev gallery</title>
 
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/logo/erdgut-favicon-32.png') }}">
-    <link rel="preconnect" href="https://fonts.bunny.net">
+    @include('partials.head-fonts')
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
