@@ -369,4 +369,22 @@ class ShopReducedOfferService
     {
         return ShopOfferSubscriber::query()->count();
     }
+
+    /**
+     * The waitlist, for the admin overview: newest signups first.
+     *
+     * @return list<array{email: string, since: ?string}>
+     */
+    public function subscriberList(): array
+    {
+        return ShopOfferSubscriber::query()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get(['email', 'created_at'])
+            ->map(fn (ShopOfferSubscriber $subscriber): array => [
+                'email' => $subscriber->email,
+                'since' => $subscriber->created_at?->format('d.m.Y'),
+            ])
+            ->all();
+    }
 }

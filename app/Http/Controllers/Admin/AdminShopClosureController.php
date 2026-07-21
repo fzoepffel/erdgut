@@ -39,7 +39,7 @@ class AdminShopClosureController extends Controller
      * Current reduced-offer state for the admin panel: whether the shop is
      * reduced now, the reopen target, subscriber count, and the recurring rules.
      *
-     * @return array{is_reduced: bool, reopens_at: ?string, reopens_label: ?string, source: ?string, subscriber_count: int, rules: list<array{id: int, starts_weekday: int, starts_time: string, reopens_weekday: int, reopens_time: string, is_active: bool, summary: string}>}
+     * @return array{is_reduced: bool, reopens_at: ?string, reopens_label: ?string, source: ?string, subscriber_count: int, subscribers: list<array{email: string, since: ?string}>, rules: list<array{id: int, starts_weekday: int, starts_time: string, reopens_weekday: int, reopens_time: string, is_active: bool, summary: string}>}
      */
     private function reducedOfferPayload(): array
     {
@@ -70,6 +70,7 @@ class AdminShopClosureController extends Controller
             'reopens_label' => $window ? $window['reopens_at']->translatedFormat('l, j. F H:i') : null,
             'source' => $window['source'] ?? null,
             'subscriber_count' => $this->reducedOffer->subscriberCount(),
+            'subscribers' => $this->reducedOffer->subscriberList(),
             'rules' => $rules,
         ];
     }

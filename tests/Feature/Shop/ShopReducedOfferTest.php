@@ -298,6 +298,45 @@ class ShopReducedOfferTest extends TestCase
         Mail::assertSent(ShopOfferReopenedMail::class, 1);
     }
 
+    public function test_admin_page_lists_waitlist_emails(): void
+    {
+        $admin = User::factory()->admin()->create();
+        ShopOfferSubscriber::query()->create(['email' => 'wait-a@example.com']);
+        ShopOfferSubscriber::query()->create(['email' => 'wait-b@example.com']);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-closures.index'))
+            ->assertOk()
+            ->assertSee('wait-a@example.com')
+            ->assertSee('wait-b@example.com')
+            ->assertSee('2 people on the waitlist.');
+    }
+
+    public function test_subscriber_count_is_singularised(): void
+    {
+        $admin = User::factory()->admin()->create();
+        ShopOfferSubscriber::query()->create(['email' => 'solo@example.com']);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-closures.index'))
+            ->assertOk()
+            ->assertSee('1 person on the waitlist.')
+            ->assertDontSee('1 people on the waitlist.');
+    }
+
+    public function test_reopen_mail_uses_personal_from_and_reply_to(): void
+    {
+        $subscriber = ShopOfferSubscriber::query()->create(['email' => 'x@example.com']);
+        $envelope = (new ShopOfferReopenedMail($subscriber))->envelope();
+
+        $from = $envelope->from;
+        $this->assertNotNull($from);
+        $this->assertSame('Fred von Erdgut', $from->name);
+        $this->assertSame(config('mail.from.address'), $from->address);
+
+        $this->assertSame(config('shop.company_email'), $envelope->replyTo[0]->address);
+    }
+
     public function test_non_admin_cannot_manage_reduced_offer(): void
     {
         $user = User::factory()->create(['is_admin' => false]);

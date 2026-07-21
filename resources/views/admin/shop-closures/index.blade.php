@@ -226,7 +226,31 @@
                         @else
                             <p class="font-medium text-emerald-700">{{ __('admin.reduced_offer.status_full') }}</p>
                         @endif
-                        <p class="mt-1 text-xs text-gray-500">{{ __('admin.reduced_offer.subscriber_count', ['count' => $reducedOffer['subscriber_count']]) }}</p>
+                        <div class="mt-1" x-data="{ showWaitlist: false }">
+                            @if ($reducedOffer['subscriber_count'] > 0)
+                                <button type="button" @click="showWaitlist = !showWaitlist"
+                                        class="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+                                    <span>{{ trans_choice('admin.reduced_offer.subscriber_count', $reducedOffer['subscriber_count'], ['count' => $reducedOffer['subscriber_count']]) }}</span>
+                                    <svg class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': showWaitlist }"
+                                         viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                                <ul x-show="showWaitlist" x-cloak
+                                    class="mt-2 max-h-48 divide-y divide-gray-100 overflow-y-auto rounded-md border border-gray-200 bg-white text-xs">
+                                    @foreach ($reducedOffer['subscribers'] as $subscriber)
+                                        <li class="flex items-center justify-between gap-3 px-3 py-2">
+                                            <span class="truncate text-gray-700">{{ $subscriber['email'] }}</span>
+                                            @if ($subscriber['since'])
+                                                <span class="shrink-0 text-gray-400">{{ $subscriber['since'] }}</span>
+                                            @endif
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @else
+                                <p class="text-xs text-gray-500">{{ trans_choice('admin.reduced_offer.subscriber_count', 0, ['count' => 0]) }}</p>
+                            @endif
+                        </div>
                     </div>
 
                     {{-- Open now (only meaningful when reduced) --}}

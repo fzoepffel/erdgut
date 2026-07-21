@@ -4566,7 +4566,7 @@
     "admin.reduced_offer.status_reduced": "Der Shop zeigt gerade das Banner für ein reduziertes Angebot.",
     "admin.reduced_offer.status_reopens": "Volles Angebot wieder ab :date.",
     "admin.reduced_offer.status_full": "Der Shop zeigt das volle Angebot.",
-    "admin.reduced_offer.subscriber_count": ":count Personen auf der Warteliste.",
+    "admin.reduced_offer.subscriber_count": "{0} Noch niemand auf der Warteliste.|{1} :count Person auf der Warteliste.|[2,*] :count Personen auf der Warteliste.",
     "admin.reduced_offer.open_now_button": "Jetzt öffnen und benachrichtigen",
     "admin.reduced_offer.open_now_hint": "Beendet das reduzierte Angebot sofort und schickt die Benachrichtigung an alle auf der Warteliste.",
     "admin.reduced_offer.open_now_confirm": "Volles Angebot jetzt öffnen und alle auf der Warteliste benachrichtigen?",
@@ -4593,5 +4593,8 @@
     "admin.reduced_offer.flash_opened": "Volles Angebot geöffnet. :count Benachrichtigung(en) verschickt.",
     "admin.reduced_offer.flash_not_reduced": "Der Shop war nicht im reduzierten Modus.",
     "admin.reduced_offer.flash_rule_saved": "Regel gespeichert.",
-    "admin.reduced_offer.flash_rule_deleted": "Regel gelöscht."
+    "admin.reduced_offer.flash_rule_deleted": "Regel gelöscht.",
+    "emails.shop_offer_reopened.greeting": "Hallo,",
+    "emails.shop_offer_reopened.signoff": "Viele Grüße",
+    "emails.shop_offer_reopened.signoff_name": "Fred vom Erdgut-Hofladen"
 }
