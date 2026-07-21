@@ -5,6 +5,7 @@ namespace App\Mail;
 use App\Models\ShopOfferSubscriber;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -21,7 +22,12 @@ class ShopOfferReopenedMail extends Mailable
 
     public function envelope(): Envelope
     {
+        // Personal sender name (address stays the configured, DKIM-aligned
+        // from) plus a monitored Reply-To: both nudge Gmail toward the Primary
+        // tab instead of Promotions and let replies actually land somewhere.
         return new Envelope(
+            from: new Address((string) config('mail.from.address'), 'Fred von Erdgut'),
+            replyTo: [new Address((string) config('shop.company_email'))],
             subject: __('emails.shop_offer_reopened.subject'),
         );
     }
