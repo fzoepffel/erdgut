@@ -329,6 +329,13 @@ class AdminShopOrderCreateTest extends TestCase
         $this->assertEqualsWithDelta(12.0, (float) $lines[1]->line_total_eur, 0.01);
         $this->assertSame(19, (int) $lines[1]->vat_rate_snapshot_percent);
 
+        // The admin form now shows net beside gross; both are just the same
+        // stored gross line total split by the line VAT rate. Lock the split so
+        // the net the admin sees matches what the order actually stores:
+        // 8,00 gross @ 7 % → 0,52 VAT (net 7,48); 12,00 @ 19 % → 1,92 (net 10,08).
+        $this->assertEqualsWithDelta(0.52, (float) $lines[0]->vat_amount_eur, 0.01);
+        $this->assertEqualsWithDelta(1.92, (float) $lines[1]->vat_amount_eur, 0.01);
+
         $vatByRate = ShopOrderService::vatByRate($order);
         $this->assertEqualsWithDelta(0.52, (float) ($vatByRate->get(7) ?? 0), 0.02);
         $this->assertEqualsWithDelta(1.91, (float) ($vatByRate->get(19) ?? 0), 0.02);

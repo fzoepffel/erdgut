@@ -70,6 +70,7 @@
          preselectedDeliveryVatRate: @js(old('delivery_fee_vat_rate_percent', $editing ? (string) $order->delivery_fee_vat_rate_percent : '7')),
          vatLineTemplate: @js(__('shop.summary_vat_rate_line')),
          outOfStockLabel: @js(__('shop.admin.out_of_stock_tag')),
+         lineLinkLabel: @js(__('shop.admin.create_line_link_label')),
          priceHintLabels: @js([
              'reasons' => [
                  'base' => __('shop.admin.create_price_reason_base'),
@@ -200,16 +201,17 @@
                          their prefilled lines. --}}
                     <div class="space-y-3">
                             <div class="hidden sm:grid sm:grid-cols-12 sm:gap-3 sm:px-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-                                <span class="sm:col-span-5">{{ __('admin.select_product') }}</span>
+                                <span class="sm:col-span-3">{{ __('admin.select_product') }}</span>
                                 <span class="sm:col-span-2">{{ __('admin.quantity') }}</span>
-                                <span class="sm:col-span-2">{{ __('shop.admin.create_line_total_label') }}</span>
+                                <span class="sm:col-span-1 sm:text-center">{{ __('shop.admin.create_line_link_short') }}</span>
+                                <span class="sm:col-span-2">{{ __('shop.admin.create_line_net_label') }}</span>
+                                <span class="sm:col-span-2">{{ __('shop.admin.create_line_gross_label') }}</span>
                                 <span class="sm:col-span-2">{{ __('shop.admin.create_line_vat_label') }}</span>
-                                <span class="sm:col-span-1"></span>
                             </div>
 
                             <template x-for="(item, i) in items" :key="i">
                                 <div class="grid grid-cols-1 gap-3 rounded-md border border-gray-100 p-3 sm:grid-cols-12 sm:items-start sm:border-0 sm:p-0">
-                                    <div class="sm:col-span-5">
+                                    <div class="sm:col-span-3">
                                         <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('admin.select_product') }}</label>
                                         {{-- Catalog line: searchable product combobox. --}}
                                         <template x-if="!item.custom">
@@ -278,7 +280,7 @@
                                             <input type="number"
                                                 :name="'items[' + i + '][quantity]'"
                                                 x-model="item.quantity"
-                                                @input="scheduleQuote()"
+                                                @input="onQuantityInput(item)"
                                                 min="0.001" step="any"
                                                 placeholder="{{ __('admin.quantity') }}"
                                                 class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
@@ -296,14 +298,52 @@
                                             @endforeach
                                         </select>
                                     </div>
+                                    {{-- Link toggle: when on, quantity and price track each
+                                         other through a fixed unit price. When off, both are
+                                         entered freely. Sits between quantity and price. --}}
+                                    <div class="sm:col-span-1">
+                                        <label class="mb-1 block text-xs text-gray-500 sm:sr-only" x-text="linkLabel"></label>
+                                        <div class="flex sm:justify-center">
+                                            <label class="inline-flex cursor-pointer items-center gap-2" :title="linkLabel">
+                                                <input type="checkbox"
+                                                    x-model="item.priceLinked"
+                                                    @change="onLinkToggle(item)"
+                                                    class="peer sr-only">
+                                                <span class="flex h-[38px] w-9 items-center justify-center rounded-md border border-gray-300 text-gray-400 transition peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:text-emerald-600 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500" aria-hidden="true">
+                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5" />
+                                                    </svg>
+                                                </span>
+                                                <span class="text-xs text-gray-500 sm:hidden" x-text="item.priceLinked ? '{{ __('shop.admin.create_line_link_on') }}' : '{{ __('shop.admin.create_line_link_off') }}'"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {{-- Net line total: display + editable. Not submitted;
+                                         the backend derives net from the gross line total. --}}
                                     <div class="sm:col-span-2">
-                                        <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('shop.admin.create_line_total_label') }}</label>
+                                        <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('shop.admin.create_line_net_label') }}</label>
+                                        <div class="relative">
+                                            <input type="number"
+                                                x-model="item.line_net_eur"
+                                                @input="onNetInput(item)"
+                                                min="0" step="0.01"
+                                                aria-label="{{ __('shop.admin.create_line_net_label') }}"
+                                                class="block w-full rounded-md border-gray-300 pr-7 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                                :disabled="quoteLoading">
+                                            <span class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-gray-400">€</span>
+                                        </div>
+                                    </div>
+                                    {{-- Gross line total: the value stored on the order line
+                                         (prices are gross). Submitted as line_total_eur. --}}
+                                    <div class="sm:col-span-2">
+                                        <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('shop.admin.create_line_gross_label') }}</label>
                                         <div class="relative">
                                             <input type="number"
                                                 :name="'items[' + i + '][line_total_eur]'"
                                                 x-model="item.line_total_eur"
-                                                @input="item.lineTouched = true"
+                                                @input="onGrossInput(item)"
                                                 min="0" step="0.01"
+                                                aria-label="{{ __('shop.admin.create_line_gross_label') }}"
                                                 class="block w-full rounded-md border-gray-300 pr-7 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                                 :disabled="quoteLoading"
                                                 required>
@@ -314,27 +354,24 @@
                                         <label class="mb-1 block text-xs text-gray-500 sm:sr-only">{{ __('shop.admin.create_line_vat_label') }}</label>
                                         <select :name="'items[' + i + '][vat_rate_percent]'"
                                             x-model="item.vat_rate_percent"
-                                            @change="item.vatTouched = true"
+                                            @change="onVatChange(item)"
                                             class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
                                             required>
                                             <option value="7">{{ __('admin.product_form.vat_rate_7') }}</option>
                                             <option value="19">{{ __('admin.product_form.vat_rate_19') }}</option>
                                         </select>
                                     </div>
-                                    <div class="sm:col-span-1 sm:flex sm:justify-end">
+                                    {{-- Footer: per-line price-source remark on the left, the
+                                         remove control on the right. --}}
+                                    <div class="sm:col-span-12 flex items-start justify-between gap-3">
+                                        <p class="min-w-0 flex-1 text-xs text-gray-500" x-show="priceHint(item)" x-cloak x-html="priceHint(item)"></p>
                                         <button type="button"
                                             @click="removeItem(i)"
                                             x-show="items.length > 1"
-                                            class="text-xs text-red-500 hover:text-red-700 whitespace-nowrap"
+                                            class="shrink-0 text-xs text-red-500 hover:text-red-700 whitespace-nowrap"
                                             x-cloak>
                                             {{ __('shop.admin.create_remove_item') }}
                                         </button>
-                                    </div>
-                                    {{-- Per-line price-source remark: which tier price the
-                                         autofilled line total uses, plus a comparison with
-                                         the other tier when it differs. --}}
-                                    <div class="sm:col-span-12" x-show="priceHint(item)" x-cloak>
-                                        <p class="text-xs text-gray-500" x-html="priceHint(item)"></p>
                                     </div>
                                 </div>
                             </template>
@@ -593,6 +630,7 @@ function adminOrderForm(config) {
         excludeOrderId: config.excludeOrderId || null,
         vatLineTemplate: config.vatLineTemplate || '',
         outOfStockLabel: config.outOfStockLabel || '',
+        linkLabel: config.lineLinkLabel || '',
         priceHintLabels: config.priceHintLabels || { reasons: {}, tiers: {}, compare_template: '', used_template: '' },
         selectedDate: config.preselectedDate || '',
         customerType: config.customerType || 'private',
@@ -630,6 +668,11 @@ function adminOrderForm(config) {
             ? config.preselectedItems
             : [emptyLine()]).map(item => ({
             ...item,
+            // Net line total is display-only (backend derives it); the link
+            // ties quantity and price together via a held gross unit price.
+            line_net_eur: item.line_net_eur ?? '',
+            priceLinked: item.priceLinked ?? !item.custom,
+            unitPriceGross: item.unitPriceGross ?? 0,
             _comboOpen: false,
             _comboQuery: item._comboQuery || '',
             _comboHighlight: 0,
@@ -700,6 +743,21 @@ function adminOrderForm(config) {
         },
 
         async init() {
+            // Seed the net display and the held unit price from any prefilled
+            // (edit-mode / validation-return) gross totals, so the net field
+            // and the quantity/price link work immediately without a re-quote.
+            this.items.forEach((item) => {
+                if (item.line_net_eur === '' && item.line_total_eur !== '') {
+                    this.netFromGross(item);
+                }
+                if (!(item.unitPriceGross > 0)) {
+                    const g = parseFloat(item.line_total_eur);
+                    const q = parseFloat(item.quantity);
+                    if (!Number.isNaN(g) && g > 0 && !Number.isNaN(q) && q > 0) {
+                        item.unitPriceGross = g / q;
+                    }
+                }
+            });
             if (this.selectedDate) {
                 await this.fetchProducts();
                 if (this.hasValidItems && !this.editing) {
@@ -754,13 +812,18 @@ function adminOrderForm(config) {
             }
             // Customer-tier autofill is allowed to overwrite a previously
             // quoted line — admin changed the product, the old amount is
-            // stale by definition.
+            // stale by definition. A fresh product re-links quantity/price.
             item.lineTouched = false;
+            item.priceLinked = true;
             const product = this.availableProducts.find(
                 (p) => String(p.id) === String(item.grade_key),
             );
-            if (product && !item.vatTouched) {
-                item.vat_rate_percent = String(product.vat_rate_percent ?? 7);
+            if (product) {
+                const up = parseFloat(product.unit_price_eur);
+                item.unitPriceGross = (!Number.isNaN(up) && up > 0) ? up : 0;
+                if (!item.vatTouched) {
+                    item.vat_rate_percent = String(product.vat_rate_percent ?? 7);
+                }
             }
             this.scheduleQuote();
         },
@@ -815,12 +878,19 @@ function adminOrderForm(config) {
                     const item = this.items[itemIndex];
                     const quoted = data.lines[i];
                     if (!quoted) return;
+                    // Tier-aware gross unit price anchors the quantity/price link.
+                    if (quoted.unit_price_eur != null) {
+                        const up = parseFloat(quoted.unit_price_eur);
+                        if (!Number.isNaN(up) && up > 0) item.unitPriceGross = up;
+                    }
                     if (!item.lineTouched) {
                         item.line_total_eur = this.formatAmount(quoted.line_total_eur);
                     }
                     if (!item.vatTouched) {
                         item.vat_rate_percent = String(quoted.vat_rate_percent ?? 7);
                     }
+                    // Net display always follows the gross total and VAT rate.
+                    this.netFromGross(item);
                 });
 
                 if (!this.deliveryPriceTouched) {
@@ -1004,6 +1074,89 @@ function adminOrderForm(config) {
                 this.scheduleQuote();
             }
         },
+
+        // ---- Net / gross / quantity coupling -------------------------------
+        // Prices are stored gross. The net field is display-only and always
+        // derived from the gross total via the line's VAT rate. The "link"
+        // holds a gross unit price so quantity and price move together.
+
+        vatMult(item) {
+            const r = parseInt(item.vat_rate_percent, 10);
+            return 1 + (Number.isNaN(r) ? 0 : r) / 100;
+        },
+
+        netFromGross(item) {
+            const g = parseFloat(item.line_total_eur);
+            item.line_net_eur = Number.isNaN(g) ? '' : this.formatAmount(g / this.vatMult(item));
+        },
+
+        grossFromNet(item) {
+            const n = parseFloat(item.line_net_eur);
+            item.line_total_eur = Number.isNaN(n) ? '' : this.formatAmount(n * this.vatMult(item));
+        },
+
+        // Quantity in the smallest sensible form (up to 3 decimals, no
+        // trailing zeros) so a linked price change reads cleanly.
+        formatQuantity(value) {
+            const n = parseFloat(value);
+            if (Number.isNaN(n)) return '';
+            return String(parseFloat(n.toFixed(3)));
+        },
+
+        // Admin edited the gross field: re-split net, and if linked, back out
+        // the quantity from the held unit price.
+        onGrossInput(item) {
+            item.lineTouched = true;
+            this.netFromGross(item);
+            this.recalcQuantityFromPrice(item);
+        },
+
+        // Admin edited the net field: gross follows via VAT, quantity follows
+        // when linked.
+        onNetInput(item) {
+            item.lineTouched = true;
+            this.grossFromNet(item);
+            this.recalcQuantityFromPrice(item);
+        },
+
+        recalcQuantityFromPrice(item) {
+            if (!item.priceLinked || !(item.unitPriceGross > 0)) return;
+            const g = parseFloat(item.line_total_eur);
+            if (Number.isNaN(g) || g <= 0) return;
+            item.quantity = this.formatQuantity(g / item.unitPriceGross);
+        },
+
+        // Admin edited the quantity. When linked, drive the price from the
+        // held unit price and freeze the line so the quote can't clobber it.
+        onQuantityInput(item) {
+            if (item.priceLinked && item.unitPriceGross > 0) {
+                const q = parseFloat(item.quantity);
+                if (!Number.isNaN(q) && q > 0) {
+                    const gross = item.unitPriceGross * q;
+                    item.line_total_eur = this.formatAmount(gross);
+                    item.line_net_eur = this.formatAmount(gross / this.vatMult(item));
+                    item.lineTouched = true;
+                }
+            }
+            this.scheduleQuote();
+        },
+
+        // VAT change keeps the gross (customer) price fixed and re-splits net.
+        onVatChange(item) {
+            item.vatTouched = true;
+            this.netFromGross(item);
+        },
+
+        // Turning the link on captures the current price/quantity ratio as the
+        // held unit price.
+        onLinkToggle(item) {
+            if (!item.priceLinked) return;
+            const g = parseFloat(item.line_total_eur);
+            const q = parseFloat(item.quantity);
+            if (!Number.isNaN(g) && g > 0 && !Number.isNaN(q) && q > 0) {
+                item.unitPriceGross = g / q;
+            }
+        },
     };
 }
 
@@ -1017,7 +1170,10 @@ function emptyLine() {
         unit: '',
         quantity: '',
         line_total_eur: '',
+        line_net_eur: '',
         vat_rate_percent: '7',
+        priceLinked: true,
+        unitPriceGross: 0,
         lineTouched: false,
         vatTouched: false,
         _comboOpen: false,
@@ -1039,7 +1195,12 @@ function customLine() {
         unit: 'piece',
         quantity: '',
         line_total_eur: '',
+        line_net_eur: '',
+        // Off-catalog lines default to free entry (no held unit price); the
+        // net/gross fields still stay coupled through the VAT rate.
         vat_rate_percent: '7',
+        priceLinked: false,
+        unitPriceGross: 0,
         lineTouched: true,
         vatTouched: true,
     };
