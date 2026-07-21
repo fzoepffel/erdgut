@@ -89,8 +89,17 @@
             'meat' => asset('images/mock/products/meat.jpg'),
         ];
     @endphp
+    @php
+        // Producers with a long catalogue rendered every card up front, which
+        // made the page heavy to paint. Show a first batch and reveal the rest
+        // on demand. All cards stay in the HTML (crawlers still see every
+        // product link); the extras are just hidden until expanded.
+        $initialProductLimit = 12;
+        $hasMoreProducts = $products->count() > $initialProductLimit;
+    @endphp
     <x-reveal as="section" class="border-t border-brand-ink/15" aria-labelledby="producer-products-heading">
-        <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8"
+             x-data="{ expanded: false }">
             {{-- Section header --}}
             <div class="max-w-2xl">
                 <p class="eyebrow text-brand-moss">{{ __('producer.detail.in_the_box_eyebrow') }}</p>
@@ -109,7 +118,8 @@
                         $placeholder = $categoryPlaceholders[$product->category] ?? $categoryPlaceholders['produce'];
                         $note = $product->localizedTasteProfile();
                     @endphp
-                    <li class="list-none">
+                    <li class="list-none"
+                        @if ($index >= $initialProductLimit) x-show="expanded" x-cloak @endif>
                         <a href="{{ route($productRouteName, $product) }}" class="group flex flex-col" data-testid="producer-product-card">
                             {{-- Image well --}}
                             <div class="relative aspect-square overflow-hidden bg-chapter-producers-soft/40">
@@ -153,6 +163,17 @@
                     </li>
                 @endforeach
             </ul>
+
+            @if ($hasMoreProducts)
+                <div class="mt-14 flex justify-center" x-show="!expanded" x-cloak>
+                    <button type="button"
+                            @click="expanded = true"
+                            class="inline-flex items-center gap-2 border-b border-chapter-producers pb-0.5 text-sm text-chapter-producers transition hover:opacity-70">
+                        {{ __('producer.detail.show_all_products', ['count' => $products->count()]) }}
+                        <span aria-hidden="true">&darr;</span>
+                    </button>
+                </div>
+            @endif
         </div>
     </x-reveal>
 @endif
