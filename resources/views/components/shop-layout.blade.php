@@ -51,6 +51,20 @@
         @endif
 
         <main id="main" class="flex-1">
+            {{-- Reduced-offer banner: shown across the public shop surface (not
+                 the B2B ordering flow) whenever only a small selection is in
+                 stock. State is derived live in ShopReducedOfferService. --}}
+            @if (! $restaurantNav)
+                @inject('reducedOffer', 'App\Services\Shop\ShopReducedOfferService')
+                @php($reducedWindow = $reducedOffer->currentWindow())
+                @if ($reducedWindow)
+                    @include('shop._partials.reduced-offer-banner', [
+                        'reopenAtIso' => $reducedWindow['reopens_at']->format('Y-m-d\TH:i'),
+                        'reopenLabel' => $reducedWindow['reopens_at']->translatedFormat('l, j. F H:i'),
+                    ])
+                @endif
+            @endif
+
             @if ($narrow)
                 <div class="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
                     {{ $slot }}
