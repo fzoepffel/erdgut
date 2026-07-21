@@ -143,8 +143,11 @@ class ShopOrderFlowTest extends TestCase
             ->assertSee('Sweet', escape: false)
             ->assertSee('Crisp', escape: false)
             ->assertSee('Earthy', escape: false)
-            ->assertDontSee('Fresh', escape: false)
-            ->assertDontSee('Woody', escape: false)
+            // Scope to the tag-chip render pattern (see substr_count below) so
+            // the assertion isn't tripped by the same word appearing elsewhere,
+            // e.g. "Fresh" in the shop meta description.
+            ->assertDontSee('>Fresh<', escape: false)
+            ->assertDontSee('>Woody<', escape: false)
             ->getContent();
 
         $this->assertSame(1, substr_count($html, '>Sweet<'));
