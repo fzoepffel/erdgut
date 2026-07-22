@@ -697,8 +697,9 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:60,1')
                 ->name('shop-closures.rules.destroy');
 
-            // Reduced-offer mode (banner + waitlist), managed alongside the
-            // delivery-closure calendar on the same admin page.
+            // Reduced-offer mode (banner + waitlist) lives on its own tab. The
+            // POST routes keep their shop-closures.reduced.* names for history.
+            Route::get('reduced-offer', [AdminReducedOfferController::class, 'index'])->name('reduced-offer.index');
             Route::post('shop-closures/reduced/start', [AdminReducedOfferController::class, 'start'])
                 ->middleware('throttle:60,1')
                 ->name('shop-closures.reduced.start');
