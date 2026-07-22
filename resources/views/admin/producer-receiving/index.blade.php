@@ -131,6 +131,10 @@
                                                     <span x-show="row.overridden && row.override"
                                                           class="mt-0.5 block text-xs text-amber-700"
                                                           x-text="movedFromLabel(row)"></span>
+                                                    <span x-show="row.overridden && row.override && (row.override.price_differs || row.override.margin_negative)"
+                                                          class="mt-0.5 block text-xs"
+                                                          :class="row.override && row.override.margin_negative ? 'font-semibold text-rose-600' : 'text-amber-700'"
+                                                          x-text="movedMarginLabel(row)"></span>
                                                 </span>
                                                 <span class="shrink-0 font-mono text-sm text-gray-700"
                                                       x-text="row.qty_display + ' ' + row.unit"></span>
@@ -169,8 +173,8 @@
                                                     <template x-for="t in moveTargets" :key="t.target_product_id + '-' + t.producer_id">
                                                         <li>
                                                             <button type="button" @click="applyMove(row, t)"
-                                                                    class="flex w-full items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2 text-left transition hover:border-emerald-400 hover:bg-emerald-50">
-                                                                <span class="min-w-0">
+                                                                    class="flex w-full items-start justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2 text-left transition hover:border-emerald-400 hover:bg-emerald-50">
+                                                                <span class="min-w-0 flex-1">
                                                                     <span class="block truncate text-sm font-semibold text-gray-800" x-text="t.producer_name"></span>
                                                                     <span class="flex items-center gap-1.5">
                                                                         <span class="truncate text-xs text-gray-500" x-text="t.product_name"></span>
@@ -179,8 +183,25 @@
                                                                             {{ __('admin.producer_receiving.move_different_product') }}
                                                                         </span>
                                                                     </span>
+                                                                    {{-- Buying price + resulting margin (customer keeps the agreed price). --}}
+                                                                    <span x-show="t.buying_price_label" class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                                                                        <span class="text-gray-500">
+                                                                            {{ __('admin.producer_receiving.move_buying_price') }}
+                                                                            <span class="font-medium text-gray-700" x-text="t.buying_price_label"></span>
+                                                                        </span>
+                                                                        <span :class="t.margin_negative ? 'font-semibold text-rose-600' : 'text-gray-500'">
+                                                                            {{ __('admin.producer_receiving.move_margin') }}
+                                                                            <span x-text="t.margin_label"></span>
+                                                                        </span>
+                                                                    </span>
+                                                                    <span x-show="t.price_differs && !t.margin_negative" class="mt-0.5 block text-xs text-amber-700">
+                                                                        {{ __('admin.producer_receiving.move_price_differs_warning') }}
+                                                                    </span>
+                                                                    <span x-show="t.margin_negative" class="mt-0.5 block text-xs font-semibold text-rose-600">
+                                                                        {{ __('admin.producer_receiving.move_margin_negative_warning') }}
+                                                                    </span>
                                                                 </span>
-                                                                <span class="shrink-0 font-mono text-xs text-gray-400" x-text="capacityLabel(t)"></span>
+                                                                <span class="shrink-0 self-start font-mono text-xs text-gray-400" x-show="t.capacity > 0" x-text="capacityLabel(t)"></span>
                                                             </button>
                                                         </li>
                                                     </template>
@@ -223,6 +244,14 @@
                     return '{{ __('admin.producer_receiving.moved_from') }}'.replace(':product', row.override.source_product_name);
                 },
 
+                movedMarginLabel(row) {
+                    const o = row.override;
+                    if (!o || !o.margin_label) return '';
+                    return '{{ __('admin.producer_receiving.moved_margin_note') }}'
+                        .replace(':margin', o.margin_label)
+                        .replace(':buying', o.buying_price_label || '');
+                },
+
                 capacityLabel(t) {
                     return '{{ __('admin.producer_receiving.move_capacity') }}'.replace(':qty', t.capacity);
                 },
@@ -254,6 +283,7 @@
                             product_id: row.product_id,
                             variant_id: row.variant_id,
                             delivery_date: row.date,
+                            current_producer_id: this.selectedProducerId,
                         });
                         if (search) params.set('search', search);
                         const res = await fetch(config.moveTargetsUrl + '?' + params.toString(), {
