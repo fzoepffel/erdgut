@@ -162,6 +162,40 @@ class ProducerReassignmentService
     }
 
     /**
+     * Candidate product ids each source product could be moved to (the source
+     * itself, its group siblings and its look-alike names), for many sources at
+     * once. Loads the product table a single time so the receiving panel can
+     * flag movable rows without a per-row scan.
+     *
+     * @param  array<int, Product>  $sources  keyed by product id
+     * @return array<int, list<int>> keyed by source product id
+     */
+    public function candidateIdsFor(array $sources): array
+    {
+        if ($sources === []) {
+            return [];
+        }
+
+        $all = Product::query()->with('translations')->get();
+
+        $out = [];
+        foreach ($sources as $source) {
+            $ids = [(int) $source->id => true];
+            foreach ($all as $p) {
+                if ($source->group_id !== null && $p->group_id === $source->group_id) {
+                    $ids[(int) $p->id] = true;
+                }
+                if ((int) $p->id !== (int) $source->id && $this->namesSimilar((string) $source->name, (string) $p->name)) {
+                    $ids[(int) $p->id] = true;
+                }
+            }
+            $out[(int) $source->id] = array_keys($ids);
+        }
+
+        return $out;
+    }
+
+    /**
      * Eligible move targets for one position. Always lists the source product's
      * OWN registered farms (so a same-product, different-farm move is possible
      * even for a farm with no tracked inflow), plus any other farm or look-alike
