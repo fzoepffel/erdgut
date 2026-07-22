@@ -63,11 +63,16 @@ class AdminPackingController extends Controller
             ->orderBy('id')
             ->get();
 
+        // Producer split labels are the same regardless of grouping, so resolve
+        // them once and share between the by-product and by-client projections.
+        $producerLabels = $this->producerLabels($shopOrders, $restaurantOrders);
+
         return view('admin.shop-orders.packing', [
             'date' => $date,
             'prevDate' => $date->copy()->subDay()->toDateString(),
             'nextDate' => $date->copy()->addDay()->toDateString(),
-            'products' => $this->buildProducts($shopOrders, $restaurantOrders),
+            'products' => $this->buildProducts($shopOrders, $restaurantOrders, $producerLabels),
+            'clients' => $this->buildClients($shopOrders, $restaurantOrders, $producerLabels),
             'orders' => $this->buildOrders($shopOrders, $restaurantOrders),
         ]);
     }
@@ -136,6 +141,42 @@ class AdminPackingController extends Controller
         ]);
     }
 
+    /**
+     * Pack every remaining line of one order — the by-client analogue of
+     * packProduct. `order` is a namespaced token ("s{id}" | "r{id}").
+     */
+    public function packOrder(Request $request): JsonResponse
+    {
+        $this->authorize('admin');
+
+        $validated = $request->validate([
+            'order' => ['required', 'string'],
+        ]);
+
+        $token = $validated['order'];
+        $now = now();
+
+        if (str_starts_with($token, 'r')) {
+            $order = RestaurantOrder::query()->with('items')->findOrFail((int) substr($token, 1));
+            abort_unless($order->status === RestaurantOrderStatus::Confirmed, 404);
+            $items = $order->items->filter(fn (RestaurantOrderItem $i) => ! $i->isDeclined());
+        } else {
+            $order = ShopOrder::query()->with('items')->findOrFail((int) ltrim($token, 's'));
+            abort_unless($this->isPackableShop($order), 404);
+            $items = $order->items;
+        }
+
+        foreach ($items as $item) {
+            if ($item->packed_at === null) {
+                $item->forceFill(['packed_at' => $now, 'packed_by_user_id' => $request->user()?->id])->save();
+            }
+        }
+
+        return response()->json([
+            'order' => $this->orderProgress($order->fresh()->load('items')),
+        ]);
+    }
+
     private function isPackableShop(ShopOrder $order): bool
     {
         return $order->status !== ShopOrderStatus::Fulfilled
@@ -151,12 +192,12 @@ class AdminPackingController extends Controller
     /**
      * Group every order line of the day by product+grade — the picking unit.
      *
+     * @param  array<string, string>  $producerLabels
      * @return array<int, array<string, mixed>>
      */
-    private function buildProducts(Collection $shopOrders, Collection $restaurantOrders): array
+    private function buildProducts(Collection $shopOrders, Collection $restaurantOrders, array $producerLabels): array
     {
         $groups = [];
-        $producerLabels = $this->producerLabels($shopOrders, $restaurantOrders);
 
         $addLine = function ($order, $item, bool $isB2b) use (&$groups, $producerLabels): void {
             $product = $item->product;
@@ -240,6 +281,80 @@ class AdminPackingController extends Controller
         usort($out, fn ($a, $b) => [$a['done'], $a['name']] <=> [$b['done'], $b['name']]);
 
         return $out;
+    }
+
+    /**
+     * Group the day's lines by client (order) — the by-client analogue of
+     * buildProducts. Each client carries every product line in their order, so
+     * the team can pack one customer fully before moving to the next.
+     *
+     * @param  array<string, string>  $producerLabels
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildClients(Collection $shopOrders, Collection $restaurantOrders, array $producerLabels): array
+    {
+        $clients = [];
+
+        $add = function ($order, bool $isB2b) use (&$clients, $producerLabels): void {
+            $lines = [];
+            $packedCount = 0;
+
+            foreach ($order->items as $item) {
+                if ($isB2b && $item->isDeclined()) {
+                    continue; // declined request lines are never packed
+                }
+                $variantId = $item->variant_id !== null ? (int) $item->variant_id : null;
+                $name = $item->displayName()
+                    .($item->variant_name_snapshot ? ' · '.$item->variant_name_snapshot : '');
+                $packed = $item->packed_at !== null;
+                if ($packed) {
+                    $packedCount++;
+                }
+                $lines[] = [
+                    'item_id' => ($isB2b ? 'r' : 's').$item->id,
+                    'name' => $name,
+                    'producer' => $producerLabels[$item->product_id.'|'.($variantId ?? 0)]
+                        ?? ($item->product?->producer?->name ?? ''),
+                    'qty_label' => $item->displayQuantityLabel(),
+                    'packed' => $packed,
+                ];
+            }
+
+            if ($lines === []) {
+                return; // e.g. a B2B order whose only lines were declined
+            }
+
+            // Unpacked lines first, then by name — mirrors the product view.
+            usort($lines, fn ($a, $b) => [$a['packed'], $a['name']] <=> [$b['packed'], $b['name']]);
+            $total = count($lines);
+
+            $clients[] = [
+                'key' => $this->orderKey($order),
+                'id' => $order->id,
+                'b2b' => $isB2b,
+                'customer' => $isB2b ? ($order->user?->name ?? '—') : ($order->name ?? '—'),
+                'fulfillment' => $isB2b ? $this->restaurantFulfillmentLabel($order) : $this->fulfillmentLabel($order),
+                'window' => (! $isB2b && $order->hasDeliveryWindow())
+                    ? substr((string) $order->delivery_window_from, 0, 5).'–'.substr((string) $order->delivery_window_to, 0, 5)
+                    : null,
+                'lines' => $lines,
+                'packed_count' => $packedCount,
+                'total_count' => $total,
+                'done' => $packedCount >= $total,
+            ];
+        };
+
+        foreach ($shopOrders as $order) {
+            $add($order, false);
+        }
+        foreach ($restaurantOrders as $order) {
+            $add($order, true);
+        }
+
+        // Fully-packed clients sink to the bottom, then alphabetical by name.
+        usort($clients, fn ($a, $b) => [$a['done'], mb_strtolower($a['customer'])] <=> [$b['done'], mb_strtolower($b['customer'])]);
+
+        return $clients;
     }
 
     /**

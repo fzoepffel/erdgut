@@ -739,6 +739,8 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:120,1')->name('packing.toggle');
             Route::post('shop-orders/packing/product', [AdminPackingController::class, 'packProduct'])
                 ->middleware('throttle:120,1')->name('packing.product');
+            Route::post('shop-orders/packing/order', [AdminPackingController::class, 'packOrder'])
+                ->middleware('throttle:120,1')->name('packing.order');
             Route::get('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'show'])->name('shop-orders.show');
             // Full order editing (lines, prices, fulfillment) with open-amount
             // tracking for already-paid orders.

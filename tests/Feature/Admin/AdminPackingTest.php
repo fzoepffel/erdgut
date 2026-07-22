@@ -145,6 +145,65 @@ class AdminPackingTest extends TestCase
         $this->assertSame(ShopOrderStatus::Paid, $order->fresh()->status);
     }
 
+    public function test_index_groups_products_by_client(): void
+    {
+        $carrots = $this->pieceProduct();
+        $potatoes = $this->pieceProduct();
+        $anna = $this->order();
+        $bob = $this->order();
+        $this->item($anna, $carrots, 2);
+        $this->item($anna, $potatoes, 1);
+        $this->item($bob, $carrots, 3);
+
+        $response = $this->actingAs($this->admin())
+            ->get(route('app.admin.packing.index', ['date' => self::DAY]))
+            ->assertOk();
+
+        $clients = collect($response->viewData('clients'));
+        $this->assertCount(2, $clients); // one entry per order
+
+        $annaClient = $clients->firstWhere('id', $anna->id);
+        $this->assertSame('s'.$anna->id, $annaClient['key']);
+        $this->assertSame(2, $annaClient['total_count']); // both her products
+        $this->assertSame(0, $annaClient['packed_count']);
+        $this->assertCount(2, $annaClient['lines']);
+
+        $bobClient = $clients->firstWhere('id', $bob->id);
+        $this->assertSame(1, $bobClient['total_count']);
+    }
+
+    public function test_pack_order_marks_all_lines_of_that_order_only(): void
+    {
+        $carrots = $this->pieceProduct();
+        $potatoes = $this->pieceProduct();
+        $anna = $this->order();
+        $bob = $this->order();
+        $a1 = $this->item($anna, $carrots, 2);
+        $a2 = $this->item($anna, $potatoes, 1);
+        $b1 = $this->item($bob, $carrots, 3);
+
+        $this->actingAs($this->admin())
+            ->postJson(route('app.admin.packing.order'), ['order' => 's'.$anna->id])
+            ->assertOk()
+            ->assertJsonPath('order.ready', true);
+
+        // Anna's whole order is packed…
+        $this->assertNotNull($a1->fresh()->packed_at);
+        $this->assertNotNull($a2->fresh()->packed_at);
+        // …but Bob's order is untouched.
+        $this->assertNull($b1->fresh()->packed_at);
+    }
+
+    public function test_pack_order_rejects_unpackable_order(): void
+    {
+        $fulfilled = $this->order(ShopOrderStatus::Fulfilled->value);
+        $this->item($fulfilled, $this->pieceProduct(), 1);
+
+        $this->actingAs($this->admin())
+            ->postJson(route('app.admin.packing.order'), ['order' => 's'.$fulfilled->id])
+            ->assertNotFound();
+    }
+
     public function test_excludes_fulfilled_and_unpaid_online_orders(): void
     {
         $product = $this->pieceProduct();
