@@ -388,7 +388,9 @@ class ProducerReassignmentService
                 'producer_id' => $producerId,
                 'producer_name' => $producerName,
                 'same_product' => $sameProduct,
-                'capacity' => round($cap, 4),
+                // Capacity comes in canonical units (g/ml); show it in the
+                // product's display unit, the same conversion the position row uses.
+                'capacity' => round($cap / $this->displayFactor($product), 4),
                 'unit' => $product->localizedUnit(),
                 'selling_price' => $sellingPrice,
                 'selling_price_label' => $this->priceLabel($sellingPrice, $source),
@@ -449,6 +451,19 @@ class ProducerReassignmentService
         }
 
         return array_values(array_unique(array_filter($ids, fn (int $id): bool => $id > 0)));
+    }
+
+    /** Canonical units per display unit (g→kg = 1000 …), same as the row. */
+    private function displayFactor(Product $product): int
+    {
+        $unit = $product->unit;
+        if ($unit === null) {
+            return 1;
+        }
+        $displayUnit = $product->price_display_unit ?? $unit->defaultDisplayUnit();
+        $factor = $displayUnit !== null ? $unit->canonicalUnitsPerDisplay($displayUnit) : 1;
+
+        return $factor > 0 ? $factor : 1;
     }
 
     /** "1,50 € / Stück" style label for a per-display-unit price. */
