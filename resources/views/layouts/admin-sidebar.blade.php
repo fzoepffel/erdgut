@@ -57,13 +57,16 @@
 
         <x-admin.nav-group
             :label="__('admin.shell.group_shop')"
-            :matches="['app.admin.shop-orders.*', 'app.admin.packing.*', 'app.admin.coupons.*', 'app.admin.shop-closures.*']"
+            :matches="['app.admin.shop-orders.*', 'app.admin.packing.*', 'app.admin.producer-orders.*', 'app.admin.coupons.*', 'app.admin.shop-closures.*']"
         >
             <x-admin.nav-link :href="route('app.admin.shop-orders.index')" matches="app.admin.shop-orders.*">
                 {{ __('shop.admin.nav_label') }}
             </x-admin.nav-link>
             <x-admin.nav-link :href="route('app.admin.packing.index')" matches="app.admin.packing.*">
                 {{ __('admin.packing.nav_label') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.producer-orders.index')" matches="app.admin.producer-orders.*">
+                {{ __('admin.producer_receiving.nav_label') }}
             </x-admin.nav-link>
             <x-admin.nav-link :href="route('app.admin.coupons.index')" matches="app.admin.coupons.*">
                 {{ __('coupon.admin.nav_label') }}
