@@ -13,6 +13,7 @@ use App\Models\RestaurantOrderItem;
 use App\Models\ShopOrder;
 use App\Services\Admin\ProducerAllocationService;
 use App\Services\Admin\ProducerReassignmentService;
+use App\Support\Money;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -129,21 +130,25 @@ class AdminProducerReceivingController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'variant_id' => ['nullable', 'integer'],
             'delivery_date' => ['required', 'date'],
+            'current_producer_id' => ['nullable', 'integer'],
             'search' => ['nullable', 'string', 'max:120'],
         ]);
 
         $source = Product::query()
-            ->with(['translations', 'producer.translations', 'producers.translations'])
+            ->with(['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices'])
             ->findOrFail($data['product_id']);
         $variantId = (int) ($data['variant_id'] ?? 0);
         $iso = Carbon::parse($data['delivery_date'])->toDateString();
         $qty = $this->reassignment->positionDemand($source->id, $variantId, $iso);
         $current = $this->reassignment->currentSourcing($source->id, $variantId, $iso);
+        // The row already sits under a farm; exclude that exact farm and price
+        // the move against what it costs there today.
+        $currentProducerId = (int) ($data['current_producer_id'] ?? $current['producer_id']);
 
         $search = trim((string) ($data['search'] ?? ''));
         $targets = $search !== ''
-            ? $this->reassignment->search($search, $variantId, $iso, $qty, $current['product_id'], $current['producer_id'])
-            : $this->reassignment->moveTargetsForPosition($source, $variantId, $iso, $qty, $current['product_id'], $current['producer_id']);
+            ? $this->reassignment->search($source, $search, $variantId, $iso, $qty, $current['product_id'], $currentProducerId)
+            : $this->reassignment->moveTargetsForPosition($source, $variantId, $iso, $qty, $current['product_id'], $currentProducerId);
 
         return response()->json(['targets' => $targets]);
     }
@@ -243,6 +248,7 @@ class AdminProducerReceivingController extends Controller
                         continue;
                     }
                     $positionQty = (float) ($demand[$pid][$variantId][$iso] ?? array_sum($shares));
+                    $product = $productModels[$pid] ?? null;
                     foreach ($shares as $producerId => $qty) {
                         if ($producerId <= 0 || $qty <= 1e-9) {
                             continue; // 0 = unattributable demand
@@ -251,7 +257,11 @@ class AdminProducerReceivingController extends Controller
                             $producerId, (int) $pid, $variantId, $iso, $m,
                             round($m['factor'] > 0 ? $qty / $m['factor'] : $qty, 4),
                             $received,
-                            movable: $this->hasOtherCapableProducer($capacityByIso, $iso, (int) $pid, $variantId, $positionQty, $producerId),
+                            // Movable when another farm is registered for the same
+                            // product (even without tracked inflow) or when another
+                            // farm still has enough stock to cover the position.
+                            movable: $this->hasOtherRegisteredFarm($product, $producerId)
+                                || $this->hasOtherCapableProducer($capacityByIso, $iso, (int) $pid, $variantId, $positionQty, $producerId),
                         );
                     }
                 }
@@ -295,6 +305,7 @@ class AdminProducerReceivingController extends Controller
                 $received,
                 movable: true,
             );
+            $sourceProduct = $productModels[$sourcePid] ?? null;
             $row['overridden'] = true;
             $row['override'] = [
                 'source_product_id' => $sourcePid,
@@ -304,7 +315,7 @@ class AdminProducerReceivingController extends Controller
                 'target_product_name' => $targetProduct->name,
                 'target_producer_id' => $override->target_producer_id,
                 'target_producer_name' => $targetProducer->name,
-            ];
+            ] + $this->priceWarning($sourceProduct, $targetProduct, $override->target_producer_id, $variantId, $receiptVariant);
             $byProducer[$override->target_producer_id][] = $row;
         }
 
@@ -335,6 +346,66 @@ class AdminProducerReceivingController extends Controller
             'overridden' => false,
             'override' => null,
         ];
+    }
+
+    /**
+     * Margin warning for a moved position. The customer keeps the price agreed
+     * on the source order, so we compare that selling price against what the
+     * TARGET farm charges. When the buying price differs (and especially when
+     * the margin turns negative) the admin should see it on the moved row.
+     *
+     * @return array{selling_price_label: string|null, buying_price_label: string|null, margin_label: string|null, price_differs: bool, margin_negative: bool}
+     */
+    private function priceWarning(?Product $source, Product $target, int $targetProducerId, int $sourceVariantId, int $receiptVariant): array
+    {
+        $blank = [
+            'selling_price_label' => null,
+            'buying_price_label' => null,
+            'margin_label' => null,
+            'price_differs' => false,
+            'margin_negative' => false,
+        ];
+        if ($source === null) {
+            return $blank;
+        }
+
+        $selling = round($source->displayUnitPrice(), 2);
+        $buying = $target->buyingPriceForProducer($targetProducerId, $receiptVariant !== 0 ? $receiptVariant : null);
+        // Reference: what the source position would cost unmoved (its default).
+        $reference = $source->buyingPriceForProducer(null, $sourceVariantId !== 0 ? $sourceVariantId : null);
+        $margin = $buying !== null ? round($selling - $buying, 2) : null;
+
+        return [
+            'selling_price_label' => Money::formatEur($selling),
+            'buying_price_label' => $buying !== null ? Money::formatEur($buying) : null,
+            'margin_label' => $margin !== null ? Money::formatEur($margin) : null,
+            'price_differs' => ($buying !== null && $reference !== null)
+                ? abs($buying - $reference) > 1e-9
+                : $buying !== $reference,
+            'margin_negative' => $margin !== null && $margin < 0,
+        ];
+    }
+
+    /**
+     * Does the product list a farm other than the current one? A farm on the
+     * product_producer pivot (or the primary farm) is a valid same-product move
+     * target regardless of tracked inflow.
+     */
+    private function hasOtherRegisteredFarm(?Product $product, int $currentProducerId): bool
+    {
+        if ($product === null) {
+            return false;
+        }
+        $ids = [];
+        if ($product->producer_id !== null) {
+            $ids[(int) $product->producer_id] = true;
+        }
+        foreach ($product->producers as $p) {
+            $ids[(int) $p->id] = true;
+        }
+        unset($ids[$currentProducerId]);
+
+        return $ids !== [];
     }
 
     /**

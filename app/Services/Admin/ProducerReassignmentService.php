@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\RestaurantOrderItem;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -131,7 +132,8 @@ class ProducerReassignmentService
      */
     public function candidateProducts(Product $source): array
     {
-        $query = Product::query()->with(['translations', 'producer.translations', 'producers.translations']);
+        $with = ['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices'];
+        $query = Product::query()->with($with);
 
         $out = [$source->id => $source];
 
@@ -147,7 +149,7 @@ class ProducerReassignmentService
         // kapuzinerblätter). Cheap prefix filter in SQL, refined in PHP.
         $needle = $this->firstToken($source->name);
         if ($needle !== '') {
-            Product::query()->with(['translations', 'producer.translations', 'producers.translations'])
+            Product::query()->with($with)
                 ->get()
                 ->each(function (Product $p) use (&$out, $source): void {
                     if ($p->id !== $source->id && $this->namesSimilar($source->name, $p->name)) {
@@ -160,10 +162,13 @@ class ProducerReassignmentService
     }
 
     /**
-     * Eligible move targets for one position: farms (and products) that can
-     * still cover the whole quantity, excluding where it is sourced now.
+     * Eligible move targets for one position. Always lists the source product's
+     * OWN registered farms (so a same-product, different-farm move is possible
+     * even for a farm with no tracked inflow), plus any other farm or look-alike
+     * product that can still cover the whole quantity from stock. The farm it is
+     * sourced from now is excluded.
      *
-     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, capacity: float}>
+     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, capacity: float, selling_price: float, selling_price_label: string, buying_price: float|null, buying_price_label: string|null, margin: float|null, margin_label: string|null, price_differs: bool, margin_negative: bool}>
      */
     public function moveTargetsForPosition(
         Product $source,
@@ -180,16 +185,19 @@ class ProducerReassignmentService
         $candidates = $this->candidateProducts($source);
         $capacity = $this->capacityFor(array_keys($candidates), $iso);
 
-        return $this->buildTargets($candidates, $capacity, $variantId, $qty, $currentProductId, $currentProducerId);
+        return $this->buildTargets($candidates, $capacity, $source, $variantId, $qty, $currentProductId, $currentProducerId, listSourceFarms: true);
     }
 
     /**
      * Free-text target search across all products by name, restricted to farms
      * that can cover the whole quantity. Powers the receiving overlay's search.
+     * The source product's own farms are covered by {@see moveTargetsForPosition}
+     * (the default list), so search stays capacity-gated.
      *
-     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, capacity: float}>
+     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, capacity: float, selling_price: float, selling_price_label: string, buying_price: float|null, buying_price_label: string|null, margin: float|null, margin_label: string|null, price_differs: bool, margin_negative: bool}>
      */
     public function search(
+        Product $source,
         string $term,
         int $variantId,
         string $iso,
@@ -204,7 +212,7 @@ class ProducerReassignmentService
 
         $needle = mb_strtolower($term);
         $candidates = Product::query()
-            ->with(['translations', 'producer.translations', 'producers.translations'])
+            ->with(['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices'])
             ->get()
             ->filter(fn (Product $p): bool => str_contains(mb_strtolower((string) $p->name), $needle))
             ->keyBy('id')
@@ -216,7 +224,7 @@ class ProducerReassignmentService
 
         $capacity = $this->capacityFor(array_keys($candidates), $iso);
 
-        return $this->buildTargets($candidates, $capacity, $variantId, $qty, $currentProductId, $currentProducerId);
+        return $this->buildTargets($candidates, $capacity, $source, $variantId, $qty, $currentProductId, $currentProducerId, listSourceFarms: false);
     }
 
     /**
@@ -294,38 +302,89 @@ class ProducerReassignmentService
     /**
      * @param  array<int, Product>  $candidates
      * @param  array<int, array<int, array<int, float>>>  $capacity
-     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, capacity: float}>
+     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, capacity: float, selling_price: float, selling_price_label: string, buying_price: float|null, buying_price_label: string|null, margin: float|null, margin_label: string|null, price_differs: bool, margin_negative: bool}>
      */
     private function buildTargets(
         array $candidates,
         array $capacity,
+        Product $source,
         int $variantId,
         float $qty,
         int $currentProductId,
         int $currentProducerId,
+        bool $listSourceFarms,
     ): array {
+        // The customer keeps the price agreed on the placed order: the source
+        // product's selling price is the reference for every target's margin.
+        $sellingPrice = round($source->displayUnitPrice(), 2);
+        $referenceBuying = $source->buyingPriceForProducer($currentProducerId ?: null, $variantId ?: null);
+
         $targets = [];
+        $seen = [];
+
+        $push = function (Product $product, int $producerId, float $cap) use (
+            &$targets, &$seen, $source, $variantId, $currentProductId, $currentProducerId, $sellingPrice, $referenceBuying
+        ): void {
+            if ($producerId <= 0) {
+                return;
+            }
+            if ($product->id === $currentProductId && $producerId === $currentProducerId) {
+                return; // already sourced here
+            }
+            $dedupe = $product->id.'|'.$producerId;
+            if (isset($seen[$dedupe])) {
+                return;
+            }
+            $producerName = $this->producerName($product, $producerId);
+            if ($producerName === null) {
+                return;
+            }
+            $seen[$dedupe] = true;
+
+            $sameProduct = $product->id === $source->id;
+            $buying = $product->buyingPriceForProducer($producerId, $sameProduct && $variantId > 0 ? $variantId : null);
+            $margin = $buying !== null ? round($sellingPrice - $buying, 2) : null;
+            $priceDiffers = ($buying !== null && $referenceBuying !== null)
+                ? abs($buying - $referenceBuying) > 1e-9
+                : $buying !== $referenceBuying;
+
+            $targets[] = [
+                'target_product_id' => (int) $product->id,
+                'product_name' => (string) $product->name,
+                'producer_id' => $producerId,
+                'producer_name' => $producerName,
+                'same_product' => $sameProduct,
+                'capacity' => round($cap, 4),
+                'selling_price' => $sellingPrice,
+                'selling_price_label' => $this->priceLabel($sellingPrice, $source),
+                'buying_price' => $buying,
+                'buying_price_label' => $buying !== null ? $this->priceLabel($buying, $product) : null,
+                'margin' => $margin,
+                'margin_label' => $margin !== null ? Money::formatEur($margin) : null,
+                'price_differs' => $priceDiffers,
+                'margin_negative' => $margin !== null && $margin < 0,
+            ];
+        };
+
+        // The source product's own registered farms are always selectable,
+        // regardless of tracked inflow: a product listed for a farm can be
+        // ordered from that farm even if no stock was recorded yet.
+        if ($listSourceFarms) {
+            foreach ($this->sourceFarms($source) as $producerId) {
+                $cap = $capacity[$source->id][$variantId][$producerId] ?? 0.0;
+                $push($source, $producerId, (float) $cap);
+            }
+        }
+
+        // Stock-backed targets across all candidate products (incl. the source's
+        // other farms that do have enough tracked inflow).
         foreach ($candidates as $pid => $product) {
             $shares = $capacity[$pid][$variantId] ?? [];
             foreach ($shares as $producerId => $cap) {
-                if ($producerId <= 0 || $cap + 1e-9 < $qty) {
+                if ($cap + 1e-9 < $qty) {
                     continue;
                 }
-                if ($pid === $currentProductId && $producerId === $currentProducerId) {
-                    continue; // already sourced here
-                }
-                $producer = $this->producerName($product, $producerId);
-                if ($producer === null) {
-                    continue;
-                }
-                $targets[] = [
-                    'target_product_id' => (int) $pid,
-                    'product_name' => (string) $product->name,
-                    'producer_id' => (int) $producerId,
-                    'producer_name' => $producer,
-                    'same_product' => $pid === $currentProductId,
-                    'capacity' => round($cap, 4),
-                ];
+                $push($product, (int) $producerId, (float) $cap);
             }
         }
 
@@ -334,6 +393,36 @@ class ProducerReassignmentService
             <=> [$a['same_product'] ? 1 : 0, $a['capacity'], $b['product_name']]);
 
         return $targets;
+    }
+
+    /**
+     * Producer ids registered for a product: the primary farm plus every farm
+     * on the product_producer pivot, de-duplicated.
+     *
+     * @return list<int>
+     */
+    private function sourceFarms(Product $source): array
+    {
+        $ids = [];
+        if ($source->producer !== null) {
+            $ids[] = (int) $source->producer->id;
+        } elseif ($source->producer_id !== null) {
+            $ids[] = (int) $source->producer_id;
+        }
+        foreach ($source->producers as $p) {
+            $ids[] = (int) $p->id;
+        }
+
+        return array_values(array_unique(array_filter($ids, fn (int $id): bool => $id > 0)));
+    }
+
+    /** "1,50 € / Stück" style label for a per-display-unit price. */
+    private function priceLabel(float $eur, Product $product): string
+    {
+        $money = Money::formatEur($eur);
+        $unit = $product->localizedUnit();
+
+        return $unit !== '' ? $money.' / '.$unit : $money;
     }
 
     /** Name of a producer that can supply this product, or null if unknown. */

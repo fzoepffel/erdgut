@@ -136,6 +136,65 @@ class AdminProducerReassignmentTest extends TestCase
         $this->assertNull(collect($this->targets())->firstWhere('producer_id', $this->farmC->id));
     }
 
+    public function test_registered_farm_without_inflow_is_still_a_same_product_target(): void
+    {
+        // Farm C is a listed supplier of the zucchini (pivot) but has no tracked
+        // inflow. A same-product, different-farm move must still be possible.
+        $this->zucchini->producers()->syncWithoutDetaching([$this->farmC->id => ['buying_price_cents' => 150]]);
+
+        $target = collect($this->targets())->firstWhere(
+            fn ($t) => $t['target_product_id'] === $this->zucchini->id && $t['producer_id'] === $this->farmC->id,
+        );
+
+        $this->assertNotNull($target);
+        $this->assertTrue($target['same_product']);
+    }
+
+    public function test_move_targets_carry_buying_price_and_margin_warning(): void
+    {
+        // Customer keeps the 2,50 € zucchini price. Farm B buys cheaper (1,50),
+        // the pricier look-alike drives the margin negative.
+        $this->zucchini->update(['unit_price' => 2.5, 'buying_price_cents' => 180]);
+        $this->zucchini->producers()->syncWithoutDetaching([$this->farmB->id => ['buying_price_cents' => 150]]);
+        $this->zucchiniGelb->update(['unit_price' => 2.5, 'buying_price_cents' => 300]);
+
+        $targets = collect($this->targets());
+
+        $bSame = $targets->firstWhere(
+            fn ($t) => $t['target_product_id'] === $this->zucchini->id && $t['producer_id'] === $this->farmB->id,
+        );
+        $this->assertNotNull($bSame);
+        $this->assertSame(1.5, $bSame['buying_price']);
+        $this->assertSame(1.0, $bSame['margin']);
+        $this->assertTrue($bSame['price_differs']);
+        $this->assertFalse($bSame['margin_negative']);
+
+        $gelb = $targets->firstWhere(fn ($t) => $t['target_product_id'] === $this->zucchiniGelb->id);
+        $this->assertNotNull($gelb);
+        $this->assertTrue($gelb['margin_negative']);
+    }
+
+    public function test_move_to_registered_farm_without_inflow_is_allowed(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->zucchini->producers()->syncWithoutDetaching([$this->farmC->id => ['buying_price_cents' => 150]]);
+
+        $this->actingAs($admin)
+            ->postJson(route('app.admin.producer-orders.move'), [
+                'product_id' => $this->zucchini->id,
+                'variant_id' => 0,
+                'delivery_date' => self::DATE,
+                'target_product_id' => $this->zucchini->id,
+                'target_producer_id' => $this->farmC->id,
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('producer_position_overrides', [
+            'product_id' => $this->zucchini->id,
+            'target_producer_id' => $this->farmC->id,
+        ]);
+    }
+
     public function test_move_endpoint_creates_override_and_reattributes_panel(): void
     {
         $admin = User::factory()->admin()->create();
