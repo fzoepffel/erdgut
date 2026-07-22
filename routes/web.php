@@ -750,6 +750,13 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:120,1')->name('producer-orders.receipt.toggle');
             Route::post('producer-orders/receive-all', [AdminProducerReceivingController::class, 'receiveAll'])
                 ->middleware('throttle:120,1')->name('producer-orders.receive-all');
+            // Move a whole position to another farm (or look-alike product).
+            Route::get('producer-orders/move-targets', [AdminProducerReceivingController::class, 'moveTargets'])
+                ->middleware('throttle:120,1')->name('producer-orders.move-targets');
+            Route::post('producer-orders/move', [AdminProducerReceivingController::class, 'move'])
+                ->middleware('throttle:120,1')->name('producer-orders.move');
+            Route::post('producer-orders/move/reset', [AdminProducerReceivingController::class, 'resetMove'])
+                ->middleware('throttle:120,1')->name('producer-orders.move.reset');
             Route::get('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'show'])->name('shop-orders.show');
             // Full order editing (lines, prices, fulfillment) with open-amount
             // tracking for already-paid orders.

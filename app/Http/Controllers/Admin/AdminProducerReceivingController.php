@@ -3,32 +3,41 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\CustomerType;
+use App\Enums\RestaurantOrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Producer;
+use App\Models\ProducerPositionOverride;
 use App\Models\ProducerReceipt;
+use App\Models\Product;
+use App\Models\RestaurantOrderItem;
 use App\Models\ShopOrder;
 use App\Services\Admin\ProducerAllocationService;
+use App\Services\Admin\ProducerReassignmentService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Orders grouped by the farm that supplies them, for two jobs:
+ * Orders grouped by the farm that supplies them, for three jobs:
  *  1. Hand a farmer their order (reuses the shop-orders farmer export ZIP).
  *  2. Tick off produce as it arrives (the receiving checklist, backed by the
  *     producer_receipts table — operational only, never touches inventory).
+ *  3. Move a whole position to another farm (or a look-alike product) when
+ *     several farms could cover it — persisted as a producer_position_override
+ *     that the panel and the farmer export honor without rewriting the order.
  *
- * Deliberately isolated from AdminShopOrderController: it calls the public
- * ProducerAllocationService directly and mirrors the small delivery-date /
- * type filter so the on-screen totals line up with the farmer export.
+ * Demand spans the finalized shop orders AND the committing restaurant lines
+ * for the delivery window, so both channels are movable.
  */
 class AdminProducerReceivingController extends Controller
 {
     /** Pseudo-status: the firm order set (Paid, Fulfilled, in-person pending). */
     private const FILTER_FINALIZED = 'finalized';
+
+    public function __construct(private readonly ProducerReassignmentService $reassignment) {}
 
     public function index(Request $request): View
     {
@@ -109,61 +118,415 @@ class AdminProducerReceivingController extends Controller
     }
 
     /**
-     * One entry per producer that supplies any of the filtered orders, each
-     * holding the (date, product, variant) lines it owes with received flags.
+     * Farms (and look-alike products) a position can be moved to. Recomputed
+     * server-side; the client never decides eligibility.
+     */
+    public function moveTargets(Request $request): JsonResponse
+    {
+        $this->authorize('admin');
+
+        $data = $request->validate([
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'variant_id' => ['nullable', 'integer'],
+            'delivery_date' => ['required', 'date'],
+            'search' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $source = Product::query()
+            ->with(['translations', 'producer.translations', 'producers.translations'])
+            ->findOrFail($data['product_id']);
+        $variantId = (int) ($data['variant_id'] ?? 0);
+        $iso = Carbon::parse($data['delivery_date'])->toDateString();
+        $qty = $this->reassignment->positionDemand($source->id, $variantId, $iso);
+        $current = $this->reassignment->currentSourcing($source->id, $variantId, $iso);
+
+        $search = trim((string) ($data['search'] ?? ''));
+        $targets = $search !== ''
+            ? $this->reassignment->search($search, $variantId, $iso, $qty, $current['product_id'], $current['producer_id'])
+            : $this->reassignment->moveTargetsForPosition($source, $variantId, $iso, $qty, $current['product_id'], $current['producer_id']);
+
+        return response()->json(['targets' => $targets]);
+    }
+
+    /** Persist a move; the target must still cover the whole position. */
+    public function move(Request $request): JsonResponse
+    {
+        $this->authorize('admin');
+
+        $data = $request->validate([
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'variant_id' => ['nullable', 'integer'],
+            'delivery_date' => ['required', 'date'],
+            'target_product_id' => ['required', 'integer', 'exists:products,id'],
+            'target_producer_id' => ['required', 'integer', 'exists:producers,id'],
+        ]);
+
+        $this->reassignment->move(
+            (int) $data['product_id'],
+            (int) ($data['variant_id'] ?? 0),
+            Carbon::parse($data['delivery_date'])->toDateString(),
+            (int) $data['target_product_id'],
+            (int) $data['target_producer_id'],
+            $request->user()?->id,
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Drop a move so the position follows the computed attribution again. */
+    public function resetMove(Request $request): JsonResponse
+    {
+        $this->authorize('admin');
+
+        $data = $request->validate([
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'variant_id' => ['nullable', 'integer'],
+            'delivery_date' => ['required', 'date'],
+        ]);
+
+        $this->reassignment->reset(
+            (int) $data['product_id'],
+            (int) ($data['variant_id'] ?? 0),
+            Carbon::parse($data['delivery_date'])->toDateString(),
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * One entry per producer that supplies any of the filtered demand, each
+     * holding the (date, product, variant) lines it owes with received flags,
+     * a movable flag and — where a move is in effect — its override details.
      *
      * @param  array{status: string, type: string, delivery_from: string, delivery_to: string}  $filter
      * @return list<array<string, mixed>>
      */
     private function buildProducers(array $filter): array
     {
-        $orders = $this->filteredOrdersQuery($filter)
-            ->with([
-                'items.product.producer.translations',
-                'items.product.translations',
-                'items.product.variants',
-            ])
-            ->get();
-
-        $allocation = $this->allocation($orders);
-        if ($allocation === []) {
+        $demand = $this->demand($filter);
+        if ($demand === []) {
             return [];
         }
 
-        $meta = $this->productMeta($orders);
-        $received = $this->receivedKeys($orders);
+        [$productModels, $meta] = $this->productData($demand);
+        $isos = $this->isosOf($demand);
+        $received = $this->receivedKeys($isos);
 
-        // Gather rows per producer from the allocation shares.
+        $allocation = app(ProducerAllocationService::class)
+            ->allocate(array_keys($productModels), $isos, $demand);
+
+        $overrides = $this->reassignment->overridesByPosition($isos);
+
+        // Capacity per date, so the movable flag reflects who could still take
+        // a whole position (existing overrides already subtracted).
+        $productIds = array_keys($productModels);
+        $capacityByIso = [];
+        foreach ($isos as $iso) {
+            $capacityByIso[$iso] = $this->reassignment->capacityFor($productIds, $iso);
+        }
+
+        // Ensure override targets have a product model + meta available.
+        $productModels = $this->withOverrideTargets($productModels, $overrides);
+
         $byProducer = [];
+
+        // 1. Default attribution for positions WITHOUT an override.
         foreach ($allocation as $iso => $byPid) {
             foreach ($byPid as $pid => $byVkey) {
                 foreach ($byVkey as $vkey => $shares) {
+                    $variantId = (int) ($vkey ?: 0);
+                    if (isset($overrides[$pid.'|'.$variantId.'|'.$iso])) {
+                        continue; // moved: handled below
+                    }
+                    $m = $meta[$pid.'|'.$variantId] ?? null;
+                    if ($m === null) {
+                        continue;
+                    }
+                    $positionQty = (float) ($demand[$pid][$variantId][$iso] ?? array_sum($shares));
                     foreach ($shares as $producerId => $qty) {
                         if ($producerId <= 0 || $qty <= 1e-9) {
                             continue; // 0 = unattributable demand
                         }
-                        $m = $meta[$pid.'|'.($vkey ?: 0)] ?? null;
-                        if ($m === null) {
-                            continue;
-                        }
-                        $variantId = (int) ($vkey ?: 0);
-                        $key = "p{$producerId}-{$pid}-{$variantId}-{$iso}";
-                        $byProducer[$producerId][] = [
-                            'key' => $key,
-                            'product_id' => (int) $pid,
-                            'variant_id' => $variantId,
-                            'date' => $iso,
-                            'product_name' => $m['product_name'],
-                            'variant_name' => $m['variant_name'],
-                            'qty_display' => round($m['factor'] > 0 ? $qty / $m['factor'] : $qty, 4),
-                            'unit' => $m['unit'],
-                            'received' => isset($received[$producerId.'|'.$pid.'|'.$variantId.'|'.$iso]),
-                        ];
+                        $byProducer[$producerId][] = $this->row(
+                            $producerId, (int) $pid, $variantId, $iso, $m,
+                            round($m['factor'] > 0 ? $qty / $m['factor'] : $qty, 4),
+                            $received,
+                            movable: $this->hasOtherCapableProducer($capacityByIso, $iso, (int) $pid, $variantId, $positionQty, $producerId),
+                        );
                     }
                 }
             }
         }
 
+        // 2. Overridden positions: one row under the chosen target producer.
+        foreach ($overrides as $override) {
+            $iso = $override->delivery_date;
+            if (! in_array($iso, $isos, true)) {
+                continue;
+            }
+            $sourcePid = $override->product_id;
+            $variantId = $override->variant_id;
+            $sourceMeta = $meta[$sourcePid.'|'.$variantId] ?? null;
+            if ($sourceMeta === null) {
+                continue; // source no longer in the filtered demand
+            }
+            $qty = $this->reassignment->positionDemand($sourcePid, $variantId, $iso);
+            if ($qty <= 1e-9) {
+                continue;
+            }
+            $targetProduct = $productModels[$override->target_product_id] ?? null;
+            $targetProducer = Producer::query()->find($override->target_producer_id);
+            if ($targetProduct === null || $targetProducer === null) {
+                continue;
+            }
+            $receiptVariant = $override->target_product_id === $sourcePid ? $variantId : 0;
+            $row = $this->row(
+                $override->target_producer_id,
+                $override->target_product_id,
+                $receiptVariant,
+                $iso,
+                [
+                    'product_name' => $targetProduct->name,
+                    'variant_name' => $receiptVariant !== 0 ? $sourceMeta['variant_name'] : null,
+                    'unit' => $targetProduct->localizedUnit(),
+                    'factor' => $sourceMeta['factor'],
+                ],
+                round($sourceMeta['factor'] > 0 ? $qty / $sourceMeta['factor'] : $qty, 4),
+                $received,
+                movable: true,
+            );
+            $row['overridden'] = true;
+            $row['override'] = [
+                'source_product_id' => $sourcePid,
+                'source_variant_id' => $variantId,
+                'source_product_name' => $sourceMeta['product_name'],
+                'target_product_id' => $override->target_product_id,
+                'target_product_name' => $targetProduct->name,
+                'target_producer_id' => $override->target_producer_id,
+                'target_producer_name' => $targetProducer->name,
+            ];
+            $byProducer[$override->target_producer_id][] = $row;
+        }
+
+        return $this->assembleProducers($byProducer);
+    }
+
+    /**
+     * One receiving row. `move` keys default to "not moved"; the override loop
+     * fills them for relocated positions.
+     *
+     * @param  array<string, mixed>  $m  display metadata (name, variant, unit, factor)
+     * @param  array<string, true>  $received
+     * @return array<string, mixed>
+     */
+    private function row(int $producerId, int $productId, int $variantId, string $iso, array $m, float $qtyDisplay, array $received, bool $movable): array
+    {
+        return [
+            'key' => "p{$producerId}-{$productId}-{$variantId}-{$iso}",
+            'product_id' => $productId,
+            'variant_id' => $variantId,
+            'date' => $iso,
+            'product_name' => $m['product_name'],
+            'variant_name' => $m['variant_name'] ?? null,
+            'qty_display' => $qtyDisplay,
+            'unit' => $m['unit'],
+            'received' => isset($received[$producerId.'|'.$productId.'|'.$variantId.'|'.$iso]),
+            'movable' => $movable,
+            'overridden' => false,
+            'override' => null,
+        ];
+    }
+
+    /**
+     * Is there a producer OTHER than the current one who could still cover the
+     * whole position for this exact product on this date?
+     *
+     * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
+     */
+    private function hasOtherCapableProducer(array $capacityByIso, string $iso, int $pid, int $variantId, float $qty, int $currentProducerId): bool
+    {
+        if ($qty <= 1e-9) {
+            return false;
+        }
+        $caps = $capacityByIso[$iso][$pid][$variantId] ?? [];
+        foreach ($caps as $producerId => $cap) {
+            if ($producerId !== $currentProducerId && $producerId > 0 && $cap + 1e-9 >= $qty) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Combined demand [pid][vkey][iso => qty] across the finalized shop orders
+     * and the committing restaurant lines for the window. A b2c type filter
+     * drops restaurant demand (restaurant is B2B); b2b drops private shop rows.
+     *
+     * @param  array{status: string, type: string, delivery_from: string, delivery_to: string}  $filter
+     * @return array<int, array<int, array<string, float>>>
+     */
+    private function demand(array $filter): array
+    {
+        $demand = [];
+
+        $this->filteredOrdersQuery($filter)
+            ->with(['items:id,shop_order_id,product_id,variant_id,quantity'])
+            ->get()
+            ->each(function (ShopOrder $order) use (&$demand): void {
+                $iso = $order->expected_delivery_date?->toDateString();
+                if ($iso === null) {
+                    return;
+                }
+                foreach ($order->items as $item) {
+                    if ($item->product_id === null) {
+                        continue; // custom line, no farm
+                    }
+                    $pid = (int) $item->product_id;
+                    $vkey = (int) ($item->variant_id ?? 0);
+                    $demand[$pid][$vkey][$iso] = ($demand[$pid][$vkey][$iso] ?? 0.0) + (float) $item->quantity;
+                }
+            });
+
+        if ($filter['type'] !== 'b2c') {
+            foreach ($this->restaurantDemand($filter) as $pid => $byVkey) {
+                foreach ($byVkey as $vkey => $byIso) {
+                    foreach ($byIso as $iso => $qty) {
+                        $demand[$pid][$vkey][$iso] = ($demand[$pid][$vkey][$iso] ?? 0.0) + $qty;
+                    }
+                }
+            }
+        }
+
+        return $demand;
+    }
+
+    /**
+     * Committing restaurant demand for the window, grouped like shop demand.
+     *
+     * @param  array{status: string, type: string, delivery_from: string, delivery_to: string}  $filter
+     * @return array<int, array<int, array<string, float>>>
+     */
+    private function restaurantDemand(array $filter): array
+    {
+        $query = RestaurantOrderItem::query()
+            ->join('restaurant_orders', 'restaurant_orders.id', '=', 'restaurant_order_items.restaurant_order_id')
+            ->whereIn('restaurant_orders.status', RestaurantOrderStatus::reservingValues())
+            ->where(function ($q): void {
+                $q->where('restaurant_order_items.track', 'reserved')
+                    ->orWhere(function ($q): void {
+                        $q->where('restaurant_order_items.line_status', 'confirmed')
+                            ->where('restaurant_orders.kind', 'order');
+                    });
+            })
+            ->where('restaurant_order_items.line_status', '!=', 'declined')
+            ->whereNotNull('restaurant_order_items.product_id');
+
+        if ($filter['delivery_from'] !== '') {
+            $query->whereDate('restaurant_orders.expected_delivery_date', '>=', $filter['delivery_from']);
+        }
+        if ($filter['delivery_to'] !== '') {
+            $query->whereDate('restaurant_orders.expected_delivery_date', '<=', $filter['delivery_to']);
+        }
+
+        $out = [];
+        $query->groupBy('restaurant_order_items.product_id', 'restaurant_order_items.variant_id', 'restaurant_orders.expected_delivery_date')
+            ->get([
+                'restaurant_order_items.product_id as product_id',
+                'restaurant_order_items.variant_id as variant_id',
+                'restaurant_orders.expected_delivery_date as iso',
+                DB::raw('SUM(restaurant_order_items.quantity) as qty'),
+            ])
+            ->each(function ($row) use (&$out): void {
+                $pid = (int) $row->product_id;
+                $vkey = (int) ($row->variant_id ?? 0);
+                $iso = Carbon::parse($row->iso)->toDateString();
+                $out[$pid][$vkey][$iso] = ($out[$pid][$vkey][$iso] ?? 0.0) + (float) $row->qty;
+            });
+
+        return $out;
+    }
+
+    /**
+     * Product models and display metadata for the demanded positions.
+     *
+     * @param  array<int, array<int, array<string, float>>>  $demand
+     * @return array{0: array<int, Product>, 1: array<string, array<string, mixed>>}
+     */
+    private function productData(array $demand): array
+    {
+        $models = Product::query()
+            ->whereIn('id', array_keys($demand))
+            ->with(['translations', 'variants', 'producer.translations', 'producers.translations'])
+            ->get()
+            ->keyBy('id')
+            ->all();
+
+        $meta = [];
+        foreach ($demand as $pid => $byVkey) {
+            $product = $models[$pid] ?? null;
+            if ($product === null) {
+                continue;
+            }
+            $unit = $product->unit;
+            $displayUnit = $product->price_display_unit ?? $unit?->defaultDisplayUnit();
+            $factor = ($unit !== null && $displayUnit !== null)
+                ? $unit->canonicalUnitsPerDisplay($displayUnit)
+                : 1;
+            foreach (array_keys($byVkey) as $vkey) {
+                $variantId = (int) $vkey;
+                $variant = $variantId !== 0 ? $product->variants->firstWhere('id', $variantId) : null;
+                $meta[$pid.'|'.$variantId] = [
+                    'product_name' => $product->name,
+                    'variant_name' => $variant?->localizedName(),
+                    'factor' => $factor,
+                    'unit' => $product->localizedUnit(),
+                ];
+            }
+        }
+
+        return [$models, $meta];
+    }
+
+    /**
+     * Add product models for override targets not already loaded (a look-alike
+     * substitution points at a product outside the demand set).
+     *
+     * @param  array<int, Product>  $models
+     * @param  array<string, ProducerPositionOverride>  $overrides
+     * @return array<int, Product>
+     */
+    private function withOverrideTargets(array $models, array $overrides): array
+    {
+        $missing = [];
+        foreach ($overrides as $override) {
+            if (! isset($models[$override->target_product_id])) {
+                $missing[$override->target_product_id] = true;
+            }
+        }
+        if ($missing === []) {
+            return $models;
+        }
+
+        Product::query()
+            ->whereIn('id', array_keys($missing))
+            ->with(['translations', 'variants', 'producer.translations', 'producers.translations'])
+            ->get()
+            ->each(function (Product $p) use (&$models): void {
+                $models[$p->id] = $p;
+            });
+
+        return $models;
+    }
+
+    /**
+     * Sort rows per producer and wrap them with counts.
+     *
+     * @param  array<int, list<array<string, mixed>>>  $byProducer
+     * @return list<array<string, mixed>>
+     */
+    private function assembleProducers(array $byProducer): array
+    {
         $names = Producer::query()
             ->whereIn('id', array_keys($byProducer))
             ->with('translations')
@@ -193,105 +556,47 @@ class AdminProducerReceivingController extends Controller
     }
 
     /**
-     * Set of already-received keys "producer|product|variant|iso" for the
-     * filtered delivery window, so lookups are O(1) while building rows.
+     * Distinct delivery dates present in the demand map.
      *
-     * @param  Collection<int, ShopOrder>  $orders
+     * @param  array<int, array<int, array<string, float>>>  $demand
+     * @return list<string>
+     */
+    private function isosOf(array $demand): array
+    {
+        $isos = [];
+        foreach ($demand as $byVkey) {
+            foreach ($byVkey as $byIso) {
+                foreach (array_keys($byIso) as $iso) {
+                    $isos[$iso] = true;
+                }
+            }
+        }
+
+        return array_keys($isos);
+    }
+
+    /**
+     * Set of already-received keys "producer|product|variant|iso" for the
+     * delivery window, so lookups are O(1) while building rows.
+     *
+     * @param  list<string>  $isos
      * @return array<string, true>
      */
-    private function receivedKeys($orders): array
+    private function receivedKeys(array $isos): array
     {
-        $dates = $orders
-            ->map(fn (ShopOrder $o): ?string => $o->expected_delivery_date?->toDateString())
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-        if ($dates === []) {
+        if ($isos === []) {
             return [];
         }
 
         $keys = [];
         ProducerReceipt::query()
-            ->whereIn('delivery_date', $dates)
+            ->whereIn('delivery_date', $isos)
             ->get()
             ->each(function (ProducerReceipt $r) use (&$keys): void {
                 $keys[$r->producer_id.'|'.$r->product_id.'|'.$r->variant_id.'|'.$r->delivery_date] = true;
             });
 
         return $keys;
-    }
-
-    /**
-     * Display metadata per (product, variant): name, unit and the canonical
-     * -> display conversion factor. Mirrors the farmer export.
-     *
-     * @param  Collection<int, ShopOrder>  $orders
-     * @return array<string, array<string, mixed>>
-     */
-    private function productMeta($orders): array
-    {
-        $meta = [];
-        foreach ($orders as $order) {
-            foreach ($order->items as $item) {
-                $product = $item->product;
-                if ($product === null) {
-                    continue;
-                }
-                $metaKey = $product->id.'|'.($item->variant_id ?? 0);
-                if (isset($meta[$metaKey])) {
-                    continue;
-                }
-                $variant = $item->variant_id !== null
-                    ? $product->variants->firstWhere('id', $item->variant_id)
-                    : null;
-                $unit = $product->unit;
-                $displayUnit = $product->price_display_unit ?? $unit?->defaultDisplayUnit();
-                $meta[$metaKey] = [
-                    'product_name' => $product->name,
-                    'variant_name' => $variant?->localizedName(),
-                    'factor' => ($unit !== null && $displayUnit !== null)
-                        ? $unit->canonicalUnitsPerDisplay($displayUnit)
-                        : 1,
-                    'unit' => $product->localizedUnit(),
-                ];
-            }
-        }
-
-        return $meta;
-    }
-
-    /**
-     * Allocation of the filtered demand across producers:
-     * [iso][pid][vkey][producerId => qty].
-     *
-     * @param  Collection<int, ShopOrder>  $orders
-     */
-    private function allocation($orders): array
-    {
-        $demand = [];
-        $dates = [];
-        foreach ($orders as $order) {
-            $iso = $order->expected_delivery_date?->toDateString();
-            if ($iso === null) {
-                continue;
-            }
-            foreach ($order->items as $item) {
-                if ($item->product_id === null) {
-                    continue; // custom lines have no farm
-                }
-                $pid = (int) $item->product_id;
-                $vkey = (int) ($item->variant_id ?? 0);
-                $demand[$pid][$vkey][$iso] = ($demand[$pid][$vkey][$iso] ?? 0.0) + (float) $item->quantity;
-                $dates[$iso] = true;
-            }
-        }
-        if ($demand === []) {
-            return [];
-        }
-
-        return app(ProducerAllocationService::class)
-            ->allocate(array_keys($demand), array_keys($dates), $demand);
     }
 
     /**
