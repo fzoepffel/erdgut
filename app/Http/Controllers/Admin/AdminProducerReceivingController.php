@@ -222,12 +222,21 @@ class AdminProducerReceivingController extends Controller
 
         $overrides = $this->reassignment->overridesByPosition($isos);
 
-        // Capacity per date, so the movable flag reflects who could still take
-        // a whole position (existing overrides already subtracted).
-        $productIds = array_keys($productModels);
+        // Products each position could move to (same product, group siblings,
+        // look-alike names), so the movable flag also lights up when only a
+        // look-alike product from another farm can cover the position.
+        $candIdsByProduct = $this->reassignment->candidateIdsFor($productModels);
+
+        // Capacity per date over every candidate product (not just the demanded
+        // ones), with existing overrides already subtracted.
+        $capacityIds = array_keys($productModels);
+        foreach ($candIdsByProduct as $ids) {
+            $capacityIds = array_merge($capacityIds, $ids);
+        }
+        $capacityIds = array_values(array_unique($capacityIds));
         $capacityByIso = [];
         foreach ($isos as $iso) {
-            $capacityByIso[$iso] = $this->reassignment->capacityFor($productIds, $iso);
+            $capacityByIso[$iso] = $this->reassignment->capacityFor($capacityIds, $iso);
         }
 
         // Ensure override targets have a product model + meta available.
@@ -258,10 +267,11 @@ class AdminProducerReceivingController extends Controller
                             round($m['factor'] > 0 ? $qty / $m['factor'] : $qty, 4),
                             $received,
                             // Movable when another farm is registered for the same
-                            // product (even without tracked inflow) or when another
-                            // farm still has enough stock to cover the position.
+                            // product (even without tracked inflow), or when another
+                            // farm still has enough stock to cover the position from
+                            // the same product OR a look-alike / sibling product.
                             movable: $this->hasOtherRegisteredFarm($product, $producerId)
-                                || $this->hasOtherCapableProducer($capacityByIso, $iso, (int) $pid, $variantId, $positionQty, $producerId),
+                                || $this->hasCapableTarget($candIdsByProduct, $capacityByIso, $iso, (int) $pid, $variantId, $positionQty, $producerId),
                         );
                     }
                 }
@@ -409,20 +419,30 @@ class AdminProducerReceivingController extends Controller
     }
 
     /**
-     * Is there a producer OTHER than the current one who could still cover the
-     * whole position for this exact product on this date?
+     * Could the whole position move to a farm with enough stock on this date,
+     * across the same product OR any of its look-alike / sibling products? The
+     * current pairing (same product, same farm) never counts as a target.
      *
+     * @param  array<int, list<int>>  $candIdsByProduct
      * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
      */
-    private function hasOtherCapableProducer(array $capacityByIso, string $iso, int $pid, int $variantId, float $qty, int $currentProducerId): bool
+    private function hasCapableTarget(array $candIdsByProduct, array $capacityByIso, string $iso, int $pid, int $variantId, float $qty, int $currentProducerId): bool
     {
         if ($qty <= 1e-9) {
             return false;
         }
-        $caps = $capacityByIso[$iso][$pid][$variantId] ?? [];
-        foreach ($caps as $producerId => $cap) {
-            if ($producerId !== $currentProducerId && $producerId > 0 && $cap + 1e-9 >= $qty) {
-                return true;
+        foreach ($candIdsByProduct[$pid] ?? [$pid] as $candidateId) {
+            $caps = $capacityByIso[$iso][$candidateId][$variantId] ?? [];
+            foreach ($caps as $producerId => $cap) {
+                if ($producerId <= 0) {
+                    continue;
+                }
+                if ($candidateId === $pid && $producerId === $currentProducerId) {
+                    continue; // already sourced here
+                }
+                if ($cap + 1e-9 >= $qty) {
+                    return true;
+                }
             }
         }
 

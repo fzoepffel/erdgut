@@ -174,6 +174,53 @@ class AdminProducerReassignmentTest extends TestCase
         $this->assertTrue($gelb['margin_negative']);
     }
 
+    public function test_lookalike_product_from_another_farm_makes_row_movable(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        // Two separate products with the SAME name, one farm each. Looke covers
+        // its own small order; Melchhof (a look-alike product) has spare stock.
+        $looke = Product::factory()->create([
+            'producer_id' => $this->farmA->id,
+            'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece',
+            'is_available' => true, 'is_published' => true,
+        ]);
+        $looke->translations()->update(['name' => 'Yellow Zucchini']);
+        $looke = $looke->fresh();
+        $looke->producers()->sync([$this->farmA->id]);
+
+        $melchhof = Product::factory()->create([
+            'producer_id' => $this->farmB->id,
+            'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece',
+            'is_available' => true, 'is_published' => true,
+        ]);
+        $melchhof->translations()->update(['name' => 'Yellow Zucchini']);
+        $melchhof = $melchhof->fresh();
+        $melchhof->producers()->sync([$this->farmB->id]);
+
+        $this->inflow($looke, $this->farmA, 2);
+        $this->inflow($melchhof, $this->farmB, 20);
+
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $looke->id,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 5.0, 'vat_amount_eur' => 0.3,
+        ]);
+
+        $producers = collect($this->actingAs($admin)
+            ->get(route('app.admin.producer-orders.index', ['delivery_from' => self::DATE, 'delivery_to' => self::DATE]))
+            ->assertOk()
+            ->viewData('producers'));
+
+        $a = $producers->firstWhere('id', $this->farmA->id);
+        $this->assertNotNull($a);
+        $row = collect($a['rows'])->firstWhere('product_id', $looke->id);
+        $this->assertNotNull($row);
+        // Melchhof's look-alike product can cover the whole Looke position, so
+        // the position must be movable even though Looke lists only one farm.
+        $this->assertTrue($row['movable']);
+    }
+
     public function test_move_to_registered_farm_without_inflow_is_allowed(): void
     {
         $admin = User::factory()->admin()->create();
