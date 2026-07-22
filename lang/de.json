@@ -4038,6 +4038,7 @@
     "admin.producer_receiving.move_reset": "Zurücksetzen",
     "admin.producer_receiving.moved_badge": "Verschoben",
     "admin.producer_receiving.moved_from": "Statt :product",
+    "admin.producer_receiving.move_no_stock_tracked": "Kein Bestand erfasst",
     "admin.producer_receiving.move_buying_price": "Einkauf",
     "admin.producer_receiving.move_margin": "Marge",
     "admin.producer_receiving.move_price_differs_warning": "Abweichender Einkaufspreis. Die Marge ändert sich.",
