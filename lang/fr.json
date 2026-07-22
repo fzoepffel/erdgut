@@ -4039,6 +4039,8 @@
     "admin.producer_receiving.moved_badge": "Déplacé",
     "admin.producer_receiving.moved_from": "Au lieu de :product",
     "admin.producer_receiving.move_no_stock_tracked": "Aucun stock enregistré",
+    "admin.producer_receiving.move_recommended_hint": "Recommandé : regrouper sur une seule ferme",
+    "admin.producer_receiving.move_recommended_target": "Recommandé",
     "admin.producer_receiving.move_buying_price": "Achat",
     "admin.producer_receiving.move_margin": "Marge",
     "admin.producer_receiving.move_price_differs_warning": "Prix d'achat différent. La marge change.",

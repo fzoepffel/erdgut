@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\ProductUnit;
 use App\Enums\ShopOrderStatus;
 use App\Models\Producer;
+use App\Models\ProducerPositionOverride;
 use App\Models\ProducerReceipt;
 use App\Models\Product;
 use App\Models\ShopOrder;
@@ -182,5 +183,56 @@ class AdminProducerReceivingTest extends TestCase
             'producer_id' => $farm->id, 'product_id' => $potatoes->id, 'delivery_date' => self::DAY,
         ]);
         $this->assertSame(2, ProducerReceipt::count());
+    }
+
+    /**
+     * Regression: moving a look-alike position onto a farm that already
+     * delivers that exact product+variant+day must merge into ONE row, not
+     * emit a second row with a duplicate key (which blanked the whole panel
+     * in Alpine's x-for). The merged row sums both quantities.
+     */
+    public function test_override_merges_into_existing_native_line_instead_of_duplicating(): void
+    {
+        $sourceFarm = Producer::factory()->create();
+        $targetFarm = Producer::factory()->create();
+        $moved = $this->product($sourceFarm);   // customer ordered this
+        $native = $this->product($targetFarm);  // target farm already delivers this
+
+        $order = $this->order();
+        $this->item($order, $moved, 4);
+        $this->item($order, $native, 3);
+
+        ProducerPositionOverride::create([
+            'product_id' => $moved->id,
+            'variant_id' => 0,
+            'delivery_date' => self::DAY,
+            'target_product_id' => $native->id,
+            'target_producer_id' => $targetFarm->id,
+            'created_by_user_id' => $this->admin()->id,
+        ]);
+
+        $response = $this->actingAs($this->admin())
+            ->get(route('app.admin.producer-orders.index', ['delivery_from' => self::DAY, 'delivery_to' => self::DAY]))
+            ->assertOk();
+
+        $producers = collect($response->viewData('producers'));
+
+        // Source farm no longer shows the moved position.
+        $source = $producers->firstWhere('id', $sourceFarm->id);
+        if ($source !== null) {
+            $this->assertNotContains($moved->id, array_column($source['rows'], 'product_id'));
+        }
+
+        // Target farm has exactly one row for the native product, summing 3 + 4.
+        $target = $producers->firstWhere('id', $targetFarm->id);
+        $this->assertNotNull($target);
+        $nativeRows = array_values(array_filter($target['rows'], fn ($r) => $r['product_id'] === $native->id));
+        $this->assertCount(1, $nativeRows);
+        $this->assertSame(7.0, (float) $nativeRows[0]['qty_display']);
+        $this->assertTrue($nativeRows[0]['overridden']);
+
+        // No duplicate row keys anywhere in the target panel.
+        $keys = array_column($target['rows'], 'key');
+        $this->assertSame(count($keys), count(array_unique($keys)));
     }
 }

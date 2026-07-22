@@ -141,7 +141,11 @@
                                                 <div class="flex shrink-0 items-center gap-1">
                                                     <button type="button" x-show="row.movable && !row.overridden"
                                                             @click="openMove(row)"
-                                                            class="inline-flex items-center gap-1 rounded-sm border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-100">
+                                                            :title="row.recommended ? '{{ __('admin.producer_receiving.move_recommended_hint') }}' : ''"
+                                                            class="inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-xs font-semibold transition"
+                                                            :class="row.recommended
+                                                                ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                                                                : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'">
                                                         {{ __('admin.producer_receiving.move_button') }}
                                                     </button>
                                                     <button type="button" x-show="row.overridden"
@@ -173,9 +177,20 @@
                                                     <template x-for="t in moveTargets" :key="t.target_product_id + '-' + t.producer_id">
                                                         <li>
                                                             <button type="button" @click="applyMove(row, t)"
-                                                                    class="flex w-full items-start justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2 text-left transition hover:border-emerald-400 hover:bg-emerald-50">
+                                                                    class="flex w-full items-start justify-between gap-3 rounded-md border bg-white px-3 py-2 text-left transition hover:bg-emerald-50"
+                                                                    :class="isRecommendedTarget(row, t)
+                                                                        ? 'border-rose-300 hover:border-rose-400'
+                                                                        : 'border-gray-200 hover:border-emerald-400'">
                                                                 <span class="min-w-0 flex-1">
-                                                                    <span class="block truncate text-sm font-semibold text-gray-800" x-text="t.producer_name"></span>
+                                                                    <span class="flex items-center gap-1.5">
+                                                                        <span class="block truncate text-sm font-semibold"
+                                                                              :class="isRecommendedTarget(row, t) ? 'text-rose-700' : 'text-gray-800'"
+                                                                              x-text="t.producer_name"></span>
+                                                                        <span x-show="isRecommendedTarget(row, t)"
+                                                                              class="inline-flex shrink-0 items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-700">
+                                                                            {{ __('admin.producer_receiving.move_recommended_target') }}
+                                                                        </span>
+                                                                    </span>
                                                                     <span class="flex items-center gap-1.5">
                                                                         <span class="truncate text-xs text-gray-500" x-text="t.product_name"></span>
                                                                         <span x-show="!t.same_product"
@@ -257,6 +272,14 @@
                     return '{{ __('admin.producer_receiving.move_capacity') }}'
                         .replace(':qty', t.capacity)
                         .replace(':unit', t.unit || '');
+                },
+
+                // A farm already in this run that can take the whole position is
+                // the recommended destination (red), matching the row's red button.
+                isRecommendedTarget(row, t) {
+                    if (!row || !row.recommended) return false;
+                    if (!(t.capacity > 0)) return false;
+                    return this.producers.some(p => p.id === t.producer_id);
                 },
 
                 openMove(row) {

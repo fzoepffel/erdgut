@@ -4039,6 +4039,8 @@
     "admin.producer_receiving.moved_badge": "Moved",
     "admin.producer_receiving.moved_from": "Instead of :product",
     "admin.producer_receiving.move_no_stock_tracked": "No stock recorded",
+    "admin.producer_receiving.move_recommended_hint": "Recommended: consolidate to one farm",
+    "admin.producer_receiving.move_recommended_target": "Recommended",
     "admin.producer_receiving.move_buying_price": "Buying",
     "admin.producer_receiving.move_margin": "Margin",
     "admin.producer_receiving.move_price_differs_warning": "Different buying price. The margin changes.",
