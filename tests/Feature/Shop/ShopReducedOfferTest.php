@@ -305,7 +305,7 @@ class ShopReducedOfferTest extends TestCase
         ShopOfferSubscriber::query()->create(['email' => 'wait-b@example.com']);
 
         $this->actingAs($admin)
-            ->get(route('app.admin.shop-closures.index'))
+            ->get(route('app.admin.reduced-offer.index'))
             ->assertOk()
             ->assertSee('wait-a@example.com')
             ->assertSee('wait-b@example.com')
@@ -318,7 +318,7 @@ class ShopReducedOfferTest extends TestCase
         ShopOfferSubscriber::query()->create(['email' => 'solo@example.com']);
 
         $this->actingAs($admin)
-            ->get(route('app.admin.shop-closures.index'))
+            ->get(route('app.admin.reduced-offer.index'))
             ->assertOk()
             ->assertSee('1 person on the waitlist.')
             ->assertDontSee('1 people on the waitlist.');
