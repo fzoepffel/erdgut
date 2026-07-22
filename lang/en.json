@@ -4034,7 +4034,7 @@
     "admin.producer_receiving.move_no_targets": "No farm has enough stock to take the whole position.",
     "admin.producer_receiving.move_failed": "That did not work. Please try again.",
     "admin.producer_receiving.move_different_product": "Different product",
-    "admin.producer_receiving.move_capacity": ":qty available",
+    "admin.producer_receiving.move_capacity": ":qty :unit available",
     "admin.producer_receiving.move_reset": "Reset",
     "admin.producer_receiving.moved_badge": "Moved",
     "admin.producer_receiving.moved_from": "Instead of :product",
