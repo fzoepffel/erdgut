@@ -326,8 +326,28 @@ class AdminProducerReceivingController extends Controller
                 'target_producer_id' => $override->target_producer_id,
                 'target_producer_name' => $targetProducer->name,
             ] + $this->priceWarning($sourceProduct, $targetProduct, $override->target_producer_id, $variantId, $receiptVariant);
-            $byProducer[$override->target_producer_id][] = $row;
+
+            // If the target farm already delivers this exact product+variant on
+            // this day, consolidate onto that native line instead of emitting a
+            // second row with the same key (which would collide in the panel).
+            $existingIdx = null;
+            foreach ($byProducer[$override->target_producer_id] ?? [] as $i => $existing) {
+                if ($existing['key'] === $row['key']) {
+                    $existingIdx = $i;
+                    break;
+                }
+            }
+            if ($existingIdx !== null) {
+                $byProducer[$override->target_producer_id][$existingIdx]['qty_display'] =
+                    round($byProducer[$override->target_producer_id][$existingIdx]['qty_display'] + $row['qty_display'], 4);
+                $byProducer[$override->target_producer_id][$existingIdx]['overridden'] = true;
+                $byProducer[$override->target_producer_id][$existingIdx]['override'] = $row['override'];
+            } else {
+                $byProducer[$override->target_producer_id][] = $row;
+            }
         }
+
+        $this->annotateRecommendations($byProducer, $candIdsByProduct, $capacityByIso, $demand);
 
         return $this->assembleProducers($byProducer);
     }
@@ -353,6 +373,8 @@ class AdminProducerReceivingController extends Controller
             'unit' => $m['unit'],
             'received' => isset($received[$producerId.'|'.$productId.'|'.$variantId.'|'.$iso]),
             'movable' => $movable,
+            'recommended' => false,
+            'recommend_reason' => null,
             'overridden' => false,
             'override' => null,
         ];
@@ -423,10 +445,14 @@ class AdminProducerReceivingController extends Controller
      * across the same product OR any of its look-alike / sibling products? The
      * current pairing (same product, same farm) never counts as a target.
      *
+     * When $presentSet is given, only farms already receiving in this run count
+     * (used to decide whether a move actually consolidates the run).
+     *
      * @param  array<int, list<int>>  $candIdsByProduct
      * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
+     * @param  array<int, mixed>|null  $presentSet
      */
-    private function hasCapableTarget(array $candIdsByProduct, array $capacityByIso, string $iso, int $pid, int $variantId, float $qty, int $currentProducerId): bool
+    private function hasCapableTarget(array $candIdsByProduct, array $capacityByIso, string $iso, int $pid, int $variantId, float $qty, int $currentProducerId, ?array $presentSet = null): bool
     {
         if ($qty <= 1e-9) {
             return false;
@@ -436,6 +462,9 @@ class AdminProducerReceivingController extends Controller
             foreach ($caps as $producerId => $cap) {
                 if ($producerId <= 0) {
                     continue;
+                }
+                if ($presentSet !== null && ! isset($presentSet[$producerId])) {
+                    continue; // only farms already in the run consolidate it
                 }
                 if ($candidateId === $pid && $producerId === $currentProducerId) {
                     continue; // already sourced here
@@ -447,6 +476,87 @@ class AdminProducerReceivingController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Does another farm already in this run supply the same product OR an
+     * analogous (look-alike / sibling) one on the same day? That means we are
+     * buying the same thing from several farms and could consolidate.
+     *
+     * @param  array<string, list<array{pid: int, producer: int}>>  $activeByIso
+     * @param  array<int, list<int>>  $candIdsByProduct
+     */
+    private function hasAnalogElsewhere(string $iso, int $pid, int $currentProducerId, array $activeByIso, array $candIdsByProduct): bool
+    {
+        $analog = array_flip($candIdsByProduct[$pid] ?? [$pid]); // includes the product itself
+        foreach ($activeByIso[$iso] ?? [] as $entry) {
+            if ($entry['producer'] === $currentProducerId) {
+                continue;
+            }
+            if (isset($analog[$entry['pid']])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Flag rows where changing farm is genuinely recommended, so the panel can
+     * paint the button (and the destination farm) red:
+     *  - a farm that supplies just one line here, when an analogous option
+     *    exists on another farm; or
+     *  - the same thing ordered from several farms, when one farm already in the
+     *    run could take the whole position.
+     *
+     * @param  array<int, list<array<string, mixed>>>  $byProducer
+     * @param  array<int, list<int>>  $candIdsByProduct
+     * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
+     * @param  array<int, array<int, array<string, float>>>  $demand
+     */
+    private function annotateRecommendations(array &$byProducer, array $candIdsByProduct, array $capacityByIso, array $demand): void
+    {
+        $presentSet = array_fill_keys(array_map('intval', array_keys($byProducer)), true);
+
+        // Active (not-yet-moved) lines per day, for the "same thing, many farms" test.
+        $activeByIso = [];
+        foreach ($byProducer as $producerId => $rows) {
+            foreach ($rows as $r) {
+                if ($r['overridden']) {
+                    continue;
+                }
+                $activeByIso[$r['date']][] = ['pid' => (int) $r['product_id'], 'producer' => (int) $producerId];
+            }
+        }
+
+        foreach ($byProducer as $producerId => &$rows) {
+            $producerId = (int) $producerId;
+            $loneFarm = count($rows) === 1;
+            foreach ($rows as &$row) {
+                if ($row['overridden'] || $row['received'] || ! $row['movable']) {
+                    continue;
+                }
+                $pid = (int) $row['product_id'];
+                $variantId = (int) $row['variant_id'];
+                $iso = (string) $row['date'];
+                $qty = (float) ($demand[$pid][$variantId][$iso] ?? 0.0);
+                if ($qty <= 1e-9) {
+                    continue;
+                }
+
+                if ($this->hasAnalogElsewhere($iso, $pid, $producerId, $activeByIso, $candIdsByProduct)
+                    && $this->hasCapableTarget($candIdsByProduct, $capacityByIso, $iso, $pid, $variantId, $qty, $producerId, $presentSet)) {
+                    $row['recommended'] = true;
+                    $row['recommend_reason'] = 'consolidate';
+                } elseif ($loneFarm
+                    && $this->hasCapableTarget($candIdsByProduct, $capacityByIso, $iso, $pid, $variantId, $qty, $producerId)) {
+                    $row['recommended'] = true;
+                    $row['recommend_reason'] = 'lone_farm';
+                }
+            }
+            unset($row);
+        }
+        unset($rows);
     }
 
     /**
