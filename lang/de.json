@@ -4034,7 +4034,7 @@
     "admin.producer_receiving.move_no_targets": "Kein Hof hat genug Bestand, um diese Position komplett zu übernehmen.",
     "admin.producer_receiving.move_failed": "Das hat nicht geklappt. Bitte erneut versuchen.",
     "admin.producer_receiving.move_different_product": "Anderes Produkt",
-    "admin.producer_receiving.move_capacity": ":qty verfügbar",
+    "admin.producer_receiving.move_capacity": ":qty :unit verfügbar",
     "admin.producer_receiving.move_reset": "Zurücksetzen",
     "admin.producer_receiving.moved_badge": "Verschoben",
     "admin.producer_receiving.moved_from": "Statt :product",

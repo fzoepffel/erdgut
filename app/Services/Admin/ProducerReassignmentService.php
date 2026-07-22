@@ -389,6 +389,7 @@ class ProducerReassignmentService
                 'producer_name' => $producerName,
                 'same_product' => $sameProduct,
                 'capacity' => round($cap, 4),
+                'unit' => $product->localizedUnit(),
                 'selling_price' => $sellingPrice,
                 'selling_price_label' => $this->priceLabel($sellingPrice, $source),
                 'buying_price' => $buying,
