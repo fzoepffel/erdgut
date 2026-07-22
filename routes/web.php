@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPackingController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminPaymentDiagnosticsController;
+use App\Http\Controllers\Admin\AdminProducerReceivingController;
 use App\Http\Controllers\Admin\AdminProductMergeController;
 use App\Http\Controllers\Admin\AdminReducedOfferController;
 use App\Http\Controllers\Admin\AdminRequestAvailabilityController;
@@ -741,6 +742,13 @@ Route::middleware(['auth', 'verified'])
                 ->middleware('throttle:120,1')->name('packing.product');
             Route::post('shop-orders/packing/order', [AdminPackingController::class, 'packOrder'])
                 ->middleware('throttle:120,1')->name('packing.order');
+            // Orders grouped by producer: hand a farmer their order (export)
+            // and tick off produce as it arrives (receiving checklist).
+            Route::get('producer-orders', [AdminProducerReceivingController::class, 'index'])->name('producer-orders.index');
+            Route::post('producer-orders/receipt/toggle', [AdminProducerReceivingController::class, 'toggleReceipt'])
+                ->middleware('throttle:120,1')->name('producer-orders.receipt.toggle');
+            Route::post('producer-orders/receive-all', [AdminProducerReceivingController::class, 'receiveAll'])
+                ->middleware('throttle:120,1')->name('producer-orders.receive-all');
             Route::get('shop-orders/{shopOrder}', [AdminShopOrderController::class, 'show'])->name('shop-orders.show');
             // Full order editing (lines, prices, fulfillment) with open-amount
             // tracking for already-paid orders.
