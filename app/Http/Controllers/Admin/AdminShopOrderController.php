@@ -26,6 +26,7 @@ use App\Models\ShopOrder;
 use App\Models\User;
 use App\Services\Admin\InventoryService;
 use App\Services\Admin\ProducerAllocationService;
+use App\Services\Admin\ProducerReassignmentService;
 use App\Services\Restaurant\RestaurantOrderService;
 use App\Services\Restaurant\RestaurantStandingOrderService;
 use App\Services\Shop\CouponService;
@@ -868,10 +869,22 @@ class AdminShopOrderController extends Controller
             }
         }
 
+        // Manual moves: a position whose sourcing was overridden is dropped
+        // from its computed farm and re-added under the chosen target farm.
+        $isos = [];
+        foreach ($allocation as $iso => $_) {
+            $isos[] = $iso;
+        }
+        $overrides = app(ProducerReassignmentService::class)->overridesByPosition($isos);
+
         $rows = [];
         foreach ($allocation as $iso => $byPid) {
             foreach ($byPid as $pid => $byVkey) {
                 foreach ($byVkey as $vkey => $shares) {
+                    $variantId = (int) ($vkey ?: 0);
+                    if (isset($overrides[$pid.'|'.$variantId.'|'.$iso])) {
+                        continue; // moved: emitted under the target farm below
+                    }
                     $qty = (float) ($shares[$producerId] ?? 0.0);
                     if ($qty <= 1e-9) {
                         continue;
@@ -880,7 +893,6 @@ class AdminShopOrderController extends Controller
                     if ($product === null) {
                         continue;
                     }
-                    $variantId = (int) ($vkey ?: 0);
                     [$amount, $unit] = $this->naturalQuantity($product, $qty);
                     $rows[] = [
                         'date' => Carbon::parse($iso),
@@ -891,6 +903,37 @@ class AdminShopOrderController extends Controller
                     ];
                 }
             }
+        }
+
+        // Positions moved TO this farm: the whole (shop-only) position demand,
+        // supplied via the chosen target product.
+        foreach ($overrides as $override) {
+            if ($override->target_producer_id !== $producerId) {
+                continue;
+            }
+            $shares = $allocation[$override->delivery_date][$override->product_id][$override->variant_id] ?? null;
+            if ($shares === null) {
+                continue; // source not in this export's filter set
+            }
+            $qty = array_sum($shares);
+            if ($qty <= 1e-9) {
+                continue;
+            }
+            $target = $products[$override->target_product_id]
+                ?? Product::with(['variants', 'producers', 'producerVariantPrices'])->find($override->target_product_id);
+            if ($target === null) {
+                continue;
+            }
+            $products[$override->target_product_id] ??= $target;
+            $receiptVariant = $override->target_product_id === $override->product_id ? $override->variant_id : 0;
+            [$amount, $unit] = $this->naturalQuantity($target, $qty);
+            $rows[] = [
+                'date' => Carbon::parse($override->delivery_date),
+                'product_name' => $target->name,
+                'price' => $this->buyingPriceLabel($target, $producerId, $receiptVariant),
+                'unit' => $unit,
+                'amount' => $amount,
+            ];
         }
 
         usort($rows, function (array $a, array $b): int {

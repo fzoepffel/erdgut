@@ -38,6 +38,9 @@
             producers: @js($producers),
             toggleUrl: @js(route('app.admin.producer-orders.receipt.toggle')),
             receiveAllUrl: @js(route('app.admin.producer-orders.receive-all')),
+            moveTargetsUrl: @js(route('app.admin.producer-orders.move-targets')),
+            moveUrl: @js(route('app.admin.producer-orders.move')),
+            resetMoveUrl: @js(route('app.admin.producer-orders.move.reset')),
             exportBase: @js(route('app.admin.shop-orders.farmer-export', array_filter([
                 'delivery_from' => $filter['delivery_from'],
                 'delivery_to' => $filter['delivery_to'],
@@ -108,20 +111,82 @@
                                 </div>
                                 <div>
                                     <template x-for="row in selected().rows" :key="row.key">
-                                        <label class="flex cursor-pointer items-center gap-3 border-b border-gray-50 px-4 py-3 transition last:border-b-0 hover:bg-gray-50">
-                                            <input type="checkbox" :checked="row.received"
-                                                   @change="toggle(selected(), row)"
-                                                   class="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
-                                            <span class="min-w-0 flex-1">
-                                                <span class="block truncate text-sm font-medium text-gray-800" x-text="row.product_name"></span>
-                                                <span class="block text-xs text-gray-500">
-                                                    <span x-show="row.variant_name" x-text="row.variant_name + ' · '"></span>
-                                                    <span x-text="formatDate(row.date)"></span>
+                                        <div class="border-b border-gray-50 last:border-b-0">
+                                            <div class="flex items-center gap-3 px-4 py-3 transition hover:bg-gray-50">
+                                                <input type="checkbox" :checked="row.received"
+                                                       @change="toggle(selected(), row)"
+                                                       class="h-5 w-5 shrink-0 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                                                <span class="min-w-0 flex-1">
+                                                    <span class="flex items-center gap-1.5">
+                                                        <span class="truncate text-sm font-medium text-gray-800" x-text="row.product_name"></span>
+                                                        <span x-show="row.overridden"
+                                                              class="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                                                            {{ __('admin.producer_receiving.moved_badge') }}
+                                                        </span>
+                                                    </span>
+                                                    <span class="block text-xs text-gray-500">
+                                                        <span x-show="row.variant_name" x-text="row.variant_name + ' · '"></span>
+                                                        <span x-text="formatDate(row.date)"></span>
+                                                    </span>
+                                                    <span x-show="row.overridden && row.override"
+                                                          class="mt-0.5 block text-xs text-amber-700"
+                                                          x-text="movedFromLabel(row)"></span>
                                                 </span>
-                                            </span>
-                                            <span class="shrink-0 font-mono text-sm text-gray-700"
-                                                  x-text="row.qty_display + ' ' + row.unit"></span>
-                                        </label>
+                                                <span class="shrink-0 font-mono text-sm text-gray-700"
+                                                      x-text="row.qty_display + ' ' + row.unit"></span>
+                                                <div class="flex shrink-0 items-center gap-1">
+                                                    <button type="button" x-show="row.movable && !row.overridden"
+                                                            @click="openMove(row)"
+                                                            class="inline-flex items-center gap-1 rounded-sm border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-100">
+                                                        {{ __('admin.producer_receiving.move_button') }}
+                                                    </button>
+                                                    <button type="button" x-show="row.overridden"
+                                                            @click="resetMove(row)"
+                                                            class="inline-flex items-center gap-1 rounded-sm border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-600 transition hover:bg-gray-50">
+                                                        {{ __('admin.producer_receiving.move_reset') }}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {{-- Inline move overlay: pick a farm (or look-alike product) that can cover the whole position. --}}
+                                            <div x-show="openMoveKey === row.key" x-cloak
+                                                 class="border-t border-gray-100 bg-gray-50 px-4 py-3">
+                                                <div class="mb-2 flex items-center justify-between">
+                                                    <p class="text-xs font-semibold text-gray-600">{{ __('admin.producer_receiving.move_title') }}</p>
+                                                    <button type="button" @click="closeMove()" class="text-xs text-gray-400 hover:text-gray-600">
+                                                        {{ __('admin.producer_receiving.move_cancel') }}
+                                                    </button>
+                                                </div>
+                                                <input type="text" x-model="moveSearch"
+                                                       @input.debounce.300ms="searchMove(row)"
+                                                       placeholder="{{ __('admin.producer_receiving.move_search_placeholder') }}"
+                                                       class="mb-2 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                                <p x-show="moveLoading" class="py-2 text-xs text-gray-400">{{ __('admin.producer_receiving.move_loading') }}</p>
+                                                <p x-show="moveError" x-text="moveError" class="py-2 text-xs text-rose-600"></p>
+                                                <p x-show="!moveLoading && !moveError && moveTargets.length === 0"
+                                                   class="py-2 text-xs text-gray-400">{{ __('admin.producer_receiving.move_no_targets') }}</p>
+                                                <ul class="max-h-64 space-y-1 overflow-y-auto" x-show="!moveLoading && moveTargets.length > 0">
+                                                    <template x-for="t in moveTargets" :key="t.target_product_id + '-' + t.producer_id">
+                                                        <li>
+                                                            <button type="button" @click="applyMove(row, t)"
+                                                                    class="flex w-full items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2 text-left transition hover:border-emerald-400 hover:bg-emerald-50">
+                                                                <span class="min-w-0">
+                                                                    <span class="block truncate text-sm font-semibold text-gray-800" x-text="t.producer_name"></span>
+                                                                    <span class="flex items-center gap-1.5">
+                                                                        <span class="truncate text-xs text-gray-500" x-text="t.product_name"></span>
+                                                                        <span x-show="!t.same_product"
+                                                                              class="inline-flex shrink-0 items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                                                                            {{ __('admin.producer_receiving.move_different_product') }}
+                                                                        </span>
+                                                                    </span>
+                                                                </span>
+                                                                <span class="shrink-0 font-mono text-xs text-gray-400" x-text="capacityLabel(t)"></span>
+                                                            </button>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </template>
                                 </div>
                             </div>
@@ -143,8 +208,118 @@
                 producers: config.producers,
                 selectedProducerId: config.producers.length ? config.producers[0].id : null,
 
+                openMoveKey: null,
+                moveTargets: [],
+                moveSearch: '',
+                moveLoading: false,
+                moveError: '',
+
                 selected() {
                     return this.producers.find(p => p.id === this.selectedProducerId) || null;
+                },
+
+                movedFromLabel(row) {
+                    if (!row.override) return '';
+                    return '{{ __('admin.producer_receiving.moved_from') }}'.replace(':product', row.override.source_product_name);
+                },
+
+                capacityLabel(t) {
+                    return '{{ __('admin.producer_receiving.move_capacity') }}'.replace(':qty', t.capacity);
+                },
+
+                openMove(row) {
+                    this.openMoveKey = row.key;
+                    this.moveSearch = '';
+                    this.moveError = '';
+                    this.moveTargets = [];
+                    this.loadTargets(row, '');
+                },
+
+                closeMove() {
+                    this.openMoveKey = null;
+                    this.moveTargets = [];
+                    this.moveSearch = '';
+                    this.moveError = '';
+                },
+
+                searchMove(row) {
+                    this.loadTargets(row, this.moveSearch);
+                },
+
+                async loadTargets(row, search) {
+                    this.moveLoading = true;
+                    this.moveError = '';
+                    try {
+                        const params = new URLSearchParams({
+                            product_id: row.product_id,
+                            variant_id: row.variant_id,
+                            delivery_date: row.date,
+                        });
+                        if (search) params.set('search', search);
+                        const res = await fetch(config.moveTargetsUrl + '?' + params.toString(), {
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        if (!res.ok) throw new Error('failed');
+                        const data = await res.json();
+                        // Ignore stale responses if the overlay moved on.
+                        if (this.openMoveKey !== row.key) return;
+                        this.moveTargets = data.targets || [];
+                    } catch (e) {
+                        this.moveError = '{{ __('admin.producer_receiving.move_failed') }}';
+                    } finally {
+                        this.moveLoading = false;
+                    }
+                },
+
+                async applyMove(row, target) {
+                    this.moveLoading = true;
+                    this.moveError = '';
+                    try {
+                        const res = await fetch(config.moveUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': config.csrf,
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: JSON.stringify({
+                                product_id: row.product_id,
+                                variant_id: row.variant_id,
+                                delivery_date: row.date,
+                                target_product_id: target.target_product_id,
+                                target_producer_id: target.producer_id,
+                            }),
+                        });
+                        if (!res.ok) throw new Error('failed');
+                        window.location.reload();
+                    } catch (e) {
+                        this.moveLoading = false;
+                        this.moveError = '{{ __('admin.producer_receiving.move_failed') }}';
+                    }
+                },
+
+                async resetMove(row) {
+                    try {
+                        const res = await fetch(config.resetMoveUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': config.csrf,
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: JSON.stringify({
+                                product_id: row.override ? row.override.source_product_id : row.product_id,
+                                variant_id: row.override ? row.override.source_variant_id : row.variant_id,
+                                delivery_date: row.date,
+                            }),
+                        });
+                        if (!res.ok) throw new Error('failed');
+                        window.location.reload();
+                    } catch (e) {
+                        alert('{{ __('admin.producer_receiving.move_failed') }}');
+                    }
                 },
 
                 recount(p) {
