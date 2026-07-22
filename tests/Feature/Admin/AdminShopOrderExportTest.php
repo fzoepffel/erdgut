@@ -695,6 +695,68 @@ class AdminShopOrderExportTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_farmer_export_csv_shows_natural_units_and_buying_price(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $producer = Producer::factory()->create();
+        // Priced per 100 g, buying price 3,50 € per 100 g.
+        $product = Product::factory()->create([
+            'producer_id' => $producer->id,
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => '100g',
+            'unit_price' => 0.01,
+            'buying_price_cents' => 350,
+        ]);
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => '2026-06-10']);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $product->id,
+            'variant_id' => null,
+            'quantity' => 30, // 30 g canonical
+            'unit' => 'g',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.farmer-export', [
+                'producer_id' => $producer->id,
+                'delivery_from' => '2026-06-01',
+                'delivery_to' => '2026-06-30',
+            ]))->assertOk();
+
+        $csv = $this->extractCsvFromZip($response->getFile()->getPathname());
+        $lines = array_values(array_filter(explode("\n", trim($csv))));
+
+        // Header: Product, Price, Unit, Amount — no Variant column.
+        $this->assertStringContainsString(__('shop.admin.farmer_export_col_price'), $lines[0]);
+        $this->assertStringNotContainsString(__('shop.admin.farmer_export_col_variant'), $lines[0]);
+
+        // Data row: 30 g in natural units (not "0,30 100 g"), buying price
+        // per pricing unit. (Separators follow the request locale.)
+        $cells = str_getcsv($lines[1]);
+        $this->assertStringContainsString('€/100 g', $cells[2]); // price per pricing unit
+        $this->assertStringContainsString('3', $cells[2]);
+        $this->assertSame('g', $cells[3]);   // unit column
+        $this->assertSame('30', $cells[4]);  // amount column
+    }
+
+    private function extractCsvFromZip(string $zipPath): string
+    {
+        $zip = new \ZipArchive;
+        $this->assertTrue($zip->open($zipPath) === true);
+        $csv = '';
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+            if (str_ends_with($name, '.csv')) {
+                $csv = (string) $zip->getFromName($name);
+                break;
+            }
+        }
+        $zip->close();
+
+        // Drop the UTF-8 BOM the export prepends for Excel.
+        return (string) preg_replace('/^\xEF\xBB\xBF/', '', $csv);
+    }
+
     // ── B2B restaurant demand in the workbook ─────────────────────────────
 
     /** A Confirmed B2B order for a stocked product (auto-confirms via the service). */

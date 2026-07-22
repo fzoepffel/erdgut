@@ -148,7 +148,8 @@
             <thead>
                 <tr>
                     <th>{{ __('shop.admin.farmer_export_col_product') }}</th>
-                    <th>{{ __('shop.admin.farmer_export_col_variant') }}</th>
+                    <th class="right">{{ __('shop.admin.farmer_export_col_price') }}</th>
+                    <th>{{ __('shop.admin.farmer_export_col_unit') }}</th>
                     <th class="right">{{ __('shop.admin.farmer_export_col_quantity') }}</th>
                 </tr>
             </thead>
@@ -158,17 +159,15 @@
                     @php($currentDate = $row['date']->toDateString())
                     @if ($currentDate !== $lastDate)
                         <tr class="day-header">
-                            <td colspan="3">{{ $row['date']->locale('de')->isoFormat('dddd, D. MMMM YYYY') }}</td>
+                            <td colspan="4">{{ $row['date']->locale('de')->isoFormat('dddd, D. MMMM YYYY') }}</td>
                         </tr>
                         @php($lastDate = $currentDate)
                     @endif
                     <tr>
                         <td>{{ $row['product_name'] }}</td>
-                        <td>{{ $row['variant_name'] ?: '—' }}</td>
-                        <td class="right">
-                            {{ number_format((float) $row['qty_display'], 2, ',', '.') }}
-                            <span class="unit">{{ $row['unit'] }}</span>
-                        </td>
+                        <td class="right">{{ $row['price'] }}</td>
+                        <td class="unit">{{ $row['unit'] }}</td>
+                        <td class="right">{{ $row['amount'] }}</td>
                     </tr>
                 @endforeach
             </tbody>

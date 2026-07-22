@@ -3645,6 +3645,7 @@
     "shop.admin.farmer_export_col_variant": "Variante",
     "shop.admin.farmer_export_col_quantity": "Quantité",
     "shop.admin.farmer_export_col_unit": "Unité",
+    "shop.admin.farmer_export_col_price": "Prix",
     "shop.admin.filter_delivery_from": "Date à partir du",
     "shop.admin.filter_delivery_to": "Date jusqu'au",
     "shop.export.sheet_summary": "Aperçu",
