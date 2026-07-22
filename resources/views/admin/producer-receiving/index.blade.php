@@ -254,7 +254,9 @@
                 },
 
                 capacityLabel(t) {
-                    return '{{ __('admin.producer_receiving.move_capacity') }}'.replace(':qty', t.capacity);
+                    return '{{ __('admin.producer_receiving.move_capacity') }}'
+                        .replace(':qty', t.capacity)
+                        .replace(':unit', t.unit || '');
                 },
 
                 openMove(row) {

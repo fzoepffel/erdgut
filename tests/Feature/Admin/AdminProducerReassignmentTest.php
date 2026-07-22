@@ -123,6 +123,10 @@ class AdminProducerReassignmentTest extends TestCase
         $this->assertNotNull($sameProduct);
         $this->assertTrue($sameProduct['same_product']);
 
+        // Capacity carries the target product's unit so the panel can label it.
+        $this->assertArrayHasKey('unit', $sameProduct);
+        $this->assertNotSame('', $sameProduct['unit']);
+
         // The look-alike "Zucchini gelb" from farm B is offered too.
         $lookalike = $targets->firstWhere(fn ($t) => $t['target_product_id'] === $this->zucchiniGelb->id);
         $this->assertNotNull($lookalike);
