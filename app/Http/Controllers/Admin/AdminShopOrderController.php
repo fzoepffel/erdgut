@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\CustomerType;
 use App\Enums\OrderSource;
+use App\Enums\ProductUnit;
 use App\Enums\RestaurantOrderStatus;
 use App\Enums\RestaurantVerificationStatus;
 use App\Enums\ShopOrderStatus;
@@ -34,6 +35,7 @@ use App\Services\Shop\ShopOrderInvoiceService;
 use App\Services\Shop\ShopOrderService;
 use App\Support\AuditLogger;
 use App\Support\InvoiceSequence;
+use App\Support\Money;
 use App\Support\PickupLocations;
 use App\Support\RestaurantAccountProvisioner;
 use App\Support\SumUpCheckoutLogger;
@@ -802,6 +804,8 @@ class AdminShopOrderController extends Controller
                 'items.product.producer.translations',
                 'items.product.translations',
                 'items.product.variants',
+                'items.product.producers',
+                'items.product.producerVariantPrices',
             ])
             ->orderBy('expected_delivery_date')
             ->orderBy('id')
@@ -837,43 +841,30 @@ class AdminShopOrderController extends Controller
 
     /**
      * Aggregate the filtered orders' items into one row per (date, product,
-     * variant) for a single producer, with the canonical quantity converted
-     * to the product's display unit.
+     * variant) for a single producer. Each row carries the quantity in its
+     * natural unit (30 g, not "0,30 100 g") split into amount + unit, plus
+     * the farm's buying price per pricing unit.
      *
      * @param  Collection<int, ShopOrder>  $orders
      * @return list<array<string, mixed>>
      */
     private function buildFarmerOrderRows($orders, int $producerId): array
     {
-        // Demand + display metadata from the filtered order set, then the
-        // allocation decides which farm covers which share (batches first,
-        // uncovered demand falls back to the product's primary producer).
+        // Demand from the filtered order set, then the allocation decides
+        // which farm covers which share (batches first, uncovered demand
+        // falls back to the product's primary producer).
         $allocation = $this->farmerAllocation($orders);
 
-        $meta = [];
+        // One product model per (product, variant) so we can format the
+        // natural quantity and resolve the per-farm buying price.
+        $products = [];
         foreach ($orders as $order) {
             foreach ($order->items as $item) {
                 $product = $item->product;
                 if ($product === null) {
                     continue;
                 }
-                $metaKey = $product->id.'|'.($item->variant_id ?? 0);
-                if (isset($meta[$metaKey])) {
-                    continue;
-                }
-                $variant = $item->variant_id !== null
-                    ? $product->variants->firstWhere('id', $item->variant_id)
-                    : null;
-                $unit = $product->unit;
-                $displayUnit = $product->price_display_unit ?? $unit?->defaultDisplayUnit();
-                $meta[$metaKey] = [
-                    'product_name' => $product->name,
-                    'variant_name' => $variant?->localizedName(),
-                    'factor' => ($unit !== null && $displayUnit !== null)
-                        ? $unit->canonicalUnitsPerDisplay($displayUnit)
-                        : 1,
-                    'unit' => $product->localizedUnit(),
-                ];
+                $products[$product->id] ??= $product;
             }
         }
 
@@ -885,27 +876,99 @@ class AdminShopOrderController extends Controller
                     if ($qty <= 1e-9) {
                         continue;
                     }
-                    $m = $meta[$pid.'|'.($vkey ?: 0)] ?? null;
-                    if ($m === null) {
+                    $product = $products[$pid] ?? null;
+                    if ($product === null) {
                         continue;
                     }
+                    $variantId = (int) ($vkey ?: 0);
+                    [$amount, $unit] = $this->naturalQuantity($product, $qty);
                     $rows[] = [
                         'date' => Carbon::parse($iso),
-                        'product_name' => $m['product_name'],
-                        'variant_name' => $m['variant_name'],
-                        'qty_display' => round($m['factor'] > 0 ? $qty / $m['factor'] : $qty, 4),
-                        'unit' => $m['unit'],
+                        'product_name' => $product->name,
+                        'price' => $this->buyingPriceLabel($product, $producerId, $variantId),
+                        'unit' => $unit,
+                        'amount' => $amount,
                     ];
                 }
             }
         }
 
         usort($rows, function (array $a, array $b): int {
-            return [$a['date']->toDateString(), $a['product_name'], (string) ($a['variant_name'] ?? '')]
-                <=> [$b['date']->toDateString(), $b['product_name'], (string) ($b['variant_name'] ?? '')];
+            return [$a['date']->toDateString(), $a['product_name']]
+                <=> [$b['date']->toDateString(), $b['product_name']];
         });
 
         return $rows;
+    }
+
+    /**
+     * Split a canonical quantity into a formatted amount and its natural
+     * unit label: 30 g stays "30" / "g", 1550 g becomes "1,55" / "kg",
+     * a count product becomes "4" / "Stück" (or its count word).
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function naturalQuantity(Product $product, float $canonical): array
+    {
+        $unit = $product->unit;
+        [$decimalSep, $thousandsSep] = Money::separators(app()->getLocale());
+
+        if ($unit === ProductUnit::Piece || $unit === ProductUnit::Bunch) {
+            $count = (int) round($canonical);
+
+            return [
+                number_format($count, 0, $decimalSep, $thousandsSep),
+                $product->countUnitWord($count) ?? (string) __('units.'.$unit->value),
+            ];
+        }
+
+        if ($unit === null) {
+            return [number_format($canonical, 0, $decimalSep, $thousandsSep), ''];
+        }
+
+        // Mass / volume: below 1000 canonical units stays small (g / ml),
+        // at or above it switches to the large unit (kg / L) with up to two
+        // decimals, trailing zeros stripped.
+        if (abs($canonical) < 1000) {
+            return [
+                number_format($canonical, 0, $decimalSep, $thousandsSep),
+                $unit->canonicalSymbol(),
+            ];
+        }
+
+        $large = $unit === ProductUnit::Mass ? 'kg' : 'l';
+        $formatted = number_format($canonical / 1000, 2, $decimalSep, $thousandsSep);
+        if (str_contains($formatted, $decimalSep)) {
+            $formatted = rtrim(rtrim($formatted, '0'), $decimalSep);
+        }
+
+        return [$formatted, ProductUnit::displaySymbol($large)];
+    }
+
+    /**
+     * The farm's buying price for one line, per the product's pricing unit,
+     * e.g. "3,50 €/100 g". "—" when no buying price is set.
+     */
+    private function buyingPriceLabel(Product $product, int $producerId, int $variantId): string
+    {
+        $cents = $product->buyingPriceCentsForProducer($producerId, $variantId ?: null);
+        if ($cents === null) {
+            return '—';
+        }
+
+        $unit = $product->unit;
+        // Piece / bunch price reads best with the product's own count word
+        // (e.g. "€/Topf"); mass / volume use the chosen pricing unit.
+        if ($unit === ProductUnit::Piece || $unit === ProductUnit::Bunch) {
+            $unitLabel = $product->countUnitWord(1) ?? (string) __('units.'.$unit->value);
+        } else {
+            $displayUnit = $product->price_display_unit ?? $unit?->defaultDisplayUnit();
+            $unitLabel = $displayUnit !== null ? ProductUnit::displaySymbol($displayUnit) : '';
+        }
+
+        [$decimalSep, $thousandsSep] = Money::separators(app()->getLocale());
+
+        return number_format($cents / 100, 2, $decimalSep, $thousandsSep).' €/'.$unitLabel;
     }
 
     /**
@@ -949,17 +1012,17 @@ class AdminShopOrderController extends Controller
         fputcsv($handle, [
             __('shop.admin.farmer_export_col_date'),
             __('shop.admin.farmer_export_col_product'),
-            __('shop.admin.farmer_export_col_variant'),
-            __('shop.admin.farmer_export_col_quantity'),
+            __('shop.admin.farmer_export_col_price'),
             __('shop.admin.farmer_export_col_unit'),
+            __('shop.admin.farmer_export_col_quantity'),
         ]);
         foreach ($rows as $row) {
             fputcsv($handle, [
                 $row['date']->format('Y-m-d'),
                 $row['product_name'],
-                (string) ($row['variant_name'] ?? ''),
-                number_format((float) $row['qty_display'], 4, '.', ''),
+                (string) $row['price'],
                 (string) $row['unit'],
+                (string) $row['amount'],
             ]);
         }
         rewind($handle);

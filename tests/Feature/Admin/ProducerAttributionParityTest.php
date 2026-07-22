@@ -142,16 +142,23 @@ class ProducerAttributionParityTest extends TestCase
         $expectedA = [$this->inflowlessA->name, $this->stockedA->name];
         sort($expectedA);
         $this->assertSame($expectedA, $namesA);
-        $qtyByName = array_column($rowsA, 'qty_display', 'product_name');
-        $this->assertEqualsWithDelta(2.0, $qtyByName[$this->stockedA->name], 0.001);
-        $this->assertEqualsWithDelta(1.0, $qtyByName[$this->inflowlessA->name], 0.001);
+        // Rows now carry a natural-unit amount + unit pair (Product | Preis |
+        // Unit | Amount) instead of the old numeric qty_display. 2 kg / 1 kg.
+        $byName = [];
+        foreach ($rowsA as $row) {
+            $byName[$row['product_name']] = $row;
+        }
+        $this->assertSame('2', $byName[$this->stockedA->name]['amount']);
+        $this->assertSame('kg', $byName[$this->stockedA->name]['unit']);
+        $this->assertSame('1', $byName[$this->inflowlessA->name]['amount']);
+        $this->assertSame('kg', $byName[$this->inflowlessA->name]['unit']);
 
         // Farm B gets only its product; B2C and B2B quantities are NOT merged
         // here (farmer rows come from the shop-order set only, as today).
         $rowsB = $this->farmerRows($this->farmB->id);
         $this->assertCount(1, $rowsB);
         $this->assertSame($this->stockedB->name, $rowsB[0]['product_name']);
-        $this->assertEqualsWithDelta(3.0, $rowsB[0]['qty_display'], 0.001);
+        $this->assertSame('3', $rowsB[0]['amount']);
     }
 
     public function test_farmer_dropdown_lists_exactly_the_two_farms(): void
