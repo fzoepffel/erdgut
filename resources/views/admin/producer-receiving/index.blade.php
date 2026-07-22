@@ -202,6 +202,7 @@
                                                                     </span>
                                                                 </span>
                                                                 <span class="shrink-0 self-start font-mono text-xs text-gray-400" x-show="t.capacity > 0" x-text="capacityLabel(t)"></span>
+                                                                <span class="shrink-0 self-start text-right text-xs italic text-gray-400" x-show="t.capacity <= 0">{{ __('admin.producer_receiving.move_no_stock_tracked') }}</span>
                                                             </button>
                                                         </li>
                                                     </template>
