@@ -134,6 +134,43 @@ class AdminProducerReassignmentTest extends TestCase
         $this->assertSame($this->farmB->id, $lookalike['producer_id']);
     }
 
+    public function test_capacity_is_reported_in_the_products_display_unit(): void
+    {
+        // A mass product stores inflow in grams; the move target must report
+        // capacity in kg (4500 g -> 4,5 kg), not raw canonical grams.
+        $farmD = $this->farm('Farm Delta');
+        $farmE = $this->farm('Farm Epsilon');
+
+        $cucumber = Product::factory()->create([
+            'producer_id' => $farmD->id,
+            'unit' => ProductUnit::Mass->value, 'price_display_unit' => 'kg',
+            'is_available' => true, 'is_published' => true,
+        ]);
+        $cucumber->translations()->update(['name' => 'Field Cucumber']);
+        $cucumber = $cucumber->fresh();
+        $cucumber->producers()->sync([$farmD->id, $farmE->id]);
+
+        $this->inflow($cucumber, $farmD, 4500);   // canonical grams
+        $this->inflow($cucumber, $farmE, 4500);
+
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $cucumber->id,
+            'quantity' => 400, 'unit' => 'g', 'line_total_eur' => 2.0, 'vat_amount_eur' => 0.13,
+        ]);
+
+        $qty = $this->service()->positionDemand($cucumber->id, 0, self::DATE);
+        $current = $this->service()->currentSourcing($cucumber->id, 0, self::DATE);
+        $targets = collect($this->service()->moveTargetsForPosition(
+            $cucumber->fresh(), 0, self::DATE, $qty, $current['product_id'], $current['producer_id'],
+        ));
+
+        $target = $targets->firstWhere('producer_id', $farmE->id);
+        $this->assertNotNull($target);
+        $this->assertEqualsWithDelta(4.5, $target['capacity'], 1e-6);
+        $this->assertSame('kg', $target['unit']);
+    }
+
     public function test_farm_without_enough_stock_is_not_a_target(): void
     {
         // Farm C has only 1 piece; it must never appear for a 3-piece position.
