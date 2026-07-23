@@ -166,14 +166,15 @@
                                                     </button>
                                                 </div>
                                                 <input type="text" x-model="moveSearch"
+                                                       x-show="!conversionTarget"
                                                        @input.debounce.300ms="searchMove(row)"
                                                        placeholder="{{ __('admin.producer_receiving.move_search_placeholder') }}"
                                                        class="mb-2 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
-                                                <p x-show="moveLoading" class="py-2 text-xs text-gray-400">{{ __('admin.producer_receiving.move_loading') }}</p>
+                                                <p x-show="!conversionTarget && moveLoading" class="py-2 text-xs text-gray-400">{{ __('admin.producer_receiving.move_loading') }}</p>
                                                 <p x-show="moveError" x-text="moveError" class="py-2 text-xs text-rose-600"></p>
-                                                <p x-show="!moveLoading && !moveError && moveTargets.length === 0"
+                                                <p x-show="!conversionTarget && !moveLoading && !moveError && moveTargets.length === 0"
                                                    class="py-2 text-xs text-gray-400">{{ __('admin.producer_receiving.move_no_targets') }}</p>
-                                                <ul class="max-h-64 space-y-1 overflow-y-auto" x-show="!moveLoading && moveTargets.length > 0">
+                                                <ul class="max-h-64 space-y-1 overflow-y-auto" x-show="!conversionTarget && !moveLoading && moveTargets.length > 0">
                                                     <template x-for="t in moveTargets" :key="t.target_product_id + '-' + t.producer_id">
                                                         <li>
                                                             <button type="button" @click="applyMove(row, t)"
@@ -222,6 +223,35 @@
                                                         </li>
                                                     </template>
                                                 </ul>
+
+                                                {{-- Cross-unit move: let the admin decide the converted amount. --}}
+                                                <div x-show="conversionTarget" x-cloak class="rounded-md border border-gray-200 bg-white p-3">
+                                                    <p class="text-sm font-semibold text-gray-800">
+                                                        <span x-text="conversionTarget?.producer_name"></span>
+                                                        <span class="text-gray-400"> · </span>
+                                                        <span class="font-normal text-gray-500" x-text="conversionTarget?.product_name"></span>
+                                                    </p>
+                                                    <p class="mt-0.5 text-xs text-gray-500" x-text="conversionSourceLabel(row)"></p>
+                                                    <p class="mt-2 text-xs text-gray-600" x-text="'{{ __('admin.producer_receiving.move_convert_help') }}'.replace(':unit', conversionTarget?.unit || '')"></p>
+                                                    <div class="mt-2 flex items-center gap-2">
+                                                        <input type="number" step="any" min="0" x-model="conversionQty"
+                                                               @keydown.enter.prevent="confirmConversion(row)"
+                                                               class="w-28 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                                        <span class="text-sm text-gray-600" x-text="conversionTarget?.unit"></span>
+                                                    </div>
+                                                    <p x-show="conversionTarget && conversionTarget.suggested_quantity !== null && conversionTarget.suggested_quantity !== undefined"
+                                                       class="mt-1 text-xs text-gray-400" x-text="conversionSuggestionLabel()"></p>
+                                                    <div class="mt-3 flex items-center gap-2">
+                                                        <button type="button" @click="confirmConversion(row)" :disabled="moveLoading"
+                                                                class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                                                            {{ __('admin.producer_receiving.move_convert_confirm') }}
+                                                        </button>
+                                                        <button type="button" @click="cancelConversion()"
+                                                                class="text-xs text-gray-500 hover:text-gray-700">
+                                                            {{ __('admin.producer_receiving.move_convert_back') }}
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </template>
@@ -250,6 +280,10 @@
                 moveSearch: '',
                 moveLoading: false,
                 moveError: '',
+                // Set while the admin decides the converted amount for a
+                // cross-unit move; holds the chosen target and the entered qty.
+                conversionTarget: null,
+                conversionQty: '',
 
                 selected() {
                     return this.producers.find(p => p.id === this.selectedProducerId) || null;
@@ -311,6 +345,8 @@
                     this.moveSearch = '';
                     this.moveError = '';
                     this.moveTargets = [];
+                    this.conversionTarget = null;
+                    this.conversionQty = '';
                     this.loadTargets(row, '');
                 },
 
@@ -319,6 +355,41 @@
                     this.moveTargets = [];
                     this.moveSearch = '';
                     this.moveError = '';
+                    this.conversionTarget = null;
+                    this.conversionQty = '';
+                },
+
+                cancelConversion() {
+                    this.conversionTarget = null;
+                    this.conversionQty = '';
+                    this.moveError = '';
+                },
+
+                // Weight-derived starting value (falls back to the current amount
+                // when the products carry no weight to convert through).
+                conversionSourceLabel(row) {
+                    return '{{ __('admin.producer_receiving.move_convert_source') }}'
+                        .replace(':qty', row.qty_display)
+                        .replace(':unit', row.unit || '');
+                },
+
+                conversionSuggestionLabel() {
+                    const t = this.conversionTarget;
+                    if (!t || t.suggested_quantity === null || t.suggested_quantity === undefined) return '';
+                    return '{{ __('admin.producer_receiving.move_convert_suggestion') }}'
+                        .replace(':qty', t.suggested_quantity)
+                        .replace(':unit', t.unit || '');
+                },
+
+                confirmConversion(row) {
+                    const t = this.conversionTarget;
+                    if (!t) return;
+                    const qty = parseFloat(String(this.conversionQty).replace(',', '.'));
+                    if (!(qty > 0)) {
+                        this.moveError = '{{ __('admin.producer_receiving.move_convert_invalid') }}';
+                        return;
+                    }
+                    this.submitMove(row, t, qty);
                 },
 
                 searchMove(row) {
@@ -351,10 +422,34 @@
                     }
                 },
 
-                async applyMove(row, target) {
+                applyMove(row, target) {
+                    // A cross-unit target opens the conversion step first; a
+                    // same-unit target moves straight away.
+                    if (target.needs_conversion) {
+                        this.moveError = '';
+                        this.conversionTarget = target;
+                        this.conversionQty = (target.suggested_quantity !== null && target.suggested_quantity !== undefined)
+                            ? target.suggested_quantity
+                            : row.qty_display;
+                        return;
+                    }
+                    this.submitMove(row, target, null);
+                },
+
+                async submitMove(row, target, targetQuantity) {
                     this.moveLoading = true;
                     this.moveError = '';
                     try {
+                        const body = {
+                            product_id: row.product_id,
+                            variant_id: row.variant_id,
+                            delivery_date: row.date,
+                            target_product_id: target.target_product_id,
+                            target_producer_id: target.producer_id,
+                        };
+                        if (targetQuantity !== null && targetQuantity !== undefined) {
+                            body.target_quantity = targetQuantity;
+                        }
                         const res = await fetch(config.moveUrl, {
                             method: 'POST',
                             headers: {
@@ -363,13 +458,7 @@
                                 'X-CSRF-TOKEN': config.csrf,
                                 'X-Requested-With': 'XMLHttpRequest',
                             },
-                            body: JSON.stringify({
-                                product_id: row.product_id,
-                                variant_id: row.variant_id,
-                                delivery_date: row.date,
-                                target_product_id: target.target_product_id,
-                                target_producer_id: target.producer_id,
-                            }),
+                            body: JSON.stringify(body),
                         });
                         if (!res.ok) throw new Error('failed');
                         window.location.reload();

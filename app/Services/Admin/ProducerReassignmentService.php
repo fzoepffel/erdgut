@@ -2,6 +2,7 @@
 
 namespace App\Services\Admin;
 
+use App\Enums\ProductUnit;
 use App\Enums\RestaurantOrderStatus;
 use App\Models\ProducerPositionOverride;
 use App\Models\Product;
@@ -271,6 +272,7 @@ class ProducerReassignmentService
         int $targetProductId,
         int $targetProducerId,
         ?int $userId,
+        ?float $targetQuantityDisplay = null,
     ): ProducerPositionOverride {
         $source = Product::query()->findOrFail($sourceProductId);
         $qty = $this->positionDemand($sourceProductId, $variantId, $iso);
@@ -291,11 +293,27 @@ class ProducerReassignmentService
         );
         abort_unless($ok, 422, 'The chosen producer can no longer cover this position.');
 
+        // Moving to a different unit (or a different weight/volume per piece)
+        // needs an admin-decided amount; store it in the target's canonical unit.
+        // A same-unit / same-farm move keeps target_quantity NULL and the read
+        // paths fall back to the source quantity.
+        $target = Product::query()->findOrFail($targetProductId);
+        $targetQuantityCanonical = null;
+        if (! $this->conversionIsAutomatic($source, $target)) {
+            abort_if(
+                $targetQuantityDisplay === null || $targetQuantityDisplay <= 0,
+                422,
+                'This move needs a converted quantity.',
+            );
+            $targetQuantityCanonical = round($targetQuantityDisplay * $this->displayFactor($target), 4);
+        }
+
         return DB::transaction(fn (): ProducerPositionOverride => ProducerPositionOverride::query()->updateOrCreate(
             ['product_id' => $sourceProductId, 'variant_id' => $variantId, 'delivery_date' => $iso],
             [
                 'target_product_id' => $targetProductId,
                 'target_producer_id' => $targetProducerId,
+                'target_quantity' => $targetQuantityCanonical,
                 'created_by_user_id' => $userId,
             ],
         ));
@@ -398,6 +416,11 @@ class ProducerReassignmentService
                 // product's display unit, the same conversion the position row uses.
                 'capacity' => round($cap / $this->displayFactor($product), 4),
                 'unit' => $product->localizedUnit(),
+                // Whether the admin must confirm the converted amount (different
+                // unit, or same unit but a different weight/volume per piece).
+                // A weight/volume-based starting value is offered when possible.
+                'needs_conversion' => ! $this->conversionIsAutomatic($source, $product),
+                'suggested_quantity' => $this->conversionSuggestion($source, $product, $qty),
                 'selling_price' => $sellingPrice,
                 'selling_price_label' => $this->priceLabel($sellingPrice, $source),
                 'buying_price' => $buying,
@@ -463,7 +486,7 @@ class ProducerReassignmentService
     }
 
     /** Canonical units per display unit (g→kg = 1000 …), same as the row. */
-    private function displayFactor(Product $product): int
+    public function displayFactor(Product $product): int
     {
         $unit = $product->unit;
         if ($unit === null) {
@@ -473,6 +496,113 @@ class ProducerReassignmentService
         $factor = $displayUnit !== null ? $unit->canonicalUnitsPerDisplay($displayUnit) : 1;
 
         return $factor > 0 ? $factor : 1;
+    }
+
+    /**
+     * Whether moving from `$source` to `$target` needs NO admin decision: the
+     * displayed quantity carries over unchanged. That holds only when the two
+     * products read in the exact same unit — same kind, same display symbol and
+     * the same weight/volume per unit (so a "count" means the same physical
+     * amount on both sides). Everything else (mass→different display, a 250 g
+     * Schale → a 500 g Schale, bunch → pot, …) is a conversion the admin must
+     * confirm. The source product moving to itself trivially qualifies.
+     */
+    public function conversionIsAutomatic(Product $source, Product $target): bool
+    {
+        if ((int) $source->id === (int) $target->id) {
+            return true;
+        }
+        if ($source->unit !== $target->unit) {
+            return false;
+        }
+        if ($this->resolvedDisplayUnit($source) !== $this->resolvedDisplayUnit($target)) {
+            return false;
+        }
+
+        return (int) ($source->unit_weight_grams ?? 0) === (int) ($target->unit_weight_grams ?? 0)
+            && (int) ($source->unit_volume_ml ?? 0) === (int) ($target->unit_volume_ml ?? 0);
+    }
+
+    /**
+     * A weight/volume-derived suggestion for the converted amount, in the
+     * TARGET product's DISPLAY units (integer for piece/bunch), or null when no
+     * physical bridge exists (e.g. a bunch with no weight moving to a pot). The
+     * admin can always override the value; this is only a starting point.
+     */
+    public function conversionSuggestion(Product $source, Product $target, float $sourceCanonicalQty): ?float
+    {
+        $canonical = $this->suggestedTargetCanonical($source, $target, $sourceCanonicalQty);
+        if ($canonical === null || $canonical <= 0) {
+            return null;
+        }
+
+        $display = $canonical / $this->displayFactor($target);
+        if ($target->unit === ProductUnit::Piece || $target->unit === ProductUnit::Bunch) {
+            return (float) max(1, (int) round($display));
+        }
+
+        return round($display, 4);
+    }
+
+    /** The display symbol a product reads in (chosen, else the kind default). */
+    private function resolvedDisplayUnit(Product $product): ?string
+    {
+        return $product->price_display_unit ?? $product->unit?->defaultDisplayUnit();
+    }
+
+    /**
+     * Suggested position amount in the target's CANONICAL unit, bridged through
+     * weight (grams) or volume (millilitres). Same-kind mass/volume transfers
+     * exactly; a cross-unit or count target uses the per-unit weight/volume.
+     */
+    private function suggestedTargetCanonical(Product $source, Product $target, float $qty): ?float
+    {
+        $grams = $this->canonicalGrams($source, $qty);
+        $ml = $this->canonicalMillilitres($source, $qty);
+
+        return match ($target->unit) {
+            ProductUnit::Mass => $grams,
+            ProductUnit::Volume => $ml,
+            ProductUnit::Piece, ProductUnit::Bunch => $this->countFromBridge($target, $grams, $ml),
+            default => null,
+        };
+    }
+
+    /** Total weight of a position in grams, or null when it has no weight basis. */
+    private function canonicalGrams(Product $product, float $qty): ?float
+    {
+        return match ($product->unit) {
+            ProductUnit::Mass => $qty,
+            ProductUnit::Piece, ProductUnit::Bunch => $product->unit_weight_grams !== null
+                ? $qty * (float) $product->unit_weight_grams
+                : null,
+            default => null,
+        };
+    }
+
+    /** Total volume of a position in millilitres, or null when it has none. */
+    private function canonicalMillilitres(Product $product, float $qty): ?float
+    {
+        return match ($product->unit) {
+            ProductUnit::Volume => $qty,
+            ProductUnit::Piece, ProductUnit::Bunch => $product->unit_volume_ml !== null
+                ? $qty * (float) $product->unit_volume_ml
+                : null,
+            default => null,
+        };
+    }
+
+    /** How many counted units of the target a weight/volume amount fills. */
+    private function countFromBridge(Product $target, ?float $grams, ?float $ml): ?float
+    {
+        if ($grams !== null && $target->unit_weight_grams) {
+            return $grams / (float) $target->unit_weight_grams;
+        }
+        if ($ml !== null && $target->unit_volume_ml) {
+            return $ml / (float) $target->unit_volume_ml;
+        }
+
+        return null;
     }
 
     /** "1,50 € / Stück" style label for a per-display-unit price. */

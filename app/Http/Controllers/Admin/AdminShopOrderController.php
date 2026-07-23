@@ -926,7 +926,10 @@ class AdminShopOrderController extends Controller
             }
             $products[$override->target_product_id] ??= $target;
             $receiptVariant = $override->target_product_id === $override->product_id ? $override->variant_id : 0;
-            [$amount, $unit] = $this->naturalQuantity($target, $qty);
+            // A cross-unit move carries its converted amount in the target's
+            // canonical unit; fall back to the source quantity for a same-unit move.
+            $targetCanonical = $override->target_quantity !== null ? (float) $override->target_quantity : $qty;
+            [$amount, $unit] = $this->naturalQuantity($target, $targetCanonical);
             $rows[] = [
                 'date' => Carbon::parse($override->delivery_date),
                 'product_name' => $target->name,
