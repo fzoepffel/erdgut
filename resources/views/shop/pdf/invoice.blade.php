@@ -72,6 +72,13 @@
             $factor = max(1, $product->unit->canonicalUnitsPerDisplay($display));
             $displayQty = $qty / $factor;
             $unitLabel = $germanSymbol($display);
+
+            // Unit price from the catalog price, not total ÷ qty: small
+            // quantities of per-100g/per-kg goods would otherwise mis-round.
+            return [
+                'unit_net' => \App\Services\Shop\ShopOrderInvoiceService::displayUnitPricing($item)['net'],
+                'qty' => trim($num($displayQty).' '.$unitLabel),
+            ];
         } else {
             // Custom line: the admin entered the unit. Scale g/ml up to kg/L
             // so the unit price reads like a shelf price, not a per-gram one.

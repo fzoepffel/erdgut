@@ -4,6 +4,8 @@ namespace App\Services\Shop;
 
 use App\Enums\ShopOrderStatus;
 use App\Models\ShopOrder;
+use App\Models\ShopOrderItem;
+use App\Services\Restaurant\RestaurantCatalogService;
 use App\Support\InvoiceSequence;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPDF;
@@ -262,6 +264,76 @@ class ShopOrderInvoiceService
 
             return $order->refresh();
         });
+    }
+
+    /**
+     * Per-display-unit price for an invoice/receipt line, sourced from the
+     * product's catalog price rather than the 2-decimal line total. Dividing
+     * the total by the quantity mis-prices small amounts of per-100g/per-kg
+     * goods (30 g of a 2,15 €-net/100 g product stores 0,64 € net, and
+     * 0,64 ÷ 0,03 kg reads 21,33 €/kg instead of 21,50). Using the catalog
+     * price with the B2B rounding order — round the gross price to the
+     * display unit first, then extract VAT — gives a clean 21,50 €/kg for any
+     * quantity ({@see RestaurantCatalogService::row}).
+     *
+     * A 2-cent guard keeps the column honest: when the catalog price no longer
+     * reconciles with what the line was actually charged (a manual discount,
+     * or a catalog price changed after the invoice issued), it falls back to
+     * the line's effective rate (total ÷ display quantity), so an issued
+     * invoice never shows a misleading current price.
+     *
+     * @return array{net: float, gross: float, displayUnit: string, factor: float}
+     */
+    public static function displayUnitPricing(ShopOrderItem $item): array
+    {
+        $qty = (float) $item->quantity;
+        $product = $item->product;
+        $actualNet = round((float) $item->line_total_eur - (float) $item->vat_amount_eur, 2);
+        $actualGross = (float) $item->line_total_eur;
+
+        if ($product?->unit !== null && (float) $product->unit_price > 0) {
+            $displayUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
+            // "100 g" is priced per kg on the documents (shelf-price style).
+            if ($displayUnit === '100g') {
+                $displayUnit = 'kg';
+            }
+            $factor = max(1, $product->unit->canonicalUnitsPerDisplay($displayUnit));
+            $displayQty = $qty / $factor;
+
+            $rate = (int) $item->vat_rate_snapshot_percent;
+            $grossPerDisplay = round((float) $product->unit_price * $factor, 2);
+            $netPerDisplay = round($grossPerDisplay - ShopOrderService::vatAmountFromGross($grossPerDisplay, $rate), 2);
+
+            // Clean list price only when it reconciles with the charged total
+            // within rounding; otherwise the line was repriced — show its rate.
+            if ($displayQty > 0 && abs($netPerDisplay * $displayQty - $actualNet) <= 0.02) {
+                return [
+                    'net' => $netPerDisplay,
+                    'gross' => $grossPerDisplay,
+                    'displayUnit' => $displayUnit,
+                    'factor' => (float) $factor,
+                ];
+            }
+
+            return [
+                'net' => $displayQty > 0 ? round($actualNet / $displayQty, 4) : 0.0,
+                'gross' => $displayQty > 0 ? round($actualGross / $displayQty, 4) : 0.0,
+                'displayUnit' => $displayUnit,
+                'factor' => (float) $factor,
+            ];
+        }
+
+        // Custom line (no product): keep today's total-derived effective rate.
+        $customUnit = (string) ($item->unit ?? '');
+        $factor = in_array($customUnit, ['g', 'ml'], true) ? 1000 : 1;
+        $displayQty = $qty / $factor;
+
+        return [
+            'net' => $displayQty > 0 ? round($actualNet / $displayQty, 4) : 0.0,
+            'gross' => $displayQty > 0 ? round($actualGross / $displayQty, 4) : 0.0,
+            'displayUnit' => $customUnit,
+            'factor' => (float) $factor,
+        ];
     }
 
     /**
