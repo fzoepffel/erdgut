@@ -146,11 +146,13 @@ class ProducerReassignmentService
         }
 
         // Look-alike names (zucchini grün ↔ zucchini gelb, kapuzinerblüte ↔
-        // kapuzinerblätter), matched across all languages.
+        // kapuzinerblätter), matched across all languages. A look-alike must sit
+        // in the same subcategory as the source, so a stray name collision across
+        // categories never surfaces as a target.
         Product::query()->with($with)
             ->get()
             ->each(function (Product $p) use (&$out, $source): void {
-                if ($p->id !== $source->id && $this->productNamesSimilar($source, $p)) {
+                if ($p->id !== $source->id && $this->sameSubcategory($source, $p) && $this->productNamesSimilar($source, $p)) {
                     $out[$p->id] = $p;
                 }
             });
@@ -182,7 +184,7 @@ class ProducerReassignmentService
                 if ($source->group_id !== null && $p->group_id === $source->group_id) {
                     $ids[(int) $p->id] = true;
                 }
-                if ((int) $p->id !== (int) $source->id && $this->productNamesSimilar($source, $p)) {
+                if ((int) $p->id !== (int) $source->id && $this->sameSubcategory($source, $p) && $this->productNamesSimilar($source, $p)) {
                     $ids[(int) $p->id] = true;
                 }
             }
@@ -245,7 +247,7 @@ class ProducerReassignmentService
         $candidates = Product::query()
             ->with(['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices'])
             ->get()
-            ->filter(fn (Product $p): bool => str_contains(mb_strtolower((string) $p->name), $needle))
+            ->filter(fn (Product $p): bool => $this->sameSubcategory($source, $p) && str_contains(mb_strtolower((string) $p->name), $needle))
             ->keyBy('id')
             ->all();
 
@@ -530,6 +532,20 @@ class ProducerReassignmentService
         }
 
         return array_keys($names);
+    }
+
+    /**
+     * A candidate must share the source's subcategory to be a substitute. When
+     * the source has no subcategory set there is nothing to restrict, so any
+     * name-matched product stays eligible (the legacy behavior).
+     */
+    private function sameSubcategory(Product $source, Product $candidate): bool
+    {
+        if ($source->subcategory_id === null) {
+            return true;
+        }
+
+        return (int) $candidate->subcategory_id === (int) $source->subcategory_id;
     }
 
     /** True when any language pairing of the two products' names is similar. */
