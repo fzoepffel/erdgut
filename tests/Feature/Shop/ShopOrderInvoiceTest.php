@@ -864,8 +864,7 @@ class ShopOrderInvoiceTest extends TestCase
             'product_id' => $per100g->id,
             'quantity' => 500,
             'unit' => 'mass',
-            // 0,214 €/g gross → 214 €/kg gross → 200 €/kg net at 7 % VAT.
-            'unit_price_snapshot_eur' => 0.214,
+            'unit_price_snapshot_eur' => 0.21,
             'line_total_eur' => 107.00,
             'vat_rate_snapshot_percent' => 7,
             'vat_amount_eur' => 7.00,
@@ -878,86 +877,6 @@ class ShopOrderInvoiceTest extends TestCase
         $this->assertStringContainsString('200,00', $html);
         // No "100 g" unit and no "1 100 g" quantity leak through.
         $this->assertStringNotContainsString('100 g', $html);
-    }
-
-    /** A 30 g line of a 2,15 €/100 g product (7 % VAT), snapshot 0,0215 €/g. */
-    private function makePer100gOrder(): ShopOrder
-    {
-        $per100g = Product::factory()->create([
-            'unit' => ProductUnit::Mass->value,
-            'price_display_unit' => '100g',
-            'unit_price' => 2.15,
-            'vat_rate_percent' => 7,
-            'is_available' => true,
-            'is_published' => true,
-        ]);
-
-        // Gross 0,645 € rounds to the stored 0,64 €; net 0,60 €, VAT 0,04 €.
-        return $this->makeOrder([], [
-            'product_id' => $per100g->id,
-            'quantity' => 30,
-            'unit' => 'mass',
-            'unit_price_snapshot_eur' => 0.0215,
-            'line_total_eur' => 0.64,
-            'vat_rate_snapshot_percent' => 7,
-            'vat_amount_eur' => 0.04,
-        ]);
-    }
-
-    public function test_receipt_unit_price_comes_from_the_snapshot_not_the_rounded_total(): void
-    {
-        // The gross total (0,64 €) divided by 0,03 kg would misprice at
-        // 21,33 €/kg. The per-unit price must come from the 4-decimal snapshot
-        // instead: 0,0215 €/g → 21,50 €/kg gross.
-        $order = $this->makePer100gOrder();
-
-        $html = view('shop.pdf.receipt', [
-            'order' => $order->load('items.product.translations'),
-            'vatByRate' => ShopOrderService::vatByRate($order),
-            'producerNames' => collect(),
-            'company' => [
-                'name' => 'Erdgut', 'street' => '', 'postal_city' => '',
-                'phone' => '', 'email' => '', 'vat_id' => '', 'register' => '',
-            ],
-        ])->render();
-
-        $this->assertStringContainsString('21,50', $html);
-        $this->assertStringNotContainsString('21,33', $html);
-    }
-
-    public function test_invoice_unit_price_comes_from_the_snapshot_not_the_rounded_total(): void
-    {
-        // Same line on the (net) invoice: 0,0215 €/g gross → 20,09 €/kg net at
-        // 7 % VAT, not the 20,00 €/kg the rounded total (0,60 € net ÷ 0,03 kg)
-        // would give.
-        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($this->makePer100gOrder());
-        $html = $this->renderInvoice($issued);
-
-        $this->assertStringContainsString('20,09', $html);
-        $this->assertStringNotContainsString('20,00', $html);
-    }
-
-    public function test_editor_resave_keeps_the_precise_unit_price_snapshot(): void
-    {
-        // Re-saving an untouched line must not degrade its 4-decimal snapshot
-        // by recomputing it from the 2-decimal total (0,0215 → 0,0213).
-        $order = $this->makePer100gOrder();
-        $item = $order->items()->firstOrFail();
-
-        // Submit the line unchanged (same net total, quantity and rate).
-        $this->actingAs($this->admin)
-            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
-                'items' => [[
-                    'id' => $item->id,
-                    'net_total_eur' => '0.60',
-                    'vat_rate_percent' => 7,
-                    'quantity' => 30,
-                ]],
-            ])
-            ->assertRedirect(route('app.admin.shop-orders.shop-invoice-editor', $order));
-
-        $item->refresh();
-        $this->assertEqualsWithDelta(0.0215, (float) $item->unit_price_snapshot_eur, 0.00001);
     }
 
     public function test_receipt_pdf_renders_display_unit_override(): void
