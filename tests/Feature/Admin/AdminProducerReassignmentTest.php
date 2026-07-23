@@ -99,6 +99,27 @@ class AdminProducerReassignmentTest extends TestCase
         ]);
     }
 
+    /**
+     * A piece product with distinct names per locale, sourced from one farm.
+     *
+     * @param  array{de: string, en: string, fr: string}  $names
+     */
+    private function namedProduct(Producer $farm, array $names): Product
+    {
+        $p = Product::factory()->create([
+            'producer_id' => $farm->id,
+            'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece',
+            'is_available' => true, 'is_published' => true,
+        ]);
+        foreach ($names as $locale => $name) {
+            $p->translations()->where('locale', $locale)->update(['name' => $name]);
+        }
+        $p = $p->fresh('translations');
+        $p->producers()->sync([$farm->id]);
+
+        return $p->fresh('translations');
+    }
+
     private function service(): ProducerReassignmentService
     {
         return app(ProducerReassignmentService::class);
@@ -260,6 +281,103 @@ class AdminProducerReassignmentTest extends TestCase
         // Melchhof's look-alike product can cover the whole Looke position, so
         // the position must be movable even though Looke lists only one farm.
         $this->assertTrue($row['movable']);
+    }
+
+    public function test_lookalike_matched_only_via_english_becomes_a_move_target(): void
+    {
+        // German names never pair ("rucola" vs "senfblatt"), but the English
+        // names share a first word ("Wild Rocket" ↔ "Wild Mustard"). Matching
+        // across all languages must still surface the candidate as a target.
+        $source = $this->namedProduct($this->farmA, ['de' => 'Rucola', 'en' => 'Wild Rocket', 'fr' => 'Roquette']);
+        $candidate = $this->namedProduct($this->farmB, ['de' => 'Senfblatt', 'en' => 'Wild Mustard', 'fr' => 'Moutarde']);
+
+        $this->inflow($source, $this->farmA, 2);
+        $this->inflow($candidate, $this->farmB, 20);
+
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $source->id,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 5.0, 'vat_amount_eur' => 0.3,
+        ]);
+
+        $qty = $this->service()->positionDemand($source->id, 0, self::DATE);
+        $current = $this->service()->currentSourcing($source->id, 0, self::DATE);
+        $targets = collect($this->service()->moveTargetsForPosition(
+            $source, 0, self::DATE, $qty, $current['product_id'], $current['producer_id'],
+        ));
+
+        $lookalike = $targets->firstWhere('target_product_id', $candidate->id);
+        $this->assertNotNull($lookalike, 'Candidate matched only via English should be a move target.');
+        $this->assertFalse($lookalike['same_product']);
+        $this->assertSame($this->farmB->id, $lookalike['producer_id']);
+    }
+
+    public function test_lone_farm_with_capable_lookalike_is_recommended(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        // A fresh farm supplies a single line; another farm has a capable
+        // look-alike in stock but no order of its own, so it is not "analog
+        // elsewhere" in demand and only the lone-farm rule should fire.
+        $loneFarm = $this->farm('Lone Farm');
+        $spareFarm = $this->farm('Spare Farm');
+        $onlyLine = $this->namedProduct($loneFarm, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
+        $spare = $this->namedProduct($spareFarm, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
+
+        $this->inflow($onlyLine, $loneFarm, 2);
+        $this->inflow($spare, $spareFarm, 20);
+
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $onlyLine->id,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 5.0, 'vat_amount_eur' => 0.3,
+        ]);
+
+        $producers = collect($this->actingAs($admin)
+            ->get(route('app.admin.producer-orders.index', ['delivery_from' => self::DATE, 'delivery_to' => self::DATE]))
+            ->assertOk()
+            ->viewData('producers'));
+
+        $farm = $producers->firstWhere('id', $loneFarm->id);
+        $row = collect($farm['rows'])->firstWhere('product_id', $onlyLine->id);
+        $this->assertNotNull($row);
+        $this->assertCount(1, $farm['rows']);
+        $this->assertTrue($row['recommended']);
+        $this->assertSame('lone_farm', $row['recommend_reason']);
+    }
+
+    public function test_same_thing_from_several_farms_is_recommended_to_consolidate(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        // Both farms deliver an analogous product on the same day; farmB can take
+        // the whole run, so moving farmA's line onto farmB is recommended.
+        $lineA = $this->namedProduct($this->farmA, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
+        $lineB = $this->namedProduct($this->farmB, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
+
+        $this->inflow($lineA, $this->farmA, 2);
+        $this->inflow($lineB, $this->farmB, 20);
+
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $lineA->id,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 5.0, 'vat_amount_eur' => 0.3,
+        ]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $lineB->id,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 5.0, 'vat_amount_eur' => 0.3,
+        ]);
+
+        $producers = collect($this->actingAs($admin)
+            ->get(route('app.admin.producer-orders.index', ['delivery_from' => self::DATE, 'delivery_to' => self::DATE]))
+            ->assertOk()
+            ->viewData('producers'));
+
+        $a = $producers->firstWhere('id', $this->farmA->id);
+        $row = collect($a['rows'])->firstWhere('product_id', $lineA->id);
+        $this->assertNotNull($row);
+        $this->assertTrue($row['recommended']);
+        $this->assertSame('consolidate', $row['recommend_reason']);
     }
 
     public function test_move_to_registered_farm_without_inflow_is_allowed(): void

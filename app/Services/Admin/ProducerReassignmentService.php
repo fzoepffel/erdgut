@@ -146,17 +146,14 @@ class ProducerReassignmentService
         }
 
         // Look-alike names (zucchini grün ↔ zucchini gelb, kapuzinerblüte ↔
-        // kapuzinerblätter). Cheap prefix filter in SQL, refined in PHP.
-        $needle = $this->firstToken($source->name);
-        if ($needle !== '') {
-            Product::query()->with($with)
-                ->get()
-                ->each(function (Product $p) use (&$out, $source): void {
-                    if ($p->id !== $source->id && $this->namesSimilar($source->name, $p->name)) {
-                        $out[$p->id] = $p;
-                    }
-                });
-        }
+        // kapuzinerblätter), matched across all languages.
+        Product::query()->with($with)
+            ->get()
+            ->each(function (Product $p) use (&$out, $source): void {
+                if ($p->id !== $source->id && $this->productNamesSimilar($source, $p)) {
+                    $out[$p->id] = $p;
+                }
+            });
 
         return $out;
     }
@@ -185,7 +182,7 @@ class ProducerReassignmentService
                 if ($source->group_id !== null && $p->group_id === $source->group_id) {
                     $ids[(int) $p->id] = true;
                 }
-                if ((int) $p->id !== (int) $source->id && $this->namesSimilar((string) $source->name, (string) $p->name)) {
+                if ((int) $p->id !== (int) $source->id && $this->productNamesSimilar($source, $p)) {
                     $ids[(int) $p->id] = true;
                 }
             }
@@ -494,6 +491,50 @@ class ProducerReassignmentService
         return $parts[0] ?? '';
     }
 
+    /**
+     * Every stored name of a product, across all languages, lower-cased and
+     * whitespace-normalized. Two products are look-alikes when ANY of their
+     * language names match, so an English match ("batavia salad" ↔ "oak leaf
+     * salad") also pairs the German products that never match on their own.
+     *
+     * @return list<string>
+     */
+    private function allNames(Product $product): array
+    {
+        $names = [];
+        $translations = $product->getRelationValue('translations');
+        if ($translations !== null) {
+            foreach ($translations as $t) {
+                $n = trim(preg_replace('/\s+/u', ' ', mb_strtolower((string) $t->name)) ?? '');
+                if ($n !== '') {
+                    $names[$n] = true;
+                }
+            }
+        }
+        if ($names === []) {
+            $n = trim(preg_replace('/\s+/u', ' ', mb_strtolower((string) $product->name)) ?? '');
+            if ($n !== '') {
+                $names[$n] = true;
+            }
+        }
+
+        return array_keys($names);
+    }
+
+    /** True when any language pairing of the two products' names is similar. */
+    private function productNamesSimilar(Product $a, Product $b): bool
+    {
+        foreach ($this->allNames($a) as $na) {
+            foreach ($this->allNames($b) as $nb) {
+                if ($this->namesSimilar($na, $nb)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function namesSimilar(string $a, string $b): bool
     {
         $a = trim(preg_replace('/\s+/u', ' ', mb_strtolower($a)) ?? '');
@@ -509,6 +550,19 @@ class ProducerReassignmentService
             return true;
         }
         // Common prefix long enough: "kapuzinerblüte" ↔ "kapuzinerblätter".
+        if ($this->sharedPrefix($a, $b) >= self::PREFIX_MATCH) {
+            return true;
+        }
+
+        // Common suffix long enough: "bataviasalat" ↔ "eichblattsalat",
+        // "batavia salad" ↔ "oak leaf salad". This is what lets salad-family
+        // names pair up in German even though they never share a prefix.
+        return $this->sharedSuffix($a, $b) >= self::PREFIX_MATCH;
+    }
+
+    /** Length of the common leading run of characters between two strings. */
+    private function sharedPrefix(string $a, string $b): int
+    {
         $len = min(mb_strlen($a), mb_strlen($b));
         $shared = 0;
         for ($i = 0; $i < $len; $i++) {
@@ -518,7 +572,24 @@ class ProducerReassignmentService
             $shared++;
         }
 
-        return $shared >= self::PREFIX_MATCH;
+        return $shared;
+    }
+
+    /** Length of the common trailing run of characters between two strings. */
+    private function sharedSuffix(string $a, string $b): int
+    {
+        $la = mb_strlen($a);
+        $lb = mb_strlen($b);
+        $len = min($la, $lb);
+        $shared = 0;
+        for ($i = 1; $i <= $len; $i++) {
+            if (mb_substr($a, $la - $i, 1) !== mb_substr($b, $lb - $i, 1)) {
+                break;
+            }
+            $shared++;
+        }
+
+        return $shared;
     }
 
     /** Finalized shop orders: Paid, Fulfilled, or in-person PendingPayment. */
