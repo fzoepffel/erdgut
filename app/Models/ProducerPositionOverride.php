@@ -20,6 +20,7 @@ class ProducerPositionOverride extends Model
         'delivery_date',
         'target_product_id',
         'target_producer_id',
+        'target_quantity',
         'created_by_user_id',
     ];
 
@@ -30,6 +31,9 @@ class ProducerPositionOverride extends Model
         'variant_id' => 'integer',
         'target_product_id' => 'integer',
         'target_producer_id' => 'integer',
+        // Position amount in the target product's canonical unit; null when the
+        // move needs no conversion (same unit / same farm).
+        'target_quantity' => 'float',
     ];
 
     /** The product as ordered by the customer. */

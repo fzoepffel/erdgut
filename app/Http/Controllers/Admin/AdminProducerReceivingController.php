@@ -167,6 +167,9 @@ class AdminProducerReceivingController extends Controller
             'delivery_date' => ['required', 'date'],
             'target_product_id' => ['required', 'integer', 'exists:products,id'],
             'target_producer_id' => ['required', 'integer', 'exists:producers,id'],
+            // Converted amount (in the target's display unit) when the move
+            // crosses units; omitted for a same-unit move.
+            'target_quantity' => ['nullable', 'numeric', 'gt:0'],
         ]);
 
         $this->reassignment->move(
@@ -176,6 +179,7 @@ class AdminProducerReceivingController extends Controller
             (int) $data['target_product_id'],
             (int) $data['target_producer_id'],
             $request->user()?->id,
+            isset($data['target_quantity']) ? (float) $data['target_quantity'] : null,
         );
 
         return response()->json(['ok' => true]);
@@ -303,6 +307,15 @@ class AdminProducerReceivingController extends Controller
                 continue;
             }
             $receiptVariant = $override->target_product_id === $sourcePid ? $variantId : 0;
+            // A cross-unit move stored the amount in the target's canonical unit;
+            // render that in the target's display unit. Legacy moves (no stored
+            // quantity) keep the source-derived amount, correct for a same-unit move.
+            if ($override->target_quantity !== null) {
+                $targetFactor = $this->reassignment->displayFactor($targetProduct);
+                $qtyDisplay = round($targetFactor > 0 ? $override->target_quantity / $targetFactor : $override->target_quantity, 4);
+            } else {
+                $qtyDisplay = round($sourceMeta['factor'] > 0 ? $qty / $sourceMeta['factor'] : $qty, 4);
+            }
             $row = $this->row(
                 $override->target_producer_id,
                 $override->target_product_id,
@@ -314,7 +327,7 @@ class AdminProducerReceivingController extends Controller
                     'unit' => $targetProduct->localizedUnit(),
                     'factor' => $sourceMeta['factor'],
                 ],
-                round($sourceMeta['factor'] > 0 ? $qty / $sourceMeta['factor'] : $qty, 4),
+                $qtyDisplay,
                 $received,
                 movable: true,
             );
@@ -489,8 +502,8 @@ class AdminProducerReceivingController extends Controller
 
     /**
      * Every farm that could cover this whole position from stock on this day,
-     * across the same product OR any look-alike / sibling. Excludes the current
-     * same-product pairing.
+     * across the same product OR any look-alike / sibling. Excludes the farm the
+     * position is currently sourced from: a move only makes sense to another farm.
      *
      * @param  array<int, list<int>>  $candIdsByProduct
      * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
@@ -507,8 +520,8 @@ class AdminProducerReceivingController extends Controller
                 if ($producerId <= 0) {
                     continue;
                 }
-                if ($candidateId === $pid && $producerId === $currentProducerId) {
-                    continue; // already sourced here
+                if ($producerId === $currentProducerId) {
+                    continue; // a move only makes sense to a different farm
                 }
                 if ($cap + 1e-9 >= $qty) {
                     $farms[(int) $producerId] = true;
