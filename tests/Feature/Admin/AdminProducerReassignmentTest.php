@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\AdminShopOrderController;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
+use App\Models\ProductSubcategory;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use App\Models\User;
@@ -432,6 +433,48 @@ class AdminProducerReassignmentTest extends TestCase
         // Only the farm with the fitting order is red, never the bystander.
         $this->assertContains($holder->id, $row['recommend_target_producers']);
         $this->assertNotContains($bystander->id, $row['recommend_target_producers']);
+    }
+
+    public function test_lookalike_from_a_different_subcategory_is_not_a_target(): void
+    {
+        $roots = ProductSubcategory::query()->create([
+            'category' => 'produce', 'label_de' => 'Wurzeln', 'label_en' => 'Roots', 'label_fr' => 'Racines', 'sort_order' => 10,
+        ]);
+        $leaves = ProductSubcategory::query()->create([
+            'category' => 'produce', 'label_de' => 'Blätter', 'label_en' => 'Leaves', 'label_fr' => 'Feuilles', 'sort_order' => 20,
+        ]);
+
+        // Three identically-named products. The source and one substitute sit in
+        // "Roots"; a third sits in "Leaves". Only the same-subcategory one may be
+        // a target, even though all three names match.
+        $source = $this->namedProduct($this->farmA, ['de' => 'Rote Bete', 'en' => 'Beetroot', 'fr' => 'Betterave']);
+        $source->update(['subcategory_id' => $roots->id]);
+        $source = $source->fresh('translations');
+
+        $sameSub = $this->namedProduct($this->farmB, ['de' => 'Rote Bete', 'en' => 'Beetroot', 'fr' => 'Betterave']);
+        $sameSub->update(['subcategory_id' => $roots->id]);
+
+        $wrongSub = $this->namedProduct($this->farmC, ['de' => 'Rote Bete', 'en' => 'Beetroot', 'fr' => 'Betterave']);
+        $wrongSub->update(['subcategory_id' => $leaves->id]);
+
+        $this->inflow($source, $this->farmA, 2);
+        $this->inflow($sameSub, $this->farmB, 20);
+        $this->inflow($wrongSub, $this->farmC, 20);
+
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $source->id,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 6.0, 'vat_amount_eur' => 0.4,
+        ]);
+
+        $qty = $this->service()->positionDemand($source->id, 0, self::DATE);
+        $current = $this->service()->currentSourcing($source->id, 0, self::DATE);
+        $targets = collect($this->service()->moveTargetsForPosition(
+            $source, 0, self::DATE, $qty, $current['product_id'], $current['producer_id'],
+        ));
+
+        $this->assertNotNull($targets->firstWhere('target_product_id', $sameSub->id));
+        $this->assertNull($targets->firstWhere('target_product_id', $wrongSub->id));
     }
 
     public function test_low_value_farm_flags_only_the_lines_that_can_move(): void
