@@ -299,7 +299,8 @@
                         @foreach ($order->items as $item)
                             <tr>
                                 <td class="px-4 py-2 text-gray-800">{{ $item->displayName() }}@if ($item->variant_name_snapshot) <span class="text-gray-500">· {{ $item->variant_name_snapshot }}</span>@endif
-                                    @if ($item->isCustom())<span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide text-gray-500">{{ __('shop.admin.custom_line_tag') }}</span>@endif</td>
+                                    @if ($item->isCustom())<span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide text-gray-500">{{ __('shop.admin.custom_line_tag') }}</span>@endif
+                                    @if ($item->product?->producer)<div class="text-xs text-gray-500">{{ $item->product->producer->name }}</div>@endif</td>
                                 <td class="px-4 py-2 text-gray-600">{{ $item->displayQuantityLabel() }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ $item->vat_rate_snapshot_percent }}%</td>
                                 @if ($isBusiness)
