@@ -146,6 +146,65 @@ class ProducerAllocationService
     }
 
     /**
+     * Signed per-product availability delta from farm moves, in canonical
+     * units, so the inventar product TOTALS shift the same way the per-farm
+     * remaining already does: the source product regains the moved position
+     * (+qty) and the target product is charged (−qty). A same-product move
+     * nets to zero (only the per-farm split changes). Products with no
+     * override are absent. Layered on top of the availability window by the
+     * inventar page only; storefront/B2B availability stays untouched.
+     *
+     * @param  list<int>  $productIds
+     * @param  list<string>  $isoDates
+     * @return array<string, array<int, float>> [iso][pid => delta]
+     */
+    public function overrideAvailabilityDelta(array $productIds, array $isoDates): array
+    {
+        $productIds = array_values(array_unique(array_map('intval', $productIds)));
+        $isoDates = array_values(array_unique($isoDates));
+        if ($productIds === [] || $isoDates === []) {
+            return [];
+        }
+
+        $overrides = $this->overridesAffecting($productIds, $isoDates);
+        if ($overrides->isEmpty()) {
+            return [];
+        }
+
+        // Allocation of the SOURCE positions tells us how much (and from which
+        // farms) each move actually relocated — the same basis the per-farm
+        // reattribution uses, so the totals and the sub-rows stay in step.
+        $allocation = $this->allocate($this->expandProductIds($productIds, $overrides), $isoDates);
+
+        $delta = [];
+        foreach ($overrides as $override) {
+            $iso = $override->delivery_date;
+            $sourcePid = (int) $override->product_id;
+            $sourceVkey = (int) $override->variant_id;
+            $targetPid = (int) $override->target_product_id;
+
+            $sourceQty = 0.0;
+            foreach ($allocation[$iso][$sourcePid][$sourceVkey] ?? [] as $qty) {
+                $sourceQty += (float) $qty;
+            }
+            if ($sourceQty <= 1e-9) {
+                continue;
+            }
+
+            // Cross-unit moves store the charge in the target's canonical unit;
+            // same-unit moves keep the source quantity.
+            $targetQty = $override->target_quantity !== null
+                ? (float) $override->target_quantity
+                : $sourceQty;
+
+            $delta[$iso][$sourcePid] = ($delta[$iso][$sourcePid] ?? 0.0) + $sourceQty;
+            $delta[$iso][$targetPid] = ($delta[$iso][$targetPid] ?? 0.0) - $targetQty;
+        }
+
+        return $delta;
+    }
+
+    /**
      * Overrides that touch any of the requested products (as source or target)
      * on the requested dates.
      *
