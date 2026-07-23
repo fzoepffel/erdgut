@@ -444,6 +444,20 @@ class ShopOrderInvoiceTest extends TestCase
             ->assertRedirect(route('app.admin.shop-orders.invoice-editor', $mirror->restaurant_order_id));
     }
 
+    public function test_invoice_editor_prefills_the_clean_catalog_unit_price(): void
+    {
+        // 30 g of a 2,15 €-net/100 g product: the Preis column must prefill
+        // 21,50 €/kg (from the catalog price), not the 21,33 that total ÷ qty
+        // would give.
+        $order = $this->per100gOrder(30, 0.69, 0.05);
+
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-orders.shop-invoice-editor', $order))
+            ->assertOk()
+            ->assertSee('"price":21.5', false)
+            ->assertDontSee('"price":21.33', false);
+    }
+
     public function test_editor_save_converts_net_entry_to_gross_snapshots(): void
     {
         $order = $this->makeOrder();
@@ -852,10 +866,11 @@ class ShopOrderInvoiceTest extends TestCase
     {
         // A product priced per 100 g must not print "100 g" as a unit: it is
         // shown in kg (500 g at 100 € net → 0,5 kg at 200,00 €/kg).
+        // Gross 0,214 €/g → 214,00 €/kg gross → 200,00 €/kg net at 7 %.
         $per100g = Product::factory()->create([
             'unit' => ProductUnit::Mass->value,
             'price_display_unit' => '100g',
-            'unit_price' => 21.50,
+            'unit_price' => 0.214,
             'vat_rate_percent' => 7,
             'is_available' => true,
             'is_published' => true,
@@ -864,7 +879,7 @@ class ShopOrderInvoiceTest extends TestCase
             'product_id' => $per100g->id,
             'quantity' => 500,
             'unit' => 'mass',
-            'unit_price_snapshot_eur' => 0.21,
+            'unit_price_snapshot_eur' => 0.214,
             'line_total_eur' => 107.00,
             'vat_rate_snapshot_percent' => 7,
             'vat_amount_eur' => 7.00,
@@ -899,5 +914,115 @@ class ShopOrderInvoiceTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('1 Schale', $html);
+    }
+
+    /** Render the Beleg (receipt) PDF for a shop order. */
+    private function renderReceipt(ShopOrder $order): string
+    {
+        return view('shop.pdf.receipt', [
+            'order' => $order->load('items.product.translations'),
+            'vatByRate' => ShopOrderService::vatByRate($order),
+            'producerNames' => collect(),
+            'company' => [
+                'name' => 'Erdgut', 'street' => '', 'postal_city' => '',
+                'phone' => '', 'email' => '', 'vat_id' => '', 'register' => '',
+            ],
+        ])->render();
+    }
+
+    /** A per-100 g product bought in grams. Gross 0,023 €/g → 23,00 €/kg
+     * gross → 21,50 €/kg net at 7 %. */
+    private function per100gOrder(float $quantityGrams, float $lineGross, float $vat): ShopOrder
+    {
+        $product = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => '100g',
+            'unit_price' => 0.023,
+            'vat_rate_percent' => 7,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+
+        return $this->makeOrder([
+            'items_total_eur' => $lineGross,
+            'total_amount_eur' => $lineGross,
+        ], [
+            'product_id' => $product->id,
+            'quantity' => $quantityGrams,
+            'unit' => 'mass',
+            'unit_price_snapshot_eur' => round($lineGross / $quantityGrams, 4),
+            'line_total_eur' => $lineGross,
+            'vat_rate_snapshot_percent' => 7,
+            'vat_amount_eur' => $vat,
+        ]);
+    }
+
+    public function test_unit_price_uses_the_catalog_list_price_for_small_quantities(): void
+    {
+        // 30 g at 2,15 €-net/100 g: line net 0,64 €. total ÷ qty would show
+        // 21,33 €/kg; the catalog list price gives the clean 21,50 €/kg.
+        $order = $this->per100gOrder(30, 0.69, 0.05);
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order);
+
+        $invoice = $this->renderInvoice($issued);
+        $this->assertStringContainsString('21,50', $invoice);
+        $this->assertStringNotContainsString('21,33', $invoice);
+        $this->assertStringContainsString('0,03 kg', $invoice);
+
+        // The Beleg prints the gross unit price: 23,00 €/kg.
+        $receipt = $this->renderReceipt($issued);
+        $this->assertStringContainsString('23,00', $receipt);
+    }
+
+    public function test_unit_price_is_clean_for_exact_display_multiples(): void
+    {
+        // 100 g at 2,15 €-net/100 g: net 2,15 €, an exact multiple. Both
+        // paths agree at 21,50 €/kg and the row multiplies out exactly.
+        $order = $this->per100gOrder(100, 2.30, 0.15);
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order);
+
+        $invoice = $this->renderInvoice($issued);
+        $this->assertStringContainsString('21,50', $invoice);
+        $this->assertStringContainsString('0,1 kg', $invoice);
+        // 21,50 × 0,1 kg = 2,15 € net line total.
+        $this->assertStringContainsString('2,15 €', $invoice);
+    }
+
+    public function test_unit_price_falls_back_to_the_effective_rate_when_a_line_is_repriced(): void
+    {
+        // Same product, but the line was manually discounted to half. The
+        // catalog price no longer reconciles, so the column shows the real
+        // charged rate (10,75 €/kg net), not the misleading 21,50 list price.
+        $order = $this->per100gOrder(100, 1.15, 0.08);
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order);
+
+        $invoice = $this->renderInvoice($issued);
+        // net 1,07 over 0,1 kg → 10,70 €/kg.
+        $this->assertStringContainsString('10,70', $invoice);
+        $this->assertStringNotContainsString('21,50', $invoice);
+    }
+
+    public function test_custom_line_unit_price_still_derives_from_the_total(): void
+    {
+        // Off-catalog line (no product): keeps the total-derived rate.
+        $order = $this->makeOrder([
+            'items_total_eur' => 10.70,
+            'total_amount_eur' => 10.70,
+        ], [
+            'product_id' => null,
+            'name_snapshot' => 'Marktstand-Aufbau',
+            'quantity' => 1,
+            'unit' => 'piece',
+            'unit_price_snapshot_eur' => 10.70,
+            'line_total_eur' => 10.70,
+            'vat_rate_snapshot_percent' => 7,
+            'vat_amount_eur' => 0.70,
+        ]);
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order);
+
+        $invoice = $this->renderInvoice($issued);
+        // net 10,00 over 1 Stück → 10,00 €/Stück.
+        $this->assertStringContainsString('10,00', $invoice);
+        $this->assertStringContainsString('Marktstand-Aufbau', $invoice);
     }
 }
