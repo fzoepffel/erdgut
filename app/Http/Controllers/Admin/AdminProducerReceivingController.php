@@ -526,8 +526,9 @@ class AdminProducerReceivingController extends Controller
      *    absorb this into. Only those farms are marked, never a farm that would
      *    open a brand-new position.
      *  - "low_value": a farm whose whole order here is worth less than the
-     *    threshold and every one of its lines can be covered elsewhere. Then all
-     *    its movable lines are flagged, pointing at any farm that can take them.
+     *    threshold. Only the movable lines that can actually be covered elsewhere
+     *    are flagged (each pointing at the farms that can take it), never a whole
+     *    farm just because one of its lines fits.
      *
      * @param  array<int, list<array<string, mixed>>>  $byProducer
      * @param  array<int, list<int>>  $candIdsByProduct
@@ -550,7 +551,7 @@ class AdminProducerReceivingController extends Controller
 
         foreach ($byProducer as $producerId => &$rows) {
             $producerId = (int) $producerId;
-            $farmIsTiny = $this->farmIsTinyAndReplaceable($producerId, $rows, $productModels, $candIdsByProduct, $capacityByIso, $demand);
+            $farmIsTiny = $this->farmValueBelowThreshold($rows, $productModels);
 
             foreach ($rows as &$row) {
                 if ($row['overridden'] || $row['received'] || ! $row['movable']) {
@@ -585,16 +586,16 @@ class AdminProducerReceivingController extends Controller
 
     /**
      * Is this farm's whole order here worth less than the consolidation
-     * threshold, with a covering farm for every one of its movable lines? Such
-     * a farm is barely worth a separate pickup, so moving everything is advised.
+     * threshold? Such a farm is barely worth a separate pickup, so each of its
+     * movable lines that has a covering farm is advised to move. The per-line
+     * capability check happens in {@see annotateRecommendations}, so a low-value
+     * farm only flags the specific products that can actually move, never all of
+     * them just because one fits.
      *
      * @param  list<array<string, mixed>>  $rows
      * @param  array<int, Product>  $productModels
-     * @param  array<int, list<int>>  $candIdsByProduct
-     * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
-     * @param  array<int, array<int, array<string, float>>>  $demand
      */
-    private function farmIsTinyAndReplaceable(int $producerId, array $rows, array $productModels, array $candIdsByProduct, array $capacityByIso, array $demand): bool
+    private function farmValueBelowThreshold(array $rows, array $productModels): bool
     {
         $value = 0.0;
         foreach ($rows as $r) {
@@ -603,25 +604,8 @@ class AdminProducerReceivingController extends Controller
                 $value += (float) $r['qty_display'] * (float) $product->displayUnitPrice();
             }
         }
-        if ($value >= self::CONSOLIDATE_VALUE_THRESHOLD_EUR) {
-            return false;
-        }
 
-        $movable = array_filter($rows, fn (array $r): bool => ! $r['overridden'] && ! $r['received'] && $r['movable']);
-        if ($movable === []) {
-            return false;
-        }
-        foreach ($movable as $r) {
-            $pid = (int) $r['product_id'];
-            $variantId = (int) $r['variant_id'];
-            $iso = (string) $r['date'];
-            $qty = (float) ($demand[$pid][$variantId][$iso] ?? 0.0);
-            if ($this->capableTargetFarms($candIdsByProduct, $capacityByIso, $iso, $pid, $variantId, $qty, $producerId) === []) {
-                return false; // a line with no replacement: not a clean consolidation
-            }
-        }
-
-        return true;
+        return $value < self::CONSOLIDATE_VALUE_THRESHOLD_EUR;
     }
 
     /**
