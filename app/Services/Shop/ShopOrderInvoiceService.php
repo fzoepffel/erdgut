@@ -209,10 +209,22 @@ class ShopOrderInvoiceService
 
                 $gross = round($net * (100 + $rate) / 100, 2);
 
+                // Keep the precise per-unit snapshot when the line is untouched
+                // (same net, quantity and rate): recomputing it from the
+                // 2-decimal total would degrade e.g. 0,0215 €/g to 0,0213.
+                // Only lines whose total actually changed take a fresh snapshot.
+                $storedNet = round((float) $item->line_total_eur - (float) $item->vat_amount_eur, 2);
+                $lineUnchanged = abs($net - $storedNet) < 0.005
+                    && abs($qty - (float) $item->quantity) < 0.00005
+                    && $rate === (int) $item->vat_rate_snapshot_percent;
+                $snapshot = $lineUnchanged
+                    ? (float) $item->unit_price_snapshot_eur
+                    : ($qty > 0 ? round($gross / $qty, 4) : 0);
+
                 $item->forceFill([
                     'quantity' => $qty,
                     'vat_rate_snapshot_percent' => $rate,
-                    'unit_price_snapshot_eur' => $qty > 0 ? round($gross / $qty, 4) : 0,
+                    'unit_price_snapshot_eur' => $snapshot,
                     'line_total_eur' => $gross,
                     'vat_amount_eur' => round($gross - $net, 2),
                     // Per-document print name; blank resets to the real name.
