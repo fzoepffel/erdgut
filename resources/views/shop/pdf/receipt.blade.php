@@ -37,6 +37,19 @@
             default => ProductUnit::displaySymbol($u),
         };
 
+        // Admin display override (e.g. show "2 Stück" while the order is 300 g).
+        $overrideUnit = trim((string) ($item->display_unit_override ?? ''));
+        $overrideQty = $item->display_quantity_override;
+        if ($overrideUnit !== '' && $overrideQty !== null && (float) $overrideQty > 0) {
+            $displayQty = (float) $overrideQty;
+            $unitLabel = $overrideUnit;
+
+            return [
+                'unit_gross' => $displayQty > 0 ? (float) $item->line_total_eur / $displayQty : 0.0,
+                'qty' => trim($num($displayQty).' '.$unitLabel),
+            ];
+        }
+
         if ($product?->unit !== null) {
             $display = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
             $factor = max(1, $product->unit->canonicalUnitsPerDisplay($display));

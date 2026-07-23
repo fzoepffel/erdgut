@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\ShopOrder;
 use App\Services\Shop\ShopOrderService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -26,6 +27,9 @@ class AdminShopInvoiceEditorRequest extends FormRequest
      */
     public function rules(): array
     {
+        /** @var ShopOrder $shopOrder */
+        $shopOrder = $this->route('shopOrder');
+
         $rules = [
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['nullable', 'integer'],
@@ -33,6 +37,9 @@ class AdminShopInvoiceEditorRequest extends FormRequest
             // New off-catalog lines (no id).
             'items.*.name' => ['nullable', 'string', 'max:160'],
             'items.*.unit' => ['nullable', 'string', Rule::in(['piece', 'bunch', 'kg', 'g', 'l', 'ml'])],
+            // Display-only overrides for the invoice/receipt (free text unit).
+            'items.*.display_unit' => ['nullable', 'string', 'max:32'],
+            'items.*.display_quantity' => ['nullable', 'numeric', 'gt:0'],
             'items.*.net_total_eur' => ['nullable', 'numeric', 'min:0', 'max:99999.99'],
             'items.*.vat_rate_percent' => ['nullable', 'integer', Rule::in([7, 19])],
             'items.*.quantity' => ['nullable', 'numeric', 'gt:0'],
@@ -43,6 +50,13 @@ class AdminShopInvoiceEditorRequest extends FormRequest
 
             'invoice_due_date' => ['nullable', 'date'],
             'expected_delivery_date' => ['nullable', 'date'],
+            // Draft-only editable number; uniqueness among shop orders.
+            'invoice_number' => [
+                'nullable',
+                'string',
+                'max:32',
+                Rule::unique('shop_orders', 'invoice_number')->ignore($shopOrder?->id),
+            ],
 
             'overrides' => ['nullable', 'array'],
         ];
