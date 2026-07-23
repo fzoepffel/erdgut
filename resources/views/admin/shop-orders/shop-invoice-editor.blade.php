@@ -44,7 +44,7 @@
                 // Preis readout is derived from the total instead (displayPrice),
                 // so this stays the price the editable field falls back to once
                 // the override is cleared.
-                'price' => $displayQty > 0 ? round($net / $displayQty, 4) : 0.0,
+                'price' => \App\Services\Shop\ShopOrderInvoiceService::displayUnitPricing($item)['net'],
                 'vat' => (int) $item->vat_rate_snapshot_percent,
                 'factor' => $factor,
                 'displayUnit' => (string) ($item->display_unit_override ?? ''),
