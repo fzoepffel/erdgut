@@ -48,10 +48,15 @@ class AdminProducerReceivingTest extends TestCase
 
     private function order(string $status = ShopOrderStatus::Paid->value): ShopOrder
     {
+        return $this->orderOn(self::DAY, $status);
+    }
+
+    private function orderOn(string $date, string $status = ShopOrderStatus::Paid->value): ShopOrder
+    {
         return ShopOrder::create([
             'name' => 'Anna', 'email' => 'a@example.com',
             'fulfillment_mode' => 'pickup', 'pickup_location' => 'karl_kunger',
-            'expected_delivery_date' => self::DAY,
+            'expected_delivery_date' => $date,
             'payment_method' => 'online', 'status' => $status,
             'items_total_eur' => 0, 'total_amount_eur' => 0,
         ]);
@@ -64,6 +69,41 @@ class AdminProducerReceivingTest extends TestCase
             'unit_price_snapshot_eur' => 3.0, 'line_total_eur' => 3.0 * $qty,
             'vat_rate_snapshot_percent' => 7, 'vat_amount_eur' => 0,
         ]);
+    }
+
+    public function test_fresh_visit_defaults_to_the_next_delivery_day_with_orders(): void
+    {
+        // Today is 2026-06-19; both days are upcoming, so the earlier one wins.
+        $farm = Producer::factory()->create();
+        $carrots = $this->product($farm);
+        $this->item($this->orderOn('2026-06-22'), $carrots, 1);
+        $this->item($this->orderOn('2026-06-29'), $carrots, 1);
+
+        $filter = $this->actingAs($this->admin())
+            ->get(route('app.admin.producer-orders.index'))
+            ->assertOk()
+            ->viewData('filter');
+
+        $this->assertSame('2026-06-22', $filter['delivery_from']);
+        $this->assertSame('2026-06-22', $filter['delivery_to']);
+    }
+
+    public function test_fresh_visit_without_upcoming_deliveries_falls_back_to_the_last_one(): void
+    {
+        // Only past delivery days exist; the panel focuses on the most recent
+        // one instead of showing an open-ended range.
+        $farm = Producer::factory()->create();
+        $carrots = $this->product($farm);
+        $this->item($this->orderOn('2026-06-05'), $carrots, 1);
+        $this->item($this->orderOn('2026-06-12'), $carrots, 1);
+
+        $filter = $this->actingAs($this->admin())
+            ->get(route('app.admin.producer-orders.index'))
+            ->assertOk()
+            ->viewData('filter');
+
+        $this->assertSame('2026-06-12', $filter['delivery_from']);
+        $this->assertSame('2026-06-12', $filter['delivery_to']);
     }
 
     public function test_requires_admin(): void
