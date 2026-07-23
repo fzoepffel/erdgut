@@ -675,18 +675,7 @@ class AdminProducerReceivingController extends Controller
      */
     private function restaurantDemand(array $filter): array
     {
-        $query = RestaurantOrderItem::query()
-            ->join('restaurant_orders', 'restaurant_orders.id', '=', 'restaurant_order_items.restaurant_order_id')
-            ->whereIn('restaurant_orders.status', RestaurantOrderStatus::reservingValues())
-            ->where(function ($q): void {
-                $q->where('restaurant_order_items.track', 'reserved')
-                    ->orWhere(function ($q): void {
-                        $q->where('restaurant_order_items.line_status', 'confirmed')
-                            ->where('restaurant_orders.kind', 'order');
-                    });
-            })
-            ->where('restaurant_order_items.line_status', '!=', 'declined')
-            ->whereNotNull('restaurant_order_items.product_id');
+        $query = $this->committingRestaurantItemsQuery();
 
         if ($filter['delivery_from'] !== '') {
             $query->whereDate('restaurant_orders.expected_delivery_date', '>=', $filter['delivery_from']);
@@ -873,12 +862,14 @@ class AdminProducerReceivingController extends Controller
         $from = (string) $request->query('delivery_from', '');
         $to = (string) $request->query('delivery_to', '');
 
-        // Fresh visit (no date params at all): focus on the NEXT delivery day
-        // that has orders. Explicitly cleared inputs mean "all dates".
+        // Fresh visit (no date params at all): focus on the next delivery day
+        // that has orders, or the most recent past one if nothing is upcoming,
+        // so the panel is never an open-ended range. Explicitly cleared inputs
+        // still mean "all dates".
         if (! $request->has('delivery_from') && ! $request->has('delivery_to')) {
-            $next = $this->nextDeliveryDayWithOrders();
-            if ($next !== null) {
-                $from = $to = $next;
+            $default = $this->defaultDeliveryDay();
+            if ($default !== null) {
+                $from = $to = $default;
             }
         }
 
@@ -915,15 +906,82 @@ class AdminProducerReceivingController extends Controller
             ->when($filter['delivery_to'] !== '', fn (Builder $q): Builder => $q->whereDate('expected_delivery_date', '<=', $filter['delivery_to']));
     }
 
-    /** Next date (today or later) that has any firm shop order. */
-    private function nextDeliveryDayWithOrders(): ?string
+    /**
+     * The delivery day a fresh visit should land on: the next one (today or
+     * later) with orders, or the most recent past one if nothing is upcoming.
+     * Considers both firm shop orders and committing restaurant lines, matching
+     * the demand the panel actually renders.
+     */
+    private function defaultDeliveryDay(): ?string
     {
-        $next = ShopOrder::query()
-            ->finalized()
-            ->whereDate('expected_delivery_date', '>=', Carbon::today()->toDateString())
-            ->orderBy('expected_delivery_date')
-            ->value('expected_delivery_date');
+        $today = Carbon::today()->toDateString();
 
-        return $next !== null ? Carbon::parse($next)->toDateString() : null;
+        return $this->nextDeliveryDayWithOrders($today)
+            ?? $this->lastDeliveryDayWithOrders();
+    }
+
+    /** Earliest delivery date on or after $today that has any demand. */
+    private function nextDeliveryDayWithOrders(string $today): ?string
+    {
+        $shop = ShopOrder::query()
+            ->finalized()
+            ->whereDate('expected_delivery_date', '>=', $today)
+            ->min('expected_delivery_date');
+
+        $restaurant = $this->committingRestaurantItemsQuery()
+            ->whereDate('restaurant_orders.expected_delivery_date', '>=', $today)
+            ->min('restaurant_orders.expected_delivery_date');
+
+        return $this->pickDate($shop, $restaurant, earliest: true);
+    }
+
+    /** Most recent delivery date that has any demand (used when none upcoming). */
+    private function lastDeliveryDayWithOrders(): ?string
+    {
+        $shop = ShopOrder::query()
+            ->finalized()
+            ->max('expected_delivery_date');
+
+        $restaurant = $this->committingRestaurantItemsQuery()
+            ->max('restaurant_orders.expected_delivery_date');
+
+        return $this->pickDate($shop, $restaurant, earliest: false);
+    }
+
+    /**
+     * The committing restaurant order lines (reserved, or confirmed order
+     * lines), joined to their orders. Shared by the demand build and the
+     * default-date resolution so both agree on what counts as an order.
+     *
+     * @return Builder<RestaurantOrderItem>
+     */
+    private function committingRestaurantItemsQuery(): Builder
+    {
+        return RestaurantOrderItem::query()
+            ->join('restaurant_orders', 'restaurant_orders.id', '=', 'restaurant_order_items.restaurant_order_id')
+            ->whereIn('restaurant_orders.status', RestaurantOrderStatus::reservingValues())
+            ->where(function ($q): void {
+                $q->where('restaurant_order_items.track', 'reserved')
+                    ->orWhere(function ($q): void {
+                        $q->where('restaurant_order_items.line_status', 'confirmed')
+                            ->where('restaurant_orders.kind', 'order');
+                    });
+            })
+            ->where('restaurant_order_items.line_status', '!=', 'declined')
+            ->whereNotNull('restaurant_order_items.product_id');
+    }
+
+    /** Pick the earliest or latest of two nullable dates, normalized to Y-m-d. */
+    private function pickDate(?string $a, ?string $b, bool $earliest): ?string
+    {
+        $dates = array_values(array_filter([
+            $a !== null ? Carbon::parse($a)->toDateString() : null,
+            $b !== null ? Carbon::parse($b)->toDateString() : null,
+        ]));
+        if ($dates === []) {
+            return null;
+        }
+
+        return $earliest ? min($dates) : max($dates);
     }
 }
