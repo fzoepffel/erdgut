@@ -799,6 +799,26 @@ class ShopOrderInvoiceTest extends TestCase
         $this->assertStringContainsString('50,00', $html);
     }
 
+    public function test_invoice_pdf_promotes_gram_override_to_a_kilo_price(): void
+    {
+        // A gram override should read like a shelf price: 100 € net over
+        // 500 g is shown as 0,5 kg at 200,00 €/kg, not a per-gram pittance.
+        $order = $this->makeOrder();
+        $item = $order->items()->firstOrFail();
+        $item->forceFill([
+            'display_unit_override' => 'g',
+            'display_quantity_override' => 500,
+        ])->save();
+
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order);
+        $html = $this->renderInvoice($issued);
+
+        $this->assertStringContainsString('0,5 kg', $html);
+        $this->assertStringContainsString('200,00', $html);
+        // The raw per-gram price must not leak through.
+        $this->assertStringNotContainsString('500 g', $html);
+    }
+
     public function test_receipt_pdf_renders_display_unit_override(): void
     {
         $order = $this->makeOrder();
