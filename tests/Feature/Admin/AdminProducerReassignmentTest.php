@@ -434,6 +434,89 @@ class AdminProducerReassignmentTest extends TestCase
         $this->assertNotContains($bystander->id, $row['recommend_target_producers']);
     }
 
+    public function test_low_value_farm_flags_only_the_lines_that_can_move(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        // A €12 farm (2 lines × €6), below the threshold. One line has a capable
+        // look-alike elsewhere; the other is unique with no replacement anywhere.
+        // Only the replaceable line may be flagged, never the whole farm.
+        $tinyFarm = $this->farm('Tiny Farm');
+        $spareFarm = $this->farm('Spare Farm');
+
+        $movable = $this->namedProduct($tinyFarm, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
+        $spare = $this->namedProduct($spareFarm, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
+        $stuck = $this->namedProduct($tinyFarm, ['de' => 'Seltene Wurzel', 'en' => 'Rare Root', 'fr' => 'Racine rare']);
+
+        $this->inflow($movable, $tinyFarm, 2);
+        $this->inflow($spare, $spareFarm, 20);
+        $this->inflow($stuck, $tinyFarm, 2);
+
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $movable->id,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 6.0, 'vat_amount_eur' => 0.4,
+        ]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $stuck->id,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 6.0, 'vat_amount_eur' => 0.4,
+        ]);
+
+        $producers = collect($this->actingAs($admin)
+            ->get(route('app.admin.producer-orders.index', ['delivery_from' => self::DATE, 'delivery_to' => self::DATE]))
+            ->assertOk()
+            ->viewData('producers'));
+
+        $farm = $producers->firstWhere('id', $tinyFarm->id);
+        $movableRow = collect($farm['rows'])->firstWhere('product_id', $movable->id);
+        $stuckRow = collect($farm['rows'])->firstWhere('product_id', $stuck->id);
+
+        // The replaceable line is flagged and points at the capable farm.
+        $this->assertNotNull($movableRow);
+        $this->assertTrue($movableRow['recommended']);
+        $this->assertSame('low_value', $movableRow['recommend_reason']);
+        $this->assertContains($spareFarm->id, $movableRow['recommend_target_producers']);
+
+        // The unique line has no replacement, so it stays unmarked even though its
+        // farm is low-value: we no longer flag a whole farm because one line fits.
+        $this->assertNotNull($stuckRow);
+        $this->assertFalse($stuckRow['recommended']);
+    }
+
+    public function test_targets_report_sufficiency_and_name_closeness(): void
+    {
+        // Farm C is a registered supplier of the zucchini but has only 1 piece
+        // for a 3-piece position: it is still offered, flagged insufficient, and
+        // sorted to the very bottom.
+        $this->zucchini->producers()->syncWithoutDetaching([$this->farmC->id => ['buying_price_cents' => 150]]);
+        $this->inflow($this->zucchini, $this->farmC, 1);
+
+        $targets = $this->targets();
+
+        foreach ($targets as $t) {
+            $this->assertArrayHasKey('sufficient', $t);
+            $this->assertArrayHasKey('name_score', $t);
+        }
+
+        $collected = collect($targets);
+
+        $farmC = $collected->firstWhere('producer_id', $this->farmC->id);
+        $this->assertNotNull($farmC);
+        $this->assertFalse($farmC['sufficient']);
+
+        $farmB = $collected->firstWhere(
+            fn ($t) => $t['target_product_id'] === $this->zucchini->id && $t['producer_id'] === $this->farmB->id,
+        );
+        $this->assertTrue($farmB['sufficient']);
+
+        // The identically-named same product scores higher than the look-alike.
+        $gelb = $collected->firstWhere('target_product_id', $this->zucchiniGelb->id);
+        $this->assertGreaterThan($gelb['name_score'], $farmB['name_score']);
+
+        // Insufficient targets always sit at the bottom of the server order.
+        $this->assertSame($this->farmC->id, $targets[array_key_last($targets)]['producer_id']);
+    }
+
     public function test_move_to_registered_farm_without_inflow_is_allowed(): void
     {
         $admin = User::factory()->admin()->create();
