@@ -38,6 +38,9 @@ class AdminProducerReceivingController extends Controller
     /** Pseudo-status: the firm order set (Paid, Fulfilled, in-person pending). */
     private const FILTER_FINALIZED = 'finalized';
 
+    /** Below this order value (EUR) a farm is barely worth a separate pickup. */
+    private const CONSOLIDATE_VALUE_THRESHOLD_EUR = 20.0;
+
     public function __construct(private readonly ProducerReassignmentService $reassignment) {}
 
     public function index(Request $request): View
@@ -347,7 +350,7 @@ class AdminProducerReceivingController extends Controller
             }
         }
 
-        $this->annotateRecommendations($byProducer, $candIdsByProduct, $capacityByIso, $demand);
+        $this->annotateRecommendations($byProducer, $candIdsByProduct, $capacityByIso, $demand, $productModels);
 
         return $this->assembleProducers($byProducer);
     }
@@ -375,6 +378,7 @@ class AdminProducerReceivingController extends Controller
             'movable' => $movable,
             'recommended' => false,
             'recommend_reason' => null,
+            'recommend_target_producers' => [],
             'overridden' => false,
             'override' => null,
         ];
@@ -445,80 +449,95 @@ class AdminProducerReceivingController extends Controller
      * across the same product OR any of its look-alike / sibling products? The
      * current pairing (same product, same farm) never counts as a target.
      *
-     * When $presentSet is given, only farms already receiving in this run count
-     * (used to decide whether a move actually consolidates the run).
-     *
      * @param  array<int, list<int>>  $candIdsByProduct
      * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
-     * @param  array<int, mixed>|null  $presentSet
      */
-    private function hasCapableTarget(array $candIdsByProduct, array $capacityByIso, string $iso, int $pid, int $variantId, float $qty, int $currentProducerId, ?array $presentSet = null): bool
+    private function hasCapableTarget(array $candIdsByProduct, array $capacityByIso, string $iso, int $pid, int $variantId, float $qty, int $currentProducerId): bool
     {
-        if ($qty <= 1e-9) {
-            return false;
-        }
-        foreach ($candIdsByProduct[$pid] ?? [$pid] as $candidateId) {
-            $caps = $capacityByIso[$iso][$candidateId][$variantId] ?? [];
-            foreach ($caps as $producerId => $cap) {
-                if ($producerId <= 0) {
-                    continue;
-                }
-                if ($presentSet !== null && ! isset($presentSet[$producerId])) {
-                    continue; // only farms already in the run consolidate it
-                }
-                if ($candidateId === $pid && $producerId === $currentProducerId) {
-                    continue; // already sourced here
-                }
-                if ($cap + 1e-9 >= $qty) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return $this->capableTargetFarms($candIdsByProduct, $capacityByIso, $iso, $pid, $variantId, $qty, $currentProducerId) !== [];
     }
 
     /**
-     * Does another farm already in this run supply the same product OR an
-     * analogous (look-alike / sibling) one on the same day? That means we are
-     * buying the same thing from several farms and could consolidate.
+     * Farms (other than the current one) that already take a fitting product
+     * on this day AND still have the stock to cover this whole position. These
+     * are the genuine consolidation targets: moving here merges onto an order
+     * the farm already has, rather than opening a brand-new position.
      *
      * @param  array<string, list<array{pid: int, producer: int}>>  $activeByIso
      * @param  array<int, list<int>>  $candIdsByProduct
+     * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
+     * @return list<int>
      */
-    private function hasAnalogElsewhere(string $iso, int $pid, int $currentProducerId, array $activeByIso, array $candIdsByProduct): bool
+    private function analogHolderFarms(string $iso, int $pid, int $variantId, int $currentProducerId, array $activeByIso, array $candIdsByProduct, array $capacityByIso, float $qty): array
     {
         $analog = array_flip($candIdsByProduct[$pid] ?? [$pid]); // includes the product itself
+
+        $holders = [];
         foreach ($activeByIso[$iso] ?? [] as $entry) {
             if ($entry['producer'] === $currentProducerId) {
                 continue;
             }
             if (isset($analog[$entry['pid']])) {
-                return true;
+                $holders[$entry['producer']] = true;
             }
         }
 
-        return false;
+        $capable = array_flip($this->capableTargetFarms($candIdsByProduct, $capacityByIso, $iso, $pid, $variantId, $qty, $currentProducerId));
+
+        return array_values(array_filter(array_keys($holders), fn (int $id): bool => isset($capable[$id])));
+    }
+
+    /**
+     * Every farm that could cover this whole position from stock on this day,
+     * across the same product OR any look-alike / sibling. Excludes the current
+     * same-product pairing.
+     *
+     * @param  array<int, list<int>>  $candIdsByProduct
+     * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
+     * @return list<int>
+     */
+    private function capableTargetFarms(array $candIdsByProduct, array $capacityByIso, string $iso, int $pid, int $variantId, float $qty, int $currentProducerId): array
+    {
+        if ($qty <= 1e-9) {
+            return [];
+        }
+        $farms = [];
+        foreach ($candIdsByProduct[$pid] ?? [$pid] as $candidateId) {
+            foreach ($capacityByIso[$iso][$candidateId][$variantId] ?? [] as $producerId => $cap) {
+                if ($producerId <= 0) {
+                    continue;
+                }
+                if ($candidateId === $pid && $producerId === $currentProducerId) {
+                    continue; // already sourced here
+                }
+                if ($cap + 1e-9 >= $qty) {
+                    $farms[(int) $producerId] = true;
+                }
+            }
+        }
+
+        return array_keys($farms);
     }
 
     /**
      * Flag rows where changing farm is genuinely recommended, so the panel can
-     * paint the button (and the destination farm) red:
-     *  - a farm that supplies just one line here, when an analogous option
-     *    exists on another farm; or
-     *  - the same thing ordered from several farms, when one farm already in the
-     *    run could take the whole position.
+     * paint the button (and only the right destinations) red. Two triggers:
+     *  - "consolidate": another farm already takes a fitting product it could
+     *    absorb this into. Only those farms are marked, never a farm that would
+     *    open a brand-new position.
+     *  - "low_value": a farm whose whole order here is worth less than the
+     *    threshold and every one of its lines can be covered elsewhere. Then all
+     *    its movable lines are flagged, pointing at any farm that can take them.
      *
      * @param  array<int, list<array<string, mixed>>>  $byProducer
      * @param  array<int, list<int>>  $candIdsByProduct
      * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
      * @param  array<int, array<int, array<string, float>>>  $demand
+     * @param  array<int, Product>  $productModels
      */
-    private function annotateRecommendations(array &$byProducer, array $candIdsByProduct, array $capacityByIso, array $demand): void
+    private function annotateRecommendations(array &$byProducer, array $candIdsByProduct, array $capacityByIso, array $demand, array $productModels): void
     {
-        $presentSet = array_fill_keys(array_map('intval', array_keys($byProducer)), true);
-
-        // Active (not-yet-moved) lines per day, for the "same thing, many farms" test.
+        // Active (not-yet-moved) lines per day: which farm already takes which product.
         $activeByIso = [];
         foreach ($byProducer as $producerId => $rows) {
             foreach ($rows as $r) {
@@ -531,7 +550,8 @@ class AdminProducerReceivingController extends Controller
 
         foreach ($byProducer as $producerId => &$rows) {
             $producerId = (int) $producerId;
-            $loneFarm = count($rows) === 1;
+            $farmIsTiny = $this->farmIsTinyAndReplaceable($producerId, $rows, $productModels, $candIdsByProduct, $capacityByIso, $demand);
+
             foreach ($rows as &$row) {
                 if ($row['overridden'] || $row['received'] || ! $row['movable']) {
                     continue;
@@ -544,19 +564,64 @@ class AdminProducerReceivingController extends Controller
                     continue;
                 }
 
-                if ($this->hasAnalogElsewhere($iso, $pid, $producerId, $activeByIso, $candIdsByProduct)
-                    && $this->hasCapableTarget($candIdsByProduct, $capacityByIso, $iso, $pid, $variantId, $qty, $producerId, $presentSet)) {
+                $holders = $this->analogHolderFarms($iso, $pid, $variantId, $producerId, $activeByIso, $candIdsByProduct, $capacityByIso, $qty);
+                if ($holders !== []) {
                     $row['recommended'] = true;
                     $row['recommend_reason'] = 'consolidate';
-                } elseif ($loneFarm
-                    && $this->hasCapableTarget($candIdsByProduct, $capacityByIso, $iso, $pid, $variantId, $qty, $producerId)) {
-                    $row['recommended'] = true;
-                    $row['recommend_reason'] = 'lone_farm';
+                    $row['recommend_target_producers'] = $holders;
+                } elseif ($farmIsTiny) {
+                    $capable = $this->capableTargetFarms($candIdsByProduct, $capacityByIso, $iso, $pid, $variantId, $qty, $producerId);
+                    if ($capable !== []) {
+                        $row['recommended'] = true;
+                        $row['recommend_reason'] = 'low_value';
+                        $row['recommend_target_producers'] = $capable;
+                    }
                 }
             }
             unset($row);
         }
         unset($rows);
+    }
+
+    /**
+     * Is this farm's whole order here worth less than the consolidation
+     * threshold, with a covering farm for every one of its movable lines? Such
+     * a farm is barely worth a separate pickup, so moving everything is advised.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array<int, Product>  $productModels
+     * @param  array<int, list<int>>  $candIdsByProduct
+     * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
+     * @param  array<int, array<int, array<string, float>>>  $demand
+     */
+    private function farmIsTinyAndReplaceable(int $producerId, array $rows, array $productModels, array $candIdsByProduct, array $capacityByIso, array $demand): bool
+    {
+        $value = 0.0;
+        foreach ($rows as $r) {
+            $product = $productModels[(int) $r['product_id']] ?? null;
+            if ($product !== null) {
+                $value += (float) $r['qty_display'] * (float) $product->displayUnitPrice();
+            }
+        }
+        if ($value >= self::CONSOLIDATE_VALUE_THRESHOLD_EUR) {
+            return false;
+        }
+
+        $movable = array_filter($rows, fn (array $r): bool => ! $r['overridden'] && ! $r['received'] && $r['movable']);
+        if ($movable === []) {
+            return false;
+        }
+        foreach ($movable as $r) {
+            $pid = (int) $r['product_id'];
+            $variantId = (int) $r['variant_id'];
+            $iso = (string) $r['date'];
+            $qty = (float) ($demand[$pid][$variantId][$iso] ?? 0.0);
+            if ($this->capableTargetFarms($candIdsByProduct, $capacityByIso, $iso, $pid, $variantId, $qty, $producerId) === []) {
+                return false; // a line with no replacement: not a clean consolidation
+            }
+        }
+
+        return true;
     }
 
     /**

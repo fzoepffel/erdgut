@@ -274,12 +274,13 @@
                         .replace(':unit', t.unit || '');
                 },
 
-                // A farm already in this run that can take the whole position is
-                // the recommended destination (red), matching the row's red button.
+                // Only the specific farms the server flagged (an existing fitting
+                // order for "consolidate", any capable farm for a tiny farm) are
+                // painted red, matching the row's red button.
                 isRecommendedTarget(row, t) {
                     if (!row || !row.recommended) return false;
-                    if (!(t.capacity > 0)) return false;
-                    return this.producers.some(p => p.id === t.producer_id);
+                    const targets = row.recommend_target_producers || [];
+                    return targets.includes(t.producer_id);
                 },
 
                 openMove(row) {

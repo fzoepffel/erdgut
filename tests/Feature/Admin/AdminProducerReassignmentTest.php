@@ -108,7 +108,7 @@ class AdminProducerReassignmentTest extends TestCase
     {
         $p = Product::factory()->create([
             'producer_id' => $farm->id,
-            'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece',
+            'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece', 'unit_price' => 3.0,
             'is_available' => true, 'is_published' => true,
         ]);
         foreach ($names as $locale => $name) {
@@ -312,25 +312,25 @@ class AdminProducerReassignmentTest extends TestCase
         $this->assertSame($this->farmB->id, $lookalike['producer_id']);
     }
 
-    public function test_lone_farm_with_capable_lookalike_is_recommended(): void
+    public function test_low_value_farm_with_replaceable_lines_is_recommended(): void
     {
         $admin = User::factory()->admin()->create();
 
-        // A fresh farm supplies a single line; another farm has a capable
-        // look-alike in stock but no order of its own, so it is not "analog
-        // elsewhere" in demand and only the lone-farm rule should fire.
-        $loneFarm = $this->farm('Lone Farm');
+        // A fresh farm whose whole order is worth €6 (2 × €3), with a capable
+        // look-alike elsewhere. No farm holds a fitting order, so the low-value
+        // rule fires and points at the capable farm.
+        $tinyFarm = $this->farm('Tiny Farm');
         $spareFarm = $this->farm('Spare Farm');
-        $onlyLine = $this->namedProduct($loneFarm, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
+        $onlyLine = $this->namedProduct($tinyFarm, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
         $spare = $this->namedProduct($spareFarm, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
 
-        $this->inflow($onlyLine, $loneFarm, 2);
+        $this->inflow($onlyLine, $tinyFarm, 2);
         $this->inflow($spare, $spareFarm, 20);
 
         $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
         ShopOrderItem::factory()->create([
             'shop_order_id' => $order->id, 'product_id' => $onlyLine->id,
-            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 5.0, 'vat_amount_eur' => 0.3,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 6.0, 'vat_amount_eur' => 0.4,
         ]);
 
         $producers = collect($this->actingAs($admin)
@@ -338,34 +338,32 @@ class AdminProducerReassignmentTest extends TestCase
             ->assertOk()
             ->viewData('producers'));
 
-        $farm = $producers->firstWhere('id', $loneFarm->id);
+        $farm = $producers->firstWhere('id', $tinyFarm->id);
         $row = collect($farm['rows'])->firstWhere('product_id', $onlyLine->id);
         $this->assertNotNull($row);
-        $this->assertCount(1, $farm['rows']);
         $this->assertTrue($row['recommended']);
-        $this->assertSame('lone_farm', $row['recommend_reason']);
+        $this->assertSame('low_value', $row['recommend_reason']);
+        $this->assertContains($spareFarm->id, $row['recommend_target_producers']);
     }
 
-    public function test_same_thing_from_several_farms_is_recommended_to_consolidate(): void
+    public function test_a_lone_but_valuable_farm_is_not_recommended(): void
     {
         $admin = User::factory()->admin()->create();
 
-        // Both farms deliver an analogous product on the same day; farmB can take
-        // the whole run, so moving farmA's line onto farmB is recommended.
-        $lineA = $this->namedProduct($this->farmA, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
-        $lineB = $this->namedProduct($this->farmB, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
+        // Same shape as above, but the single line is worth €30 (> €20), so
+        // there is no reason to break the farm up: no recommendation.
+        $bigFarm = $this->farm('Big Farm');
+        $spareFarm = $this->farm('Spare Farm');
+        $onlyLine = $this->namedProduct($bigFarm, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
+        $spare = $this->namedProduct($spareFarm, ['de' => 'Gelbe Zucchini', 'en' => 'Yellow Zucchini', 'fr' => 'Courgette jaune']);
 
-        $this->inflow($lineA, $this->farmA, 2);
-        $this->inflow($lineB, $this->farmB, 20);
+        $this->inflow($onlyLine, $bigFarm, 10);
+        $this->inflow($spare, $spareFarm, 20);
 
         $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
         ShopOrderItem::factory()->create([
-            'shop_order_id' => $order->id, 'product_id' => $lineA->id,
-            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 5.0, 'vat_amount_eur' => 0.3,
-        ]);
-        ShopOrderItem::factory()->create([
-            'shop_order_id' => $order->id, 'product_id' => $lineB->id,
-            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 5.0, 'vat_amount_eur' => 0.3,
+            'shop_order_id' => $order->id, 'product_id' => $onlyLine->id,
+            'quantity' => 10, 'unit' => 'piece', 'line_total_eur' => 30.0, 'vat_amount_eur' => 2.0,
         ]);
 
         $producers = collect($this->actingAs($admin)
@@ -373,11 +371,67 @@ class AdminProducerReassignmentTest extends TestCase
             ->assertOk()
             ->viewData('producers'));
 
-        $a = $producers->firstWhere('id', $this->farmA->id);
-        $row = collect($a['rows'])->firstWhere('product_id', $lineA->id);
+        $farm = $producers->firstWhere('id', $bigFarm->id);
+        $row = collect($farm['rows'])->firstWhere('product_id', $onlyLine->id);
+        $this->assertNotNull($row);
+        $this->assertTrue($row['movable']);
+        $this->assertFalse($row['recommended']);
+    }
+
+    public function test_consolidation_recommends_only_the_farm_with_a_fitting_order(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        // The user's scenario: Annabelle potatoes at the current farm. Another
+        // farm already has a Solist potato order (fitting) and can cover it; a
+        // third farm has spare potato stock but NO order. Only the farm with the
+        // fitting order must be a recommended (red) target.
+        $current = $this->farm('Current Farm');    // Looke
+        $holder = $this->farm('Holder Farm');      // Melchhof, has a potato order
+        $bystander = $this->farm('Bystander Farm'); // Hübner, capable but no order
+
+        $annabelle = $this->namedProduct($current, ['de' => 'Annabelle Kartoffel', 'en' => 'Annabelle Potato', 'fr' => 'Pomme de terre Annabelle']);
+        $solist = $this->namedProduct($holder, ['de' => 'Solist Kartoffel', 'en' => 'Solist Potato', 'fr' => 'Pomme de terre Solist']);
+        $laura = $this->namedProduct($bystander, ['de' => 'Laura Kartoffel', 'en' => 'Laura Potato', 'fr' => 'Pomme de terre Laura']);
+        // A non-fitting product that keeps the bystander present in the run.
+        $carrot = $this->namedProduct($bystander, ['de' => 'Karotte', 'en' => 'Carrot', 'fr' => 'Carotte']);
+
+        $this->inflow($annabelle, $current, 10);
+        $this->inflow($solist, $holder, 40);
+        $this->inflow($laura, $bystander, 20);
+        $this->inflow($carrot, $bystander, 20);
+
+        // Current farm's Annabelle order is worth €30 (> €20), so only the
+        // "fitting order elsewhere" rule can apply, not the low-value one.
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $annabelle->id,
+            'quantity' => 10, 'unit' => 'piece', 'line_total_eur' => 30.0, 'vat_amount_eur' => 2.0,
+        ]);
+        // The holder already has its own Solist potato order.
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $solist->id,
+            'quantity' => 3, 'unit' => 'piece', 'line_total_eur' => 9.0, 'vat_amount_eur' => 0.6,
+        ]);
+        // The bystander is present in the run via carrots, but has no potato order.
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $carrot->id,
+            'quantity' => 5, 'unit' => 'piece', 'line_total_eur' => 15.0, 'vat_amount_eur' => 1.0,
+        ]);
+
+        $producers = collect($this->actingAs($admin)
+            ->get(route('app.admin.producer-orders.index', ['delivery_from' => self::DATE, 'delivery_to' => self::DATE]))
+            ->assertOk()
+            ->viewData('producers'));
+
+        $farm = $producers->firstWhere('id', $current->id);
+        $row = collect($farm['rows'])->firstWhere('product_id', $annabelle->id);
         $this->assertNotNull($row);
         $this->assertTrue($row['recommended']);
         $this->assertSame('consolidate', $row['recommend_reason']);
+        // Only the farm with the fitting order is red, never the bystander.
+        $this->assertContains($holder->id, $row['recommend_target_producers']);
+        $this->assertNotContains($bystander->id, $row['recommend_target_producers']);
     }
 
     public function test_move_to_registered_farm_without_inflow_is_allowed(): void
