@@ -28,18 +28,18 @@
             $displayQty = $factor > 0 ? ((float) $item->quantity) / $factor : (float) $item->quantity;
             $net = $lineNet($item);
             $overrideQty = $item->display_quantity_override;
-            $priceQty = ($overrideQty !== null && (float) $overrideQty > 0)
-                ? (float) $overrideQty
-                : $displayQty;
 
             return [
                 'qty' => (float) $item->quantity,
                 'net' => $net,
-                // Prefilled net price per display unit; editing price or
+                // Prefilled net price per NATURAL display unit; editing price or
                 // quantity recomputes the total (price-first UX). Untouched
-                // lines submit their exact stored total, so no rounding
-                // drift on a plain re-save.
-                'price' => $priceQty > 0 ? round($net / $priceQty, 4) : 0.0,
+                // lines submit their exact stored total, so no rounding drift
+                // on a plain re-save. When a display override is active the
+                // Preis readout is derived from the total instead (displayPrice),
+                // so this stays the price the editable field falls back to once
+                // the override is cleared.
+                'price' => $displayQty > 0 ? round($net / $displayQty, 4) : 0.0,
                 'vat' => (int) $item->vat_rate_snapshot_percent,
                 'factor' => $factor,
                 'displayUnit' => (string) ($item->display_unit_override ?? ''),
@@ -49,14 +49,10 @@
             ];
         })->values()->all();
 
-        // German price-unit suffix ("/ kg") per line for the Preis column.
-        // Prefer the display override when set so the live Preis matches the PDF.
-        $priceUnitLabels = $items->map(function ($item) {
-            $override = trim((string) ($item->display_unit_override ?? ''));
-            if ($override !== '') {
-                return $override;
-            }
-
+        // German price-unit suffix ("/ kg") per line for the Preis column,
+        // ignoring any display override: this is the unit the editable price
+        // input carries once the override is cleared.
+        $naturalPriceUnitLabels = $items->map(function ($item) {
             if ($item->product?->unit !== null) {
                 $display = $item->product->price_display_unit ?? $item->product->unit->defaultDisplayUnit();
 
@@ -72,6 +68,15 @@
                 default => \App\Enums\ProductUnit::displaySymbol((string) $item->unit),
             };
         })->values()->all();
+
+        // Same list, but preferring the display override when set so the
+        // override input's placeholder and the derived readout fallback match
+        // the PDF.
+        $priceUnitLabels = $items->values()->map(function ($item, $idx) use ($naturalPriceUnitLabels) {
+            $override = trim((string) ($item->display_unit_override ?? ''));
+
+            return $override !== '' ? $override : $naturalPriceUnitLabels[$idx];
+        })->all();
 
         // Natural unit label shown as placeholder for the display-unit override.
         $naturalUnitLabels = $items->map(function ($item) {
@@ -267,7 +272,7 @@
                                             <input type="number" step="any" min="0" x-model.number="existing[{{ $i }}].price"
                                                    x-on:input="existing[{{ $i }}].touched = true"
                                                    class="{{ $inpRight }}" data-testid="invoice-editor-line-price-{{ $i }}">
-                                            <span class="shrink-0 text-gray-500">€ / {{ $priceUnitLabels[$i] }}</span>
+                                            <span class="shrink-0 text-gray-500">€ / {{ $naturalPriceUnitLabels[$i] }}</span>
                                         </span>
                                         {{-- Override active: price is derived from the total over the
                                              override quantity and follows its (promoted) unit, live. --}}
