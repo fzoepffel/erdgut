@@ -249,6 +249,28 @@ class AdminShopOrderTest extends TestCase
             ->assertSee('Detail Customer');
     }
 
+    public function test_order_detail_shows_the_producer_per_line(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $product = Product::factory()->create();
+        // Pin the producer name across locales so the assertion is independent
+        // of the request locale.
+        $producerName = 'Testhof Sonnenschein';
+        $product->producer->translations()->update(['name' => $producerName]);
+
+        $order = ShopOrder::factory()->paid()->create();
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id,
+            'product_id' => $product->id,
+            'variant_id' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.shop-orders.show', $order))
+            ->assertOk()
+            ->assertSee($producerName);
+    }
+
     public function test_mark_paid_flips_pending_order_and_audits(): void
     {
         $admin = User::factory()->admin()->create();
