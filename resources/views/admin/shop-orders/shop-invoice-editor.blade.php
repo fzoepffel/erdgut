@@ -20,6 +20,11 @@
         $existingConfig = $items->map(function ($item) use ($lineNet) {
             if ($item->product?->unit !== null) {
                 $display = $item->product->price_display_unit ?? $item->product->unit->defaultDisplayUnit();
+                // "100 g" is not a unit we show on the invoice — price such
+                // products per kg (shelf-price style, matches the PDF).
+                if ($display === '100g') {
+                    $display = 'kg';
+                }
                 $factor = max(1, $item->product->unit->canonicalUnitsPerDisplay($display));
             } else {
                 $factor = in_array((string) $item->unit, ['g', 'ml'], true) ? 1000 : 1;
@@ -55,6 +60,10 @@
         $naturalPriceUnitLabels = $items->map(function ($item) {
             if ($item->product?->unit !== null) {
                 $display = $item->product->price_display_unit ?? $item->product->unit->defaultDisplayUnit();
+                // "100 g" is not a unit we show on the invoice — price per kg.
+                if ($display === '100g') {
+                    $display = 'kg';
+                }
 
                 return match ($display) {
                     'piece' => 'Stück',

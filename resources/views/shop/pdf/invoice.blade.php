@@ -63,6 +63,12 @@
 
         if ($product?->unit !== null) {
             $display = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
+            // "100 g" is not a unit we want on the invoice: render such
+            // products in kg so the price reads like a shelf price and the
+            // quantity is not a "1 100 g" multiple.
+            if ($display === '100g') {
+                $display = 'kg';
+            }
             $factor = max(1, $product->unit->canonicalUnitsPerDisplay($display));
             $displayQty = $qty / $factor;
             $unitLabel = $germanSymbol($display);

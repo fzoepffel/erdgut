@@ -848,6 +848,37 @@ class ShopOrderInvoiceTest extends TestCase
         $this->assertStringNotContainsString('500 g', $html);
     }
 
+    public function test_invoice_pdf_renders_100g_products_in_kilograms(): void
+    {
+        // A product priced per 100 g must not print "100 g" as a unit: it is
+        // shown in kg (500 g at 100 € net → 0,5 kg at 200,00 €/kg).
+        $per100g = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => '100g',
+            'unit_price' => 21.50,
+            'vat_rate_percent' => 7,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        $order = $this->makeOrder([], [
+            'product_id' => $per100g->id,
+            'quantity' => 500,
+            'unit' => 'mass',
+            'unit_price_snapshot_eur' => 0.21,
+            'line_total_eur' => 107.00,
+            'vat_rate_snapshot_percent' => 7,
+            'vat_amount_eur' => 7.00,
+        ]);
+
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order);
+        $html = $this->renderInvoice($issued);
+
+        $this->assertStringContainsString('0,5 kg', $html);
+        $this->assertStringContainsString('200,00', $html);
+        // No "100 g" unit and no "1 100 g" quantity leak through.
+        $this->assertStringNotContainsString('100 g', $html);
+    }
+
     public function test_receipt_pdf_renders_display_unit_override(): void
     {
         $order = $this->makeOrder();
