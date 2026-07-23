@@ -8,6 +8,7 @@ use App\Listeners\AddListUnsubscribeHeader;
 use App\Listeners\LogSentMail;
 use App\Models\BoxItem;
 use App\Models\Producer;
+use App\Models\ProducerPositionOverride;
 use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Models\ProductStockInflowSchedule;
@@ -97,6 +98,9 @@ class AppServiceProvider extends ServiceProvider
             SpargelOrder::class,
             BoxItem::class,
             Product::class,
+            // Farm moves reattribute inventar remaining; bump so the next
+            // inventar / capacity read sees the new source/target shares.
+            ProducerPositionOverride::class,
         ] as $inventoryModel) {
             $inventoryModel::observe(InventoryCacheObserver::class);
         }
