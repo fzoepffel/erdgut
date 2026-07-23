@@ -41,8 +41,17 @@
         $overrideUnit = trim((string) ($item->display_unit_override ?? ''));
         $overrideQty = $item->display_quantity_override;
         if ($overrideUnit !== '' && $overrideQty !== null && (float) $overrideQty > 0) {
-            $displayQty = (float) $overrideQty;
-            $unitLabel = $overrideUnit;
+            // Scale g/ml up to kg/L so the unit price reads like a shelf
+            // price, not a per-gram one (500 g at 5,80 € → 11,60 €/kg).
+            $overrideLower = mb_strtolower($overrideUnit);
+            $overrideFactor = in_array($overrideLower, ['g', 'ml'], true) ? 1000 : 1;
+            $displayQty = (float) $overrideQty / $overrideFactor;
+            $unitLabel = match ($overrideLower) {
+                'g' => 'kg',
+                'ml' => 'L',
+                'l' => 'L',
+                default => $overrideUnit,
+            };
 
             return [
                 'unit_gross' => $displayQty > 0 ? (float) $item->line_total_eur / $displayQty : 0.0,

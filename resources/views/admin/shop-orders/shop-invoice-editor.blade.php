@@ -260,13 +260,22 @@
                                                class="{{ $inp }}" data-testid="invoice-editor-line-name-{{ $i }}">
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
-                                        <span class="flex items-baseline gap-1">
-                                            {{-- step=any: the prefilled unit price is derived from
-                                                 total/quantity and may carry 4 decimals (2,5235). --}}
+                                        {{-- No override: the natural unit price is editable.
+                                             step=any: the prefilled unit price is derived from
+                                             total/quantity and may carry 4 decimals (2,5235). --}}
+                                        <span class="flex items-baseline gap-1" x-show="!hasOverride(existing[{{ $i }}])">
                                             <input type="number" step="any" min="0" x-model.number="existing[{{ $i }}].price"
                                                    x-on:input="existing[{{ $i }}].touched = true"
                                                    class="{{ $inpRight }}" data-testid="invoice-editor-line-price-{{ $i }}">
                                             <span class="shrink-0 text-gray-500">€ / {{ $priceUnitLabels[$i] }}</span>
+                                        </span>
+                                        {{-- Override active: price is derived from the total over the
+                                             override quantity and follows its (promoted) unit, live. --}}
+                                        <span class="flex items-baseline gap-1" x-show="hasOverride(existing[{{ $i }}])" x-cloak>
+                                            <span class="tabular-nums text-gray-900"
+                                                  x-text="fmt(displayPrice(existing[{{ $i }}]))"
+                                                  data-testid="invoice-editor-line-price-derived-{{ $i }}"></span>
+                                            <span class="shrink-0 text-gray-500" x-text="'/ ' + displayPriceUnit(existing[{{ $i }}], @js($priceUnitLabels[$i]))"></span>
                                         </span>
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
@@ -473,6 +482,39 @@
             priceUnitLabel(unit) {
                 const labels = { piece: "Stück", bunch: "Bund", kg: "kg", g: "kg", l: "L", ml: "L" };
                 return labels[unit] || unit || "";
+            },
+
+            // A display override is active once both a quantity and a unit
+            // are set: the invoice shows "displayQty displayUnit" instead of
+            // the natural unit, so the Preis column must follow suit.
+            hasOverride(line) {
+                return String(line.displayUnit || "").trim() !== "" && (parseFloat(line.displayQty) || 0) > 0;
+            },
+
+            // Mirrors the PDF lineView: g/ml scale up to kg/L so the unit
+            // price reads like a shelf price, not a per-gram one.
+            promoOverride(line) {
+                const raw = String(line.displayUnit || "").trim();
+                const u = raw.toLowerCase();
+                if (u === "g") return { label: "kg", factor: 1000 };
+                if (u === "ml") return { label: "L", factor: 1000 };
+                if (u === "l") return { label: "L", factor: 1 };
+                return { label: raw, factor: 1 };
+            },
+
+            // Preis for a line with an active override: the net line total
+            // spread over the override quantity (in its promoted unit), so
+            // the total is preserved (5,80 € over 500 g → 11,60 €/kg).
+            displayPrice(line) {
+                if (!this.hasOverride(line)) return parseFloat(line.price) || 0;
+                const promo = this.promoOverride(line);
+                const qty = (parseFloat(line.displayQty) || 0) / promo.factor;
+                return qty > 0 ? this.lineNet(line) / qty : 0;
+            },
+
+            displayPriceUnit(line, fallback) {
+                if (!this.hasOverride(line)) return fallback || "";
+                return this.promoOverride(line).label;
             },
 
             liveLines() {
