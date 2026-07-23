@@ -489,8 +489,8 @@ class AdminProducerReceivingController extends Controller
 
     /**
      * Every farm that could cover this whole position from stock on this day,
-     * across the same product OR any look-alike / sibling. Excludes the current
-     * same-product pairing.
+     * across the same product OR any look-alike / sibling. Excludes the farm the
+     * position is currently sourced from: a move only makes sense to another farm.
      *
      * @param  array<int, list<int>>  $candIdsByProduct
      * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
@@ -507,8 +507,8 @@ class AdminProducerReceivingController extends Controller
                 if ($producerId <= 0) {
                     continue;
                 }
-                if ($candidateId === $pid && $producerId === $currentProducerId) {
-                    continue; // already sourced here
+                if ($producerId === $currentProducerId) {
+                    continue; // a move only makes sense to a different farm
                 }
                 if ($cap + 1e-9 >= $qty) {
                     $farms[(int) $producerId] = true;
