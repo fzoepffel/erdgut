@@ -526,8 +526,9 @@ class AdminProducerReceivingController extends Controller
      *    absorb this into. Only those farms are marked, never a farm that would
      *    open a brand-new position.
      *  - "low_value": a farm whose whole order here is worth less than the
-     *    threshold and every one of its lines can be covered elsewhere. Then all
-     *    its movable lines are flagged, pointing at any farm that can take them.
+     *    threshold. Only the movable lines that can actually be covered elsewhere
+     *    are flagged (each pointing at the farms that can take it), never a whole
+     *    farm just because one of its lines fits.
      *
      * @param  array<int, list<array<string, mixed>>>  $byProducer
      * @param  array<int, list<int>>  $candIdsByProduct
@@ -550,7 +551,7 @@ class AdminProducerReceivingController extends Controller
 
         foreach ($byProducer as $producerId => &$rows) {
             $producerId = (int) $producerId;
-            $farmIsTiny = $this->farmIsTinyAndReplaceable($producerId, $rows, $productModels, $candIdsByProduct, $capacityByIso, $demand);
+            $farmIsTiny = $this->farmValueBelowThreshold($rows, $productModels);
 
             foreach ($rows as &$row) {
                 if ($row['overridden'] || $row['received'] || ! $row['movable']) {
@@ -585,16 +586,16 @@ class AdminProducerReceivingController extends Controller
 
     /**
      * Is this farm's whole order here worth less than the consolidation
-     * threshold, with a covering farm for every one of its movable lines? Such
-     * a farm is barely worth a separate pickup, so moving everything is advised.
+     * threshold? Such a farm is barely worth a separate pickup, so each of its
+     * movable lines that has a covering farm is advised to move. The per-line
+     * capability check happens in {@see annotateRecommendations}, so a low-value
+     * farm only flags the specific products that can actually move, never all of
+     * them just because one fits.
      *
      * @param  list<array<string, mixed>>  $rows
      * @param  array<int, Product>  $productModels
-     * @param  array<int, list<int>>  $candIdsByProduct
-     * @param  array<string, array<int, array<int, array<int, float>>>>  $capacityByIso
-     * @param  array<int, array<int, array<string, float>>>  $demand
      */
-    private function farmIsTinyAndReplaceable(int $producerId, array $rows, array $productModels, array $candIdsByProduct, array $capacityByIso, array $demand): bool
+    private function farmValueBelowThreshold(array $rows, array $productModels): bool
     {
         $value = 0.0;
         foreach ($rows as $r) {
@@ -603,25 +604,8 @@ class AdminProducerReceivingController extends Controller
                 $value += (float) $r['qty_display'] * (float) $product->displayUnitPrice();
             }
         }
-        if ($value >= self::CONSOLIDATE_VALUE_THRESHOLD_EUR) {
-            return false;
-        }
 
-        $movable = array_filter($rows, fn (array $r): bool => ! $r['overridden'] && ! $r['received'] && $r['movable']);
-        if ($movable === []) {
-            return false;
-        }
-        foreach ($movable as $r) {
-            $pid = (int) $r['product_id'];
-            $variantId = (int) $r['variant_id'];
-            $iso = (string) $r['date'];
-            $qty = (float) ($demand[$pid][$variantId][$iso] ?? 0.0);
-            if ($this->capableTargetFarms($candIdsByProduct, $capacityByIso, $iso, $pid, $variantId, $qty, $producerId) === []) {
-                return false; // a line with no replacement: not a clean consolidation
-            }
-        }
-
-        return true;
+        return $value < self::CONSOLIDATE_VALUE_THRESHOLD_EUR;
     }
 
     /**
@@ -675,18 +659,7 @@ class AdminProducerReceivingController extends Controller
      */
     private function restaurantDemand(array $filter): array
     {
-        $query = RestaurantOrderItem::query()
-            ->join('restaurant_orders', 'restaurant_orders.id', '=', 'restaurant_order_items.restaurant_order_id')
-            ->whereIn('restaurant_orders.status', RestaurantOrderStatus::reservingValues())
-            ->where(function ($q): void {
-                $q->where('restaurant_order_items.track', 'reserved')
-                    ->orWhere(function ($q): void {
-                        $q->where('restaurant_order_items.line_status', 'confirmed')
-                            ->where('restaurant_orders.kind', 'order');
-                    });
-            })
-            ->where('restaurant_order_items.line_status', '!=', 'declined')
-            ->whereNotNull('restaurant_order_items.product_id');
+        $query = $this->committingRestaurantItemsQuery();
 
         if ($filter['delivery_from'] !== '') {
             $query->whereDate('restaurant_orders.expected_delivery_date', '>=', $filter['delivery_from']);
@@ -873,12 +846,14 @@ class AdminProducerReceivingController extends Controller
         $from = (string) $request->query('delivery_from', '');
         $to = (string) $request->query('delivery_to', '');
 
-        // Fresh visit (no date params at all): focus on the NEXT delivery day
-        // that has orders. Explicitly cleared inputs mean "all dates".
+        // Fresh visit (no date params at all): focus on the next delivery day
+        // that has orders, or the most recent past one if nothing is upcoming,
+        // so the panel is never an open-ended range. Explicitly cleared inputs
+        // still mean "all dates".
         if (! $request->has('delivery_from') && ! $request->has('delivery_to')) {
-            $next = $this->nextDeliveryDayWithOrders();
-            if ($next !== null) {
-                $from = $to = $next;
+            $default = $this->defaultDeliveryDay();
+            if ($default !== null) {
+                $from = $to = $default;
             }
         }
 
@@ -915,15 +890,82 @@ class AdminProducerReceivingController extends Controller
             ->when($filter['delivery_to'] !== '', fn (Builder $q): Builder => $q->whereDate('expected_delivery_date', '<=', $filter['delivery_to']));
     }
 
-    /** Next date (today or later) that has any firm shop order. */
-    private function nextDeliveryDayWithOrders(): ?string
+    /**
+     * The delivery day a fresh visit should land on: the next one (today or
+     * later) with orders, or the most recent past one if nothing is upcoming.
+     * Considers both firm shop orders and committing restaurant lines, matching
+     * the demand the panel actually renders.
+     */
+    private function defaultDeliveryDay(): ?string
     {
-        $next = ShopOrder::query()
-            ->finalized()
-            ->whereDate('expected_delivery_date', '>=', Carbon::today()->toDateString())
-            ->orderBy('expected_delivery_date')
-            ->value('expected_delivery_date');
+        $today = Carbon::today()->toDateString();
 
-        return $next !== null ? Carbon::parse($next)->toDateString() : null;
+        return $this->nextDeliveryDayWithOrders($today)
+            ?? $this->lastDeliveryDayWithOrders();
+    }
+
+    /** Earliest delivery date on or after $today that has any demand. */
+    private function nextDeliveryDayWithOrders(string $today): ?string
+    {
+        $shop = ShopOrder::query()
+            ->finalized()
+            ->whereDate('expected_delivery_date', '>=', $today)
+            ->min('expected_delivery_date');
+
+        $restaurant = $this->committingRestaurantItemsQuery()
+            ->whereDate('restaurant_orders.expected_delivery_date', '>=', $today)
+            ->min('restaurant_orders.expected_delivery_date');
+
+        return $this->pickDate($shop, $restaurant, earliest: true);
+    }
+
+    /** Most recent delivery date that has any demand (used when none upcoming). */
+    private function lastDeliveryDayWithOrders(): ?string
+    {
+        $shop = ShopOrder::query()
+            ->finalized()
+            ->max('expected_delivery_date');
+
+        $restaurant = $this->committingRestaurantItemsQuery()
+            ->max('restaurant_orders.expected_delivery_date');
+
+        return $this->pickDate($shop, $restaurant, earliest: false);
+    }
+
+    /**
+     * The committing restaurant order lines (reserved, or confirmed order
+     * lines), joined to their orders. Shared by the demand build and the
+     * default-date resolution so both agree on what counts as an order.
+     *
+     * @return Builder<RestaurantOrderItem>
+     */
+    private function committingRestaurantItemsQuery(): Builder
+    {
+        return RestaurantOrderItem::query()
+            ->join('restaurant_orders', 'restaurant_orders.id', '=', 'restaurant_order_items.restaurant_order_id')
+            ->whereIn('restaurant_orders.status', RestaurantOrderStatus::reservingValues())
+            ->where(function ($q): void {
+                $q->where('restaurant_order_items.track', 'reserved')
+                    ->orWhere(function ($q): void {
+                        $q->where('restaurant_order_items.line_status', 'confirmed')
+                            ->where('restaurant_orders.kind', 'order');
+                    });
+            })
+            ->where('restaurant_order_items.line_status', '!=', 'declined')
+            ->whereNotNull('restaurant_order_items.product_id');
+    }
+
+    /** Pick the earliest or latest of two nullable dates, normalized to Y-m-d. */
+    private function pickDate(?string $a, ?string $b, bool $earliest): ?string
+    {
+        $dates = array_values(array_filter([
+            $a !== null ? Carbon::parse($a)->toDateString() : null,
+            $b !== null ? Carbon::parse($b)->toDateString() : null,
+        ]));
+        if ($dates === []) {
+            return null;
+        }
+
+        return $earliest ? min($dates) : max($dates);
     }
 }

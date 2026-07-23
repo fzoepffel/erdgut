@@ -279,8 +279,31 @@
                 // painted red, matching the row's red button.
                 isRecommendedTarget(row, t) {
                     if (!row || !row.recommended) return false;
+                    // A farm without enough stock to cover the whole position is
+                    // never a recommended destination, even if it appears elsewhere.
+                    if (t.sufficient === false) return false;
                     const targets = row.recommend_target_producers || [];
                     return targets.includes(t.producer_id);
+                },
+
+                // Order the move overlay: recommended destinations first, then
+                // same-product farms, then the closest matching name; farms without
+                // enough stock always sink to the bottom.
+                sortTargets(row, targets) {
+                    return targets.slice().sort((a, b) => {
+                        const aSuf = a.sufficient === false ? 1 : 0;
+                        const bSuf = b.sufficient === false ? 1 : 0;
+                        if (aSuf !== bSuf) return aSuf - bSuf;
+                        const aRec = this.isRecommendedTarget(row, a) ? 0 : 1;
+                        const bRec = this.isRecommendedTarget(row, b) ? 0 : 1;
+                        if (aRec !== bRec) return aRec - bRec;
+                        const aSame = a.same_product ? 0 : 1;
+                        const bSame = b.same_product ? 0 : 1;
+                        if (aSame !== bSame) return aSame - bSame;
+                        const scoreDiff = (b.name_score || 0) - (a.name_score || 0);
+                        if (Math.abs(scoreDiff) > 1e-9) return scoreDiff;
+                        return (b.capacity || 0) - (a.capacity || 0);
+                    });
                 },
 
                 openMove(row) {
@@ -320,7 +343,7 @@
                         const data = await res.json();
                         // Ignore stale responses if the overlay moved on.
                         if (this.openMoveKey !== row.key) return;
-                        this.moveTargets = data.targets || [];
+                        this.moveTargets = this.sortTargets(row, data.targets || []);
                     } catch (e) {
                         this.moveError = '{{ __('admin.producer_receiving.move_failed') }}';
                     } finally {

@@ -146,11 +146,13 @@ class ProducerReassignmentService
         }
 
         // Look-alike names (zucchini grün ↔ zucchini gelb, kapuzinerblüte ↔
-        // kapuzinerblätter), matched across all languages.
+        // kapuzinerblätter), matched across all languages. A look-alike must sit
+        // in the same subcategory as the source, so a stray name collision across
+        // categories never surfaces as a target.
         Product::query()->with($with)
             ->get()
             ->each(function (Product $p) use (&$out, $source): void {
-                if ($p->id !== $source->id && $this->productNamesSimilar($source, $p)) {
+                if ($p->id !== $source->id && $this->sameSubcategory($source, $p) && $this->productNamesSimilar($source, $p)) {
                     $out[$p->id] = $p;
                 }
             });
@@ -182,7 +184,7 @@ class ProducerReassignmentService
                 if ($source->group_id !== null && $p->group_id === $source->group_id) {
                     $ids[(int) $p->id] = true;
                 }
-                if ((int) $p->id !== (int) $source->id && $this->productNamesSimilar($source, $p)) {
+                if ((int) $p->id !== (int) $source->id && $this->sameSubcategory($source, $p) && $this->productNamesSimilar($source, $p)) {
                     $ids[(int) $p->id] = true;
                 }
             }
@@ -199,7 +201,7 @@ class ProducerReassignmentService
      * product that can still cover the whole quantity from stock. The farm it is
      * sourced from now is excluded.
      *
-     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, capacity: float, selling_price: float, selling_price_label: string, buying_price: float|null, buying_price_label: string|null, margin: float|null, margin_label: string|null, price_differs: bool, margin_negative: bool}>
+     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, sufficient: bool, name_score: float, capacity: float, selling_price: float, selling_price_label: string, buying_price: float|null, buying_price_label: string|null, margin: float|null, margin_label: string|null, price_differs: bool, margin_negative: bool}>
      */
     public function moveTargetsForPosition(
         Product $source,
@@ -225,7 +227,7 @@ class ProducerReassignmentService
      * The source product's own farms are covered by {@see moveTargetsForPosition}
      * (the default list), so search stays capacity-gated.
      *
-     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, capacity: float, selling_price: float, selling_price_label: string, buying_price: float|null, buying_price_label: string|null, margin: float|null, margin_label: string|null, price_differs: bool, margin_negative: bool}>
+     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, sufficient: bool, name_score: float, capacity: float, selling_price: float, selling_price_label: string, buying_price: float|null, buying_price_label: string|null, margin: float|null, margin_label: string|null, price_differs: bool, margin_negative: bool}>
      */
     public function search(
         Product $source,
@@ -245,7 +247,7 @@ class ProducerReassignmentService
         $candidates = Product::query()
             ->with(['translations', 'producer.translations', 'producers.translations', 'producerVariantPrices'])
             ->get()
-            ->filter(fn (Product $p): bool => str_contains(mb_strtolower((string) $p->name), $needle))
+            ->filter(fn (Product $p): bool => $this->sameSubcategory($source, $p) && str_contains(mb_strtolower((string) $p->name), $needle))
             ->keyBy('id')
             ->all();
 
@@ -333,7 +335,7 @@ class ProducerReassignmentService
     /**
      * @param  array<int, Product>  $candidates
      * @param  array<int, array<int, array<int, float>>>  $capacity
-     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, capacity: float, selling_price: float, selling_price_label: string, buying_price: float|null, buying_price_label: string|null, margin: float|null, margin_label: string|null, price_differs: bool, margin_negative: bool}>
+     * @return list<array{target_product_id: int, product_name: string, producer_id: int, producer_name: string, same_product: bool, sufficient: bool, name_score: float, capacity: float, selling_price: float, selling_price_label: string, buying_price: float|null, buying_price_label: string|null, margin: float|null, margin_label: string|null, price_differs: bool, margin_negative: bool}>
      */
     private function buildTargets(
         array $candidates,
@@ -354,7 +356,7 @@ class ProducerReassignmentService
         $seen = [];
 
         $push = function (Product $product, int $producerId, float $cap) use (
-            &$targets, &$seen, $source, $variantId, $currentProductId, $currentProducerId, $sellingPrice, $referenceBuying
+            &$targets, &$seen, $source, $variantId, $qty, $currentProductId, $currentProducerId, $sellingPrice, $referenceBuying
         ): void {
             if ($producerId <= 0) {
                 return;
@@ -385,6 +387,14 @@ class ProducerReassignmentService
                 'producer_id' => $producerId,
                 'producer_name' => $producerName,
                 'same_product' => $sameProduct,
+                // Enough tracked stock to absorb the whole position. Insufficient
+                // targets are still offered (you can order more), but they sort to
+                // the bottom and are never highlighted as recommended.
+                'sufficient' => $cap + 1e-9 >= $qty,
+                // How close the target product's name is to the source's, averaged
+                // across the shared languages (100 = spelled identically). Drives
+                // the look-alike ordering in the move overlay.
+                'name_score' => $this->nameSimilarityScore($source, $product),
                 // Capacity comes in canonical units (g/ml); show it in the
                 // product's display unit, the same conversion the position row uses.
                 'capacity' => round($cap / $this->displayFactor($product), 4),
@@ -422,9 +432,12 @@ class ProducerReassignmentService
             }
         }
 
-        // Same-product farms first, then by remaining capacity desc, then name.
-        usort($targets, fn (array $a, array $b): int => [$b['same_product'] ? 1 : 0, $b['capacity'], $a['product_name']]
-            <=> [$a['same_product'] ? 1 : 0, $a['capacity'], $b['product_name']]);
+        // Order: farms with enough stock first (insufficient sink to the bottom),
+        // then same-product, then the closest name, then remaining capacity, then
+        // name. The panel re-sorts client-side to lift recommended farms on top,
+        // but this keeps a sensible order for the search endpoint too.
+        usort($targets, fn (array $a, array $b): int => [$a['sufficient'] ? 0 : 1, $b['same_product'] ? 1 : 0, $b['name_score'], $b['capacity'], $a['product_name']]
+            <=> [$b['sufficient'] ? 0 : 1, $a['same_product'] ? 1 : 0, $a['name_score'], $a['capacity'], $b['product_name']]);
 
         return $targets;
     }
@@ -521,6 +534,20 @@ class ProducerReassignmentService
         return array_keys($names);
     }
 
+    /**
+     * A candidate must share the source's subcategory to be a substitute. When
+     * the source has no subcategory set there is nothing to restrict, so any
+     * name-matched product stays eligible (the legacy behavior).
+     */
+    private function sameSubcategory(Product $source, Product $candidate): bool
+    {
+        if ($source->subcategory_id === null) {
+            return true;
+        }
+
+        return (int) $candidate->subcategory_id === (int) $source->subcategory_id;
+    }
+
     /** True when any language pairing of the two products' names is similar. */
     private function productNamesSimilar(Product $a, Product $b): bool
     {
@@ -533,6 +560,73 @@ class ProducerReassignmentService
         }
 
         return false;
+    }
+
+    /**
+     * How close two products' names are, on a 0-100 scale where 100 means the
+     * name is spelled identically. Averaged over the languages both products have
+     * a name in (de/en/fr); if they share no language, the best pairing across
+     * all stored names is used as a fallback.
+     */
+    public function nameSimilarityScore(Product $a, Product $b): float
+    {
+        $na = $this->namesByLocale($a);
+        $nb = $this->namesByLocale($b);
+
+        $shared = array_intersect_key($na, $nb);
+        if ($shared !== []) {
+            $sum = 0.0;
+            foreach (array_keys($shared) as $locale) {
+                $sum += $this->stringSimilarity($na[$locale], $nb[$locale]);
+            }
+
+            return round($sum / count($shared), 2);
+        }
+
+        $best = 0.0;
+        foreach ($this->allNames($a) as $x) {
+            foreach ($this->allNames($b) as $y) {
+                $best = max($best, $this->stringSimilarity($x, $y));
+            }
+        }
+
+        return round($best, 2);
+    }
+
+    /**
+     * Stored names keyed by language, lower-cased and whitespace-normalized.
+     *
+     * @return array<string, string>
+     */
+    private function namesByLocale(Product $product): array
+    {
+        $names = [];
+        $translations = $product->getRelationValue('translations');
+        if ($translations !== null) {
+            foreach ($translations as $t) {
+                $locale = (string) $t->locale;
+                $n = trim(preg_replace('/\s+/u', ' ', mb_strtolower((string) $t->name)) ?? '');
+                if ($locale !== '' && $n !== '') {
+                    $names[$locale] = $n;
+                }
+            }
+        }
+
+        return $names;
+    }
+
+    /** Percentage of characters two names share (100 = identical spelling). */
+    private function stringSimilarity(string $a, string $b): float
+    {
+        if ($a === '' || $b === '') {
+            return 0.0;
+        }
+        if ($a === $b) {
+            return 100.0;
+        }
+        similar_text($a, $b, $percent);
+
+        return (float) $percent;
     }
 
     private function namesSimilar(string $a, string $b): bool
