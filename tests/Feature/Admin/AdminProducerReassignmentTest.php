@@ -435,6 +435,40 @@ class AdminProducerReassignmentTest extends TestCase
         $this->assertNotContains($bystander->id, $row['recommend_target_producers']);
     }
 
+    public function test_products_from_the_current_farm_are_never_move_targets(): void
+    {
+        // Melchhof supplies the ordered "Bush Beans" and also a look-alike
+        // "Pole Beans" of its own. Moving within the same farm is pointless, so
+        // Melchhof must not appear as a target for its own position.
+        $melchhof = $this->farm('Melchhof');
+        $other = $this->farm('Other Farm');
+
+        $bush = $this->namedProduct($melchhof, ['de' => 'Buschbohnen', 'en' => 'Bush Beans', 'fr' => 'Haricots nains']);
+        $poleSame = $this->namedProduct($melchhof, ['de' => 'Stangenbohnen', 'en' => 'Pole Beans', 'fr' => 'Haricots à rames']);
+        $poleOther = $this->namedProduct($other, ['de' => 'Stangenbohnen', 'en' => 'Pole Beans', 'fr' => 'Haricots à rames']);
+
+        $this->inflow($bush, $melchhof, 2);
+        $this->inflow($poleSame, $melchhof, 20);
+        $this->inflow($poleOther, $other, 20);
+
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $bush->id,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 6.0, 'vat_amount_eur' => 0.4,
+        ]);
+
+        $qty = $this->service()->positionDemand($bush->id, 0, self::DATE);
+        $targets = collect($this->service()->moveTargetsForPosition(
+            $bush, 0, self::DATE, $qty, $bush->id, $melchhof->id,
+        ));
+
+        // Nothing from Melchhof itself, not even its own look-alike product.
+        $this->assertTrue($targets->every(fn ($t) => $t['producer_id'] !== $melchhof->id));
+        $this->assertNull($targets->firstWhere('target_product_id', $poleSame->id));
+        // The other farm's look-alike is still offered.
+        $this->assertNotNull($targets->firstWhere('producer_id', $other->id));
+    }
+
     public function test_lookalike_from_a_different_subcategory_is_not_a_target(): void
     {
         $roots = ProductSubcategory::query()->create([

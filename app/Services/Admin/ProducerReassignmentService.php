@@ -218,7 +218,7 @@ class ProducerReassignmentService
         $candidates = $this->candidateProducts($source);
         $capacity = $this->capacityFor(array_keys($candidates), $iso);
 
-        return $this->buildTargets($candidates, $capacity, $source, $variantId, $qty, $currentProductId, $currentProducerId, listSourceFarms: true);
+        return $this->buildTargets($candidates, $capacity, $source, $variantId, $qty, $currentProducerId, listSourceFarms: true);
     }
 
     /**
@@ -257,7 +257,7 @@ class ProducerReassignmentService
 
         $capacity = $this->capacityFor(array_keys($candidates), $iso);
 
-        return $this->buildTargets($candidates, $capacity, $source, $variantId, $qty, $currentProductId, $currentProducerId, listSourceFarms: false);
+        return $this->buildTargets($candidates, $capacity, $source, $variantId, $qty, $currentProducerId, listSourceFarms: false);
     }
 
     /**
@@ -343,7 +343,6 @@ class ProducerReassignmentService
         Product $source,
         int $variantId,
         float $qty,
-        int $currentProductId,
         int $currentProducerId,
         bool $listSourceFarms,
     ): array {
@@ -356,13 +355,13 @@ class ProducerReassignmentService
         $seen = [];
 
         $push = function (Product $product, int $producerId, float $cap) use (
-            &$targets, &$seen, $source, $variantId, $qty, $currentProductId, $currentProducerId, $sellingPrice, $referenceBuying
+            &$targets, &$seen, $source, $variantId, $qty, $currentProducerId, $sellingPrice, $referenceBuying
         ): void {
             if ($producerId <= 0) {
                 return;
             }
-            if ($product->id === $currentProductId && $producerId === $currentProducerId) {
-                return; // already sourced here
+            if ($producerId === $currentProducerId) {
+                return; // a move only makes sense to a different farm
             }
             $dedupe = $product->id.'|'.$producerId;
             if (isset($seen[$dedupe])) {
