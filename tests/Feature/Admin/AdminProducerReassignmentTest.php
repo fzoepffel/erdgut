@@ -722,4 +722,190 @@ class AdminProducerReassignmentTest extends TestCase
     {
         $this->assertNotContains($name, array_column($rows, 'product_name'));
     }
+
+    // -------------------------------------------------------------------------
+    // Unit-conversion
+    // -------------------------------------------------------------------------
+
+    public function test_same_product_same_unit_needs_no_conversion(): void
+    {
+        // Moving zucchini (piece) to farmB (same product, same unit): auto-convert.
+        $targets = collect($this->targets());
+        $t = $targets->firstWhere(fn ($t) => $t['target_product_id'] === $this->zucchini->id && $t['producer_id'] === $this->farmB->id);
+        $this->assertNotNull($t);
+        $this->assertFalse($t['needs_conversion']);
+    }
+
+    public function test_different_unit_target_needs_conversion(): void
+    {
+        $farmD = $this->farm('Farm Delta');
+        $basket = Product::factory()->create([
+            'producer_id' => $farmD->id,
+            'unit' => ProductUnit::Mass->value, 'price_display_unit' => 'kg',
+            'is_available' => true, 'is_published' => true,
+        ]);
+        $basket->translations()->update(['name' => 'Zucchini gruen']);
+        $basket = $basket->fresh('translations');
+        $basket->producers()->sync([$farmD->id]);
+        $this->inflow($basket, $farmD, 5000);
+
+        $qty = $this->service()->positionDemand($this->zucchini->id, 0, self::DATE);
+        $current = $this->service()->currentSourcing($this->zucchini->id, 0, self::DATE);
+        $targets = collect($this->service()->moveTargetsForPosition(
+            $this->zucchini->fresh('translations'), 0, self::DATE, $qty, $current['product_id'], $current['producer_id'],
+        ));
+
+        $t = $targets->firstWhere('producer_id', $farmD->id);
+        $this->assertNotNull($t);
+        $this->assertTrue($t['needs_conversion']);
+    }
+
+    public function test_same_unit_different_weight_needs_conversion(): void
+    {
+        // A 250 g Schale → 500 g Schale: both are "piece" but unit_weight_grams differs.
+        $farmD = $this->farm('Farm Delta');
+        $schale250 = Product::factory()->create([
+            'producer_id' => $farmD->id,
+            'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece',
+            'unit_weight_grams' => 250,
+            'is_available' => true, 'is_published' => true,
+        ]);
+        $schale250->translations()->update(['name' => 'Tomaten gruen']);
+        $schale250 = $schale250->fresh('translations');
+
+        $farmE = $this->farm('Farm Epsilon');
+        $schale500 = Product::factory()->create([
+            'producer_id' => $farmE->id,
+            'unit' => ProductUnit::Piece->value, 'price_display_unit' => 'piece',
+            'unit_weight_grams' => 500,
+            'is_available' => true, 'is_published' => true,
+        ]);
+        $schale500->translations()->update(['name' => 'Tomaten gruen']);
+        $schale500 = $schale500->fresh('translations');
+        $schale500->producers()->sync([$farmE->id]);
+        $this->inflow($schale500, $farmE, 10);
+
+        $order = ShopOrder::factory()->paid()->create(['expected_delivery_date' => self::DATE]);
+        ShopOrderItem::factory()->create([
+            'shop_order_id' => $order->id, 'product_id' => $schale250->id,
+            'quantity' => 2, 'unit' => 'piece', 'line_total_eur' => 6.0, 'vat_amount_eur' => 0.39,
+        ]);
+
+        $schale250->producers()->sync([$farmD->id]);
+        $this->inflow($schale250, $farmD, 10);
+        $qty = $this->service()->positionDemand($schale250->id, 0, self::DATE);
+        $current = $this->service()->currentSourcing($schale250->id, 0, self::DATE);
+        $targets = collect($this->service()->moveTargetsForPosition(
+            $schale250->fresh('translations'), 0, self::DATE, $qty, $current['product_id'], $current['producer_id'],
+        ));
+
+        $t = $targets->firstWhere('producer_id', $farmE->id);
+        $this->assertNotNull($t);
+        $this->assertTrue($t['needs_conversion']);
+        // 2 × 250 g ÷ 500 g = 1 → rounded to 1 (integer for piece).
+        $this->assertSame(1.0, $t['suggested_quantity']);
+    }
+
+    public function test_move_endpoint_rejects_conversion_target_without_quantity(): void
+    {
+        // Move zucchini (piece) to a mass product: must supply target_quantity.
+        $farmD = $this->farm('Farm Delta');
+        $basket = Product::factory()->create([
+            'producer_id' => $farmD->id,
+            'unit' => ProductUnit::Mass->value, 'price_display_unit' => 'kg',
+            'is_available' => true, 'is_published' => true,
+        ]);
+        $basket->translations()->update(['name' => 'Zucchini gruen']);
+        $basket = $basket->fresh('translations');
+        $basket->producers()->sync([$farmD->id]);
+        $this->inflow($basket, $farmD, 5000);
+
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin)
+            ->postJson(route('app.admin.producer-orders.move'), [
+                'product_id' => $this->zucchini->id,
+                'variant_id' => 0,
+                'delivery_date' => self::DATE,
+                'target_product_id' => $basket->id,
+                'target_producer_id' => $farmD->id,
+                // deliberately omit target_quantity
+            ])
+            ->assertStatus(422);
+
+        $this->assertDatabaseCount('producer_position_overrides', 0);
+    }
+
+    public function test_move_with_target_quantity_stored_and_shown_in_display_unit(): void
+    {
+        // Move 3 piece zucchini → 1.5 kg basket; expect the panel to show 1.5 kg.
+        $farmD = $this->farm('Farm Delta');
+        $basket = Product::factory()->create([
+            'producer_id' => $farmD->id,
+            'unit' => ProductUnit::Mass->value, 'price_display_unit' => 'kg',
+            'is_available' => true, 'is_published' => true,
+        ]);
+        $basket->translations()->update(['name' => 'Zucchini gruen']);
+        $basket = $basket->fresh('translations');
+        $basket->producers()->sync([$farmD->id]);
+        $this->inflow($basket, $farmD, 5000);
+
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin)
+            ->postJson(route('app.admin.producer-orders.move'), [
+                'product_id' => $this->zucchini->id,
+                'variant_id' => 0,
+                'delivery_date' => self::DATE,
+                'target_product_id' => $basket->id,
+                'target_producer_id' => $farmD->id,
+                'target_quantity' => 1.5,   // 1.5 kg entered by admin (display unit)
+            ])
+            ->assertOk();
+
+        // Stored as canonical grams: 1.5 × 1000 = 1500.
+        $this->assertDatabaseHas('producer_position_overrides', [
+            'product_id' => $this->zucchini->id,
+            'target_product_id' => $basket->id,
+            'target_quantity' => 1500.0,
+        ]);
+
+        // Panel shows 1.5 (display kg), not 1500 g.
+        $producers = collect($this->actingAs($admin)
+            ->get(route('app.admin.producer-orders.index', ['delivery_from' => self::DATE, 'delivery_to' => self::DATE]))
+            ->assertOk()
+            ->viewData('producers'));
+
+        $d = $producers->firstWhere('id', $farmD->id);
+        $this->assertNotNull($d);
+        $dRow = collect($d['rows'])->firstWhere('product_id', $basket->id);
+        $this->assertNotNull($dRow);
+        $this->assertEqualsWithDelta(1.5, (float) $dRow['qty_display'], 1e-6);
+    }
+
+    public function test_farmer_export_uses_target_quantity_after_conversion(): void
+    {
+        $farmD = $this->farm('Farm Delta');
+        $basket = Product::factory()->create([
+            'producer_id' => $farmD->id,
+            'unit' => ProductUnit::Mass->value, 'price_display_unit' => 'kg',
+            'is_available' => true, 'is_published' => true,
+        ]);
+        $basket->translations()->update(['name' => 'Zucchini gruen']);
+        $basket = $basket->fresh('translations');
+        $basket->producers()->sync([$farmD->id]);
+        $this->inflow($basket, $farmD, 5000);
+
+        // Admin moves and enters 2 kg.
+        $this->service()->move(
+            $this->zucchini->id, 0, self::DATE,
+            $basket->id, $farmD->id, null,
+            targetQuantityDisplay: 2.0,
+        );
+
+        $rowsD = $this->farmerRows($farmD->id);
+        $row = collect($rowsD)->firstWhere('product_name', 'Zucchini gruen');
+        $this->assertNotNull($row);
+        // naturalQuantity(2000 g) → "2" / "kg"
+        $this->assertSame('kg', $row['unit']);
+        $this->assertSame('2', $row['amount']);
+    }
 }
