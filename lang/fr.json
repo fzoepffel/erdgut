@@ -2836,6 +2836,7 @@
     "shop.admin.invoice_not_issued": "Cette commande n'a pas encore de facture émise.",
     "shop.admin.invoice_number_editable_hint": "Modifier le numéro de facture (brouillon uniquement).",
     "shop.admin.invoice_display_as": "sur facture :",
+    "shop.admin.invoice_display_reset": "Réinitialiser l'unité",
     "shop.admin.invoice_issued_flash": "La facture :number a été émise.",
     "shop.admin.invoice_blocked_discount": "Facture impossible : cette commande contient une remise par bon. Ajustez plutôt les prix dans l'éditeur de commande.",
     "shop.admin.invoice_blocked_mirror": "Cette commande est facturée via la facture B2B.",

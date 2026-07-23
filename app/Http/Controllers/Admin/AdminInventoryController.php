@@ -119,6 +119,27 @@ class AdminInventoryController extends Controller
         $farmConsumer = $this->allocation->remainingByProducer($pids, $isoDates);
         $farmB2b = $this->allocation->remainingByProducer($pids, $isoDates, ShopStockAudience::BusinessTrade);
 
+        // Farm moves (producer position overrides) reattribute stock between
+        // products on the inventar page only: the source product regains the
+        // moved position (+qty), the target product is charged (−qty). Layer
+        // that signed delta onto both windows so the product TOTALS track the
+        // per-farm remaining above. Storefront/B2B availability stays untouched.
+        $availabilityDelta = $this->allocation->overrideAvailabilityDelta($pids, $isoDates);
+        if ($availabilityDelta !== []) {
+            $applyDelta = fn ($matrix) => $matrix->map(function (array $window, int $pid) use ($availabilityDelta): array {
+                foreach ($window as $iso => $qty) {
+                    $d = $availabilityDelta[$iso][$pid] ?? 0.0;
+                    if ($d !== 0.0) {
+                        $window[$iso] = max(0.0, (float) $qty + $d);
+                    }
+                }
+
+                return $window;
+            });
+            $availabilityMatrix = $applyDelta($availabilityMatrix);
+            $b2bAvailabilityMatrix = $applyDelta($b2bAvailabilityMatrix);
+        }
+
         $farmMatrix = [];      // [pid][producerId][iso] => ['qty' => float, 'b2bExtra' => float]
         $farmTotals = [];      // [pid][producerId] => window total, for ordering
         foreach ($pids as $pid) {
