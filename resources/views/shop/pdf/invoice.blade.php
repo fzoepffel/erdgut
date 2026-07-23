@@ -72,6 +72,21 @@
             $factor = max(1, $product->unit->canonicalUnitsPerDisplay($display));
             $displayQty = $qty / $factor;
             $unitLabel = $germanSymbol($display);
+
+            // Precise net per display unit from the stored per-canonical
+            // snapshot (gross, 4 decimals), not the 2-decimal total divided by
+            // the quantity: 30 g of a 2,15 €/100 g product reads 21,50 €/kg,
+            // not 21,33 (0,64 € ÷ 0,03 kg).
+            $grossPerCanonical = (float) $item->unit_price_snapshot_eur;
+            $rate = (int) $item->vat_rate_snapshot_percent;
+            $netPerCanonical = $rate > 0 ? $grossPerCanonical / (1 + $rate / 100) : $grossPerCanonical;
+
+            return [
+                'unit_net' => $grossPerCanonical > 0
+                    ? round($netPerCanonical * $factor, 4)
+                    : ($displayQty > 0 ? $lineNet($item) / $displayQty : 0.0),
+                'qty' => trim($num($displayQty).' '.$unitLabel),
+            ];
         } else {
             // Custom line: the admin entered the unit. Scale g/ml up to kg/L
             // so the unit price reads like a shelf price, not a per-gram one.

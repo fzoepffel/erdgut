@@ -34,17 +34,29 @@
             $net = $lineNet($item);
             $overrideQty = $item->display_quantity_override;
 
+            // Prefilled net price per NATURAL display unit. Derive it from the
+            // stored unit-price snapshot (gross per canonical unit, 4 decimals)
+            // rather than dividing the 2-decimal line total: a 30 g line of a
+            // 2,15 €/100 g product then reads 21,50 €/kg, not 21,33 (total
+            // 0,64 € ÷ 0,03 kg). Custom lines have no reliable per-unit
+            // snapshot, so they fall back to total ÷ quantity.
+            $grossPerCanonical = (float) $item->unit_price_snapshot_eur;
+            $rate = (int) $item->vat_rate_snapshot_percent;
+            $netPerCanonical = $rate > 0 ? $grossPerCanonical / (1 + $rate / 100) : $grossPerCanonical;
+            $price = $item->product?->unit !== null && $grossPerCanonical > 0
+                ? round($netPerCanonical * $factor, 4)
+                : ($displayQty > 0 ? round($net / $displayQty, 4) : 0.0);
+
             return [
                 'qty' => (float) $item->quantity,
                 'net' => $net,
-                // Prefilled net price per NATURAL display unit; editing price or
-                // quantity recomputes the total (price-first UX). Untouched
-                // lines submit their exact stored total, so no rounding drift
-                // on a plain re-save. When a display override is active the
-                // Preis readout is derived from the total instead (displayPrice),
-                // so this stays the price the editable field falls back to once
-                // the override is cleared.
-                'price' => $displayQty > 0 ? round($net / $displayQty, 4) : 0.0,
+                // Editing price or quantity recomputes the total (price-first
+                // UX). Untouched lines submit their exact stored total, so no
+                // rounding drift on a plain re-save. When a display override is
+                // active the Preis readout is derived from the total instead
+                // (displayPrice), so this stays the price the editable field
+                // falls back to once the override is cleared.
+                'price' => $price,
                 'vat' => (int) $item->vat_rate_snapshot_percent,
                 'factor' => $factor,
                 'displayUnit' => (string) ($item->display_unit_override ?? ''),
