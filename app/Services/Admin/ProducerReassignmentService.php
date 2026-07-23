@@ -22,10 +22,10 @@ use Illuminate\Support\Facades\DB;
  * its receipt stay untouched (fully reversible).
  *
  * Eligibility is measured against sellable stock LEFT on the delivery date
- * ({@see ProducerAllocationService::remainingByProducer}), reduced by any
- * override already pointing at that producer. The check is conservative: it
- * never offers more than a farm can actually still supply, so a move can never
- * oversell.
+ * ({@see ProducerAllocationService::remainingByProducer}), which already
+ * honors existing overrides (source farm restored, target farm charged). The
+ * check is conservative: it never offers more than a farm can actually still
+ * supply, so a move can never oversell.
  */
 class ProducerReassignmentService
 {
@@ -81,8 +81,9 @@ class ProducerReassignmentService
     }
 
     /**
-     * Sellable-stock capacity per (product, variant, producer) on one date,
-     * reduced by overrides already sourcing from that producer. Shape:
+     * Sellable-stock capacity per (product, variant, producer) on one date.
+     * Honors producer_position_overrides via remainingByProducer (target farm
+     * already reduced, source farm already restored). Shape:
      * [pid][vkey][producerId => qty].
      *
      * @param  list<int>  $productIds
@@ -106,20 +107,8 @@ class ProducerReassignmentService
             }
         }
 
-        // An override that already sources from a producer has claimed that
-        // stock even though the raw demand still points at the source product.
-        foreach ($this->overridesByPosition([$iso]) as $override) {
-            if (! in_array($override->target_product_id, $productIds, true)) {
-                continue;
-            }
-            $qty = $this->positionDemand($override->product_id, $override->variant_id, $iso);
-            $pid = $override->target_product_id;
-            $vkey = $override->variant_id;
-            $producerId = $override->target_producer_id;
-            if (isset($capacity[$pid][$vkey][$producerId])) {
-                $capacity[$pid][$vkey][$producerId] = max(0.0, $capacity[$pid][$vkey][$producerId] - $qty);
-            }
-        }
+        // Overrides are already applied inside remainingByProducer (source
+        // farm +qty, target farm −qty), so capacity needs no further subtract.
 
         return $capacity;
     }

@@ -4,10 +4,12 @@ namespace App\Services\Admin;
 
 use App\Enums\ShopStockAudience;
 use App\Models\Producer;
+use App\Models\ProducerPositionOverride;
 use App\Models\Product;
 use App\Support\InventoryCache;
 use App\Support\ProducerLabels;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Computes which FARM covers which share of the committed demand — the
@@ -32,6 +34,10 @@ use Illuminate\Support\Carbon;
  * Attribution is advisory: it never feeds availability. Across multi-day
  * freshness windows it may deplete batches in a different order than the
  * pure-FEFO availability math — cosmetic at farm scale.
+ *
+ * {@see ProducerPositionOverride} rows reattribute inventar remaining: the
+ * source farm regains the moved demand and the target farm loses it, so the
+ * inventar page matches the receiving panel after a "Change farm".
  */
 class ProducerAllocationService
 {
@@ -95,15 +101,30 @@ class ProducerAllocationService
             return [];
         }
 
-        // remaining2: the shape gained the vkey level (grade-aware labels).
-        $suffix = 'palloc.remaining2.'.$audience->value.'.'.md5(implode(',', $productIds).'|'.implode(',', $isoDates));
+        // remaining3: remaining pools honor producer_position_overrides
+        // (source farm +qty, target farm −qty) so inventar matches moves.
+        $suffix = 'palloc.remaining3.'.$audience->value.'.'.md5(implode(',', $productIds).'|'.implode(',', $isoDates));
 
         return InventoryCache::remember($suffix, function () use ($productIds, $isoDates, $audience): array {
-            $pools = $this->compute($productIds, $isoDates, null)['remaining'];
+            $overrides = $this->overridesAffecting($productIds, $isoDates);
+            $expanded = $this->expandProductIds($productIds, $overrides);
+
+            $computed = $this->compute($expanded, $isoDates, null);
+            $pools = $this->applyOverridesToRemaining(
+                $computed['remaining'],
+                $computed['allocation'],
+                $overrides,
+            );
 
             $out = [];
             foreach ($pools as $iso => $byPid) {
                 foreach ($byPid as $pid => $byVkey) {
+                    // Only return products the caller asked for (expanded
+                    // ids were loaded so cross-product moves can charge the
+                    // target even when inventar filters to the source).
+                    if (! in_array((int) $pid, $productIds, true)) {
+                        continue;
+                    }
                     foreach ($byVkey as $vkey => $byProducer) {
                         $shares = [];
                         foreach ($byProducer as $producerId => $pool) {
@@ -122,6 +143,114 @@ class ProducerAllocationService
 
             return $out;
         });
+    }
+
+    /**
+     * Overrides that touch any of the requested products (as source or target)
+     * on the requested dates.
+     *
+     * @param  list<int>  $productIds
+     * @param  list<string>  $isoDates
+     * @return Collection<int, ProducerPositionOverride>
+     */
+    private function overridesAffecting(array $productIds, array $isoDates): Collection
+    {
+        if ($productIds === [] || $isoDates === []) {
+            return collect();
+        }
+
+        return ProducerPositionOverride::query()
+            ->whereIn('delivery_date', $isoDates)
+            ->where(function ($q) use ($productIds): void {
+                $q->whereIn('product_id', $productIds)
+                    ->orWhereIn('target_product_id', $productIds);
+            })
+            ->get();
+    }
+
+    /**
+     * @param  list<int>  $productIds
+     * @param  Collection<int, ProducerPositionOverride>  $overrides
+     * @return list<int>
+     */
+    private function expandProductIds(array $productIds, Collection $overrides): array
+    {
+        $ids = $productIds;
+        foreach ($overrides as $override) {
+            $ids[] = (int) $override->product_id;
+            $ids[] = (int) $override->target_product_id;
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        sort($ids);
+
+        return $ids;
+    }
+
+    /**
+     * Reattribute inventar remaining for each override: give the moved amount
+     * back to the farm(s) that the allocator charged on the source product,
+     * and take it from the chosen target farm (and target product).
+     *
+     * @param  array<string, array<int, array<int, array<int, array{shared: float, b2b: float}>>>>  $remaining
+     * @param  array<string, array<int, array<int, array<int, float>>>>  $allocation
+     * @param  Collection<int, ProducerPositionOverride>  $overrides
+     * @return array<string, array<int, array<int, array<int, array{shared: float, b2b: float}>>>>
+     */
+    private function applyOverridesToRemaining(array $remaining, array $allocation, Collection $overrides): array
+    {
+        foreach ($overrides as $override) {
+            $iso = $override->delivery_date;
+            $sourcePid = (int) $override->product_id;
+            $sourceVkey = (int) $override->variant_id;
+            $targetPid = (int) $override->target_product_id;
+            $targetVkey = $targetPid === $sourcePid ? $sourceVkey : 0;
+            $targetProducerId = (int) $override->target_producer_id;
+
+            $shares = $allocation[$iso][$sourcePid][$sourceVkey] ?? [];
+            $sourceQty = 0.0;
+            foreach ($shares as $qty) {
+                $sourceQty += (float) $qty;
+            }
+            if ($sourceQty <= 1e-9) {
+                continue;
+            }
+
+            // Cross-unit moves store the amount in the target's canonical unit;
+            // same-unit moves leave it null and keep the source quantity.
+            $targetQty = $override->target_quantity !== null
+                ? (float) $override->target_quantity
+                : $sourceQty;
+
+            // Restore each farm's allocated share of this position (an override
+            // covers the whole (product, variant, date) demand).
+            foreach ($shares as $producerId => $shareQty) {
+                $producerId = (int) $producerId;
+                $shareQty = (float) $shareQty;
+                if ($producerId <= 0 || $shareQty <= 1e-9) {
+                    continue;
+                }
+                $pool = &$remaining[$iso][$sourcePid][$sourceVkey][$producerId];
+                $pool ??= ['shared' => 0.0, 'b2b' => 0.0];
+                $pool['shared'] += $shareQty;
+                unset($pool);
+            }
+
+            // Charge the target farm on the target product.
+            $pool = &$remaining[$iso][$targetPid][$targetVkey][$targetProducerId];
+            $pool ??= ['shared' => 0.0, 'b2b' => 0.0];
+            $take = $targetQty;
+            $fromShared = min($take, max(0.0, $pool['shared']));
+            $pool['shared'] -= $fromShared;
+            $take -= $fromShared;
+            if ($take > 1e-9) {
+                $fromB2b = min($take, max(0.0, $pool['b2b']));
+                $pool['b2b'] -= $fromB2b;
+            }
+            unset($pool);
+        }
+
+        return $remaining;
     }
 
     /**

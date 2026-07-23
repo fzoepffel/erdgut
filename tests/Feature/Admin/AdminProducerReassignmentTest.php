@@ -11,6 +11,7 @@ use App\Models\ProductSubcategory;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use App\Models\User;
+use App\Services\Admin\ProducerAllocationService;
 use App\Services\Admin\ProducerReassignmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -907,5 +908,49 @@ class AdminProducerReassignmentTest extends TestCase
         // naturalQuantity(2000 g) → "2" / "kg"
         $this->assertSame('kg', $row['unit']);
         $this->assertSame('2', $row['amount']);
+    }
+
+    public function test_move_reattributes_inventar_remaining_to_the_target_farm(): void
+    {
+        // Before the move, farm A (primary) covers the 3-piece order → remaining
+        // A=2, B=20. After moving the position to B, inventar must show A=5 and
+        // B=17 (Looke gains the demand back, Melchhof loses it).
+        $allocation = app(ProducerAllocationService::class);
+
+        $before = $allocation->remainingByProducer([$this->zucchini->id], [self::DATE])[self::DATE][$this->zucchini->id][0] ?? [];
+        $this->assertEqualsWithDelta(2.0, (float) ($before[$this->farmA->id] ?? 0), 1e-6);
+        $this->assertEqualsWithDelta(20.0, (float) ($before[$this->farmB->id] ?? 0), 1e-6);
+
+        $this->service()->move(
+            $this->zucchini->id, 0, self::DATE,
+            $this->zucchini->id, $this->farmB->id, null,
+        );
+
+        $after = $allocation->remainingByProducer([$this->zucchini->id], [self::DATE])[self::DATE][$this->zucchini->id][0] ?? [];
+        $this->assertEqualsWithDelta(5.0, (float) ($after[$this->farmA->id] ?? 0), 1e-6);
+        $this->assertEqualsWithDelta(17.0, (float) ($after[$this->farmB->id] ?? 0), 1e-6);
+
+        // capacityFor must not double-subtract: B still shows 17 for further moves.
+        $cap = $this->service()->capacityFor([$this->zucchini->id], self::DATE);
+        $this->assertEqualsWithDelta(17.0, (float) ($cap[$this->zucchini->id][0][$this->farmB->id] ?? 0), 1e-6);
+        $this->assertEqualsWithDelta(5.0, (float) ($cap[$this->zucchini->id][0][$this->farmA->id] ?? 0), 1e-6);
+    }
+
+    public function test_cross_product_move_charges_target_product_stock(): void
+    {
+        // Move zucchini (farm A) → zucchini gelb (farm B). Source farm A must
+        // regain its zucchini stock; gelb on B loses the converted amount.
+        $allocation = app(ProducerAllocationService::class);
+
+        $this->service()->move(
+            $this->zucchini->id, 0, self::DATE,
+            $this->zucchiniGelb->id, $this->farmB->id, null,
+        );
+
+        $zucchiniRem = $allocation->remainingByProducer([$this->zucchini->id], [self::DATE])[self::DATE][$this->zucchini->id][0] ?? [];
+        $gelbRem = $allocation->remainingByProducer([$this->zucchiniGelb->id], [self::DATE])[self::DATE][$this->zucchiniGelb->id][0] ?? [];
+
+        $this->assertEqualsWithDelta(5.0, (float) ($zucchiniRem[$this->farmA->id] ?? 0), 1e-6);
+        $this->assertEqualsWithDelta(17.0, (float) ($gelbRem[$this->farmB->id] ?? 0), 1e-6);
     }
 }
