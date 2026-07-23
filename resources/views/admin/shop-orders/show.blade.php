@@ -164,6 +164,16 @@
                         <span class="text-xs text-gray-500" data-testid="shop-admin-invoice-meta">
                             {{ __('shop.admin.invoice_meta_line', ['number' => $order->invoice_number, 'date' => $order->invoiced_at?->format('d.m.Y')]) }}
                         </span>
+                        <form method="POST" action="{{ route('app.admin.shop-orders.revert-invoice', $order) }}"
+                              onsubmit="return confirm({{ Js::from(__('shop.admin.confirm_revert_invoice')) }})"
+                              class="inline">
+                            @csrf
+                            <button type="submit"
+                                    class="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+                                    data-testid="shop-admin-revert-invoice">
+                                {{ __('shop.admin.action_revert_invoice') }}
+                            </button>
+                        </form>
                     @elseif ((float) $order->discount_eur > 0)
                         <span class="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-500"
                               data-testid="shop-admin-invoice-blocked"

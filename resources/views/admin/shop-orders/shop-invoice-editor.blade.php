@@ -27,6 +27,10 @@
 
             $displayQty = $factor > 0 ? ((float) $item->quantity) / $factor : (float) $item->quantity;
             $net = $lineNet($item);
+            $overrideQty = $item->display_quantity_override;
+            $priceQty = ($overrideQty !== null && (float) $overrideQty > 0)
+                ? (float) $overrideQty
+                : $displayQty;
 
             return [
                 'qty' => (float) $item->quantity,
@@ -35,16 +39,24 @@
                 // quantity recomputes the total (price-first UX). Untouched
                 // lines submit their exact stored total, so no rounding
                 // drift on a plain re-save.
-                'price' => $displayQty > 0 ? round($net / $displayQty, 4) : 0.0,
+                'price' => $priceQty > 0 ? round($net / $priceQty, 4) : 0.0,
                 'vat' => (int) $item->vat_rate_snapshot_percent,
                 'factor' => $factor,
+                'displayUnit' => (string) ($item->display_unit_override ?? ''),
+                'displayQty' => $overrideQty !== null ? (float) $overrideQty : null,
                 'touched' => false,
                 'removed' => false,
             ];
         })->values()->all();
 
         // German price-unit suffix ("/ kg") per line for the Preis column.
+        // Prefer the display override when set so the live Preis matches the PDF.
         $priceUnitLabels = $items->map(function ($item) {
+            $override = trim((string) ($item->display_unit_override ?? ''));
+            if ($override !== '') {
+                return $override;
+            }
+
             if ($item->product?->unit !== null) {
                 $display = $item->product->price_display_unit ?? $item->product->unit->defaultDisplayUnit();
 
@@ -59,6 +71,15 @@
                 'g' => 'kg', 'ml' => 'L', 'piece' => 'Stück', 'bunch' => 'Bund',
                 default => \App\Enums\ProductUnit::displaySymbol((string) $item->unit),
             };
+        })->values()->all();
+
+        // Natural unit label shown as placeholder for the display-unit override.
+        $naturalUnitLabels = $items->map(function ($item) {
+            if ($item->product !== null) {
+                return $item->product->canonicalUnitLabel();
+            }
+
+            return \App\Enums\ProductUnit::displaySymbol((string) $item->unit);
         })->values()->all();
 
         $unitOptions = [
@@ -164,10 +185,18 @@
                     <div class="mb-6 flex items-start gap-5">
                         <img src="{{ asset('images/logo/erdgut-invoice.png') }}" alt="Erdgut" class="h-16 w-16 object-contain">
                         <div class="pt-1 text-[13px] text-gray-700">
-                            <div>Rechnung No: <strong>{{ $previewNumber }}</strong>
-                                @unless ($order->isInvoiced())
+                            <div>Rechnung No:
+                                @if ($order->isInvoiced())
+                                    <strong>{{ $previewNumber }}</strong>
+                                @else
+                                    <input type="text" name="invoice_number"
+                                           value="{{ old('invoice_number', $order->invoice_number ?? $previewNumber) }}"
+                                           maxlength="32"
+                                           class="inline-block w-36 rounded-none border-0 border-b border-dashed border-gray-300 bg-transparent p-0 text-[13px] font-bold text-gray-900 focus:border-emerald-500 focus:ring-0"
+                                           data-testid="invoice-editor-number"
+                                           title="{{ __('shop.admin.invoice_number_editable_hint') }}">
                                     <span class="text-gray-400">({{ __('restaurant.invoice_editor_draft') }})</span>
-                                @endunless
+                                @endif
                             </div>
                             <div>Rechnungsdatum: <strong>{{ ($order->invoiced_at ?? now())->format('d/m/Y') }}</strong></div>
                             <div class="flex items-center gap-1.5">
@@ -246,8 +275,24 @@
                                                    x-model.number="existing[{{ $i }}].qty"
                                                    x-on:input="existing[{{ $i }}].touched = true"
                                                    class="{{ $inpRight }}" style="max-width:70px;">
-                                            <span class="text-gray-500">{{ $item->product !== null ? $item->product->canonicalUnitLabel() : \App\Enums\ProductUnit::displaySymbol((string) $item->unit) }}</span>
+                                            <span class="text-gray-500">{{ $naturalUnitLabels[$i] }}</span>
                                         </span>
+                                        {{-- Display-only override: what the invoice/receipt shows.
+                                             Blank = use the natural unit above. Stock stays on quantity. --}}
+                                        <div class="mt-1 flex items-baseline gap-1 text-[10px] text-gray-400">
+                                            <span class="shrink-0">{{ __('shop.admin.invoice_display_as') }}</span>
+                                            <input type="number" step="any" min="0" name="items[{{ $i }}][display_quantity]"
+                                                   x-model="existing[{{ $i }}].displayQty"
+                                                   placeholder="—"
+                                                   class="{{ $inpRight }} text-[10px]" style="max-width:52px;"
+                                                   data-testid="invoice-editor-display-qty-{{ $i }}">
+                                            <input type="text" name="items[{{ $i }}][display_unit]"
+                                                   x-model="existing[{{ $i }}].displayUnit"
+                                                   placeholder="{{ $priceUnitLabels[$i] }}"
+                                                   maxlength="32"
+                                                   class="{{ $inp }} text-[10px]" style="max-width:64px;"
+                                                   data-testid="invoice-editor-display-unit-{{ $i }}">
+                                        </div>
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
                                         {{-- Computed: Preis × Menge, VAT select inline. The hidden

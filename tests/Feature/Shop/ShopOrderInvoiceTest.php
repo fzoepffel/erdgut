@@ -360,13 +360,14 @@ class ShopOrderInvoiceTest extends TestCase
             ->assertSee('data-testid="shop-admin-invoice-blocked"', false)
             ->assertDontSee('data-testid="shop-admin-issue-invoice"', false);
 
-        // Issued: download + mail + meta line.
+        // Issued: download + mail + meta line + revert button.
         $issued = app(ShopOrderInvoiceService::class)->issueInvoice($this->makeOrder());
         $this->actingAs($this->admin)
             ->get(route('app.admin.shop-orders.show', $issued))
             ->assertOk()
             ->assertSee('data-testid="shop-admin-invoice-download"', false)
             ->assertSee('data-testid="shop-admin-invoice-mail"', false)
+            ->assertSee('data-testid="shop-admin-revert-invoice"', false)
             ->assertSee($issued->invoice_number)
             ->assertDontSee('data-testid="shop-admin-issue-invoice"', false);
     }
@@ -600,5 +601,223 @@ class ShopOrderInvoiceTest extends TestCase
         // A key submitted blank drops its override.
         $svc->saveReceiptOverrides($order, ['bank_iban' => '']);
         $this->assertNull($order->refresh()->receiptOverride('bank_iban'));
+    }
+
+    // ── Revert to draft + editable number ───────────────────────────────
+
+    public function test_revert_invoice_returns_to_draft_and_keeps_the_number(): void
+    {
+        $order = app(ShopOrderInvoiceService::class)->issueInvoice($this->makeOrder());
+        $number = $order->invoice_number;
+        $this->assertTrue($order->isInvoiced());
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.revert-invoice', $order))
+            ->assertRedirect(route('app.admin.shop-orders.show', $order));
+
+        $order->refresh();
+        $this->assertFalse($order->isInvoiced());
+        $this->assertNull($order->invoiced_at);
+        $this->assertNull($order->invoice_due_date);
+        $this->assertSame($number, $order->invoice_number);
+
+        // PDF download and mail stay blocked while draft.
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-orders.invoice-pdf', $order))
+            ->assertNotFound();
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-orders.shop-invoice-mail', $order))
+            ->assertForbidden();
+
+        // Show page offers issue again + no download.
+        $this->actingAs($this->admin)
+            ->get(route('app.admin.shop-orders.show', $order))
+            ->assertOk()
+            ->assertSee('data-testid="shop-admin-issue-invoice"', false)
+            ->assertDontSee('data-testid="shop-admin-invoice-download"', false);
+
+        $this->assertDatabaseHas('audit_events', [
+            'entity_type' => 'shop_order',
+            'entity_id' => $order->id,
+            'action' => 'invoice_revert',
+        ]);
+    }
+
+    public function test_reissue_after_revert_reuses_the_manual_number_without_consuming_sequence(): void
+    {
+        $order = app(ShopOrderInvoiceService::class)->issueInvoice($this->makeOrder());
+        $number = $order->invoice_number;
+        app(ShopOrderInvoiceService::class)->revertInvoice($order);
+
+        // Peek at the next auto-assigned number BEFORE re-issue.
+        $nextWouldBe = InvoiceSequence::preview();
+
+        $reissued = app(ShopOrderInvoiceService::class)->issueInvoice($order->refresh());
+        $this->assertSame($number, $reissued->invoice_number);
+        $this->assertTrue($reissued->isInvoiced());
+
+        // Sequence was not advanced by the re-issue (manual number reused).
+        $this->assertSame($nextWouldBe, InvoiceSequence::preview());
+    }
+
+    public function test_editor_can_set_a_manual_invoice_number_while_draft(): void
+    {
+        $order = $this->makeOrder();
+        $item = $order->items()->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
+                'invoice_number' => 'EB269999',
+                'items' => [[
+                    'id' => $item->id,
+                    'net_total_eur' => '100.00',
+                    'vat_rate_percent' => 7,
+                    'quantity' => 2,
+                ]],
+            ])
+            ->assertRedirect(route('app.admin.shop-orders.shop-invoice-editor', $order));
+
+        $order->refresh();
+        $this->assertSame('EB269999', $order->invoice_number);
+        $this->assertFalse($order->isInvoiced());
+
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order);
+        $this->assertSame('EB269999', $issued->invoice_number);
+        $this->assertTrue($issued->isInvoiced());
+    }
+
+    public function test_manual_invoice_number_must_be_unique(): void
+    {
+        $existing = app(ShopOrderInvoiceService::class)->issueInvoice($this->makeOrder());
+        $order = $this->makeOrder();
+        $item = $order->items()->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->from(route('app.admin.shop-orders.shop-invoice-editor', $order))
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
+                'invoice_number' => $existing->invoice_number,
+                'items' => [[
+                    'id' => $item->id,
+                    'net_total_eur' => '100.00',
+                    'vat_rate_percent' => 7,
+                    'quantity' => 2,
+                ]],
+            ])
+            ->assertSessionHasErrors('invoice_number');
+    }
+
+    public function test_revert_is_blocked_for_mirror_orders(): void
+    {
+        $mirror = $this->mirrorOrder();
+        // Force an "issued" look so the service reaches the mirror guard.
+        $mirror->forceFill([
+            'invoice_number' => 'EB260042',
+            'invoiced_at' => now(),
+        ])->save();
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.revert-invoice', $mirror))
+            ->assertRedirect(route('app.admin.shop-orders.show', $mirror))
+            ->assertSessionHas('status', __('shop.admin.invoice_blocked_mirror'));
+
+        $this->assertTrue($mirror->refresh()->isInvoiced());
+    }
+
+    // ── Display-only unit/quantity override ─────────────────────────────
+
+    public function test_editor_save_stores_display_overrides_without_changing_canonical_qty(): void
+    {
+        // Order line is 300 g mass; invoice should show "2 Stück".
+        $mass = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 10.00,
+            'vat_rate_percent' => 7,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        $order = $this->makeOrder([], [
+            'product_id' => $mass->id,
+            'quantity' => 300,
+            'unit' => 'mass',
+            'unit_price_snapshot_eur' => 0.01,
+            'line_total_eur' => 3.21, // gross, ~3.00 net at 7 %
+            'vat_rate_snapshot_percent' => 7,
+            'vat_amount_eur' => 0.21,
+        ]);
+        $order->forceFill([
+            'items_total_eur' => 3.21,
+            'total_amount_eur' => 3.21,
+            'paid_amount_eur' => 3.21,
+            'outstanding_settled_amount_eur' => 0,
+            'outstanding_settled_at' => now(),
+        ])->save();
+        $item = $order->items()->firstOrFail();
+        $canonicalQty = (float) $item->quantity;
+        $canonicalUnit = $item->unit;
+        $lineTotal = (float) $item->line_total_eur;
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
+                'items' => [[
+                    'id' => $item->id,
+                    'net_total_eur' => '3.00',
+                    'vat_rate_percent' => 7,
+                    'quantity' => 300,
+                    'display_unit' => 'Stück',
+                    'display_quantity' => 2,
+                ]],
+            ])
+            ->assertRedirect();
+
+        $item->refresh();
+        $this->assertSame($canonicalQty, (float) $item->quantity);
+        $this->assertSame($canonicalUnit, $item->unit);
+        $this->assertEqualsWithDelta($lineTotal, (float) $item->line_total_eur, 0.001);
+        $this->assertSame('Stück', $item->display_unit_override);
+        $this->assertEqualsWithDelta(2.0, (float) $item->display_quantity_override, 0.0001);
+
+        // Settlement stays closed — totals did not move.
+        $order->refresh();
+        $this->assertNotNull($order->outstanding_settled_at);
+    }
+
+    public function test_invoice_pdf_renders_display_unit_override(): void
+    {
+        $order = $this->makeOrder();
+        $item = $order->items()->firstOrFail();
+        $item->forceFill([
+            'display_unit_override' => 'Stück',
+            'display_quantity_override' => 2,
+        ])->save();
+
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order);
+        $html = $this->renderInvoice($issued);
+
+        $this->assertStringContainsString('2 Stück', $html);
+        // Unit price = net 100 / 2 = 50,00 € (German formatting).
+        $this->assertStringContainsString('50,00', $html);
+    }
+
+    public function test_receipt_pdf_renders_display_unit_override(): void
+    {
+        $order = $this->makeOrder();
+        $item = $order->items()->firstOrFail();
+        $item->forceFill([
+            'display_unit_override' => 'Schale',
+            'display_quantity_override' => 1,
+        ])->save();
+
+        $html = view('shop.pdf.receipt', [
+            'order' => $order->load('items.product.translations'),
+            'vatByRate' => ShopOrderService::vatByRate($order),
+            'producerNames' => collect(),
+            'company' => [
+                'name' => 'Erdgut', 'street' => '', 'postal_city' => '',
+                'phone' => '', 'email' => '', 'vat_id' => '', 'register' => '',
+            ],
+        ])->render();
+
+        $this->assertStringContainsString('1 Schale', $html);
     }
 }

@@ -39,6 +39,19 @@
             default => \App\Enums\ProductUnit::displaySymbol($u),
         };
 
+        // Admin display override (e.g. show "2 Stück" while the order is 300 g).
+        $overrideUnit = trim((string) ($item->display_unit_override ?? ''));
+        $overrideQty = $item->display_quantity_override;
+        if ($overrideUnit !== '' && $overrideQty !== null && (float) $overrideQty > 0) {
+            $displayQty = (float) $overrideQty;
+            $unitLabel = $overrideUnit;
+
+            return [
+                'unit_net' => $displayQty > 0 ? $lineNet($item) / $displayQty : 0.0,
+                'qty' => trim($num($displayQty).' '.$unitLabel),
+            ];
+        }
+
         if ($product?->unit !== null) {
             $display = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
             $factor = max(1, $product->unit->canonicalUnitsPerDisplay($display));
@@ -89,9 +102,9 @@
     // falls back to the real default (config / order data).
     $ov = fn (string $key, ?string $default = null) => $order->receiptOverride($key) ?? $default;
 
-    // Draft preview: no number assigned yet — render with the number the
-    // invoice WOULD get and today's dates, clearly marked as Entwurf.
-    $isPreview = $order->invoice_number === null;
+    // Draft preview: not yet issued — render with the (manual or upcoming)
+    // number and today's dates, clearly marked as Entwurf.
+    $isPreview = ! $order->isInvoiced();
     $number = $order->invoice_number ?? ($previewNumber ?? '');
     $invoiceDate = $order->invoiced_at ?? now();
     $dueDate = $order->invoice_due_date

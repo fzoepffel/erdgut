@@ -1705,6 +1705,39 @@ class AdminShopOrderController extends Controller
             ->with('status', __('shop.admin.invoice_issued_flash', ['number' => $shopOrder->invoice_number]));
     }
 
+    /**
+     * Mark an issued invoice as draft again so the admin can edit the
+     * number and re-issue. The number itself is kept (and becomes editable).
+     */
+    public function revertInvoice(Request $request, ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): RedirectResponse
+    {
+        $this->authorize('admin');
+
+        $previousNumber = $shopOrder->invoice_number;
+
+        try {
+            $shopOrder = $invoices->revertInvoice($shopOrder);
+        } catch (\RuntimeException $e) {
+            return redirect()
+                ->route('app.admin.shop-orders.show', $shopOrder)
+                ->with('status', $e->getMessage());
+        }
+
+        AuditLogger::log(
+            entityType: 'shop_order',
+            entityId: (int) $shopOrder->id,
+            action: 'invoice_revert',
+            fromState: $shopOrder->status->value,
+            toState: $shopOrder->status->value,
+            metadata: ['channel' => 'admin', 'invoice_number' => $previousNumber],
+            actorUserId: (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('app.admin.shop-orders.show', $shopOrder)
+            ->with('status', __('shop.admin.invoice_reverted_flash', ['number' => $previousNumber]));
+    }
+
     public function invoicePdf(ShopOrder $shopOrder, ShopOrderInvoiceService $invoices): SymfonyResponse
     {
         $this->authorize('admin');
@@ -1838,6 +1871,15 @@ class AdminShopOrderController extends Controller
         }
         if ($dates !== []) {
             $shopOrder->forceFill($dates)->save();
+        }
+
+        // Draft only: the invoice number is editable before issuing (and
+        // again after a revert). Once issued the number is locked.
+        if (! $shopOrder->isInvoiced() && $request->exists('invoice_number')) {
+            $raw = trim((string) ($request->validated('invoice_number') ?? ''));
+            $shopOrder->forceFill([
+                'invoice_number' => $raw !== '' ? $raw : null,
+            ])->save();
         }
     }
 

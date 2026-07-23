@@ -348,9 +348,14 @@ class ShopOrder extends Model
      * Whether a proper Rechnung has been issued for this order. The number
      * comes from the shared yearly invoice ledger and never changes.
      */
+    /**
+     * Whether the invoice has been issued. Decoupled from invoice_number so
+     * a draft can carry a manually-edited number before issuing, and an
+     * issued invoice can be reverted to draft while keeping its number.
+     */
     public function isInvoiced(): bool
     {
-        return $this->invoice_number !== null;
+        return $this->invoiced_at !== null;
     }
 
     public function commitsStockNow(): bool

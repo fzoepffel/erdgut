@@ -43,7 +43,14 @@ class ShopOrderInvoiceService
             }
 
             $invoicedAt = Carbon::now();
-            $number = InvoiceSequence::next($invoicedAt);
+            // A draft may already carry a manually-edited number; reuse it
+            // instead of consuming the next sequence value.
+            $number = $fresh->invoice_number;
+            if ($number === null || trim($number) === '') {
+                $number = InvoiceSequence::next($invoicedAt);
+            } else {
+                $this->bumpSequencePastManualNumber($number, $invoicedAt);
+            }
 
             // Payment terms count from delivery, never before the invoice
             // date; an editor-set due date wins (same rule as B2B).
@@ -70,6 +77,62 @@ class ShopOrderInvoiceService
         });
 
         return $order->refresh();
+    }
+
+    /**
+     * Mark an issued invoice as not-yet-issued again: clears invoiced_at
+     * and the due date, but keeps invoice_number so the admin can reuse or
+     * edit it before re-issuing.
+     */
+    public function revertInvoice(ShopOrder $order): ShopOrder
+    {
+        $order = DB::transaction(function () use ($order): ShopOrder {
+            /** @var ShopOrder $fresh */
+            $fresh = ShopOrder::query()->lockForUpdate()->findOrFail($order->id);
+
+            if ($fresh->restaurant_order_id !== null) {
+                throw new RuntimeException(__('shop.admin.invoice_blocked_mirror'));
+            }
+            if (! $fresh->isInvoiced()) {
+                throw new RuntimeException(__('shop.admin.invoice_not_issued'));
+            }
+
+            $fresh->forceFill([
+                'invoiced_at' => null,
+                'invoice_due_date' => null,
+            ])->save();
+
+            return $fresh;
+        });
+
+        return $order->refresh();
+    }
+
+    /**
+     * When a draft carries a manual EB-style number at or past the current
+     * ledger head, advance the counter so the next auto-assigned number
+     * cannot collide with it.
+     */
+    private function bumpSequencePastManualNumber(string $number, Carbon $at): void
+    {
+        $prefix = (string) config('shop.restaurant_invoice_prefix', 'EB');
+        if (! preg_match('/^'.preg_quote($prefix, '/').'(\d{2})(\d{4})$/', $number, $m)) {
+            return;
+        }
+        // Only bump when the year matches the issue year.
+        if ($m[1] !== $at->format('y')) {
+            return;
+        }
+
+        $sequence = (int) $m[2];
+        $preview = InvoiceSequence::preview($at);
+        if (! preg_match('/^'.preg_quote($prefix, '/').'\d{2}(\d{4})$/', $preview, $p)) {
+            return;
+        }
+        $nextSequence = (int) $p[1];
+        if ($sequence >= $nextSequence) {
+            InvoiceSequence::setNext($sequence + 1);
+        }
     }
 
     /**
@@ -156,6 +219,16 @@ class ShopOrderInvoiceService
                     'display_name_override' => array_key_exists('display_name', $payload)
                         ? (trim((string) $payload['display_name']) !== '' ? trim((string) $payload['display_name']) : null)
                         : $item->display_name_override,
+                    // Display-only unit/qty for the invoice & receipt PDFs;
+                    // blank clears the override and the natural unit is used.
+                    'display_unit_override' => array_key_exists('display_unit', $payload)
+                        ? (trim((string) $payload['display_unit']) !== '' ? trim((string) $payload['display_unit']) : null)
+                        : $item->display_unit_override,
+                    'display_quantity_override' => array_key_exists('display_quantity', $payload)
+                        ? ($payload['display_quantity'] !== null && $payload['display_quantity'] !== ''
+                            ? round((float) $payload['display_quantity'], 4)
+                            : null)
+                        : $item->display_quantity_override,
                 ])->save();
             }
 

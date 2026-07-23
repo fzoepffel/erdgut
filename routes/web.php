@@ -767,6 +767,9 @@ Route::middleware(['auth', 'verified'])
             Route::post('shop-orders/{shopOrder}/issue-invoice', [AdminShopOrderController::class, 'issueInvoice'])
                 ->middleware('throttle:30,1')
                 ->name('shop-orders.issue-invoice');
+            Route::post('shop-orders/{shopOrder}/revert-invoice', [AdminShopOrderController::class, 'revertInvoice'])
+                ->middleware('throttle:30,1')
+                ->name('shop-orders.revert-invoice');
             Route::get('shop-orders/{shopOrder}/invoice.pdf', [AdminShopOrderController::class, 'invoicePdf'])->name('shop-orders.invoice-pdf');
             Route::get('shop-orders/{shopOrder}/invoice-preview.pdf', [AdminShopOrderController::class, 'invoicePreviewPdf'])->name('shop-orders.shop-invoice-preview');
             // WYSIWYG invoice editor (shop variant of the B2B editor).
