@@ -2836,6 +2836,7 @@
     "shop.admin.invoice_not_issued": "Diese Bestellung hat noch keine ausgestellte Rechnung.",
     "shop.admin.invoice_number_editable_hint": "Rechnungsnummer bearbeiten (nur im Entwurf).",
     "shop.admin.invoice_display_as": "auf Rechnung:",
+    "shop.admin.invoice_display_reset": "Einheit zurücksetzen",
     "shop.admin.invoice_issued_flash": "Rechnung :number wurde gestellt.",
     "shop.admin.invoice_blocked_discount": "Rechnung nicht möglich: Die Bestellung enthält einen Gutschein-Rabatt. Bitte passe stattdessen die Preise im Bestell-Editor an.",
     "shop.admin.invoice_blocked_mirror": "Diese Bestellung wird über die B2B-Rechnung fakturiert.",

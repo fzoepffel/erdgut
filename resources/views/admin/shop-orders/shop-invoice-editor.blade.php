@@ -301,6 +301,13 @@
                                                    maxlength="32"
                                                    class="{{ $inp }} text-[10px]" style="max-width:64px;"
                                                    data-testid="invoice-editor-display-unit-{{ $i }}">
+                                            {{-- Undo the display override: clears both fields so the
+                                                 Preis column reverts to the original unit and price. --}}
+                                            <button type="button" x-show="hasOverride(existing[{{ $i }}])" x-cloak
+                                                    @click="clearOverride(existing[{{ $i }}])"
+                                                    class="shrink-0 text-gray-400 hover:text-red-500"
+                                                    title="{{ __('shop.admin.invoice_display_reset') }}"
+                                                    data-testid="invoice-editor-display-reset-{{ $i }}">↺</button>
                                         </div>
                                     </td>
                                     <td class="border-b border-r border-gray-100 px-2 py-1 align-top">
@@ -489,6 +496,14 @@
             // the natural unit, so the Preis column must follow suit.
             hasOverride(line) {
                 return String(line.displayUnit || "").trim() !== "" && (parseFloat(line.displayQty) || 0) > 0;
+            },
+
+            // Undo the display override: clear both fields so hasOverride()
+            // flips false and the Preis column returns to the editable
+            // original unit price (line.price was never mutated).
+            clearOverride(line) {
+                line.displayQty = null;
+                line.displayUnit = "";
             },
 
             // Mirrors the PDF lineView: g/ml scale up to kg/L so the unit

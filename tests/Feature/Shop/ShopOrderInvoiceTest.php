@@ -782,6 +782,35 @@ class ShopOrderInvoiceTest extends TestCase
         $this->assertNotNull($order->outstanding_settled_at);
     }
 
+    public function test_editor_save_clears_a_display_override_when_the_fields_come_back_blank(): void
+    {
+        // The undo control in the editor empties both display fields; saving
+        // that must drop the stored override and return to the natural unit.
+        $order = $this->makeOrder([], [
+            'display_unit_override' => 'Stück',
+            'display_quantity_override' => 2,
+        ]);
+        $item = $order->items()->firstOrFail();
+        $this->assertSame('Stück', $item->display_unit_override);
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
+                'items' => [[
+                    'id' => $item->id,
+                    'net_total_eur' => '100.00',
+                    'vat_rate_percent' => 7,
+                    'quantity' => (float) $item->quantity,
+                    'display_unit' => '',
+                    'display_quantity' => '',
+                ]],
+            ])
+            ->assertRedirect();
+
+        $item->refresh();
+        $this->assertNull($item->display_unit_override);
+        $this->assertNull($item->display_quantity_override);
+    }
+
     public function test_invoice_pdf_renders_display_unit_override(): void
     {
         $order = $this->makeOrder();

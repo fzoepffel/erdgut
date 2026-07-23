@@ -953,4 +953,38 @@ class AdminProducerReassignmentTest extends TestCase
         $this->assertEqualsWithDelta(5.0, (float) ($zucchiniRem[$this->farmA->id] ?? 0), 1e-6);
         $this->assertEqualsWithDelta(17.0, (float) ($gelbRem[$this->farmB->id] ?? 0), 1e-6);
     }
+
+    public function test_same_product_farm_move_leaves_the_inventar_product_total(): void
+    {
+        // A same-product farm move only shifts the per-farm split, so the
+        // delta the inventar page layers onto the product total nets to zero.
+        $allocation = app(ProducerAllocationService::class);
+
+        $this->service()->move(
+            $this->zucchini->id, 0, self::DATE,
+            $this->zucchini->id, $this->farmB->id, null,
+        );
+        $delta = $allocation->overrideAvailabilityDelta(
+            [$this->zucchini->id, $this->zucchiniGelb->id], [self::DATE]
+        );
+        $this->assertEqualsWithDelta(0.0, (float) ($delta[self::DATE][$this->zucchini->id] ?? 0), 1e-6);
+    }
+
+    public function test_cross_product_move_shifts_inventar_product_totals(): void
+    {
+        // The user's scenario: move a position to a look-alike product on
+        // another farm. The source product regains its 3 pieces on the
+        // inventar total, the target product loses them.
+        $allocation = app(ProducerAllocationService::class);
+
+        $this->service()->move(
+            $this->zucchini->id, 0, self::DATE,
+            $this->zucchiniGelb->id, $this->farmB->id, null,
+        );
+        $delta = $allocation->overrideAvailabilityDelta(
+            [$this->zucchini->id, $this->zucchiniGelb->id], [self::DATE]
+        );
+        $this->assertEqualsWithDelta(3.0, (float) ($delta[self::DATE][$this->zucchini->id] ?? 0), 1e-6);
+        $this->assertEqualsWithDelta(-3.0, (float) ($delta[self::DATE][$this->zucchiniGelb->id] ?? 0), 1e-6);
+    }
 }
