@@ -194,6 +194,11 @@ class ShopOrderInvoiceService
                         'vat_rate_snapshot_percent' => $rate,
                         'line_total_eur' => $gross,
                         'vat_amount_eur' => round($gross - $net, 2),
+                        'display_unit_price_net_eur' => isset($payload['display_unit_price_net'])
+                            && $payload['display_unit_price_net'] !== null
+                            && $payload['display_unit_price_net'] !== ''
+                            ? round((float) $payload['display_unit_price_net'], 4)
+                            : null,
                     ]);
 
                     continue;
@@ -231,6 +236,14 @@ class ShopOrderInvoiceService
                             ? round((float) $payload['display_quantity'], 4)
                             : null)
                         : $item->display_quantity_override,
+                    // Exact net unit price the admin typed (per natural display
+                    // unit); blank when a display override is active, so the
+                    // printed price is not reconstructed from the rounded total.
+                    'display_unit_price_net_eur' => array_key_exists('display_unit_price_net', $payload)
+                        ? ($payload['display_unit_price_net'] !== null && $payload['display_unit_price_net'] !== ''
+                            ? round((float) $payload['display_unit_price_net'], 4)
+                            : null)
+                        : $item->display_unit_price_net_eur,
                 ])->save();
             }
 
@@ -282,6 +295,31 @@ class ShopOrderInvoiceService
     }
 
     /**
+     * The natural display unit and canonical-per-display factor for a line:
+     * a product's normalised price unit (kg / L / Stück), or the raw unit of
+     * a custom line (g / ml scaled by 1000, else 1). Shared by the stored
+     * entered-price branch and mirrors the product/custom branches below.
+     *
+     * @return array{0: string, 1: float}
+     */
+    private static function naturalDisplayUnit(ShopOrderItem $item): array
+    {
+        $product = $item->product;
+
+        if ($product?->unit !== null) {
+            $displayUnit = self::normalizeInvoiceDisplayUnit(
+                $product->price_display_unit ?? $product->unit->defaultDisplayUnit()
+            );
+
+            return [$displayUnit, (float) max(1, $product->unit->canonicalUnitsPerDisplay($displayUnit))];
+        }
+
+        $customUnit = (string) ($item->unit ?? '');
+
+        return [$customUnit, in_array($customUnit, ['g', 'ml'], true) ? 1000.0 : 1.0];
+    }
+
+    /**
      * Per-display-unit price for an invoice/receipt line, sourced from the
      * product's catalog price rather than the 2-decimal line total. Dividing
      * the total by the quantity mis-prices small amounts of per-100g/per-kg
@@ -306,6 +344,28 @@ class ShopOrderInvoiceService
         $actualNet = round((float) $item->line_total_eur - (float) $item->vat_amount_eur, 2);
         $actualGross = (float) $item->line_total_eur;
 
+        $overrideUnit = trim((string) ($item->display_unit_override ?? ''));
+
+        // The exact net unit price the admin typed in the invoice editor, kept
+        // per the line's natural display unit (e.g. 21,5000 €/kg). Returned
+        // verbatim so the printed price round-trips to what was entered instead
+        // of being reconstructed as line_total ÷ quantity, which amplifies the
+        // 2-decimal money rounding for small quantities (0,65 ÷ 0,03 kg reads
+        // 21,67, not 21,50). A display override sends its own unit/qty, so the
+        // editor clears this field then; only honour it without an override.
+        if ($item->display_unit_price_net_eur !== null && $overrideUnit === '') {
+            [$displayUnit, $factor] = self::naturalDisplayUnit($item);
+            $rate = (int) $item->vat_rate_snapshot_percent;
+            $net = round((float) $item->display_unit_price_net_eur, 4);
+
+            return [
+                'net' => $net,
+                'gross' => round($net * (100 + $rate) / 100, 2),
+                'displayUnit' => $displayUnit,
+                'factor' => (float) $factor,
+            ];
+        }
+
         // An admin display override (e.g. "0,03 kg" shown for a 30 g order)
         // fixes the printed unit and quantity. When that override is only a
         // unit normalisation of the real amount, the price must still come
@@ -314,7 +374,6 @@ class ShopOrderInvoiceService
         // (0,65 ÷ 0,03 kg = 21,67 instead of 21,50). The 2-cent guard tells a
         // normalisation apart from a genuine re-quantification ("2 Stück" for
         // 300 g), which keeps the total-derived rate so the row multiplies out.
-        $overrideUnit = trim((string) ($item->display_unit_override ?? ''));
         $overrideQtyRaw = $item->display_quantity_override;
         if ($overrideUnit !== '' && $overrideQtyRaw !== null && (float) $overrideQtyRaw > 0) {
             $overrideLower = mb_strtolower($overrideUnit);

@@ -41,6 +41,9 @@ class AdminShopInvoiceEditorRequest extends FormRequest
             'items.*.display_unit' => ['nullable', 'string', 'max:32'],
             'items.*.display_quantity' => ['nullable', 'numeric', 'gt:0'],
             'items.*.net_total_eur' => ['nullable', 'numeric', 'min:0', 'max:99999.99'],
+            // Exact net unit price the admin typed (per natural display unit),
+            // stored so the printed price is not reconstructed from the total.
+            'items.*.display_unit_price_net' => ['nullable', 'numeric', 'min:0', 'max:99999.9999'],
             'items.*.vat_rate_percent' => ['nullable', 'integer', Rule::in([7, 19])],
             'items.*.quantity' => ['nullable', 'numeric', 'gt:0'],
             'items.*.remove' => ['nullable', 'boolean'],

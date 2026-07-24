@@ -1040,6 +1040,84 @@ class ShopOrderInvoiceTest extends TestCase
         $this->assertStringNotContainsString('21,50', $invoice);
     }
 
+    public function test_editor_stores_the_typed_unit_price_and_prints_it_verbatim(): void
+    {
+        // The exact bug: the admin types 21,50 €/kg on a 30 g line whose
+        // catalog price no longer matches (a since-corrected 10x error). The
+        // line total rounds to 0,65 €, and total ÷ 0,03 kg = 21,67. The typed
+        // price must round-trip: stored as-is and printed as 21,50, not 21,67.
+        $product = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'g',
+            'unit_price' => 0.05, // catalog implies ~46,73 €/kg net — mismatched
+            'vat_rate_percent' => 7,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        $order = $this->makeOrder([
+            'items_total_eur' => 0.69,
+            'total_amount_eur' => 0.69,
+        ], [
+            'product_id' => $product->id,
+            'quantity' => 30,
+            'unit' => 'mass',
+            'unit_price_snapshot_eur' => 0.023,
+            'line_total_eur' => 0.69,
+            'vat_rate_snapshot_percent' => 7,
+            'vat_amount_eur' => 0.05,
+        ]);
+        $item = $order->items()->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
+                'items' => [[
+                    'id' => $item->id,
+                    'net_total_eur' => '0.65',
+                    'vat_rate_percent' => 7,
+                    'quantity' => 30,
+                    'display_unit_price_net' => '21.50',
+                ]],
+            ])
+            ->assertRedirect();
+
+        $item->refresh();
+        $this->assertEqualsWithDelta(21.50, (float) $item->display_unit_price_net_eur, 0.0001);
+
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order->refresh());
+        $invoice = $this->renderInvoice($issued);
+        $this->assertStringContainsString('21,50', $invoice);
+        $this->assertStringNotContainsString('21,67', $invoice);
+        $this->assertStringContainsString('0,03 kg', $invoice);
+    }
+
+    public function test_editor_clears_the_typed_unit_price_under_a_display_override(): void
+    {
+        // A display override carries its own unit/qty; the editor sends a blank
+        // typed price, which must clear any stored value so the override branch
+        // (not a stale typed price) drives the printed price.
+        $order = $this->makeOrder([], [
+            'display_unit_price_net_eur' => 21.50,
+        ]);
+        $item = $order->items()->firstOrFail();
+        $this->assertEqualsWithDelta(21.50, (float) $item->display_unit_price_net_eur, 0.0001);
+
+        $this->actingAs($this->admin)
+            ->post(route('app.admin.shop-orders.shop-invoice-editor.save', $order), [
+                'items' => [[
+                    'id' => $item->id,
+                    'net_total_eur' => '100.00',
+                    'vat_rate_percent' => 7,
+                    'quantity' => 2,
+                    'display_unit' => 'Stück',
+                    'display_quantity' => 2,
+                    'display_unit_price_net' => '',
+                ]],
+            ])
+            ->assertRedirect();
+
+        $this->assertNull($item->refresh()->display_unit_price_net_eur);
+    }
+
     public function test_normalised_display_override_keeps_the_clean_catalog_unit_price(): void
     {
         // Regression: once an invoice is saved with a normalised display unit
