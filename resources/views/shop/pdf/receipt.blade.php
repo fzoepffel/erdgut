@@ -53,8 +53,11 @@
                 default => $overrideUnit,
             };
 
+            // Price from the catalog when the override is just a unit
+            // normalisation; total ÷ display qty only for a genuine
+            // re-quantification (handled inside displayUnitPricing).
             return [
-                'unit_gross' => $displayQty > 0 ? (float) $item->line_total_eur / $displayQty : 0.0,
+                'unit_gross' => \App\Services\Shop\ShopOrderInvoiceService::displayUnitPricing($item)['gross'],
                 'qty' => trim($num($displayQty).' '.$unitLabel),
             ];
         }
