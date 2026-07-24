@@ -63,13 +63,12 @@
         }
 
         if ($product?->unit !== null) {
-            $display = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
-            // "100 g" is not a unit we want on the receipt: render such
-            // products in kg so the price reads like a shelf price and the
-            // quantity is not a "1 100 g" multiple.
-            if ($display === '100g') {
-                $display = 'kg';
-            }
+            // Mass/volume goods render in kg / L (g, 100 g → kg; ml → L) so
+            // the price reads like a shelf price, never a per-gram one, and
+            // the quantity is not a "1 100 g" multiple.
+            $display = \App\Services\Shop\ShopOrderInvoiceService::normalizeInvoiceDisplayUnit(
+                $product->price_display_unit ?? $product->unit->defaultDisplayUnit()
+            );
             $factor = max(1, $product->unit->canonicalUnitsPerDisplay($display));
             $displayQty = $qty / $factor;
             $unitLabel = $product->countUnitWord((int) round($displayQty), 'de') ?? $germanSymbol($display);

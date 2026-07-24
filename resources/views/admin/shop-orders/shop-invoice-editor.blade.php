@@ -19,12 +19,11 @@
         // so the live unit-price column matches the PDF's per-display price.
         $existingConfig = $items->map(function ($item) use ($lineNet) {
             if ($item->product?->unit !== null) {
-                $display = $item->product->price_display_unit ?? $item->product->unit->defaultDisplayUnit();
-                // "100 g" is not a unit we show on the invoice — price such
-                // products per kg (shelf-price style, matches the PDF).
-                if ($display === '100g') {
-                    $display = 'kg';
-                }
+                // Mass/volume goods price per kg / per L on the invoice
+                // (g, 100 g → kg; ml → L), matching the PDF.
+                $display = \App\Services\Shop\ShopOrderInvoiceService::normalizeInvoiceDisplayUnit(
+                    $item->product->price_display_unit ?? $item->product->unit->defaultDisplayUnit()
+                );
                 $factor = max(1, $item->product->unit->canonicalUnitsPerDisplay($display));
             } else {
                 $factor = in_array((string) $item->unit, ['g', 'ml'], true) ? 1000 : 1;
@@ -59,11 +58,10 @@
         // input carries once the override is cleared.
         $naturalPriceUnitLabels = $items->map(function ($item) {
             if ($item->product?->unit !== null) {
-                $display = $item->product->price_display_unit ?? $item->product->unit->defaultDisplayUnit();
-                // "100 g" is not a unit we show on the invoice — price per kg.
-                if ($display === '100g') {
-                    $display = 'kg';
-                }
+                // g / 100 g → kg, ml → L: mass/volume price per kg / per L.
+                $display = \App\Services\Shop\ShopOrderInvoiceService::normalizeInvoiceDisplayUnit(
+                    $item->product->price_display_unit ?? $item->product->unit->defaultDisplayUnit()
+                );
 
                 return match ($display) {
                     'piece' => 'Stück',
