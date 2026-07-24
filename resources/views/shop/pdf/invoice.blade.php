@@ -55,8 +55,11 @@
                 default => $overrideUnit,
             };
 
+            // Price from the catalog when the override is just a unit
+            // normalisation; total ÷ display qty only for a genuine
+            // re-quantification (handled inside displayUnitPricing).
             return [
-                'unit_net' => $displayQty > 0 ? $lineNet($item) / $displayQty : 0.0,
+                'unit_net' => \App\Services\Shop\ShopOrderInvoiceService::displayUnitPricing($item)['net'],
                 'qty' => trim($num($displayQty).' '.$unitLabel),
             ];
         }

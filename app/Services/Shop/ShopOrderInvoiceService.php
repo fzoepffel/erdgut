@@ -291,6 +291,55 @@ class ShopOrderInvoiceService
         $actualNet = round((float) $item->line_total_eur - (float) $item->vat_amount_eur, 2);
         $actualGross = (float) $item->line_total_eur;
 
+        // An admin display override (e.g. "0,03 kg" shown for a 30 g order)
+        // fixes the printed unit and quantity. When that override is only a
+        // unit normalisation of the real amount, the price must still come
+        // from the catalog: dividing the total by the small display quantity
+        // reintroduces the exact rounding error the product branch avoids
+        // (0,65 ÷ 0,03 kg = 21,67 instead of 21,50). The 2-cent guard tells a
+        // normalisation apart from a genuine re-quantification ("2 Stück" for
+        // 300 g), which keeps the total-derived rate so the row multiplies out.
+        $overrideUnit = trim((string) ($item->display_unit_override ?? ''));
+        $overrideQtyRaw = $item->display_quantity_override;
+        if ($overrideUnit !== '' && $overrideQtyRaw !== null && (float) $overrideQtyRaw > 0) {
+            $overrideLower = mb_strtolower($overrideUnit);
+            $overrideScale = in_array($overrideLower, ['g', 'ml'], true) ? 1000 : 1;
+            $displayQty = (float) $overrideQtyRaw / $overrideScale;
+            $displayUnit = match ($overrideLower) {
+                'g' => 'kg',
+                'ml' => 'L',
+                'l' => 'L',
+                default => $overrideUnit,
+            };
+
+            if ($displayQty > 0 && $product?->unit !== null && (float) $product->unit_price > 0) {
+                $natUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
+                if ($natUnit === '100g') {
+                    $natUnit = 'kg';
+                }
+                $natFactor = max(1, $product->unit->canonicalUnitsPerDisplay($natUnit));
+                $rate = (int) $item->vat_rate_snapshot_percent;
+                $grossPerDisplay = round((float) $product->unit_price * $natFactor, 2);
+                $netPerDisplay = round($grossPerDisplay - ShopOrderService::vatAmountFromGross($grossPerDisplay, $rate), 2);
+
+                if (abs($netPerDisplay * $displayQty - $actualNet) <= 0.02) {
+                    return [
+                        'net' => $netPerDisplay,
+                        'gross' => $grossPerDisplay,
+                        'displayUnit' => $displayUnit,
+                        'factor' => (float) $overrideScale,
+                    ];
+                }
+            }
+
+            return [
+                'net' => round($actualNet / $displayQty, 4),
+                'gross' => round($actualGross / $displayQty, 4),
+                'displayUnit' => $displayUnit,
+                'factor' => (float) $overrideScale,
+            ];
+        }
+
         if ($product?->unit !== null && (float) $product->unit_price > 0) {
             $displayUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
             // "100 g" is priced per kg on the documents (shelf-price style).
