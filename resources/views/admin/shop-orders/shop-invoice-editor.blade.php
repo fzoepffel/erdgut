@@ -338,6 +338,11 @@
                                             </select>
                                         </span>
                                         <input type="hidden" name="items[{{ $i }}][net_total_eur]" :value="lineNet(existing[{{ $i }}]).toFixed(2)">
+                                        {{-- The exact entered unit price, so the printed price shows
+                                             what was typed (21,50) instead of total ÷ qty (21,67).
+                                             Blank under a display override, which carries its own unit. --}}
+                                        <input type="hidden" name="items[{{ $i }}][display_unit_price_net]"
+                                               :value="hasOverride(existing[{{ $i }}]) ? '' : (existing[{{ $i }}].price ?? '')">
                                     </td>
                                     <td class="border-b border-gray-100 px-1 py-2 text-center align-top">
                                         <label class="cursor-pointer text-gray-300 hover:text-red-500" title="{{ __('restaurant.invoice_editor_remove_line') }}">
@@ -385,6 +390,7 @@
                                             </select>
                                         </span>
                                         <input type="hidden" :name="'items[' + ({{ count($items) }} + idx) + '][net_total_eur]'" :value="lineNet(line).toFixed(2)">
+                                        <input type="hidden" :name="'items[' + ({{ count($items) }} + idx) + '][display_unit_price_net]'" :value="line.price ?? ''">
                                     </td>
                                     <td class="border-b border-gray-100 px-1 py-2 text-center align-top">
                                         <button type="button" class="text-gray-300 hover:text-red-500" x-on:click="extra.splice(idx, 1)" title="{{ __('restaurant.invoice_editor_remove_line') }}">✕</button>
