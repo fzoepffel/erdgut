@@ -42,6 +42,7 @@ class ShopOrderItem extends Model
         // Invoice/receipt print overrides only — never used for stock.
         'display_unit_override',
         'display_quantity_override',
+        'display_unit_price_net_eur',
         'quantity',
         'unit',
         'unit_price_snapshot_eur',
@@ -58,6 +59,7 @@ class ShopOrderItem extends Model
         return [
             'quantity' => 'decimal:4',
             'display_quantity_override' => 'decimal:4',
+            'display_unit_price_net_eur' => 'decimal:4',
             'unit_price_snapshot_eur' => 'decimal:4',
             'line_total_eur' => 'decimal:2',
             'vat_rate_snapshot_percent' => 'integer',
