@@ -1002,6 +1002,37 @@ class ShopOrderInvoiceTest extends TestCase
         $this->assertStringNotContainsString('21,50', $invoice);
     }
 
+    public function test_normalised_display_override_keeps_the_clean_catalog_unit_price(): void
+    {
+        // Regression: once an invoice is saved with a normalised display unit
+        // (30 g shown as "0,03 kg"), the PDF's override branch used to divide
+        // the total by the small display quantity — 0,64 ÷ 0,03 = 21,33/21,67,
+        // the very rounding error the catalog price avoids. A normalisation
+        // that reconciles with the charged total must keep 21,50 €/kg.
+        $order = $this->per100gOrder(30, 0.69, 0.05);
+        $item = $order->items()->firstOrFail();
+        $item->forceFill([
+            'display_unit_override' => 'kg',
+            'display_quantity_override' => 0.03,
+        ])->save();
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order->refresh());
+
+        $invoice = $this->renderInvoice($issued);
+        $this->assertStringContainsString('21,50', $invoice);
+        $this->assertStringNotContainsString('21,67', $invoice);
+        $this->assertStringContainsString('0,03 kg', $invoice);
+
+        // Same for the gram-form override (30 g → 0,03 kg on the fly).
+        $item->forceFill(['display_unit_override' => 'g', 'display_quantity_override' => 30])->save();
+        $invoiceG = $this->renderInvoice($issued->refresh());
+        $this->assertStringContainsString('21,50', $invoiceG);
+        $this->assertStringNotContainsString('21,67', $invoiceG);
+
+        // The Beleg keeps the clean gross unit price too: 23,00 €/kg.
+        $receipt = $this->renderReceipt($issued);
+        $this->assertStringContainsString('23,00', $receipt);
+    }
+
     public function test_custom_line_unit_price_still_derives_from_the_total(): void
     {
         // Off-catalog line (no product): keeps the total-derived rate.
