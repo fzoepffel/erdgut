@@ -267,6 +267,21 @@ class ShopOrderInvoiceService
     }
 
     /**
+     * The display unit a mass/volume product is priced at on the invoice
+     * and receipt. Grams and 100 g print per kilo, millilitres per litre
+     * (shelf-price style), so a document never quotes a "per gram" price
+     * next to sibling lines shown per kg.
+     */
+    public static function normalizeInvoiceDisplayUnit(string $unit): string
+    {
+        return match ($unit) {
+            'g', '100g' => 'kg',
+            'ml' => 'l',
+            default => $unit,
+        };
+    }
+
+    /**
      * Per-display-unit price for an invoice/receipt line, sourced from the
      * product's catalog price rather than the 2-decimal line total. Dividing
      * the total by the quantity mis-prices small amounts of per-100g/per-kg
@@ -313,10 +328,9 @@ class ShopOrderInvoiceService
             };
 
             if ($displayQty > 0 && $product?->unit !== null && (float) $product->unit_price > 0) {
-                $natUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
-                if ($natUnit === '100g') {
-                    $natUnit = 'kg';
-                }
+                $natUnit = self::normalizeInvoiceDisplayUnit(
+                    $product->price_display_unit ?? $product->unit->defaultDisplayUnit()
+                );
                 $natFactor = max(1, $product->unit->canonicalUnitsPerDisplay($natUnit));
                 $rate = (int) $item->vat_rate_snapshot_percent;
                 $grossPerDisplay = round((float) $product->unit_price * $natFactor, 2);
@@ -341,11 +355,11 @@ class ShopOrderInvoiceService
         }
 
         if ($product?->unit !== null && (float) $product->unit_price > 0) {
-            $displayUnit = $product->price_display_unit ?? $product->unit->defaultDisplayUnit();
-            // "100 g" is priced per kg on the documents (shelf-price style).
-            if ($displayUnit === '100g') {
-                $displayUnit = 'kg';
-            }
+            // Mass/volume goods print per kg / per L (shelf-price style),
+            // never per gram or per 100 g.
+            $displayUnit = self::normalizeInvoiceDisplayUnit(
+                $product->price_display_unit ?? $product->unit->defaultDisplayUnit()
+            );
             $factor = max(1, $product->unit->canonicalUnitsPerDisplay($displayUnit));
             $displayQty = $qty / $factor;
 
