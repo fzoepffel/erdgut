@@ -192,7 +192,7 @@
             {{-- ── The sheet: looks like the invoice, edits like a form ── --}}
             <form id="invoice-editor-form" method="POST" action="{{ route('app.admin.shop-orders.shop-invoice-editor.save', $order) }}">
                 @csrf
-                <div class="mx-auto bg-white px-8 py-10 shadow-md sm:px-12" style="font-size: 12px; line-height: 1.45;">
+                <div class="mx-auto bg-white px-4 py-8 shadow-md sm:px-8 sm:py-10 lg:px-12" style="font-size: 12px; line-height: 1.45;">
 
                     <h2 class="mb-6 text-2xl font-bold tracking-tight text-gray-900">RECHNUNG: {{ $previewNumber }}</h2>
 
@@ -254,7 +254,11 @@
                     <div class="my-5 border-t border-gray-200"></div>
 
                     <h3 class="mb-3 text-sm font-bold text-gray-900">Produkte &amp; Preise</h3>
-                    <table class="w-full border border-gray-200 text-[12px]">
+                    {{-- Dense 5-column grid: on narrow screens let it scroll
+                         sideways (edge-to-edge) so every input keeps a usable
+                         width instead of being crushed to nothing. --}}
+                    <div class="-mx-4 overflow-x-auto sm:mx-0">
+                    <table class="w-full min-w-[600px] border border-gray-200 text-[12px]">
                         <thead>
                             <tr class="bg-gray-50 text-left text-[11px] text-gray-400">
                                 <th class="border-b border-r border-gray-200 px-2 py-1 font-normal" style="width:42%">Bezeichnung</th>
@@ -302,18 +306,18 @@
                                         </span>
                                         {{-- Display-only override: what the invoice/receipt shows.
                                              Blank = use the natural unit above. Stock stays on quantity. --}}
-                                        <div class="mt-1 flex items-baseline gap-1 text-[10px] text-gray-400">
+                                        <div class="mt-1 flex flex-wrap items-baseline gap-1 text-[10px] text-gray-400">
                                             <span class="shrink-0">{{ __('shop.admin.invoice_display_as') }}</span>
                                             <input type="number" step="any" min="0" name="items[{{ $i }}][display_quantity]"
                                                    x-model="existing[{{ $i }}].displayQty"
                                                    placeholder="—"
-                                                   class="{{ $inpRight }} text-[10px]" style="max-width:52px;"
+                                                   class="{{ $inpRight }} shrink-0 text-[10px]" style="max-width:52px;"
                                                    data-testid="invoice-editor-display-qty-{{ $i }}">
                                             <input type="text" name="items[{{ $i }}][display_unit]"
                                                    x-model="existing[{{ $i }}].displayUnit"
                                                    placeholder="{{ $priceUnitLabels[$i] }}"
                                                    maxlength="32"
-                                                   class="{{ $inp }} text-[10px]" style="max-width:64px;"
+                                                   class="{{ $inp }} min-w-0 flex-1 basis-14 text-[10px]"
                                                    data-testid="invoice-editor-display-unit-{{ $i }}">
                                             {{-- Undo the display override: clears both fields so the
                                                  Preis column reverts to the original unit and price. --}}
@@ -421,6 +425,7 @@
                             @endif
                         </tbody>
                     </table>
+                    </div>
                     <button type="button" x-on:click="addLine()" class="mt-2 text-xs font-medium text-emerald-700 hover:text-emerald-900" data-testid="invoice-editor-add-line">
                         + {{ __('restaurant.invoice_editor_add_line') }}
                     </button>
