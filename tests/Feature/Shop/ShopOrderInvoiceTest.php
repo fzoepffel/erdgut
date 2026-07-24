@@ -894,6 +894,44 @@ class ShopOrderInvoiceTest extends TestCase
         $this->assertStringNotContainsString('100 g', $html);
     }
 
+    public function test_invoice_pdf_renders_per_gram_products_in_kilograms(): void
+    {
+        // A product priced per gram (price_display_unit = 'g') must not print
+        // a per-gram price next to sibling lines shown per kg: it is promoted
+        // to kg, exactly like a 100 g product. 500 g at 100 € net → 0,5 kg at
+        // 200,00 €/kg. Gross 0,214 €/g → 214,00 €/kg gross → 200,00 €/kg net.
+        $perGram = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'g',
+            'unit_price' => 0.214,
+            'vat_rate_percent' => 7,
+            'is_available' => true,
+            'is_published' => true,
+        ]);
+        $order = $this->makeOrder([], [
+            'product_id' => $perGram->id,
+            'quantity' => 500,
+            'unit' => 'mass',
+            'unit_price_snapshot_eur' => 0.214,
+            'line_total_eur' => 107.00,
+            'vat_rate_snapshot_percent' => 7,
+            'vat_amount_eur' => 7.00,
+        ]);
+
+        $issued = app(ShopOrderInvoiceService::class)->issueInvoice($order);
+        $html = $this->renderInvoice($issued);
+
+        $this->assertStringContainsString('0,5 kg', $html);
+        $this->assertStringContainsString('200,00', $html);
+        // The raw per-gram price and gram quantity must not leak through.
+        $this->assertStringNotContainsString('500 g', $html);
+
+        // Receipt shows the gross per-kilo price (214,00 €/kg), not per gram.
+        $receipt = $this->renderReceipt($order->refresh());
+        $this->assertStringContainsString('0,5 kg', $receipt);
+        $this->assertStringContainsString('214,00', $receipt);
+    }
+
     public function test_receipt_pdf_renders_display_unit_override(): void
     {
         $order = $this->makeOrder();
