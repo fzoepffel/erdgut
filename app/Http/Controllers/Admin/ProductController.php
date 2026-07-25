@@ -9,9 +9,13 @@ use App\Enums\ProductCategory;
 use App\Enums\ProductUnit;
 use App\Enums\ShopOrderStatus;
 use App\Enums\TasteProfile;
+use App\Exports\ProductCatalogueExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ImportProductsRequest;
 use App\Http\Requests\Admin\StoreProductRequest;
 use App\Http\Requests\Admin\UpdateProductRequest;
+use App\Imports\ProductCatalogueImport;
+use App\Imports\ProductCsvParser;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductGroup;
@@ -24,6 +28,7 @@ use App\Models\ProductTranslation;
 use App\Models\ProductVariant;
 use App\Models\ShopOrderItem;
 use App\Services\Admin\PriceHistoryRecorder;
+use App\Services\Admin\ProductWriter;
 use App\Services\ImageProcessor;
 use App\Support\AuditLogger;
 use App\Support\ProducerLabels;
@@ -34,8 +39,11 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ProductController extends Controller
 {
@@ -117,6 +125,85 @@ class ProductController extends Controller
         ]);
     }
 
+    /**
+     * Download the whole catalogue as a CSV shaped like the master sheet
+     * ({@see ProductCatalogueExport}). Edit it and re-upload via
+     * {@see importPreview()} to bulk-update/create products.
+     */
+    public function export(): BinaryFileResponse
+    {
+        $this->authorize('viewAny', Product::class);
+
+        $filename = 'erdgut-katalog-'.now()->format('Y-m-d').'.csv';
+
+        return Excel::download(
+            app(ProductCatalogueExport::class),
+            $filename,
+            \Maatwebsite\Excel\Excel::CSV,
+        );
+    }
+
+    /**
+     * Step 1 of the CSV import: parse the uploaded file, WRITE NOTHING, and
+     * render a preview (X updated / Y created / new groups / per-row errors +
+     * warnings / weekly changes). The file is stashed under a random token so
+     * {@see importConfirm()} can re-parse the exact same bytes.
+     */
+    public function importPreview(ImportProductsRequest $request): View|RedirectResponse
+    {
+        $token = Str::random(40);
+        $request->file('file')->storeAs('catalogue-imports', $token.'.csv', 'local');
+        $path = Storage::disk('local')->path('catalogue-imports/'.$token.'.csv');
+
+        $result = app(ProductCsvParser::class)->parse($path);
+
+        if ($result['products'] === [] && $result['summary']['errors'] > 0) {
+            Storage::disk('local')->delete('catalogue-imports/'.$token.'.csv');
+
+            return redirect()
+                ->route('app.admin.products.index')
+                ->with('error', __('admin.products.csv.no_valid_rows'));
+        }
+
+        return view('admin.products.import-preview', [
+            'token' => $token,
+            'result' => $result,
+        ]);
+    }
+
+    /**
+     * Step 2 of the CSV import: re-parse the stashed file and apply every valid
+     * product plan in one transaction ({@see ProductCatalogueImport}).
+     */
+    public function importConfirm(Request $request): RedirectResponse
+    {
+        $this->authorize('create', Product::class);
+
+        $token = (string) $request->input('token');
+        // Token is our own random handle; keep it strictly alnum so it can
+        // never escape the stash directory.
+        if (! preg_match('/^[A-Za-z0-9]{40}$/', $token)
+            || ! Storage::disk('local')->exists('catalogue-imports/'.$token.'.csv')) {
+            return redirect()
+                ->route('app.admin.products.index')
+                ->with('error', __('admin.products.csv.stash_expired'));
+        }
+
+        $path = Storage::disk('local')->path('catalogue-imports/'.$token.'.csv');
+        $result = app(ProductCsvParser::class)->parse($path);
+        $counts = app(ProductCatalogueImport::class)->apply($result['products'], $request->user()?->id);
+
+        Storage::disk('local')->delete('catalogue-imports/'.$token.'.csv');
+
+        return redirect()
+            ->route('app.admin.products.index')
+            ->with('status', __('admin.products.csv.import_done', [
+                'created' => $counts['created'],
+                'updated' => $counts['updated'],
+                'weekly' => $counts['weekly'],
+            ]));
+    }
+
     public function create(Request $request): View
     {
         $this->authorize('create', Product::class);
@@ -138,7 +225,7 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         $validated = $request->validated();
-        $payload = $this->buildCoreAttributes($validated);
+        $payload = app(ProductWriter::class)->coreAttributes($validated);
         $translations = $validated['translations'];
 
         $product = DB::transaction(function () use ($payload, $validated, $request): Product {
@@ -216,7 +303,7 @@ class ProductController extends Controller
         $this->authorize('update', $product);
 
         $validated = $request->validated();
-        $payload = $this->buildCoreAttributes($validated);
+        $payload = app(ProductWriter::class)->coreAttributes($validated);
         $translations = $validated['translations'];
 
         if ($request->boolean('remove_image')) {
@@ -647,144 +734,6 @@ class ProductController extends Controller
         }
 
         return $clean;
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     * @return array<string, mixed>
-     */
-    private function buildCoreAttributes(array $validated): array
-    {
-        // The admin enters a price in their chosen `price_display_unit`
-        // (€/g, €/kg, €/ml, €/L, €/piece, €/bunch). Storage is always
-        // per *canonical* unit of the kind, so divide by the factor
-        // (1000 for kg/L, 1 for g/ml/piece/bunch).
-        $unitEnum = ProductUnit::from($validated['unit']);
-        $displayUnit = $validated['price_display_unit'];
-        $canonicalUnitPrice = round(
-            ((float) $validated['price']) / $unitEnum->canonicalUnitsPerDisplay($displayUnit),
-            4,
-        );
-
-        $payload = [
-            'producer_id' => (int) $validated['producer_ids'][0],
-            'category' => $validated['category'],
-            'subcategory_id' => isset($validated['subcategory_id']) && (int) $validated['subcategory_id'] > 0
-                ? (int) $validated['subcategory_id']
-                : null,
-            'unit' => $validated['unit'],
-            'price_display_unit' => $displayUnit,
-            'unit_price' => $canonicalUnitPrice,
-            'vat_rate_percent' => (int) ($validated['vat_rate_percent'] ?? 7),
-            'default_freshness_window_days' => isset($validated['default_freshness_window_days'])
-                ? max(1, (int) $validated['default_freshness_window_days'])
-                : 1,
-            'is_seasonal' => (bool) ($validated['is_seasonal'] ?? false),
-            'request_visibility' => in_array($validated['request_visibility'] ?? 'auto', ['auto', 'always', 'never'], true)
-                ? ($validated['request_visibility'] ?? 'auto')
-                : 'auto',
-            // The form sets the PERMANENT state; time-bound overrides are
-            // managed on the Anfrage-Sortiment page and reset here.
-            'request_visibility_until' => null,
-            'is_available' => (bool) ($validated['is_available'] ?? false),
-            'is_published' => (bool) ($validated['is_published'] ?? false),
-            'is_test' => (bool) ($validated['is_test'] ?? false),
-            'allergens' => $this->normalizeEnumArray($validated['allergens'] ?? null),
-            'dietary_tags' => $this->normalizeEnumArray($validated['dietary_tags'] ?? null),
-            'taste_profile_tags' => $this->normalizeEnumArray($validated['taste_profile_tags'] ?? null),
-            'custom_taste_tags' => $this->normalizeCustomTasteTags($validated['custom_taste_tags'] ?? null),
-        ];
-
-        $buyingPrice = $validated['buying_price'] ?? null;
-        $payload['buying_price_cents'] = ($buyingPrice === null || $buyingPrice === '')
-            ? null
-            : (int) round(((float) $buyingPrice) * 100);
-
-        // Quantity step: only stored for mass/volume; cleared for piece/bunch.
-        $isMeasured = in_array($unitEnum, [ProductUnit::Mass, ProductUnit::Volume], true);
-        $payload['quantity_step'] = $isMeasured && isset($validated['quantity_step']) && $validated['quantity_step'] !== ''
-            ? (int) $validated['quantity_step']
-            : null;
-
-        // Unit descriptors: only stored for piece/bunch; cleared for mass/volume.
-        $isCount = in_array($unitEnum, [ProductUnit::Piece, ProductUnit::Bunch], true);
-        $payload['unit_weight_grams'] = $isCount && isset($validated['unit_weight_grams']) && $validated['unit_weight_grams'] !== ''
-            ? (int) $validated['unit_weight_grams']
-            : null;
-        $payload['unit_volume_ml'] = $isCount && isset($validated['unit_volume_ml']) && $validated['unit_volume_ml'] !== ''
-            ? (int) $validated['unit_volume_ml']
-            : null;
-
-        // Display word ("Topf", "Beutel"): only stored for the count kinds
-        // (piece/bunch); cleared for every other kind so a switched product
-        // loses the stale word.
-        $payload['count_unit_label'] = $isCount
-            && ($validated['count_unit_label'] ?? '') !== ''
-            ? $validated['count_unit_label']
-            : null;
-
-        // Recurring yearly season window. Only persisted when the product is
-        // flagged seasonal; cleared otherwise so a toggled-off product doesn't
-        // keep a stale window.
-        $seasonFields = ['season_start_month', 'season_start_day', 'season_end_month', 'season_end_day'];
-        foreach ($seasonFields as $field) {
-            $payload[$field] = $payload['is_seasonal'] && isset($validated[$field]) && $validated[$field] !== ''
-                ? (int) $validated[$field]
-                : null;
-        }
-
-        return $payload;
-    }
-
-    /**
-     * @param  list<string>|null  $values
-     * @return list<string>|null
-     */
-    private function normalizeEnumArray(?array $values): ?array
-    {
-        if ($values === null) {
-            return null;
-        }
-        $values = array_values(array_unique(array_filter(
-            $values,
-            static fn ($v) => is_string($v) && $v !== ''
-        )));
-
-        return $values === [] ? null : $values;
-    }
-
-    /**
-     * Normalize the trilingual custom taste tags into a clean list of
-     * `{de, en, fr}` rows. Trims each label and drops any entry that lost
-     * one of its three locales. Returns null when nothing usable remains.
-     *
-     * @param  array<int, mixed>|null  $entries
-     * @return list<array{de:string, en:string, fr:string}>|null
-     */
-    private function normalizeCustomTasteTags(?array $entries): ?array
-    {
-        if ($entries === null) {
-            return null;
-        }
-
-        $clean = [];
-        foreach ($entries as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
-
-            $de = trim((string) ($entry['de'] ?? ''));
-            $en = trim((string) ($entry['en'] ?? ''));
-            $fr = trim((string) ($entry['fr'] ?? ''));
-
-            if ($de === '' || $en === '' || $fr === '') {
-                continue;
-            }
-
-            $clean[] = ['de' => $de, 'en' => $en, 'fr' => $fr];
-        }
-
-        return $clean === [] ? null : $clean;
     }
 
     /**
