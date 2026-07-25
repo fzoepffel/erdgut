@@ -142,4 +142,38 @@ return [
     */
     'unsubscribe_mailbox' => env('MAIL_UNSUBSCRIBE_MAILBOX'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Sent-Copy Archive (IMAP APPEND)
+    |--------------------------------------------------------------------------
+    |
+    | SMTP submission only relays a message for delivery; it never touches the
+    | IMAP "Sent" folder. When enabled, every outgoing mail is copied into the
+    | Sent folder of the mailbox it was actually sent FROM, so site mail shows
+    | up in IONOS webmail / any mail client like a hand-sent message.
+    |
+    | 'accounts' is keyed by the lowercased From address. A message whose From
+    | has no matching account is skipped (never an error). Passwords are the
+    | IMAP mailbox passwords — keep them in .env only, never commit them.
+    |
+    */
+    'archive' => [
+        'enabled' => (bool) env('MAIL_ARCHIVE_ENABLED', false),
+        'host' => env('MAIL_ARCHIVE_IMAP_HOST', 'imap.ionos.de'),
+        'port' => (int) env('MAIL_ARCHIVE_IMAP_PORT', 993),
+        'folder' => env('MAIL_ARCHIVE_SENT_FOLDER', 'Sent'),
+        'timeout' => (int) env('MAIL_ARCHIVE_IMAP_TIMEOUT', 15),
+
+        'accounts' => array_filter([
+            strtolower((string) env('MAIL_FROM_ADDRESS', 'noreply@erd-gut.de')) => [
+                'username' => env('MAIL_ARCHIVE_NOREPLY_USERNAME', env('MAIL_FROM_ADDRESS')),
+                'password' => env('MAIL_ARCHIVE_NOREPLY_PASSWORD'),
+            ],
+            strtolower((string) env('SHOP_COMPANY_EMAIL', 'kontakt@erd-gut.de')) => [
+                'username' => env('MAIL_ARCHIVE_KONTAKT_USERNAME', env('SHOP_COMPANY_EMAIL')),
+                'password' => env('MAIL_ARCHIVE_KONTAKT_PASSWORD'),
+            ],
+        ], fn (array $account): bool => ! empty($account['password'])),
+    ],
+
 ];
