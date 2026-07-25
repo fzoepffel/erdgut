@@ -645,6 +645,14 @@ Route::middleware(['auth', 'verified'])
             Route::post('products/group-assign', [ProductController::class, 'assignGroup'])
                 ->middleware('throttle:30,1')
                 ->name('products.group-assign');
+            // Catalogue CSV round-trip: download all products, edit, re-upload.
+            // Declared before the resource so the literal segments aren't read
+            // as model ids. Import is preview-then-confirm.
+            Route::get('products/export', [ProductController::class, 'export'])->name('products.export');
+            Route::post('products/import', [ProductController::class, 'importPreview'])
+                ->middleware('throttle:10,1')->name('products.import');
+            Route::post('products/import/confirm', [ProductController::class, 'importConfirm'])
+                ->middleware('throttle:10,1')->name('products.import.confirm');
             Route::resource('products', ProductController::class)->except(['show']);
             // Merge a duplicate product into the one that stays (P6):
             // confirm page first, destructive POST second.
