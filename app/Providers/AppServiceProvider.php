@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Contracts\SentMailArchive;
 use App\Http\Controllers\Admin\AdminShopOrderController;
 use App\Http\Controllers\SpargelAdminController;
 use App\Listeners\AddListUnsubscribeHeader;
+use App\Listeners\ArchiveSentMailToImap;
 use App\Listeners\LogSentMail;
 use App\Models\BoxItem;
 use App\Models\Producer;
@@ -27,6 +29,7 @@ use App\Policies\ProductPolicy;
 use App\Policies\UserPolicy;
 use App\Services\Shop\ShopOrderService;
 use App\Services\SpargelOrderService;
+use App\Support\ImapSentMailArchive;
 use App\Support\QueueKicker;
 use App\Support\RequiredSecretValidator;
 use App\Support\SubscriberAccess;
@@ -69,6 +72,9 @@ class AppServiceProvider extends ServiceProvider
         ])
             ->needs(SumUpService::class)
             ->give(fn ($app) => $app->make('sumup.spargel'));
+
+        // Copies of sent mail land in each mailbox's IMAP "Sent" folder.
+        $this->app->bind(SentMailArchive::class, ImapSentMailArchive::class);
     }
 
     /**
@@ -110,6 +116,11 @@ class AppServiceProvider extends ServiceProvider
         // via audit_events. Listener writes a 'mail.sent' row per recipient
         // that maps to a known User.
         Event::listen(MessageSent::class, LogSentMail::class);
+
+        // Save a copy of every sent mail into the sending mailbox's IMAP
+        // "Sent" folder (SMTP submission alone never does). Best-effort;
+        // gated by config('mail.archive.enabled').
+        Event::listen(MessageSent::class, ArchiveSentMailToImap::class);
 
         // A request that queues a job kicks the queue endpoint once at
         // terminate time, so queued mail leaves within seconds instead of
