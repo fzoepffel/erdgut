@@ -120,7 +120,9 @@
          x-data='invoiceEditor({
              existing: {!! json_encode($existingConfig, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
              feeNet: {!! json_encode($feeNetStored, JSON_HEX_APOS) !!},
-             feeVat: {{ (int) ($order->delivery_fee_vat_rate_percent ?? 7) }}
+             feeVat: {{ (int) ($order->delivery_fee_vat_rate_percent ?? 7) }},
+             invoiceNumber: {!! json_encode((string) old('invoice_number', $order->invoice_number ?? $previewNumber), JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!},
+             bankRef: {!! json_encode((string) old('overrides.bank_reference', $values['bank_reference']), JSON_UNESCAPED_UNICODE | JSON_HEX_APOS) !!}
          })'>
         <div class="mx-auto max-w-4xl space-y-4 px-4 sm:px-6 lg:px-8">
 
@@ -202,6 +204,7 @@
                                     <strong>{{ $previewNumber }}</strong>
                                 @else
                                     <input type="text" name="invoice_number"
+                                           x-model="invoiceNumber" @input="syncBankRef()"
                                            value="{{ old('invoice_number', $order->invoice_number ?? $previewNumber) }}"
                                            maxlength="32"
                                            class="inline-block w-36 rounded-none border-0 border-b border-dashed border-gray-300 bg-transparent p-0 text-[13px] font-bold text-gray-900 focus:border-emerald-500 focus:ring-0"
@@ -448,7 +451,7 @@
                             <div class="text-gray-700">IBAN:</div>
                             <input type="text" name="overrides[bank_iban]" value="{{ old('overrides.bank_iban', $values['bank_iban']) }}" class="{{ $inp }}">
                             <div class="flex items-baseline gap-1"><span class="shrink-0 text-gray-700">Verwendungszweck:</span>
-                                <input type="text" name="overrides[bank_reference]" value="{{ old('overrides.bank_reference', $values['bank_reference']) }}" class="{{ $inp }}"></div>
+                                <input type="text" name="overrides[bank_reference]" x-model="bankRef" @input="bankRefEdited = true" value="{{ old('overrides.bank_reference', $values['bank_reference']) }}" class="{{ $inp }}"></div>
                         </div>
                         <div>
                             <div class="text-[13px]">Gesamtbetrag Netto: <strong x-text="fmt(netTotal)"></strong></div>
@@ -487,6 +490,18 @@
             extra: [],
             feeNet: config.feeNet,
             feeVat: config.feeVat || 7,
+
+            // Verwendungszweck defaults to the invoice number, so a draft's
+            // reference follows the number as you type it. Once the reference
+            // is edited by hand (or was already customised on load), it sticks
+            // and the mirror stops.
+            invoiceNumber: config.invoiceNumber || "",
+            bankRef: config.bankRef || "",
+            bankRefEdited: (config.invoiceNumber || "") !== (config.bankRef || ""),
+
+            syncBankRef() {
+                if (!this.bankRefEdited) this.bankRef = this.invoiceNumber;
+            },
 
             addLine() {
                 this.extra.push({ name: "", qty: 1, unit: "piece", price: null, net: null, vat: 7, factor: 1, touched: true });
