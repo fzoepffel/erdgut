@@ -26,6 +26,31 @@
                     {{ __('admin.weekly_catalog.nav_label') }}
                 </a>
                 <a
+                    href="{{ route('app.admin.products.export') }}"
+                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                >
+                    {{ __('admin.products.csv.download') }}
+                </a>
+                <form
+                    method="POST"
+                    action="{{ route('app.admin.products.import') }}"
+                    enctype="multipart/form-data"
+                    x-data
+                    class="inline-flex"
+                >
+                    @csrf
+                    <label class="inline-flex cursor-pointer items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus-within:ring-2 focus-within:ring-emerald-600 focus-within:ring-offset-2">
+                        {{ __('admin.products.csv.import') }}
+                        <input
+                            type="file"
+                            name="file"
+                            accept=".csv,text/csv"
+                            class="sr-only"
+                            @change="$el.form.submit()"
+                        >
+                    </label>
+                </form>
+                <a
                     href="{{ route('app.admin.products.create') }}"
                     class="btn-solid-sm"
                 >
