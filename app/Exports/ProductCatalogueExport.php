@@ -47,7 +47,7 @@ class ProductCatalogueExport implements FromArray, WithHeadings
     public function array(): array
     {
         $products = Product::query()
-            ->with(['translations', 'producers', 'group', 'subcategory'])
+            ->with(['translations', 'producers.translations', 'group', 'subcategory'])
             ->orderBy('id')
             ->get();
 
@@ -124,7 +124,7 @@ class ProductCatalogueExport implements FromArray, WithHeadings
         $fixed = [
             $product->id,
             'Main',
-            $producer?->name ?? '',
+            $this->producerName($producer),
             (string) ($meta['producer_product_name'] ?? ''),
             (string) ($meta['sourcing_id'] ?? ''),
             (string) ($meta['selling_id'] ?? ''),
@@ -185,7 +185,7 @@ class ProductCatalogueExport implements FromArray, WithHeadings
         $blanks = array_fill(0, count(CatalogueSchema::fixedHeaders()), '');
         $blanks[0] = $product->id;                     // Erdgut ID
         $blanks[1] = '';                               // Main (blank)
-        $blanks[2] = $producer?->name ?? '';           // Producer
+        $blanks[2] = $this->producerName($producer);   // Producer
         $blanks[27] = $this->money($this->costFor($product, $producer, isMain: false)); // Cost
 
         // Secondary rows carry no weekly availability (that lives on Main).
@@ -225,6 +225,20 @@ class ProductCatalogueExport implements FromArray, WithHeadings
             ->first();
 
         return $rule !== null ? round((float) $rule->unit_price * $factor, 2) : null;
+    }
+
+    /**
+     * The producer's German display name. The catalogue is German-facing and
+     * the importer matches producers by name across every locale, so emitting
+     * the `de` name keeps the round-trip stable regardless of the app locale.
+     */
+    private function producerName(mixed $producer): string
+    {
+        if ($producer === null) {
+            return '';
+        }
+
+        return $producer->translationFor('de')?->name ?? $producer->name ?? '';
     }
 
     private function costFor(Product $product, mixed $producer, bool $isMain): ?float
