@@ -10,7 +10,15 @@ use App\Support\ProductCatalogue\CatalogueSchema;
 use Illuminate\Support\Carbon;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithCustomCsvSettings;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
  * Exports the whole product catalogue as a CSV shaped like the admin's master
@@ -24,8 +32,16 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
  * (`Private Netto`, the two margin columns, `Image Path`) are recomputed here
  * and ignored on the way back in.
  */
-class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithHeadings
+class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEvents, WithHeadings, WithTitle
 {
+    /** Forest green matching the admin's master sheet header. */
+    private const HEADER_FILL = '38553F';
+
+    /** Very light green-grey for the zebra banding on every other row. */
+    private const BAND_FILL = 'F3F6F3';
+
+    private const BORDER_COLOR = 'E4EAE4';
+
     /** @var array<string, Carbon> header => that week's Monday */
     private array $weeks;
 
@@ -56,6 +72,104 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithHe
     public function headings(): array
     {
         return array_merge(CatalogueSchema::fixedHeaders(), array_keys($this->weeks));
+    }
+
+    public function title(): string
+    {
+        return 'Katalog';
+    }
+
+    /**
+     * Style the sheet to mirror the master Google Sheet: a forest-green bold
+     * header, a frozen + auto-filtered header row, zebra-striped rows, sensible
+     * column widths, and — crucially — no text wrapping with a fixed row height
+     * so the multi-line Long Description cells stay a single line instead of
+     * blowing the row height up. The line breaks stay in the data (lossless
+     * round-trip); they are just not shown expanded.
+     *
+     * @return array<class-string, callable>
+     */
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event): void {
+                $sheet = $event->sheet->getDelegate();
+                $lastCol = $sheet->getHighestColumn();
+                $lastRow = $sheet->getHighestRow();
+                $fullRange = "A1:{$lastCol}{$lastRow}";
+
+                // Base font for the whole sheet.
+                $sheet->getParent()->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
+
+                // No wrapping anywhere + vertical centering; this is what keeps
+                // the description rows a single line high.
+                $sheet->getStyle($fullRange)->getAlignment()
+                    ->setWrapText(false)
+                    ->setVertical(Alignment::VERTICAL_CENTER);
+
+                // Thin light borders across the grid.
+                $sheet->getStyle($fullRange)->getBorders()->getAllBorders()
+                    ->setBorderStyle(Border::BORDER_THIN)
+                    ->getColor()->setRGB(self::BORDER_COLOR);
+
+                // Header row: green fill, white bold text, taller row.
+                $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::HEADER_FILL]],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getRowDimension(1)->setRowHeight(26);
+
+                // Freeze the header row and auto-filter the whole table so the
+                // header dropdowns actually filter the data rows.
+                $sheet->freezePane('A2');
+                $sheet->setAutoFilter("A1:{$lastCol}{$lastRow}");
+
+                // Zebra striping + fixed data-row height.
+                for ($r = 2; $r <= $lastRow; $r++) {
+                    $sheet->getRowDimension($r)->setRowHeight(17);
+                    if ($r % 2 === 0) {
+                        $sheet->getStyle("A{$r}:{$lastCol}{$r}")->getFill()
+                            ->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB(self::BAND_FILL);
+                    }
+                }
+
+                $this->applyColumnWidths($sheet);
+            },
+        ];
+    }
+
+    /**
+     * Widths per header label; anything unlisted gets a sensible default. With
+     * wrapping off the wide description columns simply overflow into blank
+     * neighbours (as in the master sheet) rather than growing the row.
+     */
+    private function applyColumnWidths(Worksheet $sheet): void
+    {
+        $widths = [
+            'Erdgut ID' => 9, 'Main' => 7, 'Producer' => 22, 'Producer Name' => 20,
+            'Sourcing ID' => 12, 'Selling ID' => 12, 'Category' => 16, 'Sub-category' => 18,
+            'Product Group' => 18, 'Group Position' => 8,
+            'Name (DE)' => 24, 'Name (EN)' => 24, 'Name (FR)' => 24,
+            'Origin (DE)' => 20, 'Origin (EN)' => 20, 'Origin (FR)' => 20,
+            'Variety (DE)' => 16, 'Variety (EN)' => 16, 'Variety (FR)' => 16,
+            'Short Description (DE)' => 40, 'Short Description (EN)' => 40, 'Short Description (FR)' => 40,
+            'Long Description (DE)' => 60, 'Long Description (EN)' => 60, 'Long Description (FR)' => 60,
+            'Unit' => 8, 'Quantity per Unit' => 12,
+            'Cost' => 9, 'Business Net' => 12, 'Business Margin %' => 14,
+            'Private Price' => 12, 'Private Netto' => 12, 'Private Margin %' => 14,
+            'VAT %' => 7, 'Season Start' => 12, 'Season End' => 12,
+            'Request Visibility' => 14, 'Request Until' => 13, 'Freshness (days)' => 12,
+            'Published' => 10, 'Available' => 10, 'Egg add-on' => 10,
+            'Allergens' => 18, 'Dietary Tags' => 18, 'Taste Tags' => 18,
+            'Image Path' => 24, 'Comment' => 24,
+        ];
+
+        foreach ($this->headings() as $i => $header) {
+            $letter = Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->getColumnDimension($letter)->setWidth($widths[$header] ?? 11);
+        }
     }
 
     /**
