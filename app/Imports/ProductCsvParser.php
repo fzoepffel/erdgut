@@ -14,6 +14,7 @@ use App\Models\ProductSubcategory;
 use App\Services\Admin\ProductWriter;
 use App\Support\ProductCatalogue\CatalogueSchema;
 use Illuminate\Support\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * Reads a catalogue CSV (as produced by {@see ProductCatalogueExport}
@@ -51,7 +52,9 @@ class ProductCsvParser
     {
         $this->loadLookups();
 
-        [$headers, $rows] = $this->readCsv($absolutePath);
+        [$headers, $rows] = str_ends_with(strtolower($absolutePath), '.xlsx')
+            ? $this->readXlsx($absolutePath)
+            : $this->readCsv($absolutePath);
         if ($headers === []) {
             return $this->emptyResult('The file is empty or has no header row.');
         }
@@ -112,11 +115,44 @@ class ProductCsvParser
         }
 
         $delimiter = $this->sniffDelimiter($path);
+        $matrix = [];
+        while (($cells = fgetcsv($handle, 0, $delimiter)) !== false) {
+            $matrix[] = array_map(static fn ($c): string => (string) $c, $cells);
+        }
+        fclose($handle);
+
+        return $this->buildHeadersAndRows($matrix);
+    }
+
+    /**
+     * Read the first sheet of an XLSX into the same [headers, rows] shape as
+     * {@see readCsv()}. XLSX has no BOM/delimiter concerns; embedded line
+     * breaks in a cell survive as-is.
+     *
+     * @return array{0: list<string>, 1: list<array{_row:int, cells:array<string,string>}>}
+     */
+    private function readXlsx(string $path): array
+    {
+        $sheets = Excel::toArray(new class {}, $path);
+        $matrix = $sheets[0] ?? [];
+
+        return $this->buildHeadersAndRows($matrix);
+    }
+
+    /**
+     * Turn a raw 2D cell matrix (row 1 = headers) into the normalized
+     * [headers, rows] structure the plan builder consumes: headers cleaned,
+     * empty rows dropped, every value trimmed and keyed by its header.
+     *
+     * @param  array<int, array<int, mixed>>  $matrix
+     * @return array{0: list<string>, 1: list<array{_row:int, cells:array<string,string>}>}
+     */
+    private function buildHeadersAndRows(array $matrix): array
+    {
         $headers = [];
         $rows = [];
-        $line = 0;
-        while (($cells = fgetcsv($handle, 0, $delimiter)) !== false) {
-            $line++;
+        foreach ($matrix as $line0 => $cells) {
+            $line = $line0 + 1;
             if ($line === 1) {
                 $headers = array_map(fn ($h): string => $this->cleanHeader((string) $h), $cells);
 
@@ -131,7 +167,6 @@ class ProductCsvParser
             }
             $rows[] = ['_row' => $line, 'cells' => $assoc];
         }
-        fclose($handle);
 
         return [$headers, $rows];
     }

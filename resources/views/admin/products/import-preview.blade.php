@@ -100,6 +100,7 @@
                     <form method="POST" action="{{ route('app.admin.products.import.confirm') }}">
                         @csrf
                         <input type="hidden" name="token" value="{{ $token }}">
+                        <input type="hidden" name="ext" value="{{ $ext }}">
                         <button type="submit" class="btn-solid-sm">
                             {{ __('admin.products.csv.confirm') }}
                         </button>

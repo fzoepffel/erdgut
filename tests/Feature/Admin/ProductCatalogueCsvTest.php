@@ -132,14 +132,36 @@ class ProductCatalogueCsvTest extends TestCase
         $this->assertSame('1.50', $mine[1][27]);
     }
 
-    public function test_export_route_downloads_csv(): void
+    public function test_export_route_downloads_xlsx(): void
     {
         $this->pieceProduct($this->producer('Melchhof'));
 
         $this->actingAs($this->admin())
             ->get(route('app.admin.products.export'))
             ->assertOk()
-            ->assertHeader('content-disposition', 'attachment; filename=erdgut-katalog-2026-07-08.csv');
+            ->assertHeader('content-disposition', 'attachment; filename=erdgut-katalog-2026-07-08.xlsx');
+    }
+
+    public function test_export_reimport_xlsx_round_trips_and_preserves_line_breaks(): void
+    {
+        $producer = $this->producer('Melchhof');
+        $product = $this->pieceProduct($producer, ['unit_price' => 3.5]);
+        // A long description with a hard line break must survive the XLSX round-trip.
+        $product->translationFor('de')->update(['taste_profile' => "Zeile eins.\nZeile zwei."]);
+
+        $xlsx = Excel::raw(app(ProductCatalogueExport::class), \Maatwebsite\Excel\Excel::XLSX);
+        $path = tempnam(sys_get_temp_dir(), 'cat').'.xlsx';
+        file_put_contents($path, $xlsx);
+        $result = app(ProductCsvParser::class)->parse($path);
+        @unlink($path);
+
+        $this->assertSame(0, $result['summary']['to_create']);
+        $this->assertSame(1, $result['summary']['to_update']);
+        $this->assertSame([], $result['errors']);
+
+        $plan = $result['products'][0]['data'];
+        $this->assertSame(3.5, $plan['price']);
+        $this->assertSame("Zeile eins.\nZeile zwei.", $plan['translations']['de']['taste_profile']);
     }
 
     // ------------------------------------------------------------ Round-trip
