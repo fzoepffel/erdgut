@@ -104,6 +104,13 @@ class ProductCsvParser
             return [[], []];
         }
 
+        // Skip a leading UTF-8 BOM at the byte level. If left in place fgetcsv
+        // sees `\xEF\xBB\xBF"Erdgut ID"`, treats the first field as unquoted,
+        // and keeps the literal quotes so the header never matches.
+        if (fread($handle, 3) !== "\xEF\xBB\xBF") {
+            rewind($handle);
+        }
+
         $delimiter = $this->sniffDelimiter($path);
         $headers = [];
         $rows = [];
