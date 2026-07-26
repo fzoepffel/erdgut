@@ -23,15 +23,15 @@ use Illuminate\Support\Carbon;
  */
 class CatalogueSchema
 {
-    /** Weekly quantity at or above this counts as "unlimited". */
+    /** Daily quantity at or above this counts as "unlimited". */
     public const UNLIMITED_SENTINEL = 999999;
 
-    /** How many upcoming weeks the export emits availability columns for. */
-    public const EXPORT_WEEKS_AHEAD = 8;
+    /** How many upcoming days the export emits availability columns for. */
+    public const EXPORT_DAYS_AHEAD = 28;
 
     /**
-     * Fixed (non-weekly) columns, in order. Weekly `KW <year>-<week>` columns
-     * are appended after these by the export.
+     * Fixed (non-daily) columns, in order. One dated availability column per
+     * upcoming day (`YYYY-MM-DD`) is appended after these by the export.
      *
      * @return list<string>
      */
@@ -262,46 +262,50 @@ class CatalogueSchema
         return in_array(mb_strtolower(trim($raw)), ['1', 'true', 'ja', 'yes', 'y', 'x'], true);
     }
 
-    // ---------------------------------------------------------------- Weeks
+    // ----------------------------------------------------------------- Days
 
     /**
-     * Header for a week's availability column, keyed by that week's Monday.
-     * ISO year-week keeps it unambiguous across year boundaries.
+     * Header for a day's availability column: the plain ISO date `YYYY-MM-DD`,
+     * unambiguous across locales and year boundaries and trivially parseable
+     * on re-import.
      */
-    public static function weekHeader(Carbon $monday): string
+    public static function dayHeader(Carbon $date): string
     {
-        return sprintf('KW %d-%02d', (int) $monday->isoWeekYear, (int) $monday->isoWeek);
+        return $date->toDateString();
     }
 
     /**
-     * The Monday a `KW <year>-<week>` header refers to, or null if the header
-     * isn't a recognisable week column.
+     * The day a `YYYY-MM-DD` header refers to (start of that day), or null if
+     * the header isn't a recognisable date column. Only strict ISO dates count
+     * as availability columns, so ordinary text headers are never mistaken for
+     * one.
      */
-    public static function parseWeekHeader(string $header): ?Carbon
+    public static function parseDayHeader(string $header): ?Carbon
     {
-        if (! preg_match('/KW\s*(\d{4})-(\d{1,2})/i', trim($header), $m)) {
+        if (! preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', trim($header), $m)) {
             return null;
         }
 
-        return Carbon::now()
-            ->setISODate((int) $m[1], (int) $m[2])
-            ->startOfWeek(Carbon::MONDAY)
-            ->startOfDay();
+        try {
+            return Carbon::createFromFormat('Y-m-d', trim($header))->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
-     * The next `$count` week Mondays starting from the Monday of `$from`,
-     * keyed by their column header.
+     * The next `$count` days starting from the day of `$from`, keyed by their
+     * column header.
      *
      * @return array<string, Carbon>
      */
-    public static function weekHeadersFrom(Carbon $from, int $count): array
+    public static function dayHeadersFrom(Carbon $from, int $count): array
     {
-        $monday = $from->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
+        $day = $from->copy()->startOfDay();
         $out = [];
         for ($i = 0; $i < $count; $i++) {
-            $week = $monday->copy()->addWeeks($i);
-            $out[self::weekHeader($week)] = $week;
+            $date = $day->copy()->addDays($i);
+            $out[self::dayHeader($date)] = $date;
         }
 
         return $out;

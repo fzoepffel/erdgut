@@ -12,14 +12,18 @@ use Illuminate\Support\Facades\DB;
 /**
  * Applies a parsed catalogue plan ({@see ProductCsvParser::parse()}) to the
  * database in a single transaction: each product is upserted through the
- * shared {@see ProductWriter}, then its weekly-availability intents (Module B)
- * are written as CSV-owned one-off stock inflows.
+ * shared {@see ProductWriter}, then its daily-availability intents (Module B)
+ * are written as one-off stock inflows.
  *
- * Guard rail: weekly writes only ever touch this importer's OWN inflows
- * (a one-off receipt on that Monday tagged {@see CSV_NOTE}, with no
- * `source_schedule_id`). Schedule-materialized batches and manually-entered
- * inflows are never read or mutated, so recurring schedules and any committed
- * FEFO allocations stay intact.
+ * Availability semantics: a dated column value is the authoritative single
+ * (non-schedule) inflow quantity for that product on that day. Applying it
+ * consolidates every existing one-off inflow on that day into a single
+ * CSV-owned row set to the value; a blank cell means "no change".
+ *
+ * Guard rail: daily writes only ever touch one-off inflows (those with no
+ * `source_schedule_id`). Schedule-materialized recurring batches are never
+ * read or mutated, so recurring schedules and their FEFO allocations stay
+ * intact.
  */
 class ProductCatalogueImport
 {
@@ -50,7 +54,7 @@ class ProductCatalogueImport
                 $product = $this->writer->upsert($plan['data'], $existing, $userId);
                 $existing === null ? $created++ : $updated++;
 
-                $weekly += $this->applyWeekly($product, $plan['weekly'] ?? [], $userId);
+                $weekly += $this->applyDaily($product, $plan['weekly'] ?? [], $userId);
             }
 
             return ['created' => $created, 'updated' => $updated, 'weekly' => $weekly];
@@ -58,37 +62,49 @@ class ProductCatalogueImport
     }
 
     /**
-     * Write the product's weekly intents as CSV-owned one-off inflows.
+     * Apply the product's daily intents. Each intent makes the value the total
+     * single-inflow quantity for that product on that day: existing one-off
+     * inflows on the day are consolidated into a single CSV-owned row set to
+     * the value. Schedule-materialized batches are never touched.
      *
-     * @param  list<array{monday:string, canonical:float, raw:string}>  $weekly
+     * @param  list<array{date:string, canonical:float, raw:string}>  $daily
      */
-    private function applyWeekly(Product $product, array $weekly, ?int $userId): int
+    private function applyDaily(Product $product, array $daily, ?int $userId): int
     {
         $count = 0;
-        foreach ($weekly as $intent) {
-            $monday = Carbon::parse($intent['monday'])->startOfDay();
+        foreach ($daily as $intent) {
+            $date = Carbon::parse($intent['date'])->startOfDay();
             $quantity = round((float) $intent['canonical'], 4);
+            $freshness = max(1, (int) ($product->default_freshness_window_days ?? 1));
 
-            $existing = ProductStockInflow::query()
+            // Every one-off inflow on this day (any origin except a schedule),
+            // oldest first. The first becomes the row we keep and adjust; the
+            // rest are folded into it and removed.
+            $oneOffs = ProductStockInflow::query()
                 ->where('product_id', $product->id)
                 ->whereNull('variant_id')
                 ->whereNull('source_schedule_id')
-                ->where('notes', self::CSV_NOTE)
-                ->whereDate('received_on', $monday->toDateString())
-                ->first();
+                ->whereDate('received_on', $date->toDateString())
+                ->orderBy('id')
+                ->get();
 
-            if ($existing !== null) {
-                $existing->update([
+            $anchor = $oneOffs->firstWhere('notes', self::CSV_NOTE) ?? $oneOffs->first();
+
+            if ($anchor !== null) {
+                $anchor->update([
                     'quantity' => $quantity,
-                    'freshness_window_days' => max(1, (int) ($product->default_freshness_window_days ?? 1)),
+                    'freshness_window_days' => $freshness,
                     'producer_id' => $product->producer_id,
+                    'notes' => self::CSV_NOTE,
                 ]);
+                $oneOffs->reject(fn (ProductStockInflow $i): bool => $i->id === $anchor->id)
+                    ->each(fn (ProductStockInflow $i) => $i->delete());
             } else {
                 $this->inventory->recordInflow(
                     product: $product,
-                    receivedOn: $monday,
+                    receivedOn: $date,
                     quantity: $quantity,
-                    freshnessWindowDays: (int) ($product->default_freshness_window_days ?? 1),
+                    freshnessWindowDays: $freshness,
                     sourceScheduleId: null,
                     notes: self::CSV_NOTE,
                     createdByUserId: $userId,
