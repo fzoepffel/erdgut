@@ -126,20 +126,21 @@ class ProductController extends Controller
     }
 
     /**
-     * Download the whole catalogue as a CSV shaped like the master sheet
-     * ({@see ProductCatalogueExport}). Edit it and re-upload via
-     * {@see importPreview()} to bulk-update/create products.
+     * Download the whole catalogue as a styled XLSX shaped like the master
+     * sheet ({@see ProductCatalogueExport}). Edit it and re-upload via
+     * {@see importPreview()} to bulk-update/create products. The importer also
+     * accepts a plain CSV.
      */
     public function export(): BinaryFileResponse
     {
         $this->authorize('viewAny', Product::class);
 
-        $filename = 'erdgut-katalog-'.now()->format('Y-m-d').'.csv';
+        $filename = 'erdgut-katalog-'.now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(
             app(ProductCatalogueExport::class),
             $filename,
-            \Maatwebsite\Excel\Excel::CSV,
+            \Maatwebsite\Excel\Excel::XLSX,
         );
     }
 
@@ -152,13 +153,17 @@ class ProductController extends Controller
     public function importPreview(ImportProductsRequest $request): View|RedirectResponse
     {
         $token = Str::random(40);
-        $request->file('file')->storeAs('catalogue-imports', $token.'.csv', 'local');
-        $path = Storage::disk('local')->path('catalogue-imports/'.$token.'.csv');
+        // Keep the original extension so the parser reads it as XLSX or CSV.
+        $ext = strtolower($request->file('file')->getClientOriginalExtension());
+        $ext = in_array($ext, ['xlsx', 'csv', 'txt'], true) ? $ext : 'csv';
+        $relative = 'catalogue-imports/'.$token.'.'.$ext;
+        $request->file('file')->storeAs('catalogue-imports', $token.'.'.$ext, 'local');
+        $path = Storage::disk('local')->path($relative);
 
         $result = app(ProductCsvParser::class)->parse($path);
 
         if ($result['products'] === [] && $result['summary']['errors'] > 0) {
-            Storage::disk('local')->delete('catalogue-imports/'.$token.'.csv');
+            Storage::disk('local')->delete($relative);
 
             return redirect()
                 ->route('app.admin.products.index')
@@ -167,6 +172,7 @@ class ProductController extends Controller
 
         return view('admin.products.import-preview', [
             'token' => $token,
+            'ext' => $ext,
             'result' => $result,
         ]);
     }
@@ -180,20 +186,23 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         $token = (string) $request->input('token');
+        $ext = strtolower((string) $request->input('ext'));
+        $ext = in_array($ext, ['xlsx', 'csv', 'txt'], true) ? $ext : 'csv';
+        $relative = 'catalogue-imports/'.$token.'.'.$ext;
         // Token is our own random handle; keep it strictly alnum so it can
         // never escape the stash directory.
         if (! preg_match('/^[A-Za-z0-9]{40}$/', $token)
-            || ! Storage::disk('local')->exists('catalogue-imports/'.$token.'.csv')) {
+            || ! Storage::disk('local')->exists($relative)) {
             return redirect()
                 ->route('app.admin.products.index')
                 ->with('error', __('admin.products.csv.stash_expired'));
         }
 
-        $path = Storage::disk('local')->path('catalogue-imports/'.$token.'.csv');
+        $path = Storage::disk('local')->path($relative);
         $result = app(ProductCsvParser::class)->parse($path);
         $counts = app(ProductCatalogueImport::class)->apply($result['products'], $request->user()?->id);
 
-        Storage::disk('local')->delete('catalogue-imports/'.$token.'.csv');
+        Storage::disk('local')->delete($relative);
 
         return redirect()
             ->route('app.admin.products.index')
