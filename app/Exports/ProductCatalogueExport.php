@@ -9,6 +9,7 @@ use App\Services\Admin\ProductWriter;
 use App\Support\ProductCatalogue\CatalogueSchema;
 use Illuminate\Support\Carbon;
 use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithCustomCsvSettings;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 
 /**
@@ -23,7 +24,7 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
  * (`Private Netto`, the two margin columns, `Image Path`) are recomputed here
  * and ignored on the way back in.
  */
-class ProductCatalogueExport implements FromArray, WithHeadings
+class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithHeadings
 {
     /** @var array<string, Carbon> header => that week's Monday */
     private array $weeks;
@@ -31,6 +32,22 @@ class ProductCatalogueExport implements FromArray, WithHeadings
     public function __construct(private readonly ProductWriter $writer)
     {
         $this->weeks = CatalogueSchema::weekHeadersFrom(Carbon::now(), CatalogueSchema::EXPORT_WEEKS_AHEAD);
+    }
+
+    /**
+     * Semicolon delimiter + UTF-8 BOM so the file opens as proper columns in
+     * German-locale Excel/Numbers (which treat `;` as the list separator) and
+     * renders umlauts correctly. {@see ProductCsvParser} sniffs the delimiter
+     * and strips the BOM, so this round-trips unchanged.
+     *
+     * @return array<string, mixed>
+     */
+    public function getCsvSettings(): array
+    {
+        return [
+            'delimiter' => ';',
+            'use_bom' => true,
+        ];
     }
 
     /**
