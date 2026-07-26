@@ -73,14 +73,15 @@ class ProductCatalogueCsvTest extends TestCase
 
     /**
      * Build a CSV string. Each row is keyed by header label; missing cells are
-     * blank. Week headers are appended after the fixed columns.
+     * blank. Extra headers (e.g. dated availability columns) are appended after
+     * the fixed columns.
      *
      * @param  list<array<string, string>>  $rows
-     * @param  list<string>  $weekHeaders
+     * @param  list<string>  $extraHeaders
      */
-    private function csv(array $rows, array $weekHeaders = []): string
+    private function csv(array $rows, array $extraHeaders = []): string
     {
-        $headers = array_merge(CatalogueSchema::fixedHeaders(), $weekHeaders);
+        $headers = array_merge(CatalogueSchema::fixedHeaders(), $extraHeaders);
         $lines = [implode(',', array_map([$this, 'cell'], $headers))];
         foreach ($rows as $row) {
             $line = array_map(fn (string $h): string => $this->cell($row[$h] ?? ''), $headers);
@@ -273,43 +274,45 @@ class ProductCatalogueCsvTest extends TestCase
 
     // ------------------------------------------------------------- Module B
 
-    public function test_weekly_column_writes_csv_owned_inflow_and_leaves_schedules(): void
+    public function test_day_column_writes_csv_owned_inflow_and_leaves_schedules(): void
     {
         $producer = $this->producer('Melchhof');
         $product = $this->pieceProduct($producer, ['default_freshness_window_days' => 7]);
 
-        $monday = Carbon::now()->startOfWeek(Carbon::MONDAY)->addWeek();
-        $weekHeader = CatalogueSchema::weekHeader($monday);
+        // A non-Monday date inside the export window (the old weekly export
+        // could never see this; the daily columns can).
+        $date = Carbon::now()->addDays(3);
+        $dayHeader = CatalogueSchema::dayHeader($date);
 
-        // A schedule-materialized batch in the same week must stay untouched.
+        // A schedule-materialized batch on the same day must stay untouched.
         $schedule = ProductStockInflowSchedule::query()->create([
             'product_id' => $product->id,
             'producer_id' => $producer->id,
-            'weekday' => (int) $monday->dayOfWeekIso,
+            'weekday' => (int) $date->dayOfWeekIso,
             'planned_quantity' => 12,
             'freshness_window_days' => 7,
-            'starts_on' => $monday->toDateString(),
+            'starts_on' => $date->toDateString(),
         ]);
         $scheduled = ProductStockInflow::query()->create([
             'product_id' => $product->id,
             'producer_id' => $producer->id,
-            'received_on' => $monday->toDateString(),
-            'original_received_on' => $monday->toDateString(),
+            'received_on' => $date->toDateString(),
+            'original_received_on' => $date->toDateString(),
             'quantity' => 12,
             'freshness_window_days' => 7,
             'source_schedule_id' => $schedule->id,
         ]);
 
         $csv = $this->csv(
-            [$this->row($product->id, 'Melchhof', 'Bestehend', unit: 'St', price: '2.50', extra: ['Freshness (days)' => '7', $weekHeader => '5'])],
-            [$weekHeader],
+            [$this->row($product->id, 'Melchhof', 'Bestehend', unit: 'St', price: '2.50', extra: ['Freshness (days)' => '7', $dayHeader => '5'])],
+            [$dayHeader],
         );
         $this->applyCsv($csv);
 
         $csvInflow = ProductStockInflow::query()
             ->where('product_id', $product->id)
             ->where('notes', ProductCatalogueImport::CSV_NOTE)
-            ->whereDate('received_on', $monday->toDateString())
+            ->whereDate('received_on', $date->toDateString())
             ->first();
         $this->assertNotNull($csvInflow);
         $this->assertSame('5.0000', (string) $csvInflow->quantity);
@@ -322,8 +325,8 @@ class ProductCatalogueCsvTest extends TestCase
 
         // Re-import "Unlimited" updates the same CSV inflow to the sentinel.
         $csv2 = $this->csv(
-            [$this->row($product->id, 'Melchhof', 'Bestehend', unit: 'St', price: '2.50', extra: ['Freshness (days)' => '7', $weekHeader => 'Unlimited'])],
-            [$weekHeader],
+            [$this->row($product->id, 'Melchhof', 'Bestehend', unit: 'St', price: '2.50', extra: ['Freshness (days)' => '7', $dayHeader => 'Unlimited'])],
+            [$dayHeader],
         );
         $this->applyCsv($csv2);
         $this->assertSame(1, ProductStockInflow::query()->where('notes', ProductCatalogueImport::CSV_NOTE)->count());
@@ -334,14 +337,79 @@ class ProductCatalogueCsvTest extends TestCase
 
         // "0" zeroes it.
         $csv3 = $this->csv(
-            [$this->row($product->id, 'Melchhof', 'Bestehend', unit: 'St', price: '2.50', extra: ['Freshness (days)' => '7', $weekHeader => '0'])],
-            [$weekHeader],
+            [$this->row($product->id, 'Melchhof', 'Bestehend', unit: 'St', price: '2.50', extra: ['Freshness (days)' => '7', $dayHeader => '0'])],
+            [$dayHeader],
         );
         $this->applyCsv($csv3);
         $this->assertSame(0.0, (float) $csvInflow->fresh()->quantity);
     }
 
-    public function test_weekly_converts_kg_display_to_canonical_grams(): void
+    public function test_day_column_replaces_existing_manual_inflows_for_that_day(): void
+    {
+        $producer = $this->producer('Melchhof');
+        $product = $this->pieceProduct($producer, ['default_freshness_window_days' => 3]);
+
+        $date = Carbon::now()->addDays(2);
+        $dayHeader = CatalogueSchema::dayHeader($date);
+
+        // Two pre-existing one-off inflows on the day, entered outside the CSV
+        // (notes null). The day column value is authoritative, so both are
+        // consolidated into one CSV-owned row = the entered number.
+        foreach ([4, 6] as $qty) {
+            ProductStockInflow::query()->create([
+                'product_id' => $product->id,
+                'producer_id' => $producer->id,
+                'received_on' => $date->toDateString(),
+                'original_received_on' => $date->toDateString(),
+                'quantity' => $qty,
+                'freshness_window_days' => 3,
+                'source_schedule_id' => null,
+            ]);
+        }
+
+        $csv = $this->csv(
+            [$this->row($product->id, 'Melchhof', 'Bestehend', unit: 'St', price: '2.50', extra: [$dayHeader => '9'])],
+            [$dayHeader],
+        );
+        $this->applyCsv($csv);
+
+        $oneOffs = ProductStockInflow::query()
+            ->where('product_id', $product->id)
+            ->whereNull('source_schedule_id')
+            ->whereDate('received_on', $date->toDateString())
+            ->get();
+        $this->assertCount(1, $oneOffs, 'two manual inflows consolidated into one');
+        $this->assertSame(9.0, (float) $oneOffs->first()->quantity);
+        $this->assertSame(ProductCatalogueImport::CSV_NOTE, $oneOffs->first()->notes);
+    }
+
+    public function test_export_shows_single_inflow_on_any_weekday(): void
+    {
+        $producer = $this->producer('Melchhof');
+        $product = $this->pieceProduct($producer);
+
+        // A Friday inflow the old Monday-only export could never surface.
+        $date = Carbon::now()->next(Carbon::FRIDAY);
+        ProductStockInflow::query()->create([
+            'product_id' => $product->id,
+            'producer_id' => $producer->id,
+            'received_on' => $date->toDateString(),
+            'original_received_on' => $date->toDateString(),
+            'quantity' => 7,
+            'freshness_window_days' => 1,
+            'source_schedule_id' => null,
+        ]);
+
+        $headings = app(ProductCatalogueExport::class)->headings();
+        $col = array_search(CatalogueSchema::dayHeader($date), $headings, true);
+        $this->assertNotFalse($col, 'the Friday date has its own column');
+
+        $rows = app(ProductCatalogueExport::class)->array();
+        $mine = array_values(array_filter($rows, fn ($r): bool => (string) $r[0] === (string) $product->id));
+        $this->assertSame('7', $mine[0][$col]);
+    }
+
+    public function test_day_column_converts_kg_display_to_canonical_grams(): void
     {
         $producer = $this->producer('Melchhof');
         $product = $this->pieceProduct($producer, [
@@ -349,13 +417,13 @@ class ProductCatalogueCsvTest extends TestCase
             'price_display_unit' => 'kg',
             'unit_price' => 0.009, // 9 €/kg canonical
         ]);
-        $monday = Carbon::now()->startOfWeek(Carbon::MONDAY)->addWeek();
-        $weekHeader = CatalogueSchema::weekHeader($monday);
+        $date = Carbon::now()->addDays(5);
+        $dayHeader = CatalogueSchema::dayHeader($date);
 
         // 3 kg planned → 3000 g canonical.
         $csv = $this->csv(
-            [$this->row($product->id, 'Melchhof', 'Bestehend', unit: 'kg', price: '9.00', extra: [$weekHeader => '3'])],
-            [$weekHeader],
+            [$this->row($product->id, 'Melchhof', 'Bestehend', unit: 'kg', price: '9.00', extra: [$dayHeader => '3'])],
+            [$dayHeader],
         );
         $this->applyCsv($csv);
 
