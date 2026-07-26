@@ -1936,7 +1936,7 @@
     "admin.products.csv.create": "New",
     "admin.products.csv.update": "Update",
     "admin.products.csv.confirm": "Confirm import",
-    "admin.products.csv.weeks_set": "{0}no weeks|{1}:count week set|[2,*]:count weeks set",
+    "admin.products.csv.weeks_set": "{0}no days|{1}:count day set|[2,*]:count days set",
     "admin.products.csv.no_valid_rows": "The file contained no valid rows.",
     "admin.products.csv.stash_expired": "The import expired. Please upload the file again.",
     "admin.products.csv.import_done": ":created created, :updated updated, :weekly availabilities set.",

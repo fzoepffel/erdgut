@@ -1936,7 +1936,7 @@
     "admin.products.csv.create": "Neu",
     "admin.products.csv.update": "Update",
     "admin.products.csv.confirm": "Import bestätigen",
-    "admin.products.csv.weeks_set": "{0}keine Wochen|{1}:count Woche gesetzt|[2,*]:count Wochen gesetzt",
+    "admin.products.csv.weeks_set": "{0}keine Tage|{1}:count Tag gesetzt|[2,*]:count Tage gesetzt",
     "admin.products.csv.no_valid_rows": "Die Datei enthielt keine gültigen Zeilen.",
     "admin.products.csv.stash_expired": "Der Import ist abgelaufen. Bitte die Datei erneut hochladen.",
     "admin.products.csv.import_done": ":created angelegt, :updated aktualisiert, :weekly Verfügbarkeiten gesetzt.",

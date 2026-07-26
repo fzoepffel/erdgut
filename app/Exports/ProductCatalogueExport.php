@@ -42,12 +42,12 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
 
     private const BORDER_COLOR = 'E4EAE4';
 
-    /** @var array<string, Carbon> header => that week's Monday */
-    private array $weeks;
+    /** @var array<string, Carbon> header (`YYYY-MM-DD`) => that day */
+    private array $days;
 
     public function __construct(private readonly ProductWriter $writer)
     {
-        $this->weeks = CatalogueSchema::weekHeadersFrom(Carbon::now(), CatalogueSchema::EXPORT_WEEKS_AHEAD);
+        $this->days = CatalogueSchema::dayHeadersFrom(Carbon::now(), CatalogueSchema::EXPORT_DAYS_AHEAD);
     }
 
     /**
@@ -71,7 +71,7 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
      */
     public function headings(): array
     {
-        return array_merge(CatalogueSchema::fixedHeaders(), array_keys($this->weeks));
+        return array_merge(CatalogueSchema::fixedHeaders(), array_keys($this->days));
     }
 
     public function title(): string
@@ -118,7 +118,21 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::HEADER_FILL]],
                     'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
                 ]);
-                $sheet->getRowDimension(1)->setRowHeight(26);
+
+                // Rotate the dated availability headers vertical so the narrow
+                // day columns fit an ISO date; this also lets the header row be
+                // tall enough to read them.
+                $fixedCount = count(CatalogueSchema::fixedHeaders());
+                if ($fixedCount < count($this->headings())) {
+                    $firstDayCol = Coordinate::stringFromColumnIndex($fixedCount + 1);
+                    $sheet->getStyle("{$firstDayCol}1:{$lastCol}1")->getAlignment()
+                        ->setTextRotation(90)
+                        ->setVertical(Alignment::VERTICAL_BOTTOM)
+                        ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                    $sheet->getRowDimension(1)->setRowHeight(78);
+                } else {
+                    $sheet->getRowDimension(1)->setRowHeight(26);
+                }
 
                 // Freeze the header row and auto-filter the whole table so the
                 // header dropdowns actually filter the data rows.
@@ -166,9 +180,14 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
             'Image Path' => 24, 'Comment' => 24,
         ];
 
+        $fixedCount = count(CatalogueSchema::fixedHeaders());
         foreach ($this->headings() as $i => $header) {
             $letter = Coordinate::stringFromColumnIndex($i + 1);
-            $sheet->getColumnDimension($letter)->setWidth($widths[$header] ?? 11);
+            // Daily availability columns are narrow (room for a 4-digit entry)
+            // with their date header rotated vertical; the fixed columns use
+            // their mapped width, defaulting to 11.
+            $width = $i >= $fixedCount ? 5 : ($widths[$header] ?? 11);
+            $sheet->getColumnDimension($letter)->setWidth($width);
         }
     }
 
@@ -182,12 +201,16 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
             ->orderBy('id')
             ->get();
 
-        // Weekly batch quantities for every exported product in one query:
-        // product_id => [Y-m-d => canonical quantity received that day].
-        $mondays = array_map(static fn (Carbon $m): string => $m->toDateString(), $this->weeks);
-        $weeklyByProduct = ProductStockInflow::query()
+        // Daily single-inflow quantities for every exported product in one
+        // query: product_id => [Y-m-d => canonical quantity received that day].
+        // Only one-off inflows count here (source_schedule_id is null);
+        // schedule-materialised recurring batches are owned by the schedule and
+        // are neither shown nor editable through the catalogue sheet.
+        $dates = array_map(static fn (Carbon $d): string => $d->toDateString(), $this->days);
+        $dailyByProduct = ProductStockInflow::query()
             ->whereIn('product_id', $products->modelKeys())
-            ->whereIn('received_on', $mondays)
+            ->whereNull('source_schedule_id')
+            ->whereIn('received_on', $dates)
             ->get(['product_id', 'received_on', 'quantity'])
             ->groupBy('product_id')
             ->map(fn ($rows) => $rows->groupBy(fn (ProductStockInflow $i): string => $i->received_on->toDateString())
@@ -196,7 +219,7 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
 
         $rows = [];
         foreach ($products as $product) {
-            foreach ($this->productRows($product, $weeklyByProduct[$product->id] ?? []) as $row) {
+            foreach ($this->productRows($product, $dailyByProduct[$product->id] ?? []) as $row) {
                 $rows[] = $row;
             }
         }
@@ -208,10 +231,10 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
      * All CSV rows for one product: the Main producer row (full field set)
      * followed by one lean row per secondary producer.
      *
-     * @param  array<string, float>  $weeklyByDay  Y-m-d => canonical quantity
+     * @param  array<string, float>  $dailyByDay  Y-m-d => canonical quantity
      * @return list<array<int, mixed>>
      */
-    private function productRows(Product $product, array $weeklyByDay): array
+    private function productRows(Product $product, array $dailyByDay): array
     {
         $producers = $product->producers->sortBy('pivot.position')->values();
 
@@ -228,7 +251,7 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
         $rows = [];
         foreach ($ordered as $index => $producer) {
             $rows[] = $index === 0
-                ? $this->mainRow($product, $producer, $weeklyByDay)
+                ? $this->mainRow($product, $producer, $dailyByDay)
                 : $this->secondaryRow($product, $producer);
         }
 
@@ -236,10 +259,10 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
     }
 
     /**
-     * @param  array<string, float>  $weeklyByDay
+     * @param  array<string, float>  $dailyByDay
      * @return array<int, mixed>
      */
-    private function mainRow(Product $product, mixed $producer, array $weeklyByDay): array
+    private function mainRow(Product $product, mixed $producer, array $dailyByDay): array
     {
         $factor = $this->writer->displayFactor($product);
         $meta = is_array($product->metadata) ? $product->metadata : [];
@@ -302,7 +325,7 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
             (string) ($meta['comment'] ?? ''),
         ];
 
-        return array_merge($fixed, $this->weeklyCells($factor, $weeklyByDay));
+        return array_merge($fixed, $this->dailyCells($factor, $dailyByDay));
     }
 
     /**
@@ -319,22 +342,22 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
         $blanks[2] = $this->producerName($producer);   // Producer
         $blanks[27] = $this->money($this->costFor($product, $producer, isMain: false)); // Cost
 
-        // Secondary rows carry no weekly availability (that lives on Main).
-        return array_merge($blanks, array_fill(0, count($this->weeks), ''));
+        // Secondary rows carry no daily availability (that lives on Main).
+        return array_merge($blanks, array_fill(0, count($this->days), ''));
     }
 
     /**
-     * Weekly availability cells, canonical → display. Blank when nothing was
-     * received that week, `Unlimited` at/above the sentinel.
+     * Daily availability cells, canonical → display. Blank when nothing was
+     * received that day, `Unlimited` at/above the sentinel.
      *
-     * @param  array<string, float>  $weeklyByDay
+     * @param  array<string, float>  $dailyByDay
      * @return list<string>
      */
-    private function weeklyCells(int $factor, array $weeklyByDay): array
+    private function dailyCells(int $factor, array $dailyByDay): array
     {
         $cells = [];
-        foreach ($this->weeks as $monday) {
-            $canonical = $weeklyByDay[$monday->toDateString()] ?? null;
+        foreach ($this->days as $date) {
+            $canonical = $dailyByDay[$date->toDateString()] ?? null;
             if ($canonical === null) {
                 $cells[] = '';
             } elseif ($canonical >= CatalogueSchema::UNLIMITED_SENTINEL) {

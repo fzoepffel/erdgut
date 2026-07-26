@@ -59,7 +59,7 @@ class ProductCsvParser
             return $this->emptyResult('The file is empty or has no header row.');
         }
 
-        $weekColumns = $this->weekColumns($headers);
+        $dayColumns = $this->dayColumns($headers);
         $buckets = $this->groupIntoProducts($rows);
 
         $products = [];
@@ -67,7 +67,7 @@ class ProductCsvParser
         $newGroups = [];
 
         foreach ($buckets as $bucket) {
-            $plan = $this->buildPlan($bucket, $weekColumns);
+            $plan = $this->buildPlan($bucket, $dayColumns);
             if (isset($plan['error'])) {
                 $errors[] = ['row' => $bucket['row'], 'message' => $plan['error']];
 
@@ -203,18 +203,18 @@ class ProductCsvParser
     }
 
     /**
-     * Week columns keyed by header → that week's Monday.
+     * Dated availability columns keyed by header → that day.
      *
      * @param  list<string>  $headers
      * @return array<string, Carbon>
      */
-    private function weekColumns(array $headers): array
+    private function dayColumns(array $headers): array
     {
         $out = [];
         foreach ($headers as $header) {
-            $monday = CatalogueSchema::parseWeekHeader($header);
-            if ($monday !== null) {
-                $out[$header] = $monday;
+            $day = CatalogueSchema::parseDayHeader($header);
+            if ($day !== null) {
+                $out[$header] = $day;
             }
         }
 
@@ -287,10 +287,10 @@ class ProductCsvParser
      * Validate one bucket and build its write plan, or return `['error' => …]`.
      *
      * @param  array{id:?int, row:int, rows:list<array<string,string>>}  $bucket
-     * @param  array<string, Carbon>  $weekColumns
+     * @param  array<string, Carbon>  $dayColumns
      * @return array<string, mixed>
      */
-    private function buildPlan(array $bucket, array $weekColumns): array
+    private function buildPlan(array $bucket, array $dayColumns): array
     {
         $rows = $bucket['rows'];
         // Primary row: the one flagged Main, else the one with the most
@@ -462,7 +462,7 @@ class ProductCsvParser
             $data['is_test'] = (bool) $existing->is_test;
         }
 
-        $weekly = $this->parseWeekly($primary, $weekColumns, $unit);
+        $weekly = $this->parseDaily($primary, $dayColumns, $unit);
 
         return [
             'action' => $bucket['id'] === null ? 'create' : 'update',
@@ -498,20 +498,20 @@ class ProductCsvParser
     }
 
     /**
-     * Weekly availability intents for the product. Blank cells are skipped
+     * Daily availability intents for the product. Blank cells are skipped
      * (no change); `Unlimited` maps to the sentinel; a number is converted
      * from the display unit to canonical.
      *
      * @param  array<string, string>  $row
-     * @param  array<string, Carbon>  $weekColumns
+     * @param  array<string, Carbon>  $dayColumns
      * @param  array{unit:string, price_display_unit:string, count_unit_label:?string}  $unit
-     * @return list<array{monday:string, canonical:float, raw:string}>
+     * @return list<array{date:string, canonical:float, raw:string}>
      */
-    private function parseWeekly(array $row, array $weekColumns, array $unit): array
+    private function parseDaily(array $row, array $dayColumns, array $unit): array
     {
         $factor = ProductUnit::from($unit['unit'])->canonicalUnitsPerDisplay($unit['price_display_unit']);
         $out = [];
-        foreach ($weekColumns as $header => $monday) {
+        foreach ($dayColumns as $header => $date) {
             $raw = trim($row[$header] ?? '');
             if ($raw === '') {
                 continue;
@@ -525,7 +525,7 @@ class ProductCsvParser
                 }
                 $canonical = round($value * $factor, 4);
             }
-            $out[] = ['monday' => $monday->toDateString(), 'canonical' => $canonical, 'raw' => $raw];
+            $out[] = ['date' => $date->toDateString(), 'canonical' => $canonical, 'raw' => $raw];
         }
 
         return $out;
