@@ -6,6 +6,8 @@ use App\Enums\Allergen;
 use App\Enums\DietaryTag;
 use App\Enums\ProductUnit;
 use App\Enums\TasteProfile;
+use App\Exports\CatalogueExportData;
+use App\Exports\CatalogueMainSheet;
 use App\Exports\ProductCatalogueExport;
 use App\Models\Producer;
 use App\Models\Product;
@@ -43,6 +45,9 @@ class ProductCsvParser
     /** @var array<int, array<string, float>> existing product id => (Y-m-d => canonical one-off quantity) */
     private array $dbDailyByProduct = [];
 
+    /** @var array<int, array<string, string>> existing product id => the exported "Katalog" main-row cells (the current DB state, formatted exactly as the sheet shows it) */
+    private array $dbCellsByProduct = [];
+
     private bool $loaded = false;
 
     public function __construct(private readonly ProductWriter $writer) {}
@@ -67,11 +72,14 @@ class ProductCsvParser
         $dayColumns = $this->dayColumns($headers);
         $buckets = $this->groupIntoProducts($rows);
 
-        // Current one-off availability, so a day edited on either sheet can be
-        // told apart from a day left at its exported value.
+        // Current one-off availability and the current DB state as sheet cells,
+        // so an edited value can be told apart from one left at its exported
+        // value and unchanged products drop out of the preview.
         $this->loadDbDaily($this->existingIds($buckets), $dayColumns);
+        $this->loadDbCells();
 
         $products = [];
+        $unchanged = 0;
         $errors = [];
         $newGroups = [];
         $newSubcategories = [];
@@ -86,6 +94,14 @@ class ProductCsvParser
             );
             if (isset($plan['error'])) {
                 $errors[] = ['row' => $bucket['row'], 'message' => $plan['error']];
+
+                continue;
+            }
+            // An existing product whose row matches the DB in every field is a
+            // no-op: leave it out of the preview and the apply so re-uploading
+            // an untouched file changes nothing.
+            if ($plan['action'] === 'update' && ! $plan['changed']) {
+                $unchanged++;
 
                 continue;
             }
@@ -107,6 +123,7 @@ class ProductCsvParser
             'summary' => [
                 'to_create' => $toCreate,
                 'to_update' => count($products) - $toCreate,
+                'unchanged' => $unchanged,
                 'new_groups' => $newGroups,
                 'new_subcategories' => $newSubcategories,
                 'errors' => count($errors),
@@ -583,6 +600,13 @@ class ProductCsvParser
 
         $weekly = $this->reconcileDaily($primary, $inventoryOverlay, $dayColumns, $unit, $bucket['id'], $warnings);
 
+        // Which fields (if any) this row actually changes. A new product is
+        // always a change; an existing one is compared field-by-field against
+        // the current catalogue so an untouched row is a no-op.
+        [$changed, $changedFields] = $existing === null
+            ? [true, []]
+            : $this->detectChanges($existing, $primary, $data, $producers, $weekly);
+
         return [
             'action' => $bucket['id'] === null ? 'create' : 'update',
             'product_id' => $bucket['id'],
@@ -592,6 +616,8 @@ class ProductCsvParser
             'weekly' => $weekly,
             'new_group' => $newGroup,
             'new_subcategory' => $newSubcategory,
+            'changed' => $changed,
+            'changed_fields' => $changedFields,
             'warnings' => $warnings,
         ];
     }
@@ -648,6 +674,11 @@ class ProductCsvParser
             if ($final === null) {
                 continue;
             }
+            // A cell that still matches the stored quantity is not an edit, so a
+            // clean round-trip re-import reports no availability changes at all.
+            if ($this->sameQty($final, $dbVal ?? 0.0)) {
+                continue;
+            }
             $out[] = [
                 'date' => $date->toDateString(),
                 'canonical' => $final,
@@ -656,6 +687,115 @@ class ProductCsvParser
         }
 
         return $out;
+    }
+
+    /**
+     * Compare an uploaded product row against the current catalogue and return
+     * `[bool changed, list<string> changedFields]`. Most fields are compared as
+     * the sheet renders them (so the exact same formatter sits on both sides);
+     * the reconciled prices and the daily availability are compared by value so
+     * an edit made only on the "Preise"/"Bestand" sheet is still caught.
+     *
+     * @param  array<string, string>  $primary
+     * @param  array<string, mixed>  $data
+     * @param  list<array{producer_id:int, buying_price:?float, main:bool}>  $producers
+     * @param  list<array{date:string, canonical:float, raw:string}>  $weekly
+     * @return array{0: bool, 1: list<string>}
+     */
+    private function detectChanges(Product $existing, array $primary, array $data, array $producers, array $weekly): array
+    {
+        $ref = $this->dbCellsByProduct[$existing->id] ?? null;
+        if ($ref === null) {
+            return [true, []]; // no snapshot to compare against: treat as changed
+        }
+
+        // Structural or export-only columns the importer never writes back.
+        $ignore = ['Erdgut ID', 'Main', 'Image Path', 'Private Netto', 'Private Margin %', 'Business Margin %'];
+        $changed = [];
+        foreach (CatalogueSchema::fixedHeaders() as $header) {
+            if (in_array($header, $ignore, true)) {
+                continue;
+            }
+            if (! $this->cellsEqual($primary[$header] ?? '', $ref[$header] ?? '')) {
+                $changed[$header] = true;
+            }
+        }
+
+        // Reconciled values catch edits made only on the price sheet, where the
+        // full sheet's cell was left at its exported value.
+        $factor = $this->writer->displayFactor($existing);
+        if (! $this->sameMoney($data['price'], $this->dbPrivateDisplay($existing, $factor))) {
+            $changed['Private Price'] = true;
+        }
+        if (! $this->sameMoney($data['business_price'], $this->dbBusinessDisplay($existing, $factor))) {
+            $changed['Business Net'] = true;
+        }
+        if ((int) $data['vat_rate_percent'] !== (int) ($existing->vat_rate_percent ?? 7)) {
+            $changed['VAT %'] = true;
+        }
+        if (! $this->sameMoney($data['buying_price'], $this->dbCostDisplay($existing))) {
+            $changed['Cost'] = true;
+        }
+        if ($this->producersChanged($existing, $producers)) {
+            $changed['Producer'] = true;
+        }
+        if ($weekly !== []) {
+            $changed['Verfügbarkeit'] = true;
+        }
+
+        return [$changed !== [], array_keys($changed)];
+    }
+
+    /** Two sheet cells are equal as text, or as numbers within a tiny tolerance. */
+    private function cellsEqual(string $a, string $b): bool
+    {
+        $a = trim($a);
+        $b = trim($b);
+        if ($a === $b) {
+            return true;
+        }
+        // Excel drops a literal numeric 0 to blank when writing an integer cell;
+        // blank and zero therefore mean the same thing on a clean round-trip.
+        if (($a === '' && $this->isZeroCell($b)) || ($b === '' && $this->isZeroCell($a))) {
+            return true;
+        }
+
+        return is_numeric($a) && is_numeric($b) && abs((float) $a - (float) $b) < 0.0001;
+    }
+
+    private function isZeroCell(string $value): bool
+    {
+        return is_numeric($value) && abs((float) $value) < 0.0001;
+    }
+
+    /**
+     * Whether the product's set of producers or any of their buying prices
+     * moved. The primary is compared against the same figure the sheet showed
+     * (which falls back to the product-level buying price).
+     *
+     * @param  list<array{producer_id:int, buying_price:?float, main:bool}>  $producers
+     */
+    private function producersChanged(Product $existing, array $producers): bool
+    {
+        $incoming = [];
+        foreach ($producers as $p) {
+            $incoming[$p['producer_id']] = $p['buying_price'] !== null ? (int) round($p['buying_price'] * 100) : null;
+        }
+
+        $current = [];
+        foreach ($existing->producers as $p) {
+            $current[$p->id] = $p->pivot->buying_price_cents !== null ? (int) $p->pivot->buying_price_cents : null;
+        }
+        $primaryId = $existing->producer_id ?? array_key_first($current);
+        if ($primaryId !== null) {
+            $dbCost = $this->dbCostDisplay($existing);
+            $current[$primaryId] = $dbCost !== null ? (int) round($dbCost * 100) : null;
+        }
+
+        ksort($incoming);
+        ksort($current);
+
+        return $incoming !== $current;
     }
 
     /** Parse one availability cell to a canonical quantity, or null if blank/invalid. */
@@ -971,14 +1111,41 @@ class ProductCsvParser
     }
 
     /**
-     * @return array{products: list<never>, errors: list<array{row:int, message:string}>, summary: array{to_create:int, to_update:int, new_groups:list<never>, new_subcategories:list<never>, errors:int, weekly_changes:int}}
+     * Snapshot the current catalogue as the export would render it, keyed by
+     * Erdgut ID (the primary "Main" row per product). Comparing an uploaded row
+     * against this tells whether the admin actually changed anything, so an
+     * untouched re-upload shows no updates. The values are formatted by the very
+     * same code that wrote the file, so an unchanged cell compares equal.
+     */
+    private function loadDbCells(): void
+    {
+        $this->dbCellsByProduct = [];
+        $sheet = new CatalogueMainSheet($this->writer, CatalogueExportData::build());
+        $headers = $sheet->headings();
+        foreach ($sheet->array() as $row) {
+            $cells = [];
+            foreach ($headers as $i => $header) {
+                $cells[$header] = (string) ($row[$i] ?? '');
+            }
+            if (($cells['Main'] ?? '') !== 'Main') {
+                continue; // section dividers, footer, and secondary-producer rows
+            }
+            $id = trim($cells['Erdgut ID'] ?? '');
+            if ($id !== '' && ctype_digit($id)) {
+                $this->dbCellsByProduct[(int) $id] = $cells;
+            }
+        }
+    }
+
+    /**
+     * @return array{products: list<never>, errors: list<array{row:int, message:string}>, summary: array{to_create:int, to_update:int, unchanged:int, new_groups:list<never>, new_subcategories:list<never>, errors:int, weekly_changes:int}}
      */
     private function emptyResult(string $message): array
     {
         return [
             'products' => [],
             'errors' => [['row' => 0, 'message' => $message]],
-            'summary' => ['to_create' => 0, 'to_update' => 0, 'new_groups' => [], 'new_subcategories' => [], 'errors' => 1, 'weekly_changes' => 0],
+            'summary' => ['to_create' => 0, 'to_update' => 0, 'unchanged' => 0, 'new_groups' => [], 'new_subcategories' => [], 'errors' => 1, 'weekly_changes' => 0],
         ];
     }
 }
