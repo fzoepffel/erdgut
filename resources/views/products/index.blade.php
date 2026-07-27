@@ -274,59 +274,66 @@
                             $note        = $product->localizedTasteProfile();
                         @endphp
                         <x-reveal as="li" variant="fade-up" style="--i:{{ $i % 6 }}" class="list-none">
-                            <a href="{{ route('app.products.show', $product) }}" class="group flex flex-col">
-
-                                {{-- Image well --}}
-                                <div class="relative aspect-square overflow-hidden bg-brand-paper">
-                                    <img
-                                        src="{{ $product->thumbUrl() ?? $placeholder }}"
-                                        alt="{{ $product->name }}"
-                                        width="600"
-                                        height="600"
-                                        class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
-                                        loading="lazy"
-                                    />
-                                    {{-- № badge top-left --}}
-                                    <span class="absolute left-3 top-3 bg-chapter-produce px-2 py-1 font-mono text-[0.65rem] uppercase tracking-widest text-brand-cream">
-                                        № {{ str_pad((string) $cardNumber, 2, '0', STR_PAD_LEFT) }}
-                                    </span>
-                                    {{-- Category chip top-right --}}
-                                    <span class="absolute right-3 top-3 grid h-12 w-12 place-items-center bg-brand-cream/90">
-                                        <x-chapter-mark :chapter="$chapter" size="xs" class="opacity-90" />
-                                    </span>
-                                    {{-- Status strip bottom --}}
-                                    <div class="absolute bottom-0 left-0 right-0 {{ $stripBg }} px-3 py-2">
-                                        <span class="font-mono text-[0.6rem] uppercase tracking-widest text-brand-cream">
-                                            {{ $catLabelStr }} · {{ $statusLabel }}
+                            <article class="group flex flex-col">
+                                <a href="{{ route('app.products.show', $product) }}" class="flex flex-col">
+                                    {{-- Image well --}}
+                                    <div class="relative aspect-square overflow-hidden bg-brand-paper">
+                                        <img
+                                            src="{{ $product->thumbUrl() ?? $placeholder }}"
+                                            alt="{{ $product->name }}"
+                                            width="600"
+                                            height="600"
+                                            class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
+                                            loading="lazy"
+                                        />
+                                        {{-- № badge top-left --}}
+                                        <span class="absolute left-3 top-3 bg-chapter-produce px-2 py-1 font-mono text-[0.65rem] uppercase tracking-widest text-brand-cream">
+                                            № {{ str_pad((string) $cardNumber, 2, '0', STR_PAD_LEFT) }}
                                         </span>
+                                        {{-- Category chip top-right --}}
+                                        <span class="absolute right-3 top-3 grid h-12 w-12 place-items-center bg-brand-cream/90">
+                                            <x-chapter-mark :chapter="$chapter" size="xs" class="opacity-90" />
+                                        </span>
+                                        {{-- Status strip bottom --}}
+                                        <div class="absolute bottom-0 left-0 right-0 {{ $stripBg }} px-3 py-2">
+                                            <span class="font-mono text-[0.6rem] uppercase tracking-widest text-brand-cream">
+                                                {{ $catLabelStr }} · {{ $statusLabel }}
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
 
-                                {{-- Title row --}}
-                                <div class="mt-5 flex items-baseline justify-between gap-4">
-                                    <h3 class="font-display text-2xl text-brand-ink">{{ $product->name }}</h3>
-                                    <span class="shrink-0 font-mono text-xs tabular-nums text-brand-ink/60">{{ $product->displayPrice() }}</span>
-                                </div>
+                                    {{-- Title row --}}
+                                    <div class="mt-5 flex items-baseline justify-between gap-4">
+                                        <h3 class="font-display text-2xl text-brand-ink">{{ $product->name }}</h3>
+                                        <span class="shrink-0 font-mono text-xs tabular-nums text-brand-ink/60">{{ $product->displayPrice() }}</span>
+                                    </div>
+                                </a>
 
                                 {{-- Hairline --}}
                                 <div class="mt-2 h-px bg-brand-ink/10"></div>
 
                                 {{-- Producer --}}
                                 <p class="mt-3 font-mono text-[0.65rem] uppercase tracking-widest text-chapter-produce">
-                                    {{ $product->producer?->name ?? __('products.producer_unknown') }}
+                                    <x-producer-links
+                                        :producers="\App\Support\ProducerLabels::forProduct($product)"
+                                        :show-route="\App\Support\ProducerLabels::SHOW_ROUTE_MARKETING"
+                                        :index-route="\App\Support\ProducerLabels::INDEX_ROUTE_MARKETING"
+                                        :fallback="__('products.producer_unknown')"
+                                    />
                                 </p>
 
-                                {{-- Note --}}
-                                @if ($note)
-                                    <p class="mt-2 text-sm leading-relaxed text-brand-ink/60">{{ $note }}</p>
-                                @endif
+                                <a href="{{ route('app.products.show', $product) }}" class="flex flex-col">
+                                    {{-- Note --}}
+                                    @if ($note)
+                                        <p class="mt-2 text-sm leading-relaxed text-brand-ink/60">{{ $note }}</p>
+                                    @endif
 
-                                {{-- CTA --}}
-                                <span class="mt-5 inline-flex items-center gap-2 self-start border-b border-chapter-produce pb-0.5 text-xs text-chapter-produce">
-                                    {{ __('Read the entry') }} <span aria-hidden="true">&rarr;</span>
-                                </span>
-
-                            </a>
+                                    {{-- CTA --}}
+                                    <span class="mt-5 inline-flex items-center gap-2 self-start border-b border-chapter-produce pb-0.5 text-xs text-chapter-produce">
+                                        {{ __('Read the entry') }} <span aria-hidden="true">&rarr;</span>
+                                    </span>
+                                </a>
+                            </article>
                         </x-reveal>
                     @endforeach
                 </ul>

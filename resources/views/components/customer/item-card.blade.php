@@ -12,8 +12,9 @@
     // the quantity slot entirely (portfolio preview state).
     'quantityLabel' => null,
 
-    // Producer name + region — rendered together as a single eyebrow line
-    // like "HOF APFELTRAUM · MÜNCHEBERG". Either can be empty.
+    // Prefer :producers (models) so each farm links to its detail page.
+    // producerName + producerRegion remain as a plain-text fallback.
+    'producers' => null,
     'producerName' => null,
     'producerRegion' => null,
 
@@ -37,6 +38,7 @@
 ])
 
 @php
+    $producerModels = collect($producers ?? [])->filter(fn ($p) => $p instanceof \App\Models\Producer);
     $producerLine = trim(implode(' · ', array_filter([
         $producerName !== null && $producerName !== '' ? mb_strtoupper((string) $producerName) : null,
         $producerRegion !== null && $producerRegion !== '' ? mb_strtoupper((string) $producerRegion) : null,
@@ -90,7 +92,19 @@
     <div class="mt-3 border-t border-brand-ink/15"></div>
 
     {{-- Producer line + 1-liner description --}}
-    @if ($producerLine !== '')
+    @if ($producerModels->isNotEmpty())
+        <p class="mt-3 eyebrow text-[0.7rem] text-chapter-produce uppercase tracking-widest">
+            <x-producer-links
+                :producers="$producerModels"
+                :show-route="\App\Support\ProducerLabels::SHOW_ROUTE_MARKETING"
+                :index-route="\App\Support\ProducerLabels::INDEX_ROUTE_MARKETING"
+                class="text-inherit"
+            />
+            @if (filled($producerRegion))
+                <span aria-hidden="true"> · </span>{{ mb_strtoupper((string) $producerRegion) }}
+            @endif
+        </p>
+    @elseif ($producerLine !== '')
         <p class="mt-3 eyebrow text-[0.7rem] text-chapter-produce">{{ $producerLine }}</p>
     @endif
 

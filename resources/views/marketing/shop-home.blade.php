@@ -292,10 +292,15 @@
                             </div>
                             <div @class(['lg:order-1' => $loop->odd])>
                                 @php
-                                    $featuredProducerLabel = \App\Support\ProducerLabels::label($product->producers) ?: $product->producer?->name;
+                                    $featuredProducers = \App\Support\ProducerLabels::forProduct($product);
                                 @endphp
-                                @if ($featuredProducerLabel)
-                                    <p class="eyebrow text-chapter-produce">{{ $featuredProducerLabel }}</p>
+                                @if ($featuredProducers->isNotEmpty())
+                                    <p class="eyebrow text-chapter-produce">
+                                        <x-producer-links
+                                            :producers="$featuredProducers"
+                                            class="text-inherit"
+                                        />
+                                    </p>
                                 @endif
                                 <h3 class="mt-3 font-display text-3xl leading-tight text-brand-ink sm:text-4xl">{{ $product->name }}</h3>
                                 <p class="mt-3 font-mono text-sm text-brand-ink/60">{{ $product->displayPrice() }}</p>

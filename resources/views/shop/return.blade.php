@@ -162,7 +162,18 @@
                                 {{ $item->product?->displayQuantity((float) $item->quantity) }}
                             </span>
                             <span class="col-span-9 font-display text-2xl text-brand-ink md:col-span-5">{{ $item->product?->name }}@if ($item->variant_name_snapshot) <span class="text-base text-brand-ink/60">· {{ $item->variant_name_snapshot }}</span>@endif</span>
-                            <span class="col-span-6 text-sm text-brand-ink/60 md:col-span-3">{{ ($producerNames ?? [])[$item->product_id.'|'.(int) ($item->variant_id ?? 0)] ?? $item->product?->producer?->name }}</span>
+                            <span class="col-span-6 text-sm text-brand-ink/60 md:col-span-3">
+                                @php
+                                    $lineKey = $item->product_id.'|'.(int) ($item->variant_id ?? 0);
+                                    $lineProducers = ($producersByItem ?? [])[$lineKey]
+                                        ?? \App\Support\ProducerLabels::forProduct($item->product)->all();
+                                @endphp
+                                <x-producer-links
+                                    :producers="$lineProducers"
+                                    :fallback="($producerNames ?? [])[$lineKey] ?? $item->product?->producer?->name"
+                                    class="text-inherit"
+                                />
+                            </span>
                             <span class="col-span-6 justify-self-end font-display text-xl tabular-nums text-brand-ink md:col-span-3">@eur($item->line_total_eur)</span>
                         </li>
                     @endforeach
@@ -225,9 +236,9 @@
                     <ul class="divide-y divide-shop-border border-y border-shop-border">
                         @foreach ($producers as $producer)
                             <li class="grid grid-cols-12 items-center gap-x-4 py-5">
-                                <span class="col-span-12 font-display text-2xl text-brand-ink md:col-span-4">{{ $producer->name }}</span>
+                                <a href="{{ route('public.shop.producers.show', $producer) }}" class="col-span-12 font-display text-2xl text-brand-ink underline-offset-4 hover:underline md:col-span-4">{{ $producer->name }}</a>
                                 <span class="col-span-9 text-sm text-brand-ink/60 md:col-span-6">{{ $producer->region }}</span>
-                                <a href="{{ route('public.shop.producers.show', ['producer' => $producer->slug]) }}"
+                                <a href="{{ route('public.shop.producers.show', $producer) }}"
                                    class="col-span-3 justify-self-end font-mono text-xs uppercase tracking-eyebrow text-chapter-produce underline underline-offset-4">
                                     {{ __('shop.return_producers_visit') }} →
                                 </a>

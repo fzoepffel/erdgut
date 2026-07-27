@@ -190,7 +190,13 @@
                                     </h3>
                                     <div class="mt-2 h-px bg-shop-border"></div>
                                     @if (($row['producerLabel'] ?? '') !== '')
-                                        <p class="mt-3 font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary">{{ $row['producerLabel'] }}</p>
+                                        <p class="mt-3 font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary">
+                                            <x-producer-links
+                                                :producers="\App\Support\ProducerLabels::forProduct($product)"
+                                                class="text-inherit"
+                                                :fallback="$row['producerLabel']"
+                                            />
+                                        </p>
                                     @endif
 
                                     {{-- Grade rows: net price + capped quantity dropdown + recurrence.

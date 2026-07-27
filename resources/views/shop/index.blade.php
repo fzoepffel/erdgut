@@ -815,18 +815,10 @@
                                             {{-- Producer (height reserved by the parent's :has rule
                                                  only when at least one card has a producer). --}}
                                             <div class="shop-card-producer-slot mt-3">
-                                                @php
-                                                    $producerLinks = \App\Support\ProducerLabels::linkData($row['producers'] ?? []);
-                                                @endphp
-                                                @if ($producerLinks['collapsed'])
-                                                    <a href="{{ route('public.shop.producers.index') }}" class="shop-card-producer-fill font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary underline-offset-4 hover:underline">{{ __('shop.producers_multiple') }}</a>
-                                                @elseif ($producerLinks['items'] !== [])
-                                                    <span class="shop-card-producer-fill font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary">
-                                                        @foreach ($producerLinks['items'] as $producerLink)
-                                                            @if (! $loop->first)<span aria-hidden="true"> · </span>@endif<a href="{{ $producerLink['url'] }}" class="underline-offset-4 hover:underline">{{ $producerLink['name'] }}</a>
-                                                        @endforeach
-                                                    </span>
-                                                @endif
+                                                <x-producer-links
+                                                    :producers="$row['producers'] ?? []"
+                                                    class="shop-card-producer-fill font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary"
+                                                />
                                             </div>
 
                                             {{-- Tags + unit descriptor (height reserved by the parent's

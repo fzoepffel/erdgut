@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Models\Producer;
+use App\Models\Product;
+use Illuminate\Support\Collection;
 
 /**
  * Turns a set of producers into the customer-facing label: names joined
@@ -13,6 +15,14 @@ use App\Models\Producer;
 class ProducerLabels
 {
     public const COLLAPSE_THRESHOLD = 3;
+
+    public const SHOW_ROUTE_SHOP = 'public.shop.producers.show';
+
+    public const INDEX_ROUTE_SHOP = 'public.shop.producers.index';
+
+    public const SHOW_ROUTE_MARKETING = 'public.producers.show';
+
+    public const INDEX_ROUTE_MARKETING = 'public.producers';
 
     /** @param  iterable<Producer|string|null>  $producers */
     public static function label(iterable $producers): string
@@ -34,14 +44,20 @@ class ProducerLabels
      * the producers directory instead of the individual items.
      *
      * @param  iterable<Producer|null>  $producers
-     * @return array{collapsed: bool, items: list<array{id: int, name: string, url: string}>}
+     * @return array{collapsed: bool, items: list<array{id: int, name: string, url: string}>, index_url: string}
      */
-    public static function linkData(iterable $producers): array
-    {
+    public static function linkData(
+        iterable $producers,
+        string $showRoute = self::SHOW_ROUTE_SHOP,
+        string $indexRoute = self::INDEX_ROUTE_SHOP,
+    ): array {
         $items = [];
         $seen = [];
         foreach ($producers as $producer) {
             if (! $producer instanceof Producer) {
+                continue;
+            }
+            if (! filled($producer->slug)) {
                 continue;
             }
             $name = (string) $producer->name;
@@ -52,11 +68,37 @@ class ProducerLabels
             $items[] = [
                 'id' => (int) $producer->id,
                 'name' => $name,
-                'url' => route('public.shop.producers.show', $producer),
+                'url' => route($showRoute, $producer),
             ];
         }
 
-        return ['collapsed' => count($items) > self::COLLAPSE_THRESHOLD, 'items' => $items];
+        return [
+            'collapsed' => count($items) > self::COLLAPSE_THRESHOLD,
+            'items' => $items,
+            'index_url' => route($indexRoute),
+        ];
+    }
+
+    /**
+     * Prefer the multi-farm pivot list; fall back to the primary producer.
+     *
+     * @return Collection<int, Producer>
+     */
+    public static function forProduct(?Product $product): Collection
+    {
+        if ($product === null) {
+            return collect();
+        }
+
+        if ($product->relationLoaded('producers') && $product->producers->isNotEmpty()) {
+            return $product->producers;
+        }
+
+        if ($product->producer !== null) {
+            return collect([$product->producer]);
+        }
+
+        return collect();
     }
 
     /**

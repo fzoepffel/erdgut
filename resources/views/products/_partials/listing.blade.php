@@ -91,46 +91,52 @@
                         $cardNumber = ($products->firstItem() ?? 1) + $i;
                     @endphp
                     <x-reveal as="li" variant="fade-up" style="--i:{{ $i % 6 }}">
-                        <a
-                            href="{{ route($detailRouteName, $product) }}"
-                            class="group flex h-full flex-col gap-4"
-                        >
-                            <div class="relative aspect-square w-full overflow-hidden bg-brand-ink/5">
-                                <img
-                                    src="{{ $product->thumbUrl() ?? $placeholder }}"
-                                    alt="{{ $product->name }}"
-                                    width="600"
-                                    height="600"
-                                    class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
-                                    loading="lazy"
+                        <article class="group flex h-full flex-col gap-4">
+                            <a href="{{ route($detailRouteName, $product) }}" class="flex flex-col gap-4">
+                                <div class="relative aspect-square w-full overflow-hidden bg-brand-ink/5">
+                                    <img
+                                        src="{{ $product->thumbUrl() ?? $placeholder }}"
+                                        alt="{{ $product->name }}"
+                                        width="600"
+                                        height="600"
+                                        class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
+                                        loading="lazy"
+                                    />
+                                    <span class="absolute left-0 top-0 bg-brand-ink px-3 py-2 font-display text-[11px] font-bold uppercase tracking-eyebrow text-brand-cream">
+                                        {{ str_pad((string) $cardNumber, 2, '0', STR_PAD_LEFT) }}
+                                    </span>
+                                    @if ($chapter)
+                                        <span class="absolute right-2 top-2 flex h-12 w-12 items-center justify-center bg-brand-cream/85 backdrop-blur-sm">
+                                            <x-chapter-mark :chapter="$chapter" size="xs" class="opacity-90" />
+                                        </span>
+                                    @endif
+                                </div>
+                                <div class="flex flex-1 flex-col gap-2">
+                                    @if ($catEnum)
+                                        <x-chapter-badge :category="$catEnum" />
+                                    @else
+                                        <span class="eyebrow text-brand-ink/60">{{ $product->category }}</span>
+                                    @endif
+                                    <h3 class="font-display text-lg leading-snug text-brand-ink">{{ $product->name }}</h3>
+                                </div>
+                            </a>
+                            <p class="font-editorial text-xs italic text-brand-ink/60">
+                                <x-producer-links
+                                    :producers="\App\Support\ProducerLabels::forProduct($product)"
+                                    :show-route="\App\Support\ProducerLabels::SHOW_ROUTE_MARKETING"
+                                    :index-route="\App\Support\ProducerLabels::INDEX_ROUTE_MARKETING"
+                                    :fallback="__('products.producer_unknown')"
                                 />
-                                <span class="absolute left-0 top-0 bg-brand-ink px-3 py-2 font-display text-[11px] font-bold uppercase tracking-eyebrow text-brand-cream">
-                                    {{ str_pad((string) $cardNumber, 2, '0', STR_PAD_LEFT) }}
+                            </p>
+                            <a href="{{ route($detailRouteName, $product) }}" class="mt-auto flex items-end justify-between gap-3 pt-2">
+                                <span class="font-display text-base text-brand-ink">
+                                    {{ $product->displayPrice() }}
                                 </span>
-                                @if ($chapter)
-                                    <span class="absolute right-2 top-2 flex h-12 w-12 items-center justify-center bg-brand-cream/85 backdrop-blur-sm">
-                                        <x-chapter-mark :chapter="$chapter" size="xs" class="opacity-90" />
-                                    </span>
-                                @endif
-                            </div>
-                            <div class="flex flex-1 flex-col gap-2">
-                                @if ($catEnum)
-                                    <x-chapter-badge :category="$catEnum" />
-                                @else
-                                    <span class="eyebrow text-brand-ink/60">{{ $product->category }}</span>
-                                @endif
-                                <h3 class="font-display text-lg leading-snug text-brand-ink">{{ $product->name }}</h3>
-                                <p class="font-editorial text-xs italic text-brand-ink/60">{{ \App\Support\ProducerLabels::label($product->producers) ?: ($product->producer?->name ?? __('products.producer_unknown')) }}</p>
-                                <p class="mt-auto flex items-end justify-between gap-3 pt-2">
-                                    <span class="font-display text-base text-brand-ink">
-                                        {{ $product->displayPrice() }}
-                                    </span>
-                                    <span class="font-editorial text-[11px] italic text-brand-ink/55 group-hover:text-brand-ink">
-                                        {{ __('Read') }} <span aria-hidden="true">&rarr;</span>
-                                    </span>
-                                </p>
-                            </div>
-                        </a>
+                                <span class="font-editorial text-[11px] italic text-brand-ink/55 group-hover:text-brand-ink">
+                                    {{ __('Read') }} <span aria-hidden="true">&rarr;</span>
+                                </span>
+                            </a>
+                        </article>
                     </x-reveal>
                 @endforeach
             </ul>
