@@ -82,6 +82,10 @@ class ProducerLabels
     /**
      * Prefer the multi-farm pivot list; fall back to the primary producer.
      *
+     * Always resolves via the relation (lazy-loads when needed) so surfaces
+     * that forgot to eager-load still show every registered farm — not only
+     * the primary. Callers that care about N+1 should eager-load `producers`.
+     *
      * @return Collection<int, Producer>
      */
     public static function forProduct(?Product $product): Collection
@@ -90,7 +94,7 @@ class ProducerLabels
             return collect();
         }
 
-        if ($product->relationLoaded('producers') && $product->producers->isNotEmpty()) {
+        if ($product->producers->isNotEmpty()) {
             return $product->producers;
         }
 

@@ -81,7 +81,10 @@ class RestaurantMultiProducerDisplayTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.restaurant.catalog', ['date' => $this->date->toDateString()]))
             ->assertOk()
-            ->assertSee($farmB->name.' · '.$farmA->name);
+            // Linked farm names live in separate <a> tags; assertSeeText joins them.
+            ->assertSeeText($farmB->name.' · '.$farmA->name)
+            ->assertSee(route('public.shop.producers.show', $farmB), false)
+            ->assertSee(route('public.shop.producers.show', $farmA), false);
     }
 
     public function test_requests_page_lists_all_registered_farms_without_stock(): void
@@ -99,7 +102,10 @@ class RestaurantMultiProducerDisplayTest extends TestCase
         $this->actingAs($user)
             ->get(route('app.restaurant.requests.index', ['date' => $this->date->toDateString()]))
             ->assertOk()
-            ->assertSee($farmA->name.' · '.$farmB->name);
+            // Linked farm names live in separate <a> tags; assertSeeText joins them.
+            ->assertSeeText($farmA->name.' · '.$farmB->name)
+            ->assertSee(route('public.shop.producers.show', $farmA), false)
+            ->assertSee(route('public.shop.producers.show', $farmB), false);
     }
 
     public function test_catalog_grades_carry_their_own_farm_labels(): void

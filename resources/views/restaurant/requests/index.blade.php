@@ -139,9 +139,9 @@
                                             <p class="text-sm text-shop-foreground">{{ $row['groupName'] ?? $product->name }}@if ($grade['label']) · {{ $grade['label'] }}@endif</p>
                                             <p class="text-xs text-shop-muted">
                                                 <x-producer-links
-                                                    :producers="\App\Support\ProducerLabels::forProduct($product)"
+                                                    :producers="$row['producers'] ?? \App\Support\ProducerLabels::forProduct($product)"
                                                     class="text-inherit"
-                                                    :fallback="\App\Support\ProducerLabels::label($product->producers) ?: $product->producer?->name"
+                                                    :fallback="$row['producerLabel'] ?? (\App\Support\ProducerLabels::label($product->producers) ?: $product->producer?->name)"
                                                 />
                                                 · @eur($grade['netPerDisplay'])/{{ $grade['unitSymbol'] }} {{ __('restaurant.plus_vat_suffix') }}
                                             </p>

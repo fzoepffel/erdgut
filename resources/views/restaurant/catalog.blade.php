@@ -192,7 +192,7 @@
                                     @if (($row['producerLabel'] ?? '') !== '')
                                         <p class="mt-3 font-mono text-[0.65rem] uppercase tracking-widest text-shop-primary">
                                             <x-producer-links
-                                                :producers="\App\Support\ProducerLabels::forProduct($product)"
+                                                :producers="$row['producers'] ?? []"
                                                 class="text-inherit"
                                                 :fallback="$row['producerLabel']"
                                             />

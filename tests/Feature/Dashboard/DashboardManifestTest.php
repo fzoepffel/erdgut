@@ -76,8 +76,10 @@ class DashboardManifestTest extends TestCase
             ->assertSee('Radieschen')
             // Item number chip starts at 01 for a composed box's first item.
             ->assertSee('№ 01')
-            // Producer line is uppercased and joined with a middle dot.
-            ->assertSee('HOF APFELTRAUM · MÜNCHEBERG');
+            // Producer name is linked; region is a plain suffix. assertSeeText
+            // strips tags so the middot join still matches.
+            ->assertSeeText('Hof Apfeltraum · MÜNCHEBERG')
+            ->assertSee(route('public.producers.show', $producer), false);
     }
 
     public function test_active_subscriber_without_composed_box_sees_portfolio_preview_without_quantities_or_numbering(): void
