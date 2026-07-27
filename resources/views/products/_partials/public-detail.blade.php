@@ -32,7 +32,6 @@
     $producerList = $product->producers->isNotEmpty()
         ? $product->producers
         : collect([$producer])->filter();
-    $producersCollapsed = $producerList->count() > \App\Support\ProducerLabels::COLLAPSE_THRESHOLD;
 
     $catEnum = \App\Enums\ProductCategory::tryFrom($product->category);
     $categoryLabel = $catEnum ? __('admin.category.'.$product->category) : '';
@@ -135,16 +134,15 @@
                     <span>{{ $origin }}</span>
                     @php $metaShown = true; @endphp
                 @endif
-                @if ($producersCollapsed)
+                @if ($producerList->isNotEmpty())
                     @if ($metaShown)<span aria-hidden="true">·</span>@endif
-                    <span>{{ __('shop.producers_multiple') }}</span>
+                    <x-producer-links
+                        :producers="$producerList"
+                        :show-route="$producerRouteName"
+                        :index-route="str_starts_with($producerRouteName, 'public.shop.') ? 'public.shop.producers.index' : 'public.producers'"
+                        class="underline-offset-4 hover:text-brand-ink hover:underline"
+                    />
                     @php $metaShown = true; @endphp
-                @else
-                    @foreach ($producerList as $producerEntry)
-                        @if ($metaShown)<span aria-hidden="true">·</span>@endif
-                        <a href="{{ route($producerRouteName, $producerEntry) }}" class="underline-offset-4 hover:text-brand-ink hover:underline">{{ $producerEntry->name }}</a>
-                        @php $metaShown = true; @endphp
-                    @endforeach
                 @endif
                 @if ($variety !== '')
                     @if ($metaShown)<span aria-hidden="true">·</span>@endif

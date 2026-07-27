@@ -363,6 +363,58 @@ class ProducerAllocationService
     }
 
     /**
+     * Same keys as {@see namesByItemKey}, but with Producer models so views
+     * can link each farm name to its detail page.
+     *
+     * @param  list<int>  $productIds
+     * @return array<string, list<Producer>>
+     */
+    public function producersByItemKey(array $productIds, Carbon $date): array
+    {
+        $summary = $this->summaryForDate($productIds, $date);
+        $ids = [];
+        foreach ($summary as $byVkey) {
+            foreach ($byVkey as $rows) {
+                foreach ($rows as $row) {
+                    if (($row['producerId'] ?? 0) > 0) {
+                        $ids[$row['producerId']] = true;
+                    }
+                }
+            }
+        }
+        if ($ids === []) {
+            return [];
+        }
+
+        $models = Producer::query()
+            ->with('translations')
+            ->whereIn('id', array_keys($ids))
+            ->get()
+            ->keyBy('id');
+
+        $out = [];
+        foreach ($summary as $pid => $byVkey) {
+            foreach ($byVkey as $vkey => $rows) {
+                $list = [];
+                $seen = [];
+                foreach ($rows as $row) {
+                    $id = (int) ($row['producerId'] ?? 0);
+                    if ($id <= 0 || isset($seen[$id]) || ! $models->has($id)) {
+                        continue;
+                    }
+                    $seen[$id] = true;
+                    $list[] = $models->get($id);
+                }
+                if ($list !== []) {
+                    $out[$pid.'|'.$vkey] = $list;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Display helper for ONE date: producer shares with names, primary
      * first, ordered by quantity desc.
      *

@@ -500,16 +500,18 @@ class ShopController extends Controller
                 ->where('email', mb_strtolower(trim($shopOrder->email)))
                 ->exists();
 
-        [$producerNames, $producerModels] = $this->orderProducerDisplay($shopOrder);
+        [$producerNames, $producerModels, $producersByItem] = $this->orderProducerDisplay($shopOrder);
 
         return view('shop.return', [
             'order' => $shopOrder->loadMissing([
                 'items.product.translations',
                 'items.product.producer.translations',
+                'items.product.producers.translations',
             ]),
             'showBoxPrompt' => $showBoxPrompt,
             'producerNames' => $producerNames,
             'producerModels' => $producerModels,
+            'producersByItem' => $producersByItem,
         ]);
     }
 
@@ -522,15 +524,17 @@ class ShopController extends Controller
     {
         abort_unless($request->hasValidSignature(), 403);
 
-        [$producerNames, $producerModels] = $this->orderProducerDisplay($shopOrder);
+        [$producerNames, $producerModels, $producersByItem] = $this->orderProducerDisplay($shopOrder);
 
         return view('shop.track', [
             'order' => $shopOrder->loadMissing([
                 'items.product.translations',
                 'items.product.producer.translations',
+                'items.product.producers.translations',
             ]),
             'producerNames' => $producerNames,
             'producerModels' => $producerModels,
+            'producersByItem' => $producersByItem,
         ]);
     }
 
@@ -541,34 +545,24 @@ class ShopController extends Controller
      * Producer models behind them for the "meet the farms" section. Views
      * fall back to the product's primary producer for missing keys.
      *
-     * @return array{0: array<string, string>, 1: Collection<int, Producer>}
+     * @return array{0: array<string, string>, 1: Collection<int, Producer>, 2: array<string, list<Producer>>}
      */
     private function orderProducerDisplay(ShopOrder $order): array
     {
         $date = $order->expected_delivery_date;
         $productIds = $order->items->pluck('product_id')->filter()->map(fn ($v): int => (int) $v)->unique()->values()->all();
         if ($date === null || $productIds === []) {
-            return [[], collect()];
+            return [[], collect(), []];
         }
 
         $allocation = app(ProducerAllocationService::class);
-        $names = $allocation->namesByItemKey($productIds, Carbon::parse($date));
+        $carbon = Carbon::parse($date);
+        $names = $allocation->namesByItemKey($productIds, $carbon);
+        $byItem = $allocation->producersByItemKey($productIds, $carbon);
 
-        $producerIds = [];
-        foreach ($allocation->summaryForDate($productIds, Carbon::parse($date)) as $byVkey) {
-            foreach ($byVkey as $rows) {
-                foreach ($rows as $row) {
-                    if ($row['producerId'] > 0) {
-                        $producerIds[$row['producerId']] = true;
-                    }
-                }
-            }
-        }
-        $models = $producerIds === []
-            ? collect()
-            : Producer::query()->with('translations')->whereIn('id', array_keys($producerIds))->get();
+        $models = collect($byItem)->flatten(1)->unique('id')->values();
 
-        return [$names, $models];
+        return [$names, $models, $byItem];
     }
 
     /**

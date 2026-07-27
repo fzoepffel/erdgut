@@ -138,7 +138,15 @@
                 <div class="space-y-6 lg:pt-8">
                     <div>
                         <p class="eyebrow text-brand-ink/60">{{ __('products.producer_label') }}</p>
-                        <p class="mt-2 font-display text-2xl italic text-brand-ink">{{ \App\Support\ProducerLabels::label($product->producers) ?: ($product->producer?->name ?? __('products.producer_unknown')) }}</p>
+                        <p class="mt-2 font-display text-2xl italic text-brand-ink">
+                            <x-producer-links
+                                :producers="\App\Support\ProducerLabels::forProduct($product)"
+                                :show-route="\App\Support\ProducerLabels::SHOW_ROUTE_MARKETING"
+                                :index-route="\App\Support\ProducerLabels::INDEX_ROUTE_MARKETING"
+                                :fallback="__('products.producer_unknown')"
+                                class="italic"
+                            />
+                        </p>
                     </div>
 
                     <div class="border-y border-brand-ink/15 py-6">
@@ -217,18 +225,27 @@
                             $pairImage = $pair->images->first()?->thumbUrl() ?? $pair->thumbUrl() ?? $pairPlaceholder;
                         @endphp
                         <li>
-                            <a href="{{ route($detailRouteName, $pair) }}" class="group flex flex-col gap-3">
-                                <div class="relative aspect-square w-full overflow-hidden bg-brand-ink/5">
-                                    <img src="{{ $pairImage }}" alt="{{ $pair->name }}" width="600" height="600" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" />
-                                </div>
-                                <div>
-                                    @if ($pairCatEnum)
-                                        <x-chapter-badge :category="$pairCatEnum" />
-                                    @endif
-                                    <p class="mt-2 font-display text-base leading-snug text-brand-ink">{{ $pair->name }}</p>
-                                    <p class="font-editorial text-xs italic text-brand-ink/60">{{ $pair->producer?->name ?? __('products.producer_unknown') }}</p>
-                                </div>
-                            </a>
+                            <article class="group flex flex-col gap-3">
+                                <a href="{{ route($detailRouteName, $pair) }}" class="flex flex-col gap-3">
+                                    <div class="relative aspect-square w-full overflow-hidden bg-brand-ink/5">
+                                        <img src="{{ $pairImage }}" alt="{{ $pair->name }}" width="600" height="600" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" />
+                                    </div>
+                                    <div>
+                                        @if ($pairCatEnum)
+                                            <x-chapter-badge :category="$pairCatEnum" />
+                                        @endif
+                                        <p class="mt-2 font-display text-base leading-snug text-brand-ink">{{ $pair->name }}</p>
+                                    </div>
+                                </a>
+                                <p class="font-editorial text-xs italic text-brand-ink/60">
+                                    <x-producer-links
+                                        :producers="\App\Support\ProducerLabels::forProduct($pair)"
+                                        :show-route="\App\Support\ProducerLabels::SHOW_ROUTE_MARKETING"
+                                        :index-route="\App\Support\ProducerLabels::INDEX_ROUTE_MARKETING"
+                                        :fallback="__('products.producer_unknown')"
+                                    />
+                                </p>
+                            </article>
                         </li>
                     @endforeach
                 </ul>

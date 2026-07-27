@@ -194,6 +194,7 @@
                                                     :number="$itemNumber"
                                                     :name="$product?->name ?? __('Unknown product')"
                                                     :quantity-label="$qtyLabel"
+                                                    :producers="\App\Support\ProducerLabels::forProduct($product)"
                                                     :producer-name="$product?->producer?->name"
                                                     :producer-region="$product?->producer?->region"
                                                     :image-url="$itemImage"

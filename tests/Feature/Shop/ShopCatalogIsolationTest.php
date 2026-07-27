@@ -126,6 +126,8 @@ class ShopCatalogIsolationTest extends TestCase
     {
         $product = $this->publishedProduct();
         $product->translations()->where('locale', 'en')->update(['name' => 'Organic Green Asparagus']);
+        $producer = $product->producer;
+        $this->assertNotNull($producer);
 
         $response = $this->get(route('public.shop.products.index'));
 
@@ -134,6 +136,9 @@ class ShopCatalogIsolationTest extends TestCase
         // Product cards + category rail link inside the shop.
         $response->assertSee(route('public.shop.products.show', $product->fresh()), false);
         $response->assertSee('href="'.route('public.shop.products.index').'"', false);
+        // Farm name on the card links into the shop producer page.
+        $response->assertSee(route('public.shop.producers.show', $producer->fresh()), false);
+        $response->assertDontSee(route('public.producers.show', $producer->fresh()), false);
         // Never the marketing catalogue or the app/dashboard catalogue.
         $response->assertDontSee('data-testid="customer-header-marketing"', false);
         $response->assertDontSee('href="'.route('public.products.index').'"', false);

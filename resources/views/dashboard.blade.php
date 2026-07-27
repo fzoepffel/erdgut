@@ -97,6 +97,7 @@
                     'number' => $i + 1,
                     'name' => $product?->name ?? __('Unknown product'),
                     'quantityLabel' => $quantityLabel,
+                    'producers' => \App\Support\ProducerLabels::forProduct($product),
                     'producerName' => $product?->producer?->name,
                     'producerRegion' => $product?->producer?->region,
                     'imageUrl' => $product?->images->first()?->url() ?? $product?->imageUrl(),
@@ -118,13 +119,13 @@
             if ($portfolioCount > 0) {
                 $offset = $portfolioCount > 0 ? (((int) now()->isoWeek() - 1) * 6) % $portfolioCount : 0;
                 $portfolio = (clone $portfolioBase)
-                    ->with(['producer.translations', 'images', 'translations'])
+                    ->with(['producer.translations', 'producers.translations', 'images', 'translations'])
                     ->offset($offset)
                     ->limit(6)
                     ->get();
                 if ($portfolio->count() < 6) {
                     $wrap = (clone $portfolioBase)
-                        ->with(['producer.translations', 'images', 'translations'])
+                        ->with(['producer.translations', 'producers.translations', 'images', 'translations'])
                         ->limit(6 - $portfolio->count())
                         ->get();
                     $portfolio = $portfolio->concat($wrap);
@@ -133,6 +134,7 @@
                     'number' => null,
                     'name' => $product->name,
                     'quantityLabel' => null,
+                    'producers' => \App\Support\ProducerLabels::forProduct($product),
                     'producerName' => $product->producer?->name,
                     'producerRegion' => $product->producer?->region,
                     'imageUrl' => $product->images->first()?->url() ?? $product->imageUrl(),
@@ -494,6 +496,7 @@
                             :number="$item['number']"
                             :name="$item['name']"
                             :quantity-label="$item['quantityLabel']"
+                            :producers="$item['producers'] ?? []"
                             :producer-name="$item['producerName']"
                             :producer-region="$item['producerRegion']"
                             :image-url="$item['imageUrl']"
