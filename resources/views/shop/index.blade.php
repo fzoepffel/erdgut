@@ -1449,7 +1449,13 @@
                     if (!this.quoteStale && this.quote?.lines) {
                         const lines = this.quote.lines;
                         return Object.keys(lines).map((id) => ({
-                            id, name: lines[id].name, qty: lines[id].qty_label, lineTotalLabel: lines[id].line_total_label,
+                            // Quote JSON keys are always strings ("12", "v3");
+                            // coerce back to the typed jsId the cart uses so
+                            // inc/dec/removeLine resolve the product entry.
+                            id: this.normalizeJsId(id),
+                            name: lines[id].name,
+                            qty: lines[id].qty_label,
+                            lineTotalLabel: lines[id].line_total_label,
                         }));
                     }
                     return this.basket.lines.map((line) => {
@@ -1459,6 +1465,15 @@
                             : (p?.name || line.productName);
                         return { id: line.jsId, name, qty: this.label(line.jsId), lineTotalLabel: this.money(this.lineEstimate(line.jsId)) };
                     });
+                },
+                // Quote / Object.keys always yield strings; product entries use
+                // numeric ids for the default grade and "v{id}" for named grades.
+                normalizeJsId(id) {
+                    if (typeof id === 'number') return id;
+                    const raw = String(id);
+                    if (raw.startsWith('v')) return raw;
+                    const n = Number(raw);
+                    return Number.isFinite(n) && String(n) === raw ? n : raw;
                 },
                 // ── Basket: the single source of cart structure ───────────
                 // Every read of "what's in the cart" — the confirm modal,
@@ -1587,7 +1602,8 @@
                 // by the mini-basket chip so a customer can drop one grade
                 // without touching the others.
                 removeLine(jsId) {
-                    if (this.quantities[jsId] === undefined && !products.find((p) => p.id === jsId)) return;
+                    jsId = this.normalizeJsId(jsId);
+                    if (this.quantities[jsId] === undefined && !this.product(jsId)) return;
                     this.quantities[jsId] = 0;
                     this.refreshQuote();
                     this.scheduleCouponRefresh && this.scheduleCouponRefresh();
@@ -1990,11 +2006,14 @@
                     this.couponMessage = '';
                     this.refreshQuote();
                 },
-                product(id) { return products.find((p) => p.id === id); },
+                product(id) {
+                    const key = this.normalizeJsId(id);
+                    return products.find((p) => p.id === key || String(p.id) === String(id));
+                },
                 stepIndex(id) {
                     const p = this.product(id);
                     if (!p) return 0;
-                    const qty = this.quantities[id] || 0;
+                    const qty = this.quantities[this.normalizeJsId(id)] || this.quantities[id] || 0;
                     const i = p.steps.findIndex((s) => s.v === qty);
                     return i < 0 ? 0 : i;
                 },
@@ -2009,6 +2028,7 @@
                     return this.stepIndex(id) >= p.steps.length - 1;
                 },
                 inc(id) {
+                    id = this.normalizeJsId(id);
                     const p = this.product(id);
                     if (!p) return;
                     const i = this.stepIndex(id);
@@ -2023,6 +2043,7 @@
                     }
                 },
                 dec(id) {
+                    id = this.normalizeJsId(id);
                     const p = this.product(id);
                     if (!p) return;
                     const i = this.stepIndex(id);
