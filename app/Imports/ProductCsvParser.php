@@ -607,6 +607,13 @@ class ProductCsvParser
             ? [true, []]
             : $this->detectChanges($existing, $primary, $data, $producers, $weekly);
 
+        // Excel rewrites line endings on save; keep the DB bytes for every
+        // text field that still matches after normalization so a subcategory
+        // edit never silently rewrites long descriptions.
+        if ($existing !== null) {
+            $this->preserveUnchangedText($existing, $primary, $data);
+        }
+
         return [
             'action' => $bucket['id'] === null ? 'create' : 'update',
             'product_id' => $bucket['id'],
@@ -661,11 +668,24 @@ class ProductCsvParser
     {
         $factor = ProductUnit::from($unit['unit'])->canonicalUnitsPerDisplay($unit['price_display_unit']);
         $db = $id !== null ? ($this->dbDailyByProduct[$id] ?? []) : [];
+        $ref = $id !== null ? ($this->dbCellsByProduct[$id] ?? []) : [];
 
         $out = [];
         foreach ($dayColumns as $header => $date) {
             $mainRaw = trim($primary[$header] ?? '');
             $overlayRaw = array_key_exists($header, $inventoryOverlay) ? trim($inventoryOverlay[$header]) : '';
+            // Match the export cell by calendar day (not raw header text), so a
+            // reformatted date header still finds the snapshot value.
+            $exported = $this->exportedDayCell($ref, $date);
+
+            // Both sheets still match the export text → not an edit, even when
+            // Excel coerced blanks/zeros or reformatted a number.
+            $mainUntouched = $this->cellsEqual($mainRaw, $exported);
+            $overlayUntouched = $overlayRaw === '' || $this->cellsEqual($overlayRaw, $exported);
+            if ($mainUntouched && $overlayUntouched) {
+                continue;
+            }
+
             $main = $this->parseDayCell($mainRaw, $factor);
             $overlay = $this->parseDayCell($overlayRaw, $factor);
             $dbVal = $db[$date->toDateString()] ?? null;
@@ -687,6 +707,28 @@ class ProductCsvParser
         }
 
         return $out;
+    }
+
+    /**
+     * The export snapshot's cell for a calendar day, keyed by whatever header
+     * string the export used (normally YYYY-MM-DD).
+     *
+     * @param  array<string, string>  $ref
+     */
+    private function exportedDayCell(array $ref, Carbon $date): string
+    {
+        $iso = $date->toDateString();
+        if (array_key_exists($iso, $ref)) {
+            return (string) $ref[$iso];
+        }
+        foreach ($ref as $header => $value) {
+            $day = CatalogueSchema::parseDayHeader((string) $header);
+            if ($day !== null && $day->toDateString() === $iso) {
+                return (string) $value;
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -749,8 +791,8 @@ class ProductCsvParser
     /** Two sheet cells are equal as text, or as numbers within a tiny tolerance. */
     private function cellsEqual(string $a, string $b): bool
     {
-        $a = trim($a);
-        $b = trim($b);
+        $a = $this->normalizeCell($a);
+        $b = $this->normalizeCell($b);
         if ($a === $b) {
             return true;
         }
@@ -763,9 +805,84 @@ class ProductCsvParser
         return is_numeric($a) && is_numeric($b) && abs((float) $a - (float) $b) < 0.0001;
     }
 
+    /**
+     * Normalize a sheet cell for comparison. Excel / Numbers rewrite `\r\n` as
+     * `\n` on save, so a clean re-upload would otherwise look like every long
+     * description changed.
+     */
+    private function normalizeCell(string $value): string
+    {
+        $value = trim($value);
+
+        return str_replace(["\r\n", "\r"], "\n", $value);
+    }
+
     private function isZeroCell(string $value): bool
     {
         return is_numeric($value) && abs((float) $value) < 0.0001;
+    }
+
+    /**
+     * Keep the exact DB text for any field whose sheet cell still matches the
+     * export (after normalization). Otherwise confirming a subcategory-only
+     * edit would rewrite long descriptions with Excel's LF line endings.
+     *
+     * @param  array<string, string>  $primary
+     * @param  array<string, mixed>  $data
+     */
+    private function preserveUnchangedText(Product $existing, array $primary, array &$data): void
+    {
+        $ref = $this->dbCellsByProduct[$existing->id] ?? null;
+        if ($ref === null) {
+            return;
+        }
+
+        $translationHeaders = [
+            'de' => [
+                'name' => 'Name (DE)',
+                'origin' => 'Origin (DE)',
+                'variety' => 'Variety (DE)',
+                'short_description' => 'Short Description (DE)',
+                'taste_profile' => 'Long Description (DE)',
+            ],
+            'en' => [
+                'name' => 'Name (EN)',
+                'origin' => 'Origin (EN)',
+                'variety' => 'Variety (EN)',
+                'short_description' => 'Short Description (EN)',
+                'taste_profile' => 'Long Description (EN)',
+            ],
+            'fr' => [
+                'name' => 'Name (FR)',
+                'origin' => 'Origin (FR)',
+                'variety' => 'Variety (FR)',
+                'short_description' => 'Short Description (FR)',
+                'taste_profile' => 'Long Description (FR)',
+            ],
+        ];
+
+        foreach ($translationHeaders as $locale => $fields) {
+            $translation = $existing->translations->firstWhere('locale', $locale);
+            foreach ($fields as $attr => $header) {
+                if (! $this->cellsEqual($primary[$header] ?? '', $ref[$header] ?? '')) {
+                    continue;
+                }
+                $data['translations'][$locale][$attr] = (string) ($translation?->{$attr} ?? '');
+            }
+        }
+
+        $meta = is_array($existing->metadata) ? $existing->metadata : [];
+        $metaHeaders = [
+            'producer_product_name' => 'Producer Name',
+            'sourcing_id' => 'Sourcing ID',
+            'selling_id' => 'Selling ID',
+            'comment' => 'Comment',
+        ];
+        foreach ($metaHeaders as $key => $header) {
+            if ($this->cellsEqual($primary[$header] ?? '', $ref[$header] ?? '')) {
+                $data['metadata'][$key] = (string) ($meta[$key] ?? '');
+            }
+        }
     }
 
     /**
