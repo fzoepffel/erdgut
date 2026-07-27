@@ -40,6 +40,7 @@
         id="shop-basket-chip-panel"
         role="dialog"
         aria-label="{{ __('shop.basket_chip_label') }}"
+        @click.stop
         class="absolute bottom-full right-0 mb-3 w-[min(20rem,calc(100vw-3rem))] border border-shop-border bg-shop-background p-4 shadow-xl"
     >
         <p class="eyebrow text-shop-primary">{{ __('shop.basket_chip_heading') }}</p>

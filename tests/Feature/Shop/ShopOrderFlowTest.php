@@ -1008,6 +1008,11 @@ class ShopOrderFlowTest extends TestCase
         // hidden inputs that the backend prefers over the legacy two-map shape.
         $response->assertSee('items[${i}][product_id]', false);
         $response->assertSee('items[${i}][quantity]', false);
+        // Regression: quote line keys are strings; without normalizeJsId the
+        // chip's +/- / remove handlers could not resolve the product entry.
+        $response->assertSee('normalizeJsId', false);
+        $response->assertSee('shop-basket-chip-dec-', false);
+        $response->assertSee('shop-basket-chip-remove-', false);
     }
 
     public function test_storefront_does_not_show_product_from_b2b_only_inflow_alone(): void
