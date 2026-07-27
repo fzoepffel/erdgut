@@ -687,6 +687,40 @@ class ProductCatalogueCsvTest extends TestCase
         $this->assertContains('Private Price', $edited['products'][0]['changed_fields']);
     }
 
+    public function test_crlf_long_descriptions_do_not_count_as_changes(): void
+    {
+        $producer = $this->producer('Melchhof');
+        $product = $this->pieceProduct($producer, ['unit_price' => 2.5]);
+        // Windows-style line endings, as often stored from admin forms / paste.
+        foreach (['de', 'en', 'fr'] as $locale) {
+            $product->translationFor($locale)->update([
+                'taste_profile' => "Zeile eins.\r\nZeile zwei.",
+            ]);
+        }
+
+        // Clean re-upload: Excel turns CRLF into LF, but that must not look like an edit.
+        $clean = $this->reimport(fn ($book) => null);
+        $this->assertSame(0, $clean['summary']['to_update']);
+        $this->assertSame(1, $clean['summary']['unchanged']);
+
+        $sub = ProductSubcategory::create([
+            'category' => 'produce',
+            'label_de' => 'Gemüse', 'label_en' => 'Vegetables', 'label_fr' => 'Légumes',
+            'sort_order' => 0,
+        ]);
+
+        // Subcategory-only edit must not rewrite the CRLF descriptions on apply.
+        $edited = $this->reimport(function ($book) use ($product): void {
+            $this->setCell($book, CatalogueSchema::SHEET_MAIN, 'Sub-category', $product->id, 'Gemüse');
+        });
+        $this->assertSame(1, $edited['summary']['to_update']);
+        $this->assertSame(['Sub-category'], $edited['products'][0]['changed_fields']);
+        $this->assertSame("Zeile eins.\r\nZeile zwei.", $edited['products'][0]['data']['translations']['de']['taste_profile']);
+        $this->assertSame("Zeile eins.\r\nZeile zwei.", $edited['products'][0]['data']['translations']['en']['taste_profile']);
+        $this->assertSame("Zeile eins.\r\nZeile zwei.", $edited['products'][0]['data']['translations']['fr']['taste_profile']);
+        $this->assertSame($sub->id, $edited['products'][0]['data']['subcategory_id']);
+    }
+
     public function test_price_edited_on_prices_sheet_updates_product(): void
     {
         $product = $this->pieceProduct($this->producer('Melchhof'), ['unit_price' => 2.5]);
