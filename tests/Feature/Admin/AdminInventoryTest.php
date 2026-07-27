@@ -163,11 +163,111 @@ class AdminInventoryTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-05-19'));
         $admin = User::factory()->admin()->create();
         $product = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+        ProductStockInflow::create([
+            'product_id' => $product->id,
+            'producer_id' => $product->producer_id,
+            'received_on' => '2026-05-20',
+            'quantity' => 3,
+            'freshness_window_days' => 1,
+        ]);
 
         $this->actingAs($admin)
             ->get(route('app.admin.inventory.index'))
             ->assertOk()
             ->assertSee($product->producer->name);
+    }
+
+    public function test_default_matrix_hides_products_without_stock_in_the_window(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $withStock = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+        $withStock->translations()->update(['name' => 'Mit Bestand']);
+        $withoutStock = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+        $withoutStock->translations()->update(['name' => 'Ohne Bestand']);
+        ProductStockInflow::create([
+            'product_id' => $withStock->id,
+            'producer_id' => $withStock->producer_id,
+            'received_on' => '2026-05-20',
+            'quantity' => 4,
+            'freshness_window_days' => 2,
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(e($withStock->name), $html);
+        $this->assertStringNotContainsString(e($withoutStock->name), $html);
+    }
+
+    public function test_product_name_search_includes_products_without_stock(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+        $empty = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+        $empty->translations()->update(['name' => 'Leere Kartoffel']);
+
+        $html = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index', ['product' => 'Kartoffel']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(e($empty->name), $html);
+    }
+
+    public function test_similar_product_names_stay_on_the_same_page(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-19'));
+        $admin = User::factory()->admin()->create();
+
+        $zucchiniIds = [];
+        // Fill page 1 with alphabetically early products (perPage = 30).
+        for ($i = 1; $i <= 29; $i++) {
+            $p = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+            $p->translations()->update(['name' => sprintf('Apfel %02d', $i)]);
+            ProductStockInflow::create([
+                'product_id' => $p->id,
+                'producer_id' => $p->producer_id,
+                'received_on' => '2026-05-20',
+                'quantity' => 1,
+                'freshness_window_days' => 1,
+            ]);
+        }
+
+        foreach (['Gelbe Zucchini', 'Grüne Zucchini', 'Zucchiniblüte'] as $name) {
+            $p = Product::factory()->create(['is_available' => true, 'is_published' => true]);
+            $p->translations()->update(['name' => $name]);
+            ProductStockInflow::create([
+                'product_id' => $p->id,
+                'producer_id' => $p->producer_id,
+                'received_on' => '2026-05-20',
+                'quantity' => 2,
+                'freshness_window_days' => 1,
+            ]);
+            $zucchiniIds[] = $p->id;
+        }
+
+        $page1 = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index'))
+            ->assertOk()
+            ->getContent();
+        $page2 = $this->actingAs($admin)
+            ->get(route('app.admin.inventory.index', ['page' => 2]))
+            ->assertOk()
+            ->getContent();
+
+        $rowOn = fn (string $html, int $id): bool => str_contains($html, 'inventory-matrix-row-'.$id);
+        $page1Count = count(array_filter($zucchiniIds, fn (int $id): bool => $rowOn($page1, $id)));
+        $page2Count = count(array_filter($zucchiniIds, fn (int $id): bool => $rowOn($page2, $id)));
+
+        // Family must sit on exactly one matrix page (cluster-aware pagination).
+        $this->assertTrue(
+            ($page1Count === 3 && $page2Count === 0) || ($page2Count === 3 && $page1Count === 0),
+            "zucchini matrix rows page1={$page1Count} page2={$page2Count}"
+        );
+        $this->assertStringContainsString('data-testid="inventory-matrix-pagination"', $page1);
     }
 
     public function test_inflow_stores_and_validates_the_supplying_producer(): void
