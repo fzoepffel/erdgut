@@ -4,6 +4,10 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
+use App\Exports\CatalogueExportData;
+use App\Exports\CatalogueMainSheet;
+use App\Exports\CataloguePricesSheet;
+use App\Exports\CatalogueSheet;
 use App\Exports\ProductCatalogueExport;
 use App\Imports\ProductCatalogueImport;
 use App\Imports\ProductCsvParser;
@@ -23,6 +27,9 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
 /** Product-catalogue CSV export/import round-trip. */
@@ -104,6 +111,12 @@ class ProductCatalogueCsvTest extends TestCase
         return UploadedFile::fake()->createWithContent('katalog.csv', $csv);
     }
 
+    /** A concrete catalogue sheet built over the current data. */
+    private function sheet(string $class): CatalogueSheet
+    {
+        return new $class(app(ProductWriter::class), CatalogueExportData::build());
+    }
+
     // ---------------------------------------------------------------- Export
 
     public function test_export_emits_one_row_per_producer_main_first(): void
@@ -116,7 +129,7 @@ class ProductCatalogueCsvTest extends TestCase
         ]);
         $product->producers()->attach($secondary->id, ['position' => 1, 'buying_price_cents' => 150]);
 
-        $rows = app(ProductCatalogueExport::class)->array();
+        $rows = $this->sheet(CatalogueMainSheet::class)->array();
         $mine = array_values(array_filter($rows, fn ($r): bool => (string) $r[0] === (string) $product->id));
 
         // Resolve columns by header so the assertions survive a column reorder.
@@ -298,7 +311,7 @@ class ProductCatalogueCsvTest extends TestCase
         $this->pieceProduct($producer, ['subcategory_id' => $sub->id])->translationFor('de')->update(['name' => 'Karotte']);
         $this->pieceProduct($producer)->translationFor('de')->update(['name' => 'Apfel']);
 
-        $rows = app(ProductCatalogueExport::class)->array();
+        $rows = $this->sheet(CatalogueMainSheet::class)->array();
         // Compact sequence: section title rows (blank name) vs product rows.
         $seq = array_map(
             static fn ($r): string => (string) $r[1] !== '' ? 'P:'.$r[1] : 'S:'.$r[0],
@@ -306,9 +319,15 @@ class ProductCatalogueCsvTest extends TestCase
         );
 
         // Named subcategory first (products alphabetical by German name), then
-        // the "Ohne Unterkategorie" section for the product without one.
+        // the "Ohne Unterkategorie" section, and finally the add-new-products
+        // footer (a section band + a guidance note).
         $this->assertSame(
-            ['S:Wurzelgemüse', 'P:Karotte', 'P:Zwiebel', 'S:Ohne Unterkategorie', 'P:Apfel'],
+            [
+                'S:Wurzelgemüse', 'P:Karotte', 'P:Zwiebel',
+                'S:Ohne Unterkategorie', 'P:Apfel',
+                'S:Neue Produkte unten hinzufügen',
+                'S:Die Erdgut ID leer lassen, sie wird beim Import automatisch vergeben. Alle Eingaben werden nach dem Upload geprüft.',
+            ],
             $seq,
         );
     }
@@ -552,11 +571,11 @@ class ProductCatalogueCsvTest extends TestCase
             'source_schedule_id' => null,
         ]);
 
-        $headings = app(ProductCatalogueExport::class)->headings();
+        $headings = $this->sheet(CatalogueMainSheet::class)->headings();
         $col = array_search(CatalogueSchema::dayHeader($date), $headings, true);
         $this->assertNotFalse($col, 'the Friday date has its own column');
 
-        $rows = app(ProductCatalogueExport::class)->array();
+        $rows = $this->sheet(CatalogueMainSheet::class)->array();
         $mine = array_values(array_filter($rows, fn ($r): bool => (string) $r[0] === (string) $product->id));
         $this->assertSame('7', $mine[0][$col]);
     }
@@ -611,7 +630,165 @@ class ProductCatalogueCsvTest extends TestCase
         $this->assertSame(4.0, (float) $rule->unit_price); // piece factor 1
     }
 
+    // -------------------------------------------------- Prices/Bestand sheets
+
+    public function test_export_workbook_has_three_sheets(): void
+    {
+        $this->pieceProduct($this->producer('Melchhof'));
+
+        $sheets = app(ProductCatalogueExport::class)->sheets();
+        $titles = array_map(fn ($s): string => $s->title(), $sheets);
+
+        $this->assertSame(['Katalog', 'Preise', 'Bestand'], $titles);
+        $this->assertSame(CatalogueSchema::pricesHeaders(), $sheets[1]->headings());
+        // Inventory sheet: fixed columns then one column per upcoming day.
+        $this->assertSame(CatalogueSchema::inventoryFixedHeaders(), array_slice($sheets[2]->headings(), 0, 3));
+        $this->assertContains(CatalogueSchema::dayHeader(Carbon::now()->addDay()), $sheets[2]->headings());
+    }
+
+    public function test_main_sheet_has_add_new_products_footer(): void
+    {
+        $this->pieceProduct($this->producer('Melchhof'));
+
+        $mainA = array_map(fn (array $r): string => (string) ($r[0] ?? ''), $this->sheet(CatalogueMainSheet::class)->array());
+        $this->assertContains('Neue Produkte unten hinzufügen', $mainA);
+        $this->assertNotEmpty(array_filter($mainA, fn (string $c): bool => str_contains($c, 'Die Erdgut ID leer lassen')));
+
+        // The footer only belongs on the full sheet, where products are created.
+        $pricesA = array_map(fn (array $r): string => (string) ($r[0] ?? ''), $this->sheet(CataloguePricesSheet::class)->array());
+        $this->assertNotContains('Neue Produkte unten hinzufügen', $pricesA);
+    }
+
+    public function test_footer_rows_do_not_create_phantom_products_on_reimport(): void
+    {
+        $this->pieceProduct($this->producer('Melchhof'));
+
+        // A clean round-trip: the guidance rows must be skipped, not imported.
+        $result = $this->reimport(fn ($book) => null);
+
+        $this->assertSame([], $result['errors']);
+        $this->assertCount(1, $result['products']);
+        $this->assertSame('update', $result['products'][0]['action']);
+        $this->assertNotNull($result['products'][0]['product_id']);
+    }
+
+    public function test_price_edited_on_prices_sheet_updates_product(): void
+    {
+        $product = $this->pieceProduct($this->producer('Melchhof'), ['unit_price' => 2.5]);
+
+        // Change the price only on the "Preise" sheet; leave "Katalog" stale.
+        $result = $this->reimport(function ($book) use ($product): void {
+            $this->setCell($book, CatalogueSchema::SHEET_PRICES, 'Private Price', $product->id, '9.90');
+        });
+
+        $this->assertSame([], $result['errors']);
+        $this->assertSame(9.9, $result['products'][0]['data']['price']);
+    }
+
+    public function test_price_edited_on_main_sheet_wins_when_prices_sheet_stale(): void
+    {
+        $product = $this->pieceProduct($this->producer('Melchhof'), ['unit_price' => 2.5]);
+
+        // The reverse: edit only "Katalog"; the stale "Preise" value must not win.
+        $result = $this->reimport(function ($book) use ($product): void {
+            $this->setCell($book, CatalogueSchema::SHEET_MAIN, 'Private Price', $product->id, '4.40');
+        });
+
+        $this->assertSame([], $result['errors']);
+        $this->assertSame(4.4, $result['products'][0]['data']['price']);
+    }
+
+    public function test_price_conflict_prefers_prices_sheet_and_warns(): void
+    {
+        $product = $this->pieceProduct($this->producer('Melchhof'), ['unit_price' => 2.5]);
+
+        // Both sheets moved off the stored 2.50, to different values.
+        $result = $this->reimport(function ($book) use ($product): void {
+            $this->setCell($book, CatalogueSchema::SHEET_MAIN, 'Private Price', $product->id, '8.00');
+            $this->setCell($book, CatalogueSchema::SHEET_PRICES, 'Private Price', $product->id, '9.90');
+        });
+
+        $this->assertSame(9.9, $result['products'][0]['data']['price']);
+        $this->assertNotEmpty(array_filter(
+            $result['products'][0]['warnings'],
+            fn (string $w): bool => str_contains($w, 'Private Price'),
+        ));
+    }
+
+    public function test_stock_edited_on_inventory_sheet_updates_product(): void
+    {
+        $producer = $this->producer('Melchhof');
+        $product = $this->pieceProduct($producer);
+        $date = Carbon::now()->addDays(3);
+        ProductStockInflow::query()->create([
+            'product_id' => $product->id,
+            'producer_id' => $producer->id,
+            'received_on' => $date->toDateString(),
+            'original_received_on' => $date->toDateString(),
+            'quantity' => 5,
+            'freshness_window_days' => 1,
+            'source_schedule_id' => null,
+        ]);
+
+        // Bump that day only on the "Bestand" sheet; "Katalog" stays at 5.
+        $result = $this->reimport(function ($book) use ($product, $date): void {
+            $this->setCell($book, CatalogueSchema::SHEET_INVENTORY, CatalogueSchema::dayHeader($date), $product->id, '12');
+        });
+
+        $this->assertSame([], $result['errors']);
+        $intent = collect($result['products'][0]['weekly'])->firstWhere('date', $date->toDateString());
+        $this->assertNotNull($intent);
+        $this->assertSame(12.0, $intent['canonical']);
+    }
+
     // ------------------------------------------------------------- helpers
+
+    /**
+     * Export the real workbook, let $edit mutate the loaded spreadsheet, then
+     * parse the saved file back through the importer. Exercises the full
+     * multi-sheet read + reconciliation path.
+     *
+     * @return array<string, mixed>
+     */
+    private function reimport(callable $edit): array
+    {
+        $xlsx = Excel::raw(app(ProductCatalogueExport::class), \Maatwebsite\Excel\Excel::XLSX);
+        $path = tempnam(sys_get_temp_dir(), 'cat').'.xlsx';
+        file_put_contents($path, $xlsx);
+
+        $book = IOFactory::load($path);
+        $edit($book);
+        (new Xlsx($book))->save($path);
+
+        $result = app(ProductCsvParser::class)->parse($path);
+        @unlink($path);
+
+        return $result;
+    }
+
+    /** Set the cell on $sheetTitle where the header is $header and Erdgut ID is $id. */
+    private function setCell(Spreadsheet $book, string $sheetTitle, string $header, int $id, string $value): void
+    {
+        $sheet = $book->getSheetByName($sheetTitle);
+        $this->assertNotNull($sheet, "sheet {$sheetTitle} exists");
+
+        $matrix = $sheet->toArray(null, false, false, false);
+        $headers = array_map(fn ($h): string => trim((string) $h), $matrix[0] ?? []);
+        $col = array_search($header, $headers, true);
+        $idCol = array_search('Erdgut ID', $headers, true);
+        $this->assertNotFalse($col, "header {$header} on {$sheetTitle}");
+
+        $rowNumber = null;
+        foreach ($matrix as $i => $cells) {
+            if ($i > 0 && (string) ($cells[$idCol] ?? '') === (string) $id) {
+                $rowNumber = $i + 1;
+                break;
+            }
+        }
+        $this->assertNotNull($rowNumber, "row for id {$id} on {$sheetTitle}");
+
+        $sheet->setCellValue([$col + 1, $rowNumber], $value);
+    }
 
     /**
      * One CSV row keyed by header. Only the columns a test cares about are
