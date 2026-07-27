@@ -1852,10 +1852,8 @@
                         const el = document.getElementById('shop-qty-' + p.id);
                         this.quantities[p.id] = el ? (parseFloat(el.value) || 0) : 0;
                     });
-                    // Delivery is always paid online.
-                    this.$watch('mode', (v) => {
-                        if (v === 'delivery') this.payment = 'online';
-                        // Mode changes the delivery fee → re-price server-side.
+                    // Mode changes the delivery fee → re-price server-side.
+                    this.$watch('mode', () => {
                         this.refreshQuote();
                     });
                     this.initEngagementTracking();

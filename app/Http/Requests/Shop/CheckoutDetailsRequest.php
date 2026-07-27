@@ -6,7 +6,6 @@ use App\Services\Shop\CheckoutDraft;
 use App\Support\PickupLocations;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Validator;
 
 /**
  * Step 2 → 3 of the storefront checkout. Validates fulfillment + payment +
@@ -59,16 +58,5 @@ class CheckoutDetailsRequest extends FormRequest
                 Rule::in(PickupLocations::keys()),
             ],
         ];
-    }
-
-    public function withValidator(Validator $validator): void
-    {
-        $validator->after(function (Validator $v): void {
-            $mode = (string) $this->input('fulfillment_mode');
-            $payMethod = (string) $this->input('payment_method');
-            if ($payMethod === 'in_person' && $mode !== 'pickup') {
-                $v->errors()->add('payment_method', __('shop.errors.in_person_pickup_only'));
-            }
-        });
     }
 }

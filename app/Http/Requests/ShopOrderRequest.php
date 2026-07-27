@@ -113,13 +113,6 @@ class ShopOrderRequest extends FormRequest
             }
 
             $items = (array) $this->input('items', []);
-            $mode = (string) $this->input('fulfillment_mode');
-            $payMethod = (string) $this->input('payment_method');
-
-            // Pay-in-person is only available with self-pickup.
-            if ($payMethod === 'in_person' && $mode !== 'pickup') {
-                $v->errors()->add('payment_method', __('shop.errors.in_person_pickup_only'));
-            }
 
             $deliveryDate = (string) $this->input('expected_delivery_date');
             $date = $deliveryDate !== '' ? Carbon::parse($deliveryDate) : null;

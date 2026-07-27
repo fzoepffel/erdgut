@@ -760,21 +760,30 @@ class ShopOrderFlowTest extends TestCase
         );
     }
 
-    public function test_pay_in_person_with_delivery_is_rejected(): void
+    public function test_pay_in_person_with_delivery_skips_sumup_and_queues_confirmation(): void
     {
-        $this->from(route('public.shop.index'))
-            ->post(route('public.shop.store'), $this->pickupPayload([
-                'fulfillment_mode' => 'delivery',
-                'pickup_location' => null,
-                'phone' => '+49 30 12345678',
-                'delivery_street' => 'Musterstr. 1',
-                'delivery_postal_code' => '10115',
-                'delivery_city' => 'Berlin',
-                'payment_method' => 'in_person',
-            ]))
-            ->assertSessionHasErrors('payment_method');
+        Mail::fake();
 
-        $this->assertSame(0, ShopOrder::query()->count());
+        $response = $this->post(route('public.shop.store'), $this->pickupPayload([
+            'fulfillment_mode' => 'delivery',
+            'pickup_location' => null,
+            'phone' => '+49 30 12345678',
+            'delivery_street' => 'Musterstr. 1',
+            'delivery_postal_code' => '10115',
+            'delivery_city' => 'Berlin',
+            'payment_method' => 'in_person',
+            'email' => 'cod@example.com',
+        ]));
+
+        $order = ShopOrder::query()->latest('id')->first();
+        $this->assertNotNull($order);
+        $this->assertSame('in_person', $order->payment_method);
+        $this->assertSame('delivery', $order->fulfillment_mode);
+        $this->assertSame(ShopOrderStatus::PendingPayment, $order->status);
+
+        $response->assertRedirect(route('public.shop.return', ['shopOrder' => $order->id]));
+
+        Mail::assertQueued(ShopOrderConfirmationMail::class, fn ($mail) => $mail->hasTo('cod@example.com'));
     }
 
     public function test_pay_reuses_existing_checkout_on_reload(): void

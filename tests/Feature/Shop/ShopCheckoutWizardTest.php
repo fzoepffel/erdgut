@@ -258,7 +258,7 @@ class ShopCheckoutWizardTest extends TestCase
             ->assertSessionHasErrors(['delivery_street', 'delivery_postal_code', 'delivery_city', 'phone']);
     }
 
-    public function test_details_store_blocks_in_person_with_delivery(): void
+    public function test_details_store_allows_in_person_with_delivery(): void
     {
         $this->seedBasket();
 
@@ -272,7 +272,13 @@ class ShopCheckoutWizardTest extends TestCase
                 'delivery_city' => 'Berlin',
                 'phone' => '030 1234567',
             ]))
-            ->assertSessionHasErrors(['payment_method']);
+            ->assertRedirect(route('public.shop.checkout.review'))
+            ->assertSessionHasNoErrors();
+
+        $draft = session(CheckoutDraft::KEY);
+        $this->assertIsArray($draft);
+        $this->assertSame('in_person', $draft['payment_method'] ?? null);
+        $this->assertSame('delivery', $draft['fulfillment_mode'] ?? null);
     }
 
     // ── Step 3: GET /shop/checkout/review ────────────────────────────
@@ -455,6 +461,37 @@ class ShopCheckoutWizardTest extends TestCase
         $this->assertNotNull($order);
         $response->assertRedirect(route('public.shop.return', ['shopOrder' => $order->id]));
         $this->assertSame('in_person', $order->payment_method);
+        Mail::assertQueued(ShopOrderConfirmationMail::class);
+    }
+
+    public function test_place_in_person_delivery_redirects_to_return_and_queues_mail(): void
+    {
+        Mail::fake();
+
+        $this->seedFullDraft([
+            'fulfillment_mode' => 'delivery',
+            'pickup_location' => null,
+            'payment_method' => 'in_person',
+            'phone' => '030 1234567',
+            'delivery_street' => 'Schönhauser Allee 1',
+            'delivery_postal_code' => '10119',
+            'delivery_city' => 'Berlin',
+        ]);
+
+        $response = $this->post(route('public.shop.checkout.place'), ['consent' => '1']);
+
+        $order = ShopOrder::query()->latest('id')->first();
+        $this->assertNotNull($order);
+        $response->assertRedirect(route('public.shop.return', ['shopOrder' => $order->id]));
+        $this->assertSame('in_person', $order->payment_method);
+        $this->assertSame('delivery', $order->fulfillment_mode);
+        $this->assertSame(ShopOrderStatus::PendingPayment, $order->status);
+
+        $this->get(route('public.shop.return', ['shopOrder' => $order->id]))
+            ->assertOk()
+            ->assertSee('by cash or card on delivery', false)
+            ->assertDontSee('by cash or card at pickup', false);
+
         Mail::assertQueued(ShopOrderConfirmationMail::class);
     }
 
