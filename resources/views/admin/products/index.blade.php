@@ -35,20 +35,40 @@
                     method="POST"
                     action="{{ route('app.admin.products.import') }}"
                     enctype="multipart/form-data"
-                    x-data
+                    x-data="{ loading: false }"
                     class="inline-flex"
                 >
                     @csrf
-                    <label class="inline-flex cursor-pointer items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus-within:ring-2 focus-within:ring-emerald-600 focus-within:ring-offset-2">
-                        {{ __('admin.products.csv.import') }}
+                    <label
+                        class="inline-flex cursor-pointer items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus-within:ring-2 focus-within:ring-emerald-600 focus-within:ring-offset-2"
+                        :class="loading && 'pointer-events-none opacity-60'"
+                    >
+                        <span x-show="!loading">{{ __('admin.products.csv.import') }}</span>
+                        <span x-show="loading" x-cloak class="inline-flex items-center gap-2">
+                            <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                            {{ __('admin.products.csv.import_loading') }}
+                        </span>
                         <input
                             type="file"
                             name="file"
                             accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
                             class="sr-only"
-                            @change="$el.form.submit()"
+                            :disabled="loading"
+                            @change="loading = true; $el.form.submit()"
                         >
                     </label>
+                    <div
+                        x-show="loading"
+                        x-cloak
+                        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <div class="flex items-center gap-3 rounded-lg bg-white px-5 py-4 text-sm font-semibold text-gray-800 shadow-lg">
+                            <svg class="h-5 w-5 animate-spin text-emerald-700" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                            {{ __('admin.products.csv.import_loading') }}
+                        </div>
+                    </div>
                 </form>
                 <a
                     href="{{ route('app.admin.products.create') }}"

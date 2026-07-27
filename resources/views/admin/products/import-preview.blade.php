@@ -96,13 +96,19 @@
 
             {{-- Confirm (with the missing-info dialog for new groups/subcategories) --}}
             @if (! empty($result['products']))
-                <form method="POST" action="{{ route('app.admin.products.import.confirm') }}" class="space-y-6">
+                <form
+                    method="POST"
+                    action="{{ route('app.admin.products.import.confirm') }}"
+                    class="space-y-6"
+                    x-data="{ loading: false }"
+                    @submit="loading = true"
+                >
                     @csrf
                     <input type="hidden" name="token" value="{{ $token }}">
                     <input type="hidden" name="ext" value="{{ $ext }}">
 
                     @if (! empty($newGroups) || ! empty($newSubcategories))
-                        <div class="rounded-md border border-amber-200 bg-amber-50 p-4">
+                        <div class="rounded-md border border-amber-200 bg-amber-50 p-4" :class="loading && 'pointer-events-none opacity-60'">
                             <h2 class="text-sm font-semibold text-amber-900">{{ __('admin.products.csv.missing_info_title') }}</h2>
                             <p class="mt-1 text-sm text-amber-800">{{ __('admin.products.csv.missing_info_intro') }}</p>
 
@@ -171,12 +177,33 @@
                     @endif
 
                     <div class="flex items-center justify-end gap-3">
-                        <a href="{{ route('app.admin.products.index') }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
+                        <a
+                            href="{{ route('app.admin.products.index') }}"
+                            class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+                            :class="loading && 'pointer-events-none opacity-50'"
+                        >
                             {{ __('Cancel') }}
                         </a>
-                        <button type="submit" class="btn-solid-sm">
-                            {{ __('admin.products.csv.confirm') }}
+                        <button type="submit" class="btn-solid-sm inline-flex items-center gap-2" :disabled="loading">
+                            <span x-show="!loading">{{ __('admin.products.csv.confirm') }}</span>
+                            <span x-show="loading" x-cloak class="inline-flex items-center gap-2">
+                                <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                                {{ __('admin.products.csv.confirm_loading') }}
+                            </span>
                         </button>
+                    </div>
+
+                    <div
+                        x-show="loading"
+                        x-cloak
+                        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <div class="flex items-center gap-3 rounded-lg bg-white px-5 py-4 text-sm font-semibold text-gray-800 shadow-lg">
+                            <svg class="h-5 w-5 animate-spin text-emerald-700" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                            {{ __('admin.products.csv.confirm_loading') }}
+                        </div>
                     </div>
                 </form>
             @else
