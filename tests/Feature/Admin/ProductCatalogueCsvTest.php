@@ -173,13 +173,12 @@ class ProductCatalogueCsvTest extends TestCase
         $result = app(ProductCsvParser::class)->parse($path);
         @unlink($path);
 
-        $this->assertSame(0, $result['summary']['to_create']);
-        $this->assertSame(1, $result['summary']['to_update']);
+        // Matching the export cell-for-cell (including the hard line break) means
+        // the product is a no-op — the round-trip preserved every field.
         $this->assertSame([], $result['errors']);
-
-        $plan = $result['products'][0]['data'];
-        $this->assertSame(3.5, $plan['price']);
-        $this->assertSame("Zeile eins.\nZeile zwei.", $plan['translations']['de']['taste_profile']);
+        $this->assertSame(0, $result['summary']['to_create']);
+        $this->assertSame(0, $result['summary']['to_update']);
+        $this->assertSame(1, $result['summary']['unchanged']);
     }
 
     // ------------------------------------------------------------ Round-trip
@@ -204,14 +203,10 @@ class ProductCatalogueCsvTest extends TestCase
         $result = app(ProductCsvParser::class)->parse($path);
         @unlink($path);
 
-        $this->assertSame(0, $result['summary']['to_create']);
-        $this->assertSame(1, $result['summary']['to_update']);
         $this->assertSame([], $result['errors']);
-
-        $plan = $result['products'][0]['data'];
-        $this->assertSame(3.5, $plan['price']);
-        $this->assertSame(2.9, $plan['business_price']);
-        $this->assertSame('SRC-1', $plan['metadata']['sourcing_id']);
+        $this->assertSame(0, $result['summary']['to_create']);
+        $this->assertSame(0, $result['summary']['to_update']);
+        $this->assertSame(1, $result['summary']['unchanged']);
     }
 
     // -------------------------------------------------------- Preview (dry)
@@ -663,13 +658,33 @@ class ProductCatalogueCsvTest extends TestCase
     {
         $this->pieceProduct($this->producer('Melchhof'));
 
-        // A clean round-trip: the guidance rows must be skipped, not imported.
+        // A clean round-trip: the guidance rows must be skipped, not imported,
+        // and the untouched product must not appear as an update.
         $result = $this->reimport(fn ($book) => null);
 
         $this->assertSame([], $result['errors']);
-        $this->assertCount(1, $result['products']);
-        $this->assertSame('update', $result['products'][0]['action']);
-        $this->assertNotNull($result['products'][0]['product_id']);
+        $this->assertSame([], $result['products']);
+        $this->assertSame(1, $result['summary']['unchanged']);
+        $this->assertSame(0, $result['summary']['to_update']);
+    }
+
+    public function test_clean_reimport_reports_only_real_changes(): void
+    {
+        $product = $this->pieceProduct($this->producer('Melchhof'), ['unit_price' => 2.5]);
+
+        // Untouched file → nothing to apply.
+        $clean = $this->reimport(fn ($book) => null);
+        $this->assertSame(0, $clean['summary']['to_update']);
+        $this->assertSame(1, $clean['summary']['unchanged']);
+        $this->assertSame(0, $clean['summary']['weekly_changes']);
+
+        // A real edit still surfaces as an update with the changed field named.
+        $edited = $this->reimport(function ($book) use ($product): void {
+            $this->setCell($book, CatalogueSchema::SHEET_MAIN, 'Private Price', $product->id, '9.90');
+        });
+        $this->assertSame(1, $edited['summary']['to_update']);
+        $this->assertSame(0, $edited['summary']['unchanged']);
+        $this->assertContains('Private Price', $edited['products'][0]['changed_fields']);
     }
 
     public function test_price_edited_on_prices_sheet_updates_product(): void

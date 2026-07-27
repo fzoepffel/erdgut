@@ -28,6 +28,10 @@
                 </div>
             </div>
 
+            @if (! empty($result['summary']['unchanged']))
+                <p class="text-sm text-gray-500">{{ trans_choice('admin.products.csv.unchanged_note', $result['summary']['unchanged'], ['count' => $result['summary']['unchanged']]) }}</p>
+            @endif
+
             {{-- Errors (skipped rows) --}}
             @if (! empty($result['errors']))
                 <div class="rounded-md border border-red-200 bg-red-50 p-4">
@@ -65,6 +69,9 @@
                                     </td>
                                     <td class="px-4 py-2 font-medium text-gray-800">{{ $product['name'] }}</td>
                                     <td class="px-4 py-2 text-gray-500">
+                                        @if (! empty($product['changed_fields']))
+                                            <span class="mr-2">{{ __('admin.products.csv.changed_fields') }}: {{ implode(', ', $product['changed_fields']) }}</span>
+                                        @endif
                                         @if (! empty($product['weekly']))
                                             <span class="mr-2">{{ trans_choice('admin.products.csv.weeks_set', count($product['weekly']), ['count' => count($product['weekly'])]) }}</span>
                                         @endif
