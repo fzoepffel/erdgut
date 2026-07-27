@@ -37,10 +37,18 @@ class ProductCatalogueImport
 
     /**
      * @param  list<array<string, mixed>>  $plannedProducts  the parser's `products`
+     * @param  array<string, array{de:string, en:string, fr:string}>  $groupTranslations  lowercased new-group German name => localized names supplied in the import dialog
+     * @param  array<string, array{de:string, en:string, fr:string}>  $subcategoryTranslations  lowercased new-subcategory label => localized labels supplied in the import dialog
      * @return array{created:int, updated:int, weekly:int}
      */
-    public function apply(array $plannedProducts, ?int $userId = null): array
-    {
+    public function apply(
+        array $plannedProducts,
+        ?int $userId = null,
+        array $groupTranslations = [],
+        array $subcategoryTranslations = [],
+    ): array {
+        $plannedProducts = $this->injectTranslations($plannedProducts, $groupTranslations, $subcategoryTranslations);
+
         return DB::transaction(function () use ($plannedProducts, $userId): array {
             $created = 0;
             $updated = 0;
@@ -59,6 +67,43 @@ class ProductCatalogueImport
 
             return ['created' => $created, 'updated' => $updated, 'weekly' => $weekly];
         });
+    }
+
+    /**
+     * Fold the dialog-supplied localized labels into each product plan so a new
+     * group is created with all three names and a new subcategory with all
+     * three labels (instead of a German-only fallback). Existing groups and
+     * subcategories are unaffected: their labels are never in these maps.
+     *
+     * @param  list<array<string, mixed>>  $plannedProducts
+     * @param  array<string, array{de:string, en:string, fr:string}>  $groupTranslations
+     * @param  array<string, array{de:string, en:string, fr:string}>  $subcategoryTranslations
+     * @return list<array<string, mixed>>
+     */
+    private function injectTranslations(array $plannedProducts, array $groupTranslations, array $subcategoryTranslations): array
+    {
+        if ($groupTranslations === [] && $subcategoryTranslations === []) {
+            return $plannedProducts;
+        }
+
+        foreach ($plannedProducts as &$plan) {
+            $data = $plan['data'];
+
+            $groupDe = mb_strtolower(trim((string) ($data['group_name']['de'] ?? '')));
+            if ($groupDe !== '' && isset($groupTranslations[$groupDe])) {
+                $data['group_name'] = $groupTranslations[$groupDe];
+            }
+
+            $subLabel = mb_strtolower(trim((string) ($data['subcategory_label'] ?? '')));
+            if ($subLabel !== '' && isset($subcategoryTranslations[$subLabel])) {
+                $data['subcategory_new'] = $subcategoryTranslations[$subLabel];
+            }
+
+            $plan['data'] = $data;
+        }
+        unset($plan);
+
+        return $plannedProducts;
     }
 
     /**

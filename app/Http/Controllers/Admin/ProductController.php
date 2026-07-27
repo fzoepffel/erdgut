@@ -180,8 +180,14 @@ class ProductController extends Controller
     /**
      * Step 2 of the CSV import: re-parse the stashed file and apply every valid
      * product plan in one transaction ({@see ProductCatalogueImport}).
+     *
+     * New groups and subcategories need all three locale labels, which the CSV
+     * has no columns for. The preview collects them in a dialog; here we require
+     * a complete German/English/French set for each new group and subcategory
+     * before writing, re-rendering the preview with the dialog if any is
+     * missing.
      */
-    public function importConfirm(Request $request): RedirectResponse
+    public function importConfirm(Request $request): View|RedirectResponse
     {
         $this->authorize('create', Product::class);
 
@@ -200,7 +206,30 @@ class ProductController extends Controller
 
         $path = Storage::disk('local')->path($relative);
         $result = app(ProductCsvParser::class)->parse($path);
-        $counts = app(ProductCatalogueImport::class)->apply($result['products'], $request->user()?->id);
+
+        $groupInput = (array) $request->input('group_translations', []);
+        $subInput = (array) $request->input('subcategory_translations', []);
+        [$groupMap, $groupMissing] = $this->collectImportTranslations($groupInput, $result['summary']['new_groups']);
+        [$subMap, $subMissing] = $this->collectImportTranslations($subInput, $result['summary']['new_subcategories']);
+
+        if ($groupMissing || $subMissing) {
+            // Keep the stash so the admin can complete the dialog and retry.
+            return view('admin.products.import-preview', [
+                'token' => $token,
+                'ext' => $ext,
+                'result' => $result,
+                'translationError' => __('admin.products.csv.translations_required'),
+                'groupInput' => $groupInput,
+                'subInput' => $subInput,
+            ]);
+        }
+
+        $counts = app(ProductCatalogueImport::class)->apply(
+            $result['products'],
+            $request->user()?->id,
+            $groupMap,
+            $subMap,
+        );
 
         Storage::disk('local')->delete($relative);
 
@@ -211,6 +240,44 @@ class ProductController extends Controller
                 'updated' => $counts['updated'],
                 'weekly' => $counts['weekly'],
             ]));
+    }
+
+    /**
+     * Build a lowercased-label => {de,en,fr} map from the import dialog's
+     * translation input, keeping only entries where all three locales are
+     * filled. Returns the map plus whether any required label is still missing
+     * a complete set.
+     *
+     * @param  array<int, mixed>  $input
+     * @param  list<string>  $required
+     * @return array{0: array<string, array{de:string, en:string, fr:string}>, 1: bool}
+     */
+    private function collectImportTranslations(array $input, array $required): array
+    {
+        $map = [];
+        foreach ($input as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $name = trim((string) ($entry['name'] ?? ''));
+            $de = trim((string) ($entry['de'] ?? ''));
+            $en = trim((string) ($entry['en'] ?? ''));
+            $fr = trim((string) ($entry['fr'] ?? ''));
+            if ($name === '' || $de === '' || $en === '' || $fr === '') {
+                continue;
+            }
+            $map[mb_strtolower($name)] = ['de' => $de, 'en' => $en, 'fr' => $fr];
+        }
+
+        $missing = false;
+        foreach ($required as $label) {
+            if (! isset($map[mb_strtolower(trim((string) $label))])) {
+                $missing = true;
+                break;
+            }
+        }
+
+        return [$map, $missing];
     }
 
     public function create(Request $request): View
