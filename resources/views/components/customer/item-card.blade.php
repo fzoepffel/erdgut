@@ -98,11 +98,9 @@
                 :producers="$producerModels"
                 :show-route="\App\Support\ProducerLabels::SHOW_ROUTE_MARKETING"
                 :index-route="\App\Support\ProducerLabels::INDEX_ROUTE_MARKETING"
+                :suffix="filled($producerRegion) ? mb_strtoupper((string) $producerRegion) : null"
                 class="text-inherit"
             />
-            @if (filled($producerRegion))
-                <span aria-hidden="true"> · </span>{{ mb_strtoupper((string) $producerRegion) }}
-            @endif
         </p>
     @elseif ($producerLine !== '')
         <p class="mt-3 eyebrow text-[0.7rem] text-chapter-produce">{{ $producerLine }}</p>

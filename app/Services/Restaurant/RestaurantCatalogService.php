@@ -5,6 +5,7 @@ namespace App\Services\Restaurant;
 use App\Enums\CustomerType;
 use App\Enums\ProductUnit;
 use App\Enums\ShopStockAudience;
+use App\Models\Producer;
 use App\Models\Product;
 use App\Services\Admin\InventoryService;
 use App\Services\Admin\ProducerAllocationService;
@@ -157,11 +158,13 @@ class RestaurantCatalogService
 
                 $sharesByVkey = $producersOnDate[$product->id] ?? [];
                 $row = $this->row($product, $date, $inStock, $requestable, $sharesByVkey);
-                $row['producerLabel'] = $this->producerLabel(
+                $row['producers'] = $this->producersForLabel(
                     $product,
                     $inStock,
                     ProducerAllocationService::unionShares($sharesByVkey),
                 );
+                $row['producerLabel'] = ProducerLabels::label($row['producers'])
+                    ?: (string) ($product->producer?->name ?? '');
 
                 return $row;
             })
@@ -211,6 +214,7 @@ class RestaurantCatalogService
 
             $grades = [];
             $producerLabels = [];
+            $producerModels = [];
             $nets = [];
             foreach ($memberRows as $memberRow) {
                 $member = $memberRow['product'];
@@ -229,6 +233,9 @@ class RestaurantCatalogService
                 }
                 if ((string) ($memberRow['producerLabel'] ?? '') !== '') {
                     $producerLabels[] = (string) $memberRow['producerLabel'];
+                }
+                foreach ($memberRow['producers'] ?? [] as $producer) {
+                    $producerModels[$producer->id] = $producer;
                 }
             }
 
@@ -258,6 +265,7 @@ class RestaurantCatalogService
             $merged['vatRate'] = $cheapest['vatRate'];
             $merged['priceFrom'] = count(array_unique(array_map(fn (float $n): string => number_format($n, 2), $nets))) > 1;
             $merged['grades'] = $grades;
+            $merged['producers'] = collect(array_values($producerModels));
             $merged['producerLabel'] = implode(' · ', array_unique($producerLabels));
 
             $out->push($merged);
@@ -298,37 +306,36 @@ class RestaurantCatalogService
     }
 
     /**
-     * Card label for the supplying farm(s). In-stock rows name the farms
-     * whose batches actually cover the date (allocation order, share desc);
-     * request-track rows have no stock to attribute, so they list all
-     * registered suppliers. Falls back to the primary producer.
+     * Farms shown on a catalog card, in label order. In-stock rows follow
+     * allocation share (desc); request-track rows list every registered
+     * supplier. Falls back to the primary producer.
      *
      * @param  array<int, float>  $shares  [producerId => remainingQty]
+     * @return Collection<int, Producer>
      */
-    private function producerLabel(Product $product, bool $inStock, array $shares): string
+    private function producersForLabel(Product $product, bool $inStock, array $shares): Collection
     {
-        $namesById = [];
+        $byId = [];
         foreach ($product->producers as $producer) {
-            $namesById[$producer->id] = (string) $producer->name;
+            $byId[$producer->id] = $producer;
         }
         if ($product->producer !== null) {
-            $namesById[$product->producer->id] ??= (string) $product->producer->name;
+            $byId[$product->producer->id] ??= $product->producer;
         }
 
         if ($inStock) {
-            $names = [];
+            $ordered = collect();
             foreach (array_keys($shares) as $producerId) {
-                if (isset($namesById[$producerId])) {
-                    $names[] = $namesById[$producerId];
+                if (isset($byId[$producerId])) {
+                    $ordered->push($byId[$producerId]);
                 }
             }
-            $label = ProducerLabels::label($names);
-            if ($label !== '') {
-                return $label;
+            if ($ordered->isNotEmpty()) {
+                return $ordered;
             }
         }
 
-        return ProducerLabels::label($namesById) ?: (string) ($product->producer?->name ?? '');
+        return collect(array_values($byId));
     }
 
     /**

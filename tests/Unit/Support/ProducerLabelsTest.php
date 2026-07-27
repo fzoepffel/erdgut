@@ -3,6 +3,7 @@
 namespace Tests\Unit\Support;
 
 use App\Models\Producer;
+use App\Models\Product;
 use App\Support\ProducerLabels;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -50,5 +51,22 @@ class ProducerLabelsTest extends TestCase
 
         $this->assertTrue($data['collapsed']);
         $this->assertCount(4, $data['items']);
+    }
+
+    public function test_for_product_lazy_loads_multi_farm_pivot(): void
+    {
+        $farmA = Producer::factory()->create();
+        $farmB = Producer::factory()->create();
+        $product = Product::factory()->create(['producer_id' => $farmA->id]);
+        $product->syncProducers([$farmA->id, $farmB->id]);
+
+        // Fresh model without eager-loaded producers — must still return both.
+        $fresh = Product::query()->findOrFail($product->id);
+        $this->assertFalse($fresh->relationLoaded('producers'));
+
+        $farms = ProducerLabels::forProduct($fresh);
+
+        $this->assertCount(2, $farms);
+        $this->assertEqualsCanonicalizing([$farmA->id, $farmB->id], $farms->pluck('id')->all());
     }
 }
