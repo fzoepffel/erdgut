@@ -39,6 +39,9 @@ class CatalogueSchema
     {
         return [
             'Erdgut ID',
+            'Name (DE)',
+            'Name (EN)',
+            'Name (FR)',
             'Main',
             'Producer',
             'Producer Name',
@@ -48,9 +51,6 @@ class CatalogueSchema
             'Sub-category',
             'Product Group',
             'Group Position',
-            'Name (DE)',
-            'Name (EN)',
-            'Name (FR)',
             'Origin (DE)',
             'Origin (EN)',
             'Origin (FR)',
