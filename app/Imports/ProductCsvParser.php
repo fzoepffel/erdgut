@@ -10,11 +10,12 @@ use App\Exports\ProductCatalogueExport;
 use App\Models\Producer;
 use App\Models\Product;
 use App\Models\ProductGroup;
+use App\Models\ProductStockInflow;
 use App\Models\ProductSubcategory;
 use App\Services\Admin\ProductWriter;
 use App\Support\ProductCatalogue\CatalogueSchema;
 use Illuminate\Support\Carbon;
-use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
  * Reads a catalogue CSV (as produced by {@see ProductCatalogueExport}
@@ -39,7 +40,12 @@ class ProductCsvParser
     /** @var array<string, int> lowercased de group name => group id */
     private array $groupByName;
 
+    /** @var array<int, array<string, float>> existing product id => (Y-m-d => canonical one-off quantity) */
+    private array $dbDailyByProduct = [];
+
     private bool $loaded = false;
+
+    public function __construct(private readonly ProductWriter $writer) {}
 
     /**
      * @return array{
@@ -52,9 +58,8 @@ class ProductCsvParser
     {
         $this->loadLookups();
 
-        [$headers, $rows] = str_ends_with(strtolower($absolutePath), '.xlsx')
-            ? $this->readXlsx($absolutePath)
-            : $this->readCsv($absolutePath);
+        [$main, $priceOverlay, $inventoryOverlay] = $this->readWorkbook($absolutePath);
+        [$headers, $rows] = $main;
         if ($headers === []) {
             return $this->emptyResult('The file is empty or has no header row.');
         }
@@ -62,13 +67,23 @@ class ProductCsvParser
         $dayColumns = $this->dayColumns($headers);
         $buckets = $this->groupIntoProducts($rows);
 
+        // Current one-off availability, so a day edited on either sheet can be
+        // told apart from a day left at its exported value.
+        $this->loadDbDaily($this->existingIds($buckets), $dayColumns);
+
         $products = [];
         $errors = [];
         $newGroups = [];
         $newSubcategories = [];
 
         foreach ($buckets as $bucket) {
-            $plan = $this->buildPlan($bucket, $dayColumns);
+            $id = $bucket['id'];
+            $plan = $this->buildPlan(
+                $bucket,
+                $dayColumns,
+                $id !== null ? ($priceOverlay[$id] ?? []) : [],
+                $id !== null ? ($inventoryOverlay[$id] ?? []) : [],
+            );
             if (isset($plan['error'])) {
                 $errors[] = ['row' => $bucket['row'], 'message' => $plan['error']];
 
@@ -130,18 +145,76 @@ class ProductCsvParser
     }
 
     /**
-     * Read the first sheet of an XLSX into the same [headers, rows] shape as
-     * {@see readCsv()}. XLSX has no BOM/delimiter concerns; embedded line
-     * breaks in a cell survive as-is.
+     * Read the upload into its main [headers, rows] plus the two convenience
+     * overlays keyed by Erdgut ID. A hand-edited CSV is a single sheet, so its
+     * overlays are empty. An XLSX carries the three sheets the export writes
+     * ("Katalog", "Preise", "Bestand"); each is matched by its title.
      *
-     * @return array{0: list<string>, 1: list<array{_row:int, cells:array<string,string>}>}
+     * @return array{
+     *   0: array{0: list<string>, 1: list<array{_row:int, cells:array<string,string>}>},
+     *   1: array<int, array<string, string>>,
+     *   2: array<int, array<string, string>>
+     * }
      */
-    private function readXlsx(string $path): array
+    private function readWorkbook(string $path): array
     {
-        $sheets = Excel::toArray(new class {}, $path);
-        $matrix = $sheets[0] ?? [];
+        if (! str_ends_with(strtolower($path), '.xlsx')) {
+            return [$this->readCsv($path), [], []];
+        }
 
-        return $this->buildHeadersAndRows($matrix);
+        $reader = IOFactory::createReaderForFile($path);
+        $reader->setReadDataOnly(true);
+        $spreadsheet = $reader->load($path);
+
+        $mainMatrix = null;
+        $priceMatrix = [];
+        $inventoryMatrix = [];
+        $firstMatrix = null;
+        foreach ($spreadsheet->getWorksheetIterator() as $worksheet) {
+            $matrix = $worksheet->toArray(null, false, false, false);
+            $firstMatrix ??= $matrix;
+            match ($worksheet->getTitle()) {
+                CatalogueSchema::SHEET_PRICES => $priceMatrix = $matrix,
+                CatalogueSchema::SHEET_INVENTORY => $inventoryMatrix = $matrix,
+                CatalogueSchema::SHEET_MAIN => $mainMatrix = $matrix,
+                default => null,
+            };
+        }
+
+        // Fall back to the first sheet when a file has no "Katalog" tab (an
+        // older single-sheet export, or a renamed workbook).
+        $mainMatrix ??= $firstMatrix ?? [];
+
+        return [
+            $this->buildHeadersAndRows($mainMatrix),
+            $this->indexOverlayById($priceMatrix),
+            $this->indexOverlayById($inventoryMatrix),
+        ];
+    }
+
+    /**
+     * Turn a convenience-sheet matrix into rows keyed by Erdgut ID. Section
+     * dividers and blank rows drop out (their id is not numeric).
+     *
+     * @param  array<int, array<int, mixed>>  $matrix
+     * @return array<int, array<string, string>>
+     */
+    private function indexOverlayById(array $matrix): array
+    {
+        [$headers, $rows] = $this->buildHeadersAndRows($matrix);
+        if ($headers === []) {
+            return [];
+        }
+
+        $byId = [];
+        foreach ($rows as $row) {
+            $id = trim($row['cells']['Erdgut ID'] ?? '');
+            if ($id !== '' && ctype_digit($id)) {
+                $byId[(int) $id] = $row['cells'];
+            }
+        }
+
+        return $byId;
     }
 
     /**
@@ -317,9 +390,11 @@ class ProductCsvParser
      *
      * @param  array{id:?int, row:int, rows:list<array<string,string>>}  $bucket
      * @param  array<string, Carbon>  $dayColumns
+     * @param  array<string, string>  $priceOverlay  the product's row on the "Preise" sheet, or []
+     * @param  array<string, string>  $inventoryOverlay  the product's row on the "Bestand" sheet, or []
      * @return array<string, mixed>
      */
-    private function buildPlan(array $bucket, array $dayColumns): array
+    private function buildPlan(array $bucket, array $dayColumns, array $priceOverlay = [], array $inventoryOverlay = []): array
     {
         $rows = $bucket['rows'];
         // Primary row: the one flagged Main, else the one with the most
@@ -442,6 +517,19 @@ class ProductCsvParser
         $quantity = $this->parseInt($primary['Quantity per Unit'] ?? '', 0);
         $useVolume = $existing !== null && $existing->unit_volume_ml !== null && $existing->unit_weight_grams === null;
 
+        // --- Reconcile prices with the "Preise" sheet ---
+        // For an existing product edited on both the full sheet and the price
+        // sheet, keep the one that changed from the stored value; the other was
+        // just left as exported. See the class docblock.
+        $business = $this->parseMoney($primary['Business Net'] ?? '');
+        if ($existing !== null && $priceOverlay !== []) {
+            $factor = $this->writer->displayFactor($existing);
+            $price = $this->reconcilePrice($price, $priceOverlay['Private Price'] ?? null, $this->dbPrivateDisplay($existing, $factor), 'Private Price', $warnings);
+            $business = $this->reconcilePrice($business, $priceOverlay['Business Net'] ?? null, $this->dbBusinessDisplay($existing, $factor), 'Business Net', $warnings);
+            $vat = (int) round((float) $this->reconcilePrice((float) $vat, $priceOverlay['VAT %'] ?? null, (float) ($existing->vat_rate_percent ?? 7), 'VAT %', $warnings));
+            $producers[0]['buying_price'] = $this->reconcilePrice($producers[0]['buying_price'], $priceOverlay['Cost'] ?? null, $this->dbCostDisplay($existing), 'Cost', $warnings);
+        }
+
         $data = [
             'unit' => $unit['unit'],
             'price_display_unit' => $unit['price_display_unit'],
@@ -468,7 +556,7 @@ class ProductCsvParser
             'dietary_tags' => $dietary,
             'taste_profile_tags' => $taste,
             'buying_price' => $producers[0]['buying_price'],
-            'business_price' => $this->parseMoney($primary['Business Net'] ?? ''),
+            'business_price' => $business,
             'group_name' => $groupName !== '' ? ['de' => $groupName] : [],
             'group_position' => $this->parseInt($primary['Group Position'] ?? '', 0),
             'translations' => $translations,
@@ -493,7 +581,7 @@ class ProductCsvParser
             $data['is_test'] = (bool) $existing->is_test;
         }
 
-        $weekly = $this->parseDaily($primary, $dayColumns, $unit);
+        $weekly = $this->reconcileDaily($primary, $inventoryOverlay, $dayColumns, $unit, $bucket['id'], $warnings);
 
         return [
             'action' => $bucket['id'] === null ? 'create' : 'update',
@@ -530,37 +618,175 @@ class ProductCsvParser
     }
 
     /**
-     * Daily availability intents for the product. Blank cells are skipped
-     * (no change); `Unlimited` maps to the sentinel; a number is converted
-     * from the display unit to canonical.
+     * Daily availability intents, merging the main sheet with the "Bestand"
+     * sheet. Blank cells on both sheets are skipped (no change). When a day
+     * carries a value on both, the one that changed from the stored quantity
+     * wins; the other was just left as exported. `Unlimited` maps to the
+     * sentinel; a number is converted from the display unit to canonical.
      *
-     * @param  array<string, string>  $row
+     * @param  array<string, string>  $primary
+     * @param  array<string, string>  $inventoryOverlay
      * @param  array<string, Carbon>  $dayColumns
      * @param  array{unit:string, price_display_unit:string, count_unit_label:?string}  $unit
+     * @param  list<string>  $warnings
      * @return list<array{date:string, canonical:float, raw:string}>
      */
-    private function parseDaily(array $row, array $dayColumns, array $unit): array
+    private function reconcileDaily(array $primary, array $inventoryOverlay, array $dayColumns, array $unit, ?int $id, array &$warnings): array
     {
         $factor = ProductUnit::from($unit['unit'])->canonicalUnitsPerDisplay($unit['price_display_unit']);
+        $db = $id !== null ? ($this->dbDailyByProduct[$id] ?? []) : [];
+
         $out = [];
         foreach ($dayColumns as $header => $date) {
-            $raw = trim($row[$header] ?? '');
-            if ($raw === '') {
+            $mainRaw = trim($primary[$header] ?? '');
+            $overlayRaw = array_key_exists($header, $inventoryOverlay) ? trim($inventoryOverlay[$header]) : '';
+            $main = $this->parseDayCell($mainRaw, $factor);
+            $overlay = $this->parseDayCell($overlayRaw, $factor);
+            $dbVal = $db[$date->toDateString()] ?? null;
+
+            $final = $this->pickDaily($main, $overlay, $dbVal, $header, $warnings);
+            if ($final === null) {
                 continue;
             }
-            if (mb_strtolower($raw) === 'unlimited') {
-                $canonical = (float) CatalogueSchema::UNLIMITED_SENTINEL;
-            } else {
-                $value = $this->parseDecimal($raw);
-                if ($value === null) {
-                    continue;
-                }
-                $canonical = round($value * $factor, 4);
-            }
-            $out[] = ['date' => $date->toDateString(), 'canonical' => $canonical, 'raw' => $raw];
+            $out[] = [
+                'date' => $date->toDateString(),
+                'canonical' => $final,
+                'raw' => $overlay !== null && $this->sameQty($overlay, $final) ? $overlayRaw : $mainRaw,
+            ];
         }
 
         return $out;
+    }
+
+    /** Parse one availability cell to a canonical quantity, or null if blank/invalid. */
+    private function parseDayCell(string $raw, float $factor): ?float
+    {
+        if ($raw === '') {
+            return null;
+        }
+        if (mb_strtolower($raw) === 'unlimited') {
+            return (float) CatalogueSchema::UNLIMITED_SENTINEL;
+        }
+        $value = $this->parseDecimal($raw);
+
+        return $value === null ? null : round($value * $factor, 4);
+    }
+
+    /**
+     * Pick the final quantity for a day given the main-sheet value, the
+     * "Bestand" overlay value, and the stored value. A blank on a sheet means
+     * "no opinion"; when both disagree, the one that moved off the stored value
+     * wins, and a true conflict prefers the stock sheet with a warning.
+     *
+     * @param  list<string>  $warnings
+     */
+    private function pickDaily(?float $main, ?float $overlay, ?float $db, string $day, array &$warnings): ?float
+    {
+        if ($main === null && $overlay === null) {
+            return null;
+        }
+        if ($overlay === null) {
+            return $main;
+        }
+        if ($main === null) {
+            return $overlay;
+        }
+        if ($this->sameQty($main, $overlay)) {
+            return $main;
+        }
+        $mainChanged = ! $this->sameQty($main, $db);
+        $overlayChanged = ! $this->sameQty($overlay, $db);
+        if ($overlayChanged && ! $mainChanged) {
+            return $overlay;
+        }
+        if ($mainChanged && ! $overlayChanged) {
+            return $main;
+        }
+        $warnings[] = "Availability {$day}: Katalog and Bestand sheets disagree; used the Bestand value.";
+
+        return $overlay;
+    }
+
+    // ------------------------------------------------------- reconciliation
+
+    /**
+     * Choose between the main sheet's and the price sheet's value for one
+     * field. Blank overlay = no opinion. Otherwise the value that moved off the
+     * stored value wins; a genuine conflict prefers the price sheet and warns.
+     *
+     * @param  list<string>  $warnings
+     */
+    private function reconcilePrice(?float $main, ?string $overlayRaw, ?float $db, string $label, array &$warnings): ?float
+    {
+        if ($overlayRaw === null || trim($overlayRaw) === '') {
+            return $main;
+        }
+        $overlay = $this->parseMoney($overlayRaw);
+        if ($overlay === null) {
+            return $main;
+        }
+        if ($this->sameMoney($overlay, $main)) {
+            return $main;
+        }
+        $mainChanged = ! $this->sameMoney($main, $db);
+        $overlayChanged = ! $this->sameMoney($overlay, $db);
+        if ($overlayChanged && ! $mainChanged) {
+            return $overlay;
+        }
+        if ($mainChanged && ! $overlayChanged) {
+            return $main;
+        }
+        $warnings[] = "{$label}: Katalog and Preise sheets disagree; used the Preise value.";
+
+        return $overlay;
+    }
+
+    private function dbPrivateDisplay(Product $product, int $factor): ?float
+    {
+        return $product->unit_price !== null ? round((float) $product->unit_price * $factor, 2) : null;
+    }
+
+    private function dbBusinessDisplay(Product $product, int $factor): ?float
+    {
+        $rule = $product->priceRules()
+            ->where('customer_type', 'business')
+            ->whereNull('starts_on')->whereNull('ends_on')->whereNull('min_quantity')
+            ->whereNull('variant_id')
+            ->first();
+
+        return $rule !== null ? round((float) $rule->unit_price * $factor, 2) : null;
+    }
+
+    private function dbCostDisplay(Product $product): ?float
+    {
+        $primary = $product->producers->firstWhere('id', $product->producer_id) ?? $product->producers->first();
+        $cents = $primary?->pivot?->buying_price_cents ?? $product->buying_price_cents;
+
+        return $cents !== null ? round($cents / 100, 2) : null;
+    }
+
+    private function sameMoney(?float $a, ?float $b): bool
+    {
+        if ($a === null && $b === null) {
+            return true;
+        }
+        if ($a === null || $b === null) {
+            return false;
+        }
+
+        return abs($a - $b) < 0.005;
+    }
+
+    private function sameQty(?float $a, ?float $b): bool
+    {
+        if ($a === null && $b === null) {
+            return true;
+        }
+        if ($a === null || $b === null) {
+            return false;
+        }
+
+        return abs($a - $b) < 0.0001;
     }
 
     // ----------------------------------------------------------- primitives
@@ -699,6 +925,49 @@ class ProductCsvParser
         });
 
         $this->loaded = true;
+    }
+
+    /**
+     * Numeric ids of the buckets that update an existing product.
+     *
+     * @param  list<array{id:?int, row:int, rows:list<array<string,string>>}>  $buckets
+     * @return list<int>
+     */
+    private function existingIds(array $buckets): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (array $b): ?int => $b['id'],
+            $buckets,
+        ), static fn (?int $id): bool => $id !== null));
+    }
+
+    /**
+     * Preload the current one-off availability for the given products over the
+     * sheet's day columns, so reconciliation can tell an edited day apart from
+     * one left at its exported value. Only one-off inflows count (schedule
+     * batches are never touched by the catalogue).
+     *
+     * @param  list<int>  $ids
+     * @param  array<string, Carbon>  $dayColumns
+     */
+    private function loadDbDaily(array $ids, array $dayColumns): void
+    {
+        $this->dbDailyByProduct = [];
+        if ($ids === [] || $dayColumns === []) {
+            return;
+        }
+
+        $dates = array_map(static fn (Carbon $d): string => $d->toDateString(), array_values($dayColumns));
+        $this->dbDailyByProduct = ProductStockInflow::query()
+            ->whereIn('product_id', $ids)
+            ->whereNull('variant_id')
+            ->whereNull('source_schedule_id')
+            ->whereIn('received_on', $dates)
+            ->get(['product_id', 'received_on', 'quantity'])
+            ->groupBy('product_id')
+            ->map(fn ($rows) => $rows->groupBy(fn (ProductStockInflow $i): string => $i->received_on->toDateString())
+                ->map(fn ($g) => (float) $g->sum('quantity'))->all())
+            ->all();
     }
 
     /**
