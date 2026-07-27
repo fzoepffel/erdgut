@@ -227,12 +227,25 @@
                             {{ __('admin.inventory.section_matrix') }}
                         </h2>
                         <p class="mt-1 text-sm text-gray-600">{{ __('admin.inventory.section_matrix_hint') }} <span class="font-medium text-amber-700">{{ __('admin.inventory.b2b_stock_legend') }}</span></p>
+                        <p class="mt-1 text-xs text-gray-500">
+                            @if ($searchingByName)
+                                {{ __('admin.inventory.matrix_search_hint', ['count' => $productsTotal]) }}
+                            @else
+                                {{ __('admin.inventory.matrix_stock_only_hint', ['count' => $productsTotal]) }}
+                            @endif
+                        </p>
                     </div>
                 </div>
                 <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
                     <div class="overflow-x-auto">
                         @if ($products->isEmpty())
-                            <p class="p-6 text-sm text-gray-500">{{ __('admin.inventory.matrix_no_products') }}</p>
+                            <p class="p-6 text-sm text-gray-500">
+                                @if ($searchingByName)
+                                    {{ __('admin.inventory.matrix_no_products_search') }}
+                                @else
+                                    {{ __('admin.inventory.matrix_no_products') }}
+                                @endif
+                            </p>
                         @else
                             <table class="min-w-full divide-y divide-gray-200 text-xs">
                                 <thead class="bg-gray-50">
@@ -256,7 +269,7 @@
                                             $b2bRow = $b2bAvailabilityMatrix[$product->id] ?? [];
                                             $scheduleCount = $product->stockInflowSchedules->count();
                                         @endphp
-                                        <tr>
+                                        <tr data-testid="inventory-matrix-row-{{ $product->id }}">
                                             <td class="sticky left-0 z-10 bg-white px-3 py-2 align-top">
                                                 <div class="font-medium text-gray-900">{{ $product->name }}</div>
                                                 @php $stockFarmIds = array_keys($farmMatrix[$product->id] ?? []); @endphp
@@ -402,6 +415,11 @@
                                     @endforeach
                                 </tbody>
                             </table>
+                            @if ($productPaginator->hasPages())
+                                <div class="border-t border-gray-100 px-4 py-3" data-testid="inventory-matrix-pagination">
+                                    {{ $productPaginator->links() }}
+                                </div>
+                            @endif
                         @endif
                     </div>
                 </div>

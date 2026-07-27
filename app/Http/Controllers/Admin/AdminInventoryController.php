@@ -11,9 +11,13 @@ use App\Models\Product;
 use App\Models\ProductStockInflow;
 use App\Services\Admin\InventoryService;
 use App\Services\Admin\ProducerAllocationService;
+use App\Support\InventoryProductClusters;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
@@ -56,20 +60,30 @@ class AdminInventoryController extends Controller
         //             a non-registered supplier.
         $productFilter = trim((string) $request->query('product', ''));
         $producerFilter = (int) $request->query('producer', 0);
+        $searchingByName = $productFilter !== '';
 
-        // Products surfaced on the page: anything visible-in-catalog,
-        // plus anything with an inflow row in this window even if not
-        // currently published, so admin can see lingering inventory
-        // for an unpublished product.
-        $products = Product::query()
-            ->with(['translations', 'producer.translations', 'producers.translations', 'variants'])
-            ->where(function ($q) use ($start, $end): void {
-                $q->where(function ($vis): void {
-                    $vis->where('is_available', true)->where('is_published', true);
-                })->orWhereHas('stockInflows', function ($iq) use ($start, $end): void {
-                    $iq->whereBetween('received_on', [$start->toDateString(), $end->toDateString()]);
-                });
-            })
+        // Default: only products whose stock can affect this 14-day window
+        // (inflow received in/near the window). Name search unlocks the full
+        // published catalog so admins can find empty products and add inflows.
+        $candidates = Product::query()
+            ->with(['translations'])
+            ->when(
+                $searchingByName,
+                function ($q) use ($start, $end): void {
+                    $q->where(function ($outer) use ($start, $end): void {
+                        $outer->where(function ($vis): void {
+                            $vis->where('is_available', true)->where('is_published', true);
+                        })->orWhereHas('stockInflows', function ($iq) use ($start, $end): void {
+                            $this->scopeInflowsNearWindow($iq, $start, $end);
+                        });
+                    });
+                },
+                function ($q) use ($start, $end): void {
+                    $q->whereHas('stockInflows', function ($iq) use ($start, $end): void {
+                        $this->scopeInflowsNearWindow($iq, $start, $end);
+                    });
+                },
+            )
             ->when($productFilter !== '', function ($q) use ($productFilter): void {
                 $needle = '%'.mb_strtolower($productFilter).'%';
                 $q->whereHas('translations', function ($tq) use ($needle): void {
@@ -81,24 +95,81 @@ class AdminInventoryController extends Controller
                     $pq->where('producers.id', $producerFilter);
                 });
             })
-            ->get()
-            // Alphabetical by the localized display name (translations live in
-            // a relation, so sorting happens after hydration).
-            ->sortBy(fn (Product $p) => mb_strtolower($p->name), SORT_NATURAL)
-            ->values();
+            ->get();
 
-        // Build the per-product window in one pass each. Keys are
-        // Y-m-d strings so the Blade can lookup by date in the matrix.
-        $availabilityMatrix = $products->mapWithKeys(function (Product $p) use ($start, $end): array {
-            return [$p->id => $this->inventory->availabilityWindow($p, $start, $end)];
-        });
+        $isoDates = [];
+        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
+            $isoDates[] = $cursor->toDateString();
+        }
 
-        // Trade view of the same window: includes b2b_only batches. Where it
-        // exceeds the consumer value, the matrix shows the extra as
-        // gastro-reserved stock.
-        $b2bAvailabilityMatrix = $products->mapWithKeys(function (Product $p) use ($start, $end): array {
-            return [$p->id => $this->inventory->availabilityWindow($p, $start, $end, ShopStockAudience::BusinessTrade)];
-        });
+        // Without a name search, drop candidates that have neither remaining
+        // stock nor an inflow received inside the visible window.
+        if (! $searchingByName && $candidates->isNotEmpty()) {
+            $consumerBulk = $this->inventory->availabilityMatrix($candidates, $start, $end);
+            $b2bBulk = $this->inventory->availabilityMatrix(
+                $candidates,
+                $start,
+                $end,
+                ShopStockAudience::BusinessTrade,
+            );
+            $inflowInWindow = ProductStockInflow::query()
+                ->whereBetween('received_on', [$start->toDateString(), $end->toDateString()])
+                ->whereIn('product_id', $candidates->pluck('id')->all())
+                ->distinct()
+                ->pluck('product_id')
+                ->flip()
+                ->all();
+
+            $candidates = $candidates
+                ->filter(function (Product $product) use ($consumerBulk, $b2bBulk, $inflowInWindow, $isoDates): bool {
+                    if (isset($inflowInWindow[$product->id])) {
+                        return true;
+                    }
+                    foreach ($isoDates as $iso) {
+                        if (($consumerBulk[$product->id][$iso] ?? 0) > 0
+                            || ($b2bBulk[$product->id][$iso] ?? 0) > 0) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                })
+                ->values();
+        }
+
+        $sorted = InventoryProductClusters::sorted($candidates);
+        $productPaginator = InventoryProductClusters::paginate(
+            $sorted,
+            (int) $request->query('page', 1),
+        )->withQueryString();
+
+        $pageIds = $productPaginator->getCollection()->pluck('id')->all();
+        $products = $pageIds === []
+            ? collect()
+            : Product::query()
+                ->with([
+                    'translations',
+                    'producer.translations',
+                    'producers.translations',
+                    'variants',
+                    'stockInflowSchedules',
+                ])
+                ->whereIn('id', $pageIds)
+                ->get()
+                ->sortBy(fn (Product $p) => array_search($p->id, $pageIds, true))
+                ->values();
+
+        // Bulk + cached windows for the current page only (not one query per row).
+        $availabilityMatrix = $this->denseAvailabilityMatrix(
+            $this->inventory->availabilityMatrix($products, $start, $end),
+            $products,
+            $isoDates,
+        );
+        $b2bAvailabilityMatrix = $this->denseAvailabilityMatrix(
+            $this->inventory->availabilityMatrix($products, $start, $end, ShopStockAudience::BusinessTrade),
+            $products,
+            $isoDates,
+        );
 
         // Per-grade lanes for products that have grades, so the matrix shows
         // each grade's own stock under the product total. productId =>
@@ -111,10 +182,6 @@ class AdminInventoryController extends Controller
         // the product row keeps the sum, the expandable sub-rows show each
         // farm's remaining (same end-state semantics as the matrix). vkeys
         // are summed; grade-level farm splits stay out on purpose.
-        $isoDates = [];
-        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
-            $isoDates[] = $cursor->toDateString();
-        }
         $pids = $products->pluck('id')->all();
         $farmConsumer = $this->allocation->remainingByProducer($pids, $isoDates);
         $farmB2b = $this->allocation->remainingByProducer($pids, $isoDates, ShopStockAudience::BusinessTrade);
@@ -221,6 +288,9 @@ class AdminInventoryController extends Controller
             'nextWindow' => $start->copy()->addDays(14)->toDateString(),
             'today' => Carbon::today()->toDateString(),
             'products' => $products,
+            'productPaginator' => $productPaginator,
+            'productsTotal' => $sorted->count(),
+            'searchingByName' => $searchingByName,
             'availabilityMatrix' => $availabilityMatrix,
             'b2bAvailabilityMatrix' => $b2bAvailabilityMatrix,
             'variantMatrix' => $variantMatrix,
@@ -233,6 +303,37 @@ class AdminInventoryController extends Controller
             'producerOptions' => $producerOptions,
             'navQuery' => $navQuery,
         ]);
+    }
+
+    /**
+     * Inflows that can still affect availability in [start, end]: received on
+     * or before the window end, and not older than the max freshness window.
+     *
+     * @param  Builder<ProductStockInflow>|Relation  $query
+     */
+    private function scopeInflowsNearWindow($query, Carbon $start, Carbon $end): void
+    {
+        $query
+            ->where('received_on', '<=', $end->toDateString())
+            ->where('received_on', '>=', $start->copy()->subDays(60)->toDateString());
+    }
+
+    /**
+     * @param  array<int, array<string, float>>  $sparse
+     * @param  Collection<int, Product>  $products
+     * @param  list<string>  $isoDates
+     * @return Collection<int, array<string, float>>
+     */
+    private function denseAvailabilityMatrix(array $sparse, Collection $products, array $isoDates): Collection
+    {
+        return $products->mapWithKeys(function (Product $product) use ($sparse, $isoDates): array {
+            $row = [];
+            foreach ($isoDates as $iso) {
+                $row[$iso] = max(0.0, round((float) ($sparse[$product->id][$iso] ?? 0.0), 4));
+            }
+
+            return [$product->id => $row];
+        });
     }
 
     public function storeInflow(AdminInventoryInflowStoreRequest $request): RedirectResponse
