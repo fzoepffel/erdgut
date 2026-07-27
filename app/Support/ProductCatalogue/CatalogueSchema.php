@@ -29,6 +29,53 @@ class CatalogueSchema
     /** How many upcoming days the export emits availability columns for. */
     public const EXPORT_DAYS_AHEAD = 28;
 
+    /** Worksheet (tab) titles of the export workbook. */
+    public const SHEET_MAIN = 'Katalog';
+
+    public const SHEET_PRICES = 'Preise';
+
+    public const SHEET_INVENTORY = 'Bestand';
+
+    /**
+     * Columns of the "Preise" convenience sheet: the German name for
+     * orientation plus every price-related field. The three editable prices are
+     * `Cost`, `Business Net`, `Private Price` and `VAT %`; the netto/margin
+     * columns are recomputed on export and ignored on import.
+     *
+     * @return list<string>
+     */
+    public static function pricesHeaders(): array
+    {
+        return [
+            'Erdgut ID',
+            'Name (DE)',
+            'Unit',
+            'Cost',
+            'Business Net',
+            'Business Margin %',
+            'Private Price',
+            'Private Netto',
+            'Private Margin %',
+            'VAT %',
+        ];
+    }
+
+    /**
+     * Fixed columns of the "Bestand" convenience sheet: the German name and
+     * unit for orientation. One dated availability column per upcoming day is
+     * appended after these, exactly like the main sheet.
+     *
+     * @return list<string>
+     */
+    public static function inventoryFixedHeaders(): array
+    {
+        return [
+            'Erdgut ID',
+            'Name (DE)',
+            'Unit',
+        ];
+    }
+
     /**
      * Fixed (non-daily) columns, in order. One dated availability column per
      * upcoming day (`YYYY-MM-DD`) is appended after these by the export.
