@@ -1923,6 +1923,8 @@
     "admin.product_schedules.action_adjust": "Change quantity",
     "admin.products.csv.download": "Download CSV",
     "admin.products.csv.import": "Import CSV",
+    "admin.products.csv.import_loading": "Preparing import…",
+    "admin.products.csv.confirm_loading": "Applying import…",
     "admin.products.csv.preview_title": "Review import",
     "admin.products.csv.to_create": "To create",
     "admin.products.csv.to_update": "To update",
