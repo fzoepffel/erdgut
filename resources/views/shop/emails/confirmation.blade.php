@@ -57,7 +57,10 @@
                             </h1>
                             <p style="margin: 0 0 28px 0; font-size: 15px; line-height: 1.6; color: #4a5147;">
                                 @if ($isInPerson)
-                                    {{ __('shop.email_body_in_person', ['amount' => $totalLabel]) }}
+                                    {{ __(
+                                        $isDelivery ? 'shop.email_body_in_person_delivery' : 'shop.email_body_in_person',
+                                        ['amount' => $totalLabel]
+                                    ) }}
                                 @else
                                     {{ __('shop.email_body_paid') }}
                                 @endif

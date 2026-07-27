@@ -74,8 +74,8 @@
                     <x-input-error :messages="$errors->get('pickup_location')" class="mt-4" />
                 </section>
 
-                {{-- ── Payment (pickup only) ────────────────────────── --}}
-                <section x-show="mode === 'pickup'" x-cloak>
+                {{-- ── Payment ───────────────────────────────────────── --}}
+                <section>
                     <header class="mb-5">
                         <p class="{{ $eyebrow }}">{{ __('shop.section_payment') }}</p>
                     </header>
@@ -92,12 +92,9 @@
                             <input type="radio" name="payment_method" value="in_person" x-model="payment" class="sr-only">
                             <span class="font-mono text-[0.6rem] uppercase tracking-widest text-shop-muted">{{ __('shop.payment_in_person_eyebrow') }}</span>
                             <span class="font-display text-2xl leading-tight">{{ __('shop.payment_in_person') }}</span>
-                            <span class="text-sm leading-relaxed text-shop-muted">{{ __('shop.payment_in_person_hint') }}</span>
+                            <span class="text-sm leading-relaxed text-shop-muted" x-text="mode === 'delivery' ? @js(__('shop.payment_in_person_hint_delivery')) : @js(__('shop.payment_in_person_hint'))"></span>
                         </label>
                     </div>
-                    <template x-if="mode === 'delivery'">
-                        <input type="hidden" name="payment_method" value="online">
-                    </template>
                     <x-input-error :messages="$errors->get('payment_method')" class="mt-4" />
                 </section>
 
