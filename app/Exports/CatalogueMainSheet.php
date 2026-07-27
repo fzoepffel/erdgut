@@ -98,7 +98,9 @@ class CatalogueMainSheet extends CatalogueSheet
             'Category' => CatalogueSchema::categoryLabel($product->category),
             'Sub-category' => $product->subcategory?->label('de') ?? '',
             'Product Group' => $product->group?->localizedName('de') ?? '',
-            'Group Position' => (int) ($product->group_position ?? 0),
+            'Group Position' => (($product->group_position ?? 0) > 0)
+                ? (string) (int) $product->group_position
+                : '',
             'Origin (DE)' => $t('de')->origin ?? '',
             'Origin (EN)' => $t('en')->origin ?? '',
             'Origin (FR)' => $t('fr')->origin ?? '',
