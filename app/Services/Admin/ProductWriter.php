@@ -7,6 +7,7 @@ use App\Enums\ProductUnit;
 use App\Imports\ProductCatalogueImport;
 use App\Models\Product;
 use App\Models\ProductGroup;
+use App\Models\ProductSubcategory;
 use App\Models\ProductTranslation;
 use Illuminate\Support\Facades\DB;
 
@@ -131,6 +132,8 @@ class ProductWriter
      *  - business_price (?float, display-unit net)
      *  - group_name (?array{de,en,fr}) resolved/created by German name
      *  - group_label (?array{de,en,fr}), group_position (int)
+     *  - subcategory_label (?string) resolved/created under `category`;
+     *    subcategory_new (?array{de,en,fr}) localized labels for a new one
      *  - translations: array<locale, array{name,origin,variety,taste_profile,short_description}>
      *
      * @param  array<string, mixed>  $data
@@ -168,6 +171,7 @@ class ProductWriter
                 $this->syncProducerBuyingPrices($product, $producers);
             }
 
+            $this->syncSubcategoryByLabel($product, $data);
             $this->syncGroupByName($product, $data);
             $this->syncBusinessPrice($product, $data['business_price'] ?? null, $userId);
             $this->syncTranslations($product, (array) ($data['translations'] ?? []));
@@ -206,6 +210,72 @@ class ProductWriter
             $cents = ($raw === null || $raw === '') ? null : (int) round(((float) $raw) * 100);
             $product->producers()->updateExistingPivot($id, ['buying_price_cents' => $cents]);
         }
+    }
+
+    /**
+     * Resolve the product's subcategory from a label, mirroring the group
+     * behaviour: an existing subcategory under the same category (matched
+     * case-insensitively on any of its three locale labels) is reused; an
+     * unknown label creates a new subcategory using the localized labels the
+     * admin supplied in the import dialog (`subcategory_new` = de/en/fr,
+     * falling back to the raw label); a blank label leaves the product's
+     * subcategory as {@see coreAttributes()} set it (cleared).
+     *
+     * Only the CSV import passes `subcategory_label`; the product form sets
+     * `subcategory_id` directly, so this is a no-op there.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function syncSubcategoryByLabel(Product $product, array $data): void
+    {
+        if (! array_key_exists('subcategory_label', $data)) {
+            return;
+        }
+
+        $label = trim((string) ($data['subcategory_label'] ?? ''));
+        $category = $data['category'] ?? $product->category;
+        if ($label === '' || $category === null) {
+            return; // blank label: coreAttributes already cleared subcategory_id
+        }
+
+        $existing = $this->findSubcategory((string) $category, $label);
+        if ($existing !== null) {
+            $subcategoryId = $existing->id;
+        } else {
+            $t = (array) ($data['subcategory_new'] ?? []);
+            $de = trim((string) ($t['de'] ?? '')) ?: $label;
+            $en = trim((string) ($t['en'] ?? '')) ?: $de;
+            $fr = trim((string) ($t['fr'] ?? '')) ?: $de;
+            $subcategoryId = ProductSubcategory::create([
+                'category' => $category,
+                'label_de' => $de,
+                'label_en' => $en,
+                'label_fr' => $fr,
+                'sort_order' => 0,
+            ])->id;
+        }
+
+        if ($product->subcategory_id !== $subcategoryId) {
+            $product->forceFill(['subcategory_id' => $subcategoryId])->save();
+        }
+    }
+
+    /**
+     * Find a subcategory under a category whose German, English, or French
+     * label matches (case-insensitively). The set is small, so scan in PHP to
+     * sidestep MySQL/SQLite JSON differences.
+     */
+    private function findSubcategory(string $category, string $label): ?ProductSubcategory
+    {
+        $target = mb_strtolower(trim($label));
+
+        return ProductSubcategory::query()
+            ->where('category', $category)
+            ->get()
+            ->first(static fn (ProductSubcategory $s): bool => in_array($target, array_map(
+                static fn ($l): string => mb_strtolower(trim((string) $l)),
+                [$s->label_de, $s->label_en, $s->label_fr],
+            ), true));
     }
 
     /**

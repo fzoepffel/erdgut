@@ -45,7 +45,7 @@ class ProductCsvParser
      * @return array{
      *   products: list<array<string, mixed>>,
      *   errors: list<array{row:int, message:string}>,
-     *   summary: array{to_create:int, to_update:int, new_groups:list<string>, errors:int, weekly_changes:int}
+     *   summary: array{to_create:int, to_update:int, new_groups:list<string>, new_subcategories:list<string>, errors:int, weekly_changes:int}
      * }
      */
     public function parse(string $absolutePath): array
@@ -65,6 +65,7 @@ class ProductCsvParser
         $products = [];
         $errors = [];
         $newGroups = [];
+        $newSubcategories = [];
 
         foreach ($buckets as $bucket) {
             $plan = $this->buildPlan($bucket, $dayColumns);
@@ -75,6 +76,9 @@ class ProductCsvParser
             }
             if ($plan['new_group'] !== null && ! in_array($plan['new_group'], $newGroups, true)) {
                 $newGroups[] = $plan['new_group'];
+            }
+            if ($plan['new_subcategory'] !== null && ! in_array($plan['new_subcategory'], $newSubcategories, true)) {
+                $newSubcategories[] = $plan['new_subcategory'];
             }
             $products[] = $plan;
         }
@@ -89,6 +93,7 @@ class ProductCsvParser
                 'to_create' => $toCreate,
                 'to_update' => count($products) - $toCreate,
                 'new_groups' => $newGroups,
+                'new_subcategories' => $newSubcategories,
                 'errors' => count($errors),
                 'weekly_changes' => $weeklyChanges,
             ],
@@ -242,6 +247,13 @@ class ProductCsvParser
             $cells = $row['cells'];
             $id = trim($cells['Erdgut ID'] ?? '');
 
+            // Subcategory section-title rows the export writes: the title sits
+            // in the (non-numeric) Erdgut ID cell and every other cell is blank.
+            // They carry no product data, so drop them before grouping.
+            if ($id !== '' && ! ctype_digit($id) && $this->isDividerRow($cells)) {
+                continue;
+            }
+
             if ($id !== '' && ctype_digit($id)) {
                 $key = 'id:'.$id;
                 if (! isset($byId[$key])) {
@@ -279,6 +291,23 @@ class ProductCsvParser
         $hasProduct = ($cells['Name (DE)'] ?? '') !== '' || ($cells['Category'] ?? '') !== '';
 
         return ! $main && ! $hasProduct && ($cells['Producer'] ?? '') !== '';
+    }
+
+    /**
+     * A subcategory section-title row: every cell except `Erdgut ID` (which
+     * holds the title text) is blank.
+     *
+     * @param  array<string, string>  $cells
+     */
+    private function isDividerRow(array $cells): bool
+    {
+        foreach ($cells as $header => $value) {
+            if ($header !== 'Erdgut ID' && trim((string) $value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // ---------------------------------------------------------- Plan builder
@@ -374,13 +403,14 @@ class ProductCsvParser
             return ['error' => 'A new product needs a German name.'];
         }
 
-        // --- Subcategory ---
+        // --- Subcategory (auto-created under this category if the label is new) ---
         $subLabel = trim($primary['Sub-category'] ?? '');
         $subcategoryId = null;
+        $newSubcategory = null;
         if ($subLabel !== '') {
             $subcategoryId = $this->subcategoryByLabel[$category][mb_strtolower($subLabel)] ?? null;
             if ($subcategoryId === null) {
-                $warnings[] = "Sub-category \"{$subLabel}\" not found for this category; left empty.";
+                $newSubcategory = $subLabel;
             }
         }
 
@@ -421,6 +451,7 @@ class ProductCsvParser
             'producers' => $producers,
             'category' => $category,
             'subcategory_id' => $subcategoryId,
+            'subcategory_label' => $subLabel,
             'vat_rate_percent' => $vat,
             'default_freshness_window_days' => $this->parseInt($primary['Freshness (days)'] ?? '', 1),
             'is_seasonal' => $isSeasonal,
@@ -472,6 +503,7 @@ class ProductCsvParser
             'data' => $data,
             'weekly' => $weekly,
             'new_group' => $newGroup,
+            'new_subcategory' => $newSubcategory,
             'warnings' => $warnings,
         ];
     }
@@ -670,14 +702,14 @@ class ProductCsvParser
     }
 
     /**
-     * @return array{products: list<never>, errors: list<array{row:int, message:string}>, summary: array{to_create:int, to_update:int, new_groups:list<never>, errors:int, weekly_changes:int}}
+     * @return array{products: list<never>, errors: list<array{row:int, message:string}>, summary: array{to_create:int, to_update:int, new_groups:list<never>, new_subcategories:list<never>, errors:int, weekly_changes:int}}
      */
     private function emptyResult(string $message): array
     {
         return [
             'products' => [],
             'errors' => [['row' => 0, 'message' => $message]],
-            'summary' => ['to_create' => 0, 'to_update' => 0, 'new_groups' => [], 'errors' => 1, 'weekly_changes' => 0],
+            'summary' => ['to_create' => 0, 'to_update' => 0, 'new_groups' => [], 'new_subcategories' => [], 'errors' => 1, 'weekly_changes' => 0],
         ];
     }
 }

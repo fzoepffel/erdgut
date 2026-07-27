@@ -8,6 +8,7 @@ use App\Models\ProductStockInflow;
 use App\Services\Admin\ProductWriter;
 use App\Support\ProductCatalogue\CatalogueSchema;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithCustomCsvSettings;
 use Maatwebsite\Excel\Concerns\WithEvents;
@@ -40,10 +41,19 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
     /** Very light green-grey for the zebra banding on every other row. */
     private const BAND_FILL = 'F3F6F3';
 
+    /** Mid green for the subcategory section-title rows. */
+    private const SECTION_FILL = 'CFE0CF';
+
     private const BORDER_COLOR = 'E4EAE4';
+
+    /** Section title written into an otherwise-blank row without a subcategory. */
+    private const NO_SUBCATEGORY_TITLE = 'Ohne Unterkategorie';
 
     /** @var array<string, Carbon> header (`YYYY-MM-DD`) => that day */
     private array $days;
+
+    /** @var list<int> 1-based sheet rows that hold a subcategory section title */
+    private array $sectionRows = [];
 
     public function __construct(private readonly ProductWriter $writer)
     {
@@ -139,14 +149,29 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
                 $sheet->freezePane('A2');
                 $sheet->setAutoFilter("A1:{$lastCol}{$lastRow}");
 
-                // Zebra striping + fixed data-row height.
+                // Zebra striping + fixed data-row height. Section-title rows are
+                // skipped here and styled separately below.
+                $sections = array_flip($this->sectionRows);
                 for ($r = 2; $r <= $lastRow; $r++) {
                     $sheet->getRowDimension($r)->setRowHeight(17);
+                    if (isset($sections[$r])) {
+                        continue;
+                    }
                     if ($r % 2 === 0) {
                         $sheet->getStyle("A{$r}:{$lastCol}{$r}")->getFill()
                             ->setFillType(Fill::FILL_SOLID)
                             ->getStartColor()->setRGB(self::BAND_FILL);
                     }
+                }
+
+                // Subcategory section titles: a solid mid-green band with bold
+                // dark text, so each section reads as a header above its rows.
+                foreach ($this->sectionRows as $r) {
+                    $sheet->getStyle("A{$r}:{$lastCol}{$r}")->applyFromArray([
+                        'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => '1F2D22']],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::SECTION_FILL]],
+                        'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                    ]);
                 }
 
                 $this->applyColumnWidths($sheet);
@@ -217,14 +242,86 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
                 ->map(fn ($g) => (float) $g->sum('quantity'))->all())
             ->all();
 
+        // Lay the catalogue out in subcategory sections: each section opens with
+        // a coloured title row, then its products sorted alphabetically by German
+        // name. Products with no subcategory fall into a trailing section. The
+        // title rows carry only text in column A, so the importer skips them.
         $rows = [];
-        foreach ($products as $product) {
-            foreach ($this->productRows($product, $dailyByProduct[$product->id] ?? []) as $row) {
-                $rows[] = $row;
+        $this->sectionRows = [];
+        foreach ($this->groupIntoSections($products) as $section) {
+            $rows[] = $this->dividerRow($section['title']);
+            $this->sectionRows[] = count($rows) + 1; // header is row 1
+
+            foreach ($section['products'] as $product) {
+                foreach ($this->productRows($product, $dailyByProduct[$product->id] ?? []) as $row) {
+                    $rows[] = $row;
+                }
             }
         }
 
         return $rows;
+    }
+
+    /**
+     * Group products into subcategory sections. Named subcategories come first
+     * ordered alphabetically by their German label; products with no
+     * subcategory make a final "Ohne Unterkategorie" section. Within every
+     * section products are sorted alphabetically by German name.
+     *
+     * @param  Collection<int, Product>  $products
+     * @return list<array{title:string, products:list<Product>}>
+     */
+    private function groupIntoSections(Collection $products): array
+    {
+        $grouped = [];
+        foreach ($products as $product) {
+            $sub = $product->subcategory;
+            $key = $sub?->id ?? 0;
+            if (! isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'title' => $sub?->label('de') ?: self::NO_SUBCATEGORY_TITLE,
+                    'sort' => $sub !== null ? mb_strtolower((string) $sub->label('de')) : "\xff",
+                    'products' => [],
+                ];
+            }
+            $grouped[$key]['products'][] = $product;
+        }
+
+        foreach ($grouped as &$section) {
+            usort(
+                $section['products'],
+                fn (Product $a, Product $b): int => strcasecmp($this->germanName($a), $this->germanName($b)),
+            );
+        }
+        unset($section);
+
+        usort($grouped, static fn (array $a, array $b): int => strcmp($a['sort'], $b['sort']));
+
+        return array_map(
+            static fn (array $s): array => ['title' => $s['title'], 'products' => $s['products']],
+            $grouped,
+        );
+    }
+
+    /** A product's German name, for alphabetical sorting within a section. */
+    private function germanName(Product $product): string
+    {
+        return (string) ($product->translations->firstWhere('locale', 'de')?->name ?? '');
+    }
+
+    /**
+     * A section-title row: the subcategory name in column A (Erdgut ID), every
+     * other cell blank. The blank Erdgut ID makes it non-numeric, so the
+     * importer treats it as a divider and skips it.
+     *
+     * @return array<int, mixed>
+     */
+    private function dividerRow(string $title): array
+    {
+        $row = array_fill(0, count($this->headings()), '');
+        $row[0] = $title;
+
+        return $row;
     }
 
     /**
@@ -275,55 +372,55 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
 
         $t = fn (string $locale): object => $product->translations->firstWhere('locale', $locale) ?? (object) [];
 
-        $fixed = [
-            $product->id,
-            'Main',
-            $this->producerName($producer),
-            (string) ($meta['producer_product_name'] ?? ''),
-            (string) ($meta['sourcing_id'] ?? ''),
-            (string) ($meta['selling_id'] ?? ''),
-            CatalogueSchema::categoryLabel($product->category),
-            $product->subcategory?->label('de') ?? '',
-            $product->group?->localizedName('de') ?? '',
-            (int) ($product->group_position ?? 0),
-            $t('de')->name ?? '',
-            $t('en')->name ?? '',
-            $t('fr')->name ?? '',
-            $t('de')->origin ?? '',
-            $t('en')->origin ?? '',
-            $t('fr')->origin ?? '',
-            $t('de')->variety ?? '',
-            $t('en')->variety ?? '',
-            $t('fr')->variety ?? '',
-            $t('de')->short_description ?? '',
-            $t('en')->short_description ?? '',
-            $t('fr')->short_description ?? '',
-            $t('de')->taste_profile ?? '',
-            $t('en')->taste_profile ?? '',
-            $t('fr')->taste_profile ?? '',
-            CatalogueSchema::unitToken($product),
-            $this->quantityPerUnit($product),
-            $this->money($cost),
-            $this->money($businessNet),
-            $this->margin($cost, $businessNet),
-            $this->money($privateGross),
-            $this->money($privateNet),
-            $this->margin($cost, $privateNet),
-            $vat,
-            $this->seasonDate($product->season_start_month, $product->season_start_day),
-            $this->seasonDate($product->season_end_month, $product->season_end_day),
-            $product->request_visibility ?? 'auto',
-            $product->request_visibility_until?->format('Y-m-d') ?? '',
-            (int) ($product->default_freshness_window_days ?? 1),
-            CatalogueSchema::bool((bool) $product->is_published),
-            CatalogueSchema::bool((bool) $product->is_available),
-            CatalogueSchema::bool((bool) $product->is_egg_addon),
-            CatalogueSchema::joinTags($product->allergens),
-            CatalogueSchema::joinTags($product->dietary_tags),
-            CatalogueSchema::joinTags($product->taste_profile_tags),
-            (string) ($product->image_path ?? ''),
-            (string) ($meta['comment'] ?? ''),
-        ];
+        $fixed = $this->flattenFixed([
+            'Erdgut ID' => $product->id,
+            'Name (DE)' => $t('de')->name ?? '',
+            'Name (EN)' => $t('en')->name ?? '',
+            'Name (FR)' => $t('fr')->name ?? '',
+            'Main' => 'Main',
+            'Producer' => $this->producerName($producer),
+            'Producer Name' => (string) ($meta['producer_product_name'] ?? ''),
+            'Sourcing ID' => (string) ($meta['sourcing_id'] ?? ''),
+            'Selling ID' => (string) ($meta['selling_id'] ?? ''),
+            'Category' => CatalogueSchema::categoryLabel($product->category),
+            'Sub-category' => $product->subcategory?->label('de') ?? '',
+            'Product Group' => $product->group?->localizedName('de') ?? '',
+            'Group Position' => (int) ($product->group_position ?? 0),
+            'Origin (DE)' => $t('de')->origin ?? '',
+            'Origin (EN)' => $t('en')->origin ?? '',
+            'Origin (FR)' => $t('fr')->origin ?? '',
+            'Variety (DE)' => $t('de')->variety ?? '',
+            'Variety (EN)' => $t('en')->variety ?? '',
+            'Variety (FR)' => $t('fr')->variety ?? '',
+            'Short Description (DE)' => $t('de')->short_description ?? '',
+            'Short Description (EN)' => $t('en')->short_description ?? '',
+            'Short Description (FR)' => $t('fr')->short_description ?? '',
+            'Long Description (DE)' => $t('de')->taste_profile ?? '',
+            'Long Description (EN)' => $t('en')->taste_profile ?? '',
+            'Long Description (FR)' => $t('fr')->taste_profile ?? '',
+            'Unit' => CatalogueSchema::unitToken($product),
+            'Quantity per Unit' => $this->quantityPerUnit($product),
+            'Cost' => $this->money($cost),
+            'Business Net' => $this->money($businessNet),
+            'Business Margin %' => $this->margin($cost, $businessNet),
+            'Private Price' => $this->money($privateGross),
+            'Private Netto' => $this->money($privateNet),
+            'Private Margin %' => $this->margin($cost, $privateNet),
+            'VAT %' => $vat,
+            'Season Start' => $this->seasonDate($product->season_start_month, $product->season_start_day),
+            'Season End' => $this->seasonDate($product->season_end_month, $product->season_end_day),
+            'Request Visibility' => $product->request_visibility ?? 'auto',
+            'Request Until' => $product->request_visibility_until?->format('Y-m-d') ?? '',
+            'Freshness (days)' => (int) ($product->default_freshness_window_days ?? 1),
+            'Published' => CatalogueSchema::bool((bool) $product->is_published),
+            'Available' => CatalogueSchema::bool((bool) $product->is_available),
+            'Egg add-on' => CatalogueSchema::bool((bool) $product->is_egg_addon),
+            'Allergens' => CatalogueSchema::joinTags($product->allergens),
+            'Dietary Tags' => CatalogueSchema::joinTags($product->dietary_tags),
+            'Taste Tags' => CatalogueSchema::joinTags($product->taste_profile_tags),
+            'Image Path' => (string) ($product->image_path ?? ''),
+            'Comment' => (string) ($meta['comment'] ?? ''),
+        ]);
 
         return array_merge($fixed, $this->dailyCells($factor, $dailyByDay));
     }
@@ -336,14 +433,31 @@ class ProductCatalogueExport implements FromArray, WithCustomCsvSettings, WithEv
      */
     private function secondaryRow(Product $product, mixed $producer): array
     {
-        $blanks = array_fill(0, count(CatalogueSchema::fixedHeaders()), '');
-        $blanks[0] = $product->id;                     // Erdgut ID
-        $blanks[1] = '';                               // Main (blank)
-        $blanks[2] = $this->producerName($producer);   // Producer
-        $blanks[27] = $this->money($this->costFor($product, $producer, isMain: false)); // Cost
+        $fixed = $this->flattenFixed([
+            'Erdgut ID' => $product->id,
+            'Producer' => $this->producerName($producer),
+            'Cost' => $this->money($this->costFor($product, $producer, isMain: false)),
+        ]);
 
         // Secondary rows carry no daily availability (that lives on Main).
-        return array_merge($blanks, array_fill(0, count($this->days), ''));
+        return array_merge($fixed, array_fill(0, count($this->days), ''));
+    }
+
+    /**
+     * Flatten a header => value map into a positional fixed-column row, in the
+     * exact order {@see CatalogueSchema::fixedHeaders()} declares. Missing keys
+     * become blank cells, so a row only needs to name the columns it fills and
+     * stays correct if the column order ever changes.
+     *
+     * @param  array<string, mixed>  $values
+     * @return list<mixed>
+     */
+    private function flattenFixed(array $values): array
+    {
+        return array_map(
+            static fn (string $header): mixed => $values[$header] ?? '',
+            CatalogueSchema::fixedHeaders(),
+        );
     }
 
     /**

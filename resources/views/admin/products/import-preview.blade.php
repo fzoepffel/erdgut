@@ -28,18 +28,6 @@
                 </div>
             </div>
 
-            {{-- New groups --}}
-            @if (! empty($result['summary']['new_groups']))
-                <div class="rounded-md border border-gray-200 bg-white p-4">
-                    <h2 class="mb-2 text-sm font-semibold text-gray-800">{{ __('admin.products.csv.new_groups') }}</h2>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach ($result['summary']['new_groups'] as $group)
-                            <span class="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">{{ $group }}</span>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-
             {{-- Errors (skipped rows) --}}
             @if (! empty($result['errors']))
                 <div class="rounded-md border border-red-200 bg-red-50 p-4">
@@ -91,22 +79,106 @@
                 </div>
             @endif
 
-            {{-- Actions --}}
-            <div class="flex items-center justify-end gap-3">
-                <a href="{{ route('app.admin.products.index') }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
-                    {{ __('Cancel') }}
-                </a>
-                @if (! empty($result['products']))
-                    <form method="POST" action="{{ route('app.admin.products.import.confirm') }}">
-                        @csrf
-                        <input type="hidden" name="token" value="{{ $token }}">
-                        <input type="hidden" name="ext" value="{{ $ext }}">
+            @php
+                $newGroups = $result['summary']['new_groups'] ?? [];
+                $newSubcategories = $result['summary']['new_subcategories'] ?? [];
+                // Repopulate the dialog after a failed confirm: index old input by label.
+                $oldGroups = collect($groupInput ?? [])->keyBy(fn ($e) => mb_strtolower(trim((string) ($e['name'] ?? ''))));
+                $oldSubcategories = collect($subInput ?? [])->keyBy(fn ($e) => mb_strtolower(trim((string) ($e['name'] ?? ''))));
+            @endphp
+
+            {{-- Confirm (with the missing-info dialog for new groups/subcategories) --}}
+            @if (! empty($result['products']))
+                <form method="POST" action="{{ route('app.admin.products.import.confirm') }}" class="space-y-6">
+                    @csrf
+                    <input type="hidden" name="token" value="{{ $token }}">
+                    <input type="hidden" name="ext" value="{{ $ext }}">
+
+                    @if (! empty($newGroups) || ! empty($newSubcategories))
+                        <div class="rounded-md border border-amber-200 bg-amber-50 p-4">
+                            <h2 class="text-sm font-semibold text-amber-900">{{ __('admin.products.csv.missing_info_title') }}</h2>
+                            <p class="mt-1 text-sm text-amber-800">{{ __('admin.products.csv.missing_info_intro') }}</p>
+
+                            @if (! empty($translationError))
+                                <p class="mt-2 rounded bg-red-100 px-3 py-2 text-sm font-medium text-red-800">{{ $translationError }}</p>
+                            @endif
+
+                            <div class="mt-4 space-y-4">
+                                @foreach ($newGroups as $i => $label)
+                                    @php $old = $oldGroups->get(mb_strtolower(trim((string) $label))); @endphp
+                                    <div class="rounded border border-amber-200 bg-white p-3">
+                                        <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">{{ __('admin.products.csv.new_group_word') }}</div>
+                                        <input type="hidden" name="group_translations[{{ $i }}][name]" value="{{ $label }}">
+                                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                            <div>
+                                                <label class="block text-xs font-medium text-gray-600">DE</label>
+                                                <input type="text" required maxlength="120" name="group_translations[{{ $i }}][de]"
+                                                       value="{{ $old['de'] ?? $label }}"
+                                                       class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-medium text-gray-600">EN</label>
+                                                <input type="text" required maxlength="120" name="group_translations[{{ $i }}][en]"
+                                                       value="{{ $old['en'] ?? '' }}"
+                                                       class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-medium text-gray-600">FR</label>
+                                                <input type="text" required maxlength="120" name="group_translations[{{ $i }}][fr]"
+                                                       value="{{ $old['fr'] ?? '' }}"
+                                                       class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+
+                                @foreach ($newSubcategories as $i => $label)
+                                    @php $old = $oldSubcategories->get(mb_strtolower(trim((string) $label))); @endphp
+                                    <div class="rounded border border-amber-200 bg-white p-3">
+                                        <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">{{ __('admin.products.csv.new_subcategory_word') }}</div>
+                                        <input type="hidden" name="subcategory_translations[{{ $i }}][name]" value="{{ $label }}">
+                                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                            <div>
+                                                <label class="block text-xs font-medium text-gray-600">DE</label>
+                                                <input type="text" required maxlength="120" name="subcategory_translations[{{ $i }}][de]"
+                                                       value="{{ $old['de'] ?? $label }}"
+                                                       class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-medium text-gray-600">EN</label>
+                                                <input type="text" required maxlength="120" name="subcategory_translations[{{ $i }}][en]"
+                                                       value="{{ $old['en'] ?? '' }}"
+                                                       class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-medium text-gray-600">FR</label>
+                                                <input type="text" required maxlength="120" name="subcategory_translations[{{ $i }}][fr]"
+                                                       value="{{ $old['fr'] ?? '' }}"
+                                                       class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="flex items-center justify-end gap-3">
+                        <a href="{{ route('app.admin.products.index') }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
+                            {{ __('Cancel') }}
+                        </a>
                         <button type="submit" class="btn-solid-sm">
                             {{ __('admin.products.csv.confirm') }}
                         </button>
-                    </form>
-                @endif
-            </div>
+                    </div>
+                </form>
+            @else
+                <div class="flex items-center justify-end gap-3">
+                    <a href="{{ route('app.admin.products.index') }}" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
+                        {{ __('Cancel') }}
+                    </a>
+                </div>
+            @endif
         </div>
     </div>
 </x-admin-layout>

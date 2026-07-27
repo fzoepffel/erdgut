@@ -14,6 +14,7 @@ use App\Models\ProductGroup;
 use App\Models\ProductPriceRule;
 use App\Models\ProductStockInflow;
 use App\Models\ProductStockInflowSchedule;
+use App\Models\ProductSubcategory;
 use App\Models\User;
 use App\Services\Admin\ProductWriter;
 use App\Support\ProductCatalogue\CatalogueSchema;
@@ -118,19 +119,22 @@ class ProductCatalogueCsvTest extends TestCase
         $rows = app(ProductCatalogueExport::class)->array();
         $mine = array_values(array_filter($rows, fn ($r): bool => (string) $r[0] === (string) $product->id));
 
+        // Resolve columns by header so the assertions survive a column reorder.
+        $col = fn (string $header): int => (int) array_search($header, CatalogueSchema::fixedHeaders(), true);
+
         $this->assertCount(2, $mine, 'a 2-producer product spans 2 rows');
         // Main row first, full fields.
-        $this->assertSame('Main', $mine[0][1]);
-        $this->assertSame('Melchhof', $mine[0][2]);
-        $this->assertSame('Obst & Gemüse', $mine[0][6]);   // Category
-        $this->assertSame('SRC-9', $mine[0][4]);            // Sourcing ID
-        $this->assertSame('note', $mine[0][46]);           // Comment (last fixed col)
-        $this->assertSame('1.30', $mine[0][27]);           // Cost (primary buying price)
+        $this->assertSame('Main', $mine[0][$col('Main')]);
+        $this->assertSame('Melchhof', $mine[0][$col('Producer')]);
+        $this->assertSame('Obst & Gemüse', $mine[0][$col('Category')]);
+        $this->assertSame('SRC-9', $mine[0][$col('Sourcing ID')]);
+        $this->assertSame('note', $mine[0][$col('Comment')]);
+        $this->assertSame('1.30', $mine[0][$col('Cost')]); // primary buying price
         // Secondary row: product-level cells blank, only Producer + Cost.
-        $this->assertSame('', $mine[1][1]);
-        $this->assertSame('Renner Hof', $mine[1][2]);
-        $this->assertSame('', $mine[1][6]);                // no category on secondary
-        $this->assertSame('1.50', $mine[1][27]);
+        $this->assertSame('', $mine[1][$col('Main')]);
+        $this->assertSame('Renner Hof', $mine[1][$col('Producer')]);
+        $this->assertSame('', $mine[1][$col('Category')]); // no category on secondary
+        $this->assertSame('1.50', $mine[1][$col('Cost')]);
     }
 
     public function test_export_route_downloads_xlsx(): void
@@ -256,20 +260,168 @@ class ProductCatalogueCsvTest extends TestCase
         $this->assertNotNull($token);
 
         $this->actingAs($admin)
-            ->post(route('app.admin.products.import.confirm'), ['token' => $token])
+            ->post(route('app.admin.products.import.confirm'), [
+                'token' => $token,
+                // The brand-new group needs its three locale names (the dialog).
+                'group_translations' => [
+                    ['name' => 'Frische Kräuter', 'de' => 'Frische Kräuter', 'en' => 'Fresh herbs', 'fr' => 'Herbes fraîches'],
+                ],
+            ])
             ->assertRedirect(route('app.admin.products.index'));
 
         // Existing updated.
         $this->assertSame(9.99, (float) $existing->fresh()->unit_price);
-        // New created with its group.
+        // New created with its group, all three locale names stored.
         $created = Product::query()->whereHas('translations', fn ($q) => $q->where('locale', 'de')->where('name', 'Neues Produkt'))->first();
         $this->assertNotNull($created);
         $this->assertNotNull($created->group_id);
         $this->assertSame('Frische Kräuter', $created->group->localizedName('de'));
+        $this->assertSame('Fresh herbs', $created->group->localizedName('en'));
         // Bad row skipped: no "Kaputt" product.
         $this->assertNull(Product::query()->whereHas('translations', fn ($q) => $q->where('name', 'Kaputt'))->first());
         // Stash cleaned up.
         $this->assertEmpty(Storage::disk('local')->files('catalogue-imports'));
+    }
+
+    // ------------------------------------------------------- Subcategory sections
+
+    public function test_export_groups_products_into_subcategory_sections(): void
+    {
+        $producer = $this->producer('Melchhof');
+        $sub = ProductSubcategory::create([
+            'category' => 'produce',
+            'label_de' => 'Wurzelgemüse', 'label_en' => 'Roots', 'label_fr' => 'Racines',
+            'sort_order' => 0,
+        ]);
+
+        $this->pieceProduct($producer, ['subcategory_id' => $sub->id])->translationFor('de')->update(['name' => 'Zwiebel']);
+        $this->pieceProduct($producer, ['subcategory_id' => $sub->id])->translationFor('de')->update(['name' => 'Karotte']);
+        $this->pieceProduct($producer)->translationFor('de')->update(['name' => 'Apfel']);
+
+        $rows = app(ProductCatalogueExport::class)->array();
+        // Compact sequence: section title rows (blank name) vs product rows.
+        $seq = array_map(
+            static fn ($r): string => (string) $r[1] !== '' ? 'P:'.$r[1] : 'S:'.$r[0],
+            $rows,
+        );
+
+        // Named subcategory first (products alphabetical by German name), then
+        // the "Ohne Unterkategorie" section for the product without one.
+        $this->assertSame(
+            ['S:Wurzelgemüse', 'P:Karotte', 'P:Zwiebel', 'S:Ohne Unterkategorie', 'P:Apfel'],
+            $seq,
+        );
+    }
+
+    public function test_import_skips_section_title_rows(): void
+    {
+        $this->producer('Melchhof');
+
+        $csv = $this->csv([
+            ['Erdgut ID' => 'Wurzelgemüse'], // section-title divider row
+            $this->row('', 'Melchhof', 'Karotte', unit: 'St', price: '2.00'),
+        ]);
+
+        $response = $this->actingAs($this->admin())
+            ->post(route('app.admin.products.import'), ['file' => $this->upload($csv)]);
+
+        $response->assertOk();
+        $result = $response->viewData('result');
+        $this->assertSame(1, $result['summary']['to_create']);
+        $this->assertSame(0, $result['summary']['errors'], 'the divider row is skipped, not an error');
+    }
+
+    public function test_new_subcategory_is_created_from_dialog_and_assigned(): void
+    {
+        $producer = $this->producer('Melchhof');
+
+        $csv = $this->csv([
+            $this->row('', 'Melchhof', 'Karotte', unit: 'St', price: '2.00', extra: ['Sub-category' => 'Wurzelgemüse']),
+        ]);
+
+        $admin = $this->admin();
+        $response = $this->actingAs($admin)
+            ->post(route('app.admin.products.import'), ['file' => $this->upload($csv)]);
+        $response->assertOk();
+        $this->assertSame(['Wurzelgemüse'], $response->viewData('result')['summary']['new_subcategories']);
+
+        $token = collect(Storage::disk('local')->files('catalogue-imports'))
+            ->map(fn ($p): string => basename($p, '.csv'))->first();
+
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.import.confirm'), [
+                'token' => $token,
+                'subcategory_translations' => [
+                    ['name' => 'Wurzelgemüse', 'de' => 'Wurzelgemüse', 'en' => 'Roots', 'fr' => 'Racines'],
+                ],
+            ])
+            ->assertRedirect(route('app.admin.products.index'));
+
+        $sub = ProductSubcategory::query()->where('label_de', 'Wurzelgemüse')->first();
+        $this->assertNotNull($sub);
+        $this->assertSame('produce', $sub->category);
+        $this->assertSame('Roots', $sub->label_en);
+        $this->assertSame('Racines', $sub->label_fr);
+
+        $created = Product::query()->whereHas('translations', fn ($q) => $q->where('name', 'Karotte'))->first();
+        $this->assertSame($sub->id, (int) $created->subcategory_id);
+    }
+
+    public function test_confirm_is_blocked_until_new_translations_are_filled(): void
+    {
+        $producer = $this->producer('Melchhof');
+
+        $csv = $this->csv([
+            $this->row('', 'Melchhof', 'Karotte', unit: 'St', price: '2.00', extra: ['Sub-category' => 'Wurzelgemüse']),
+        ]);
+
+        $admin = $this->admin();
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.import'), ['file' => $this->upload($csv)])
+            ->assertOk();
+        $token = collect(Storage::disk('local')->files('catalogue-imports'))
+            ->map(fn ($p): string => basename($p, '.csv'))->first();
+
+        // Confirm without the dialog translations: re-renders the preview, no write.
+        $response = $this->actingAs($admin)
+            ->post(route('app.admin.products.import.confirm'), ['token' => $token]);
+        $response->assertOk()->assertViewIs('admin.products.import-preview');
+        $this->assertNotNull($response->viewData('translationError'));
+
+        $this->assertSame(0, ProductSubcategory::query()->count());
+        $this->assertNull(Product::query()->whereHas('translations', fn ($q) => $q->where('name', 'Karotte'))->first());
+        // Stash kept so the admin can complete the dialog and retry.
+        $this->assertNotEmpty(Storage::disk('local')->files('catalogue-imports'));
+    }
+
+    public function test_existing_subcategory_is_matched_without_dialog(): void
+    {
+        $producer = $this->producer('Melchhof');
+        $sub = ProductSubcategory::create([
+            'category' => 'produce',
+            'label_de' => 'Wurzelgemüse', 'label_en' => 'Roots', 'label_fr' => 'Racines',
+            'sort_order' => 0,
+        ]);
+
+        $csv = $this->csv([
+            $this->row('', 'Melchhof', 'Karotte', unit: 'St', price: '2.00', extra: ['Sub-category' => 'Wurzelgemüse']),
+        ]);
+
+        $admin = $this->admin();
+        $response = $this->actingAs($admin)
+            ->post(route('app.admin.products.import'), ['file' => $this->upload($csv)]);
+        // Existing subcategory: nothing to fill in the dialog.
+        $this->assertSame([], $response->viewData('result')['summary']['new_subcategories']);
+
+        $token = collect(Storage::disk('local')->files('catalogue-imports'))
+            ->map(fn ($p): string => basename($p, '.csv'))->first();
+        $this->actingAs($admin)
+            ->post(route('app.admin.products.import.confirm'), ['token' => $token])
+            ->assertRedirect(route('app.admin.products.index'));
+
+        $created = Product::query()->whereHas('translations', fn ($q) => $q->where('name', 'Karotte'))->first();
+        $this->assertSame($sub->id, (int) $created->subcategory_id);
+        $this->assertSame(1, ProductSubcategory::query()->count(), 'no duplicate subcategory created');
     }
 
     // ------------------------------------------------------------- Module B
