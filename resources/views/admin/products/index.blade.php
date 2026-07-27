@@ -44,7 +44,7 @@
                         <input
                             type="file"
                             name="file"
-                            accept=".csv,text/csv"
+                            accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
                             class="sr-only"
                             @change="$el.form.submit()"
                         >
