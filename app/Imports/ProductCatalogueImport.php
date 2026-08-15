@@ -16,9 +16,12 @@ use Illuminate\Support\Facades\DB;
  * are written as one-off stock inflows.
  *
  * Availability semantics: a dated column value is the authoritative single
- * (non-schedule) inflow quantity for that product on that day. Applying it
- * consolidates every existing one-off inflow on that day into a single
- * CSV-owned row set to the value; a blank cell means "no change".
+ * (non-schedule) inflow quantity for one producer of that product on that day.
+ * Each producer has its own row on the sheet (the Main row for the primary,
+ * one lean row per secondary farm), so applying a value consolidates that
+ * producer's existing one-off inflows on the day into a single CSV-owned row
+ * set to the value; a blank cell means "no change". The product's availability
+ * for the day is the sum across producers.
  *
  * Guard rail: daily writes only ever touch one-off inflows (those with no
  * `source_schedule_id`). Schedule-materialized recurring batches are never
@@ -108,11 +111,14 @@ class ProductCatalogueImport
 
     /**
      * Apply the product's daily intents. Each intent makes the value the total
-     * single-inflow quantity for that product on that day: existing one-off
-     * inflows on the day are consolidated into a single CSV-owned row set to
-     * the value. Schedule-materialized batches are never touched.
+     * single-inflow quantity for that product on that day *for one producer*:
+     * existing one-off inflows for that producer on the day are consolidated
+     * into a single CSV-owned row set to the value. Every producer keeps its own
+     * row, so a 2-farm product records each farm's stock independently and the
+     * product's availability is their sum. Schedule-materialized batches are
+     * never touched.
      *
-     * @param  list<array{date:string, canonical:float, raw:string}>  $daily
+     * @param  list<array{date:string, canonical:float, raw:string, producer_id:int}>  $daily
      */
     private function applyDaily(Product $product, array $daily, ?int $userId): int
     {
@@ -121,14 +127,24 @@ class ProductCatalogueImport
             $date = Carbon::parse($intent['date'])->startOfDay();
             $quantity = round((float) $intent['canonical'], 4);
             $freshness = max(1, (int) ($product->default_freshness_window_days ?? 1));
+            $producerId = $intent['producer_id'] ?? $product->producer_id;
+            // The primary producer's row also owns any producer-less (legacy)
+            // inflow on the day, mirroring how the export renders the Main row.
+            $isPrimary = $producerId === $product->producer_id;
 
-            // Every one-off inflow on this day (any origin except a schedule),
-            // oldest first. The first becomes the row we keep and adjust; the
-            // rest are folded into it and removed.
+            // Every one-off inflow for this producer on this day (any origin
+            // except a schedule), oldest first. The first becomes the row we
+            // keep and adjust; the rest are folded into it and removed.
             $oneOffs = ProductStockInflow::query()
                 ->where('product_id', $product->id)
                 ->whereNull('variant_id')
                 ->whereNull('source_schedule_id')
+                ->where(function ($q) use ($producerId, $isPrimary): void {
+                    $q->where('producer_id', $producerId);
+                    if ($isPrimary) {
+                        $q->orWhereNull('producer_id');
+                    }
+                })
                 ->whereDate('received_on', $date->toDateString())
                 ->orderBy('id')
                 ->get();
@@ -139,7 +155,7 @@ class ProductCatalogueImport
                 $anchor->update([
                     'quantity' => $quantity,
                     'freshness_window_days' => $freshness,
-                    'producer_id' => $product->producer_id,
+                    'producer_id' => $producerId,
                     'notes' => self::CSV_NOTE,
                 ]);
                 $oneOffs->reject(fn (ProductStockInflow $i): bool => $i->id === $anchor->id)
@@ -153,7 +169,7 @@ class ProductCatalogueImport
                     sourceScheduleId: null,
                     notes: self::CSV_NOTE,
                     createdByUserId: $userId,
-                    producerId: $product->producer_id,
+                    producerId: $producerId,
                 );
             }
             $count++;
