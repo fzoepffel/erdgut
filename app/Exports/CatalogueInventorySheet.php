@@ -43,7 +43,9 @@ class CatalogueInventorySheet extends CatalogueSheet
             'Unit' => CatalogueSchema::unitToken($product),
         ], CatalogueSchema::inventoryFixedHeaders());
 
-        return [array_merge($fixed, $this->dailyCells($product, $factor))];
+        // One row per product: shows the primary producer's stock (secondary
+        // producers' per-farm stock is edited on the full "Katalog" sheet).
+        return [array_merge($fixed, $this->dailyCells($product, $factor, $product->producer_id, isMain: true))];
     }
 
     /**

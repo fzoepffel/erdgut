@@ -280,14 +280,16 @@ abstract class CatalogueSheet implements FromArray, WithEvents, WithHeadings, Wi
     }
 
     /**
-     * Daily availability cells, canonical → display. Blank when nothing was
-     * received that day, `Unlimited` at/above the sentinel.
+     * Daily availability cells for one producer's row, canonical → display.
+     * Blank when nothing was received that day, `Unlimited` at/above the
+     * sentinel. The primary ("Main") row also carries any producer-less legacy
+     * inflows; secondary rows carry only their own producer's stock.
      *
      * @return list<string>
      */
-    protected function dailyCells(Product $product, int $factor): array
+    protected function dailyCells(Product $product, int $factor, ?int $producerId = null, bool $isMain = true): array
     {
-        $dailyByDay = $this->data->dailyByProduct[$product->id] ?? [];
+        $dailyByDay = $this->rowDaily($product, $producerId, $isMain);
         $cells = [];
         foreach ($this->data->days as $date) {
             $canonical = $dailyByDay[$date->toDateString()] ?? null;
@@ -301,6 +303,30 @@ abstract class CatalogueSheet implements FromArray, WithEvents, WithHeadings, Wi
         }
 
         return $cells;
+    }
+
+    /**
+     * The canonical daily quantities to show on one producer's row. The Main
+     * row merges the primary producer's stock with the producer-less (legacy)
+     * `0` bucket; a secondary row shows only that producer's stock.
+     *
+     * @return array<string, float>
+     */
+    private function rowDaily(Product $product, ?int $producerId, bool $isMain): array
+    {
+        $byProducer = $this->data->dailyByProducer[$product->id] ?? [];
+
+        if (! $isMain) {
+            return $producerId !== null ? ($byProducer[$producerId] ?? []) : [];
+        }
+
+        $primaryId = $product->producer_id;
+        $merged = $primaryId !== null ? ($byProducer[$primaryId] ?? []) : [];
+        foreach ($byProducer[0] ?? [] as $day => $qty) {
+            $merged[$day] = ($merged[$day] ?? 0.0) + $qty;
+        }
+
+        return $merged;
     }
 
     protected function businessDisplayPrice(Product $product, int $factor): ?float

@@ -20,6 +20,7 @@ use App\Models\ProductStockInflow;
 use App\Models\ProductStockInflowSchedule;
 use App\Models\ProductSubcategory;
 use App\Models\User;
+use App\Services\Admin\InventoryService;
 use App\Services\Admin\ProductWriter;
 use App\Support\ProductCatalogue\CatalogueSchema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -598,6 +599,118 @@ class ProductCatalogueCsvTest extends TestCase
         $this->assertSame(3000.0, (float) $inflow->quantity);
     }
 
+    public function test_secondary_producer_day_column_records_per_producer_inflow(): void
+    {
+        $primary = $this->producer('Melchhof');
+        $secondary = $this->producer('Renner Hof');
+        $product = $this->pieceProduct($primary);
+        $product->producers()->attach($secondary->id, ['position' => 1, 'buying_price_cents' => 150]);
+
+        $date = Carbon::now()->addDays(3);
+        $dayHeader = CatalogueSchema::dayHeader($date);
+
+        // Main row stocks the primary farm; the secondary producer's own row
+        // stocks that farm. Both must land as separate per-producer inflows.
+        $csv = $this->csv([
+            $this->row($product->id, 'Melchhof', 'Bestehend', unit: 'St', price: '2.50', extra: [$dayHeader => '5']),
+            ['Erdgut ID' => (string) $product->id, 'Producer' => 'Renner Hof', $dayHeader => '3'],
+        ], [$dayHeader]);
+        $this->applyCsv($csv);
+
+        $primaryInflow = ProductStockInflow::query()
+            ->where('product_id', $product->id)
+            ->where('producer_id', $primary->id)
+            ->whereDate('received_on', $date->toDateString())
+            ->first();
+        $secondaryInflow = ProductStockInflow::query()
+            ->where('product_id', $product->id)
+            ->where('producer_id', $secondary->id)
+            ->whereDate('received_on', $date->toDateString())
+            ->first();
+
+        $this->assertNotNull($primaryInflow, 'primary producer stock recorded');
+        $this->assertNotNull($secondaryInflow, 'secondary producer stock recorded');
+        $this->assertSame(5.0, (float) $primaryInflow->quantity);
+        $this->assertSame(3.0, (float) $secondaryInflow->quantity);
+        $this->assertSame(ProductCatalogueImport::CSV_NOTE, $secondaryInflow->notes);
+
+        // The product's availability for the day is the sum of both farms.
+        $this->assertSame(
+            8.0,
+            (float) app(InventoryService::class)->availableOnDate($product->fresh(), $date),
+        );
+    }
+
+    public function test_export_shows_each_producer_stock_and_reimports_clean(): void
+    {
+        $primary = $this->producer('Melchhof');
+        $secondary = $this->producer('Renner Hof');
+        $product = $this->pieceProduct($primary);
+        $product->producers()->attach($secondary->id, ['position' => 1, 'buying_price_cents' => 150]);
+
+        $date = Carbon::now()->addDays(2);
+        foreach ([[$primary->id, 5], [$secondary->id, 3]] as [$producerId, $qty]) {
+            ProductStockInflow::query()->create([
+                'product_id' => $product->id,
+                'producer_id' => $producerId,
+                'received_on' => $date->toDateString(),
+                'original_received_on' => $date->toDateString(),
+                'quantity' => $qty,
+                'freshness_window_days' => 1,
+                'source_schedule_id' => null,
+            ]);
+        }
+
+        // Export: the Main row shows the primary farm's 5, the secondary row its 3.
+        $rows = $this->sheet(CatalogueMainSheet::class)->array();
+        $mine = array_values(array_filter($rows, fn ($r): bool => (string) $r[0] === (string) $product->id));
+        $headings = $this->sheet(CatalogueMainSheet::class)->headings();
+        $dayCol = array_search(CatalogueSchema::dayHeader($date), $headings, true);
+        $this->assertCount(2, $mine);
+        $this->assertSame('5', $mine[0][$dayCol], 'Main row shows primary farm stock');
+        $this->assertSame('3', $mine[1][$dayCol], 'secondary row shows its own farm stock');
+
+        // A clean round-trip changes nothing (per-producer values match the DB).
+        $result = $this->reimport(fn ($book) => null);
+        $this->assertSame([], $result['errors']);
+        $this->assertSame(0, $result['summary']['to_update']);
+        $this->assertSame(1, $result['summary']['unchanged']);
+        $this->assertSame(0, $result['summary']['weekly_changes']);
+    }
+
+    public function test_editing_only_secondary_producer_stock_on_reimport_updates_that_farm(): void
+    {
+        $primary = $this->producer('Melchhof');
+        $secondary = $this->producer('Renner Hof');
+        $product = $this->pieceProduct($primary);
+        $product->producers()->attach($secondary->id, ['position' => 1, 'buying_price_cents' => 150]);
+
+        $date = Carbon::now()->addDays(2);
+        foreach ([[$primary->id, 5], [$secondary->id, 3]] as [$producerId, $qty]) {
+            ProductStockInflow::query()->create([
+                'product_id' => $product->id,
+                'producer_id' => $producerId,
+                'received_on' => $date->toDateString(),
+                'original_received_on' => $date->toDateString(),
+                'quantity' => $qty,
+                'freshness_window_days' => 1,
+                'source_schedule_id' => null,
+            ]);
+        }
+
+        // Bump only the secondary producer's row on the "Katalog" sheet.
+        $result = $this->reimport(function ($book) use ($product, $secondary, $date): void {
+            $this->setProducerCell($book, $product->id, $secondary->id, CatalogueSchema::dayHeader($date), '9');
+        });
+
+        $this->assertSame([], $result['errors']);
+        $this->assertSame(1, $result['summary']['to_update']);
+        $intent = collect($result['products'][0]['weekly'])->firstWhere('producer_id', $secondary->id);
+        $this->assertNotNull($intent, 'secondary producer edit surfaced as an intent');
+        $this->assertSame(9.0, $intent['canonical']);
+        $this->assertSame($date->toDateString(), $intent['date']);
+    }
+
     // ----------------------------------------------------------- ProductWriter
 
     public function test_writer_upsert_creates_business_rule_and_group(): void
@@ -835,6 +948,38 @@ class ProductCatalogueCsvTest extends TestCase
             }
         }
         $this->assertNotNull($rowNumber, "row for id {$id} on {$sheetTitle}");
+
+        $sheet->setCellValue([$col + 1, $rowNumber], $value);
+    }
+
+    /**
+     * Set a cell on the "Katalog" sheet row that belongs to a specific
+     * producer of a multi-producer product (matched by Erdgut ID + the
+     * producer's German name), so secondary-row edits can be targeted.
+     */
+    private function setProducerCell(Spreadsheet $book, int $productId, int $producerId, string $header, string $value): void
+    {
+        $producerName = Producer::query()->findOrFail($producerId)->translationFor('de')?->name;
+        $sheet = $book->getSheetByName(CatalogueSchema::SHEET_MAIN);
+        $this->assertNotNull($sheet);
+
+        $matrix = $sheet->toArray(null, false, false, false);
+        $headers = array_map(fn ($h): string => trim((string) $h), $matrix[0] ?? []);
+        $col = array_search($header, $headers, true);
+        $idCol = array_search('Erdgut ID', $headers, true);
+        $producerCol = array_search('Producer', $headers, true);
+        $this->assertNotFalse($col, "header {$header}");
+
+        $rowNumber = null;
+        foreach ($matrix as $i => $cells) {
+            if ($i > 0
+                && (string) ($cells[$idCol] ?? '') === (string) $productId
+                && (string) ($cells[$producerCol] ?? '') === (string) $producerName) {
+                $rowNumber = $i + 1;
+                break;
+            }
+        }
+        $this->assertNotNull($rowNumber, "row for producer {$producerName} of product {$productId}");
 
         $sheet->setCellValue([$col + 1, $rowNumber], $value);
     }
