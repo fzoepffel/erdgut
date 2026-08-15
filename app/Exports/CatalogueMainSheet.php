@@ -9,7 +9,8 @@ use App\Support\ProductCatalogue\CatalogueSchema;
  * The full catalogue sheet ("Katalog"): every field, one row per
  * (product × producer). The primary producer's row is marked `Main` and
  * carries every product-level field; secondary rows carry only that farm's
- * `Producer` + `Cost`.
+ * `Producer` + `Cost` plus its own daily availability, so per-producer stock
+ * can be read and edited on its own row.
  */
 class CatalogueMainSheet extends CatalogueSheet
 {
@@ -137,12 +138,13 @@ class CatalogueMainSheet extends CatalogueSheet
             'Comment' => (string) ($meta['comment'] ?? ''),
         ], CatalogueSchema::fixedHeaders());
 
-        return array_merge($fixed, $this->dailyCells($product, $factor));
+        return array_merge($fixed, $this->dailyCells($product, $factor, $producer?->id, isMain: true));
     }
 
     /**
      * A secondary producer's lean row: product-level cells blank, only the
-     * farm's own `Producer` + `Cost` carried.
+     * farm's own `Producer` + `Cost`, plus that farm's own daily availability
+     * so per-producer stock can be read and edited on its own row.
      *
      * @return array<int, mixed>
      */
@@ -154,8 +156,9 @@ class CatalogueMainSheet extends CatalogueSheet
             'Cost' => $this->money($this->costFor($product, $producer, isMain: false)),
         ], CatalogueSchema::fixedHeaders());
 
-        // Secondary rows carry no daily availability (that lives on Main).
-        return array_merge($fixed, array_fill(0, count($this->data->days), ''));
+        $factor = $this->writer->displayFactor($product);
+
+        return array_merge($fixed, $this->dailyCells($product, $factor, $producer?->id, isMain: false));
     }
 
     /**

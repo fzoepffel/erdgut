@@ -19,13 +19,13 @@ final class CatalogueExportData
 {
     /**
      * @param  Collection<int, Product>  $products
-     * @param  array<int, array<string, float>>  $dailyByProduct  product id => (Y-m-d => canonical quantity)
+     * @param  array<int, array<int, array<string, float>>>  $dailyByProducer  product id => producer id => (Y-m-d => canonical quantity). Producer-less (legacy) inflows are folded onto the product's primary producer, or the `0` bucket when the product has no primary.
      * @param  array<string, Carbon>  $days  header (`YYYY-MM-DD`) => that day
      * @param  list<array{title:string, products:list<Product>}>  $sections
      */
     public function __construct(
         public readonly Collection $products,
-        public readonly array $dailyByProduct,
+        public readonly array $dailyByProducer,
         public readonly array $days,
         public readonly array $sections,
     ) {}
@@ -42,21 +42,28 @@ final class CatalogueExportData
 
         $days = CatalogueSchema::dayHeadersFrom(Carbon::now(), CatalogueSchema::EXPORT_DAYS_AHEAD);
 
-        // Daily one-off inflow quantities for every product in one query:
-        // product_id => [Y-m-d => canonical quantity]. Schedule-materialised
+        // Daily one-off inflow quantities for every product, split per producer
+        // (product_id => producer_id => [Y-m-d => canonical quantity]) so each
+        // producer's row on the sheet shows its own stock. Schedule-materialised
         // recurring batches are owned by the schedule, so they are excluded.
+        // Producer-less legacy inflows are attributed to the primary producer.
         $dates = array_map(static fn (Carbon $d): string => $d->toDateString(), $days);
-        $dailyByProduct = ProductStockInflow::query()
+        $primaryByProduct = $products->mapWithKeys(
+            static fn (Product $p): array => [$p->id => $p->producer_id],
+        )->all();
+        $dailyByProducer = [];
+        foreach (ProductStockInflow::query()
             ->whereIn('product_id', $products->modelKeys())
             ->whereNull('source_schedule_id')
             ->whereIn('received_on', $dates)
-            ->get(['product_id', 'received_on', 'quantity'])
-            ->groupBy('product_id')
-            ->map(fn ($rows) => $rows->groupBy(fn (ProductStockInflow $i): string => $i->received_on->toDateString())
-                ->map(fn ($g) => (float) $g->sum('quantity'))->all())
-            ->all();
+            ->get(['product_id', 'producer_id', 'received_on', 'quantity']) as $inflow) {
+            $producerId = $inflow->producer_id ?? ($primaryByProduct[$inflow->product_id] ?? 0) ?? 0;
+            $day = $inflow->received_on->toDateString();
+            $dailyByProducer[$inflow->product_id][$producerId][$day]
+                = ($dailyByProducer[$inflow->product_id][$producerId][$day] ?? 0.0) + (float) $inflow->quantity;
+        }
 
-        return new self($products, $dailyByProduct, $days, self::groupIntoSections($products));
+        return new self($products, $dailyByProducer, $days, self::groupIntoSections($products));
     }
 
     /**

@@ -42,8 +42,8 @@ class ProductCsvParser
     /** @var array<string, int> lowercased de group name => group id */
     private array $groupByName;
 
-    /** @var array<int, array<string, float>> existing product id => (Y-m-d => canonical one-off quantity) */
-    private array $dbDailyByProduct = [];
+    /** @var array<int, array<int, array<string, float>>> existing product id => producer id => (Y-m-d => canonical one-off quantity). Producer-less inflows are folded onto the primary producer (or the `0` bucket when there is none). */
+    private array $dbDailyByProducer = [];
 
     /** @var array<int, array<string, string>> existing product id => the exported "Katalog" main-row cells (the current DB state, formatted exactly as the sheet shows it) */
     private array $dbCellsByProduct = [];
@@ -598,7 +598,14 @@ class ProductCsvParser
             $data['is_test'] = (bool) $existing->is_test;
         }
 
-        $weekly = $this->reconcileDaily($primary, $inventoryOverlay, $dayColumns, $unit, $bucket['id'], $warnings);
+        // Daily availability: the primary producer's row (reconciled against the
+        // "Bestand" sheet), plus each secondary producer's own row so a 2-farm
+        // product records per-producer stock instead of dropping it.
+        $primaryProducerId = $producerIds[0];
+        $weekly = array_merge(
+            $this->reconcileDaily($primary, $inventoryOverlay, $dayColumns, $unit, $bucket['id'], $primaryProducerId, $warnings),
+            $this->secondaryDailyIntents($rows, $primary, $dayColumns, $unit, $bucket['id'], $primaryProducerId),
+        );
 
         // Which fields (if any) this row actually changes. A new product is
         // always a change; an existing one is compared field-by-field against
@@ -662,12 +669,12 @@ class ProductCsvParser
      * @param  array<string, Carbon>  $dayColumns
      * @param  array{unit:string, price_display_unit:string, count_unit_label:?string}  $unit
      * @param  list<string>  $warnings
-     * @return list<array{date:string, canonical:float, raw:string}>
+     * @return list<array{date:string, canonical:float, raw:string, producer_id:int}>
      */
-    private function reconcileDaily(array $primary, array $inventoryOverlay, array $dayColumns, array $unit, ?int $id, array &$warnings): array
+    private function reconcileDaily(array $primary, array $inventoryOverlay, array $dayColumns, array $unit, ?int $id, int $primaryProducerId, array &$warnings): array
     {
         $factor = ProductUnit::from($unit['unit'])->canonicalUnitsPerDisplay($unit['price_display_unit']);
-        $db = $id !== null ? ($this->dbDailyByProduct[$id] ?? []) : [];
+        $db = $this->producerDbDaily($id, $primaryProducerId, isPrimary: true);
         $ref = $id !== null ? ($this->dbCellsByProduct[$id] ?? []) : [];
 
         $out = [];
@@ -703,7 +710,68 @@ class ProductCsvParser
                 'date' => $date->toDateString(),
                 'canonical' => $final,
                 'raw' => $overlay !== null && $this->sameQty($overlay, $final) ? $overlayRaw : $mainRaw,
+                'producer_id' => $primaryProducerId,
             ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Daily availability intents for a product's secondary producer rows. Each
+     * secondary row carries its own farm's stock in the dated columns; a blank
+     * cell means "no change", a value sets that producer's inflow for the day.
+     * The primary row is handled by {@see reconcileDaily()} and skipped here, as
+     * is any row whose producer duplicates or fails to match the primary.
+     *
+     * @param  list<array<string, string>>  $rows
+     * @param  array<string, string>  $primary
+     * @param  array<string, Carbon>  $dayColumns
+     * @param  array{unit:string, price_display_unit:string, count_unit_label:?string}  $unit
+     * @return list<array{date:string, canonical:float, raw:string, producer_id:int}>
+     */
+    private function secondaryDailyIntents(array $rows, array $primary, array $dayColumns, array $unit, ?int $id, int $primaryProducerId): array
+    {
+        $factor = ProductUnit::from($unit['unit'])->canonicalUnitsPerDisplay($unit['price_display_unit']);
+        $out = [];
+        $seen = [$primaryProducerId => true];
+
+        foreach ($rows as $row) {
+            if ($row === $primary) {
+                continue;
+            }
+            $name = trim($row['Producer'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+            $producerId = $this->producerByName[mb_strtolower($name)] ?? null;
+            // Unknown producers are already reported by the producer parsing; a
+            // producer that repeats the primary or another row is counted once.
+            if ($producerId === null || isset($seen[$producerId])) {
+                continue;
+            }
+            $seen[$producerId] = true;
+
+            $db = $this->producerDbDaily($id, $producerId, isPrimary: false);
+            foreach ($dayColumns as $header => $date) {
+                $raw = trim($row[$header] ?? '');
+                if ($raw === '') {
+                    continue; // blank = no change for this producer
+                }
+                $value = $this->parseDayCell($raw, $factor);
+                if ($value === null) {
+                    continue;
+                }
+                if ($this->sameQty($value, $db[$date->toDateString()] ?? 0.0)) {
+                    continue; // still at the stored quantity: not an edit
+                }
+                $out[] = [
+                    'date' => $date->toDateString(),
+                    'canonical' => $value,
+                    'raw' => $raw,
+                    'producer_id' => $producerId,
+                ];
+            }
         }
 
         return $out;
@@ -1209,22 +1277,48 @@ class ProductCsvParser
      */
     private function loadDbDaily(array $ids, array $dayColumns): void
     {
-        $this->dbDailyByProduct = [];
+        $this->dbDailyByProducer = [];
         if ($ids === [] || $dayColumns === []) {
             return;
         }
 
+        $primaryByProduct = Product::query()->whereIn('id', $ids)->pluck('producer_id', 'id')->all();
         $dates = array_map(static fn (Carbon $d): string => $d->toDateString(), array_values($dayColumns));
-        $this->dbDailyByProduct = ProductStockInflow::query()
+        foreach (ProductStockInflow::query()
             ->whereIn('product_id', $ids)
             ->whereNull('variant_id')
             ->whereNull('source_schedule_id')
             ->whereIn('received_on', $dates)
-            ->get(['product_id', 'received_on', 'quantity'])
-            ->groupBy('product_id')
-            ->map(fn ($rows) => $rows->groupBy(fn (ProductStockInflow $i): string => $i->received_on->toDateString())
-                ->map(fn ($g) => (float) $g->sum('quantity'))->all())
-            ->all();
+            ->get(['product_id', 'producer_id', 'received_on', 'quantity']) as $inflow) {
+            $producerId = $inflow->producer_id ?? ($primaryByProduct[$inflow->product_id] ?? 0) ?? 0;
+            $day = $inflow->received_on->toDateString();
+            $this->dbDailyByProducer[$inflow->product_id][$producerId][$day]
+                = ($this->dbDailyByProducer[$inflow->product_id][$producerId][$day] ?? 0.0) + (float) $inflow->quantity;
+        }
+    }
+
+    /**
+     * The stored one-off daily quantities to compare a producer's row against.
+     * The primary producer's map also absorbs any producer-less (legacy)
+     * inflows, mirroring how the export renders the Main row.
+     *
+     * @return array<string, float>
+     */
+    private function producerDbDaily(?int $productId, ?int $producerId, bool $isPrimary): array
+    {
+        if ($productId === null || $producerId === null) {
+            return [];
+        }
+        $byProducer = $this->dbDailyByProducer[$productId] ?? [];
+        $map = $byProducer[$producerId] ?? [];
+        if (! $isPrimary) {
+            return $map;
+        }
+        foreach ($byProducer[0] ?? [] as $day => $qty) {
+            $map[$day] = ($map[$day] ?? 0.0) + $qty;
+        }
+
+        return $map;
     }
 
     /**
