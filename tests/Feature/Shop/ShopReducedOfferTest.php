@@ -234,6 +234,9 @@ class ShopReducedOfferTest extends TestCase
 
     public function test_admin_can_start_manual_reduced_period(): void
     {
+        // Pin the clock: `start` defaults startsAt to now and rejects a reopen
+        // that isn't after it, so the reopen date must be in the test's future.
+        Carbon::setTestNow(Carbon::parse('2026-07-22 12:00'));
         $admin = User::factory()->admin()->create();
 
         $this->actingAs($admin)
