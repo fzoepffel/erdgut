@@ -621,6 +621,15 @@ class ProductCsvParser
             $this->preserveUnchangedText($existing, $primary, $data);
         }
 
+        // Reject values that overflow their column before the write is attempted,
+        // so one over-long cell surfaces as a readable row error in the preview
+        // instead of aborting the whole transaction with a 500 (MySQL is strict;
+        // SQLite silently truncates, so this never shows up in tests).
+        $lengthError = $this->translationLengthError($data['translations']);
+        if ($lengthError !== null) {
+            return ['error' => $lengthError];
+        }
+
         return [
             'action' => $bucket['id'] === null ? 'create' : 'update',
             'product_id' => $bucket['id'],
@@ -634,6 +643,51 @@ class ProductCsvParser
             'changed_fields' => $changedFields,
             'warnings' => $warnings,
         ];
+    }
+
+    /**
+     * Max lengths of the varchar translation columns, keyed by attribute. The
+     * `taste_profile` (Long Description) column is TEXT, so it is unbounded and
+     * intentionally absent here. Must stay in step with the migrations and the
+     * form's `max:` rules on these fields.
+     */
+    private const TRANSLATION_MAX_LENGTHS = [
+        'name' => 255,
+        'origin' => 128,
+        'variety' => 128,
+        'short_description' => 240,
+    ];
+
+    /** Sheet-header labels for the length-limited translation fields. */
+    private const TRANSLATION_FIELD_HEADERS = [
+        'name' => 'Name',
+        'origin' => 'Origin',
+        'variety' => 'Variety',
+        'short_description' => 'Short Description',
+    ];
+
+    /**
+     * The first over-length translation value, as a human-readable error naming
+     * the exact column (e.g. "Short Description (DE)"), or null when every value
+     * fits its column.
+     *
+     * @param  array<string, array<string, string>>  $translations  locale => attr => value
+     */
+    private function translationLengthError(array $translations): ?string
+    {
+        foreach ($translations as $locale => $fields) {
+            foreach (self::TRANSLATION_MAX_LENGTHS as $attr => $max) {
+                $value = (string) ($fields[$attr] ?? '');
+                $length = mb_strlen($value);
+                if ($length > $max) {
+                    $header = self::TRANSLATION_FIELD_HEADERS[$attr].' ('.mb_strtoupper((string) $locale).')';
+
+                    return "{$header} is too long ({$length}/{$max} characters). Shorten it in the sheet.";
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

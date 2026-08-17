@@ -711,6 +711,50 @@ class ProductCatalogueCsvTest extends TestCase
         $this->assertSame($date->toDateString(), $intent['date']);
     }
 
+    public function test_overlong_short_description_is_a_row_error_not_a_crash(): void
+    {
+        $producer = $this->producer('Melchhof');
+
+        // 241 characters: one over the short_description column limit. MySQL
+        // rejects this on write; the parser must catch it up front as a clean
+        // row error so the import preview stays usable instead of 500-ing.
+        $tooLong = str_repeat('a', 241);
+
+        $csv = $this->csv([
+            $this->row('', 'Melchhof', 'Neu', unit: 'St', price: '2.00', extra: ['Short Description (DE)' => $tooLong]),
+            $this->row('', 'Melchhof', 'Sauber', unit: 'St', price: '3.00'),
+        ]);
+
+        $response = $this->actingAs($this->admin())
+            ->post(route('app.admin.products.import'), ['file' => $this->upload($csv)]);
+        $response->assertOk();
+        $result = $response->viewData('result');
+
+        // The bad row is reported, naming the column; the clean row still imports.
+        $this->assertSame(1, $result['summary']['errors']);
+        $this->assertStringContainsString('Short Description (DE)', $result['errors'][0]['message']);
+        $this->assertStringContainsString('241/240', $result['errors'][0]['message']);
+        $this->assertSame(1, $result['summary']['to_create']);
+    }
+
+    public function test_short_description_at_the_limit_is_accepted(): void
+    {
+        $producer = $this->producer('Melchhof');
+        $exactly = str_repeat('a', 240);
+
+        $csv = $this->csv([
+            $this->row('', 'Melchhof', 'Neu', unit: 'St', price: '2.00', extra: ['Short Description (DE)' => $exactly]),
+        ]);
+
+        $response = $this->actingAs($this->admin())
+            ->post(route('app.admin.products.import'), ['file' => $this->upload($csv)]);
+        $response->assertOk();
+        $result = $response->viewData('result');
+
+        $this->assertSame(0, $result['summary']['errors']);
+        $this->assertSame(1, $result['summary']['to_create']);
+    }
+
     // ----------------------------------------------------------- ProductWriter
 
     public function test_writer_upsert_creates_business_rule_and_group(): void
