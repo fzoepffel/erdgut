@@ -81,6 +81,54 @@ class RestaurantInvoiceTest extends TestCase
         $this->assertEqualsWithDelta(107.00, (float) $order->items_total_gross_eur, 0.01);
     }
 
+    public function test_vat_is_computed_on_the_net_subtotal_not_per_line(): void
+    {
+        // Three lines of 0.10 € net at 7 %. Per-line rounding would give
+        // round(0.007, 2) = 0.01 each → 0.03 VAT and 0.33 gross. Correct
+        // net-forward maths sums the net first (0.30) then applies the rate
+        // once: round(0.30 × 0.07, 2) = 0.02 VAT, 0.32 gross.
+        $order = $this->confirmedOrder();
+        $item = $order->items()->firstOrFail();
+        $svc = app(RestaurantInvoiceService::class);
+
+        $svc->updatePricing($order, [
+            ['id' => $item->id, 'net_total_eur' => 0.10, 'vat_rate_percent' => 7, 'quantity' => 1],
+            ['name' => 'Extra A', 'unit' => 'piece', 'quantity' => 1, 'net_total_eur' => 0.10, 'vat_rate_percent' => 7],
+            ['name' => 'Extra B', 'unit' => 'piece', 'quantity' => 1, 'net_total_eur' => 0.10, 'vat_rate_percent' => 7],
+        ]);
+
+        $order->refresh();
+        $this->assertEqualsWithDelta(0.30, (float) $order->items_total_net_eur, 0.001);
+        $this->assertEqualsWithDelta(0.02, (float) $order->vat_total_eur, 0.001, 'VAT on the 0.30 net subtotal, not 3×round(0.007)');
+        $this->assertEqualsWithDelta(0.32, (float) $order->items_total_gross_eur, 0.001);
+        $this->assertEqualsWithDelta(0.02, (float) $svc->vatByRate($order)[7], 0.001);
+    }
+
+    public function test_vat_by_rate_sums_net_within_each_rate_bucket(): void
+    {
+        // Mixed rates: two 7 % lines (0.10 + 0.10) and two 19 % lines
+        // (0.10 + 0.10). Each bucket rounds its own net subtotal once:
+        // 7 % → round(0.20 × 0.07, 2) = 0.01; 19 % → round(0.20 × 0.19, 2) = 0.04.
+        $order = $this->confirmedOrder();
+        $item = $order->items()->firstOrFail();
+        $svc = app(RestaurantInvoiceService::class);
+
+        $svc->updatePricing($order, [
+            ['id' => $item->id, 'net_total_eur' => 0.10, 'vat_rate_percent' => 7, 'quantity' => 1],
+            ['name' => 'A7', 'unit' => 'piece', 'quantity' => 1, 'net_total_eur' => 0.10, 'vat_rate_percent' => 7],
+            ['name' => 'A19', 'unit' => 'piece', 'quantity' => 1, 'net_total_eur' => 0.10, 'vat_rate_percent' => 19],
+            ['name' => 'B19', 'unit' => 'piece', 'quantity' => 1, 'net_total_eur' => 0.10, 'vat_rate_percent' => 19],
+        ]);
+
+        $order->refresh();
+        $byRate = $svc->vatByRate($order);
+        $this->assertEqualsWithDelta(0.01, (float) $byRate[7], 0.001);
+        $this->assertEqualsWithDelta(0.04, (float) $byRate[19], 0.001);
+        $this->assertEqualsWithDelta(0.05, (float) $order->vat_total_eur, 0.001);
+        $this->assertEqualsWithDelta(0.40, (float) $order->items_total_net_eur, 0.001);
+        $this->assertEqualsWithDelta(0.45, (float) $order->items_total_gross_eur, 0.001);
+    }
+
     public function test_editing_reserved_quantity_changes_availability(): void
     {
         $order = $this->confirmedOrder(); // qty 10 reserved → 40 remain
