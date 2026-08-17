@@ -271,18 +271,24 @@ class RestaurantInvoiceService
      */
     public function vatByRate(RestaurantOrder $order): Collection
     {
-        $byRate = $order->items
+        // Net-forward: sum the NET per rate first, then apply the rate once.
+        // Cent-rounding happens on the per-rate net subtotal, never per line, so
+        // many small lines can't accumulate per-line rounding drift (the invoice
+        // prints net lines, a net total, VAT per rate, then the gross total).
+        $netByRate = $order->items
             ->reject(fn ($i) => $i->isDeclined())
             ->groupBy('vat_rate_snapshot_percent')
-            ->map(fn ($group) => round($group->sum(fn ($item) => (float) $item->vat_amount_eur), 2));
+            ->map(fn ($group) => (float) $group->sum(fn ($item) => $item->lineNetEur()));
 
-        // The delivery fee's VAT joins its rate bucket like any line.
-        if ($order->deliveryFeeVatEur() > 0) {
+        // The delivery fee's net joins its rate bucket like any line.
+        if ($order->deliveryFeeNetEur() > 0 && $order->delivery_fee_vat_rate_percent !== null) {
             $rate = (int) $order->delivery_fee_vat_rate_percent;
-            $byRate[$rate] = round((float) ($byRate[$rate] ?? 0.0) + $order->deliveryFeeVatEur(), 2);
+            $netByRate[$rate] = (float) ($netByRate[$rate] ?? 0.0) + $order->deliveryFeeNetEur();
         }
 
-        return $byRate->sortKeys();
+        return $netByRate
+            ->map(fn (float $net, $rate): float => round($net * (int) $rate / 100, 2))
+            ->sortKeys();
     }
 
     /**
@@ -328,19 +334,20 @@ class RestaurantInvoiceService
         $order->load('items');
         // Declined lines never bill.
         $live = $order->items->reject(fn ($i) => $i->isDeclined());
-        $gross = round((float) $live->sum(fn ($i) => (float) $i->line_total_eur), 2);
-        $vat = round((float) $live->sum(fn ($i) => (float) $i->vat_amount_eur), 2);
 
-        // The delivery fee bills like any other invoice line, so it is part
-        // of the stored totals — the column names say "items" for historical
-        // reasons but hold the full invoice amount every reader displays.
-        $gross = round($gross + $order->deliveryFeeGrossEur(), 2);
-        $vat = round($vat + $order->deliveryFeeVatEur(), 2);
+        // Net-forward totals, matching the printed invoice: the net is the exact
+        // sum of the line nets (plus the net delivery fee); VAT is applied to the
+        // per-rate net subtotals (see vatByRate) so it can't drift from per-line
+        // cent rounding; gross = net + VAT.
+        $net = round((float) $live->sum(fn ($i) => $i->lineNetEur()), 2);
+        $net = round($net + $order->deliveryFeeNetEur(), 2);
+        $vat = round((float) $this->vatByRate($order)->sum(), 2);
+        $gross = round($net + $vat, 2);
 
         $order->forceFill([
             'items_total_gross_eur' => $gross,
             'vat_total_eur' => $vat,
-            'items_total_net_eur' => round($gross - $vat, 2),
+            'items_total_net_eur' => $net,
         ])->save();
     }
 }
