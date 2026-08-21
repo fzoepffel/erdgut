@@ -780,13 +780,33 @@
                                         if ($shownMembers->isEmpty()) {
                                             $shownMembers = $imageMembers;
                                         }
-                                        $cardImages = $shownMembers
-                                            ->map(fn ($m) => ['url' => $m['product']->thumbUrl(), 'alt' => (string) $m['product']->name])
-                                            ->filter(fn ($x) => ! empty($x['url']))
-                                            ->unique('url')
-                                            ->values()
-                                            ->all();
-                                        // Link the image to a member the customer can actually buy.
+                                        // De-duplicate by image CONTENT, not path: group members
+                                        // sometimes share the same photo (stored as separate files),
+                                        // and the mosaic must show it once. Content hashing (cached,
+                                        // read once) only runs when a card actually has 2+ members.
+                                        $dedupeByContent = $shownMembers->count() > 1;
+                                        $seenImages = [];
+                                        $cardImages = [];
+                                        foreach ($shownMembers as $m) {
+                                            $url = $m['product']->thumbUrl();
+                                            if (empty($url)) {
+                                                continue;
+                                            }
+                                            $sig = $dedupeByContent
+                                                ? ($m['product']->imageContentHash() ?? $url)
+                                                : $url;
+                                            if (isset($seenImages[$sig])) {
+                                                continue;
+                                            }
+                                            $seenImages[$sig] = true;
+                                            $cardImages[] = [
+                                                'url' => $url,
+                                                'alt' => (string) $m['product']->name,
+                                                // Each tile links to ITS OWN product detail page.
+                                                'href' => route('public.shop.products.show', $m['product']),
+                                            ];
+                                        }
+                                        // Fallback link (no-photo product) → a member the customer can buy.
                                         $linkProduct = $shownMembers->first()['product'] ?? $product;
                                     @endphp
 
@@ -804,11 +824,12 @@
                                     @endphp
                                     <div x-show="cardOnGrid({{ $product->id }})" data-shop-card data-product-id="{{ $product->id }}">
                                         <article class="group flex flex-col" data-testid="shop-product-card{{ $availableToday ? '' : '-unavailable' }}">
-                                            {{-- Image --}}
-                                            <a href="{{ route('public.shop.products.show', $linkProduct) }}" class="relative block aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}">
-                                                <x-shop.card-image-mosaic :images="$cardImages" />
-                                                <span class="absolute left-3 top-3 bg-[oklch(96.5%_0.025_90_/_0.9)] px-2 py-1 font-mono text-[0.65rem] tracking-widest text-shop-primary">№ {{ $badge }}</span>
-                                            </a>
+                                            {{-- Image: each tile links to its own product; the "+N"
+                                                 tile opens a gallery of every group photo. --}}
+                                            <div class="relative aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}">
+                                                <x-shop.card-image-mosaic :images="$cardImages" :fallback="route('public.shop.products.show', $linkProduct)" />
+                                                <span class="pointer-events-none absolute left-3 top-3 bg-[oklch(96.5%_0.025_90_/_0.9)] px-2 py-1 font-mono text-[0.65rem] tracking-widest text-shop-primary">№ {{ $badge }}</span>
+                                            </div>
 
                                             {{-- Title + divider --}}
                                             @php

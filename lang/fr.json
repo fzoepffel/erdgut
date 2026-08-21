@@ -3987,6 +3987,8 @@
     "admin.product_form.tiers_add": "Ajouter un palier",
     "shop.tier_from": "dès :qty : :price",
     "shop.price_from_label": "dès :price",
+    "shop.group_all_photos": "Toutes les photos",
+    "shop.group_show_all_photos": "Voir toutes les photos",
     "shop.card_cta_pick": "Choisir →",
     "shop.card_cta_edit": "Modifier →",
     "shop.picker_eyebrow": "Sélection",

@@ -172,24 +172,27 @@ class ProductGroupStorefrontTest extends TestCase
     public function test_group_card_tiles_every_available_member_photo(): void
     {
         Storage::fake('public');
-        Storage::disk('public')->put('products/mass.jpg', 'x');
-        Storage::disk('public')->put('products/piece.jpg', 'x');
+        Storage::disk('public')->put('products/mass.jpg', 'mass-photo');
+        Storage::disk('public')->put('products/piece.jpg', 'piece-photo');
         $this->massMember->update(['image_path' => 'products/mass.jpg']);
         $this->pieceMember->update(['image_path' => 'products/piece.jpg']);
 
-        // Both members have stock today, so the card mosaic shows BOTH photos —
-        // no single member is the lead.
+        // Both members have stock today AND distinct photos, so the card
+        // mosaic shows BOTH — no single member is the lead. Each tile links
+        // to its OWN product detail page.
         $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
             ->assertOk()
             ->assertSee('/storage/products/mass.jpg', false)
-            ->assertSee('/storage/products/piece.jpg', false);
+            ->assertSee('/storage/products/piece.jpg', false)
+            ->assertSee('href="'.route('public.shop.products.show', $this->massMember).'"', false)
+            ->assertSee('href="'.route('public.shop.products.show', $this->pieceMember).'"', false);
     }
 
     public function test_group_card_omits_the_photo_of_a_member_without_stock_that_day(): void
     {
         Storage::fake('public');
-        Storage::disk('public')->put('products/mass.jpg', 'x');
-        Storage::disk('public')->put('products/piece.jpg', 'x');
+        Storage::disk('public')->put('products/mass.jpg', 'mass-photo');
+        Storage::disk('public')->put('products/piece.jpg', 'piece-photo');
         $this->massMember->update(['image_path' => 'products/mass.jpg']);
         $this->pieceMember->update(['image_path' => 'products/piece.jpg']);
 
@@ -207,7 +210,7 @@ class ProductGroupStorefrontTest extends TestCase
     {
         Storage::fake('public');
         foreach (['mass', 'piece', 'third'] as $slug) {
-            Storage::disk('public')->put("products/$slug.jpg", 'x');
+            Storage::disk('public')->put("products/$slug.jpg", "$slug-photo");
         }
         $this->massMember->update(['image_path' => 'products/mass.jpg']);
         $this->pieceMember->update(['image_path' => 'products/piece.jpg']);
@@ -238,5 +241,67 @@ class ProductGroupStorefrontTest extends TestCase
             ->assertSee('/storage/products/mass.jpg', false)
             ->assertSee('/storage/products/third.jpg', false)
             ->assertDontSee('/storage/products/piece.jpg', false);
+    }
+
+    public function test_members_sharing_the_same_photo_show_it_only_once(): void
+    {
+        Storage::fake('public');
+        // Two DIFFERENT files with IDENTICAL content — the same photo reused
+        // for both members because there is no unique shot yet.
+        Storage::disk('public')->put('products/mass.jpg', 'shared-photo-bytes');
+        Storage::disk('public')->put('products/piece.jpg', 'shared-photo-bytes');
+        $this->massMember->update(['image_path' => 'products/mass.jpg']);
+        $this->pieceMember->update(['image_path' => 'products/piece.jpg']);
+
+        $html = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->getContent();
+
+        // The shared photo appears once (the first member's file), the
+        // duplicate is dropped — no doubled tile.
+        $this->assertSame(1, substr_count($html, '/storage/products/mass.jpg'));
+        $this->assertStringNotContainsString('/storage/products/piece.jpg', $html);
+    }
+
+    public function test_group_with_more_than_four_members_shows_a_plus_tile_and_gallery(): void
+    {
+        Storage::fake('public');
+        $this->massMember->update(['image_path' => 'products/m0.jpg']);
+        $this->pieceMember->update(['image_path' => 'products/m1.jpg']);
+        Storage::disk('public')->put('products/m0.jpg', 'photo-0');
+        Storage::disk('public')->put('products/m1.jpg', 'photo-1');
+
+        $members = [$this->massMember, $this->pieceMember];
+        for ($k = 2; $k < 5; $k++) {
+            Storage::disk('public')->put("products/m$k.jpg", "photo-$k");
+            $extra = Product::factory()->create([
+                'unit' => ProductUnit::Mass->value,
+                'price_display_unit' => 'kg',
+                'unit_price' => 0.004,
+                'is_available' => true, 'is_published' => true,
+                'group_id' => $this->group->id,
+                'group_position' => $k,
+                'image_path' => "products/m$k.jpg",
+            ]);
+            ProductStockInflow::create([
+                'product_id' => $extra->id,
+                'received_on' => self::DELIVERY_DATE,
+                'quantity' => 3000,
+                'freshness_window_days' => 1,
+            ]);
+            $members[] = $extra;
+        }
+
+        $response = $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))->assertOk();
+
+        // 5 distinct photos → 3 tiles + a "+2" overflow tile that opens a gallery.
+        $response->assertSee('+2')
+            ->assertSee('galleryOpen', false);
+
+        // Every member's photo AND its product detail link appear (visible
+        // tiles + the gallery), so any specific photo reaches its own product.
+        foreach ($members as $m) {
+            $response->assertSee('href="'.route('public.shop.products.show', $m).'"', false);
+        }
     }
 }

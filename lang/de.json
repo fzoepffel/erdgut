@@ -3987,6 +3987,8 @@
     "admin.product_form.tiers_add": "Staffel hinzufügen",
     "shop.tier_from": "ab :qty: :price",
     "shop.price_from_label": "ab :price",
+    "shop.group_all_photos": "Alle Bilder",
+    "shop.group_show_all_photos": "Alle Bilder anzeigen",
     "shop.card_cta_pick": "Auswählen →",
     "shop.card_cta_edit": "Bearbeiten →",
     "shop.picker_eyebrow": "Auswahl",
