@@ -761,12 +761,33 @@
                                     @php
                                         $product = $row['product'];
                                         $availableToday = $row['available_on_selected'];
-                                        $imageUrl = $product->thumbUrl();
                                         $badge = str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT);
                                         $dateList = collect($row['available_dates'])
                                             ->map(fn ($d) => $d['date']->locale(app()->getLocale())->isoFormat('dd, D. MMM'))
                                             ->implode(' · ');
                                         $oldQty = (int) old('quantities.'.$product->id, 0);
+
+                                        // Card image = the photos of the members actually available
+                                        // (on the selected day; else those available on any day in the
+                                        // window; else all members). A group therefore never shows the
+                                        // wrong photo just because its first-positioned member is sold
+                                        // out — every available member is tiled into one mosaic.
+                                        $imageMembers = collect($row['members'] ?? [$row]);
+                                        $shownMembers = $imageMembers->filter(fn ($m) => $m['available_on_selected'] ?? false);
+                                        if ($shownMembers->isEmpty()) {
+                                            $shownMembers = $imageMembers->filter(fn ($m) => ! empty($m['available_dates']));
+                                        }
+                                        if ($shownMembers->isEmpty()) {
+                                            $shownMembers = $imageMembers;
+                                        }
+                                        $cardImages = $shownMembers
+                                            ->map(fn ($m) => ['url' => $m['product']->thumbUrl(), 'alt' => (string) $m['product']->name])
+                                            ->filter(fn ($x) => ! empty($x['url']))
+                                            ->unique('url')
+                                            ->values()
+                                            ->all();
+                                        // Link the image to a member the customer can actually buy.
+                                        $linkProduct = $shownMembers->first()['product'] ?? $product;
                                     @endphp
 
                                     @php
@@ -784,14 +805,8 @@
                                     <div x-show="cardOnGrid({{ $product->id }})" data-shop-card data-product-id="{{ $product->id }}">
                                         <article class="group flex flex-col" data-testid="shop-product-card{{ $availableToday ? '' : '-unavailable' }}">
                                             {{-- Image --}}
-                                            <a href="{{ route('public.shop.products.show', $product) }}" class="relative block aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}">
-                                                @if ($imageUrl)
-                                                    <img src="{{ $imageUrl }}" alt="{{ $product->name }}" width="600" height="600" class="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" loading="lazy" />
-                                                @else
-                                                    <span class="flex h-full w-full items-center justify-center text-shop-muted" aria-hidden="true">
-                                                        <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 6h16v12H4V6z" /></svg>
-                                                    </span>
-                                                @endif
+                                            <a href="{{ route('public.shop.products.show', $linkProduct) }}" class="relative block aspect-square overflow-hidden bg-shop-paper {{ $availableToday ? '' : 'grayscale' }}">
+                                                <x-shop.card-image-mosaic :images="$cardImages" />
                                                 <span class="absolute left-3 top-3 bg-[oklch(96.5%_0.025_90_/_0.9)] px-2 py-1 font-mono text-[0.65rem] tracking-widest text-shop-primary">№ {{ $badge }}</span>
                                             </a>
 
