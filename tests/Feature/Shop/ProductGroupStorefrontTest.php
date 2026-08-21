@@ -11,6 +11,7 @@ use App\Models\ShopOrder;
 use App\Services\Shop\ShopOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -166,5 +167,76 @@ class ProductGroupStorefrontTest extends TestCase
             ->assertDontSee('Zucchini-Auswahl</a>', false)
             ->assertSee('name="quantities['.$this->massMember->id.']"', false)
             ->assertDontSee('name="quantities['.$this->pieceMember->id.']"', false);
+    }
+
+    public function test_group_card_tiles_every_available_member_photo(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('products/mass.jpg', 'x');
+        Storage::disk('public')->put('products/piece.jpg', 'x');
+        $this->massMember->update(['image_path' => 'products/mass.jpg']);
+        $this->pieceMember->update(['image_path' => 'products/piece.jpg']);
+
+        // Both members have stock today, so the card mosaic shows BOTH photos —
+        // no single member is the lead.
+        $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->assertSee('/storage/products/mass.jpg', false)
+            ->assertSee('/storage/products/piece.jpg', false);
+    }
+
+    public function test_group_card_omits_the_photo_of_a_member_without_stock_that_day(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('products/mass.jpg', 'x');
+        Storage::disk('public')->put('products/piece.jpg', 'x');
+        $this->massMember->update(['image_path' => 'products/mass.jpg']);
+        $this->pieceMember->update(['image_path' => 'products/piece.jpg']);
+
+        // The lead member (group_position 0) is sold out on the selected day:
+        // its photo must NOT be the one the card shows.
+        ProductStockInflow::query()->where('product_id', $this->massMember->id)->delete();
+
+        $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->assertSee('/storage/products/piece.jpg', false)
+            ->assertDontSee('/storage/products/mass.jpg', false);
+    }
+
+    public function test_mosaic_uses_only_the_photos_of_members_available_that_day(): void
+    {
+        Storage::fake('public');
+        foreach (['mass', 'piece', 'third'] as $slug) {
+            Storage::disk('public')->put("products/$slug.jpg", 'x');
+        }
+        $this->massMember->update(['image_path' => 'products/mass.jpg']);
+        $this->pieceMember->update(['image_path' => 'products/piece.jpg']);
+
+        // A third member with its own photo and stock today.
+        $third = Product::factory()->create([
+            'unit' => ProductUnit::Mass->value,
+            'price_display_unit' => 'kg',
+            'unit_price' => 0.004,
+            'is_available' => true, 'is_published' => true,
+            'group_id' => $this->group->id,
+            'group_position' => 2,
+            'image_path' => 'products/third.jpg',
+        ]);
+        ProductStockInflow::create([
+            'product_id' => $third->id,
+            'received_on' => self::DELIVERY_DATE,
+            'quantity' => 3000,
+            'freshness_window_days' => 1,
+        ]);
+
+        // The middle member (pieceMember) is sold out today: mass + third
+        // are available, so exactly those two photos tile the card.
+        ProductStockInflow::query()->where('product_id', $this->pieceMember->id)->delete();
+
+        $this->get(route('public.shop.index', ['date' => self::DELIVERY_DATE]))
+            ->assertOk()
+            ->assertSee('/storage/products/mass.jpg', false)
+            ->assertSee('/storage/products/third.jpg', false)
+            ->assertDontSee('/storage/products/piece.jpg', false);
     }
 }
