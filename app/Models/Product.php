@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasMany as HasManyRelation;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -820,6 +821,37 @@ class Product extends Model
         }
 
         return $disk->exists($path) ? $disk->url($path) : null;
+    }
+
+    /**
+     * Content fingerprint of the card image, so callers can tell two products
+     * apart by what the photo *is* rather than where it is stored. Members of
+     * a group deliberately sometimes share the same photo (no unique shot yet);
+     * this lets the storefront mosaic show that photo once instead of tiling
+     * a visible duplicate. Hashes the thumbnail (small) and is cached per
+     * path+size, so the file is read at most once until the image changes.
+     * Null when there is no readable image.
+     */
+    public function imageContentHash(): ?string
+    {
+        $path = $this->image_path;
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        $disk = Storage::disk('public');
+        $thumb = ImageProcessor::thumbPath($path);
+        $target = $disk->exists($thumb) ? $thumb : ($disk->exists($path) ? $path : null);
+        if ($target === null) {
+            return null;
+        }
+
+        // Key on path + size + mtime so replacing the file (even at the same
+        // path and size) invalidates the cached hash.
+        $size = $disk->size($target);
+        $mtime = $disk->lastModified($target);
+
+        return Cache::rememberForever("img_sig:{$target}:{$size}:{$mtime}", fn (): string => md5((string) $disk->get($target)));
     }
 
     /**

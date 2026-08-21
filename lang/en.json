@@ -3987,6 +3987,8 @@
     "admin.product_form.tiers_add": "Add tier",
     "shop.tier_from": "from :qty: :price",
     "shop.price_from_label": "from :price",
+    "shop.group_all_photos": "All photos",
+    "shop.group_show_all_photos": "Show all photos",
     "shop.card_cta_pick": "Choose →",
     "shop.card_cta_edit": "Edit →",
     "shop.picker_eyebrow": "Choose",
