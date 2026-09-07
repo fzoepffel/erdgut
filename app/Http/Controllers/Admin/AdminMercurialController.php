@@ -46,11 +46,12 @@ class AdminMercurialController extends Controller
         $data = $request->validate([
             'email' => ['required', 'email', 'max:255'],
             'name' => ['nullable', 'string', 'max:255'],
+            'restaurant' => ['nullable', 'string', 'max:255'],
         ]);
 
-        MercurialRecipient::query()->firstOrCreate(
+        MercurialRecipient::query()->updateOrCreate(
             ['email' => mb_strtolower(trim($data['email']))],
-            ['name' => $data['name'] ?? null],
+            ['name' => $data['name'] ?? null, 'restaurant' => $data['restaurant'] ?? null],
         );
 
         return redirect()
@@ -90,11 +91,12 @@ class AdminMercurialController extends Controller
 
         $bodyTemplate = MercurialHtml::sanitize($data['body_html']);
         $adhocNames = (array) $request->input('adhoc_names', []);
+        $adhocRestaurants = (array) $request->input('adhoc_restaurants', []);
         $known = $this->candidateMap();
 
         $sent = [];
         foreach ($this->normalizeEmails($data['recipients']) as $email) {
-            [$name, $restaurant] = $this->resolveRecipient($email, $known, $adhocNames);
+            [$name, $restaurant] = $this->resolveRecipient($email, $known, $adhocNames, $adhocRestaurants);
 
             Mail::to($email)->queue(new MercurialMail(
                 $this->personalize($data['subject'], $name, $restaurant),
@@ -169,7 +171,7 @@ class AdminMercurialController extends Controller
         }
         foreach (MercurialRecipient::query()->get() as $c) {
             $key = mb_strtolower((string) $c->email);
-            $map[$key] ??= [$c->name, $c->name];
+            $map[$key] ??= [$c->name, $c->restaurant];
         }
 
         return $map;
@@ -178,21 +180,26 @@ class AdminMercurialController extends Controller
     /**
      * @param  array<string, array{0: ?string, 1: ?string}>  $known
      * @param  array<string, mixed>  $adhocNames
+     * @param  array<string, mixed>  $adhocRestaurants
      * @return array{0: ?string, 1: ?string}
      */
-    private function resolveRecipient(string $email, array $known, array $adhocNames): array
+    private function resolveRecipient(string $email, array $known, array $adhocNames, array $adhocRestaurants): array
     {
         $key = mb_strtolower($email);
         if (isset($known[$key])) {
             return $known[$key];
         }
 
-        // A hand-typed address: use any name given, and remember it for next time.
+        // A hand-typed address: use any name/restaurant given, and remember it
+        // for next time so it does not have to be re-entered.
         $name = isset($adhocNames[$email]) ? trim((string) $adhocNames[$email]) : '';
         $name = $name !== '' ? $name : null;
-        MercurialRecipient::query()->firstOrCreate(['email' => $key], ['name' => $name]);
+        $restaurant = isset($adhocRestaurants[$email]) ? trim((string) $adhocRestaurants[$email]) : '';
+        $restaurant = $restaurant !== '' ? $restaurant : null;
 
-        return [$name, $name];
+        MercurialRecipient::query()->firstOrCreate(['email' => $key], ['name' => $name, 'restaurant' => $restaurant]);
+
+        return [$name, $restaurant];
     }
 
     /**

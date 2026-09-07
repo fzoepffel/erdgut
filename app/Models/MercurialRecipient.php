@@ -18,5 +18,6 @@ class MercurialRecipient extends Model
     protected $fillable = [
         'email',
         'name',
+        'restaurant',
     ];
 }
