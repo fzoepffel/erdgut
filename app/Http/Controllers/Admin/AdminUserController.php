@@ -11,7 +11,9 @@ use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\Admin\UserDeletionService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -165,7 +167,7 @@ class AdminUserController extends Controller
             ->with('status', __('admin.users.flash_admin_created', ['email' => $user->email]));
     }
 
-    public function destroy(User $user): RedirectResponse
+    public function destroy(User $user, UserDeletionService $deleter): RedirectResponse
     {
         $this->authorize('admin');
 
@@ -181,7 +183,13 @@ class AdminUserController extends Controller
             }
         }
 
-        $user->delete();
+        try {
+            $deleter->forceDelete($user);
+        } catch (QueryException $e) {
+            report($e);
+
+            return back()->with('status', __('admin.users.flash_delete_failed'));
+        }
 
         return redirect()
             ->route('app.admin.users.index')

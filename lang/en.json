@@ -2266,6 +2266,7 @@
     "admin.users.flash_cannot_delete_self": "You cannot delete your own admin account.",
     "admin.users.flash_cannot_demote_last_admin": "The last admin cannot be demoted.",
     "admin.users.flash_deleted": "User deleted.",
+    "admin.users.flash_delete_failed": "The user could not be deleted. Please try again or contact support.",
     "admin.users.flash_demoted": "Demoted :email to user.",
     "admin.users.flash_promoted": "Promoted :email to admin.",
     "admin.users.promote_cta": "Promote",
