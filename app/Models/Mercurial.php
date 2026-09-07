@@ -14,7 +14,9 @@ class Mercurial extends Model
 {
     protected $fillable = [
         'subject',
+        'subject_en',
         'body_html',
+        'body_html_en',
         'recipients',
         'recipient_count',
         'created_by_user_id',

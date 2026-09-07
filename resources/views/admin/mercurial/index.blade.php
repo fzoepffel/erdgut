@@ -26,26 +26,46 @@
             <form method="POST" action="{{ route('app.admin.mercurial.send') }}" class="space-y-6">
                 @csrf
 
-                <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-                    <label for="mercurial-subject" class="block text-sm font-medium text-gray-700">{{ __('mercurial.field_subject') }}</label>
-                    <input id="mercurial-subject" name="subject" type="text" required maxlength="255"
-                        value="{{ old('subject', $prefillSubject) }}"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                <div class="grid gap-5 lg:grid-cols-2">
+                    {{-- German version --}}
+                    <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-500">{{ __('mercurial.lang_de') }}</p>
 
-                    <label class="mt-5 block text-sm font-medium text-gray-700">{{ __('mercurial.field_body') }}</label>
-                    <input id="mercurial-body" type="hidden" name="body_html" value="{{ old('body_html', $prefillBody) }}">
-                    <trix-editor input="mercurial-body" class="mercurial-editor mt-1 block w-full rounded-md border border-gray-300 bg-white"></trix-editor>
+                        <label for="mercurial-subject-de" class="mt-3 block text-sm font-medium text-gray-700">{{ __('mercurial.field_subject') }}</label>
+                        <input id="mercurial-subject-de" name="subject_de" type="text" maxlength="255"
+                            value="{{ old('subject_de', $prefillSubjectDe) }}"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
 
-                    <p class="mt-3 text-xs text-gray-500">
-                        {{ __('mercurial.tokens_help') }}
-                        <code class="rounded bg-gray-100 px-1">&#123;&#123;name&#125;&#125;</code>
-                        <code class="rounded bg-gray-100 px-1">&#123;&#123;restaurant&#125;&#125;</code>
-                    </p>
+                        <label class="mt-4 block text-sm font-medium text-gray-700">{{ __('mercurial.field_body') }}</label>
+                        <input id="mercurial-body-de" type="hidden" name="body_de" value="{{ old('body_de', $prefillBodyDe) }}">
+                        <trix-editor input="mercurial-body-de" class="mercurial-editor mt-1 block w-full rounded-md border border-gray-300 bg-white"></trix-editor>
+                    </div>
+
+                    {{-- English version --}}
+                    <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-500">{{ __('mercurial.lang_en') }}</p>
+
+                        <label for="mercurial-subject-en" class="mt-3 block text-sm font-medium text-gray-700">{{ __('mercurial.field_subject') }}</label>
+                        <input id="mercurial-subject-en" name="subject_en" type="text" maxlength="255"
+                            value="{{ old('subject_en', $prefillSubjectEn) }}"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+
+                        <label class="mt-4 block text-sm font-medium text-gray-700">{{ __('mercurial.field_body') }}</label>
+                        <input id="mercurial-body-en" type="hidden" name="body_en" value="{{ old('body_en', $prefillBodyEn) }}">
+                        <trix-editor input="mercurial-body-en" class="mercurial-editor mt-1 block w-full rounded-md border border-gray-300 bg-white"></trix-editor>
+                    </div>
                 </div>
+
+                <p class="text-xs text-gray-500">
+                    {{ __('mercurial.tokens_help') }}
+                    <code class="rounded bg-gray-100 px-1">&#123;&#123;name&#125;&#125;</code>
+                    <code class="rounded bg-gray-100 px-1">&#123;&#123;restaurant&#125;&#125;</code>
+                    · {{ __('mercurial.language_help') }}
+                </p>
 
                 {{-- ── Recipients ───────────────────────────────────────── --}}
                 <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-                    x-data="{ extra: [], email: '', name: '', restaurant: '', add() { const e = this.email.trim().toLowerCase(); if (!e) return; if (!this.extra.some(r => r.email === e)) this.extra.push({ email: e, name: this.name.trim(), restaurant: this.restaurant.trim() }); this.email = ''; this.name = ''; this.restaurant = ''; }, primary(r) { return r.restaurant || r.name || r.email; }, secondary(r) { const b = []; if (r.restaurant && r.name) b.push(r.name); if (this.primary(r) !== r.email) b.push(r.email); return b.join(' · '); } }">
+                    x-data="{ extra: [], email: '', name: '', restaurant: '', add() { const e = this.email.trim().toLowerCase(); if (!e) return; if (!this.extra.some(r => r.email === e)) this.extra.push({ email: e, name: this.name.trim(), restaurant: this.restaurant.trim(), locale: 'de' }); this.email = ''; this.name = ''; this.restaurant = ''; }, primary(r) { return r.restaurant || r.name || r.email; }, secondary(r) { const b = []; if (r.restaurant && r.name) b.push(r.name); if (this.primary(r) !== r.email) b.push(r.email); return b.join(' · '); } }">
                     <div class="flex items-center justify-between">
                         <h2 class="text-sm font-medium text-gray-700">{{ __('mercurial.recipients_title') }}</h2>
                         <span class="text-xs text-gray-400">{{ __('mercurial.recipients_hint') }}</span>
@@ -55,14 +75,17 @@
                         <p class="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ __('mercurial.group_restaurants') }}</p>
                         <div class="mt-2 grid gap-1 sm:grid-cols-2">
                             @foreach ($restaurants as $r)
-                                <label class="flex items-start gap-2 rounded px-2 py-1 hover:bg-gray-50">
-                                    <input type="checkbox" name="recipients[]" value="{{ $r['email'] }}" checked
-                                        class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                                    <span class="text-sm text-gray-700">
-                                        <span class="font-semibold">{{ $r['restaurant'] ?: $r['name'] ?: $r['email'] }}</span>
-                                        <span class="block text-xs text-gray-400">{{ $r['name'] ? $r['name'].' · ' : '' }}{{ $r['email'] }}</span>
-                                    </span>
-                                </label>
+                                <div class="flex items-start gap-2 rounded px-2 py-1 hover:bg-gray-50">
+                                    <label class="flex flex-1 cursor-pointer items-start gap-2">
+                                        <input type="checkbox" name="recipients[]" value="{{ $r['email'] }}" checked
+                                            class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                        <span class="text-sm text-gray-700">
+                                            <span class="font-semibold">{{ $r['restaurant'] ?: $r['name'] ?: $r['email'] }}</span>
+                                            <span class="block text-xs text-gray-400">{{ $r['name'] ? $r['name'].' · ' : '' }}{{ $r['email'] }}</span>
+                                        </span>
+                                    </label>
+                                    <x-mercurial.locale-toggle :email="$r['email']" :locale="$r['locale']" />
+                                </div>
                             @endforeach
                         </div>
                     @endif
@@ -75,31 +98,41 @@
                                     $primary = $c->restaurant ?: ($c->name ?: $c->email);
                                     $secondary = collect([$c->restaurant && $c->name ? $c->name : null, $primary !== $c->email ? $c->email : null])->filter()->implode(' · ');
                                 @endphp
-                                <label class="flex items-start gap-2 rounded px-2 py-1 hover:bg-gray-50">
-                                    <input type="checkbox" name="recipients[]" value="{{ $c->email }}" checked
-                                        class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                                    <span class="text-sm text-gray-700">
-                                        <span class="font-semibold">{{ $primary }}</span>
-                                        @if ($secondary !== '')<span class="block text-xs text-gray-400">{{ $secondary }}</span>@endif
-                                    </span>
-                                </label>
+                                <div class="flex items-start gap-2 rounded px-2 py-1 hover:bg-gray-50">
+                                    <label class="flex flex-1 cursor-pointer items-start gap-2">
+                                        <input type="checkbox" name="recipients[]" value="{{ $c->email }}" checked
+                                            class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                        <span class="text-sm text-gray-700">
+                                            <span class="font-semibold">{{ $primary }}</span>
+                                            @if ($secondary !== '')<span class="block text-xs text-gray-400">{{ $secondary }}</span>@endif
+                                        </span>
+                                    </label>
+                                    <x-mercurial.locale-toggle :email="$c->email" :locale="$c->locale === 'en' ? 'en' : 'de'" />
+                                </div>
                             @endforeach
                         </div>
                     @endif
 
                     {{-- One-off addresses added just for this send (auto-saved to the address book). --}}
                     <template x-for="(r, i) in extra" :key="r.email">
-                        <label class="mt-1 flex items-start gap-2 rounded px-2 py-1">
-                            <input type="checkbox" name="recipients[]" :value="r.email" checked
-                                class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                            <input type="hidden" :name="'adhoc_names[' + r.email + ']'" :value="r.name">
-                            <input type="hidden" :name="'adhoc_restaurants[' + r.email + ']'" :value="r.restaurant">
-                            <span class="text-sm text-gray-700">
-                                <span class="font-semibold" x-text="primary(r)"></span>
-                                <span class="block text-xs text-gray-400" x-show="secondary(r)" x-text="secondary(r)"></span>
+                        <div class="mt-1 flex items-start gap-2 rounded px-2 py-1">
+                            <label class="flex flex-1 items-start gap-2">
+                                <input type="checkbox" name="recipients[]" :value="r.email" checked
+                                    class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <input type="hidden" :name="'adhoc_names[' + r.email + ']'" :value="r.name">
+                                <input type="hidden" :name="'adhoc_restaurants[' + r.email + ']'" :value="r.restaurant">
+                                <input type="hidden" :name="'adhoc_locales[' + r.email + ']'" :value="r.locale">
+                                <span class="text-sm text-gray-700">
+                                    <span class="font-semibold" x-text="primary(r)"></span>
+                                    <span class="block text-xs text-gray-400" x-show="secondary(r)" x-text="secondary(r)"></span>
+                                </span>
+                            </label>
+                            <span class="inline-flex shrink-0 overflow-hidden rounded border border-gray-300 font-mono text-[0.65rem]">
+                                <button type="button" @click="r.locale = 'de'" :class="r.locale === 'de' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-0.5">DE</button>
+                                <button type="button" @click="r.locale = 'en'" :class="r.locale === 'en' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'" class="px-2 py-0.5">EN</button>
                             </span>
                             <button type="button" @click="extra.splice(i, 1)" class="text-xs text-red-500 hover:text-red-700">{{ __('mercurial.remove') }}</button>
-                        </label>
+                        </div>
                     </template>
 
                     <div class="mt-4 flex flex-wrap items-end gap-2 border-t border-gray-100 pt-4">
@@ -151,6 +184,13 @@
                         <input type="text" name="name" value="{{ old('name') }}"
                             class="mt-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     </div>
+                    <div>
+                        <label class="block text-xs text-gray-500">{{ __('mercurial.add_language') }}</label>
+                        <select name="locale" class="mt-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="de" @selected(old('locale') === 'de')>{{ __('mercurial.lang_de') }}</option>
+                            <option value="en" @selected(old('locale') === 'en')>{{ __('mercurial.lang_en') }}</option>
+                        </select>
+                    </div>
                     <button type="submit" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">{{ __('mercurial.save_contact') }}</button>
                 </form>
 
@@ -165,6 +205,7 @@
                                 <span class="text-gray-700">
                                     <span class="font-semibold">{{ $bookPrimary }}</span>
                                     @if ($bookSecondary !== '')<span class="text-xs text-gray-400"> · {{ $bookSecondary }}</span>@endif
+                                    <span class="ml-1 font-mono text-[0.6rem] uppercase text-gray-400">{{ $c->locale === 'en' ? 'EN' : 'DE' }}</span>
                                 </span>
                                 <form method="POST" action="{{ route('app.admin.mercurial.contacts.destroy', $c) }}"
                                     onsubmit="return confirm(@json(__('mercurial.confirm_remove_contact')))">
@@ -186,7 +227,7 @@
                         @foreach ($history as $m)
                             <li class="flex items-center justify-between py-2">
                                 <span class="text-gray-700">
-                                    <span class="font-medium">{{ $m->subject }}</span>
+                                    <span class="font-medium">{{ $m->subject ?: $m->subject_en }}</span>
                                     <span class="block text-xs text-gray-400">{{ $m->sent_at?->format('d.m.Y H:i') }} · {{ __('mercurial.history_count', ['count' => $m->recipient_count]) }}</span>
                                 </span>
                                 <a href="{{ route('app.admin.mercurial.index', ['duplicate' => $m->id]) }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">{{ __('mercurial.reuse') }}</a>

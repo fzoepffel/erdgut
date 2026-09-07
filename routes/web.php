@@ -472,6 +472,7 @@ Route::middleware(['auth', 'verified'])
             Route::get('mercurial', [AdminMercurialController::class, 'index'])->name('mercurial.index');
             Route::post('mercurial/contacts', [AdminMercurialController::class, 'storeContact'])->name('mercurial.contacts.store');
             Route::delete('mercurial/contacts/{recipient}', [AdminMercurialController::class, 'destroyContact'])->name('mercurial.contacts.destroy');
+            Route::post('mercurial/recipient-locale', [AdminMercurialController::class, 'setRecipientLocale'])->middleware('throttle:60,1')->name('mercurial.recipient-locale');
             Route::post('mercurial/test', [AdminMercurialController::class, 'test'])->middleware('throttle:20,1')->name('mercurial.test');
             Route::post('mercurial/send', [AdminMercurialController::class, 'send'])->middleware('throttle:10,1')->name('mercurial.send');
 
