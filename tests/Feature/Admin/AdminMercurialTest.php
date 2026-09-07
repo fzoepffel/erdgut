@@ -70,6 +70,22 @@ class AdminMercurialTest extends TestCase
             ->assertDontSee(':week', false);
     }
 
+    public function test_composer_lists_contact_restaurant_and_person(): void
+    {
+        MercurialRecipient::query()->create([
+            'email' => 'louis@otto.de',
+            'name' => 'Louis',
+            'restaurant' => 'Otto',
+        ]);
+
+        $this->actingAs($this->admin())
+            ->get(route('app.admin.mercurial.index'))
+            ->assertOk()
+            ->assertSee('Otto')
+            ->assertSee('Louis')
+            ->assertSee('louis@otto.de');
+    }
+
     public function test_test_send_mails_the_admin_with_substituted_tokens(): void
     {
         Mail::fake();
@@ -114,23 +130,54 @@ class AdminMercurialTest extends TestCase
         $this->assertSame(2, Mercurial::query()->first()->recipient_count);
     }
 
-    public function test_send_persists_hand_typed_adhoc_email_as_contact(): void
+    public function test_send_persists_hand_typed_adhoc_email_with_restaurant(): void
     {
         Mail::fake();
 
         $this->actingAs($this->admin())
             ->post(route('app.admin.mercurial.send'), [
-                'subject' => 'Angebot',
-                'body_html' => '<p>Hallo {{name}}</p>',
-                'recipients' => ['neu@example.com'],
-                'adhoc_names' => ['neu@example.com' => 'Neu Kontakt'],
+                'subject' => 'Erdgut & {{restaurant}} – Angebot',
+                'body_html' => '<p>Liebe {{name}},</p>',
+                'recipients' => ['louis@otto.de'],
+                'adhoc_names' => ['louis@otto.de' => 'Louis'],
+                'adhoc_restaurants' => ['louis@otto.de' => 'Otto'],
             ])
             ->assertRedirect(route('app.admin.mercurial.index'));
 
+        // Persisted with both the contact person and the restaurant.
         $this->assertDatabaseHas('mercurial_recipients', [
-            'email' => 'neu@example.com',
-            'name' => 'Neu Kontakt',
+            'email' => 'louis@otto.de',
+            'name' => 'Louis',
+            'restaurant' => 'Otto',
         ]);
+
+        // The restaurant fills {{restaurant}}, the person fills {{name}}.
+        Mail::assertQueued(MercurialMail::class, fn (MercurialMail $m) => $m->hasTo('louis@otto.de')
+            && $m->subjectLine === 'Erdgut & Otto – Angebot'
+            && str_contains($m->bodyHtml, 'Liebe Louis,'));
+    }
+
+    public function test_saved_contact_restaurant_fills_placeholder_on_send(): void
+    {
+        Mail::fake();
+
+        $contact = MercurialRecipient::query()->create([
+            'email' => 'chef@bistro.de',
+            'name' => 'Maya',
+            'restaurant' => 'Bistro',
+        ]);
+
+        $this->actingAs($this->admin())
+            ->post(route('app.admin.mercurial.send'), [
+                'subject' => 'Erdgut & {{restaurant}}',
+                'body_html' => '<p>Liebe {{name}},</p>',
+                'recipients' => [$contact->email],
+            ])
+            ->assertRedirect(route('app.admin.mercurial.index'));
+
+        Mail::assertQueued(MercurialMail::class, fn (MercurialMail $m) => $m->hasTo('chef@bistro.de')
+            && $m->subjectLine === 'Erdgut & Bistro'
+            && str_contains($m->bodyHtml, 'Liebe Maya,'));
     }
 
     public function test_send_requires_at_least_one_recipient(): void
@@ -156,11 +203,15 @@ class AdminMercurialTest extends TestCase
             ->post(route('app.admin.mercurial.contacts.store'), [
                 'email' => 'Chef@Example.com',
                 'name' => 'Chef',
+                'restaurant' => 'Example Restaurant',
             ])
             ->assertRedirect(route('app.admin.mercurial.index'));
 
-        // Stored lowercased.
-        $this->assertDatabaseHas('mercurial_recipients', ['email' => 'chef@example.com']);
+        // Stored lowercased, with the restaurant name.
+        $this->assertDatabaseHas('mercurial_recipients', [
+            'email' => 'chef@example.com',
+            'restaurant' => 'Example Restaurant',
+        ]);
 
         $contact = MercurialRecipient::query()->where('email', 'chef@example.com')->first();
 
