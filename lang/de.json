@@ -4013,7 +4013,7 @@
     "mercurial.history_title": "Zuletzt gesendet",
     "mercurial.history_count": ":count Empfänger",
     "mercurial.reuse": "Als Vorlage",
-    "mercurial.default_subject": "Erdgut & {{restaurant}} – Angebot KW",
+    "mercurial.default_subject": "Erdgut & {{restaurant}} – Angebot KW:week",
     "mercurial.contact_added": "Kontakt gespeichert.",
     "mercurial.contact_removed": "Kontakt entfernt.",
     "mercurial.test_sent": "Testmail an :email gesendet.",
