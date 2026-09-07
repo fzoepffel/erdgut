@@ -50,16 +50,16 @@ class AdminMercurialTest extends TestCase
             ->assertDontSee($pending->user->email);
     }
 
-    public function test_composer_prefills_subject_with_current_calendar_week(): void
+    public function test_composer_prefills_both_language_subjects_with_current_week(): void
     {
-        // Pin the request locale to German so the KW label is deterministic.
         $admin = User::factory()->admin()->create(['locale' => 'de']);
         $week = str_pad((string) now()->isoWeek, 2, '0', STR_PAD_LEFT);
 
         $this->actingAs($admin)
             ->get(route('app.admin.mercurial.index'))
             ->assertOk()
-            ->assertSee("Angebot KW{$week}", false);
+            ->assertSee("Angebot KW{$week}", false)      // German default subject
+            ->assertSee("offer week {$week}", false);    // English default subject
     }
 
     public function test_default_subject_leaves_no_unfilled_week_placeholder(): void
@@ -76,6 +76,7 @@ class AdminMercurialTest extends TestCase
             'email' => 'louis@otto.de',
             'name' => 'Louis',
             'restaurant' => 'Otto',
+            'locale' => 'en',
         ]);
 
         $this->actingAs($this->admin())
@@ -93,8 +94,8 @@ class AdminMercurialTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('app.admin.mercurial.test'), [
-                'subject' => 'Angebot {{restaurant}}',
-                'body_html' => '<p>Liebe {{name}}, hier das Angebot.</p>',
+                'subject_de' => 'Angebot {{restaurant}}',
+                'body_de' => '<p>Liebe {{name}}, hier das Angebot.</p>',
             ])
             ->assertRedirect(route('app.admin.mercurial.index'));
 
@@ -106,18 +107,33 @@ class AdminMercurialTest extends TestCase
         });
     }
 
+    public function test_test_send_sends_one_preview_per_filled_language(): void
+    {
+        Mail::fake();
+
+        $this->actingAs($this->admin())
+            ->post(route('app.admin.mercurial.test'), [
+                'subject_de' => 'Angebot',
+                'body_de' => '<p>Hallo</p>',
+                'subject_en' => 'Offer',
+                'body_en' => '<p>Hi</p>',
+            ])
+            ->assertRedirect(route('app.admin.mercurial.index'));
+
+        Mail::assertSent(MercurialMail::class, 2);
+    }
+
     public function test_send_queues_one_mail_per_recipient_and_logs_history(): void
     {
         Mail::fake();
-        $admin = $this->admin();
 
         $r1 = RestaurantProfile::factory()->verified()->create(['contact_name' => 'Maya']);
         $r2 = RestaurantProfile::factory()->verified()->create(['contact_name' => 'Ben']);
 
-        $this->actingAs($admin)
+        $this->actingAs($this->admin())
             ->post(route('app.admin.mercurial.send'), [
-                'subject' => 'Angebot KW35',
-                'body_html' => '<p>Liebe {{name}},</p>',
+                'subject_de' => 'Angebot KW35',
+                'body_de' => '<p>Liebe {{name}},</p>',
                 'recipients' => [$r1->user->email, $r2->user->email],
             ])
             ->assertRedirect(route('app.admin.mercurial.index'));
@@ -130,54 +146,86 @@ class AdminMercurialTest extends TestCase
         $this->assertSame(2, Mercurial::query()->first()->recipient_count);
     }
 
-    public function test_send_persists_hand_typed_adhoc_email_with_restaurant(): void
+    public function test_send_routes_each_recipient_to_their_language(): void
+    {
+        Mail::fake();
+
+        $german = MercurialRecipient::query()->create([
+            'email' => 'de@bistro.de', 'name' => 'Maya', 'restaurant' => 'Bistro', 'locale' => 'de',
+        ]);
+        $english = MercurialRecipient::query()->create([
+            'email' => 'en@otto.de', 'name' => 'Louis', 'restaurant' => 'Otto', 'locale' => 'en',
+        ]);
+
+        $this->actingAs($this->admin())
+            ->post(route('app.admin.mercurial.send'), [
+                'subject_de' => 'Erdgut & {{restaurant}} – Angebot',
+                'body_de' => '<p>Liebe {{name}},</p>',
+                'subject_en' => 'Erdgut & {{restaurant}} – offer',
+                'body_en' => '<p>Dear {{name}},</p>',
+                'recipients' => [$german->email, $english->email],
+            ])
+            ->assertRedirect(route('app.admin.mercurial.index'));
+
+        Mail::assertQueued(MercurialMail::class, fn (MercurialMail $m) => $m->hasTo('de@bistro.de')
+            && $m->subjectLine === 'Erdgut & Bistro – Angebot'
+            && str_contains($m->bodyHtml, 'Liebe Maya,'));
+
+        Mail::assertQueued(MercurialMail::class, fn (MercurialMail $m) => $m->hasTo('en@otto.de')
+            && $m->subjectLine === 'Erdgut & Otto – offer'
+            && str_contains($m->bodyHtml, 'Dear Louis,'));
+
+        $log = Mercurial::query()->first();
+        $this->assertStringContainsString('Liebe', $log->body_html);
+        $this->assertStringContainsString('Dear', $log->body_html_en);
+    }
+
+    public function test_send_is_blocked_when_a_needed_language_version_is_missing(): void
+    {
+        Mail::fake();
+
+        $english = MercurialRecipient::query()->create([
+            'email' => 'en@otto.de', 'name' => 'Louis', 'restaurant' => 'Otto', 'locale' => 'en',
+        ]);
+
+        $this->actingAs($this->admin())
+            ->post(route('app.admin.mercurial.send'), [
+                'subject_de' => 'Angebot',
+                'body_de' => '<p>Hallo</p>',
+                // No English version, but an English recipient is selected.
+                'recipients' => [$english->email],
+            ])
+            ->assertSessionHasErrors('body_en');
+
+        Mail::assertNothingQueued();
+        $this->assertDatabaseCount('mercurials', 0);
+    }
+
+    public function test_send_persists_hand_typed_adhoc_email_with_restaurant_and_language(): void
     {
         Mail::fake();
 
         $this->actingAs($this->admin())
             ->post(route('app.admin.mercurial.send'), [
-                'subject' => 'Erdgut & {{restaurant}} – Angebot',
-                'body_html' => '<p>Liebe {{name}},</p>',
+                'subject_en' => 'Erdgut & {{restaurant}} – offer',
+                'body_en' => '<p>Dear {{name}},</p>',
                 'recipients' => ['louis@otto.de'],
                 'adhoc_names' => ['louis@otto.de' => 'Louis'],
                 'adhoc_restaurants' => ['louis@otto.de' => 'Otto'],
+                'adhoc_locales' => ['louis@otto.de' => 'en'],
             ])
             ->assertRedirect(route('app.admin.mercurial.index'));
 
-        // Persisted with both the contact person and the restaurant.
         $this->assertDatabaseHas('mercurial_recipients', [
             'email' => 'louis@otto.de',
             'name' => 'Louis',
             'restaurant' => 'Otto',
+            'locale' => 'en',
         ]);
 
-        // The restaurant fills {{restaurant}}, the person fills {{name}}.
         Mail::assertQueued(MercurialMail::class, fn (MercurialMail $m) => $m->hasTo('louis@otto.de')
-            && $m->subjectLine === 'Erdgut & Otto – Angebot'
-            && str_contains($m->bodyHtml, 'Liebe Louis,'));
-    }
-
-    public function test_saved_contact_restaurant_fills_placeholder_on_send(): void
-    {
-        Mail::fake();
-
-        $contact = MercurialRecipient::query()->create([
-            'email' => 'chef@bistro.de',
-            'name' => 'Maya',
-            'restaurant' => 'Bistro',
-        ]);
-
-        $this->actingAs($this->admin())
-            ->post(route('app.admin.mercurial.send'), [
-                'subject' => 'Erdgut & {{restaurant}}',
-                'body_html' => '<p>Liebe {{name}},</p>',
-                'recipients' => [$contact->email],
-            ])
-            ->assertRedirect(route('app.admin.mercurial.index'));
-
-        Mail::assertQueued(MercurialMail::class, fn (MercurialMail $m) => $m->hasTo('chef@bistro.de')
-            && $m->subjectLine === 'Erdgut & Bistro'
-            && str_contains($m->bodyHtml, 'Liebe Maya,'));
+            && $m->subjectLine === 'Erdgut & Otto – offer'
+            && str_contains($m->bodyHtml, 'Dear Louis,'));
     }
 
     public function test_send_requires_at_least_one_recipient(): void
@@ -186,13 +234,47 @@ class AdminMercurialTest extends TestCase
 
         $this->actingAs($this->admin())
             ->post(route('app.admin.mercurial.send'), [
-                'subject' => 'Angebot',
-                'body_html' => '<p>Hallo</p>',
+                'subject_de' => 'Angebot',
+                'body_de' => '<p>Hallo</p>',
                 'recipients' => [],
             ])
             ->assertSessionHasErrors('recipients');
 
         Mail::assertNothingQueued();
+    }
+
+    public function test_set_recipient_locale_persists_for_contact(): void
+    {
+        $contact = MercurialRecipient::query()->create([
+            'email' => 'chef@bistro.de', 'name' => 'Maya', 'restaurant' => 'Bistro', 'locale' => 'de',
+        ]);
+
+        $this->actingAs($this->admin())
+            ->postJson(route('app.admin.mercurial.recipient-locale'), [
+                'email' => 'chef@bistro.de',
+                'locale' => 'en',
+            ])
+            ->assertOk()
+            ->assertJson(['ok' => true, 'locale' => 'en']);
+
+        $this->assertSame('en', $contact->fresh()->locale);
+    }
+
+    public function test_set_recipient_locale_persists_for_restaurant_without_touching_account_locale(): void
+    {
+        $profile = RestaurantProfile::factory()->verified()->create();
+        $profile->user->update(['locale' => 'de']);
+
+        $this->actingAs($this->admin())
+            ->postJson(route('app.admin.mercurial.recipient-locale'), [
+                'email' => $profile->user->email,
+                'locale' => 'en',
+            ])
+            ->assertOk();
+
+        $this->assertSame('en', $profile->fresh()->mercurial_locale);
+        // Account/shop language is untouched.
+        $this->assertSame('de', $profile->user->fresh()->locale);
     }
 
     public function test_store_and_destroy_contact(): void
@@ -204,13 +286,14 @@ class AdminMercurialTest extends TestCase
                 'email' => 'Chef@Example.com',
                 'name' => 'Chef',
                 'restaurant' => 'Example Restaurant',
+                'locale' => 'en',
             ])
             ->assertRedirect(route('app.admin.mercurial.index'));
 
-        // Stored lowercased, with the restaurant name.
         $this->assertDatabaseHas('mercurial_recipients', [
             'email' => 'chef@example.com',
             'restaurant' => 'Example Restaurant',
+            'locale' => 'en',
         ]);
 
         $contact = MercurialRecipient::query()->where('email', 'chef@example.com')->first();

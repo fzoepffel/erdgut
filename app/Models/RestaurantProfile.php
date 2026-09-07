@@ -25,6 +25,7 @@ class RestaurantProfile extends Model
         'user_id',
         'business_name',
         'contact_name',
+        'mercurial_locale',
         'handelsregisternummer',
         'ust_id_nr',
         'billing_street',

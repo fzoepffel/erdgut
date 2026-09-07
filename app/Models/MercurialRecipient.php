@@ -19,5 +19,6 @@ class MercurialRecipient extends Model
         'email',
         'name',
         'restaurant',
+        'locale',
     ];
 }
