@@ -26,18 +26,7 @@
         "name": "Berlin"
     },
     "currenciesAccepted": "EUR",
-    "priceRange": "€€",
-    "hasOfferCatalog": {
-        "@type": "OfferCatalog",
-        "name": "Saisonales Sortiment",
-        "itemListElement": [
-            { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Gemüse" } },
-            { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Obst" } },
-            { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Eier und Milchprodukte" } },
-            { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Brot und Backwaren" } },
-            { "@type": "Offer", "itemOffered": { "@type": "Product", "name": "Fisch und Meeresfrüchte" } }
-        ]
-    }
+    "priceRange": "€€"
 }
 </script>
 @endpush

@@ -44,6 +44,19 @@ class HomepageTest extends TestCase
         $response->assertDontSee('data-testid="home-cta-subscribe"', false);
     }
 
+    public function test_homepage_structured_data_has_no_bare_product_node(): void
+    {
+        $response = $this->get(route('public.home'));
+
+        $response->assertOk();
+        // The store schema stays…
+        $response->assertSee('"@type": "GroceryStore"', false);
+        // …but no bare Product node: Google Search Console rejects Product
+        // snippets without offers/review/aggregateRating, and the homepage's
+        // category names are not sellable products.
+        $response->assertDontSee('"@type": "Product"', false);
+    }
+
     public function test_marketing_home_renders_for_guest_with_primary_and_secondary_ctas(): void
     {
         $response = $this->get(route('public.marketing-home'));
