@@ -2266,6 +2266,7 @@
     "admin.users.flash_cannot_delete_self": "Vous ne pouvez pas supprimer votre propre compte admin.",
     "admin.users.flash_cannot_demote_last_admin": "Le dernier admin ne peut pas être rétrogradé.",
     "admin.users.flash_deleted": "Utilisateur supprimé.",
+    "admin.users.flash_delete_failed": "Impossible de supprimer l'utilisateur. Veuillez réessayer ou contacter le support.",
     "admin.users.flash_demoted": ":email rétrogradé en utilisateur.",
     "admin.users.flash_promoted": ":email promu admin.",
     "admin.users.promote_cta": "Promouvoir",

@@ -2266,6 +2266,7 @@
     "admin.users.flash_cannot_delete_self": "Du kannst dein eigenes Admin-Konto nicht löschen.",
     "admin.users.flash_cannot_demote_last_admin": "Der letzte Admin kann nicht herabgestuft werden.",
     "admin.users.flash_deleted": "Nutzer gelöscht.",
+    "admin.users.flash_delete_failed": "Der Nutzer konnte nicht gelöscht werden. Bitte versuche es erneut oder wende dich an den Support.",
     "admin.users.flash_demoted": ":email als Nutzer:in herabgestuft.",
     "admin.users.flash_promoted": ":email zum Admin gemacht.",
     "admin.users.promote_cta": "Zu Admin",
