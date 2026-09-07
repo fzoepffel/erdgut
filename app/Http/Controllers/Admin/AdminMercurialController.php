@@ -33,7 +33,9 @@ class AdminMercurialController extends Controller
             'restaurants' => $this->restaurantCandidates(),
             'contacts' => MercurialRecipient::query()->orderBy('name')->orderBy('email')->get(),
             'history' => Mercurial::query()->latest('sent_at')->limit(25)->get(),
-            'prefillSubject' => $prefill?->subject ?? __('mercurial.default_subject'),
+            'prefillSubject' => $prefill?->subject ?? __('mercurial.default_subject', [
+                'week' => str_pad((string) now()->isoWeek, 2, '0', STR_PAD_LEFT),
+            ]),
             'prefillBody' => $prefill?->body_html ?? '',
         ]);
     }
