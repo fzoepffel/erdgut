@@ -16,7 +16,8 @@ class MercurialRecipientFactory extends Factory
     {
         return [
             'email' => $this->faker->unique()->safeEmail(),
-            'name' => $this->faker->company(),
+            'name' => $this->faker->firstName(),
+            'restaurant' => $this->faker->company(),
         ];
     }
 }

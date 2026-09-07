@@ -4002,6 +4002,8 @@
     "mercurial.group_contacts": "Other contacts",
     "mercurial.add_email": "Email",
     "mercurial.add_name": "Name (optional)",
+    "mercurial.add_restaurant": "Restaurant",
+    "mercurial.add_restaurant_placeholder": "e.g. Otto",
     "mercurial.add_button": "Add to selection",
     "mercurial.remove": "Remove",
     "mercurial.send_button": "Send to selection",

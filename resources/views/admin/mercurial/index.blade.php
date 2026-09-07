@@ -45,7 +45,7 @@
 
                 {{-- ── Recipients ───────────────────────────────────────── --}}
                 <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-                    x-data="{ extra: [], email: '', name: '', add() { const e = this.email.trim().toLowerCase(); if (!e) return; if (!this.extra.some(r => r.email === e)) this.extra.push({ email: e, name: this.name.trim() }); this.email = ''; this.name = ''; } }">
+                    x-data="{ extra: [], email: '', name: '', restaurant: '', add() { const e = this.email.trim().toLowerCase(); if (!e) return; if (!this.extra.some(r => r.email === e)) this.extra.push({ email: e, name: this.name.trim(), restaurant: this.restaurant.trim() }); this.email = ''; this.name = ''; this.restaurant = ''; }, primary(r) { return r.restaurant || r.name || r.email; }, secondary(r) { const b = []; if (r.restaurant && r.name) b.push(r.name); if (this.primary(r) !== r.email) b.push(r.email); return b.join(' · '); } }">
                     <div class="flex items-center justify-between">
                         <h2 class="text-sm font-medium text-gray-700">{{ __('mercurial.recipients_title') }}</h2>
                         <span class="text-xs text-gray-400">{{ __('mercurial.recipients_hint') }}</span>
@@ -59,7 +59,7 @@
                                     <input type="checkbox" name="recipients[]" value="{{ $r['email'] }}" checked
                                         class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                                     <span class="text-sm text-gray-700">
-                                        <span class="font-medium">{{ $r['restaurant'] ?: $r['name'] ?: $r['email'] }}</span>
+                                        <span class="font-semibold">{{ $r['restaurant'] ?: $r['name'] ?: $r['email'] }}</span>
                                         <span class="block text-xs text-gray-400">{{ $r['name'] ? $r['name'].' · ' : '' }}{{ $r['email'] }}</span>
                                     </span>
                                 </label>
@@ -71,12 +71,16 @@
                         <p class="mt-5 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ __('mercurial.group_contacts') }}</p>
                         <div class="mt-2 grid gap-1 sm:grid-cols-2">
                             @foreach ($contacts as $c)
+                                @php
+                                    $primary = $c->restaurant ?: ($c->name ?: $c->email);
+                                    $secondary = collect([$c->restaurant && $c->name ? $c->name : null, $primary !== $c->email ? $c->email : null])->filter()->implode(' · ');
+                                @endphp
                                 <label class="flex items-start gap-2 rounded px-2 py-1 hover:bg-gray-50">
                                     <input type="checkbox" name="recipients[]" value="{{ $c->email }}" checked
                                         class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                                     <span class="text-sm text-gray-700">
-                                        <span class="font-medium">{{ $c->name ?: $c->email }}</span>
-                                        @if ($c->name)<span class="block text-xs text-gray-400">{{ $c->email }}</span>@endif
+                                        <span class="font-semibold">{{ $primary }}</span>
+                                        @if ($secondary !== '')<span class="block text-xs text-gray-400">{{ $secondary }}</span>@endif
                                     </span>
                                 </label>
                             @endforeach
@@ -85,11 +89,15 @@
 
                     {{-- One-off addresses added just for this send (auto-saved to the address book). --}}
                     <template x-for="(r, i) in extra" :key="r.email">
-                        <label class="mt-1 flex items-center gap-2 rounded px-2 py-1">
+                        <label class="mt-1 flex items-start gap-2 rounded px-2 py-1">
                             <input type="checkbox" name="recipients[]" :value="r.email" checked
-                                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                             <input type="hidden" :name="'adhoc_names[' + r.email + ']'" :value="r.name">
-                            <span class="text-sm text-gray-700"><span x-text="r.email"></span><span x-show="r.name" class="text-gray-400"> · <span x-text="r.name"></span></span></span>
+                            <input type="hidden" :name="'adhoc_restaurants[' + r.email + ']'" :value="r.restaurant">
+                            <span class="text-sm text-gray-700">
+                                <span class="font-semibold" x-text="primary(r)"></span>
+                                <span class="block text-xs text-gray-400" x-show="secondary(r)" x-text="secondary(r)"></span>
+                            </span>
                             <button type="button" @click="extra.splice(i, 1)" class="text-xs text-red-500 hover:text-red-700">{{ __('mercurial.remove') }}</button>
                         </label>
                     </template>
@@ -98,6 +106,11 @@
                         <div>
                             <label class="block text-xs text-gray-500">{{ __('mercurial.add_email') }}</label>
                             <input type="email" x-model="email" @keydown.enter.prevent="add()" placeholder="name@restaurant.de"
+                                class="mt-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500">{{ __('mercurial.add_restaurant') }}</label>
+                            <input type="text" x-model="restaurant" @keydown.enter.prevent="add()" placeholder="{{ __('mercurial.add_restaurant_placeholder') }}"
                                 class="mt-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
                         <div>
@@ -129,8 +142,13 @@
                             class="mt-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     </div>
                     <div>
+                        <label class="block text-xs text-gray-500">{{ __('mercurial.add_restaurant') }}</label>
+                        <input type="text" name="restaurant" value="{{ old('restaurant') }}" placeholder="{{ __('mercurial.add_restaurant_placeholder') }}"
+                            class="mt-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div>
                         <label class="block text-xs text-gray-500">{{ __('mercurial.add_name') }}</label>
-                        <input type="text" name="name"
+                        <input type="text" name="name" value="{{ old('name') }}"
                             class="mt-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     </div>
                     <button type="submit" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">{{ __('mercurial.save_contact') }}</button>
@@ -139,8 +157,15 @@
                 @if ($contacts->isNotEmpty())
                     <ul class="mt-4 divide-y divide-gray-100 text-sm">
                         @foreach ($contacts as $c)
+                            @php
+                                $bookPrimary = $c->restaurant ?: ($c->name ?: $c->email);
+                                $bookSecondary = collect([$c->restaurant && $c->name ? $c->name : null, $bookPrimary !== $c->email ? $c->email : null])->filter()->implode(' · ');
+                            @endphp
                             <li class="flex items-center justify-between py-2">
-                                <span class="text-gray-700">{{ $c->name ? $c->name.' · ' : '' }}{{ $c->email }}</span>
+                                <span class="text-gray-700">
+                                    <span class="font-semibold">{{ $bookPrimary }}</span>
+                                    @if ($bookSecondary !== '')<span class="text-xs text-gray-400"> · {{ $bookSecondary }}</span>@endif
+                                </span>
                                 <form method="POST" action="{{ route('app.admin.mercurial.contacts.destroy', $c) }}"
                                     onsubmit="return confirm(@json(__('mercurial.confirm_remove_contact')))">
                                     @csrf
