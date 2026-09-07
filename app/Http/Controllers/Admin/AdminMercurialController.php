@@ -149,9 +149,13 @@ class AdminMercurialController extends Controller
         $neededLocales = collect($recipients)->pluck('locale')->unique();
         foreach ($neededLocales as $locale) {
             if (! isset($versions[$locale])) {
-                return back()
-                    ->withErrors(['body_'.$locale => __('mercurial.error_missing_'.$locale)])
-                    ->withInput();
+                // Explicit full keys (not a dynamic concat) so both survive the
+                // static translation-parity scan.
+                $message = $locale === 'en'
+                    ? __('mercurial.error_missing_en')
+                    : __('mercurial.error_missing_de');
+
+                return back()->withErrors(['body_'.$locale => $message])->withInput();
             }
         }
 
