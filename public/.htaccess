@@ -5,6 +5,15 @@
 
     RewriteEngine On
 
+    # Force HTTPS (http -> https, 301) so the plain-http URL is not served as a
+    # duplicate (Search Console: "alternate page with proper canonical tag").
+    # Double-guarded against redirect loops on SSL-terminating hosts: skip when
+    # the request already arrived over https, either directly (%{HTTPS} on) or
+    # via a proxy/load balancer (X-Forwarded-Proto: https).
+    RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
