@@ -4013,7 +4013,7 @@
     "mercurial.history_title": "Derniers envois",
     "mercurial.history_count": ":count destinataires",
     "mercurial.reuse": "Réutiliser",
-    "mercurial.default_subject": "Erdgut & {{restaurant}} – offre semaine",
+    "mercurial.default_subject": "Erdgut & {{restaurant}} – offre semaine :week",
     "mercurial.contact_added": "Contact enregistré.",
     "mercurial.contact_removed": "Contact retiré.",
     "mercurial.test_sent": "E-mail de test envoyé à :email.",

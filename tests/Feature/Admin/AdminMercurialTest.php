@@ -50,6 +50,26 @@ class AdminMercurialTest extends TestCase
             ->assertDontSee($pending->user->email);
     }
 
+    public function test_composer_prefills_subject_with_current_calendar_week(): void
+    {
+        // Pin the request locale to German so the KW label is deterministic.
+        $admin = User::factory()->admin()->create(['locale' => 'de']);
+        $week = str_pad((string) now()->isoWeek, 2, '0', STR_PAD_LEFT);
+
+        $this->actingAs($admin)
+            ->get(route('app.admin.mercurial.index'))
+            ->assertOk()
+            ->assertSee("Angebot KW{$week}", false);
+    }
+
+    public function test_default_subject_leaves_no_unfilled_week_placeholder(): void
+    {
+        $this->actingAs($this->admin())
+            ->get(route('app.admin.mercurial.index'))
+            ->assertOk()
+            ->assertDontSee(':week', false);
+    }
+
     public function test_test_send_mails_the_admin_with_substituted_tokens(): void
     {
         Mail::fake();
