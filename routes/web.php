@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\AdminProducerReceivingController;
 use App\Http\Controllers\Admin\AdminProductMergeController;
 use App\Http\Controllers\Admin\AdminReducedOfferController;
 use App\Http\Controllers\Admin\AdminRequestAvailabilityController;
+use App\Http\Controllers\Admin\AdminMercurialController;
 use App\Http\Controllers\Admin\AdminRestaurantAccountController;
 use App\Http\Controllers\Admin\AdminRestaurantOrderController;
 use App\Http\Controllers\Admin\AdminRestaurantRequestController;
@@ -466,6 +467,13 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
             Route::get('restaurant-accounts', [AdminRestaurantAccountController::class, 'index'])->name('restaurant-accounts.index');
+
+            // Weekly restaurant mercurial: WYSIWYG composer + personalized send.
+            Route::get('mercurial', [AdminMercurialController::class, 'index'])->name('mercurial.index');
+            Route::post('mercurial/contacts', [AdminMercurialController::class, 'storeContact'])->name('mercurial.contacts.store');
+            Route::delete('mercurial/contacts/{recipient}', [AdminMercurialController::class, 'destroyContact'])->name('mercurial.contacts.destroy');
+            Route::post('mercurial/test', [AdminMercurialController::class, 'test'])->middleware('throttle:20,1')->name('mercurial.test');
+            Route::post('mercurial/send', [AdminMercurialController::class, 'send'])->middleware('throttle:10,1')->name('mercurial.send');
 
             Route::get('request-availability', [AdminRequestAvailabilityController::class, 'index'])->name('request-availability.index');
             Route::post('request-availability/{product}', [AdminRequestAvailabilityController::class, 'update'])->name('request-availability.update');

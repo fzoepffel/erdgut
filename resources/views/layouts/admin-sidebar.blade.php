@@ -81,10 +81,13 @@
 
         <x-admin.nav-group
             :label="__('admin.shell.group_restaurants')"
-            :matches="['app.admin.restaurant-accounts.*', 'app.admin.restaurant-orders.*', 'app.admin.standing-orders.*', 'app.admin.request-availability.*']"
+            :matches="['app.admin.restaurant-accounts.*', 'app.admin.restaurant-orders.*', 'app.admin.standing-orders.*', 'app.admin.request-availability.*', 'app.admin.mercurial.*']"
         >
             <x-admin.nav-link :href="route('app.admin.restaurant-accounts.index')" matches="app.admin.restaurant-accounts.*">
                 {{ __('restaurant.nav_label') }}
+            </x-admin.nav-link>
+            <x-admin.nav-link :href="route('app.admin.mercurial.index')" matches="app.admin.mercurial.*">
+                {{ __('mercurial.nav_label') }}
             </x-admin.nav-link>
             <x-admin.nav-link :href="route('app.admin.restaurant-orders.index')" matches="app.admin.restaurant-orders.*">
                 {{ __('restaurant.orders_nav_label') }}
